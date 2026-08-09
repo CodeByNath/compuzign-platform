@@ -2,6 +2,19 @@
 // since the drawer refinement blueprint's Details/Options/Connections/
 // Support model).
 //
+// Also proves the focused-editor sibling-suppression fix (round 2 of the
+// chrome-suppression work): while one Details module is open for edit, the
+// OTHER Details module's read card does not render at all — not just "not
+// in edit mode" — and the coordinator-owned outer saveErr/saveOk block (a
+// duplicate of what InlineEditorShell already shows inside the open editor)
+// does not render either. Support's own FAQ editor gets the same outer
+// duplicate-block guard even though it has no sibling to hide. See
+// runSiblingSuppressionScenario below. Edition focused editing is
+// deliberately NOT re-proven here — TierEditionDeclarationSwitcher.tsx was
+// not touched by this fix, and its own focused-editing behaviour (including
+// hiding its own read cards while its consolidated editor is open) remains
+// covered by scripts/tier-edition-lifecycle-regression.mjs section 14.
+//
 // Mounts the REAL TierDrawerContent composition (esbuild + happy-dom + Preact
 // render, same technique as scripts/service-disable-enable-regression.mjs)
 // against an already-published occupant, and proves the blueprint's
@@ -714,6 +727,99 @@ async function runFirstSaveScenario(tierId, label, isAddon) {
   check('Enable returns the split action to Disable', splitLabel(footerDom) === 'Disable');
 }
 
+// Focused-editor sibling suppression (round 2 of the chrome-suppression
+// work). Uses the 'ultimate' slot, which no other scenario in this file
+// touches, so its empty-slot state is guaranteed fresh here. An unconfigured
+// module still renders its own read card (proven already by
+// runFirstSaveScenario's own Edit-button-on-an-empty-slot checks) — content
+// completeness is irrelevant to this scenario, only DOM presence/absence is.
+async function runSiblingSuppressionScenario(tierId, label) {
+  console.log(`\n=== Focused-editor sibling suppression — ${label} (slot: ${tierId}) ===`);
+
+  console.log('1) Mount an empty slot — resting state shows every Details/Support module');
+  render(h(Harness, { initialTierId: tierId }), container);
+  await waitToSettle();
+  check('Tier Overview is visible at rest', findModule('Tier Overview') !== null);
+  check('Default Tier Inclusions is visible at rest', findModule('Default Tier Inclusions') !== null);
+  check('no editor shell is open at rest', container.querySelector('.cz-ies') === null);
+  check('the outer duplicate save-status block is absent at rest (no save has happened yet)', container.querySelector('.cz-shell-section.cz-shell-section--no-border') === null);
+
+  const settleCallsBefore = settleCalls;
+  const enabledCallsBefore = enabledCalls;
+
+  console.log('\n2) Opening the Tier Overview editor hides Default Tier Inclusions, but not itself');
+  editButtonFor('Tier Overview')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  const overviewLabelInput = container.querySelector('#tier-label');
+  check('the Overview editor opened', overviewLabelInput !== null);
+  check('Default Tier Inclusions is hidden while Overview is editing', findModule('Default Tier Inclusions') === null);
+  check('Tier Overview\'s own editor is still present (not hidden by its own guard)', container.querySelector('.cz-ies') !== null);
+  check('the outer duplicate save-status block is absent while editing', container.querySelector('.cz-shell-section.cz-shell-section--no-border') === null);
+
+  console.log('\n2a) The open editor is not remounted by the sibling-suppression guard — same DOM node, draft survives');
+  if (overviewLabelInput) {
+    overviewLabelInput.value = 'Ultimate Draft';
+    overviewLabelInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  }
+  const cycleSelectForDraft = container.querySelector('#tier-billing-cycle');
+  if (cycleSelectForDraft) { cycleSelectForDraft.value = 'monthly'; cycleSelectForDraft.dispatchEvent(new window.Event('change', { bubbles: true })); }
+  await sleep(30);
+  const sameLabelInput = container.querySelector('#tier-label');
+  check('the label input is the exact same DOM node after the sibling re-renders — not unmounted/remounted', sameLabelInput === overviewLabelInput);
+  check('the typed draft value survived', sameLabelInput?.value === 'Ultimate Draft', sameLabelInput?.value);
+
+  console.log('\n3) Cancelling the Overview edit (discard-confirm) restores Default Tier Inclusions');
+  clickButtonWithText('Cancel');
+  await sleep(20);
+  check('the discard-confirm prompt appeared (isDirty is always true for this editor)', container.textContent.includes('Discard unsaved changes?'));
+  clickButtonWithText('Discard');
+  await sleep(20);
+  check('the Overview editor closed', container.querySelector('.cz-ies') === null);
+  check('Default Tier Inclusions is visible again after Cancel', findModule('Default Tier Inclusions') !== null);
+  check('Tier Overview is visible again after Cancel', findModule('Tier Overview') !== null);
+  check('the discarded draft never reached the server', tiers[tierId].drafts.overview === null);
+
+  console.log('\n4) Opening the Default Tier Inclusions editor hides Tier Overview, but not itself');
+  editButtonFor('Default Tier Inclusions')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  check('the Inclusions editor opened', container.querySelector('.cz-ies') !== null);
+  check('Tier Overview is hidden while Default Tier Inclusions is editing', findModule('Tier Overview') === null);
+  check('the outer duplicate save-status block is absent while editing', container.querySelector('.cz-shell-section.cz-shell-section--no-border') === null);
+
+  console.log('\n4a) Backing out (the shell\'s own back button, not the Cancel button) restores Tier Overview');
+  container.querySelector('.cz-action-shell__back')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  check('Back also raises the discard-confirm prompt', container.textContent.includes('Discard unsaved changes?'));
+  clickButtonWithText('Discard');
+  await sleep(20);
+  check('the Inclusions editor closed', container.querySelector('.cz-ies') === null);
+  check('Tier Overview is visible again after Back', findModule('Tier Overview') !== null);
+  check('Default Tier Inclusions is visible again after Back', findModule('Default Tier Inclusions') !== null);
+
+  console.log('\n5) Support\'s FAQ editor gets the same outer duplicate-block guard, even with no sibling to hide');
+  selectGroup('Support');
+  await sleep(20);
+  check('Common Questions is visible before editing', findModule('Common Questions') !== null);
+  editButtonFor('Common Questions')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await sleep(20);
+  check('the FAQ editor opened', container.querySelector('.cz-ies') !== null);
+  check('the outer duplicate save-status block is absent while the FAQ editor is open', container.querySelector('.cz-shell-section.cz-shell-section--no-border') === null);
+  clickButtonWithText('Cancel');
+  await sleep(20);
+  clickButtonWithText('Discard');
+  await sleep(20);
+  check('the FAQ editor closed', container.querySelector('.cz-ies') === null);
+  check('Common Questions is visible again after Cancel', findModule('Common Questions') !== null);
+
+  console.log('\n6) Switching back to Details is unaffected by the Support-scoped edit session — both its modules still read normally');
+  selectGroup('Details');
+  await sleep(20);
+  check('Tier Overview reads normally after the round trip', findModule('Tier Overview') !== null);
+  check('Default Tier Inclusions reads normally after the round trip', findModule('Default Tier Inclusions') !== null);
+
+  check('no settle/enabled endpoint was ever called by this scenario — sibling suppression is presentation-only', settleCalls === settleCallsBefore && enabledCalls === enabledCallsBefore, `settleCalls=${settleCalls} enabledCalls=${enabledCalls}`);
+}
+
 console.log('Tier occupant lifecycle regression (blueprint acceptance matrix)\n');
 await runScenario('basic', 'Normal Tier');
 // Unmount between scenarios — Preact reuses the Harness instance across a
@@ -736,6 +842,11 @@ render(null, container);
 setFooterCalls = 0; lastFooter = null;
 settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null; confirmCalls = 0;
 await runFirstSaveScenario('enterprise', 'Add-on', true);
+
+render(null, container);
+setFooterCalls = 0; lastFooter = null;
+settleCalls = 0; enabledCalls = 0; lastEnabledPayload = null; confirmCalls = 0;
+await runSiblingSuppressionScenario('ultimate', 'Focused-editor sibling suppression');
 
 console.log('');
 if (failures.length > 0) {

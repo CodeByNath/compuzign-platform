@@ -421,23 +421,38 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
       label: 'Details',
       content: (
         <>
-          <PlacedShell
-            entity={TIER_ENTITY}
-            slot={{ module: 'overview', mode: 'details' }}
-            binding={td.overviewBinding}
-            panelOpen={c.openTierPanel === 'overview'}
-            onTogglePanel={togglePanel('overview')}
-            editing={editing}
-          />
-          <PlacedShell
-            entity={TIER_ENTITY}
-            slot={{ module: 'features', mode: 'details' }}
-            binding={td.featuresBinding}
-            panelOpen={c.openTierPanel === 'features'}
-            onTogglePanel={togglePanel('features')}
-            editing={editing}
-          />
-          {(c.saveErr || c.saveOk) && (
+          {/* Sibling-suppression: while one Details module is editing, the
+              other's own read card is not rendered — the same guarantee
+              TierEditionDeclarationSwitcher's ternary already gives the
+              Options group. `editing` is the existing authoritative signal
+              (derived from c.editingSection); this adds no new flag. The
+              currently-editing module's own PlacedShell line stays fully
+              unconditional and at the same tree position whether editing or
+              not, so it is never reparented/remounted by this guard. */}
+          {(!editing || editing.module === 'overview') && (
+            <PlacedShell
+              entity={TIER_ENTITY}
+              slot={{ module: 'overview', mode: 'details' }}
+              binding={td.overviewBinding}
+              panelOpen={c.openTierPanel === 'overview'}
+              onTogglePanel={togglePanel('overview')}
+              editing={editing}
+            />
+          )}
+          {(!editing || editing.module === 'features') && (
+            <PlacedShell
+              entity={TIER_ENTITY}
+              slot={{ module: 'features', mode: 'details' }}
+              binding={td.featuresBinding}
+              panelOpen={c.openTierPanel === 'features'}
+              onTogglePanel={togglePanel('features')}
+              editing={editing}
+            />
+          )}
+          {/* Suppressed while editing: InlineEditorShell already shows
+              saveErr inside the open editor itself; this outer block would
+              otherwise duplicate it. */}
+          {!editing && (c.saveErr || c.saveOk) && (
             <div class="cz-shell-section cz-shell-section--no-border">
               {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
               {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
@@ -508,8 +523,10 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               shared across Overview/Inclusions/FAQ saves alike — repeated
               here so a FAQ save shows its own confirmation in the group the
               admin is actually viewing, the same guarantee Details already
-              gives Overview/Inclusions saves. */}
-          {(c.saveErr || c.saveOk) && (
+              gives Overview/Inclusions saves. Suppressed while editing —
+              InlineEditorShell already shows saveErr inside the open editor
+              itself, so this outer block would otherwise duplicate it. */}
+          {!editing && (c.saveErr || c.saveOk) && (
             <div class="cz-shell-section cz-shell-section--no-border">
               {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
               {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
