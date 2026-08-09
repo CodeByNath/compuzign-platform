@@ -422,8 +422,23 @@
 .cz-ies__live-badge {
   display: flex;
   align-items: center;
+  gap: var(--cz-space-2);
   flex-shrink: 0;
   margin-left: var(--cz-space-4);
+}
+
+/* Focused Drawer Task badge icon (the Edition Bin's own "[Bin icon] Bin
+   Active" state — FocusedTaskShell's first non-editor adopter). Same
+   sizing family as the other compact nav icons
+   (.cz-drawer-groups__bin-toggle/-view-toggle's own 16px icon), muted/
+   disabled color family — never the red/danger tone reserved for explicit
+   destructive row actions (TierEditionBinList's own icon buttons). The
+   "Live Editor" badge above has no icon and is unaffected: this rule only
+   fires when a badge actually renders an icon alongside its pill. */
+.cz-ies__live-badge .cz-station-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--station-text-muted);
 }
 
 .cz-ies__body {
