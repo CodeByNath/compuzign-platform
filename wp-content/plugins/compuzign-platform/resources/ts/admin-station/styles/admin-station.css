@@ -3164,52 +3164,106 @@ button.cz-station-status-pill {
   white-space: nowrap;
 }
 
-.cz-rate-sheet-tool__picker {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
-}
-
-.cz-rate-sheet-tool__picker-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .cz-rate-sheet-tool__picker-note {
   margin: 0;
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
 }
 
-.cz-rate-sheet-tool__picker-list {
+/* The unified "+ Add Service" picker (RateSheetServiceImportPicker) — its own
+   card, distinct from `.cz-rate-sheet-tool__picker` (the retired single-list
+   Browse Services/Add Row pickers) since it hosts a 3-column browse layout
+   AND a staging table inside the same shell. */
+.cz-rate-sheet-tool__import {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 280px;
-  overflow-y: auto;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
 }
 
-.cz-rate-sheet-tool__candidate {
+.cz-rate-sheet-tool__import-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--station-text-sm);
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.cz-rate-sheet-tool__candidate-tag {
-  margin-left: auto;
+.cz-rate-sheet-tool__import-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .cz-rate-sheet-tool__import-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cz-rate-sheet-tool__import-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cz-rate-sheet-tool__import-column-label {
+  margin: 0;
   color: var(--station-text-muted);
   font-size: var(--station-text-xs);
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.cz-rate-sheet-tool__picker-actions {
+.cz-rate-sheet-tool__import-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* Same pill/active grammar as `.cz-rate-sheet-tool__price-options-tab` —
+   toggle-to-select, "×" appears inline when active, never a checkbox. */
+.cz-rate-sheet-tool__import-chip {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-pill-radius);
+  font-size: var(--station-text-xs);
+  font-weight: 600;
+  color: var(--station-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cz-rate-sheet-tool__import-chip:hover:not(:disabled) {
+  color: var(--station-text);
+}
+
+.cz-rate-sheet-tool__import-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.cz-rate-sheet-tool__import-chip--active {
+  background: var(--station-accent-soft-bg);
+  border-color: var(--station-accent-border);
+  color: var(--station-accent-fg);
+}
+
+.cz-rate-sheet-tool__import-chip-note {
+  color: var(--station-text-muted);
+  font-weight: 400;
+}
+
+.cz-rate-sheet-tool__import-actions {
   display: flex;
   justify-content: flex-end;
 }

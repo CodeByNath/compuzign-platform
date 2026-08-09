@@ -340,6 +340,41 @@ export function removeEditorRow(value: RateSheetEditorValue, rowId: string): Rat
   return { ...value, items: value.items.filter((row) => rowKey(row) !== rowId) };
 }
 
+/**
+ * Batch-add curated rows for many source options in one shot — the Service
+ * Import picker's staging list is curated (unit price/per/quantity/group all
+ * already set by the admin before Publish) and never rides `addRow`'s
+ * one-row-at-a-time lock, since many new rows exist together, unsaved, before
+ * a single Publish persists them all. Each entry supplies its own starting
+ * fields rather than `addEditorRow`'s zeroed defaults. Same one-row-per-source
+ * discipline as `addEditorRow`: an option that doesn't resolve against the
+ * given (already-connected) options, or whose source is already a row, is
+ * skipped rather than duplicated.
+ */
+export function addEditorRows(
+  value: RateSheetEditorValue,
+  entries: readonly { optionId: string; unitPrice: number; per: PackageRateSheetUnit; quantity: number; groupId: string | null }[],
+  options: readonly RateSheetOption[],
+): RateSheetEditorValue {
+  const optionById = new Map(options.map((option) => [option.id, option]));
+  const existing = new Set(value.items.map((row) => row.optionId));
+  const rows: RateSheetEditorRow[] = [];
+  for (const entry of entries) {
+    if (existing.has(entry.optionId)) continue;
+    const option = optionById.get(entry.optionId);
+    if (!option) continue;
+    existing.add(entry.optionId);
+    rows.push({
+      id: '', optionId: option.id, optionLabel: option.label,
+      platformId: undefined,
+      unitPrice: entry.unitPrice, per: entry.per, quantity: entry.quantity, groupId: entry.groupId, sourceAvailable: true,
+      sourceServiceId: option.sourceServiceId, sourceServiceTitle: option.sourceServiceTitle,
+      priceOptions: [],
+    });
+  }
+  return rows.length === 0 ? value : { ...value, items: [...value.items, ...rows] };
+}
+
 // ── Price options (pure) ──────────────────────────────────────────────────────
 // A row's zero-or-more alternative unit prices. Children of the row only —
 // never a second row, never Rate-Sheet-wide, never quantity/cycle/commitment.

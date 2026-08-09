@@ -5,17 +5,21 @@
 // fixture Package Manager, and proves the row Edit/Save/Cancel/Remove/Delete
 // lock lifecycle end to end:
 //
-//   - rows start locked; Edit unlocks exactly one row and disables Add Row,
-//     every other row's Edit, and the now-redundant footer Save;
+//   - rows start locked; Edit unlocks exactly one row and disables + Add
+//     Service, every other row's Edit, and the now-redundant footer Save;
 //   - row Save calls the SAME full-manager save the footer used to, exactly
 //     once, and locks the row only after a verified success;
 //   - a failed row Save leaves the row unlocked with its draft and the error
 //     intact — no local rollback, no lock;
 //   - Cancel reverts only the active row's own snapshot, locally, with no API
 //     call, and never disturbs a sibling row;
-//   - a new row starts editable with no Delete; Cancel discards it with no
-//     API call; Save persists it and adopts the backend-returned canonical
-//     row identity, then locks it as an existing row;
+//   - the "+ Add Service" picker stages a new row locally (no API call) and
+//     Publish persists it once, adopting the backend-returned canonical row
+//     identity and locking it as an existing row — the row-lock's own new-row
+//     Save/Cancel/no-Delete lifecycle is proved separately for a row Publish
+//     leaves stranded by a failed save (see scripts/
+//     rate-sheet-service-import-regression.mjs for the picker's own browse/
+//     connect/stage/Publish coverage);
 //   - Remove (locked) and Delete (active) both confirm, then persist through
 //     the full-manager save with the row excluded from the payload — the
 //     boundary the backend's own Platform Identifier tombstone code runs on;
@@ -74,21 +78,64 @@ window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'te
 const SERVICE_ID = 501;
 const BUILT_IN_UNITS = ['Per VM', 'Per GB', 'Per TB', 'Per vCPU', 'Per user', 'Per month', 'Per item'];
 
+// The "+ Add Service" catalog — one already-connected Service (9) and one
+// not-yet-connected Service (10), each with its own inclusion pool. `items`
+// below is derived from `sources` (never static) exactly like the real
+// PackageRepository::sourcePools()/reconcileItems() scope inclusions to
+// connected sources only — so this fixture genuinely exercises "select an
+// unconnected Service → it connects → its inclusions appear."
+// useHostService() resolves its host from this SAME catalog's `stations[0]`
+// fallback (no surface-package preference is mocked below) — the host
+// (SERVICE_ID) must stay first so the harness keeps addressing the right
+// Package Station manager, exactly as the original single-station fixture did.
+const SERVICE_CATALOG = [
+  { id: SERVICE_ID, title: 'Test Service', categories: [] },
+  { id: 9, title: 'Widget Co', categories: [{ id: 1, name: 'Compute', slug: 'compute' }] },
+  { id: 10, title: 'Storage Co', categories: [{ id: 2, name: 'Storage', slug: 'storage' }] },
+];
+const INCLUSION_POOL_BY_SERVICE = {
+  9: [
+    { item_id: 'mgr_a', source_id: 'inc-a', label: 'Row A' },
+    { item_id: 'mgr_b', source_id: 'inc-b', label: 'Row B' },
+    { item_id: 'mgr_c', source_id: 'inc-c', label: 'Row C unadded' },
+  ],
+  10: [
+    { item_id: 'mgr_d', source_id: 'inc-d', label: 'Row D unconnected' },
+  ],
+};
+
+function itemsForSources(sources) {
+  const connectedIds = sources
+    .filter((source) => source.provider_key === 'service' && source.entity_type === 'service')
+    .map((source) => source.entity_id);
+  const items = [];
+  let sortOrder = 0;
+  for (const serviceId of connectedIds) {
+    const title = SERVICE_CATALOG.find((service) => service.id === serviceId)?.title ?? null;
+    for (const pool of INCLUSION_POOL_BY_SERVICE[serviceId] ?? []) {
+      items.push({
+        item_id: pool.item_id, source_type: 'inclusion', source_id: pool.source_id,
+        resolved: { label: pool.label }, decorated_label: null, group_id: null, sort_order: sortOrder++,
+        disabled: false, missing: false, module_transition: 'settled',
+        source_service_id: serviceId, source_service_title: title,
+      });
+    }
+  }
+  return items;
+}
+
 function baseManager() {
+  const sources = [
+    { relationship_id: 'source_service_9', provider_key: 'service', entity_type: 'service', entity_id: 9, sort_order: 0, category_group_id: null },
+  ];
   return {
     service_id: SERVICE_ID,
     platform_status: 'active',
     has_configuration: true,
-    sources: [
-      { relationship_id: 'source_service_9', provider_key: 'service', entity_type: 'service', entity_id: 9, sort_order: 0, category_group_id: null },
-    ],
+    sources,
     groups: [],
     category_groups: [],
-    items: [
-      { item_id: 'mgr_a', source_type: 'inclusion', source_id: 'inc-a', resolved: { label: 'Row A' }, decorated_label: null, group_id: null, sort_order: 0, disabled: false, missing: false, module_transition: 'settled' },
-      { item_id: 'mgr_b', source_type: 'inclusion', source_id: 'inc-b', resolved: { label: 'Row B' }, decorated_label: null, group_id: null, sort_order: 1, disabled: false, missing: false, module_transition: 'settled' },
-      { item_id: 'mgr_c', source_type: 'inclusion', source_id: 'inc-c', resolved: { label: 'Row C unadded' }, decorated_label: null, group_id: null, sort_order: 2, disabled: false, missing: false, module_transition: 'not-configured' },
-    ],
+    items: itemsForSources(sources),
     rate_sheets: [{
       rate_sheet_id: 'rs_1',
       title: 'Primary Sheet',
@@ -125,6 +172,7 @@ function mintOptionId() { optionSeq += 1; return `opt_minted_${optionSeq}`; }
 function applySave(payload) {
   const manager = deepClone(server.manager);
   manager.sources = payload.sources;
+  manager.items = itemsForSources(manager.sources);
   manager.groups = payload.groups;
   for (const submitted of payload.rate_sheets) {
     const id = submitted.rate_sheet_id !== '' ? submitted.rate_sheet_id : mintSheetId();
@@ -159,11 +207,11 @@ globalThis.fetch = (url, init = {}) => {
   if (path.endsWith('admin/services') && method === 'GET') {
     return jsonResponse({
       categories: [],
-      stations: [{
-        id: SERVICE_ID, platform_id: 'CZS1', title: 'Test Service', slug: 'test-service',
-        categories: [], platform_status: 'active',
+      stations: SERVICE_CATALOG.map((service) => ({
+        id: service.id, platform_id: `CZS${service.id}`, title: service.title, slug: service.title.toLowerCase().replace(/\s+/g, '-'),
+        categories: service.categories, platform_status: 'active',
         module_status: { overview: 'settled', inclusions: 'settled', faqs: 'settled' }, has_drafts: false,
-      }],
+      })),
     });
   }
   if (path.endsWith('admin/surface-packages') && method === 'GET') {
@@ -234,7 +282,13 @@ function check(label, cond, detail) {
   else { console.error(`  FAIL — ${label}${detail !== undefined ? `: ${detail}` : ''}`); failures.push(label); }
 }
 
-function rowsIn() { return [...container.querySelectorAll('.cz-rate-sheet-tool__grid tbody tr')]; }
+// Scoped to exclude the "+ Add Service" picker's own staging table, which
+// deliberately reuses the same `.cz-rate-sheet-tool__grid` markup/classes for
+// visual consistency — see stagingRows() below for that table specifically.
+function rowsIn() {
+  return [...container.querySelectorAll('.cz-rate-sheet-tool__grid tbody tr')]
+    .filter((tr) => tr.closest('.cz-rate-sheet-tool__import') === null);
+}
 function rowByLabel(label) { return rowsIn().find((tr) => tr.textContent.includes(label)) ?? null; }
 function buttonIn(row, text) { return row ? [...row.querySelectorAll('button')].find((b) => b.textContent.trim() === text) ?? null : null; }
 function click(btn) { btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }
@@ -251,18 +305,24 @@ function setInputValue(input, value) {
 function footerButton(text) {
   return [...container.querySelectorAll('.cz-ies__footer button')].find((b) => b.textContent.trim() === text) ?? null;
 }
-function addRowToggleButton() {
-  return [...container.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Add Row' || b.textContent.trim() === 'Close Rows');
+function addServiceToggleButton() {
+  return [...container.querySelectorAll('button')].find((b) => b.textContent.trim() === '+ Add Service' || b.textContent.trim() === 'Close');
 }
-async function ensurePickerOpen() {
-  const btn = addRowToggleButton();
-  if (btn && btn.textContent.trim() === 'Add Row') { click(btn); await settle(); }
+async function openAddService() {
+  const btn = addServiceToggleButton();
+  if (btn && btn.textContent.trim() === '+ Add Service') { click(btn); await settle(); }
 }
-function addCandidateButton(labelText) {
-  return [...container.querySelectorAll('.cz-rate-sheet-tool__candidate')]
-    .find((label) => label.textContent.includes(labelText))
-    ?.querySelector('button') ?? null;
+function importChip(labelSubstring) {
+  return [...container.querySelectorAll('.cz-rate-sheet-tool__import-chip')].find((b) => b.textContent.includes(labelSubstring)) ?? null;
 }
+function importActionButton(text) {
+  return [...container.querySelectorAll('.cz-rate-sheet-tool__import-actions button')].find((b) => b.textContent.trim().startsWith(text)) ?? null;
+}
+function importHeadButton(text) {
+  return [...container.querySelectorAll('.cz-rate-sheet-tool__import-head button')].find((b) => b.textContent.trim() === text) ?? null;
+}
+function stagingRows() { return [...container.querySelectorAll('.cz-rate-sheet-tool__import .cz-rate-sheet-tool__grid tbody tr')]; }
+function stagingRowByLabel(label) { return stagingRows().find((tr) => tr.textContent.includes(label)) ?? null; }
 
 async function remount() {
   render(null, container);
@@ -296,7 +356,7 @@ rowA = rowByLabel('Row A'); rowB = rowByLabel('Row B');
 check('Row A is now editable: Save/Cancel/Delete, no Edit', buttonIn(rowA, 'Save') != null && buttonIn(rowA, 'Cancel') != null && buttonIn(rowA, 'Delete') != null && buttonIn(rowA, 'Edit') == null);
 check("Row B's Edit is disabled while Row A is active", buttonIn(rowB, 'Edit')?.disabled === true);
 check("Row B's Remove is disabled while Row A is active", buttonIn(rowB, 'Remove')?.disabled === true);
-check('Add Row is disabled while Row A is active', addRowToggleButton()?.disabled === true, addRowToggleButton()?.disabled);
+check('+ Add Service is disabled while Row A is active', addServiceToggleButton()?.disabled === true, addServiceToggleButton()?.disabled);
 check('the footer Save is disabled while a row is active — only one visible Save action', footerButton('Save')?.disabled === true, footerButton('Save')?.disabled);
 
 // ── 3) Row Save persists once and locks only on verified success ────────
@@ -343,58 +403,49 @@ rowB = rowByLabel('Row B'); rowA = rowByLabel('Row A');
 check('Row B is locked again and reverted to its last-saved price', buttonIn(rowB, 'Edit') != null && rowB?.textContent.includes('$20'), rowB?.textContent);
 check("Row A (saved earlier, unrelated to this Cancel) is untouched", rowA?.textContent.includes('$15'), rowA?.textContent);
 
-// ── 6) A new row starts editable, with no Delete ─────────────────────────
-console.log('\n6) A new row starts editable, with no Delete');
+// ── 6) The "+ Add Service" picker stages an already-connected Service's
+//    inclusion, then Publish persists it once and adopts the canonical
+//    identity — the picker's own browse/connect/multi-select coverage lives
+//    in scripts/rate-sheet-service-import-regression.mjs; this only proves
+//    the seam back into the row grid stays correct. ──────────────────────
+console.log('\n6) + Add Service stages a curated row locally; Publish persists it once and locks it');
 await remount();
-await ensurePickerOpen();
-const addCandidateBtn = addCandidateButton('Row C unadded');
-check('the unadded source is offered as a candidate to add', addCandidateBtn != null);
-const savesBeforeAdd = saveCalls;
-click(addCandidateBtn);
+await openAddService();
+const widgetChip = importChip('Widget Co');
+click(widgetChip);
 await settle();
-let rowC = rowByLabel('Row C unadded');
-check('the new row is present and starts editable (Save/Cancel, no Edit)', buttonIn(rowC, 'Save') != null && buttonIn(rowC, 'Cancel') != null && buttonIn(rowC, 'Edit') == null);
-check('the new row never shows Delete before its first successful save', buttonIn(rowC, 'Delete') == null);
-check('adding a row makes no API request by itself', saveCalls === savesBeforeAdd);
-check('Add Row is disabled while the new row itself is active', addRowToggleButton()?.disabled === true);
-
-// ── 7) New-row Cancel removes it locally, with no API call ───────────────
-console.log('\n7) New-row Cancel discards it locally, with no API request');
-const savesBeforeNewCancel = saveCalls;
-click(buttonIn(rowC, 'Cancel'));
+const inclusionChip = importChip('Row C unadded');
+check('the unadded inclusion from the already-connected Service is offered', inclusionChip != null);
+const savesBeforeImport = saveCalls;
+click(inclusionChip);
 await settle();
-check('Cancel on a new row made no API request', saveCalls === savesBeforeNewCancel);
-check('the new row is gone from the grid', rowByLabel('Row C unadded') == null);
-
-// ── 8) New-row Save persists it and adopts the canonical identity ────────
-console.log('\n8) New-row Save persists it, adopts the returned canonical identity, and locks it');
-await ensurePickerOpen();
-const addCandidateBtn2 = addCandidateButton('Row C unadded');
-click(addCandidateBtn2);
+click(importActionButton('Import'));
 await settle();
-rowC = rowByLabel('Row C unadded');
-setInputValue(priceInputIn(rowC), 30);
+check('Import makes no API request by itself', saveCalls === savesBeforeImport);
+let stagingRowC = stagingRowByLabel('Row C unadded');
+check('the staged row appears in the local, editable staging list', stagingRowC != null);
+setInputValue(priceInputIn(stagingRowC), 30);
 await settle();
-const savesBeforeNewSave = saveCalls;
-click(buttonIn(rowC, 'Save'));
+const savesBeforePublish = saveCalls;
+click(importActionButton('Publish'));
 await settle(80);
-check('exactly one full-manager save request was made for the new row', saveCalls === savesBeforeNewSave + 1);
-rowC = rowByLabel('Row C unadded');
+check('Publish persists through exactly one full-manager save', saveCalls === savesBeforePublish + 1);
+check('the picker closes back to the normal grid once Publish succeeds', container.querySelector('.cz-rate-sheet-tool__import') == null);
+let rowC = rowByLabel('Row C unadded');
 check('the new row is locked after success (Edit + Remove, no Save/Cancel)', buttonIn(rowC, 'Edit') != null && buttonIn(rowC, 'Save') == null);
-check('the new row now has Delete available as a locked existing row would', buttonIn(rowC, 'Remove') != null);
 check(
   'the row adopted the backend-minted canonical item_id (no longer "assigned after Save")',
   rowC?.textContent.includes('Platform ID not assigned') && !rowC?.textContent.includes('assigned after Save'),
   rowC?.textContent,
 );
-check('the saved price is reflected as the new baseline', rowC?.textContent.includes('$30'), rowC?.textContent);
+check('the staged price is reflected as the new baseline', rowC?.textContent.includes('$30'), rowC?.textContent);
 
-// ── 9) The active row's Unit Price cell is a Default/Option tab editor;
+// ── 7) The active row's Unit Price cell is a Default/Option tab editor;
 //    adding a price option rides the SAME row-lock Save/Cancel — no new
 //    row, no new lock, no new endpoint. Default Price stays independent of
 //    the option; Cancel discards an unsaved option along with everything
 //    else the row's own Cancel already discards. ─────────────────────────
-console.log('\n9) The active row\'s Unit Price cell is a Default/Option tab editor; adding a price option rides the same row lock');
+console.log('\n7) The active row\'s Unit Price cell is a Default/Option tab editor; adding a price option rides the same row lock');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 let rowAOptions = rowByLabel('Row A');
@@ -428,10 +479,10 @@ check(
 rowAOptions = rowByLabel('Row A');
 check('the row locks again after the verified success, exactly like every other row Save', buttonIn(rowAOptions, 'Edit') != null && buttonIn(rowAOptions, 'Save') == null);
 
-// ── 9b) A locked row with Price Options shows the compact read-only summary
+// ── 7b) A locked row with Price Options shows the compact read-only summary
 //    in the same Unit Price cell — never the edit mode's selectable chips/
 //    tabs. Default is the row's own existing price, listed first. ─────────
-console.log('\n9b) A locked row with Price Options shows the compact read-only summary, never the edit-mode tab strip');
+console.log('\n7b) A locked row with Price Options shows the compact read-only summary, never the edit-mode tab strip');
 check('the locked row\'s Unit Price cell carries a "Price Options" summary', rowAOptions?.textContent.includes('Price Options'));
 let summaryRows = priceOptionsSummaryRows(rowAOptions);
 check('the summary lists Default plus each price option, one line each', summaryRows.length === 2, summaryRows.map((r) => r.textContent));
@@ -466,8 +517,8 @@ check(
 click(buttonIn(rowAOptions, 'Cancel'));
 await settle();
 
-// ── 10) Remove (locked) confirms, then persists, excluding the row ───────
-console.log('\n10) Remove on a locked row confirms, then persists the manager without that row');
+// ── 8) Remove (locked) confirms, then persists, excluding the row ────────
+console.log('\n8) Remove on a locked row confirms, then persists the manager without that row');
 rowB = rowByLabel('Row B');
 confirmReturnValue = false;
 const savesBeforeDeclinedRemove = saveCalls;
@@ -488,8 +539,8 @@ check(
 );
 check('Row B is gone from the grid only after the confirmed save resolved', rowByLabel('Row B') == null);
 
-// ── 11) Delete (active row) confirms, then persists, and locks/clears ────
-console.log('\n11) Delete on the active row confirms, persists, and clears the active row on success');
+// ── 9) Delete (active row) confirms, then persists, and locks/clears ─────
+console.log('\n9) Delete on the active row confirms, persists, and clears the active row on success');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowA = rowByLabel('Row A');
@@ -499,7 +550,7 @@ await settle(80);
 check('Delete asked for confirmation', confirmCalls > 0);
 check('Delete persisted through exactly one full-manager save', saveCalls === savesBeforeDelete + 1);
 check('Row A is gone after the confirmed Delete', rowByLabel('Row A') == null);
-check('Add Row is enabled again — no row remains active after Delete', addRowToggleButton()?.disabled === false, addRowToggleButton()?.disabled);
+check('+ Add Service is enabled again — no row remains active after Delete', addServiceToggleButton()?.disabled === false, addServiceToggleButton()?.disabled);
 
 console.log('');
 if (failures.length > 0) {

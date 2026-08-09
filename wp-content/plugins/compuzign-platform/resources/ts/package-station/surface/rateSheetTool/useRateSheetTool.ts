@@ -23,7 +23,7 @@ import type { PackageManagerReadModel, PackageRateSheetUnit } from '../../types'
 import { useHostService } from '../tierSurface/useHostService';
 import {
   addEditorPriceOption,
-  addEditorRow,
+  addEditorRows,
   buildManagerSavePayload,
   connectSourceServices,
   connectedServiceIds,
@@ -81,8 +81,17 @@ export interface RateSheetToolController {
   createGroup:          (label: string) => string | null;
   renameGroup:          (groupId: string, label: string) => void;
   deleteGroup:          (groupId: string) => void;
-  addRow:               (optionId: string) => void;
   removeRow:            (rowId: string) => void;
+  /**
+   * The Service Import picker's own Publish action: appends every staged
+   * entry as a curated row (see `addEditorRows`) and persists through the
+   * SAME full-manager save every other mutation here uses — never a second
+   * save path. Entries reference options `connectServices` has already made
+   * resolvable (the picker connects a Service the moment it is browsed, not
+   * at Publish), so this never itself touches `sources`. Returns whether the
+   * save succeeded, so the picker knows whether to clear its staging list.
+   */
+  publishRows:          (entries: readonly { optionId: string; unitPrice: number; per: PackageRateSheetUnit; quantity: number; groupId: string | null }[]) => Promise<boolean>;
   setRowUnitPrice:      (rowId: string, unitPrice: number) => void;
   setRowPer:            (rowId: string, per: PackageRateSheetUnit) => void;
   /** Adds a unit to the Manager vocabulary. Returns the settled label, or null if blank. */
@@ -326,22 +335,22 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       if (next !== '') editSelected((value) => renameEditorGroup(value, groupId, next));
     },
     deleteGroup: (groupId) => editSelected((value) => deleteEditorGroup(value, groupId)),
-    addRow: (optionId) => {
-      // One row unlocked at a time: a new row starts editable, so refuse to
-      // add one while another row is already being edited (mirrors the guard
-      // `beginRowEdit` applies to an existing row).
-      if (editingRowId !== null) return;
-      const option = (readModel ? rateSheetOptions(readModel) : []).find((o) => o.id === optionId);
-      if (!option) return;
-      editSelected((value) => addEditorRow(value, option));
-      // The new row's key is deterministic (`new:${optionId}`) — set directly
-      // rather than reading it back from `selected`, which still reflects the
-      // pre-add render at this point in the same event handler.
-      setEditingRowId(`new:${optionId}`);
-      setEditingRowSnapshot(null);
-      setSaveError(null);
-    },
     removeRow: (rowId) => editSelected((value) => removeEditorRow(value, rowId)),
+    publishRows: async (entries) => {
+      if (readModel == null) return false;
+      const currentOptions = rateSheetOptions(readModel);
+      // Computed and handed to `persist` directly, not through `editSelected` +
+      // a follow-up `save()` — two state setters in the same handler would
+      // otherwise race: `persist` closes over this render's `sheets`, which
+      // would still be stale (pre-import) if we relied on a setSheets() commit
+      // to land first.
+      const nextSheets = sheets.map((sheet) =>
+        sheet.key === selectedKey ? { ...addEditorRows(sheet, entries, currentOptions), key: sheet.key } : sheet);
+      setSheets(nextSheets);
+      setDirty(true);
+      setSaveError(null);
+      return persist(nextSheets, deletions, readModel.sources, units, true);
+    },
     setRowUnitPrice: (rowId, unitPrice) => editSelected((value) => patchEditorRow(value, rowId, { unitPrice: Math.max(0, unitPrice) })),
     setRowPer: (rowId, per) => editSelected((value) => patchEditorRow(value, rowId, { per })),
     setRowQuantity: (rowId, quantity) => editSelected((value) => patchEditorRow(value, rowId, { quantity: Math.max(1, Math.trunc(quantity) || 1) })),

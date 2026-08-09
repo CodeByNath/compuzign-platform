@@ -99,7 +99,7 @@ export interface RateSheetRowLockCommands {
 const ADD_SENTINEL = '__add__';
 const EDIT_SENTINEL = '__edit__';
 
-function InlineCreateSelect({
+export function InlineCreateSelect({
   value, disabled, ariaLabel, addLabel, editLabel, editValues, placeholder, children,
   onSelect, onCreate, onRename, onDelete,
 }: {

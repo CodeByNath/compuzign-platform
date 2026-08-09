@@ -40,6 +40,7 @@ import type { RateSheetToolController } from '../../surface/rateSheetTool/useRat
 import { summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
 import { RateSheetGridEditor } from './rateSheetParts';
+import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
 
 const plural = (count: number, singular: string, pluralForm = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralForm}`;
@@ -285,7 +286,6 @@ function FocusedRateSheetEditor({ controller, value }: {
   controller: RateSheetToolController;
   value: RateSheetEditorValue;
 }): VNode {
-  const [pickerOpen, setPickerOpen] = useState(false);
   const selectedKey = controller.selectedKey;
   return (
     <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
@@ -308,11 +308,7 @@ function FocusedRateSheetEditor({ controller, value }: {
           <option value="active">Active</option>
           <option value="archived">Disabled</option>
         </select>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setPickerOpen((open) => !open)}>
-          {pickerOpen ? 'Close Services' : 'Add Source Service'}
-        </button>
       </div>
-      {pickerOpen && <SourcePicker controller={controller} onDone={() => setPickerOpen(false)} />}
       <RateSheetSheetEditor controller={controller} value={value} indented={false} />
     </div>
   );
@@ -320,18 +316,12 @@ function FocusedRateSheetEditor({ controller, value }: {
 
 function RateSheetCollectionEditor({ controller }: { controller: RateSheetToolController }): VNode {
   const { list, selectedKey } = controller;
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <div class="cz-rate-sheet-tool__editor">
       <div class="cz-rate-sheet-tool__toolbar">
         <button type="button" class="cz-admin-btn cz-admin-btn--primary" onClick={() => controller.createSheet()}>New Rate Sheet</button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary" onClick={() => setPickerOpen((open) => !open)}>
-          {pickerOpen ? 'Close Services' : 'Add Source Service'}
-        </button>
       </div>
-
-      {pickerOpen && <SourcePicker controller={controller} onDone={() => setPickerOpen(false)} />}
 
       {list.length === 0 && (
         <p class="cz-station-empty">No Rate Sheets yet. Create one, then add a source Service and curate its rows.</p>
@@ -382,97 +372,29 @@ function RateSheetSheetEditor({ controller, value, indented }: {
   value: RateSheetEditorValue;
   indented: boolean;
 }): VNode {
-  const { units, options } = controller;
   const [addOpen, setAddOpen] = useState(false);
 
-  const usedSources = new Set(value.items.map((row) => row.optionId));
-  const available = options.filter((option) => !usedSources.has(option.id));
-
-  // Add Row is disabled while another row is being edited — only one row may
-  // be unlocked at a time, and a newly added row starts unlocked itself.
+  // Add Service is disabled while another row is being edited — only one row
+  // may be unlocked at a time, and a newly added row starts unlocked itself.
   const rowLocked = controller.editingRowId !== null;
 
   return (
     <div class="cz-rate-sheet-tool__sheet" style={indented ? 'padding-left: var(--cz-space-3)' : undefined}>
       <div class="cz-rate-sheet-tool__toolbar">
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
-          onClick={() => setAddOpen((open) => !open)}>{addOpen ? 'Close Rows' : 'Add Row'}</button>
+          onClick={() => setAddOpen((open) => !open)}>{addOpen ? 'Close' : '+ Add Service'}</button>
       </div>
 
       {addOpen && (
-        <div class="cz-rate-sheet-tool__picker">
-          <p class="cz-rate-sheet-tool__picker-note">Add a connected source's supplied content as a priced row.</p>
-          {available.length === 0 ? (
-            <p class="cz-station-empty">Every connected source is already a row. Add a Source Service to load more.</p>
-          ) : (
-            <div class="cz-rate-sheet-tool__picker-list">
-              {available.map((option) => (
-                <label key={option.id} class="cz-rate-sheet-tool__candidate">
-                  <span>{option.label}</span>
-                  <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
-                    onClick={() => controller.addRow(option.id)}>Add</button>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+        <RateSheetServiceImportPicker controller={controller} value={value} onDone={() => setAddOpen(false)} />
       )}
 
       {value.items.length === 0 ? (
-        <p class="cz-station-empty">No priced rows yet. Use Add Row to price a connected source's supplied content.</p>
+        <p class="cz-station-empty">No priced rows yet. Use + Add Service to price a connected source's supplied content.</p>
       ) : (
-        <RateSheetGridEditor rows={value.items} groups={value.groups} units={units} commands={controller} lockCommands={controller} />
+        <RateSheetGridEditor rows={value.items} groups={value.groups} units={controller.units} commands={controller} lockCommands={controller} />
       )}
     </div>
   );
 }
 
-// ── SECTION: source picker ────────────────────────────────────────────────────
-
-function SourcePicker({ controller, onDone }: { controller: RateSheetToolController; onDone: () => void }): VNode {
-  const { catalog, catalogLoading, catalogError, connectedServiceIds } = controller;
-  const [selected, setSelected] = useState<number[]>([]);
-
-  useEffect(() => { controller.loadCatalog(); }, []);
-
-  const connected = new Set(connectedServiceIds);
-  const toggle = (id: number, checked: boolean) =>
-    setSelected((current) => (checked ? [...current, id] : current.filter((value) => value !== id)));
-
-  return (
-    <div class="cz-rate-sheet-tool__picker">
-      <div class="cz-rate-sheet-tool__picker-head">
-        <strong>Browse Services</strong>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={onDone}>Cancel</button>
-      </div>
-      <p class="cz-rate-sheet-tool__picker-note">
-        Connect Services to establish supply. Their inclusions become selectable rows you can add to any sheet.
-      </p>
-      {catalogLoading && <p class="cz-station-empty" aria-busy="true">Loading Services…</p>}
-      {catalogError && <p class="cz-admin-error-msg" role="alert">{catalogError}</p>}
-      {!catalogLoading && !catalogError && (
-        <>
-          <div class="cz-rate-sheet-tool__picker-list">
-            {catalog.map((service) => {
-              const already = connected.has(service.id);
-              return (
-                <label key={service.id} class="cz-rate-sheet-tool__candidate">
-                  <input type="checkbox" class="cz-tf-checkbox" checked={already || selected.includes(service.id)} disabled={already || controller.saving}
-                    onChange={(event) => toggle(service.id, (event.currentTarget as HTMLInputElement).checked)} />
-                  <span>{service.title}</span>
-                  {already && <span class="cz-rate-sheet-tool__candidate-tag">Connected</span>}
-                </label>
-              );
-            })}
-          </div>
-          <div class="cz-rate-sheet-tool__picker-actions">
-            <button type="button" class="cz-admin-btn cz-admin-btn--primary" disabled={selected.length === 0 || controller.saving}
-              onClick={async () => { await controller.connectServices(selected); setSelected([]); onDone(); }}>
-              {controller.saving ? 'Adding…' : 'Add Selected Services'}
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
