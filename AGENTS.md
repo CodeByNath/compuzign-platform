@@ -60,6 +60,14 @@ status/notification/editor/footer system. Any Station that has not migrated
 must be marked **pending migration** in its Code Map and local instructions,
 not described as conforming.
 
+The same contract's [§9–§12](docs/architecture/StationDrawerLifecycleContract-v1.md#9-drawer-group-presentation-tabs-accordion-child-navigation-and-focused-tasks)
+additionally lock drawer group presentation (Tabs/Accordion, child chip
+navigation, focused-task detours such as a bin), chrome suppression while an
+editor or focused task is open, the confirm/prompt dialog convention, and the
+footer split-button grammar. These are additive and optional to adopt, but
+once adopted must follow the documented shape exactly rather than a new
+bespoke implementation.
+
 ## Code Maps
 
 Start at [`docs/code-map/000-README.md`](docs/code-map/000-README.md), select only the subsystem relevant to the task, and follow only necessary related-map links. Never load the entire Code Map.

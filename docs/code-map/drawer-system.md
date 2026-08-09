@@ -21,10 +21,11 @@ The drawer system separates coordination, hosting, rendering, and persistence:
 
 - [EntityDrawer.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityDrawer.tsx) renders placements, notifications, trailing content, and one edit session.
 - [entityDrawerHost.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/entityDrawerHost.ts) defines the host-neutral close/footer/guard/mutation bridge.
-- [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/InlineEditorShell.tsx) owns Save/Cancel, dirty confirmation, validation, loading, and errors.
+- [InlineEditorShell.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/InlineEditorShell.tsx) owns Save/Cancel, dirty confirmation, validation, loading, and errors — a specialisation of `FocusedTaskShell.tsx`.
 - [EntityActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/EntityActionFooter.tsx) and [CanonicalEntityFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/CanonicalEntityFooter.tsx) provide footer grammar and lifecycle mapping.
-- [SupportedActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/SupportedActionFooter.tsx) renders explicit owner-supplied action descriptors. It receives no status and infers no lifecycle actions; Tier Group and Tier use it for their distinct supported sets.
-- [schema/types.ts](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/schema/types.ts) and `schema/{elements,shells}` define neutral entity, binding, placement, action, and edit-session contracts.
+- [SupportedActionFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/drawer-kit/SupportedActionFooter.tsx) renders owner-supplied action descriptors; Tier Group and Tier use it for their supported sets.
+- `ui/DrawerGroupTabs.tsx`, `DrawerGroupAccordion.tsx`, `drawerGroups.ts`, `ChildChipStrip.tsx`, `useScrollHide.ts`: additive multi-group content primitives ([contract §9–§12](../architecture/StationDrawerLifecycleContract-v1.md#9-drawer-group-presentation-tabs-accordion-child-navigation-and-focused-tasks)).
+- `schema/types.ts` and `schema/{elements,shells}` define neutral entity, binding, placement, action, and edit-session contracts.
 
 ## Module entry contract
 

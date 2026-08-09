@@ -1,7 +1,7 @@
 # Station and Drawer Lifecycle Contract — v1
 
 **Status:** Current platform contract — locked
-**Scope:** Station identity, modules, drawer composition, record footer actions, lifecycle travel, pills, notifications, and child-module availability
+**Scope:** Station identity, modules, drawer composition, drawer group presentation, focused-task detours, confirm/prompt dialogs, record footer actions, lifecycle travel, pills, notifications, and child-module availability
 **Current authority:** This document, the owning Station source, and the current [Code Map](../code-map/000-README.md)
 
 This is the platform rule for adding or changing a Station, module, drawer, or
@@ -278,6 +278,122 @@ The current Code Maps and this contract override those recorded paths and
 pre-migration lifecycle descriptions. [Project History](../project-history/000-README.md)
 remains immutable.
 
+## 9. Drawer group presentation: Tabs, Accordion, child navigation, and focused tasks
+
+This section locks the additive drawer-composition primitives introduced for
+the Tier occupant/Edition drawer: `drawer-kit/ui/drawerGroups.ts`,
+`DrawerGroupTabs.tsx`, `DrawerGroupAccordion.tsx`, `ui/ChildChipStrip.tsx`,
+`ui/useScrollHide.ts`, and `FocusedTaskShell.tsx`. They are optional to
+adopt — most current drawers still render through `EntityDrawer.tsx`'s fixed
+two-tab `DrawerTabs.tsx` bar, which stays the platform default and is
+deliberately not configurable. Once a Station's drawer needs more than that
+fixed Overview/Connections bar, it must use these primitives exactly as
+documented here rather than a bespoke tab, accordion, child-nav, or detour
+implementation.
+
+**Group content.** A drawer body that needs more than the fixed two tabs is
+one ordered array of `{ id, label, content }` groups, rendered through either
+`DrawerGroupTabs` or `DrawerGroupAccordion` against the identical array — a
+drawer must never fork its content between the two renderers. Both accept an
+optional `trailing` slot for a view-toggle or other compact control that
+neither renderer interprets or owns.
+
+**Tabs/Accordion selection is per-instance, unpersisted view state**, not a
+per-entity default and never a saved preference: it resets to Tabs on every
+drawer mount. A Station may offer the toggle or omit it; it must not persist
+the choice across sessions, records, or drawer remounts.
+
+**`--cz-drawer-group-chrome-h`** is the contract between the active group
+renderer and any nested sticky child navigation: Tabs publishes its own real,
+measured tablist height; Accordion always publishes `0px` (it has no
+persistent sticky chrome above an open panel). A nested `ChildChipStrip`
+reads this variable and must not hardcode an offset of its own.
+
+**Child navigation** for a group whose content further splits into child
+records (Options → Editions today) is `ChildChipStrip` — a subordinate,
+visibly smaller sibling of the group bar, never a second top-level tab
+system. Its optional `trailing` slot holds exactly one fixed, non-chip
+control (e.g. a Bin icon); `trailing` never participates in chip selection.
+Scroll-hide on the strip is opt-in via a caller-supplied `scrollContainer`
+and must key off whichever container the active group renderer actually
+scrolls — Accordion mode disables hide/reveal (passes `null`) rather than
+hiding against the wrong container.
+
+**Focused tasks.** Any drawer detour that must fully replace a group's
+content and suppress the surrounding drawer chrome — a bin, a wizard step, or
+any other full-view task — is `FocusedTaskShell` (Back, task title, optional
+task-state badge, one scrollable body, one footer). It carries no
+dirty-state, confirm, or save/cancel opinion of its own; that behaviour
+belongs to the caller. A focused task must be the ONE visible identity for
+its concern: it replaces the child chip strip and its cards outright and
+must never render alongside a second nav row or a duplicate entry point.
+`InlineEditorShell` is the save/cancel/dirty-confirm specialisation of this
+same shell and must remain the same DOM and behaviour it already has.
+
+## 10. Chrome suppression while an editor or focused task is open
+
+When any module editor, child-record editor, or focused task (e.g. the Bin)
+is active, the surrounding group chrome (tablist, accordion triggers, group
+borders) must be suppressed by toggling one class on the drawer's outer
+wrapper (e.g. `cz-req-detail--editing`) and hiding it in CSS — never by a
+conditional render swap that unmounts and remounts the group chrome. The
+underlying group tree must stay mounted at the same tree position so an open
+editor's own local state is never wiped by a remount the instant editing
+starts. A drawer host may optionally hide its own header through a
+`setHeaderHidden` bridge capability; that capability is optional and
+additive, and every host that supports it must reset it to `false` whenever
+the open drawer's content identity (template key plus record id) changes —
+independent of, and in addition to, the content's own effect cleanup — so a
+hidden header can never leak from one drawer's content into another.
+
+## 11. Confirm and prompt dialogs
+
+There is no shared modal/prompt component. `components/modal/index.ts` is a
+dead stub and must not be treated as, or replaced with the expectation of, a
+rendering primitive. The locked convention is:
+
+- A destructive or consequential lifecycle action (Publish, Discard draft,
+  Trash, Permanent delete, unsaved-changes exit) that needs an interrupting
+  overlay is hand-authored per entity as `<Entity>DrawerDialogs.tsx`, sharing
+  only the `cz-publish-confirm*` CSS class convention and the
+  click-outside-to-dismiss pattern. This is a styling convention, not a
+  shared component; do not extract one without new evidence of a second
+  identical consumer under this document's "Abstraction evidence" standard
+  in `AGENTS.md`.
+- A per-row confirm on a bin/travel surface (arm, then confirm in place, not
+  an overlay) is `useInlineConfirm`. It renders nothing itself and must not
+  be treated as, or replaced by, an overlay modal.
+- Every destructive action on a bin/travel surface must be guarded by one of
+  the two mechanisms above. The Tier Edition bin's Move-to-Bin, Publish
+  Edition, and in-bin permanent-delete rows currently fire directly on click
+  with neither guard, unlike the Tier occupant bin's `useInlineConfirm`-armed
+  permanent delete. This is a recorded deviation, not a pattern to copy: a
+  new Station or surface must use the occupant bin as its reference, and this
+  gap should close before the Edition bin is cited as fully conforming.
+
+## 12. Footer split-button grammar
+
+The default record-footer shape — `CanonicalEntityFooter`/
+`EntityActionFooter` as used by Service, Service Category, Package Family,
+and Tier Group/System — is one `split` action (status/travel: Disable,
+Enable, Move to Trash, with Archive/Trash in overflow) plus a separate
+`primary` Publish button. This remains the default shape for a new
+conforming Station.
+
+A Station whose record owns a second, independently lifecycled child
+collection with its own Publish action (Tier occupant/Edition today) may
+instead use the additive **dual independent split**: `split` (LEFT,
+backward/travel actions, Move to Bin always last) and `splitForward` (RIGHT,
+forward/publish actions), each opening only its own overflow menu through
+`menuOnly: true` rather than firing an action on direct click. `menuOnly`
+must always route the visible label's click to open or close the menu, never
+to `onSelect` — a caller must not wire `onSelect` on the assumption it stays
+unreachable by convention alone. When `splitForward` is present, Close
+renders beside the LEFT split, not at the far right, so the RIGHT publish
+split stands alone. A Station must not invent a third footer shape; it uses
+either the default single-split-plus-primary-Publish shape or the dual
+independent-split shape exactly as `TierDrawerFooter.tsx` implements it.
+
 ## Related current maps
 
 [Service Station](../code-map/service-station.md) ·
@@ -287,4 +403,5 @@ remains immutable.
 [Lifecycle and Module State](../code-map/lifecycle-system.md) ·
 [Package Station](../code-map/package-station.md) ·
 [Tiers](../code-map/tiers.md) ·
-[Tier Add-on](../code-map/tier-addon.md)
+[Tier Add-on](../code-map/tier-addon.md) ·
+[Tier Edition](../code-map/tier-edition.md)

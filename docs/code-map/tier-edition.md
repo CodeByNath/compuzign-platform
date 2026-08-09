@@ -83,7 +83,7 @@ captures whichever declaration was showing at the click.
 
 ## Admin editing
 
-`useTierEditions.ts` owns twelve endpoints (create, module draft/settle/
+`useTierEditions.ts` owns eleven endpoints (create, module draft/settle/
 revert, status, restore, guarded delete,
 `moveToBin`/`restoreFromBin`/`trashBinEntry`/`deleteBinEntry`) and
 Edition-scoped state including `tier_edition_bin[]`. The Included-Features
