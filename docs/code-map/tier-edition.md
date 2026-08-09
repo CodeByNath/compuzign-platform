@@ -29,7 +29,7 @@ always an alternate.
 
 Overview under Details carries one small derived read field, "Editions" —
 `1` plus however many rows `tier_editions[]` holds, never persisted
-separately. Creation happens only through "+ Edition" (see Admin editing) —
+separately. Creation happens through "+ Edition" (see Admin editing);
 Overview collects no title/price/lifecycle action.
 
 ## Identity
@@ -62,16 +62,16 @@ it). A bin entry holds only `bin_id`/`edition` (full row, with
 `CZTE`)/`status`/`displaced_at` — none of `occupant_bin`'s metadata.
 
 `tier_editions[]` numbering is array-derived; moving out compacts it, and
-restore always appends to the end, landing `disabled`, never `active`.
+restore appends to the end, landing `disabled`, never `active`.
 `trashTierEditionBinEntry()`/`deleteTierEditionBinEntry()` mirror
 `trashBinnedOccupant()`/`deleteBinnedOccupant()`. Cascade never reaches a
-binned Edition. `PackageRepository`/`upsertOccupant()` cover it too.
+binned Edition (`PackageRepository`/`upsertOccupant()` too).
 
 ## Public projection and Cost Builder
 
 `publicTierEditionOptions()` (Active only, no `edition_platform_id`/"default"
-flag) feeds `edition_options`, empty for every Tier that never used this
-capability. `extractTierForCostBuilder()` always resolves the occupant's own
+flag) feeds `edition_options`, empty otherwise.
+`extractTierForCostBuilder()` always resolves the occupant's own
 terms as primary. `PricingTiers.tsx` renders the switch once **one** Edition
 exists — always-present Default plus Edition buttons. `ServiceCard.tsx`
 captures whichever declaration was showing at the click.
@@ -90,9 +90,11 @@ Edition-scoped state including `tier_edition_bin[]`. The Included-Features
 module is titled **Default Tier Inclusions**.
 `TierEditionDeclarationSwitcher.tsx` is the Options group's content, gated
 on a real occupant: a `[Edition 2] [Edition 3]` child-chip strip
-(`ChildChipStrip`) with a fixed trailing Bin icon, exclusively swapping in
-`TierEditionBinList.tsx` for the normal cards. Default is never a row here.
-"+ Edition" lives in the drawer's nav chrome, reachable only in Options.
+(`ChildChipStrip`) with a fixed trailing Bin icon opening the Bin as its own
+focused task (`TierEditionBinFocusedView.tsx`, the editor's own
+`FocusedTaskShell`), replacing the chip strip and cards. Default is never a
+row here. "+ Edition" lives in the drawer's nav chrome, reachable only in
+Options.
 
 The pinned footer's ONE "Move Edition to Bin" row (any status) drives a
 separate command, `moveTierEditionToBinCommand` (`POST .../move-to-bin`) —
@@ -122,7 +124,7 @@ only its own menu (`menuOnly`).
 | REST | `PackageStationController.php` — `tierEditionContext()`, `createTierEdition`, `saveTierEditionModule`, `settleTierEditionModule`, `revertTierEditionModule`, `updateTierEditionStatus`, `restoreTierEditionEndpoint`, `deleteTierEditionEndpoint`, `tierEditionBinContext()`, `moveTierEditionToBinEndpoint`, `restoreTierEditionFromBinEndpoint`, `trashTierEditionBinEntryEndpoint`, `deleteTierEditionBinEntryEndpoint` |
 | Public projection | `PricingBuilder.php` |
 | Cart/request | `RequestSchema.php` |
-| Admin frontend | `types.ts`, `api.ts`, `useTierEditions.ts`, `tier.tsx`, `tierEdition.tsx`, `tierEditionDetailModel.ts`, `tierEditionModel.ts`, `tierLifecycleMenu.ts`, `useTierDrawerController.ts`, `TierEditionDeclarationSwitcher.tsx`, `TierEditionEditor.tsx`, `TierEditionOverviewFields.tsx`, `TierDrawerContent.tsx`, `TierDrawerFooter.tsx` |
+| Admin frontend | `types.ts`, `api.ts`, `useTierEditions.ts`, `tier.tsx`, `tierEdition.tsx`, `tierEditionDetailModel.ts`, `tierEditionModel.ts`, `tierLifecycleMenu.ts`, `useTierDrawerController.ts`, `TierEditionDeclarationSwitcher.tsx`, `TierEditionBinFocusedView.tsx`, `TierEditionBinList.tsx`, `TierEditionEditor.tsx`, `TierEditionOverviewFields.tsx`, `TierDrawerContent.tsx`, `TierDrawerFooter.tsx`, `FocusedTaskShell.tsx` (drawer-kit) |
 | Public frontend | `cost-builder.ts`, `PricingTiers.tsx`, `ServiceCard.tsx` |
 
 ## Related Code Maps
