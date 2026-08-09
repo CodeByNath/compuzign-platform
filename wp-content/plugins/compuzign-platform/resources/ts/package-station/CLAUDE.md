@@ -19,7 +19,20 @@ Add-on. Add-on remains the same occupant with `is_addon = true`, never a second
 drawer, lifecycle, controller, footer, or endpoint family.
 Backend canonical reads now cover Package Family, Tier Group, Tier, Tier
 Add-on, Rate Sheet, Rate Sheet Group, and Rate Sheet Item. Row identity is
-output-only and uses `(rate_sheet_id,item_id)`, never mutable `group_id`. Native mutations retain their
+output-only and uses `(rate_sheet_id,item_id)`, never mutable `group_id`. A
+Rate Sheet Item row may additionally carry `price_options[]` — zero or more
+alternative unit prices, each a further-qualified Platform-identified child
+of that row (`(rate_sheet_id,item_id,option_id)`, own `CZPRCIO`, minted
+write-path-only in `PackageManagerSchema::commitConfiguration`, never from
+its editable `label`). A price option is **not** a second row, not
+Rate-Sheet-wide, and never carries quantity/billing-cycle/minimum-commitment/
+Edition meaning — the row's own existing default `unit_price`/`CZPRCI` stays
+completely untouched by a price option's presence. In the standalone Rate
+Sheet drawer's active-row editor, the Unit Price cell itself becomes a
+`[ Default Price ][ Option 1 ]…[+]` tab strip
+(`RateSheetUnitPriceOptionEditor` in `presentation/rate-sheet-tool/rateSheetParts.tsx`)
+riding the row's own existing Edit/Save/Cancel lock — no new drawer,
+endpoint, lock, or permanent grid column. Native mutations retain their
 existing Package addresses. Tier Group and Tier use the shared supported-action
 footer with controller-supplied actions; no status label may invent an action.
 Tier Add-on remains the same occupant's boolean role and optional dormant

@@ -40,7 +40,7 @@ export interface RateSheetEditorRow {
   platformId?:     string;
   optionId:        string;               // stored source_item_id → manager item_id (preserved)
   optionLabel:     string;               // Service-resolved supplied-content label (display only)
-  unitPrice:       number;
+  unitPrice:       number;               // the row's own Default Price — never migrated into priceOptions
   per:             PackageRateSheetUnit;
   quantity:        number;
   groupId:         string | null;
@@ -50,6 +50,29 @@ export interface RateSheetEditorRow {
   // backend, never derived here). Null when the relationship carries none.
   sourceServiceId:    number | null;
   sourceServiceTitle: string | null;
+  // Zero or more alternative unit prices for THIS row — children of the row,
+  // never a second row, never Rate-Sheet-wide. Not named `options`: this
+  // repo's `option`/`optionId` vocabulary already means "which supplied
+  // content populates this row" (see RateSheetOption below); a price option
+  // is an unrelated, additional concept and must not collide with it.
+  priceOptions: RateSheetEditorPriceOption[];
+}
+
+/**
+ * One alternative unit price on a row. `id` mirrors `rowKey()`'s own
+ * discipline: the stored `option_id` once saved, or blank pre-save — the
+ * backend mints it, this file never invents one, and it is never derived
+ * from `label`. Unlike a row (whose pre-save fallback key is its stable
+ * `optionId`/source id), an option has no such stable pre-save content to
+ * key on, so `localKey` — generated once by `addEditorPriceOption`, never sent to
+ * the backend — fills that role instead.
+ */
+export interface RateSheetEditorPriceOption {
+  id:          string;
+  localKey:    string;
+  platformId?: string;
+  label:       string;
+  unitPrice:   number;
 }
 
 export interface RateSheetEditorValue {
@@ -118,6 +141,10 @@ function toEditorValue(
         sourceAvailable: sourceAvailable(relationship),
         sourceServiceId:    relationship?.source_service_id ?? null,
         sourceServiceTitle: relationship?.source_service_title ?? null,
+        priceOptions: (item.price_options ?? []).map((option) => ({
+          id: option.option_id, localKey: option.option_id,
+          platformId: option.platform_id, label: option.label, unitPrice: option.unit_price,
+        })),
       };
     });
 
@@ -281,7 +308,7 @@ export function deleteEditorGroup(value: RateSheetEditorValue, groupId: string):
 export function patchEditorRow(
   value: RateSheetEditorValue,
   rowId: string,
-  patch: Partial<Pick<RateSheetEditorRow, 'unitPrice' | 'per' | 'quantity' | 'groupId'>>,
+  patch: Partial<Pick<RateSheetEditorRow, 'unitPrice' | 'per' | 'quantity' | 'groupId' | 'priceOptions'>>,
 ): RateSheetEditorValue {
   return { ...value, items: value.items.map((row) => (rowKey(row) === rowId ? { ...row, ...patch } : row)) };
 }
@@ -304,12 +331,75 @@ export function addEditorRow(
     platformId: undefined,
     unitPrice: 0, per: DEFAULT_UNIT, quantity: 1, groupId: null, sourceAvailable: true,
     sourceServiceId: option.sourceServiceId, sourceServiceTitle: option.sourceServiceTitle,
+    priceOptions: [],
   };
   return { ...value, items: [...value.items, row] };
 }
 
 export function removeEditorRow(value: RateSheetEditorValue, rowId: string): RateSheetEditorValue {
   return { ...value, items: value.items.filter((row) => rowKey(row) !== rowId) };
+}
+
+// ── Price options (pure) ──────────────────────────────────────────────────────
+// A row's zero-or-more alternative unit prices. Children of the row only —
+// never a second row, never Rate-Sheet-wide, never quantity/cycle/commitment.
+
+let NEW_PRICE_OPTION_SEQ = 0;
+
+/** A grid-stable key for a price option: its stored `option_id` once saved,
+ *  or its `localKey` before then — mirrors `rowKey()`'s own discipline,
+ *  never sent to the backend as `option_id`. */
+export function priceOptionKey(option: RateSheetEditorPriceOption): string {
+  return option.id !== '' ? option.id : `new:${option.localKey}`;
+}
+
+/** Adds a blank price option to a row and returns its key, so the caller can
+ *  select it immediately without a second lookup. */
+export function addEditorPriceOption(
+  value: RateSheetEditorValue,
+  rowId: string,
+): { value: RateSheetEditorValue; key: string } {
+  const localKey = `local_${Date.now()}_${NEW_PRICE_OPTION_SEQ++}`;
+  const option: RateSheetEditorPriceOption = { id: '', localKey, platformId: undefined, label: '', unitPrice: 0 };
+  return {
+    value: {
+      ...value,
+      items: value.items.map((row) => (rowKey(row) === rowId
+        ? { ...row, priceOptions: [...row.priceOptions, option] }
+        : row)),
+    },
+    key: priceOptionKey(option),
+  };
+}
+
+export function removeEditorPriceOption(
+  value: RateSheetEditorValue,
+  rowId: string,
+  optionKey: string,
+): RateSheetEditorValue {
+  return {
+    ...value,
+    items: value.items.map((row) => (rowKey(row) !== rowId
+      ? row
+      : { ...row, priceOptions: row.priceOptions.filter((option) => priceOptionKey(option) !== optionKey) })),
+  };
+}
+
+export function patchEditorPriceOption(
+  value: RateSheetEditorValue,
+  rowId: string,
+  optionKey: string,
+  patch: Partial<Pick<RateSheetEditorPriceOption, 'label' | 'unitPrice'>>,
+): RateSheetEditorValue {
+  return {
+    ...value,
+    items: value.items.map((row) => (rowKey(row) !== rowId
+      ? row
+      : {
+        ...row,
+        priceOptions: row.priceOptions.map((option) => (priceOptionKey(option) === optionKey ? { ...option, ...patch } : option)),
+      })),
+  };
 }
 
 // ── Collection mutations (pure) ────────────────────────────────────────────────
@@ -329,7 +419,11 @@ export function duplicateEditorSheet(source: RateSheetEditorValue): RateSheetEdi
     status: 'active',
     groups: source.groups.map((group) => ({ ...group, platformId: undefined })),
     platformId: undefined,
-    items:  source.items.map((row) => ({ ...row, platformId: undefined })),
+    items:  source.items.map((row) => ({
+      ...row,
+      platformId: undefined,
+      priceOptions: row.priceOptions.map((option) => ({ ...option, platformId: undefined })),
+    })),
   };
 }
 
@@ -388,6 +482,9 @@ function toStoredSheet(value: RateSheetEditorValue): PackageRateSheet {
       quantity:       row.quantity,
       group_id:       row.groupId,
       sort_order:     index,
+      price_options:  row.priceOptions.map((option) => ({
+        option_id: option.id, label: option.label.trim(), unit_price: option.unitPrice,
+      })),
     })),
   };
 }

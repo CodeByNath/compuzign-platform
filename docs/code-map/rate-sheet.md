@@ -6,7 +6,10 @@ Platform identity is integrated without lifecycle migration. Rate Sheet uses
 `package_rate_card/CZPRC` against `rate_sheet_id`; each stored Rate Sheet Group
 uses `package_rate_card_group/CZPRCG` against qualified
 `(rate_sheet_id, group_id)`; each inclusion row uses
-`package_rate_card_item/CZPRCI` against `(rate_sheet_id, item_id)`. `group_id`
+`package_rate_card_item/CZPRCI` against `(rate_sheet_id, item_id)`; an optional
+child price option uses `package_rate_card_item_option/CZPRCIO` against
+`(rate_sheet_id, item_id, option_id)`, never the row's own `unit_price`.
+`group_id`
 is deliberately excluded, so regrouping and group deletion preserve row identity.
 New records bind at the existing Manager save
 boundary, guarded deletion tombstones the removed identity, and durable CLI
@@ -16,7 +19,7 @@ lifecycle remain unchanged.
 
 ## Purpose and ownership
 
-Rate Sheets are Package Station supply/pricing configuration. Station Manager and Admin host presentation without owning rules or data.
+Rate Sheets are Package Station supply/pricing configuration; Station Manager and Admin host presentation, owning no rules/data.
 
 The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has stable `rate_sheet_id`, title, status, groups, and explicit priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Totals are derived; Services and pools remain Service-owned.
 
@@ -29,14 +32,14 @@ units are stored, and unknown values fail closed.
 - [evaluateTierPricing.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/evaluateTierPricing.ts) calculates totals and reports unresolved, unavailable, invalid-option/quantity and missing-price issues.
 - [rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts) derives labels for Package-owned relationship projections.
 - [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) resolves selections against the Package read model and owns Tier-module saves.
-- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) projects the focused Tier's bound sheet and its groups, keyed by stored ids, adding no storage or price.
-- [tierInstanceModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) projects available sheets and cross-instance users. Availability is non-exclusive; use comes from occupant bindings.
+- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) projects the focused Tier's bound sheet and its groups, adding no storage or price.
+- [tierInstanceModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) projects available sheets and cross-instance users; non-exclusive, from occupant bindings.
 
 ### Rate Sheet authoring tool
 
 The Package-owned `rate-sheet` drawer mounts in Admin's generic shell and reuses the manager read/save contract, adding no endpoint or station. Edit uses `InlineEditorShell` for one save footer and dirty-cancel confirmation.
 
-It retains one collection controller and save engine, with distinct presentations. The legacy collection editor remains pool-only. A Settings row carries its already-loaded native key behind the visible `CZPRC`: View renders a compact summary without the row table or child identities, and Edit renders only the selected sheet's title/status, Service import, row table, and inline Group/Per dropdown management. `'new'` calls `createSheet()` once and mounts that same one-sheet editor. Curated Per rename updates every referencing row; built-in units stay immutable. Saves remain **partial upserts plus explicit `rate_sheet_deletions`**; omission never deletes.
+One collection controller and save engine serve distinct presentations. The legacy collection editor remains pool-only. A Settings row carries its already-loaded native key behind the visible `CZPRC`: View renders a compact summary without the row table or child identities, and Edit renders only the selected sheet's title/status, Service import, row table, and inline Group/Per dropdown management. `'new'` calls `createSheet()` once and mounts that same one-sheet editor. Curated Per rename updates every referencing row; built-in units stay immutable. Saves remain **partial upserts plus explicit `rate_sheet_deletions`**; omission never deletes.
 
 - [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts) — pure read-model ⇄ editor ⇄ save-payload mapping and summaries, preserving sheet, row/source and group ids; the backend mints blank ids. `rateSheetRowsWithKeys` restricts a sheet to an allow-list of `rowKey`s.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts) — local-edit collection controller; Save batches through `savePackageStationManager`, Cancel reverts, and shared `useHostService` supplies the host id. Owns the drawer's lock (`editingRowId`); Save/Remove/Delete persist through it.

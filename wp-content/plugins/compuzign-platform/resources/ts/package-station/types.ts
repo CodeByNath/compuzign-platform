@@ -276,6 +276,20 @@ export const BUILT_IN_RATE_SHEET_UNITS = [
  */
 export type PackageRateSheetUnit = string;
 
+/**
+ * An alternative unit price for one Rate Sheet Item row — a child of that
+ * row, never a second row, never Rate-Sheet-wide. Not the row's Default
+ * Price: the row's own `unit_price` is untouched by an option's presence.
+ * `option_id` and `platform_id` are both output-only/backend-derived, never
+ * from the editable `label`.
+ */
+export interface PackageRateSheetPriceOption {
+  option_id: string;
+  platform_id?: string;
+  label: string;
+  unit_price: number;
+}
+
 export interface PackageRateSheetItem {
   item_id: string;
   platform_id?: string;
@@ -285,6 +299,7 @@ export interface PackageRateSheetItem {
   quantity: number;
   group_id: string | null;
   sort_order: number;
+  price_options: PackageRateSheetPriceOption[];
 }
 
 export type PackageRateSheetStatus = 'active' | 'archived';

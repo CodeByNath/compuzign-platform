@@ -22,6 +22,7 @@ import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageManagerReadModel, PackageRateSheetUnit } from '../../types';
 import { useHostService } from '../tierSurface/useHostService';
 import {
+  addEditorPriceOption,
   addEditorRow,
   buildManagerSavePayload,
   connectSourceServices,
@@ -30,8 +31,10 @@ import {
   createEditorSheet,
   deleteEditorGroup,
   duplicateEditorSheet,
+  patchEditorPriceOption,
   patchEditorRow,
   rateSheetOptions,
+  removeEditorPriceOption,
   removeEditorRow,
   renameEditorGroup,
   rowKey,
@@ -88,6 +91,15 @@ export interface RateSheetToolController {
   renameUnit:           (unit: PackageRateSheetUnit, label: string) => PackageRateSheetUnit | null;
   setRowQuantity:       (rowId: string, quantity: number) => void;
   setRowGroup:          (rowId: string, groupId: string | null) => void;
+  // A row's own alternative unit prices — children of that row, never a
+  // second row, never Rate-Sheet-wide. Local edits only until the row's own
+  // Save; ride the exact same editSelected()/dirty path setRowUnitPrice etc.
+  // already use, never a second persistence route.
+  /** Adds a blank price option to the row and returns its local key. */
+  addPriceOption:       (rowId: string) => string;
+  removePriceOption:    (rowId: string, optionKey: string) => void;
+  setPriceOptionLabel:  (rowId: string, optionKey: string, label: string) => void;
+  setPriceOptionUnitPrice: (rowId: string, optionKey: string, unitPrice: number) => void;
   // Persisting actions.
   connectServices:      (serviceIds: number[]) => Promise<void>;
   save:                 (preserveSelection?: boolean) => Promise<void>;
@@ -334,6 +346,15 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     setRowPer: (rowId, per) => editSelected((value) => patchEditorRow(value, rowId, { per })),
     setRowQuantity: (rowId, quantity) => editSelected((value) => patchEditorRow(value, rowId, { quantity: Math.max(1, Math.trunc(quantity) || 1) })),
     setRowGroup: (rowId, groupId) => editSelected((value) => patchEditorRow(value, rowId, { groupId })),
+    addPriceOption: (rowId) => {
+      if (selected === null) return '';
+      const { value, key } = addEditorPriceOption(selected, rowId);
+      editSelected(() => value);
+      return key;
+    },
+    removePriceOption: (rowId, optionKey) => editSelected((value) => removeEditorPriceOption(value, rowId, optionKey)),
+    setPriceOptionLabel: (rowId, optionKey, label) => editSelected((value) => patchEditorPriceOption(value, rowId, optionKey, { label })),
+    setPriceOptionUnitPrice: (rowId, optionKey, unitPrice) => editSelected((value) => patchEditorPriceOption(value, rowId, optionKey, { unitPrice: Math.max(0, unitPrice) })),
     // A unit is Manager vocabulary, not a sheet's property, so creating one
     // touches no sheet. It returns the label it settled on — the existing entry
     // when one already matches — so the row that asked can select it either way.
@@ -395,10 +416,11 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
         // Existing row: restore its last-saved values. This is a local revert
         // only — no API call — matching every other Cancel in this drawer.
         editSelected((value) => patchEditorRow(value, targetId, {
-          unitPrice: snapshot.unitPrice,
-          per:       snapshot.per,
-          quantity:  snapshot.quantity,
-          groupId:   snapshot.groupId,
+          unitPrice:    snapshot.unitPrice,
+          per:          snapshot.per,
+          quantity:     snapshot.quantity,
+          groupId:      snapshot.groupId,
+          priceOptions: snapshot.priceOptions,
         }));
       } else {
         // Not-yet-saved row: it represents nothing persisted, so Cancel

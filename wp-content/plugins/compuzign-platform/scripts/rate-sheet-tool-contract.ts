@@ -14,6 +14,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  addEditorPriceOption,
   addEditorRow,
   buildManagerSavePayload,
   connectSourceServices,
@@ -24,9 +25,11 @@ import {
   curatedUnits,
   deleteEditorGroup,
   duplicateEditorSheet,
+  patchEditorPriceOption,
   rateSheetOptions,
   rateSheetRowsInGroup,
   rateSheetRowsWithKeys,
+  removeEditorPriceOption,
   removeEditorRow,
   rowKey,
   summariseRateSheet,
@@ -77,8 +80,13 @@ const readModel: PackageManagerReadModel = {
       { group_id: 'rate_group_0', label: 'Storage', sort_order: 0 },
     ],
     items: [
-      { item_id: 'rate_a', source_item_id: 'mgr_a', unit_price: 12, per: 'Per VM', quantity: 2, group_id: 'rate_group_1', sort_order: 0 },
-      { item_id: 'rate_stale', source_item_id: 'mgr_missing', unit_price: 5, per: 'Per item', quantity: 1, group_id: null, sort_order: 1 },
+      {
+        item_id: 'rate_a', source_item_id: 'mgr_a', unit_price: 12, per: 'Per VM', quantity: 2, group_id: 'rate_group_1', sort_order: 0,
+        price_options: [
+          { option_id: 'opt_a1', platform_id: 'CZPRCIO2A7KZ', label: 'Annual', unit_price: 120 },
+        ],
+      },
+      { item_id: 'rate_stale', source_item_id: 'mgr_missing', unit_price: 5, per: 'Per item', quantity: 1, group_id: null, sort_order: 1, price_options: [] },
     ],
   }],
   projections: { inclusions: [], faqs: [] },
@@ -94,12 +102,27 @@ check(value.groups.map((group) => group.id).join(',') === 'rate_group_0,rate_gro
 check(value.items.length === 1, 'a row whose source no longer resolves is dropped from the grid');
 check(value.items[0].id === 'rate_a' && value.items[0].optionId === 'mgr_a', 'a live row preserves its stored item_id and source_item_id');
 
+// ── Price options: children of the row, never migrated from Default Price ─────
+check(value.items[0].unitPrice === 12, "a row's Default Price is its own unit_price, untouched by price_options");
+check(value.items[0].priceOptions.length === 1, 'the stored price option projects onto the row');
+check(
+  value.items[0].priceOptions[0].id === 'opt_a1' && value.items[0].priceOptions[0].platformId === 'CZPRCIO2A7KZ' && value.items[0].priceOptions[0].label === 'Annual',
+  'a stored price option preserves its option_id, Platform ID, and label verbatim',
+);
+
 // ── Editor collection → save payload (upsert + explicit deletions) ─────────────
 const payload = buildManagerSavePayload(readModel, list, [], readModel.sources);
 check(payload.rate_sheets.length === 1, 'the save sends the upsert set');
 check(payload.rate_sheets[0].rate_sheet_id === 'rs_supply', 'the upserted sheet preserves its stored id');
 check(payload.rate_sheets[0].items.length === 1 && payload.rate_sheets[0].items[0].item_id === 'rate_a', 'the saved sheet preserves the surviving row id and drops the stale one');
 check(payload.rate_sheets[0].items[0].sort_order === 0, 'saved rows are re-indexed by position');
+check(
+  payload.rate_sheets[0].items[0].price_options.length === 1
+    && payload.rate_sheets[0].items[0].price_options[0].option_id === 'opt_a1'
+    && payload.rate_sheets[0].items[0].price_options[0].unit_price === 120
+    && !('platform_id' in payload.rate_sheets[0].items[0].price_options[0]),
+  'a saved row carries its price options (option_id preserved, no platform_id sent — the backend owns that)',
+);
 check(payload.rate_sheet_deletions.length === 0, 'no deletions unless explicitly requested');
 check(JSON.stringify(payload.groups) === JSON.stringify(readModel.groups), 'Manager relationship groups pass through unchanged');
 const decisionIds = payload.item_decisions.map((decision) => decision.item_id).sort();
@@ -123,12 +146,35 @@ const withRow = addEditorRow(value, options.find((option) => option.id === 'mgr_
 check(withRow.items.length === 2, 'adding a source appends a curated row');
 const addedRow = withRow.items[1];
 check(addedRow.id === '' && addedRow.optionId === 'mgr_b', 'a curated row carries its source and a blank id (backend derives)');
+check(addedRow.priceOptions.length === 0, 'a newly curated row starts with an empty price_options array, not undefined');
 check(addEditorRow(withRow, options.find((option) => option.id === 'mgr_b')!).items.length === 2, 'a source already present is not added twice (one row per source per sheet)');
 const removed = removeEditorRow(withRow, rowKey(addedRow));
 check(removed.items.length === 1, 'removing a row drops it by its grid key');
 // A curated row survives the save mapping with a blank id.
 const withRowPayload = buildManagerSavePayload(readModel, [withRow], [], readModel.sources);
 check(withRowPayload.rate_sheets[0].items.some((row) => row.source_item_id === 'mgr_b' && row.item_id === ''), 'a curated row is saved with a blank id for the backend to derive');
+
+// ── Price option pure mutations: children of the row, never a second row ──────
+const rowId = rowKey(value.items[0]);
+const { value: withOption, key: newOptionKey } = addEditorPriceOption(value, rowId);
+check(newOptionKey.startsWith('new:'), "a not-yet-saved price option's key is a local placeholder, never a guessed option_id");
+check(
+  withOption.items[0].priceOptions.length === 2 && withOption.items[0].priceOptions[1].id === '',
+  'adding a price option appends a blank-id row-child, backend-minted on save — never derived from a label',
+);
+check(withOption.items[0].unitPrice === 12, "adding a price option never touches the row's own Default Price");
+const labeled = patchEditorPriceOption(withOption, rowId, newOptionKey, { label: 'Monthly', unitPrice: 15 });
+check(
+  labeled.items[0].priceOptions[1].label === 'Monthly' && labeled.items[0].priceOptions[1].unitPrice === 15,
+  'patching a price option only ever touches label/unitPrice, never option_id',
+);
+check(
+  labeled.items[0].priceOptions[0].id === 'opt_a1' && labeled.items[0].priceOptions[0].label === 'Annual',
+  "patching one price option never touches a sibling option or the row's stored one",
+);
+const withoutOption = removeEditorPriceOption(labeled, rowId, newOptionKey);
+check(withoutOption.items[0].priceOptions.length === 1 && withoutOption.items[0].priceOptions[0].id === 'opt_a1', 'removing a price option by key leaves its siblings untouched');
+check(removeEditorRow(withOption, rowId).items.length === 0, "removing the ROW itself removes its price options along with it — they are not a second row");
 
 // ── Group deletion reassigns rows; creation keeps the id grammar ──────────────
 const afterDelete = deleteEditorGroup(value, 'rate_group_1');

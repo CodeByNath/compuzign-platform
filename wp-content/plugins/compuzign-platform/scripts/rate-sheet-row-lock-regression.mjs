@@ -18,7 +18,11 @@
 //     row identity, then locks it as an existing row;
 //   - Remove (locked) and Delete (active) both confirm, then persist through
 //     the full-manager save with the row excluded from the payload — the
-//     boundary the backend's own Platform Identifier tombstone code runs on.
+//     boundary the backend's own Platform Identifier tombstone code runs on;
+//   - the active row's Unit Price cell is a Default/Option tab editor
+//     (Default Price is not Option 0 — it stays the row's own price);
+//     adding, editing, and Cancel-discarding a price option all ride the
+//     SAME row-lock Save/Cancel, never a second row, lock, or endpoint.
 //
 // The fetch mock is a tiny in-memory Package Manager server: it mints a blank
 // item_id exactly like PackageManagerSchema::deriveRateItemId (deterministic,
@@ -87,8 +91,8 @@ function baseManager() {
       status: 'active',
       groups: [],
       items: [
-        { item_id: 'rate_a', source_item_id: 'mgr_a', unit_price: 10, per: 'Per item', quantity: 1, group_id: null, sort_order: 0 },
-        { item_id: 'rate_b', source_item_id: 'mgr_b', unit_price: 20, per: 'Per item', quantity: 2, group_id: null, sort_order: 1 },
+        { item_id: 'rate_a', source_item_id: 'mgr_a', unit_price: 10, per: 'Per item', quantity: 1, group_id: null, sort_order: 0, price_options: [] },
+        { item_id: 'rate_b', source_item_id: 'mgr_b', unit_price: 20, per: 'Per item', quantity: 2, group_id: null, sort_order: 1, price_options: [] },
       ],
     }],
     rate_sheet_units: [...BUILT_IN_UNITS],
@@ -111,6 +115,8 @@ function jsonResponse(body) {
 function mintItemId(sourceItemId) { return `rate_minted_${sourceItemId}`; }
 let sheetSeq = 0;
 function mintSheetId() { sheetSeq += 1; return `rs_minted_${sheetSeq}`; }
+let optionSeq = 0;
+function mintOptionId() { optionSeq += 1; return `opt_minted_${optionSeq}`; }
 
 function applySave(payload) {
   const manager = deepClone(server.manager);
@@ -121,6 +127,14 @@ function applySave(payload) {
     const items = submitted.items.map((item) => ({
       ...item,
       item_id: item.item_id !== '' ? item.item_id : mintItemId(item.source_item_id),
+      // Mirrors PackageManagerSchema::commitConfiguration's own write-path-only
+      // mint of a blank price-option id — proven for real by
+      // tests/package-manager-schema.php and the reconciliation test; this
+      // mock only needs "blank in, stable id out" to exercise the frontend.
+      price_options: (item.price_options ?? []).map((option) => ({
+        ...option,
+        option_id: option.option_id !== '' ? option.option_id : mintOptionId(),
+      })),
     }));
     const stored = { ...submitted, rate_sheet_id: id, items };
     const existingIndex = manager.rate_sheets.findIndex((sheet) => sheet.rate_sheet_id === id);
@@ -221,6 +235,9 @@ function rowByLabel(label) { return rowsIn().find((tr) => tr.textContent.include
 function buttonIn(row, text) { return row ? [...row.querySelectorAll('button')].find((b) => b.textContent.trim() === text) ?? null : null; }
 function click(btn) { btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }
 function priceInputIn(row) { return row?.querySelector('input[type="number"]') ?? null; }
+function priceOptionTab(row, text) { return row ? [...row.querySelectorAll('.cz-rate-sheet-tool__price-options-tab')].find((b) => b.textContent.trim() === text) ?? null : null; }
+function priceOptionLabelInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="text"]') ?? null; }
+function priceOptionPriceInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]') ?? null; }
 function setInputValue(input, value) {
   input.value = String(value);
   input.dispatchEvent(new window.Event('input', { bubbles: true }));
@@ -364,8 +381,74 @@ check(
 );
 check('the saved price is reflected as the new baseline', rowC?.textContent.includes('$30'), rowC?.textContent);
 
-// ── 9) Remove (locked) confirms, then persists, excluding the row ────────
-console.log('\n9) Remove on a locked row confirms, then persists the manager without that row');
+// ── 9) The active row's Unit Price cell is a Default/Option tab editor;
+//    adding a price option rides the SAME row-lock Save/Cancel — no new
+//    row, no new lock, no new endpoint. Default Price stays independent of
+//    the option; Cancel discards an unsaved option along with everything
+//    else the row's own Cancel already discards. ─────────────────────────
+console.log('\n9) The active row\'s Unit Price cell is a Default/Option tab editor; adding a price option rides the same row lock');
+click(buttonIn(rowByLabel('Row A'), 'Edit'));
+await settle();
+let rowAOptions = rowByLabel('Row A');
+check('an unlocked row with zero price options still shows the Default/+ tab editor, not just a bare price input', priceOptionTab(rowAOptions, 'Default Price') != null && priceOptionTab(rowAOptions, '+') != null);
+check('Default Price is pre-selected and edits the row\'s own price exactly as the plain input always did', Number(priceInputIn(rowAOptions)?.value) === 10);
+
+click(priceOptionTab(rowAOptions, '+'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+check('adding a price option shows a new "Option 1" tab', priceOptionTab(rowAOptions, 'Option 1') != null);
+check('the Unit Price cell now shows the option\'s own label/price fields, not the Default Price input', priceOptionLabelInput(rowAOptions) != null && priceOptionPriceInput(rowAOptions) != null);
+setInputValue(priceOptionLabelInput(rowAOptions), 'Annual');
+setInputValue(priceOptionPriceInput(rowAOptions), 120);
+await settle();
+
+click(priceOptionTab(rowByLabel('Row A'), 'Default Price'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+check('switching back to Default Price shows the row\'s own price, untouched by the option just edited', Number(priceInputIn(rowAOptions)?.value) === 10);
+
+const savesBeforeOptionSave = saveCalls;
+click(buttonIn(rowAOptions, 'Save'));
+await settle(80);
+check('the price-option edit persisted through exactly one full-manager save — the same one every other row Save uses', saveCalls === savesBeforeOptionSave + 1);
+const savedRowAItem = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
+check(
+  'the saved row carries the new price option (label/price), while its own unit_price stays the Default Price',
+  savedRowAItem?.price_options?.length === 1 && savedRowAItem.price_options[0].label === 'Annual' && savedRowAItem.price_options[0].unit_price === 120 && savedRowAItem.unit_price === 10,
+  JSON.stringify(savedRowAItem),
+);
+rowAOptions = rowByLabel('Row A');
+check('the row locks again after the verified success, exactly like every other row Save', buttonIn(rowAOptions, 'Edit') != null && buttonIn(rowAOptions, 'Save') == null);
+
+// Re-open and prove the persisted option round-trips with a real (mock-)minted
+// option_id, and that Cancel on a freshly-added SECOND option discards only
+// that option, locally, with no request.
+click(buttonIn(rowByLabel('Row A'), 'Edit'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+check('the saved option reappears by its own label on reload', priceOptionTab(rowAOptions, 'Annual') != null);
+click(priceOptionTab(rowAOptions, '+'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+check('a second not-yet-saved option gets its own "Option 2" tab (the first is already labeled "Annual")', priceOptionTab(rowAOptions, 'Option 2') != null);
+const savesBeforeOptionCancel = saveCalls;
+click(buttonIn(rowAOptions, 'Cancel'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+check('Cancel made no API request', saveCalls === savesBeforeOptionCancel);
+check('the row is locked again after Cancel, exactly like every other row Cancel', buttonIn(rowAOptions, 'Edit') != null);
+click(buttonIn(rowAOptions, 'Edit'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+check(
+  'Cancel discarded the unsaved second option — only the persisted "Annual" option survives, never a second row',
+  priceOptionTab(rowAOptions, 'Annual') != null && priceOptionTab(rowAOptions, 'Option 2') == null,
+);
+click(buttonIn(rowAOptions, 'Cancel'));
+await settle();
+
+// ── 10) Remove (locked) confirms, then persists, excluding the row ───────
+console.log('\n10) Remove on a locked row confirms, then persists the manager without that row');
 rowB = rowByLabel('Row B');
 confirmReturnValue = false;
 const savesBeforeDeclinedRemove = saveCalls;
@@ -386,8 +469,8 @@ check(
 );
 check('Row B is gone from the grid only after the confirmed save resolved', rowByLabel('Row B') == null);
 
-// ── 10) Delete (active row) confirms, then persists, and locks/clears ────
-console.log('\n10) Delete on the active row confirms, persists, and clears the active row on success');
+// ── 11) Delete (active row) confirms, then persists, and locks/clears ────
+console.log('\n11) Delete on the active row confirms, persists, and clears the active row on success');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowA = rowByLabel('Row A');

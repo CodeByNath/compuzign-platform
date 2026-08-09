@@ -19,7 +19,7 @@ import { useState } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
 import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageRateSheetUnit } from '../../types';
-import { rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { priceOptionKey, rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
   RateSheetEditorGroup,
   RateSheetEditorRow,
@@ -53,6 +53,15 @@ export interface RateSheetRowCommands {
   renameUnit:      (unit: PackageRateSheetUnit, label: string) => PackageRateSheetUnit | null;
   renameGroup:     (groupId: string, label: string) => void;
   deleteGroup:     (groupId: string) => void;
+  // A row's own zero-or-more alternative unit prices — children of the row,
+  // never a second row, never Rate-Sheet-wide. `RateSheetToolController`
+  // satisfies these too; only `RateSheetUnitPriceOptionEditor` below (the
+  // standalone drawer's active-row Unit Price cell) ever calls them.
+  /** Adds a blank price option to the row and returns its key. */
+  addPriceOption:          (rowId: string) => string;
+  removePriceOption:       (rowId: string, optionKey: string) => void;
+  setPriceOptionLabel:     (rowId: string, optionKey: string, label: string) => void;
+  setPriceOptionUnitPrice: (rowId: string, optionKey: string, unitPrice: number) => void;
 }
 
 /**
@@ -300,13 +309,18 @@ export function RateSheetGridEditor({
  *  or the active row of a locked grid. Extracted once so the locked editor
  *  never re-authors the same inputs the always-editable grid already has. */
 function RateSheetRowFieldCells({
-  row, groups, units, commands, disabled,
+  row, groups, units, commands, disabled, showPriceOptions = false,
 }: {
   row:      RateSheetEditorRow;
   groups:   readonly RateSheetEditorGroup[];
   units:    readonly PackageRateSheetUnit[];
   commands: RateSheetRowCommands;
   disabled: boolean;
+  // Standalone-drawer-only: the locked row lock's active-row branch opts in
+  // so its Unit Price cell becomes the tabbed Default/Option editor.
+  // Omitted (every other caller — the always-editable grid the focused-Tier
+  // connection drawers use) keeps the plain input byte-for-byte unchanged.
+  showPriceOptions?: boolean;
 }): VNode {
   const key = rowKey(row);
   return (
@@ -318,9 +332,13 @@ function RateSheetRowFieldCells({
         </div>
       </td>
       <td>
-        <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
-          aria-label={`Unit price for ${row.optionLabel}`}
-          onInput={(event) => commands.setRowUnitPrice(key, Number((event.currentTarget as HTMLInputElement).value))} />
+        {showPriceOptions ? (
+          <RateSheetUnitPriceOptionEditor row={row} commands={commands} disabled={disabled} />
+        ) : (
+          <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
+            aria-label={`Unit price for ${row.optionLabel}`}
+            onInput={(event) => commands.setRowUnitPrice(key, Number((event.currentTarget as HTMLInputElement).value))} />
+        )}
       </td>
       <td>
         <InlineCreateSelect
@@ -364,6 +382,82 @@ function RateSheetRowFieldCells({
         </InlineCreateSelect>
       </td>
     </>
+  );
+}
+
+/**
+ * The Unit Price cell's own tabbed editor — `[ Default Price ] [ Option 1 ]
+ * [ Option 2 ] [+]` — for the standalone drawer's active row only. Default
+ * Price is not Option 0: selecting it edits the row's own existing
+ * `unit_price` through the exact same `setRowUnitPrice` the plain input
+ * always used. An option tab edits `row.priceOptions[n]`'s own `label`/
+ * `unitPrice`. `selectedTab` is local, ephemeral presentation state — never
+ * part of `RateSheetToolController`, never persisted — and resets to
+ * Default Price on every mount, i.e. every time this row becomes active,
+ * since this component is only rendered inside that branch.
+ */
+function RateSheetUnitPriceOptionEditor({
+  row, commands, disabled,
+}: {
+  row:      RateSheetEditorRow;
+  commands: RateSheetRowCommands;
+  disabled: boolean;
+}): VNode {
+  const rowId = rowKey(row);
+  const [selectedTab, setSelectedTab] = useState<string>('default');
+  const selectedOption = selectedTab === 'default'
+    ? null
+    : row.priceOptions.find((option) => priceOptionKey(option) === selectedTab) ?? null;
+
+  return (
+    <div class="cz-rate-sheet-tool__price-options">
+      <div class="cz-rate-sheet-tool__price-options-tabs" role="tablist" aria-label={`Unit Price options for ${row.optionLabel}`}>
+        <button type="button" role="tab" aria-selected={selectedTab === 'default'}
+          class={`cz-rate-sheet-tool__price-options-tab${selectedTab === 'default' ? ' cz-rate-sheet-tool__price-options-tab--active' : ''}`}
+          onClick={() => setSelectedTab('default')}>
+          Default Price
+        </button>
+        {row.priceOptions.map((option, index) => {
+          const optionTabKey = priceOptionKey(option);
+          return (
+            <button type="button" role="tab" key={optionTabKey} aria-selected={selectedTab === optionTabKey}
+              class={`cz-rate-sheet-tool__price-options-tab${selectedTab === optionTabKey ? ' cz-rate-sheet-tool__price-options-tab--active' : ''}`}
+              onClick={() => setSelectedTab(optionTabKey)}>
+              {option.label.trim() || `Option ${index + 1}`}
+            </button>
+          );
+        })}
+        {!disabled && (
+          <button type="button" class="cz-rate-sheet-tool__price-options-tab cz-rate-sheet-tool__price-options-tab--add"
+            aria-label={`Add price option for ${row.optionLabel}`}
+            onClick={() => setSelectedTab(commands.addPriceOption(rowId))}>
+            +
+          </button>
+        )}
+      </div>
+      {selectedOption === null ? (
+        <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
+          aria-label={`Unit price for ${row.optionLabel}`}
+          onInput={(event) => commands.setRowUnitPrice(rowId, Number((event.currentTarget as HTMLInputElement).value))} />
+      ) : (
+        <div class="cz-rate-sheet-tool__price-option-fields">
+          <input class="cz-tf-control cz-tf-input" type="text" value={selectedOption.label} disabled={disabled}
+            placeholder="Option label"
+            aria-label={`Label for price option of ${row.optionLabel}`}
+            onInput={(event) => commands.setPriceOptionLabel(rowId, selectedTab, (event.currentTarget as HTMLInputElement).value)} />
+          <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={selectedOption.unitPrice} disabled={disabled}
+            aria-label={`Unit price for price option of ${row.optionLabel}`}
+            onInput={(event) => commands.setPriceOptionUnitPrice(rowId, selectedTab, Number((event.currentTarget as HTMLInputElement).value))} />
+          {!disabled && (
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+              aria-label={`Remove price option ${selectedOption.label || `Option`}`}
+              onClick={() => { commands.removePriceOption(rowId, selectedTab); setSelectedTab('default'); }}>
+              Remove
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -441,7 +535,7 @@ function RateSheetEditRow({
     const isNewRow = row.id === '';
     return (
       <tr>
-        <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} />
+        <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} showPriceOptions />
         {allowRemove && (
           <td>
             <div style="display:flex;gap:var(--cz-space-2)">

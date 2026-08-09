@@ -16,14 +16,21 @@ shared `PlatformIdentifierStation` through `SurfacePackagesModule`; the Family
 row owns `cz_platform_id` and native string `group_id`, while the identifier
 Station owns `CZPG` reservation, binding, lookup, conflict, and tombstone only.
 Package identity also covers Tier Group `CZTG`, primary Tier `CZT`, secondary
-Add-on `CZTA`, Tier Edition `CZTE`, Rate Sheet `CZPRC`, Rate Sheet Group `CZPRCG`, and Rate Sheet
-Item `CZPRCI`. Tier/Add-on
+Add-on `CZTA`, Tier Edition `CZTE`, Rate Sheet `CZPRC`, Rate Sheet Group `CZPRCG`, Rate Sheet
+Item `CZPRCI`, and Rate Sheet Item Price Option `CZPRCIO`. Tier/Add-on
 share one instance-qualified occupant native reference; Tier Edition uses its
 own occupant-qualified `(tier_instance_id, occupant_id, edition_id)`
-reference. Package adapters own
+reference. A Price Option is further-qualified by its own row —
+`(rate_sheet_id, item_id, option_id)` — reserved/bound/tombstoned through
+`PackagePlatformIdentifierAdapters::rateSheetItemOption()`, the same
+`rateSheetAdapter($entityType, $scope)` factory `rateSheet()`/`rateSheetGroup()`/
+`rateSheetItem()` already use, with `option_id` minted write-path-only in
+`PackageManagerSchema::commitConfiguration` (never derived from its label);
+it has no dedicated `/admin/...` read route of its own yet, unlike Rate
+Sheet/Group/Item. Package adapters own
 storage/enumeration/projection callbacks and delegate registry work to the
 shared Station. Owner-specific read routes and durable CLI selectors exist for
-all five scopes. Promotion `CZTP` remains deferred.
+all five scopes existing before it. Promotion `CZTP` remains deferred.
 
 ## Boundaries
 

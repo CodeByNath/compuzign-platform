@@ -3064,6 +3064,62 @@ button.cz-station-status-pill {
   min-width: 88px;
 }
 
+/* The Unit Price cell's own Default/Option tab strip — standalone drawer's
+   active row only. Mirrors the drawer kit's ChildChipStrip pill/active-state
+   grammar at grid-cell scale, using this sheet's own station tokens rather
+   than the drawer kit's private palette (feature CSS here may not reference
+   --admin-* tokens). */
+.cz-rate-sheet-tool__price-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.cz-rate-sheet-tool__price-options-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cz-rate-sheet-tool__price-options-tab {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--station-pill-radius);
+  font-size: var(--station-text-xs);
+  font-weight: 600;
+  color: var(--station-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cz-rate-sheet-tool__price-options-tab:hover {
+  color: var(--station-text);
+}
+
+.cz-rate-sheet-tool__price-options-tab--active {
+  background: var(--station-accent-soft-bg);
+  border-color: var(--station-accent-border);
+  color: var(--station-accent-fg);
+}
+
+.cz-rate-sheet-tool__price-options-tab--add {
+  color: var(--station-accent);
+  font-weight: 700;
+}
+
+.cz-rate-sheet-tool__price-option-fields {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-rate-sheet-tool__price-option-fields .cz-tf-input {
+  min-width: 72px;
+}
+
 .cz-rate-sheet-tool__picker {
   display: flex;
   flex-direction: column;
