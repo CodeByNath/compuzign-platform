@@ -300,6 +300,17 @@ final class PackageManagerSchema
     }
 
     /**
+     * Mint a fresh Price Option identity. Write-path only (commitConfiguration),
+     * exactly like mintRateSheetId() — an option has no stable external source
+     * to derive from the way item_id derives from source_item_id, so it is
+     * minted fresh rather than hashed. Never derived from the editable label.
+     */
+    private static function mintOptionId(): string
+    {
+        return 'opt_' . bin2hex(random_bytes(6));
+    }
+
+    /**
      * Select one sheet from the collection by id. Returns null for a null,
      * empty, or unknown id — the caller resolves nothing rather than scanning
      * other sheets (row identity is always (rate_sheet_id, item_id)).
@@ -367,6 +378,7 @@ final class PackageManagerSchema
                 'quantity'      => max(1, (int) ($item['quantity'] ?? 1)),
                 'group_id'      => $groupId,
                 'sort_order'    => (int) ($item['sort_order'] ?? 0),
+                'price_options' => self::sanitizePriceOptions($item['price_options'] ?? []),
             ];
         }
 
@@ -374,6 +386,46 @@ final class PackageManagerSchema
             return null;
         }
         return ['title' => $title, 'groups' => $groups, 'items' => $items];
+    }
+
+    /**
+     * A row's optional alternative-price children. Never a second row, never
+     * Rate-Sheet-wide, never touching quantity/cycle/commitment. `option_id`
+     * is passed through as submitted — never derived from `label` — and left
+     * blank when not yet minted; `commitConfiguration` mints a fresh one on
+     * the write path only, mirroring `mintRateSheetId()`. This helper serves
+     * both the read (sanitize()) and write (commitConfiguration()) paths, so
+     * it must never mint here — read-time minting would invent identity for
+     * data no save request ever produced.
+     *
+     * @return array<int, array{option_id:string,cz_platform_id:string,label:string,unit_price:float}>
+     */
+    private static function sanitizePriceOptions(mixed $options): array
+    {
+        if (!is_array($options)) {
+            return [];
+        }
+        $out = [];
+        $seen = [];
+        foreach ($options as $option) {
+            if (!is_array($option)) {
+                continue;
+            }
+            $optionId = sanitize_text_field((string) ($option['option_id'] ?? ''));
+            if ($optionId !== '' && isset($seen[$optionId])) {
+                continue;
+            }
+            if ($optionId !== '') {
+                $seen[$optionId] = true;
+            }
+            $out[] = [
+                'option_id'      => $optionId,
+                'cz_platform_id' => sanitize_text_field((string) ($option['cz_platform_id'] ?? '')),
+                'label'          => sanitize_text_field((string) ($option['label'] ?? '')),
+                'unit_price'     => max(0, (float) ($option['unit_price'] ?? 0)),
+            ];
+        }
+        return $out;
     }
 
     /**
@@ -676,6 +728,15 @@ final class PackageManagerSchema
             if (!is_array($submitted)) { continue; }
             $core = self::sanitizeRateSheet($submitted, $allowedUnits);
             if ($core === null) { continue; }
+            // Write-path mint: an option with no id is one the Tool just
+            // created (mirrors the sheet's own blank-id mint just below).
+            foreach ($core['items'] as &$coreItem) {
+                foreach ($coreItem['price_options'] as &$coreOption) {
+                    if ($coreOption['option_id'] === '') { $coreOption['option_id'] = self::mintOptionId(); }
+                }
+                unset($coreOption);
+            }
+            unset($coreItem);
             $id = sanitize_text_field((string) ($submitted['rate_sheet_id'] ?? ''));
             if ($id === '') { $id = self::mintRateSheetId(); } // write-path mint
             $reconciled = self::reconcileRateSheetRows(
@@ -688,11 +749,22 @@ final class PackageManagerSchema
             $existingSheet = $sheetsById[$id] ?? null;
             $reconciled['cz_platform_id'] = (string) ($existingSheet['cz_platform_id'] ?? '');
             $existingItems = [];
+            $existingOptions = [];
             foreach (is_array($existingSheet['items'] ?? null) ? $existingSheet['items'] : [] as $item) {
-                if (is_array($item)) $existingItems[(string) ($item['item_id'] ?? '')] = (string) ($item['cz_platform_id'] ?? '');
+                if (!is_array($item)) { continue; }
+                $existingItemId = (string) ($item['item_id'] ?? '');
+                $existingItems[$existingItemId] = (string) ($item['cz_platform_id'] ?? '');
+                foreach (is_array($item['price_options'] ?? null) ? $item['price_options'] : [] as $option) {
+                    if (!is_array($option)) { continue; }
+                    $existingOptions[$existingItemId . "\0" . (string) ($option['option_id'] ?? '')] = (string) ($option['cz_platform_id'] ?? '');
+                }
             }
             foreach ($reconciled['items'] as &$item) {
                 $item['cz_platform_id'] = $existingItems[(string) $item['item_id']] ?? '';
+                foreach ($item['price_options'] as &$option) {
+                    $option['cz_platform_id'] = $existingOptions[(string) $item['item_id'] . "\0" . (string) $option['option_id']] ?? '';
+                }
+                unset($option);
             }
             unset($item);
             $existingGroups = [];
@@ -1026,6 +1098,11 @@ final class PackageManagerSchema
                     $sheet['items'] = array_map(static function (array $item): array {
                         $item['platform_id'] = (string) ($item['cz_platform_id'] ?? '');
                         unset($item['cz_platform_id']);
+                        $item['price_options'] = array_map(static function (array $option): array {
+                            $option['platform_id'] = (string) ($option['cz_platform_id'] ?? '');
+                            unset($option['cz_platform_id']);
+                            return $option;
+                        }, is_array($item['price_options'] ?? null) ? $item['price_options'] : []);
                         return $item;
                     }, is_array($sheet['items'] ?? null) ? $sheet['items'] : []);
                     return $sheet;

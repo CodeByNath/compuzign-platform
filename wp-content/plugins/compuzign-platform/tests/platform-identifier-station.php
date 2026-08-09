@@ -88,6 +88,7 @@ $expected = [
     'package_rate_card'        => 'CZPRC',
     'package_rate_card_group'  => 'CZPRCG',
     'package_rate_card_item'   => 'CZPRCI',
+    'package_rate_card_item_option' => 'CZPRCIO',
 ];
 
 checkIdentifier(PlatformIdentifierPolicy::prefixes() === $expected, 'every entity prefix is locked');

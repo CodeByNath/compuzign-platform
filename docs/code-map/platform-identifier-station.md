@@ -96,11 +96,13 @@ bound matching Family before delegating to Package projection. The same WP-CLI
 command accepts `package-family`, using bounded lexically sorted `group_id`
 pages and Package-owned immutable scalar callbacks.
 
-Package identity also covers Tier Group (`CZTG`), Tier (`CZT`), Tier Add-on
+Package identity covers Tier Group (`CZTG`), Tier (`CZT`), Tier Add-on
 (`CZTA`), Tier Edition (`CZTE`), Rate Sheet (`CZPRC`), Rate Sheet Group
-(`CZPRCG`), and Rate Sheet Item (`CZPRCI`). Tier/Add-on share one
-instance-qualified occupant reference; Tier Edition's own reference is
-occupant- not slot-qualified — see [Tier Edition](tier-edition.md). Rate
-Sheet Group/Item use `(rate_sheet_id, group_id)`/`(rate_sheet_id, item_id)`.
-Package adapters retain storage/projection ownership and delegate registry
-work here. Tier Promotion (`CZTP`) is deferred.
+(`CZPRCG`), Rate Sheet Item (`CZPRCI`), Price Option (`CZPRCIO`).
+Tier/Add-on share one instance-qualified occupant reference; Tier Edition's
+reference is occupant- not slot-qualified — see
+[Tier Edition](tier-edition.md). Rate Sheet Group/Item/Option use
+`(rate_sheet_id, group_id)`/`(rate_sheet_id, item_id)`/
+`(rate_sheet_id, item_id, option_id)`. Package adapters retain
+storage/projection ownership and delegate registry work here. Tier
+Promotion (`CZTP`) is deferred.

@@ -50,6 +50,16 @@ final class PackagePlatformNativeReference
         return self::composite('rate-sheet-item', [$rateSheetId, $itemId]);
     }
 
+    /**
+     * A Price Option is a further-qualified child of the row it belongs to,
+     * not a sibling row of its own — the row's own native reference
+     * (rateSheetItem) and Platform ID are untouched by an option's presence.
+     */
+    public static function rateSheetItemOption(string $rateSheetId, string $itemId, string $optionId): string
+    {
+        return self::composite('rate-sheet-item-option', [$rateSheetId, $itemId, $optionId]);
+    }
+
     /** @return list<string>|null */
     public static function parse(string $reference, string $context, int $segments): ?array
     {

@@ -28,6 +28,7 @@ WordPress posts or terms. Platform IDs are output-only and never recycled.
 | `package_rate_card` | `CZPRC` | Pending Phase 8 source audit |
 | `package_rate_card_group` | `CZPRCG` | Pending Phase 9 source audit |
 | `package_rate_card_item` | `CZPRCI` | Package Station / `(rate_sheet_id,item_id)` |
+| `package_rate_card_item_option` | `CZPRCIO` | Package Station / `(rate_sheet_id,item_id,option_id)` |
 
 Every prefix receives five characters from
 `23456789ABCDEFGHJKMNPQRSTVWXYZ`. Forward records use

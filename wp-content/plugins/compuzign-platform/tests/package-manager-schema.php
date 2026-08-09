@@ -277,6 +277,94 @@ $rowChangedModel = PMS::buildReadModel(10, $rowChanged, $expandedPool, $faqPool,
 assertSameValue('CZPRCI22222', $rowChangedModel['rate_sheets'][0]['items'][0]['platform_id'], 'row identity is projected output-only');
 assertSameValue(false, array_key_exists('cz_platform_id', $rowChangedModel['rate_sheets'][0]['items'][0]), 'stored row scalar is not exposed as a writable field');
 
+// ── Price Options: children of the row, never a second row, never migrated
+//    from the row's own Default Price ─────────────────────────────────────────
+$withPriceOption = PMS::commitConfiguration(
+    $withRateSheet, [], [], $expandedPool, $faqPool, [[
+        'rate_sheet_id' => 'rs_infra', 'title' => 'Infrastructure', 'status' => 'active',
+        'groups' => [],
+        'items' => [[
+            'item_id' => 'rate-1', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+            'unit_price' => 36, 'per' => 'Per VM', 'quantity' => 2,
+            'group_id' => null, 'sort_order' => 0,
+            'price_options' => [[
+                'option_id' => '', 'label' => 'Annual', 'unit_price' => -5,
+            ]],
+        ]],
+    ]]
+);
+$firstOption = $withPriceOption['rate_sheets'][0]['items'][0]['price_options'][0];
+assertSameValue(36.0, $withPriceOption['rate_sheets'][0]['items'][0]['unit_price'], "adding a price option never touches the row's own Default Price");
+assertSameValue(true, $firstOption['option_id'] !== '', 'a blank option_id is minted on the write path, never left blank');
+assertSameValue(false, str_starts_with($firstOption['option_id'], 'CZPRCI'), "a minted option_id is a native id, not a hand-derived/concatenated Platform ID");
+assertSameValue('Annual', $firstOption['label'], 'a price option label is preserved');
+assertSameValue(0, $firstOption['unit_price'], 'a price option unit_price is clamped to zero, same as the row\'s own unit_price');
+assertSameValue('', $firstOption['cz_platform_id'], 'a freshly minted price option starts with no bound Platform ID — the REST layer reserves/binds it');
+
+// Simulate the REST layer having bound CZPRCIO, then a second save that
+// renames/reprices the option: identity must survive, exactly like the row's
+// own CZPRCI survives repricing.
+$mintedOptionId = $firstOption['option_id'];
+$withPriceOption['rate_sheets'][0]['items'][0]['price_options'][0]['cz_platform_id'] = 'CZPRCIO22222';
+$optionRepriced = PMS::commitConfiguration(
+    $withPriceOption, [], [], $expandedPool, $faqPool, [[
+        'rate_sheet_id' => 'rs_infra', 'title' => 'Infrastructure', 'status' => 'active',
+        'groups' => [],
+        'items' => [[
+            'item_id' => 'rate-1', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+            'unit_price' => 36, 'per' => 'Per VM', 'quantity' => 2,
+            'group_id' => null, 'sort_order' => 0,
+            'price_options' => [[
+                'option_id' => $mintedOptionId, 'label' => 'Annual (renamed)', 'unit_price' => 300,
+            ]],
+        ]],
+    ]]
+);
+$repricedOption = $optionRepriced['rate_sheets'][0]['items'][0]['price_options'][0];
+assertSameValue($mintedOptionId, $repricedOption['option_id'], 'renaming/repricing a price option never remints its option_id');
+assertSameValue('CZPRCIO22222', $repricedOption['cz_platform_id'], "a price option's bound CZPRCIO survives label/price changes, exactly like the row's own CZPRCI");
+assertSameValue('Annual (renamed)', $repricedOption['label'], 'a price option label change is applied');
+assertSameValue(300.0, $repricedOption['unit_price'], 'a price option price change is applied');
+
+// Omitting price_options entirely — the ordinary shape of a row with none —
+// leaves the row itself completely unchanged (existing behavior preserved).
+$noOptions = PMS::commitConfiguration(
+    $withRateSheet, [], [], $expandedPool, $faqPool, [[
+        'rate_sheet_id' => 'rs_infra', 'title' => 'Infrastructure', 'status' => 'active',
+        'groups' => [],
+        'items' => [[
+            'item_id' => 'rate-1', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+            'unit_price' => 36, 'per' => 'Per VM', 'quantity' => 2,
+            'group_id' => null, 'sort_order' => 0,
+        ]],
+    ]]
+);
+assertSameValue([], $noOptions['rate_sheets'][0]['items'][0]['price_options'], 'a row with no price_options key sanitizes to an empty array, not an error');
+assertSameValue(36.0, $noOptions['rate_sheets'][0]['items'][0]['unit_price'], 'a row with zero price options keeps its own unit_price exactly as before this feature');
+
+// Removing a price option (omitted from the submitted array) drops it —
+// mirrors row/group/sheet removal-by-omission-plus-explicit-set already
+// proven above; this is the same partial-upsert mechanism one level deeper.
+$optionRemoved = PMS::commitConfiguration(
+    $optionRepriced, [], [], $expandedPool, $faqPool, [[
+        'rate_sheet_id' => 'rs_infra', 'title' => 'Infrastructure', 'status' => 'active',
+        'groups' => [],
+        'items' => [[
+            'item_id' => 'rate-1', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+            'unit_price' => 36, 'per' => 'Per VM', 'quantity' => 2,
+            'group_id' => null, 'sort_order' => 0,
+            'price_options' => [],
+        ]],
+    ]]
+);
+assertSameValue([], $optionRemoved['rate_sheets'][0]['items'][0]['price_options'], 'a price option omitted from the submitted set is removed');
+assertSameValue(36.0, $optionRemoved['rate_sheets'][0]['items'][0]['unit_price'], "removing every price option never touches the row's own Default Price");
+
+$priceOptionModel = PMS::buildReadModel(10, $optionRepriced, $expandedPool, $faqPool, 'active');
+$projectedOption = $priceOptionModel['rate_sheets'][0]['items'][0]['price_options'][0];
+assertSameValue('CZPRCIO22222', $projectedOption['platform_id'], 'a price option Platform ID is projected output-only, mirroring the row itself');
+assertSameValue(false, array_key_exists('cz_platform_id', $projectedOption), 'a price option\'s stored scalar is not exposed as a writable field');
+
 // ── Curated unit vocabulary ──────────────────────────────────────────────────
 // The unit list is data. A row may only carry a unit the vocabulary knows, so a
 // row can never introduce one by using it.

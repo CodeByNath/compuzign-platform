@@ -1009,6 +1009,7 @@ class PackageStationController
             $oldSheets = [];
             $oldGroups = [];
             $oldItems = [];
+            $oldOptions = [];
             foreach ($storedManager['rate_sheets'] as $sheet) {
                 $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
                 if ($sheetId === '') continue;
@@ -1019,7 +1020,12 @@ class PackageStationController
                 }
                 foreach ($sheet['items'] as $item) {
                     $itemId = (string) ($item['item_id'] ?? '');
-                    if ($itemId !== '') $oldItems[$sheetId . "\0" . $itemId] = $item;
+                    if ($itemId === '') continue;
+                    $oldItems[$sheetId . "\0" . $itemId] = $item;
+                    foreach (is_array($item['price_options'] ?? null) ? $item['price_options'] : [] as $option) {
+                        $optionId = (string) ($option['option_id'] ?? '');
+                        if ($optionId !== '') $oldOptions[$sheetId . "\0" . $itemId . "\0" . $optionId] = $option;
+                    }
                 }
             }
             try {
@@ -1066,6 +1072,25 @@ class PackageStationController
                             $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $reservation->platformId();
                             $identityAssignments[] = [$adapter, $reservation, PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];
                         }
+                        // A Price Option is a further-qualified child of THIS
+                        // row — its own reserve/reconcile never touches the
+                        // row's own item identity just resolved above.
+                        foreach ($item['price_options'] ?? [] as $optionIndex => $option) {
+                            $optionId = (string) $option['option_id'];
+                            $optionKey = $sheetId . "\0" . $itemId . "\0" . $optionId;
+                            if (!isset($oldOptions[$optionKey])) {
+                                $reservation = $this->platformIdentity->reserve($this->identityAdapters->rateSheetItemOption());
+                                $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['price_options'][$optionIndex]['cz_platform_id'] = $reservation->platformId();
+                                $identityAssignments[] = [$this->identityAdapters->rateSheetItemOption(), $reservation, PackagePlatformNativeReference::rateSheetItemOption($sheetId, $itemId, $optionId)];
+                            } elseif ($this->identityNeedsReconciliation((string) ($option['cz_platform_id'] ?? ''))) {
+                                $adapter = $this->identityAdapters->rateSheetItemOption();
+                                $existingPlatformId = (string) $option['cz_platform_id'];
+                                $reservation = $this->reservationForReconciliation($adapter, $existingPlatformId);
+                                if ($reservation->platformId() === $existingPlatformId) $resumedPlatformIds[$existingPlatformId] = true;
+                                $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['price_options'][$optionIndex]['cz_platform_id'] = $reservation->platformId();
+                                $identityAssignments[] = [$adapter, $reservation, PackagePlatformNativeReference::rateSheetItemOption($sheetId, $itemId, $optionId)];
+                            }
+                        }
                     }
                 }
             } catch (\Throwable) {
@@ -1079,6 +1104,14 @@ class PackageStationController
             foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['groups'] as $group) $newGroupKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $group['group_id']] = true;
             $newItemKeys = [];
             foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['items'] as $item) $newItemKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $item['item_id']] = true;
+            $newOptionKeys = [];
+            foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['items'] as $item) foreach ($item['price_options'] ?? [] as $option) {
+                $newOptionKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $item['item_id'] . "\0" . (string) $option['option_id']] = true;
+            }
+            foreach ($oldOptions as $key => $option) if (!isset($newOptionKeys[$key]) && (string) ($option['cz_platform_id'] ?? '') !== '') {
+                [$sheetId, $itemId, $optionId] = explode("\0", $key, 3);
+                $identityDeletions[] = [$this->identityAdapters->rateSheetItemOption(), PackagePlatformNativeReference::rateSheetItemOption($sheetId, $itemId, $optionId)];
+            }
             foreach ($oldItems as $key => $item) if (!isset($newItemKeys[$key]) && (string) ($item['cz_platform_id'] ?? '') !== '') {
                 [$sheetId, $itemId] = explode("\0", $key, 2);
                 $identityDeletions[] = [$this->identityAdapters->rateSheetItem(), PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];

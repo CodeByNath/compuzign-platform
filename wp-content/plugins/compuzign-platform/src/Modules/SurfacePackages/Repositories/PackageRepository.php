@@ -663,10 +663,19 @@ class PackageRepository
                         $manager['rate_sheets'][$sheetIndex]['groups'][$groupIndex]['cz_platform_id'] = $platformId;
                     }
                 }
-            } else {
+            } elseif ($scope === 'item') {
                 foreach ($sheet['items'] as $itemIndex => $item) {
                     if ((string) ($item['item_id'] ?? '') === $located['item_id']) {
                         $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $platformId;
+                    }
+                }
+            } else {
+                foreach ($sheet['items'] as $itemIndex => $item) {
+                    if ((string) ($item['item_id'] ?? '') !== $located['item_id']) continue;
+                    foreach ($item['price_options'] ?? [] as $optionIndex => $option) {
+                        if ((string) ($option['option_id'] ?? '') === $located['option_id']) {
+                            $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['price_options'][$optionIndex]['cz_platform_id'] = $platformId;
+                        }
                     }
                 }
             }
@@ -688,6 +697,11 @@ class PackageRepository
             if ($scope === 'item') foreach ($sheet['items'] as $item) {
                 if (($item['cz_platform_id'] ?? '') === $platformId) return true;
             }
+            if ($scope === 'option') foreach ($sheet['items'] as $item) {
+                foreach ($item['price_options'] ?? [] as $option) {
+                    if (($option['cz_platform_id'] ?? '') === $platformId) return true;
+                }
+            }
         }
         return false;
     }
@@ -696,7 +710,7 @@ class PackageRepository
     public function rateSheetAssignmentPage(?string $cursor, int $limit, string $scope): array
     {
         if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Rate Sheet assignment limit must be between 1 and 500.');
-        if (!in_array($scope, ['sheet', 'group', 'item'], true)) throw new \InvalidArgumentException('Rate Sheet assignment scope must be sheet, group, or item.');
+        if (!in_array($scope, ['sheet', 'group', 'item', 'option'], true)) throw new \InvalidArgumentException('Rate Sheet assignment scope must be sheet, group, item, or option.');
         $station = $this->loadStation();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         $references = [];
@@ -708,9 +722,17 @@ class PackageRepository
                 $groupId = (string) ($group['group_id'] ?? '');
                 if ($groupId !== '') $references[] = PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId);
             }
-            else foreach ($sheet['items'] as $item) {
+            elseif ($scope === 'item') foreach ($sheet['items'] as $item) {
                 $itemId = (string) ($item['item_id'] ?? '');
                 if ($itemId !== '') $references[] = PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId);
+            }
+            else foreach ($sheet['items'] as $item) {
+                $itemId = (string) ($item['item_id'] ?? '');
+                if ($itemId === '') continue;
+                foreach ($item['price_options'] ?? [] as $option) {
+                    $optionId = (string) ($option['option_id'] ?? '');
+                    if ($optionId !== '') $references[] = PackagePlatformNativeReference::rateSheetItemOption($sheetId, $itemId, $optionId);
+                }
             }
         }
         sort($references, SORT_STRING);
@@ -724,15 +746,20 @@ class PackageRepository
         return $this->locateRateSheetIdentity($nativeReference, $scope);
     }
 
-    /** @return array{rate_sheet_id:string,group_id?:string,item_id?:string,record:array}|null */
+    /** @return array{rate_sheet_id:string,group_id?:string,item_id?:string,option_id?:string,record:array}|null */
     private function locateRateSheetIdentity(string $nativeReference, string $scope): ?array
     {
-        if (!in_array($scope, ['sheet', 'group', 'item'], true)) return null;
-        $parts = PackagePlatformNativeReference::parse(
-            $nativeReference,
-            $scope === 'sheet' ? 'rate-sheet' : ($scope === 'group' ? 'rate-sheet-group' : 'rate-sheet-item'),
-            $scope === 'sheet' ? 1 : 2
-        );
+        if (!in_array($scope, ['sheet', 'group', 'item', 'option'], true)) return null;
+        $context = match ($scope) {
+            'sheet'  => 'rate-sheet',
+            'group'  => 'rate-sheet-group',
+            'item'   => 'rate-sheet-item',
+            'option' => 'rate-sheet-item-option',
+        };
+        $segments = match ($scope) {
+            'sheet' => 1, 'group', 'item' => 2, 'option' => 3,
+        };
+        $parts = PackagePlatformNativeReference::parse($nativeReference, $context, $segments);
         if ($parts === null) return null;
         $station = $this->loadStation();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
@@ -747,6 +774,14 @@ class PackageRepository
         if ($scope === 'item') foreach ($sheet['items'] as $item) {
             if ((string) ($item['item_id'] ?? '') === $parts[1]) {
                 return ['rate_sheet_id' => $parts[0], 'item_id' => $parts[1], 'record' => $item];
+            }
+        }
+        if ($scope === 'option') foreach ($sheet['items'] as $item) {
+            if ((string) ($item['item_id'] ?? '') !== $parts[1]) continue;
+            foreach ($item['price_options'] ?? [] as $option) {
+                if ((string) ($option['option_id'] ?? '') === $parts[2]) {
+                    return ['rate_sheet_id' => $parts[0], 'item_id' => $parts[1], 'option_id' => $parts[2], 'record' => $option];
+                }
             }
         }
         return null;

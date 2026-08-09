@@ -377,4 +377,68 @@ check_rate_sheet_reconciliation(
     'the identifier stays stable across a redundant resave — no churn from a false "needs reconciliation" read'
 );
 
+// ── TEST 6 — Price Option: a brand new option, nested under a brand new row,
+//    saves and binds its own CZPRCIO on the first request — never sharing or
+//    reusing the row's own CZPRCI ─────────────────────────────────────────────
+$rsprOptions = [];
+$rsprOptions['cz_package_station'] = [...rspr_default_station(), 'package_manager' => [...PackageManagerSchema::defaultManager(), 'items' => $sourceItems]];
+
+$optionSheetId = 'rs_options';
+$response6 = rspr_new_controller()->savePackageStationManager(new WP_REST_Request(['id' => 626], rspr_base_body([
+    ['rate_sheet_id' => $optionSheetId, 'title' => 'Options Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [[
+            'source_item_id' => $itemA, 'unit_price' => 10, 'per' => 'Per VM', 'quantity' => 1, 'group_id' => null,
+            'price_options' => [['option_id' => '', 'label' => 'Annual', 'unit_price' => 100]],
+        ]]],
+])));
+check_rate_sheet_reconciliation($response6->get_status() === 200, 'a row with a brand new price option saves successfully on the first request');
+$itemAfter6 = $response6->get_data()['manager']['rate_sheets'][0]['items'][0];
+$rowPlatformId6 = $itemAfter6['platform_id'] ?? '';
+$optionAfter6 = $itemAfter6['price_options'][0];
+$optionPlatformId6 = $optionAfter6['platform_id'] ?? '';
+check_rate_sheet_reconciliation(PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, $rowPlatformId6), "the row's own CZPRCI is active and correctly formatted");
+check_rate_sheet_reconciliation(PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM_OPTION, $optionPlatformId6), "the price option's own CZPRCIO is active and correctly formatted");
+check_rate_sheet_reconciliation($optionPlatformId6 !== $rowPlatformId6, "a price option's Platform ID is never the same identifier as its row's — a real, independent child identity");
+
+$storedOption6 = $rsprOptions['cz_package_station']['package_manager']['rate_sheets'][0]['items'][0]['price_options'][0];
+check_rate_sheet_reconciliation(($storedOption6['cz_platform_id'] ?? '') === $optionPlatformId6, 'the persisted option carries the same id the response projected');
+$optionForward6 = $rsprOptions['cz_platform_identifier_v1_' . $optionPlatformId6];
+check_rate_sheet_reconciliation($optionForward6['status'] === PlatformIdentifierStation::STATUS_BOUND, "the option's registry record is bound, not merely reserved");
+
+// ── TEST 7 — Price Option: removing an option then re-adding one for the SAME
+//    row reclaims a tombstoned (rate_sheet_id,item_id,option_id) address
+//    correctly on the very first retry — the exact TEST 5 defect class, one
+//    level deeper. Reuses the row/option saved in TEST 6. ────────────────────
+$rowItemId6 = $itemAfter6['item_id'];
+$removeOptionController = rspr_new_controller();
+$removeResponse = $removeOptionController->savePackageStationManager(new WP_REST_Request(['id' => 626], rspr_base_body([
+    ['rate_sheet_id' => $optionSheetId, 'title' => 'Options Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [[
+            'item_id' => $rowItemId6, 'source_item_id' => $itemA, 'unit_price' => 10, 'per' => 'Per VM', 'quantity' => 1, 'group_id' => null,
+            'price_options' => [],
+        ]]],
+])));
+check_rate_sheet_reconciliation($removeResponse->get_status() === 200, 'removing the price option saves successfully');
+check_rate_sheet_reconciliation(
+    ($removeResponse->get_data()['manager']['rate_sheets'][0]['items'][0]['price_options'] ?? ['x']) === [],
+    'the option no longer appears on the row after removal'
+);
+check_rate_sheet_reconciliation(
+    $rsprOptions['cz_platform_identifier_v1_' . $optionPlatformId6]['status'] === PlatformIdentifierStation::STATUS_DELETED,
+    'the removed option is tombstoned in the registry, not silently dropped'
+);
+
+$readdController = rspr_new_controller();
+$readdResponse = $readdController->savePackageStationManager(new WP_REST_Request(['id' => 626], rspr_base_body([
+    ['rate_sheet_id' => $optionSheetId, 'title' => 'Options Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [[
+            'item_id' => $rowItemId6, 'source_item_id' => $itemA, 'unit_price' => 10, 'per' => 'Per VM', 'quantity' => 1, 'group_id' => null,
+            'price_options' => [['option_id' => '', 'label' => 'Annual', 'unit_price' => 100]],
+        ]]],
+])));
+check_rate_sheet_reconciliation($readdResponse->get_status() === 200, 'a fresh option re-added to the same row saves on the FIRST attempt — the exact address-reclaim proof TEST 5 established at the row level');
+$readdOptionPlatformId = $readdResponse->get_data()['manager']['rate_sheets'][0]['items'][0]['price_options'][0]['platform_id'] ?? '';
+check_rate_sheet_reconciliation(PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM_OPTION, $readdOptionPlatformId), 'the re-added option receives a freshly bound, correctly formatted CZPRCIO');
+check_rate_sheet_reconciliation($readdOptionPlatformId !== $optionPlatformId6, 'the re-added option is a genuinely new identity, never reusing the tombstoned one');
+
 echo "Rate Sheet Platform identity reconciliation: OK\n";

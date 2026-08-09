@@ -88,6 +88,17 @@ final class PackagePlatformIdentifierAdapters
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, 'item');
     }
 
+    /**
+     * A Price Option is a further-qualified child of its own row — a Rate
+     * Sheet Item keeps its own CZPRCI identity untouched by an option's
+     * presence, exactly as Tier Edition's own CZTE never displaces the
+     * occupant's own identity.
+     */
+    public function rateSheetItemOption(): PackagePlatformIdentifierAdapter
+    {
+        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM_OPTION, 'option');
+    }
+
     private function rateSheetAdapter(string $entityType, string $scope): PackagePlatformIdentifierAdapter
     {
         return new PackagePlatformIdentifierAdapter(
