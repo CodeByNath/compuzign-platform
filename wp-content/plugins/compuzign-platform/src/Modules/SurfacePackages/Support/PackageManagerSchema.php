@@ -1310,6 +1310,30 @@ final class PackageManagerSchema
         ];
     }
 
+    /**
+     * Batch-apply projectTierRateSheetWith() to a list of rows that each
+     * carry their own rate_sheet_id + rate_sheet_items (Tier Editions
+     * today). No new pricing calculation — a thin wrapper around the one
+     * existing projector, reused so a Tier occupant's own live price and a
+     * Tier Edition's own live price share the exact same authority. Every
+     * other key on each row passes through untouched.
+     *
+     * @param  array<int, array{rate_sheet_id?: ?string, rate_sheet_items?: array}> $editions
+     * @return array<int, array>
+     */
+    public static function projectEditionPrices(array $readModel, array $editions): array
+    {
+        return array_map(function (array $edition) use ($readModel): array {
+            $projection = self::projectTierRateSheetWith(
+                $readModel,
+                $edition['rate_sheet_items'] ?? [],
+                $edition['rate_sheet_id'] ?? null
+            );
+            $edition['price'] = $projection['price'];
+            return $edition;
+        }, $editions);
+    }
+
     // ── Consumer projections ─────────────────────────────────────────────────
 
     /**

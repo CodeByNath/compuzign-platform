@@ -25,6 +25,9 @@ let an Edition *replace* the occupant's terms, inverting the model, and was
 removed. The occupant's own fields are always Default; every Edition is
 always an alternate.
 
+`price` projects live via `projectEditionPrices()`
+(`projectTierRateSheetWith()` per Edition).
+
 ## Overview registration
 
 Overview under Details carries one small derived read field, "Editions" —
@@ -49,8 +52,7 @@ guard, since Default is never a `tier_editions[]` row. Parent-to-child
 cascade reuses per-Edition transition functions verbatim;
 `cascaded_edition_ids` scopes a later Tier-level trash/restore to only the
 ids that same archive carried; restore lands `disabled`, never `active`.
-Cascade reads only `tier_editions[]`, so a binned Edition (below) is
-invisible to it.
+Cascade reads only `tier_editions[]`; a binned Edition is invisible to it.
 
 ## Edition bin (Phase 6)
 
@@ -71,10 +73,9 @@ binned Edition (`PackageRepository`/`upsertOccupant()` too).
 
 `publicTierEditionOptions()` (Active only, no `edition_platform_id`/"default"
 flag) feeds `edition_options`, empty otherwise.
-`extractTierForCostBuilder()` always resolves the occupant's own
-terms as primary. `PricingTiers.tsx` renders the switch once **one** Edition
-exists — always-present Default plus Edition buttons. `ServiceCard.tsx`
-captures whichever declaration was showing at the click.
+`extractTierForCostBuilder()` resolves the occupant's terms as primary.
+`PricingTiers.tsx` renders the switch once **one** Edition exists: Default
+plus Edition buttons. `ServiceCard.tsx` captures the declaration showing at click.
 
 ## Cart and request
 

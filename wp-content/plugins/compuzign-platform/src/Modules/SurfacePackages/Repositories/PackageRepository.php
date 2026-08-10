@@ -1183,6 +1183,28 @@ class PackageRepository
                                 && ($row['source_type'] ?? null) === 'inclusion'
                         ))
                     );
+                    // Each public edition_option row prices from its own Edition's
+                    // rate_sheet_id/rate_sheet_items — the occupant's own
+                    // extracted['rate_sheet_items'] above is a DIFFERENT selection —
+                    // resolved against the SAME read model, never a second
+                    // calculation. The occupant slot (not the already-narrowed
+                    // $extracted shape) still carries the raw tier_editions[] this
+                    // needs; the public edition_options[] shape deliberately omits
+                    // rate_sheet_id/rate_sheet_items, so price is matched back in by id.
+                    if (!empty($extracted['edition_options'])) {
+                        $occupant = PackageSchema::isOccupantFormat($instance['tiers'][$tierId] ?? [])
+                            ? ($instance['tiers'][$tierId]['current_occupant'] ?? null)
+                            : null;
+                        $rawEditions = is_array($occupant) ? PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) : [];
+                        $editionPriceById = [];
+                        foreach (PackageManagerSchema::projectEditionPrices($readModel, $rawEditions) as $priced) {
+                            $editionPriceById[$priced['id']] = $priced['price'];
+                        }
+                        $extracted['edition_options'] = array_map(
+                            static fn(array $option): array => [...$option, 'price' => $editionPriceById[$option['id']] ?? $option['price']],
+                            $extracted['edition_options']
+                        );
+                    }
                     $flatTiers[$tierId] = $extracted;
                 }
                 $projected['platform_status'] = 'active';

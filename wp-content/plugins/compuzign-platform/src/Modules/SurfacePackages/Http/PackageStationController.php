@@ -809,6 +809,11 @@ class PackageStationController
             if (is_array($detail['drafts']['overview'] ?? null)) {
                 $detail['drafts']['overview']['price'] = $rateProjection['price'];
             }
+            // Each Edition carries its own rate_sheet_id/rate_sheet_items, resolved
+            // against the SAME already-built read model the occupant's own price
+            // just used above — the one authoritative pricing boundary, not a
+            // second Edition-specific calculation.
+            $detail['tier_editions'] = $PMS::projectEditionPrices($managerModel, $detail['tier_editions']);
             $tiers[$tierId] = $detail;
         }
 

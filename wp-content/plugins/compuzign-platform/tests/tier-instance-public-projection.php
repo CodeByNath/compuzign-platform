@@ -94,9 +94,11 @@ if (!class_exists('WP_REST_Response')) {
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationReadController;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
+use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 
@@ -272,6 +274,25 @@ $instances = [
     public_projection_instance('ti_aptos', 'APTOS Tier Set', 'APTOS Basic', 'rs_aptos', $rateItemId),
     public_projection_instance('ti_unready', 'Unready Tier Set', 'Unready Basic', 'rs_kairos', $rateItemId, 'disabled'),
 ];
+
+// Parity repair contract — the KAIROS basic occupant additionally carries one
+// Active Edition, priced from ITS OWN rate_sheet_items (quantity 3 of the
+// shared row) rather than the occupant's own quantity-1 selection, proving
+// the public/Cost Builder projection resolves an Edition's price live
+// through the same authoritative pricing boundary as the occupant itself —
+// not a second calculation, and never the occupant's own price bleeding in.
+$kairosEditionAdd = PackageSchema::addTierEdition([], [
+    'title'            => 'KAIROS Annual',
+    'rate_sheet_id'    => 'rs_kairos',
+    'rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 3]],
+    'billing_cycle'    => 'annually',
+]);
+$kairosEditions = PackageSchema::applyTierEditionStatus(
+    $kairosEditionAdd['tier_editions'],
+    $kairosEditionAdd['edition']['id'],
+    StationLifecycle::STATUS_ACTIVE
+);
+$instances[0]['tiers']['basic']['current_occupant']['tier_editions'] = $kairosEditions;
 $assignments = [
     [
         'assignment_id' => TierAssignmentSchema::deriveAssignmentId('package_family', 'pcg_kairos', 'ti_kairos'),
@@ -325,6 +346,9 @@ check_public_projection(array_keys($publicMap) === [101, 102], 'only KAIROS and 
 check_public_projection($publicMap[101]['tiers']['basic']['label'] === 'KAIROS Basic', 'KAIROS receives only its assigned Tier occupant');
 check_public_projection($publicMap[102]['tiers']['basic']['label'] === 'APTOS Basic', 'APTOS receives only its assigned Tier occupant');
 check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'KAIROS resolves the shared row id inside rs_kairos');
+check_public_projection(count($publicMap[101]['tiers']['basic']['edition_options']) === 1, 'KAIROS basic occupant carries its one Active Edition publicly');
+check_public_projection($publicMap[101]['tiers']['basic']['edition_options'][0]['price'] === 33.0, 'the Edition\'s OWN rate_sheet_items (quantity 3 of the shared row) project a live price through the same authoritative boundary — no longer a raw/null stored scalar');
+check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'the occupant\'s own price is unaffected by projecting its Edition\'s price — never a second calculation bleeding across rows');
 check_public_projection($publicMap[102]['tiers']['basic']['price'] === 22.0, 'APTOS resolves the shared row id inside rs_aptos');
 check_public_projection($publicMap[101]['popular_label'] === 'KAIROS Tier Set popular', 'KAIROS popular configuration comes from its instance');
 check_public_projection($publicMap[102]['popular_label'] === 'APTOS Tier Set popular', 'APTOS popular configuration comes from its instance');
