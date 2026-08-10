@@ -2,14 +2,14 @@ import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, quoteItemKey } from '@/utils/quote';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
-import type { QuoteItem } from '@/components/cost-builder/types';
+import type { CartItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
 
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
 
 interface OrderSummaryProps {
-  items: QuoteItem[];
+  items: CartItem[];
   services: ServiceItem[];
   contact: ContactFormValues;
   quoteRef: string;
@@ -48,7 +48,7 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { mainItems, bundleItems, tierAddonItems } = classifyQuoteItems(items);
+  const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
   const totals = calcQuoteTotals(items);
 
   const findService = (id: number) => services.find((s) => s.id === Math.abs(id));
@@ -58,7 +58,7 @@ export function OrderSummary({
   const isSubmitting = submitState === 'submitting';
   const isSubmitted  = submitState === 'success';
   const submitDisabled = step === 'contact' || !canSubmit || isSubmitting;
-  const totalCount   = mainItems.length + bundleItems.length + tierAddonItems.length;
+  const totalCount   = mainItems.length + bundleItems.length + tierAddonItems.length + familyMainItems.length + familyAddonItems.length;
 
   return (
     <div class="cz-os">
@@ -147,6 +147,27 @@ export function OrderSummary({
             );
           })}
 
+          {familyMainItems.map((item) => {
+            const cycleSuffix = formatCycleLabel(item.billingCycle);
+            return (
+              <div key={quoteItemKey(item)} class="cz-os__service">
+                <span class="cz-os__service-icon" aria-hidden="true">{item.familyTitle.charAt(0).toUpperCase()}</span>
+                <div class="cz-os__service-info">
+                  <p class="cz-os__service-name">{item.familyTitle}</p>
+                  <div class="cz-os__service-tags">
+                    <span class="cz-os__service-tag">{item.tierTitle}</span>
+                    <span class="cz-os__service-tag">{item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}</span>
+                    {item.tierEditionPlatformId && <span class="cz-os__service-tag">Edition {item.tierEditionPlatformId}</span>}
+                  </div>
+                </div>
+                <div class="cz-os__service-price">
+                  <span class="cz-os__service-price-amount">{item.price !== null ? formatPrice(item.price) : 'TBC'}</span>
+                  {item.price !== null && cycleSuffix && <span class="cz-os__service-price-cycle"> {cycleSuffix}</span>}
+                </div>
+              </div>
+            );
+          })}
+
           {bundleItems.map((item) => {
             const cycleSuffix = formatCycleLabel(item.billingCycle);
             return (
@@ -177,6 +198,19 @@ export function OrderSummary({
                     ? `${formatPrice(item.price)}${cycleSuffix ? ` ${cycleSuffix}` : ''}`
                     : 'TBC'}
                 </span>
+              </div>
+            );
+          })}
+
+          {familyAddonItems.map((item) => {
+            const cycleSuffix = formatCycleLabel(item.billingCycle);
+            return (
+              <div key={quoteItemKey(item)} class="cz-os__addon">
+                <div class="cz-os__addon-info">
+                  <p class="cz-os__addon-name">{item.tierTitle}</p>
+                  <p class="cz-os__addon-label">Optional add-on · {item.familyTitle} · {item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}</p>
+                </div>
+                <span class="cz-os__addon-price">{item.price !== null ? `${formatPrice(item.price)}${cycleSuffix ? ` ${cycleSuffix}` : ''}` : 'TBC'}</span>
               </div>
             );
           })}

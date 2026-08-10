@@ -226,7 +226,7 @@ export function CostBuilderApp() {
       <MobileQuoteBar items={quoteItems} summaryId={QUOTE_SUMMARY_ID} />
       <RequestFlowModal
         isOpen={isFlowOpen}
-        context={{ type: 'quote_cart', items: quoteItems.filter((item): item is QuoteItem => !isFamilyTierQuoteItem(item)), services: allServices }}
+        context={{ type: 'quote_cart', items: quoteItems, services: allServices }}
         onClose={() => setIsFlowOpen(false)}
         onSubmitSuccess={() => {
           clearCart();

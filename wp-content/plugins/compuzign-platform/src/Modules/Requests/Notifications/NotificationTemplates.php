@@ -41,15 +41,27 @@ class NotificationTemplates
                 ? '$' . number_format((float) $item['price'], 2)
                 : 'Custom pricing';
             $cycle   = $item['billingCycle'] !== '' ? ' / ' . ucfirst((string) $item['billingCycle']) : '';
-            $isAddon = (int) $item['serviceId'] < 0;
+            $isFamily = ($item['offer_type'] ?? '') === 'family_tier';
+            $isAddon = !empty($item['isAddon']) || (!$isFamily && (int) ($item['serviceId'] ?? 0) < 0);
             $isPromo = ($item['offer_type'] ?? '') === 'promotion_tier';
             $badge   = $isAddon
                 ? ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>'
                 : '';
-            $title   = esc_html((string) $item['serviceTitle']);
+            $title   = esc_html((string) ($isFamily ? ($item['familyTitle'] ?? '') : ($item['serviceTitle'] ?? '')));
             $tier    = esc_html((string) $item['tierTitle']);
 
-            if ($isPromo) {
+            if ($isFamily) {
+                $familyRef = esc_html((string) ($item['familyPlatformId'] ?? ''));
+                $instanceRef = esc_html((string) ($item['tierInstancePlatformId'] ?? ''));
+                $tierRef = esc_html((string) ($item['tierPlatformId'] ?? ''));
+                $editionRef = esc_html((string) ($item['tierEditionPlatformId'] ?? ''));
+                $refs = trim($familyRef . ' · ' . $instanceRef . ' · ' . $tierRef, ' ·');
+                if ($editionRef !== '') {
+                    $refs .= ' · Edition ' . $editionRef;
+                }
+                $tierLine = trim($tier . ($refs !== '' ? ' &nbsp;·&nbsp; ' . $refs : ''));
+                $promoBadge = '';
+            } elseif ($isPromo) {
                 $billingLabel = esc_html((string) ($item['billing_label'] ?? $item['billingCycle'] ?? ''));
                 $tierLine     = $billingLabel !== '' ? "{$tier} &nbsp;·&nbsp; {$billingLabel}" : $tier;
                 $promoBadge   = ' <span style="font-size:10px;background:#fff8d6;padding:1px 6px;border-radius:8px;color:#7a5d00;">promo</span>';

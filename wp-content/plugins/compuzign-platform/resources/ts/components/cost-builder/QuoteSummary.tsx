@@ -54,6 +54,7 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
               <div class="cz-quote-summary__item-info">
                 <span class="cz-quote-summary__item-title">{isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}</span>
                 <span class="cz-quote-summary__item-tier">{item.tierTitle}</span>
+                {isFamilyTierQuoteItem(item) && <span class="cz-quote-summary__item-tier">{item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}{item.tierEditionPlatformId ? ` · ${item.tierEditionPlatformId}` : ''}</span>}
               </div>
               <div class="cz-quote-summary__item-right">
                 <span class="cz-quote-summary__item-price">

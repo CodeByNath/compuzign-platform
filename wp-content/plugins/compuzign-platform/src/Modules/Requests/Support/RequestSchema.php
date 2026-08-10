@@ -44,6 +44,9 @@ class RequestSchema
                 return ['ok' => false, 'message' => 'At least one service item is required.', 'status' => 422];
             }
             $items = self::sanitizeItems($rawItems);
+            if ($items === []) {
+                return ['ok' => false, 'message' => 'At least one valid service or package item is required.', 'status' => 422];
+            }
         } else {
             $items = [];
         }
@@ -142,6 +145,15 @@ class RequestSchema
                 $item['tierOccupantId'] = sanitize_text_field((string) ($raw['tierOccupantId'] ?? ''));
                 $item['tierPlatformId'] = sanitize_text_field((string) ($raw['tierPlatformId'] ?? ''));
                 $item['tierEditionPlatformId'] = sanitize_text_field((string) ($raw['tierEditionPlatformId'] ?? ''));
+                if ($item['familyId'] === ''
+                    || $item['familyPlatformId'] === ''
+                    || $item['tierInstanceId'] === ''
+                    || $item['tierInstancePlatformId'] === ''
+                    || $item['tierOccupantId'] === ''
+                    || $item['tierPlatformId'] === ''
+                ) {
+                    continue;
+                }
             } else {
                 $item['serviceId'] = intval($raw['serviceId'] ?? 0);
             }

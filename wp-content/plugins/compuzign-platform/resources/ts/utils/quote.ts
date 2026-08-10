@@ -113,6 +113,8 @@ export interface ClassifiedQuoteItems {
   mainItems: QuoteItem[];
   bundleItems: QuoteItem[];
   tierAddonItems: QuoteItem[];
+  familyMainItems: FamilyTierQuoteItem[];
+  familyAddonItems: FamilyTierQuoteItem[];
 }
 
 /**
@@ -122,11 +124,15 @@ export interface ClassifiedQuoteItems {
  * negative serviceId, unchanged), and real Tier add-ons (isAddon, regardless
  * of serviceId sign — never inferred from it).
  */
-export function classifyQuoteItems(items: QuoteItem[]): ClassifiedQuoteItems {
+export function classifyQuoteItems(items: CartItem[]): ClassifiedQuoteItems {
+  const serviceItems = items.filter((item): item is QuoteItem => !isFamilyTierQuoteItem(item));
+  const familyItems = items.filter(isFamilyTierQuoteItem);
   return {
-    mainItems: items.filter((item) => item.serviceId > 0 && !item.isAddon),
-    bundleItems: items.filter((item) => item.serviceId < 0),
-    tierAddonItems: items.filter((item) => item.isAddon),
+    mainItems: serviceItems.filter((item) => item.serviceId > 0 && !item.isAddon),
+    bundleItems: serviceItems.filter((item) => item.serviceId < 0),
+    tierAddonItems: serviceItems.filter((item) => item.isAddon),
+    familyMainItems: familyItems.filter((item) => !item.isAddon),
+    familyAddonItems: familyItems.filter((item) => item.isAddon),
   };
 }
 

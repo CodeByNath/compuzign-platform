@@ -2,10 +2,10 @@ import { useState, useEffect } from 'preact/hooks';
 import { useCostBuilder } from '@/hooks/useCostBuilder';
 import { decodeHtml, formatPrice, formatCycleLabel } from '@/utils/format';
 import { getRuntimeConfig } from '@/runtime/config';
-import { saveCart } from '@/utils/cartStorage';
-import { quoteItemKey } from '@/utils/quote';
+import { loadCart, saveCart } from '@/utils/cartStorage';
+import { isFamilyTierQuoteItem, quoteItemKey, removeFamilyAddonQuoteItem, removeFamilyTierSystemQuoteItems, removeAddonQuoteItem, removeServiceQuoteItems } from '@/utils/quote';
 import type { ServiceItem, TierId, Tier, CostBuilderResponse } from '@/api/types/cost-builder';
-import type { QuoteItem } from '@/components/cost-builder/types';
+import type { CartItem, QuoteItem } from '@/components/cost-builder/types';
 
 const INCLUSION_PREVIEW_COUNT = 3;
 
@@ -82,7 +82,7 @@ interface DashboardProps {
 function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
   const [activeCategorySlug, setActiveCategorySlug] = useState<string | null>(null);
   const [previewServiceId, setPreviewServiceId] = useState<number | null>(null);
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+  const [quoteItems, setQuoteItems] = useState<CartItem[]>(() => loadCart());
 
   // Listen for cz:service-select events dispatched by ServicesEditorial.
   useEffect(() => {
@@ -177,15 +177,21 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
     // Replaces only the existing normal selection for this Service, so any
     // add-on lines already in the shared cart (added from the full Cost
     // Builder) survive this widget's own add/replace action.
-    const nextItems = [...quoteItems.filter((q) => q.isAddon || q.serviceId !== service.id), item];
+    const nextItems = [...quoteItems.filter((q) => isFamilyTierQuoteItem(q) || q.isAddon || q.serviceId !== service.id), item];
     setQuoteItems(nextItems);
     saveCart(nextItems);
     setPreviewServiceId(null);
     setActiveCategorySlug(null);
   };
 
-  const handleRemove = (serviceId: number) => {
-    const nextItems = quoteItems.filter((q) => q.serviceId !== serviceId);
+  const handleRemove = (item: CartItem) => {
+    const nextItems = isFamilyTierQuoteItem(item)
+      ? (item.isAddon
+        ? removeFamilyAddonQuoteItem(quoteItems, item.familyId, item.tierInstanceId, item.tierPlatformId)
+        : removeFamilyTierSystemQuoteItems(quoteItems, item.familyId, item.tierInstanceId))
+      : (item.isAddon
+        ? removeAddonQuoteItem(quoteItems, item.serviceId, item.tierId)
+        : removeServiceQuoteItems(quoteItems, item.serviceId));
     setQuoteItems(nextItems);
     saveCart(nextItems);
   };
@@ -227,7 +233,7 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
               {services.map((svc) => {
                 const isAvailable = svc.availability.is_available;
                 const isSelected = svc.id === previewServiceId;
-                const isInQuote = quoteItems.some((q) => q.serviceId === svc.id);
+                const isInQuote = quoteItems.some((q) => !isFamilyTierQuoteItem(q) && q.serviceId === svc.id);
                 return (
                   <button
                     key={svc.id}
@@ -283,7 +289,7 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
                 <li key={quoteItemKey(item)} class="cz-home-configurator__quote-item">
                   <div class="cz-home-configurator__quote-item-info">
                     <span class="cz-home-configurator__quote-item-title">
-                      {item.serviceTitle}
+                      {isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}
                     </span>
                     <span class="cz-home-configurator__quote-item-tier">{item.tierTitle}</span>
                   </div>
@@ -294,8 +300,8 @@ function ConfiguratorDashboard({ data, costBuilderUrl }: DashboardProps) {
                     <button
                       type="button"
                       class="cz-home-configurator__quote-remove"
-                      onClick={() => handleRemove(item.serviceId)}
-                      aria-label={`Remove ${item.serviceTitle}`}
+                      onClick={() => handleRemove(item)}
+                      aria-label={`Remove ${isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}`}
                     >
                       ×
                     </button>

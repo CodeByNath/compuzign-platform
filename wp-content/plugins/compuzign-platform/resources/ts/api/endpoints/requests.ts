@@ -1,5 +1,5 @@
 import { apiClient } from '../client';
-import type { QuoteItem } from '@/components/cost-builder/types';
+import type { CartItem } from '@/components/cost-builder/types';
 
 export interface SubmitRequestPayload {
   type: 'quote_cart';
@@ -8,7 +8,7 @@ export interface SubmitRequestPayload {
   email: string;
   phone: string;
   notes: string;
-  items: QuoteItem[];
+  items: CartItem[];
   quote_ref: string;
 }
 

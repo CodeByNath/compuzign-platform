@@ -1,11 +1,11 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, quoteItemKey } from '@/utils/quote';
-import type { QuoteItem } from '@/components/cost-builder/types';
+import type { CartItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
 
 interface QuoteProposalPreviewProps {
-  items: QuoteItem[];
+  items: CartItem[];
   services: ServiceItem[];
   contact: ContactFormValues;
   quoteDate: string;
@@ -19,7 +19,7 @@ export function QuoteProposalPreview({
   quoteDate,
   quoteRef,
 }: QuoteProposalPreviewProps) {
-  const { mainItems, bundleItems, tierAddonItems } = classifyQuoteItems(items);
+  const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
   const totals = calcQuoteTotals(items);
 
   const findService = (id: number) => services.find((s) => s.id === Math.abs(id));
@@ -104,6 +104,26 @@ export function QuoteProposalPreview({
             </div>
           );
         })}
+        {familyMainItems.map((item) => {
+          const cycleSuffix = formatCycleLabel(item.billingCycle);
+          return (
+            <div key={quoteItemKey(item)} class="cz-proposal__service">
+              <div class="cz-proposal__service-row">
+                <div class="cz-proposal__service-info">
+                  <span class="cz-proposal__service-eyebrow">Package Family · {item.familyPlatformId}</span>
+                  <h3 class="cz-proposal__service-title">{item.familyTitle}</h3>
+                  <span class="cz-proposal__service-billing">Tier system {item.tierInstancePlatformId}</span>
+                </div>
+                <div class="cz-proposal__service-price-block">
+                  <span class="cz-proposal__service-tier">{item.tierTitle} · {item.tierPlatformId}</span>
+                  {item.tierEditionPlatformId && <span class="cz-proposal__service-billing">Edition {item.tierEditionPlatformId}</span>}
+                  <span class="cz-proposal__service-price">{item.price !== null ? <>{formatPrice(item.price)}{cycleSuffix && <span class="cz-proposal__service-cycle"> {cycleSuffix}</span>}</> : <span class="cz-proposal__price-on-request">Contact for pricing</span>}</span>
+                </div>
+              </div>
+              {item.features.length > 0 && <ul class="cz-proposal__features">{item.features.map((feature, index) => <li key={index} class="cz-proposal__feature">{feature}</li>)}</ul>}
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Recommended bundle (legacy) ── */}
@@ -176,6 +196,21 @@ export function QuoteProposalPreview({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {familyAddonItems.length > 0 && (
+        <div class="cz-proposal__addons">
+          <h4 class="cz-proposal__addons-heading">Package Add-ons</h4>
+          {familyAddonItems.map((item) => (
+            <div key={quoteItemKey(item)} class="cz-proposal__addon">
+              <div class="cz-proposal__addon-info">
+                <span class="cz-proposal__addon-title">{item.tierTitle}</span>
+                <span class="cz-proposal__addon-desc">{item.familyTitle} · {item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}</span>
+              </div>
+              <span class="cz-proposal__addon-price">{item.price !== null ? formatPrice(item.price) : 'Contact for pricing'}</span>
+            </div>
+          ))}
         </div>
       )}
 

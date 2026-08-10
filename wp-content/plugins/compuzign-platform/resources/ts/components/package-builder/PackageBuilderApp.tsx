@@ -17,6 +17,7 @@ import {
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { TierId } from '@/api/types/cost-builder';
 import { FamilyTierAdapter } from './FamilyTierAdapter';
+import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 
 const SUMMARY_ID = 'cz-package-builder-quote-summary';
 
@@ -24,6 +25,7 @@ export function PackageBuilderApp() {
   const { data, loading, error, refetch } = usePackageBuilder();
   const [activeFamilyId, setActiveFamilyId] = useState<string | null>(null);
   const [items, setItems] = useState<CartItem[]>(() => loadCart());
+  const [isFlowOpen, setIsFlowOpen] = useState(false);
 
   useEffect(() => {
     if (items.length === 0) clearCart();
@@ -98,10 +100,19 @@ export function PackageBuilderApp() {
           </Card>
         </main>
         <aside class="cz-cost-builder__sidebar" id={SUMMARY_ID}>
-          {items.length > 0 && <QuoteSummary items={items} onRemove={removeItem} onClear={() => setItems([])} onOpenReview={() => {}} />}
+          {items.length > 0 && <QuoteSummary items={items} onRemove={removeItem} onClear={() => setItems([])} onOpenReview={() => setIsFlowOpen(true)} />}
         </aside>
       </div>
       <MobileQuoteBar items={items} summaryId={SUMMARY_ID} />
+      <RequestFlowModal
+        isOpen={isFlowOpen}
+        context={{ type: 'quote_cart', items, services: [] }}
+        onClose={() => setIsFlowOpen(false)}
+        onSubmitSuccess={() => {
+          clearCart();
+          setItems([]);
+        }}
+      />
     </div>
   );
 }
