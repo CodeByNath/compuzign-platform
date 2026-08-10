@@ -44,11 +44,26 @@ class CostBuilderModule
         (new CostBuilderController($builder, $importer))->register();
 
         add_shortcode('compuzign_cost_builder', [$this, 'renderShortcode']);
+        // Same Cost Builder implementation, same script/style bundle — only the
+        // grouping lens (Package Family instead of Service Category) differs.
+        // Not a second engine: see resources/ts/modules/cost-builder.ts, which
+        // mounts the identical CostBuilderApp with groupBy="family" here.
+        add_shortcode('compuzign_package_builder', [$this, 'renderPackageBuilderShortcode']);
 
         Health::register('cost_builder', static fn() => post_type_exists('cz_service'));
     }
 
     public function renderShortcode(): string
+    {
+        return $this->renderTemplate('templates/cost-builder.php');
+    }
+
+    public function renderPackageBuilderShortcode(): string
+    {
+        return $this->renderTemplate('templates/cost-builder-package-family.php');
+    }
+
+    private function renderTemplate(string $relativePath): string
     {
         if (wp_style_is('compuzign-cost-builder', 'registered')) {
             wp_enqueue_style('compuzign-cost-builder');
@@ -57,7 +72,7 @@ class CostBuilderModule
             wp_enqueue_script('compuzign-cost-builder');
         }
 
-        $template = COMPUZIGN_COST_BUILDER_PATH . 'templates/cost-builder.php';
+        $template = COMPUZIGN_COST_BUILDER_PATH . $relativePath;
 
         ob_start();
         if (file_exists($template)) {

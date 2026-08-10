@@ -19,3 +19,15 @@ registry.register({
     { type: 'shortcode', mountId: 'compuzign-cost-builder' },
   ],
 });
+
+function PackageFamilyCostBuilderApp() {
+  return h(CostBuilderApp, { groupBy: 'family' });
+}
+
+registry.register({
+  id: 'cost-builder-package-family',
+  component: PackageFamilyCostBuilderApp,
+  conditions: [
+    { type: 'shortcode', mountId: 'compuzign-package-builder' },
+  ],
+});
