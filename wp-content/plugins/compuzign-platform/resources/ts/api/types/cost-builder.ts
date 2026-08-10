@@ -172,7 +172,7 @@ export interface PackageBuilderFamily {
   tier_instance_platform_id: string;
   popular_tier: TierId | null;
   popular_label: string | null;
-  pricing: Pick<ServicePricing, 'tiers'>;
+  pricing: { tiers: Partial<Record<TierId, PricingTierData>> };
 }
 
 export interface PackageBuilderResponse {

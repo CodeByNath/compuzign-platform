@@ -4,6 +4,12 @@
 
 Projects the active service catalogue, package tiers, bundles, promotions, and FAQs into the public interactive pricing and selection experience.
 
+The additive Package Family customer builder follows a separate public read:
+active Family (commercial assignment consumer) → explicit assignment → active
+Tier Instance (Tier-system container) → compiled active occupants. It never
+discovers a Tier Instance through a Service. Services remain upstream Rate
+Sheet inclusion sources.
+
 ## Ownership
 
 `CostBuilderApp` owns only transient browsing and quote-selection state; browser storage retains the current cart. PHP repositories and `PricingBuilder` own the authoritative public projection. The Cost Builder must not mutate admin catalogue or Package Station configuration.
@@ -11,40 +17,42 @@ Projects the active service catalogue, package tiers, bundles, promotions, and F
 ## Main Entry Points
 
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/modules/cost-builder.ts) registers the component and mount condition.
+- The same entry registers `PackageBuilderApp` at the additive
+  `[compuzign_package_builder]` mount; `[compuzign_cost_builder]` is unchanged.
 - [CostBuilderApp.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/CostBuilderApp.tsx) contains category/service navigation, quote-item ownership, persistence, service cards, pricing and promotion sections, summaries, mobile bar, comparison/FAQ areas, and request-modal launch. Use it for top-level Cost Builder state and composition.
 - [cost-builder.php](../../wp-content/plugins/compuzign-platform/app/modules/cost-builder/templates/cost-builder.php) provides the server-rendered mount target and wrapper.
 
 ## UI and State
 
 - [useCostBuilder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCostBuilder.ts) owns public projection loading, errors, and refetch. Use it for fetch state.
-- [ServiceGrid.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/ServiceGrid.tsx) renders the active category’s Service cards. Use it for grid layout and selection handoff.
 - [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map into "Choose your Tier" (exclusive) and "Optional add-ons" (independent toggle) by `is_addon` — see [Tier Add-on Selection](tier-addon.md). Its `resolveEffectiveTierDisplay()` also renders an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card, never a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
 - [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior.
 - [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) loads, saves, and clears browser quote state. Use it for cart persistence format.
+- `components/package-builder/PackageBuilderApp.tsx` owns Family selection and
+  reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
+  `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
+  `family_tier` snapshot. `FullBuildDetail.tsx` displays only the compiled
+  effective inclusion labels.
 
 ## Backend and Persistence
 
 - [CostBuilderController.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Http/CostBuilderController.php) registers public projection and privileged import/dry-run routes. Use it for REST permissions, responses, and import endpoints.
+- `PackageBuilderController.php` registers public read-only `GET
+  /package-builder`; `PackageFamilyPricingBuilder.php` narrows the direct
+  Family projection into customer Tier data without another pricing engine.
 - [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) assembles categories, Services, Tiers, packages, promotions, bundles, and FAQs into the public response. Use it for projection and visibility/readiness rules.
 - [ServiceRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Repositories/ServiceRepository.php) reads active Service posts, taxonomy, metadata, and pricing inputs. Use it for catalogue persistence queries.
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/cost-builder.ts) exposes the typed public fetch. Use it for client response contracts.
 
 Package Station resolves overlays before they reach `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder is only a consumer; it owns no assignment or Package rule. Missing or ambiguous edges create no overlay and mark a covered Service unavailable, preventing legacy XLSX pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` additionally copies each surviving occupant's own `is_addon` onto its projected Tier; no separate add-on collection is exposed. The occupant's own commercial terms (`PackageSchema::extractTierForCostBuilder`) are always the flat `price`/`billing_cycle`/`contact`/`inclusions` fields — never displaced by an Edition — plus an additive `edition_options` array (Active Editions only, no Platform ID) for the in-card switch, which renders once one Edition exists alongside an always-present Default option — see [Tier Edition](tier-edition.md). Every Tier with no Editions projects byte-identically to before this capability existed.
 
-Fresh unavailable responses render the Service identity and `Currently this service is not available.`, with no selectable core Tier, bundle, promotion, comparison, or quote offer. Existing cart, quote-total and printable/PDF proposal calculations are unchanged. Phase 9 intentionally leaves established local-cart snapshot, hard-refresh, repricing, and removal behavior unchanged; it adds no Cost Builder redesign or Package authority.
+The Family-only response carries native Family/Tier Instance/occupant IDs for
+backend logic alongside their `CZPG`/`CZTG`/`CZT` or `CZTA` Platform business
+identifiers. An offered Edition also carries `CZTE`. These additions do not
+enter the established Service-rooted response.
 
-## Internal File Navigation
-
-| Concern | Marker | Contains | Read when... |
-| --- | --- | --- | --- |
-| Catalogue response | `SECTION: CATALOGUE_RESPONSE` | Public response assembly | Changing projection shape |
-| Service payload | `SECTION: SERVICE_PAYLOAD` | Service defaults and pricing | Changing Service projection |
-| Package overlay | `SECTION: PACKAGE_OVERLAY` | Packages and promotions | Changing commercial overlays |
-| Normalization | `SECTION: PRICING_NORMALIZATION` | Pricing, inclusions, FAQs | Changing normalized output |
-| Station shape | `SECTION: PACKAGE_STATION_SHAPE` | Legacy Package defaults/sources | Tracing legacy station data |
-| Rate Sheet | `SECTION: RATE_SHEET_SCHEMA` | Identity and validation | Changing legacy Rate Sheets |
-| Tier pricing | `SECTION: TIER_PRICING` | Selections, totals, readiness | Changing tier evaluation |
-| Commercial projection | `SECTION: COMMERCIAL_PROJECTION` | Active Package output | Changing public Packages |
+Unavailable Service responses expose no selectable Tier, bundle, promotion,
+comparison, or quote offer.
 
 ## Runtime Flow
 

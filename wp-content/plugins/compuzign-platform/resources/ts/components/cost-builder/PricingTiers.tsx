@@ -2,7 +2,7 @@ import { useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import type { PricingEditionOption, PricingTierData, Tier, ServicePricing, TierId } from '@/api/types/cost-builder';
+import type { PricingEditionOption, PricingTierData, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItemTierId } from './types';
 
 export interface EffectiveTierDisplay {
@@ -54,7 +54,7 @@ export function resolveEffectiveTierDisplay(
 
 interface PricingTiersProps {
   tiers: Tier[];
-  pricing: Pick<ServicePricing, 'tiers'>;
+  pricing: { tiers: Partial<Record<TierId, PricingTierData>> };
   popularTier: TierId | null;
   popularLabel?: string | null;
   selectedTierId: QuoteItemTierId | null;
@@ -87,7 +87,7 @@ function TierCard({
   renderFullBuild,
 }: {
   tier: Tier;
-  data: ServicePricing['tiers'][TierId] | undefined;
+  data: PricingTierData | undefined;
   isPopular: boolean;
   popularLabel?: string | null;
   isActive: boolean;
@@ -214,8 +214,8 @@ export function PricingTiers({
   // from the same Tier System — compatibility is implicit within it, so no
   // separate rule set gates which add-ons are offered alongside which normal
   // Tier.
-  const normalTiers = tiers.filter((tier) => tier.id in pricing.tiers && !pricing.tiers[tier.id].is_addon);
-  const addonTiers = tiers.filter((tier) => tier.id in pricing.tiers && pricing.tiers[tier.id].is_addon);
+  const normalTiers = tiers.filter((tier) => pricing.tiers[tier.id] && !pricing.tiers[tier.id]?.is_addon);
+  const addonTiers = tiers.filter((tier) => pricing.tiers[tier.id]?.is_addon);
 
   return (
     <>

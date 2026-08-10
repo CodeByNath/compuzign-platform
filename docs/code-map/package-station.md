@@ -47,11 +47,18 @@ Backend root: `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages
 
 Package does not choose screen placement. Admin authors string-key presentation policy through Station Manager: Package Families appear on Services Home using Admin's load-bearing `category-group-cards` kit, and the Tier workspace appears on Packages Home. Admin's generic drawer hosts the registered Package contract but never saves Package data.
 
-Imports from Admin presentation/icons are legal capability consumption. Station Manager supplies only host-engine contracts. Service-scoped Package URLs use the Service id as navigation context; they do not transfer Package persistence authority.
+Service-scoped Package URLs use Service only as navigation context; they do not transfer Package authority.
 
 ## Backend authority
 
 [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) owns `cz_package_station`, Family identity assignment callbacks, Rate Sheet usage scans, and the assignment-resolved Service index. Mutations lift and remove legacy Tier keys before persisting canonical `tier_instances[]`; established load bridges remain separate. [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations, [PackageStationReadController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationReadController.php) owns assigned-instance summaries, and [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) owns Family reads/lifecycle. `Support/` owns schemas, lifecycle/guards, Tier instances, and assignments. See [Tier Capability](tier-capability.md).
+
+For public customers, `PackageRepository::findAllActiveFamiliesForCostBuilder()`
+resolves each active Family directly through its `package_family` assignment,
+checks the Tier Instance, and calls the Rate Sheet-backed compiler used by the
+Service index. It never calls
+`resolveInstanceForService()`. The narrow response includes native IDs plus
+their existing Platform business identifiers; no admin route is exposed.
 
 The Package Manager is Package-internal supply configuration, not the platform Station Manager.
 

@@ -20,13 +20,21 @@ The request-flow components own only the open modal, contact draft, review step,
 - [OrderSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/OrderSummary.tsx) renders selected Services, tier pricing, totals, and review details. Use it for customer-facing quote review.
 - [QuoteProposalPreview.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteProposalPreview.tsx) renders printable proposal presentation. Use it for proposal layout and print content.
 - [quote.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/quote.ts) normalizes quote items, calculates totals, and owns `classifyQuoteItems` — the one shared split into normal-Tier/promotion, legacy bundle, and Tier add-on lines both files render from; see [Tier Add-on Selection](tier-addon.md). Use it for shared quote arithmetic and classification.
+- It also owns the additive `family_tier` key/mutation branch. Legacy lines
+  remain Service-keyed; Family lines use their `CZPG` + `CZTG` commercial
+  scope and `CZT`/`CZTA` offer identifier while retaining native IDs alongside.
 
 ## Backend and Persistence
 
 - [requests.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/requests.ts) exposes typed request submission. Use it for client payload/response contracts.
 - [RequestsController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Http/RequestsController.php) registers the public submit route, validates payloads, persists requests, and triggers notifications. Use it for submission behavior.
 - [RequestRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Repositories/RequestRepository.php) creates, reads, lists, and updates request posts/meta. Use it for request persistence and projections.
-- [RequestSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php) sanitizes request/contact/cart data and defines REST argument rules, including the structured `minimumTermValue`/`minimumTermUnit` a Tier Edition's own commitment carries (never an Edition identity — see [Tier Edition](tier-edition.md)). Use it for validation shape.
+- [RequestSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php) sanitizes request/contact/cart data and defines REST argument rules, including the structured `minimumTermValue`/`minimumTermUnit` a Tier Edition's own commitment carries. Use it for validation shape.
+- `family_tier` snapshots require native and Platform IDs for Family, assigned
+  Tier Instance, and occupant offer; selected Editions additionally preserve
+  `CZTE`. They never receive a fake `serviceId`. Order Summary, printable
+  proposal, and notification email render these stored business identifiers
+  without a live Service lookup.
 - [RequestLifecycle.php](../../wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestLifecycle.php) defines allowed request statuses and transitions. Use it for intake lifecycle rules.
 
 ## Runtime Flow

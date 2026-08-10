@@ -177,6 +177,7 @@ class PackageRepository
 
         $this->stationCache = $station;
         $this->activePackageMapCache = false;
+        $this->activeFamilyOfferCache = false;
     }
 
     /** Fresh station shell for first-time configuration. */
