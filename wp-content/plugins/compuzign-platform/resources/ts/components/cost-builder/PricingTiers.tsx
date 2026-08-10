@@ -1,4 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import type { PricingEditionOption, PricingTierData, Tier, ServicePricing, TierId } from '@/api/types/cost-builder';
@@ -67,6 +68,7 @@ interface PricingTiersProps {
   // default, so existing single-declaration Tiers behave identically).
   onSelect: (tierId: TierId, effective: EffectiveTierDisplay) => void;
   onToggleAddon: (tierId: TierId, effective: EffectiveTierDisplay) => void;
+  renderFullBuild?: (inclusionLabels: string[]) => ComponentChildren;
 }
 
 // One Tier/add-on card. Shared by both strips below so the visual language and
@@ -82,6 +84,7 @@ function TierCard({
   billingCycle,
   addedLabel,
   onClick,
+  renderFullBuild,
 }: {
   tier: Tier;
   data: ServicePricing['tiers'][TierId] | undefined;
@@ -91,6 +94,7 @@ function TierCard({
   billingCycle: string;
   addedLabel: string;
   onClick: (effective: EffectiveTierDisplay) => void;
+  renderFullBuild?: (inclusionLabels: string[]) => ComponentChildren;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -168,6 +172,7 @@ function TierCard({
           ))}
         </ul>
       )}
+      {renderFullBuild?.(displayList)}
       <button
         type="button"
         class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}`}
@@ -191,6 +196,7 @@ export function PricingTiers({
   billingCycle,
   onSelect,
   onToggleAddon,
+  renderFullBuild,
 }: PricingTiersProps) {
   // DEBUG — remove after diagnosis
   console.log('[CZ PricingTiers] pricing:', pricing);
@@ -234,6 +240,7 @@ export function PricingTiers({
               billingCycle={billingCycle}
               addedLabel="✓ Selected"
               onClick={(effective) => onSelect(tier.id, effective)}
+              renderFullBuild={renderFullBuild}
             />
           ))}
         </div>
@@ -271,6 +278,7 @@ export function PricingTiers({
                   billingCycle={billingCycle}
                   addedLabel="✓ Added"
                   onClick={(effective) => onToggleAddon(tier.id, effective)}
+                  renderFullBuild={renderFullBuild}
                 />
               ))}
             </div>

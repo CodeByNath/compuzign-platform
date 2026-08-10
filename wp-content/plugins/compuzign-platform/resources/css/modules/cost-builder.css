@@ -3120,3 +3120,13 @@
   flex-wrap: wrap;
   gap: var(--cz-space-3);
 }
+
+.cz-package-builder__full-build {
+  margin-block: var(--cz-space-3);
+}
+
+.cz-package-builder__full-build summary {
+  color: var(--cz-color-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
