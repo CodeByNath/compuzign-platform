@@ -160,7 +160,45 @@ class PricingBuilder
             'categories'           => $categories,
             'tiers'                => self::TIERS,
             'services_by_category' => $servicesByCategory,
+            // Read-only Cost Builder filter input (Package Family lens). Reuses
+            // $this->packageMap already loaded above — no second repository call,
+            // no new grouped collection. Only Families with at least one publicly
+            // resolvable Service appear, mirroring how empty categories are
+            // already excluded above.
+            'package_families'     => $this->collectPackageFamilies(),
         ];
+    }
+
+    /**
+     * Dedupe the per-Service Family attribution already carried on
+     * $this->packageMap (see PackageRepository::resolveFamilyForService())
+     * into a flat, ordered list for the frontend's Family filter/nav — the
+     * same flat-list shape `categories` already uses alongside its own
+     * per-service `categories[]` refs.
+     *
+     * @return array<int, array{id: string, label: string, sort_order: int}>
+     */
+    private function collectPackageFamilies(): array
+    {
+        $seen     = [];
+        $families = [];
+
+        foreach ($this->packageMap as $package) {
+            $family = $package['resolved_family'] ?? null;
+            if (!is_array($family) || !isset($family['group_id']) || isset($seen[$family['group_id']])) {
+                continue;
+            }
+            $seen[$family['group_id']] = true;
+            $families[] = [
+                'id'         => (string) $family['group_id'],
+                'label'      => (string) ($family['label'] ?? ''),
+                'sort_order' => (int) ($family['sort_order'] ?? 0),
+            ];
+        }
+
+        usort($families, fn($a, $b) => $a['sort_order'] <=> $b['sort_order']);
+
+        return $families;
     }
 
     // ===================================================================
@@ -217,6 +255,10 @@ class PricingBuilder
             'inclusions'       => $inclusions,
             'faqs'             => $faqs,
             'availability'     => $availability,
+            // Cost Builder filter input only — never Tier/pricing authority.
+            // null until (if ever) overlayPackage() below carries the
+            // Service's own already-resolved Family attribution.
+            'family'           => null,
             'promotion_tiers'  => [],
             'meta'             => [
                 'short_description' => $meta['short_description'] ?? '',
@@ -435,6 +477,20 @@ class PricingBuilder
         // Active promotion tiers for this service, sorted by priority then featured.
         // Only reached when a surface package exists; defaults to [] when no package.
         $payload['promotion_tiers'] = $this->buildActivePromotionTiers($package['promotion_tiers'] ?? []);
+
+        // ── Package Family (Cost Builder filter input) ─────────────────────────
+        // Carried verbatim from PackageRepository::resolveFamilyForService();
+        // this Service's own already-resolved Family, reshaped into the same
+        // {id, label, sort_order} public shape `categories` already uses.
+        // Never influences Tier/pricing resolution above — filter metadata only.
+        $family = $package['resolved_family'] ?? null;
+        $payload['family'] = is_array($family)
+            ? [
+                'id'         => (string) $family['group_id'],
+                'label'      => (string) ($family['label'] ?? ''),
+                'sort_order' => (int) ($family['sort_order'] ?? 0),
+            ]
+            : null;
 
         return $payload;
     }
