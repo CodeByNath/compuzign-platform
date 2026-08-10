@@ -369,6 +369,19 @@ check_public_projection($publicMap[101]['tiers']['standard']['is_addon'] === tru
 check_public_projection($publicMap[101]['tiers']['standard']['label'] === 'Backup & DR Shield', 'the add-on occupant keeps its own label through the repository projection');
 check_public_projection(!str_contains(serialize($publicMap), 'Forbidden legacy fallback'), 'legacy global Tiers never enter an assigned projection');
 
+// Package Family read-through (Cost Builder filter input) — additive, no
+// bearing on the Tier/pricing assertions above; resolveFamilyForService()
+// mirrors the same fail-closed-on-ambiguity rule as resolveInstanceForService()
+// without modifying it.
+check_public_projection(
+    $publicMap[101]['resolved_family'] === ['group_id' => 'pcg_kairos', 'label' => 'KAIROS', 'sort_order' => 0],
+    'KAIROS Service resolves its own Family identity/label/order alongside its Tier projection'
+);
+check_public_projection(
+    $publicMap[102]['resolved_family'] === ['group_id' => 'pcg_aptos', 'label' => 'APTOS', 'sort_order' => 1],
+    'APTOS Service resolves its own, different Family, in its own sanitized sort position'
+);
+
 $disabledServiceIds = $repository->findDisabledPackageServiceIds();
 foreach ([103, 104, 105, 106, 107, 108] as $serviceId) {
     check_public_projection(isset($disabledServiceIds[$serviceId]), "unresolved covered Service {$serviceId} suppresses legacy fallback");
