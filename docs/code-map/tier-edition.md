@@ -22,8 +22,7 @@ and `inclusions_override`/`faq_refs` (empty inherits the occupant's).
 
 There is no default-Edition pointer — an earlier `default_edition_id` field
 let an Edition *replace* the occupant's terms, inverting the model, and was
-removed. The occupant's own fields are always Default; every Edition is
-always an alternate.
+removed.
 
 `price` projects live via `projectEditionPrices()`
 (`projectTierRateSheetWith()` per Edition).
@@ -48,7 +47,7 @@ never public or in the cart.
 Full `StationLifecycle` vocabulary via one generic `PATCH .../status`
 endpoint (engine transition + Disable/Enable mask), Package Family's shape.
 Guarded permanent delete requires trashed status only — no default-Edition
-guard, since Default is never a `tier_editions[]` row. Parent-to-child
+guard. Parent-to-child
 cascade reuses per-Edition transition functions verbatim;
 `cascaded_edition_ids` scopes a later Tier-level trash/restore to only the
 ids that same archive carried; restore lands `disabled`, never `active`.
@@ -75,7 +74,7 @@ binned Edition (`PackageRepository`/`upsertOccupant()` too).
 flag) feeds `edition_options`, empty otherwise.
 `extractTierForCostBuilder()` resolves the occupant's terms as primary.
 `PricingTiers.tsx` renders the switch once **one** Edition exists: Default
-plus Edition buttons. `ServiceCard.tsx` captures the declaration showing at click.
+plus Edition buttons. `ServiceCard.tsx` captures the declaration shown at click.
 
 ## Cart and request
 
@@ -92,23 +91,25 @@ module is titled **Default Tier Inclusions**.
 `TierEditionDeclarationSwitcher.tsx` is the Options group's content, gated
 on a real occupant: a `[Edition 2] [Edition 3]` child-chip strip
 (`ChildChipStrip`) with a fixed trailing Bin icon opening the Bin as its own
-focused task (`TierEditionBinFocusedView.tsx`, the editor's own
-`FocusedTaskShell`), replacing the chip strip and cards. Default is never a
-row here. "+ Edition" lives in the drawer's nav chrome, reachable only in
-Options.
+focused task (`TierEditionBinFocusedView.tsx`, `FocusedTaskShell`), replacing the strip
+and cards. Default is never a row here; "+ Edition" lives in the drawer's
+nav chrome, reachable only in Options.
 
 The pinned footer's ONE "Move Edition to Bin" row (any status) drives a
 separate command, `moveTierEditionToBinCommand` (`POST .../move-to-bin`) —
 not the narrow `moveTierEditionToBinEndpoint` (`POST .../bin`,
 still archived/trashed-only). It composes `applyTierEditionStatus(...,
-trashed)` and `moveTierEditionToBin()` in memory, one persist —
-never a persisted Trashed-but-unrelocated state. Permanent Delete lives
-only in `TierEditionBinList.tsx` (trashed rows).
+trashed)` and `moveTierEditionToBin()` in memory, one persist — never a
+stranded Trashed-but-unrelocated state. Permanent Delete lives only in
+`TierEditionBinList.tsx` (trashed rows).
 
 The read surface is two module cards (`TIER_EDITION_ENTITY`'s `overview`/
 `inclusions` shells, one `ModuleState`), edited through one shared
 `TierEditionEditor.tsx` (two tabs, one draft, one Save/Cancel — draft-only;
-settle is Publish's job). The
+settle is Publish's job). Every read/re-edit resolves through
+`useTierEditions.editionView()`, mirroring `usePackageStation.tierView()`: a
+pending draft wins over settled fields, so a just-Saved Edition displays
+immediately, like the occupant. The
 selected id lives in `useTierDrawerController.ts`, not local state, since
 `TierDrawerContent.tsx` unmounts its child tree while `!pkg.detailLoaded`.
 

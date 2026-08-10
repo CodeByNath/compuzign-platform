@@ -136,7 +136,11 @@ export function TierEditionDeclarationSwitcher({
   }, [editingTab, onEditingActiveChange]);
   useEffect(() => () => onEditingActiveChange?.(false), [onEditingActiveChange]);
 
-  const selected = ctl.editions.find((e) => e.id === selectedId) ?? null;
+  // Draft-preferred, same reason TierDrawerContent's selectedEdition reads
+  // ctl.editionView() rather than ctl.editions.find() — a just-Saved (not
+  // yet Published) draft must display immediately, matching the parent
+  // occupant's own draftPreferredDetail()-backed read cards.
+  const selected = selectedId ? ctl.editionView(selectedId) : null;
 
   useEffect(() => {
     if (ctl.editions.length === 0) return;
@@ -217,7 +221,7 @@ export function TierEditionDeclarationSwitcher({
           {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
 
           <ChildChipStrip
-            chips={ctl.editions.map((edition) => ({ id: edition.id, label: edition.title }))}
+            chips={ctl.editions.map((edition) => ({ id: edition.id, label: ctl.editionView(edition.id)?.title ?? edition.title }))}
             activeId={selectedId}
             ariaLabel="Editions"
             onSelect={(id) => { onSelect(id); setEditingTab(null); setDraft(null); }}

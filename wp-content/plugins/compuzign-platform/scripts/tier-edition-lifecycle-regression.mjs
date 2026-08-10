@@ -803,6 +803,10 @@ await sleep(20);
 console.log('\n3) Selecting "Edition 2", editing it through the shared editor, and renaming it to "Annual Plan" via the shared draft/settle module');
 selectDeclarationTab('Edition 2');
 await sleep(20);
+// Stable identity across the rename below (title/label are draft-preferred
+// after Save, so they can't address the mock backend's own row post-rename;
+// only the id can).
+const edition2Id = editions.find((e) => e.title === 'Edition 2')?.id;
 check('the newly selected Edition reads Pending (disabled, never published)', pillLabel('Edition Overview') === 'Pending', pillLabel('Edition Overview'));
 check('Edition Overview and Edition Inclusions render as two mature module cards', findModule('Edition Overview') !== null && findModule('Edition Inclusions') !== null);
 check('both cards carry the SAME 5-state pill — one module, two views, not two independently resolved ones', pillLabel('Edition Overview') === pillLabel('Edition Inclusions'), `overview=${pillLabel('Edition Overview')} inclusions=${pillLabel('Edition Inclusions')}`);
@@ -850,14 +854,19 @@ clickButtonWithText('Save');
 await waitQuiet();
 check('the module draft-save endpoint was called exactly once for both changes', saveDraftCalls === saveCallsBefore + 1, saveDraftCalls);
 check('the module settle endpoint was NOT called by Save — settling a pending draft is now the explicit Publish action\'s job, not something inline Save does silently', settleCalls === settleCallsBefore, settleCalls);
-check('the tab still shows the OLD title — the rename is pending, not yet visible, until an explicit settle', declarationTab('Edition 2') !== undefined && declarationTab('Annual Plan') === undefined);
-check('the pending Rate Sheet selection is not yet committed onto the settled Edition row', findEdition(editions.find((e) => e.title === 'Edition 2')?.id)?.rate_sheet_id !== RATE_SHEET_ID);
+// Draft-preferred display (useTierEditions.editionView -> draftPreferredEdition,
+// StationDrawerLifecycleContract-v1.md §7): the tab shows the FRESH title the
+// instant Save returns, exactly like the parent Tier occupant's own inline
+// Save already does via draftPreferredDetail — it does NOT wait for settle.
+check('the tab already shows the NEW title — draft-preferred display, same as the parent occupant\'s own inline Save', declarationTab('Annual Plan') !== undefined && declarationTab('Edition 2') === undefined);
+check('the pending Rate Sheet selection is not yet committed onto the settled Edition row', findEdition(edition2Id)?.rate_sheet_id !== RATE_SHEET_ID);
+check('the mock backend\'s own settled title is still the OLD one — only the DISPLAY is draft-preferred, the persisted row genuinely waits for settle', findEdition(edition2Id)?.title === 'Edition 2');
 
 console.log('\n4) Publish "Edition 2" (renaming to "Annual Plan") — settles the pending draft FIRST, then activates and assigns CZTE exactly once');
 pubLabels = await publishMenuLabels();
-check('the publish menu still names the OLD title — its label reads the settled title, not the pending draft', pubLabels.includes('Publish Edition — Edition 2'), pubLabels);
+check('the publish menu already names the NEW title too — the same draft-preferred edition backs both the tab and this menu', pubLabels.includes('Publish Edition — Annual Plan'), pubLabels);
 const settleCallsBeforePublish = settleCalls;
-await clickPublishMenuItem('Publish Edition — Edition 2');
+await clickPublishMenuItem('Publish Edition — Annual Plan');
 await waitQuiet();
 check('Publish settled the pending draft first — the two existing endpoints, sequenced correctly, not a new one', settleCalls === settleCallsBeforePublish + 1, settleCalls);
 check('the status endpoint was called', statusCalls === 1, statusCalls);
@@ -866,9 +875,10 @@ check('the assigned CZTE is now shown', moduleFieldValue('Edition Overview', 'Ed
 check('the Edition Overview pill now reads Active — the shared 5-state pill, not a bespoke status string', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('the pinned footer offers Disable, not Enable, for an Active Edition', splitLabel() === 'Disable', splitLabel());
 check('the module pill and the footer action agree', pillAndActionAgree());
-check('the tab now shows the new title — settle (now driven by Publish) finally committed the rename', declarationTab('Annual Plan') !== undefined);
+check('the tab still shows the new title after settle — no flicker/regression now that it is genuinely persisted too', declarationTab('Annual Plan') !== undefined);
 check('the old auto-generated title is gone — this is a rename, not a second Edition', declarationTab('Edition 2') === undefined);
-check('the Rate Sheet selection from the Inclusions tab was committed by the same settle', findEdition(editions.find((e) => e.title === 'Annual Plan')?.id)?.rate_sheet_id === RATE_SHEET_ID);
+check('the Rate Sheet selection from the Inclusions tab was committed by the same settle', findEdition(edition2Id)?.rate_sheet_id === RATE_SHEET_ID);
+check('the mock backend\'s own settled title is NOW the new one too — settle genuinely persisted the rename, not just the display', findEdition(edition2Id)?.title === 'Annual Plan');
 check('Edition Inclusions now shows the resolved row read-only', findModule('Edition Inclusions')?.textContent.includes('Priority support'));
 // Correction plan item 1: the bound Rate Sheet carries a SECOND inclusion-
 // type row (UNSELECTED_ITEM_ID / "Unselected extra") that was never added to
@@ -1050,11 +1060,11 @@ setInputValue('#edt-billing-cycle', 'monthly');
 await sleep(20);
 clickButtonWithText('Save');
 await waitQuiet();
-// The rename is still pending — not yet visible anywhere — until the
-// explicit Publish click settles it (lifecycle correction, same as section
-// 3d/4 above). The Edition is already selected from line 1043; Publish is
-// still addressed by the OLD title until settle commits the new one.
-await clickPublishMenuItem('Publish Edition — Edition 2');
+// Draft-preferred display (same as section 3d/4 above): the tab and publish
+// menu already read "Monthly Plan" the instant Save returns, even though the
+// mock backend's own settled row is still "Edition 2" until settle commits it.
+check('the publish menu already names the NEW title before Publish', (await publishMenuLabels()).includes('Publish Edition — Monthly Plan'), await publishMenuLabels());
+await clickPublishMenuItem('Publish Edition — Monthly Plan');
 await waitQuiet();
 check('Monthly Plan reads Active', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);

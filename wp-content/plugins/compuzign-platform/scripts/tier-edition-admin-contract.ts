@@ -676,4 +676,38 @@ check(
   'Edition Inclusions\' own subtitle carries no "declaration" copy either',
 );
 
+// ── Draft-preferred display (StationDrawerLifecycleContract-v1.md §7) ───────
+// useTierEditions.editionView() is the ONE place a pending drafts.overview
+// wins over settled fields — mirroring usePackageStation.tierView()'s own
+// role for the parent occupant. Every content-displaying call site must read
+// through it; a raw ctl.editions.find()/editionCtl.editions.find() for
+// display is exactly the regression this closes (Edition content staying
+// stale after inline Save until Publish).
+check(
+  hook.includes('editionView') && hook.includes('draftPreferredEdition'),
+  'useTierEditions exposes editionView(), backed by draftPreferredEdition',
+);
+check(
+  panel.includes('ctl.editionView(selectedId)') && !panel.includes('ctl.editions.find((e) => e.id === selectedId)'),
+  'TierEditionDeclarationSwitcher resolves the selected Edition through ctl.editionView(), never a raw ctl.editions.find() lookup',
+);
+check(
+  panel.includes('ctl.editionView(edition.id)'),
+  'the child-chip strip labels read through ctl.editionView() too, so a renamed-but-unpublished Edition\'s chip updates immediately',
+);
+check(
+  drawerContent.includes('editionCtl.editionView(c.selectedDeclarationId)')
+    && !drawerContent.includes('editionCtl.editions.find((e) => e.id === c.selectedDeclarationId)'),
+  'TierDrawerContent resolves selectedEdition (feeding the footer\'s Publish-eligibility/status derivation) through editionCtl.editionView(), never a raw find()',
+);
+
+const tierEditionModelForDraft = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/tierEditionModel.ts',
+), 'utf8');
+check(
+  tierEditionModelForDraft.includes('export function draftPreferredEdition'),
+  'draftPreferredEdition lives in tierEditionModel.ts, the Edition presentation-derivation module — not inlined in the hook or a component',
+);
+
 console.log('Tier Edition admin contract checks passed.');

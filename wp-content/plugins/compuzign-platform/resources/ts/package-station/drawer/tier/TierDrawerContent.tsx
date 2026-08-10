@@ -88,7 +88,10 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   // dependency here already follows — an object literal identity changing
   // every render would refire the effect every render (the exact defect
   // scripts/tier-system-footer-loop-regression.mjs proves against).
-  const selectedEdition = editionCtl.editions.find((e) => e.id === c.selectedDeclarationId) ?? null;
+  // Draft-preferred — matches the parent occupant's own tierView(), so the
+  // footer's Publish-eligibility/status derivation below reads the same
+  // just-Saved draft content the read cards show, not a stale settled row.
+  const selectedEdition = c.selectedDeclarationId ? editionCtl.editionView(c.selectedDeclarationId) : null;
   const selectedEditionFooterState = selectedEdition
     ? deriveTierEditionFooterState(
         selectedEdition,

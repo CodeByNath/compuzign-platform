@@ -34,10 +34,22 @@ import {
   trashTierEditionBinEntry,
   deleteTierEditionBinEntry,
 } from '../../api';
+import { draftPreferredEdition } from '../../drawer/tier/tierEditionModel';
 
 export interface TierEditionsController {
+  // Raw editions, as persisted (settled fields only) — existence/id/ordering
+  // checks read this directly. Anything DISPLAYED (title, price, selections)
+  // must go through editionView() instead, the same draft-preferred/raw
+  // split usePackageStation keeps between its own station state and
+  // tierView(). Never read a raw row's content fields for presentation.
   editions:           TierEdition[];
   editionBin:         TierEditionBinEntry[];
+  // Draft-preferred single-Edition read, mirroring usePackageStation's own
+  // tierView(tierId) — a pending drafts.overview always wins over the
+  // last-settled content fields, so a just-Saved (not yet Published) Edition
+  // displays and re-edits its own fresh draft immediately, exactly like the
+  // Tier occupant already does. null for an unknown id.
+  editionView:        (editionId: string) => TierEdition | null;
   saving:             boolean;
   error:              string | null;
   create:             (draft: Partial<TierEditionOverviewDraft> & { title: string }) => Promise<TierEdition | null>;
@@ -102,6 +114,11 @@ export function useTierEditions(
       return out;
     });
   }, []);
+
+  const editionView = useCallback((editionId: string): TierEdition | null => {
+    const edition = localEditions.find((e) => e.id === editionId) ?? null;
+    return edition ? draftPreferredEdition(edition) : null;
+  }, [localEditions]);
 
   const removeEdition = useCallback((editionId: string) => {
     setLocalEditions((prev) => prev.filter((e) => e.id !== editionId));
@@ -268,6 +285,7 @@ export function useTierEditions(
   return {
     editions: localEditions,
     editionBin: localEditionBin,
+    editionView,
     saving,
     error,
     create,

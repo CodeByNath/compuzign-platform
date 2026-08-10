@@ -55,6 +55,27 @@ export function deriveTierEditionFooterState(
   };
 }
 
+// Edition's own draft-preferred projection — the SAME requirement Default
+// Tier's usePackageStation.draftPreferredDetail() already satisfies
+// (StationDrawerLifecycleContract-v1.md §7: "draft-preferred module data" is
+// part of the locked conformance bar, not an occupant-only nicety). A pending
+// drafts.overview always wins over the last-settled fields for everything
+// this Edition displays or re-edits — module_status/platform_status/drafts
+// stay the untouched raw values, exactly like draftPreferredDetail's own
+// `{...slot, <content fields> }` shape.
+//
+// This is a distinct implementation from draftPreferredDetail, not a copy of
+// it: the occupant's draft lives in three separately-shaped module slots
+// (overview/features/faqs) that need per-field reconciliation, while an
+// Edition's single consolidated 'overview' draft already carries every
+// content field under the SAME names TierEdition itself uses (confirmed by
+// TierEditionOverviewDraft's shape) — a plain override is the correct
+// merge for this shape, not a smaller/incomplete stand-in for the Tier one.
+export function draftPreferredEdition(edition: TierEdition): TierEdition {
+  const draft = edition.drafts.overview;
+  return draft ? { ...edition, ...draft } : edition;
+}
+
 export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewDraft {
   return {
     title: edition.title,
