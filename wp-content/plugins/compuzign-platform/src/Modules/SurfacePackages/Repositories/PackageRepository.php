@@ -55,6 +55,9 @@ class PackageRepository
     /** Assignment-resolved public index, built at most once per request. */
     private array|false $activePackageMapCache = false;
 
+    /** Direct Family-assignment customer projection, built once per request. */
+    private array|false $activeFamilyOfferCache = false;
+
     // ── Storage authority ─────────────────────────────────────────────────────
 
     /**
@@ -1238,6 +1241,100 @@ class PackageRepository
             ? $station['promotions']
             : [];
         return $projected;
+    }
+
+    /**
+     * Active Package Families with their directly assigned, compiled Tier
+     * Instance. This path never discovers an instance through a Service.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findAllActiveFamiliesForCostBuilder(): array
+    {
+        if ($this->activeFamilyOfferCache !== false) {
+            return $this->activeFamilyOfferCache;
+        }
+
+        $station = $this->loadStation();
+        if ($station === null) {
+            return $this->activeFamilyOfferCache = [];
+        }
+        $packageStatus = $station['platform_status'] ?? '';
+        if ($packageStatus !== '' && $packageStatus !== 'active') {
+            return $this->activeFamilyOfferCache = [];
+        }
+        $now = current_time('mysql', true);
+        if ((!empty($station['valid_from']) && $station['valid_from'] > $now)
+            || (!empty($station['valid_until']) && $station['valid_until'] < $now)
+        ) {
+            return $this->activeFamilyOfferCache = [];
+        }
+
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+        $instances = TierInstanceSchema::sanitizeInstances($station['tier_instances'] ?? []);
+        $assignments = TierAssignmentSchema::sanitizeAssignments(
+            $station['tier_assignments'] ?? [],
+            ['package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager)],
+            $instances
+        );
+        [$inclusionPool, $faqPool] = $this->sourcePools($station);
+        $readModel = PackageManagerSchema::buildReadModel(
+            (int) ($station['legacy_host_service_id'] ?? 0),
+            $manager,
+            $inclusionPool,
+            $faqPool,
+            'active'
+        );
+
+        $families = [];
+        foreach ($manager['category_groups'] as $family) {
+            if (($family['platform_status'] ?? null) !== 'active') {
+                continue;
+            }
+            $familyId = (string) ($family['group_id'] ?? '');
+            $assignment = TierAssignmentSchema::findForConsumer(
+                $assignments,
+                'package_family',
+                $familyId
+            );
+            if ($assignment === null) {
+                continue;
+            }
+            $instance = TierInstanceSchema::findInstance(
+                $instances,
+                (string) ($assignment['tier_instance_id'] ?? '')
+            );
+            if ($instance === null
+                || ($instance['status'] ?? null) !== 'active'
+                || TierInstanceSchema::deriveInstanceStatus($instance) !== 'active'
+            ) {
+                continue;
+            }
+
+            $compiled = $this->projectTierInstanceForCostBuilder($station, $instance, $readModel);
+            foreach ($compiled['tiers'] as $tierId => &$tier) {
+                $slot = $instance['tiers'][$tierId] ?? [];
+                $occupant = PackageSchema::isOccupantFormat($slot)
+                    ? ($slot['current_occupant'] ?? null)
+                    : null;
+                $tier['occupant_id'] = is_array($occupant) ? (string) ($occupant['id'] ?? '') : '';
+            }
+            unset($tier);
+
+            $families[] = [
+                'family_id'       => $familyId,
+                'title'           => (string) ($family['label'] ?? ''),
+                'description'     => (string) ($family['description'] ?? ''),
+                'tier_instance_id' => (string) $instance['tier_instance_id'],
+                'tiers'           => $compiled['tiers'],
+                'popular_tier'    => $compiled['popular_tier'],
+                'popular_label'   => $compiled['popular_label'],
+            ];
+        }
+
+        return $this->activeFamilyOfferCache = $families;
     }
 
     /**

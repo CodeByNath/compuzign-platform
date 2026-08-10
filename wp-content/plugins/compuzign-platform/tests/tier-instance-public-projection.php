@@ -101,6 +101,7 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
+use CompuZign\Platform\Modules\CostBuilder\Services\PackageFamilyPricingBuilder;
 
 function check_public_projection(bool $condition, string $message): void
 {
@@ -369,6 +370,22 @@ check_public_projection($publicMap[101]['tiers']['standard']['is_addon'] === tru
 check_public_projection($publicMap[101]['tiers']['standard']['label'] === 'Backup & DR Shield', 'the add-on occupant keeps its own label through the repository projection');
 check_public_projection(!str_contains(serialize($publicMap), 'Forbidden legacy fallback'), 'legacy global Tiers never enter an assigned projection');
 
+$familyResponse = (new PackageFamilyPricingBuilder($repository))->buildResponse();
+check_public_projection(
+    array_column($familyResponse['families'], 'family_id') === ['pcg_kairos', 'pcg_aptos'],
+    'Family customer read emits only active Families with a ready explicit assignment'
+);
+$familyById = [];
+foreach ($familyResponse['families'] as $family) $familyById[$family['family_id']] = $family;
+check_public_projection($familyById['pcg_kairos']['tier_instance_id'] === 'ti_kairos', 'KAIROS resolves its Tier Instance directly from the Family assignment');
+check_public_projection($familyById['pcg_aptos']['tier_instance_id'] === 'ti_aptos', 'APTOS resolves its own assigned Tier Instance');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['price'] === 11.0, 'Family projection preserves the existing Rate Sheet total');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_occupant_id'] !== '', 'Family projection carries the real native occupant identity');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['standard']['is_addon'] === true, 'Family projection preserves the compiled add-on occupant');
+check_public_projection(count($familyById['pcg_kairos']['pricing']['tiers']['basic']['edition_options']) === 1, 'Family projection preserves compiled active Editions');
+check_public_projection(!str_contains(serialize($familyResponse), 'CZPG'), 'Family customer response exposes no Family Platform identifier');
+check_public_projection(!str_contains(serialize($familyResponse), 'CZTE'), 'Family customer response exposes no Edition Platform identifier');
+
 $disabledServiceIds = $repository->findDisabledPackageServiceIds();
 foreach ([103, 104, 105, 106, 107, 108] as $serviceId) {
     check_public_projection(isset($disabledServiceIds[$serviceId]), "unresolved covered Service {$serviceId} suppresses legacy fallback");
@@ -397,10 +414,13 @@ check_public_projection($rowsByTitle['KAIROS Tier Set']['tiers']['basic']['price
 check_public_projection($rowsByTitle['APTOS Tier Set']['tiers']['basic']['price'] === 22.0, 'assigned-instance read row preserves APTOS Rate Sheet identity');
 
 $repositorySource = (string) file_get_contents(__DIR__ . '/../src/Modules/SurfacePackages/Repositories/PackageRepository.php');
+$familyProjectionStart = (int) strpos($repositorySource, 'public function findAllActiveFamiliesForCostBuilder');
+$familyProjection = substr($repositorySource, $familyProjectionStart);
+check_public_projection(!str_contains($familyProjection, 'resolveInstanceForService('), 'Family customer read never falls back through Service discovery');
 $repositoryProjection = substr(
     $repositorySource,
     (int) strpos($repositorySource, 'public function findAllActiveIndexedByServiceId'),
-    (int) strpos($repositorySource, 'public function findDisabledPackageServiceIds')
+    (int) strpos($repositorySource, 'public function findAllActiveFamiliesForCostBuilder')
         - (int) strpos($repositorySource, 'public function findAllActiveIndexedByServiceId')
 );
 check_public_projection(substr_count($repositoryProjection, 'buildReadModel(') === 1, 'public index builds the manager read model exactly once');

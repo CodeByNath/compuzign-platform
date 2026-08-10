@@ -4,9 +4,11 @@ namespace CompuZign\Platform\Modules\CostBuilder;
 
 use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\Modules\CostBuilder\Http\CostBuilderController;
+use CompuZign\Platform\Modules\CostBuilder\Http\PackageBuilderController;
 use CompuZign\Platform\Modules\CostBuilder\Repositories\ServiceRepository;
 use CompuZign\Platform\Modules\CostBuilder\Services\CatalogImporter;
 use CompuZign\Platform\Modules\CostBuilder\Services\PricingBuilder;
+use CompuZign\Platform\Modules\CostBuilder\Services\PackageFamilyPricingBuilder;
 use CompuZign\Platform\Modules\CostBuilder\Support\MetaSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 
@@ -42,6 +44,7 @@ class CostBuilderModule
         $importer          = new CatalogImporter();
 
         (new CostBuilderController($builder, $importer))->register();
+        (new PackageBuilderController(new PackageFamilyPricingBuilder($packageRepository)))->register();
 
         add_shortcode('compuzign_cost_builder', [$this, 'renderShortcode']);
 
