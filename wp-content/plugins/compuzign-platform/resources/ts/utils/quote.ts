@@ -16,13 +16,13 @@ export function isFamilyTierQuoteItem(item: CartItem): item is FamilyTierQuoteIt
 }
 
 export function familyTierSystemKey(item: FamilyTierQuoteItem): string {
-  return `family:${item.familyId}:instance:${item.tierInstanceId}`;
+  return `family:${item.familyPlatformId}:instance:${item.tierInstancePlatformId}`;
 }
 
 export function quoteItemKey(item: CartItem): string {
   if (isFamilyTierQuoteItem(item)) {
     const systemKey = familyTierSystemKey(item);
-    return item.isAddon ? `${systemKey}:addon:${item.tierOccupantId}` : `${systemKey}:primary`;
+    return item.isAddon ? `${systemKey}:addon:${item.tierPlatformId}` : `${systemKey}:primary`;
   }
   return item.isAddon ? `${item.serviceId}:addon:${item.tierId}` : `${item.serviceId}:primary`;
 }
@@ -46,10 +46,12 @@ export function removeFamilyAddonQuoteItem(
   items: CartItem[],
   familyId: string,
   tierInstanceId: string,
-  tierOccupantId: string,
+  tierPlatformId: string,
 ): CartItem[] {
-  const key = `family:${familyId}:instance:${tierInstanceId}:addon:${tierOccupantId}`;
-  return items.filter((item) => quoteItemKey(item) !== key);
+  return items.filter((item) => !isFamilyTierQuoteItem(item)
+    || item.familyId !== familyId
+    || item.tierInstanceId !== tierInstanceId
+    || item.tierPlatformId !== tierPlatformId);
 }
 
 export function removeFamilyTierSystemQuoteItems(
@@ -57,8 +59,9 @@ export function removeFamilyTierSystemQuoteItems(
   familyId: string,
   tierInstanceId: string,
 ): CartItem[] {
-  const systemKey = `family:${familyId}:instance:${tierInstanceId}`;
-  return items.filter((item) => !isFamilyTierQuoteItem(item) || familyTierSystemKey(item) !== systemKey);
+  return items.filter((item) => !isFamilyTierQuoteItem(item)
+    || item.familyId !== familyId
+    || item.tierInstanceId !== tierInstanceId);
 }
 
 /**
@@ -71,17 +74,17 @@ export function removeFamilyTierSystemQuoteItems(
  * System add-on compatibility is implicit, so there is no separate rule set
  * to consult here.
  */
-export function replaceNormalQuoteItem(items: QuoteItem[], item: QuoteItem): QuoteItem[] {
-  return [...items.filter((q) => q.isAddon || q.serviceId !== item.serviceId), item];
+export function replaceNormalQuoteItem(items: CartItem[], item: QuoteItem): CartItem[] {
+  return [...items.filter((q) => isFamilyTierQuoteItem(q) || q.isAddon || q.serviceId !== item.serviceId), item];
 }
 
 /**
  * Add or update one add-on line, identified by serviceId + tierId. Never
  * touches the normal selection or any other add-on for the same Service.
  */
-export function upsertAddonQuoteItem(items: QuoteItem[], item: QuoteItem): QuoteItem[] {
+export function upsertAddonQuoteItem(items: CartItem[], item: QuoteItem): CartItem[] {
   return [
-    ...items.filter((q) => !(q.isAddon && q.serviceId === item.serviceId && q.tierId === item.tierId)),
+    ...items.filter((q) => isFamilyTierQuoteItem(q) || !(q.isAddon && q.serviceId === item.serviceId && q.tierId === item.tierId)),
     item,
   ];
 }
@@ -90,8 +93,8 @@ export function upsertAddonQuoteItem(items: QuoteItem[], item: QuoteItem): Quote
  * Remove exactly one add-on line (serviceId + tierId), leaving the normal
  * selection and every other add-on for the same Service untouched.
  */
-export function removeAddonQuoteItem(items: QuoteItem[], serviceId: number, tierId: QuoteItemTierId): QuoteItem[] {
-  return items.filter((q) => !(q.isAddon && q.serviceId === serviceId && q.tierId === tierId));
+export function removeAddonQuoteItem(items: CartItem[], serviceId: number, tierId: QuoteItemTierId): CartItem[] {
+  return items.filter((q) => isFamilyTierQuoteItem(q) || !(q.isAddon && q.serviceId === serviceId && q.tierId === tierId));
 }
 
 /**
@@ -102,8 +105,8 @@ export function removeAddonQuoteItem(items: QuoteItem[], serviceId: number, tier
  * the normal selection clears its add-ons too, rather than leaving them
  * orphaned with nothing to attach to.
  */
-export function removeServiceQuoteItems(items: QuoteItem[], serviceId: number): QuoteItem[] {
-  return items.filter((q) => q.serviceId !== serviceId);
+export function removeServiceQuoteItems(items: CartItem[], serviceId: number): CartItem[] {
+  return items.filter((q) => isFamilyTierQuoteItem(q) || q.serviceId !== serviceId);
 }
 
 export interface ClassifiedQuoteItems {
@@ -128,15 +131,15 @@ export function classifyQuoteItems(items: QuoteItem[]): ClassifiedQuoteItems {
 }
 
 export interface QuoteTotals {
-  pricedItems: QuoteItem[];
-  unpricedItems: QuoteItem[];
+  pricedItems: CartItem[];
+  unpricedItems: CartItem[];
   cycleGroups: Record<string, number>;
   cycleEntries: [string, number][];
   hasMixedCycles: boolean;
   singleCycle: [string, number] | null;
 }
 
-export function calcQuoteTotals(items: QuoteItem[]): QuoteTotals {
+export function calcQuoteTotals(items: CartItem[]): QuoteTotals {
   const pricedItems = items.filter((item) => item.price !== null);
   const unpricedItems = items.filter((item) => item.price === null);
 

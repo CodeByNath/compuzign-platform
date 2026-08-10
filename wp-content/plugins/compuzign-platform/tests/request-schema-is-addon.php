@@ -35,8 +35,9 @@ $rawItems = [
     // A Package Family line carries its actual Family / Tier Instance /
     // occupant identities and deliberately has no Service identity.
     [
-        'offer_type' => 'family_tier', 'familyId' => 'pcg_kairos', 'familyTitle' => 'KAIROS',
-        'tierInstanceId' => 'ti_kairos', 'tierOccupantId' => 'occ_basic',
+        'offer_type' => 'family_tier', 'familyId' => 'pcg_kairos', 'familyPlatformId' => 'CZPG-KAIROS01', 'familyTitle' => 'KAIROS',
+        'tierInstanceId' => 'ti_kairos', 'tierInstancePlatformId' => 'CZTG-KAIROS01',
+        'tierOccupantId' => 'occ_basic', 'tierPlatformId' => 'CZT-KAIROS001', 'tierEditionPlatformId' => null,
         'tierId' => 'basic', 'tierTitle' => 'KAIROS Basic', 'price' => 11, 'isAddon' => false,
     ],
 ];
@@ -54,5 +55,8 @@ check_request_schema_is_addon(!array_key_exists('serviceId', $items[4]), 'a Fami
 check_request_schema_is_addon($items[4]['familyId'] === 'pcg_kairos', 'the native Family identity survives sanitisation');
 check_request_schema_is_addon($items[4]['tierInstanceId'] === 'ti_kairos', 'the assigned Tier Instance identity survives sanitisation');
 check_request_schema_is_addon($items[4]['tierOccupantId'] === 'occ_basic', 'the real Tier occupant identity survives sanitisation');
+check_request_schema_is_addon($items[4]['familyPlatformId'] === 'CZPG-KAIROS01', 'the Family business identifier travels with its native ID');
+check_request_schema_is_addon($items[4]['tierInstancePlatformId'] === 'CZTG-KAIROS01', 'the Tier Instance business identifier travels with its native ID');
+check_request_schema_is_addon($items[4]['tierPlatformId'] === 'CZT-KAIROS001', 'the Tier business identifier travels with its native ID');
 
 echo "Request schema is_addon checks passed.\n";

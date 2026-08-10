@@ -71,9 +71,13 @@ export interface PricingEditionOption {
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
   inclusions_override: ServiceInclusion[];
+  edition_platform_id?: string;
 }
 
 export interface PricingTierData {
+  /** Present on the direct Family projection; absent on legacy Service payloads. */
+  tier_occupant_id?: string;
+  tier_platform_id?: string;
   price: number | null;
   billing_cycle: string;
   inclusions: ServiceInclusion[];
@@ -157,4 +161,21 @@ export interface CostBuilderResponse {
   categories: Category[];
   tiers: Tier[];
   services_by_category: ServicesByCategory[];
+}
+
+export interface PackageBuilderFamily {
+  family_id: string;
+  family_platform_id: string;
+  title: string;
+  description: string;
+  tier_instance_id: string;
+  tier_instance_platform_id: string;
+  popular_tier: TierId | null;
+  popular_label: string | null;
+  pricing: Pick<ServicePricing, 'tiers'>;
+}
+
+export interface PackageBuilderResponse {
+  tiers: Tier[];
+  families: PackageBuilderFamily[];
 }

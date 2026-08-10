@@ -135,9 +135,13 @@ class RequestSchema
             if ($item['offer_type'] === 'family_tier') {
                 unset($item['serviceTitle'], $item['categoryName']);
                 $item['familyId']       = sanitize_text_field((string) ($raw['familyId'] ?? ''));
+                $item['familyPlatformId'] = sanitize_text_field((string) ($raw['familyPlatformId'] ?? ''));
                 $item['familyTitle']    = sanitize_text_field((string) ($raw['familyTitle'] ?? ''));
                 $item['tierInstanceId'] = sanitize_text_field((string) ($raw['tierInstanceId'] ?? ''));
+                $item['tierInstancePlatformId'] = sanitize_text_field((string) ($raw['tierInstancePlatformId'] ?? ''));
                 $item['tierOccupantId'] = sanitize_text_field((string) ($raw['tierOccupantId'] ?? ''));
+                $item['tierPlatformId'] = sanitize_text_field((string) ($raw['tierPlatformId'] ?? ''));
+                $item['tierEditionPlatformId'] = sanitize_text_field((string) ($raw['tierEditionPlatformId'] ?? ''));
             } else {
                 $item['serviceId'] = intval($raw['serviceId'] ?? 0);
             }
@@ -217,9 +221,13 @@ class RequestSchema
                         'minimumTermUnit'  => ['type' => ['string', 'null']],
                         'offer_type'       => ['type' => 'string'],
                         'familyId'         => ['type' => 'string'],
+                        'familyPlatformId' => ['type' => 'string'],
                         'familyTitle'      => ['type' => 'string'],
                         'tierInstanceId'   => ['type' => 'string'],
+                        'tierInstancePlatformId' => ['type' => 'string'],
                         'tierOccupantId'   => ['type' => 'string'],
+                        'tierPlatformId'   => ['type' => 'string'],
+                        'tierEditionPlatformId' => ['type' => ['string', 'null']],
                     ],
                 ],
             ],

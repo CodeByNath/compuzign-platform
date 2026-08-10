@@ -14,8 +14,8 @@ import { FaqAccordion } from './FaqAccordion';
 import { ComparePlans } from './ComparePlans';
 import { MobileQuoteBar } from './MobileQuoteBar';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
-import { replaceNormalQuoteItem, upsertAddonQuoteItem, removeAddonQuoteItem, removeServiceQuoteItems } from '@/utils/quote';
-import type { QuoteItem } from './types';
+import { replaceNormalQuoteItem, upsertAddonQuoteItem, removeAddonQuoteItem, removeServiceQuoteItems, isFamilyTierQuoteItem, removeFamilyAddonQuoteItem, removeFamilyTierSystemQuoteItems } from '@/utils/quote';
+import type { CartItem, QuoteItem } from './types';
 import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 
 const QUOTE_SUMMARY_ID = 'cz-quote-summary';
@@ -37,7 +37,7 @@ export function CostBuilderApp() {
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(() => loadCart());
+  const [quoteItems, setQuoteItems] = useState<CartItem[]>(() => loadCart());
   const [isFlowOpen, setIsFlowOpen] = useState(false);
   const urlParamsApplied = useRef(false);
 
@@ -92,6 +92,16 @@ export function CostBuilderApp() {
       : removeServiceQuoteItems(prev, serviceId)));
   };
 
+  const removeCartItem = (item: CartItem) => {
+    if (isFamilyTierQuoteItem(item)) {
+      setQuoteItems((current) => item.isAddon
+        ? removeFamilyAddonQuoteItem(current, item.familyId, item.tierInstanceId, item.tierPlatformId)
+        : removeFamilyTierSystemQuoteItems(current, item.familyId, item.tierInstanceId));
+      return;
+    }
+    removeFromQuote(item.serviceId, item.isAddon ? (item.tierId as TierId) : undefined);
+  };
+
   const handleCategoryChange = (slug: string) => {
     if (!data) return;
     setActiveCategory(slug);
@@ -140,11 +150,11 @@ export function CostBuilderApp() {
   const offersAvailable = activeService !== null && canSelectServiceOffers(activeService);
 
   const selectedPromoId = activeService
-    ? (quoteItems.find((q) => q.serviceId === activeService.id && q.offer_type === 'promotion_tier')?.promotion_id ?? null)
+    ? (quoteItems.find((q) => !isFamilyTierQuoteItem(q) && q.serviceId === activeService.id && q.offer_type === 'promotion_tier') as QuoteItem | undefined)?.promotion_id ?? null
     : null;
   const selectedAddonTierIds: TierId[] = activeService
     ? quoteItems
-      .filter((q) => q.serviceId === activeService.id && q.isAddon)
+      .filter((q): q is QuoteItem => !isFamilyTierQuoteItem(q) && q.serviceId === activeService.id && q.isAddon)
       .map((q) => q.tierId as TierId)
     : [];
 
@@ -168,7 +178,7 @@ export function CostBuilderApp() {
               <ServiceCard
                 service={activeService}
                 tiers={data.tiers}
-                selectedTierId={quoteItems.find((q) => q.serviceId === activeService.id && !q.isAddon)?.tierId ?? null}
+                selectedTierId={quoteItems.find((q) => !isFamilyTierQuoteItem(q) && q.serviceId === activeService.id && !q.isAddon)?.tierId ?? null}
                 selectedAddonTierIds={selectedAddonTierIds}
                 onAddToQuote={addToQuote}
                 onRemoveFromQuote={removeFromQuote}
@@ -177,7 +187,7 @@ export function CostBuilderApp() {
                 <>
                   <RecommendedBundle
                     service={activeService}
-                    isInQuote={quoteItems.some((q) => q.serviceId === -(activeService.id))}
+                    isInQuote={quoteItems.some((q) => !isFamilyTierQuoteItem(q) && q.serviceId === -(activeService.id))}
                     onAdd={addToQuote}
                     onRemove={removeFromQuote}
                   />
@@ -204,7 +214,7 @@ export function CostBuilderApp() {
           {hasQuote && (
             <QuoteSummary
               items={quoteItems}
-              onRemove={removeFromQuote}
+              onRemove={removeCartItem}
               onClear={() => setQuoteItems([])}
               onOpenReview={() => setIsFlowOpen(true)}
             />
@@ -216,7 +226,7 @@ export function CostBuilderApp() {
       <MobileQuoteBar items={quoteItems} summaryId={QUOTE_SUMMARY_ID} />
       <RequestFlowModal
         isOpen={isFlowOpen}
-        context={{ type: 'quote_cart', items: quoteItems, services: allServices }}
+        context={{ type: 'quote_cart', items: quoteItems.filter((item): item is QuoteItem => !isFamilyTierQuoteItem(item)), services: allServices }}
         onClose={() => setIsFlowOpen(false)}
         onSubmitSuccess={() => {
           clearCart();

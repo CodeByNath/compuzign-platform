@@ -1,15 +1,12 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
-import type { QuoteItem } from './types';
-import type { TierId } from '@/api/types/cost-builder';
+import { isFamilyTierQuoteItem } from '@/utils/quote';
+import type { CartItem } from './types';
 
 interface QuoteSummaryProps {
-  items: QuoteItem[];
-  // Called with just a serviceId to remove a whole Service (normal Tier plus
-  // any add-ons); called with an addonTierId too to remove exactly one
-  // add-on line.
-  onRemove: (serviceId: number, addonTierId?: TierId) => void;
+  items: CartItem[];
+  onRemove: (item: CartItem) => void;
   onClear: () => void;
   onOpenReview: () => void;
 }
@@ -55,7 +52,7 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
           return (
             <li key={quoteItemKey(item)} class="cz-quote-summary__item">
               <div class="cz-quote-summary__item-info">
-                <span class="cz-quote-summary__item-title">{item.serviceTitle}</span>
+                <span class="cz-quote-summary__item-title">{isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}</span>
                 <span class="cz-quote-summary__item-tier">{item.tierTitle}</span>
               </div>
               <div class="cz-quote-summary__item-right">
@@ -72,8 +69,8 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
                 <button
                   type="button"
                   class="cz-quote-summary__remove"
-                  onClick={() => onRemove(item.serviceId, item.isAddon ? (item.tierId as TierId) : undefined)}
-                  aria-label={`Remove ${item.serviceTitle}`}
+                  onClick={() => onRemove(item)}
+                  aria-label={`Remove ${isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}`}
                 >
                   ×
                 </button>

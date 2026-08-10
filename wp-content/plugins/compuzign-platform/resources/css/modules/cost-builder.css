@@ -3109,3 +3109,14 @@
     display: none;
   }
 }
+.cz-package-builder__header {
+  display: grid;
+  gap: var(--cz-space-4);
+  margin-block-end: var(--cz-space-8);
+}
+
+.cz-package-builder__selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cz-space-3);
+}

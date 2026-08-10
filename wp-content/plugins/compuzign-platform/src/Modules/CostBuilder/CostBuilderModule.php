@@ -47,6 +47,7 @@ class CostBuilderModule
         (new PackageBuilderController(new PackageFamilyPricingBuilder($packageRepository)))->register();
 
         add_shortcode('compuzign_cost_builder', [$this, 'renderShortcode']);
+        add_shortcode('compuzign_package_builder', [$this, 'renderPackageBuilderShortcode']);
 
         Health::register('cost_builder', static fn() => post_type_exists('cz_service'));
     }
@@ -67,6 +68,23 @@ class CostBuilderModule
             include $template;
         } else {
             echo '<div class="compuzign-cost-builder-placeholder">Cost Builder is coming soon.</div>';
+        }
+        return ob_get_clean();
+    }
+
+    public function renderPackageBuilderShortcode(): string
+    {
+        if (wp_style_is('compuzign-cost-builder', 'registered')) {
+            wp_enqueue_style('compuzign-cost-builder');
+        }
+        if (wp_script_is('compuzign-cost-builder', 'registered')) {
+            wp_enqueue_script('compuzign-cost-builder');
+        }
+
+        $template = COMPUZIGN_COST_BUILDER_PATH . 'templates/package-builder.php';
+        ob_start();
+        if (file_exists($template)) {
+            include $template;
         }
         return ob_get_clean();
     }

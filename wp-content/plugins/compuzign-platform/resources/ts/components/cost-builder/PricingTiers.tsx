@@ -53,7 +53,7 @@ export function resolveEffectiveTierDisplay(
 
 interface PricingTiersProps {
   tiers: Tier[];
-  pricing: ServicePricing;
+  pricing: Pick<ServicePricing, 'tiers'>;
   popularTier: TierId | null;
   popularLabel?: string | null;
   selectedTierId: QuoteItemTierId | null;

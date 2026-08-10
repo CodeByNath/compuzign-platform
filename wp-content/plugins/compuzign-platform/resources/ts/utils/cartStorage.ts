@@ -1,4 +1,4 @@
-import type { QuoteItem } from '@/components/cost-builder/types';
+import type { CartItem } from '@/components/cost-builder/types';
 
 const CART_KEY    = 'compuzign_quote_cart_v1';
 const CART_TTL_MS = 60 * 60 * 1000; // 60 minutes
@@ -7,10 +7,10 @@ interface CartPayload {
   version:   1;
   expiresAt: number;
   updatedAt: number;
-  items:     QuoteItem[];
+  items:     CartItem[];
 }
 
-export function saveCart(items: QuoteItem[]): void {
+export function saveCart(items: CartItem[]): void {
   try {
     const payload: CartPayload = {
       version:   1,
@@ -24,7 +24,7 @@ export function saveCart(items: QuoteItem[]): void {
   }
 }
 
-export function loadCart(): QuoteItem[] {
+export function loadCart(): CartItem[] {
   try {
     const raw = localStorage.getItem(CART_KEY);
     if (!raw) return [];

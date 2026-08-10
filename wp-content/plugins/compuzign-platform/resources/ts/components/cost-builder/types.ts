@@ -43,9 +43,13 @@ export interface QuoteItem {
 export interface FamilyTierQuoteItem {
   offer_type: 'family_tier';
   familyId: string;
+  familyPlatformId: string;
   familyTitle: string;
   tierInstanceId: string;
+  tierInstancePlatformId: string;
   tierOccupantId: string;
+  tierPlatformId: string;
+  tierEditionPlatformId: string | null;
   tierId: TierId;
   tierTitle: string;
   price: number | null;

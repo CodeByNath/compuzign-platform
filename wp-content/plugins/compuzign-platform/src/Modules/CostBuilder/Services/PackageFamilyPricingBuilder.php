@@ -28,6 +28,7 @@ final class PackageFamilyPricingBuilder
                     : [];
                 $tiers[$tierId] = [
                     'tier_occupant_id' => (string) ($tier['occupant_id'] ?? ''),
+                    'tier_platform_id' => (string) ($tier['platform_id'] ?? ''),
                     'price'            => $tier['price'] ?? null,
                     'billing_cycle'    => (string) ($tier['billing_cycle'] ?? ''),
                     'inclusions'       => $inclusions,
@@ -44,9 +45,11 @@ final class PackageFamilyPricingBuilder
             }
             return [
                 'family_id'        => $family['family_id'],
+                'family_platform_id' => $family['family_platform_id'],
                 'title'            => $family['title'],
                 'description'      => $family['description'],
                 'tier_instance_id' => $family['tier_instance_id'],
+                'tier_instance_platform_id' => $family['tier_instance_platform_id'],
                 'popular_tier'     => $family['popular_tier'],
                 'popular_label'    => $family['popular_label'],
                 'pricing'          => ['tiers' => $tiers],

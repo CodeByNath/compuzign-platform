@@ -114,6 +114,7 @@ function public_projection_family(string $id, string $label, string $status = 'a
 {
     return [
         'group_id' => $id,
+        'cz_platform_id' => 'CZPG-' . strtoupper(substr(hash('sha256', $id), 0, 8)),
         'label' => $label,
         'description' => '',
         'platform_status' => $status,
@@ -137,6 +138,8 @@ function public_projection_instance(
     $tiers['basic'] = [
         'current_occupant' => [
             'id' => 'occ_' . substr(hash('sha256', $id), 0, 8),
+            'cz_platform_id' => 'CZT-' . strtoupper(substr(hash('sha256', $id . '_tier'), 0, 8)),
+            'addon_platform_id' => '',
             'label' => $label,
             'ideal_for' => '',
             'price' => null,
@@ -156,6 +159,8 @@ function public_projection_instance(
         $tiers['standard'] = [
             'current_occupant' => [
                 'id' => 'occ_' . substr(hash('sha256', $id . '_addon'), 0, 8),
+                'cz_platform_id' => 'CZT-' . strtoupper(substr(hash('sha256', $id . '_addon_tier'), 0, 8)),
+                'addon_platform_id' => 'CZTA-' . strtoupper(substr(hash('sha256', $id . '_addon'), 0, 8)),
                 'label' => $addonLabel,
                 'ideal_for' => '',
                 'price' => null,
@@ -174,6 +179,7 @@ function public_projection_instance(
     }
     return [
         'tier_instance_id' => $id,
+        'cz_platform_id' => 'CZTG-' . strtoupper(substr(hash('sha256', $id), 0, 8)),
         'title' => $title,
         'status' => $status,
         'allowed_rate_sheet_ids' => [$rateSheetId],
@@ -305,6 +311,7 @@ $kairosEditions = PackageSchema::applyTierEditionStatus(
     $kairosEditionAdd['edition']['id'],
     StationLifecycle::STATUS_ACTIVE
 );
+$kairosEditions[0]['edition_platform_id'] = 'CZTE-KAIROS01';
 $instances[0]['tiers']['basic']['current_occupant']['tier_editions'] = $kairosEditions;
 $assignments = [
     [
@@ -383,8 +390,11 @@ check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_occupant_id'] !== '', 'Family projection carries the real native occupant identity');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['standard']['is_addon'] === true, 'Family projection preserves the compiled add-on occupant');
 check_public_projection(count($familyById['pcg_kairos']['pricing']['tiers']['basic']['edition_options']) === 1, 'Family projection preserves compiled active Editions');
-check_public_projection(!str_contains(serialize($familyResponse), 'CZPG'), 'Family customer response exposes no Family Platform identifier');
-check_public_projection(!str_contains(serialize($familyResponse), 'CZTE'), 'Family customer response exposes no Edition Platform identifier');
+check_public_projection(str_starts_with($familyById['pcg_kairos']['family_platform_id'], 'CZPG-'), 'Family customer response carries the Family business identifier');
+check_public_projection(str_starts_with($familyById['pcg_kairos']['tier_instance_platform_id'], 'CZTG-'), 'Family customer response carries the Tier Instance business identifier');
+check_public_projection(str_starts_with($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_platform_id'], 'CZT-'), 'Family customer response carries the Tier business identifier');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['edition_options'][0]['edition_platform_id'] === 'CZTE-KAIROS01', 'Family customer response carries the selected Edition business identifier');
+check_public_projection(!isset($publicMap[101]['tiers']['basic']['platform_id']), 'the established Service-rooted projection remains byte-compatible and does not gain Family-builder identity fields');
 
 $disabledServiceIds = $repository->findDisabledPackageServiceIds();
 foreach ([103, 104, 105, 106, 107, 108] as $serviceId) {

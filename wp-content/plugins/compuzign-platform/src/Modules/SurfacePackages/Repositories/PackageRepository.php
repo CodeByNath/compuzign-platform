@@ -1294,6 +1294,10 @@ class PackageRepository
                 continue;
             }
             $familyId = (string) ($family['group_id'] ?? '');
+            $familyPlatformId = (string) ($family['cz_platform_id'] ?? '');
+            if ($familyPlatformId === '') {
+                continue;
+            }
             $assignment = TierAssignmentSchema::findForConsumer(
                 $assignments,
                 'package_family',
@@ -1309,6 +1313,7 @@ class PackageRepository
             if ($instance === null
                 || ($instance['status'] ?? null) !== 'active'
                 || TierInstanceSchema::deriveInstanceStatus($instance) !== 'active'
+                || (string) ($instance['cz_platform_id'] ?? '') === ''
             ) {
                 continue;
             }
@@ -1319,15 +1324,43 @@ class PackageRepository
                 $occupant = PackageSchema::isOccupantFormat($slot)
                     ? ($slot['current_occupant'] ?? null)
                     : null;
-                $tier['occupant_id'] = is_array($occupant) ? (string) ($occupant['id'] ?? '') : '';
+                if (!is_array($occupant)) {
+                    unset($compiled['tiers'][$tierId]);
+                    continue;
+                }
+                $tierPlatformId = !empty($tier['is_addon'])
+                    ? (string) ($occupant['addon_platform_id'] ?? '')
+                    : (string) ($occupant['cz_platform_id'] ?? '');
+                if ($tierPlatformId === '') {
+                    unset($compiled['tiers'][$tierId]);
+                    continue;
+                }
+                $tier['occupant_id'] = (string) ($occupant['id'] ?? '');
+                $tier['platform_id'] = $tierPlatformId;
+                $editionPlatformIds = [];
+                foreach (PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) as $edition) {
+                    $editionPlatformIds[(string) ($edition['id'] ?? '')] = (string) ($edition['edition_platform_id'] ?? '');
+                }
+                $tier['edition_options'] = array_values(array_filter(array_map(
+                    static function (array $option) use ($editionPlatformIds): array {
+                        $platformId = $editionPlatformIds[(string) ($option['id'] ?? '')] ?? '';
+                        return [...$option, 'edition_platform_id' => $platformId];
+                    },
+                    is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : []
+                ), static fn(array $option): bool => $option['edition_platform_id'] !== ''));
             }
             unset($tier);
+            if ($compiled['tiers'] === []) {
+                continue;
+            }
 
             $families[] = [
                 'family_id'       => $familyId,
+                'family_platform_id' => $familyPlatformId,
                 'title'           => (string) ($family['label'] ?? ''),
                 'description'     => (string) ($family['description'] ?? ''),
                 'tier_instance_id' => (string) $instance['tier_instance_id'],
+                'tier_instance_platform_id' => (string) $instance['cz_platform_id'],
                 'tiers'           => $compiled['tiers'],
                 'popular_tier'    => $compiled['popular_tier'],
                 'popular_label'   => $compiled['popular_label'],

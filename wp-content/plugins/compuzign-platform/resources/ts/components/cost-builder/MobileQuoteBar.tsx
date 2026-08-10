@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import type { QuoteItem } from './types';
+import type { CartItem } from './types';
 
 interface MobileQuoteBarProps {
-  items: QuoteItem[];
+  items: CartItem[];
   summaryId: string;
 }
 
