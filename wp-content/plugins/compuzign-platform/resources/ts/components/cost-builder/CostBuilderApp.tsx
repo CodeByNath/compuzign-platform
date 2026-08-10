@@ -16,7 +16,7 @@ import { MobileQuoteBar } from './MobileQuoteBar';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 import { replaceNormalQuoteItem, upsertAddonQuoteItem, removeAddonQuoteItem, removeServiceQuoteItems } from '@/utils/quote';
 import type { QuoteItem } from './types';
-import type { CostBuilderResponse, ServiceItem, TierId } from '@/api/types/cost-builder';
+import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 
 const QUOTE_SUMMARY_ID = 'cz-quote-summary';
 
@@ -24,54 +24,7 @@ export function canSelectServiceOffers(service: Pick<ServiceItem, 'availability'
   return service.availability.is_available;
 }
 
-// The one thing that differs between the Service Category and Package Family
-// Cost Builder variants: which field groups Services, and what labels the
-// group nav. Both are client-side derivations of the SAME response — Family
-// mode adds no second pre-grouped backend collection, it groups the already-
-// shared Service objects by their own already-resolved `family` reference.
-interface CostBuilderGroup {
-  id: string;
-  label: string;
-  services: ServiceItem[];
-}
-
-function buildCategoryGroups(data: CostBuilderResponse | null | undefined): CostBuilderGroup[] {
-  if (!data) return [];
-  return data.services_by_category.map((g) => ({
-    id: g.category_slug,
-    label: g.category_name,
-    services: g.services,
-  }));
-}
-
-function buildFamilyGroups(data: CostBuilderResponse | null | undefined): CostBuilderGroup[] {
-  if (!data) return [];
-  // Services can repeat across categories in services_by_category (a Service
-  // may carry more than one Service Category); de-dupe by id before bucketing
-  // by Family so a Family group never lists the same Service twice.
-  const byId = new Map<number, ServiceItem>();
-  for (const group of data.services_by_category) {
-    for (const svc of group.services) byId.set(svc.id, svc);
-  }
-  const byFamily = new Map<string, ServiceItem[]>();
-  for (const svc of byId.values()) {
-    if (!svc.family) continue; // unassigned Services simply don't appear in Family mode
-    const bucket = byFamily.get(svc.family.id) ?? [];
-    bucket.push(svc);
-    byFamily.set(svc.family.id, bucket);
-  }
-  return data.package_families
-    .slice()
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((f) => ({ id: f.id, label: f.label, services: byFamily.get(f.id) ?? [] }))
-    .filter((g) => g.services.length > 0); // empty groups excluded, same rule as Category
-}
-
-export interface CostBuilderAppProps {
-  groupBy?: 'category' | 'family';
-}
-
-export function CostBuilderApp({ groupBy = 'category' }: CostBuilderAppProps = {}) {
+export function CostBuilderApp() {
   const { data, loading, error, refetch } = useCostBuilder();
   // DEBUG — remove after diagnosis
   if (data) {
@@ -82,31 +35,28 @@ export function CostBuilderApp({ groupBy = 'category' }: CostBuilderAppProps = {
     }
   }
 
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeServiceId, setActiveServiceId] = useState<number | null>(null);
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(() => loadCart());
   const [isFlowOpen, setIsFlowOpen] = useState(false);
   const urlParamsApplied = useRef(false);
 
-  const groups = groupBy === 'family' ? buildFamilyGroups(data) : buildCategoryGroups(data);
-  const groupUrlParam = groupBy === 'family' ? 'family' : 'category';
-
-  // On first data load, focus the group/service passed via URL query params.
-  // Falls back gracefully: missing service → group only; missing group → default.
+  // On first data load, focus the category/service passed via URL query params.
+  // Falls back gracefully: missing service → category only; missing category → default.
   useEffect(() => {
     if (!data || urlParamsApplied.current) return;
     urlParamsApplied.current = true;
 
     const params = new URLSearchParams(window.location.search);
-    const groupSlug = params.get(groupUrlParam);
+    const catSlug = params.get('category');
     const svcSlug = params.get('service');
 
-    if (!groupSlug) return;
+    if (!catSlug) return;
 
-    const group = groups.find((g) => g.id === groupSlug);
+    const group = data.services_by_category.find((g) => g.category_slug === catSlug);
     if (!group) return;
 
-    setActiveGroupId(groupSlug);
+    setActiveCategory(catSlug);
 
     if (svcSlug) {
       const svc = group.services.find((s) => s.slug === svcSlug);
@@ -142,10 +92,10 @@ export function CostBuilderApp({ groupBy = 'category' }: CostBuilderAppProps = {
       : removeServiceQuoteItems(prev, serviceId)));
   };
 
-  const handleGroupChange = (id: string) => {
+  const handleCategoryChange = (slug: string) => {
     if (!data) return;
-    setActiveGroupId(id);
-    const group = groups.find((g) => g.id === id);
+    setActiveCategory(slug);
+    const group = data.services_by_category.find((g) => g.category_slug === slug);
     setActiveServiceId(group?.services[0]?.id ?? null);
   };
 
@@ -170,7 +120,7 @@ export function CostBuilderApp({ groupBy = 'category' }: CostBuilderAppProps = {
     );
   }
 
-  if (!data || groups.length === 0) {
+  if (!data || data.categories.length === 0) {
     return (
       <div class="cz-cost-builder cz-cost-builder--empty">
         <p class="cz-muted">No services available at this time.</p>
@@ -178,9 +128,11 @@ export function CostBuilderApp({ groupBy = 'category' }: CostBuilderAppProps = {
     );
   }
 
-  const currentGroupId = activeGroupId ?? groups[0]?.id ?? '';
-  const currentGroup = groups.find((g) => g.id === currentGroupId);
-  const services = currentGroup?.services ?? [];
+  const currentSlug = activeCategory ?? data.categories[0]?.slug ?? '';
+  const categoryGroup = data.services_by_category.find(
+    (g) => g.category_slug === currentSlug,
+  );
+  const services = categoryGroup?.services ?? [];
   const currentServiceId = activeServiceId ?? services[0]?.id ?? null;
   const activeService = services.find((s) => s.id === currentServiceId) ?? services[0] ?? null;
   const allServices = data.services_by_category.flatMap((g) => g.services);
@@ -200,9 +152,9 @@ export function CostBuilderApp({ groupBy = 'category' }: CostBuilderAppProps = {
     <div class={`cz-cost-builder${hasQuote ? ' cz-cost-builder--has-quote' : ''}`}>
       <HeroArea />
       <CategoryNav
-        categories={groups.map((g) => ({ slug: g.id, name: g.label }))}
-        activeSlug={currentGroupId}
-        onChange={handleGroupChange}
+        categories={data.categories}
+        activeSlug={currentSlug}
+        onChange={handleCategoryChange}
       />
       <SubcategoryNav
         services={services}

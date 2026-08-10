@@ -22,7 +22,6 @@ use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference;
-use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 
 /**
  * Single authority for Package Station storage.
@@ -1219,70 +1218,9 @@ class PackageRepository
             }
 
             $map[$coveredServiceId] = $projectedByInstanceId[$instanceId];
-            // Read-only, additive: attach the Service's own already-resolved
-            // Family (Cost Builder's filter needs this to group by Family;
-            // it has no bearing on Tier/pricing resolution above, which is
-            // already complete by this point). Computed per Service rather
-            // than cached on $projectedByInstanceId so a corrupt multi-Family
-            // source can never be masked by another Service's cached value.
-            $map[$coveredServiceId]['resolved_family'] = $this->resolveFamilyForService(
-                $coveredServiceId,
-                $resolutionManager['sources'],
-                $manager['category_groups']
-            );
         }
 
         return $this->activePackageMapCache = $map;
-    }
-
-    /**
-     * Resolve the single active Family a Service is connected to, for Cost
-     * Builder's read-only public projection. Deliberately mirrors only the
-     * Family-scan portion of TierInstanceSchema::resolveInstanceForService()
-     * (same fail-closed-on-ambiguity rule) without touching that method's
-     * Tier-instance/assignment contract — this has no Tier concern at all,
-     * so it stays local to the Cost Builder projection that needs it.
-     *
-     * @param  array<int, array<string, mixed>> $sources raw (unsanitized) source rows
-     * @param  array<int, array<string, mixed>> $groups  sanitized category_groups
-     * @return array{group_id: string, label: string, sort_order: int}|null
-     */
-    private function resolveFamilyForService(int $serviceId, array $sources, array $groups): ?array
-    {
-        $familyIds = [];
-        foreach ($sources as $source) {
-            if (!is_array($source)
-                || ($source['provider_key'] ?? null) !== 'service'
-                || ($source['entity_type'] ?? null) !== 'service'
-                || (int) ($source['entity_id'] ?? 0) !== $serviceId
-            ) {
-                continue;
-            }
-
-            $familyId = is_string($source['category_group_id'] ?? null)
-                ? trim($source['category_group_id'])
-                : '';
-            if ($familyId === '') {
-                return null;
-            }
-            $familyIds[$familyId] = true;
-        }
-
-        if (count($familyIds) !== 1) {
-            return null;
-        }
-
-        $familyId = (string) array_key_first($familyIds);
-        $family   = PackageCategoryGroups::find($groups, $familyId);
-        if ($family === null || ($family['platform_status'] ?? null) !== StationLifecycle::STATUS_ACTIVE) {
-            return null;
-        }
-
-        return [
-            'group_id'   => (string) $family['group_id'],
-            'label'      => (string) $family['label'],
-            'sort_order' => (int) ($family['sort_order'] ?? 0),
-        ];
     }
 
     /**
