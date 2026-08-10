@@ -99,15 +99,16 @@ Options.
 
 The pinned footer's ONE "Move Edition to Bin" row (any status) drives a
 separate command, `moveTierEditionToBinCommand` (`POST .../move-to-bin`) —
-not the narrow, unchanged `moveTierEditionToBinEndpoint` (`POST .../bin`,
+not the narrow `moveTierEditionToBinEndpoint` (`POST .../bin`,
 still archived/trashed-only). It composes `applyTierEditionStatus(...,
-trashed)` (if needed) and `moveTierEditionToBin()` in memory, one persist —
+trashed)` and `moveTierEditionToBin()` in memory, one persist —
 never a persisted Trashed-but-unrelocated state. Permanent Delete lives
 only in `TierEditionBinList.tsx` (trashed rows).
 
 The read surface is two module cards (`TIER_EDITION_ENTITY`'s `overview`/
 `inclusions` shells, one `ModuleState`), edited through one shared
-`TierEditionEditor.tsx` (two tabs, one draft, one Save/Cancel). The
+`TierEditionEditor.tsx` (two tabs, one draft, one Save/Cancel — draft-only;
+settle is Publish's job). The
 selected id lives in `useTierDrawerController.ts`, not local state, since
 `TierDrawerContent.tsx` unmounts its child tree while `!pkg.detailLoaded`.
 

@@ -93,7 +93,12 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     ? deriveTierEditionFooterState(
         selectedEdition,
         tierEditionModuleState(selectedEdition).status,
-        selectedEdition.drafts.overview !== null,
+        // Loose nullish check, matching useTierInclusionDrawerController's own
+        // hasFeaturesDraft (`!= null`) — a freshly created Edition's
+        // drafts.overview is absent (undefined), not null; a strict `!==
+        // null` check misreads that as "has a draft" and would make Publish
+        // appear before anything was ever saved.
+        selectedEdition.drafts.overview != null,
       )
     : null;
   const selectedEditionCanPublish = selectedEditionFooterState?.canPublish ?? false;
@@ -105,7 +110,17 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     disabledMasked: tierEditionDisabledMasked(selectedEdition),
     hasBeenPublished: selectedEditionHasBeenPublished,
     canPublish:     selectedEditionCanPublish,
-    onPublish:      () => editionCtl.publish(selectedEdition.id),
+    // Settle the pending module draft first, THEN transition platform_status
+    // — the two existing endpoints (settleTierEditionModule,
+    // updateTierEditionStatus) simply sequenced correctly, moved here from
+    // where inline Save used to auto-settle. A failed settle must never be
+    // followed by activating a record whose draft did not actually commit —
+    // canPublish already covers "already Active with nothing pending" (a
+    // no-op settle is harmless there; publish() then re-confirms 'active').
+    onPublish:      async () => {
+      const settled = await editionCtl.settle(selectedEdition.id);
+      if (settled) await editionCtl.publish(selectedEdition.id);
+    },
     onDisable:      () => editionCtl.disable(selectedEdition.id),
     onEnable:       () => editionCtl.enable(selectedEdition.id),
     // Independent of the Tier's own cascading "Archive Tier" — this

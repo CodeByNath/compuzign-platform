@@ -45,7 +45,13 @@ export function deriveTierEditionFooterState(
   return {
     isNewNeverPublished: !hasBeenPublished,
     hasBeenPublished,
-    canPublish: moduleStatus === 'pending-full' || (isActive && hasDraft),
+    // Mirrors the Tier occupant's own buildTierFooterModel.footerHasContent:
+    // raw pending content (hasDraft) makes something publishable, full stop —
+    // never gated on platform_status/hasBeenPublished. moduleStatus here is a
+    // PRESENTATION result (tierEditionModuleState's 5-state pill); the Tier
+    // lifecycle never asks that layer whether something is publishable, only
+    // the raw module_status/draft state, so canPublish must not either.
+    canPublish: moduleStatus === 'pending-full' || hasDraft,
   };
 }
 

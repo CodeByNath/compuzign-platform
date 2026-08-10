@@ -203,11 +203,31 @@ check(
 // out of TierEditionDeclarationSwitcher in the single-footer, scope-aware
 // lifecycle command model (correction plan) — the pinned TierDrawerFooter
 // now drives them for the selected Edition (see the Lifecycle presentation
-// section below). The switcher itself still drives its own module
-// draft/settle/revert (Save on the shared editor).
+// section below). The switcher itself still drives its own module draft
+// save/revert (Save/Discard on the shared editor); settle moved out too
+// (parity repair — lifecycle correction), to the pinned footer's Publish
+// action alongside the other transitions, so inline Save leaves the module
+// genuinely Pending rather than auto-settling before the user ever
+// confirms Publish, matching the occupant's own useTierModuleEditing
+// (Save is draft-only; a separate action settles).
 check(
-  panel.includes('ctl.saveDraft(') && panel.includes('ctl.settle(') && panel.includes('ctl.revert('),
-  'TierEditionDeclarationSwitcher still drives its own module draft/settle/revert through the hook',
+  panel.includes('ctl.saveDraft(') && panel.includes('ctl.revert('),
+  'TierEditionDeclarationSwitcher still drives its own module draft save/revert through the hook',
+);
+check(
+  !panel.includes('ctl.settle('),
+  'TierEditionDeclarationSwitcher no longer calls settle itself — inline Save must leave the module Pending, not silently commit it',
+);
+// The pinned footer's Publish action is the ONE place settle is called —
+// composed with the status transition so a failed settle can never be
+// followed by activating a record whose draft did not actually commit.
+check(
+  drawerContent.includes('editionCtl.settle(') && drawerContent.includes('editionCtl.publish('),
+  'TierDrawerContent\'s onPublish drives both the module settle and the status transition',
+);
+check(
+  /const settled = await editionCtl\.settle\([^)]*\);\s*\n\s*if \(settled\) await editionCtl\.publish\(/.test(drawerContent),
+  'settle is awaited and its success gates the subsequent publish — a failed settle must not activate an uncommitted draft',
 );
 check(
   panel.includes('selectedId:') && panel.includes('onSelect:') && !panel.includes('useState<string | null>'),

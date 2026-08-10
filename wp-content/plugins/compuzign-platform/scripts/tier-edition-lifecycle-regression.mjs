@@ -843,16 +843,32 @@ clickEditorTab('Overview');
 await sleep(20);
 check('the title typed before the round trip is still there', container.querySelector('#edt-title')?.value === 'Annual Plan', container.querySelector('#edt-title')?.value);
 
-console.log('  3d) One Save commits both tabs\' changes together, as one draft');
+console.log('  3d) One Save commits both tabs\' changes together, as one draft — Pending, NOT yet settled (lifecycle correction: inline Save no longer auto-settles; see docs/code-map/tier-edition.md)');
 const saveCallsBefore = saveDraftCalls;
 const settleCallsBefore = settleCalls;
 clickButtonWithText('Save');
 await waitQuiet();
 check('the module draft-save endpoint was called exactly once for both changes', saveDraftCalls === saveCallsBefore + 1, saveDraftCalls);
-check('the module settle endpoint was called right after (Save chains draft → settle for an Edition)', settleCalls === settleCallsBefore + 1, settleCalls);
-check('the tab now shows the new title', declarationTab('Annual Plan') !== undefined);
+check('the module settle endpoint was NOT called by Save — settling a pending draft is now the explicit Publish action\'s job, not something inline Save does silently', settleCalls === settleCallsBefore, settleCalls);
+check('the tab still shows the OLD title — the rename is pending, not yet visible, until an explicit settle', declarationTab('Edition 2') !== undefined && declarationTab('Annual Plan') === undefined);
+check('the pending Rate Sheet selection is not yet committed onto the settled Edition row', findEdition(editions.find((e) => e.title === 'Edition 2')?.id)?.rate_sheet_id !== RATE_SHEET_ID);
+
+console.log('\n4) Publish "Edition 2" (renaming to "Annual Plan") — settles the pending draft FIRST, then activates and assigns CZTE exactly once');
+pubLabels = await publishMenuLabels();
+check('the publish menu still names the OLD title — its label reads the settled title, not the pending draft', pubLabels.includes('Publish Edition — Edition 2'), pubLabels);
+const settleCallsBeforePublish = settleCalls;
+await clickPublishMenuItem('Publish Edition — Edition 2');
+await waitQuiet();
+check('Publish settled the pending draft first — the two existing endpoints, sequenced correctly, not a new one', settleCalls === settleCallsBeforePublish + 1, settleCalls);
+check('the status endpoint was called', statusCalls === 1, statusCalls);
+check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
+check('the assigned CZTE is now shown', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
+check('the Edition Overview pill now reads Active — the shared 5-state pill, not a bespoke status string', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
+check('the pinned footer offers Disable, not Enable, for an Active Edition', splitLabel() === 'Disable', splitLabel());
+check('the module pill and the footer action agree', pillAndActionAgree());
+check('the tab now shows the new title — settle (now driven by Publish) finally committed the rename', declarationTab('Annual Plan') !== undefined);
 check('the old auto-generated title is gone — this is a rename, not a second Edition', declarationTab('Edition 2') === undefined);
-check('the Rate Sheet selection from the Inclusions tab was saved in the SAME draft', findEdition(editions.find((e) => e.title === 'Annual Plan')?.id)?.rate_sheet_id === RATE_SHEET_ID);
+check('the Rate Sheet selection from the Inclusions tab was committed by the same settle', findEdition(editions.find((e) => e.title === 'Annual Plan')?.id)?.rate_sheet_id === RATE_SHEET_ID);
 check('Edition Inclusions now shows the resolved row read-only', findModule('Edition Inclusions')?.textContent.includes('Priority support'));
 // Correction plan item 1: the bound Rate Sheet carries a SECOND inclusion-
 // type row (UNSELECTED_ITEM_ID / "Unselected extra") that was never added to
@@ -864,20 +880,6 @@ check(
   !findModule('Edition Inclusions')?.textContent.includes('Unselected extra'),
   findModule('Edition Inclusions')?.textContent,
 );
-
-console.log('\n4) Publish "Annual Plan" — activates and assigns CZTE exactly once');
-selectDeclarationTab('Annual Plan');
-await sleep(20);
-pubLabels = await publishMenuLabels();
-check('the publish menu offers "Publish Edition — Annual Plan" as an explicit scoped row', pubLabels.includes('Publish Edition — Annual Plan'), pubLabels);
-await clickPublishMenuItem('Publish Edition — Annual Plan');
-await waitQuiet();
-check('the status endpoint was called', statusCalls === 1, statusCalls);
-check('a CZTE identifier was minted on first Publish', czteMints === 1, czteMints);
-check('the assigned CZTE is now shown', moduleFieldValue('Edition Overview', 'Edition Platform ID')?.includes(`CZTE${CZTE_SUFFIXES[0]}`), moduleFieldValue('Edition Overview', 'Edition Platform ID'));
-check('the Edition Overview pill now reads Active — the shared 5-state pill, not a bespoke status string', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
-check('the pinned footer offers Disable, not Enable, for an Active Edition', splitLabel() === 'Disable', splitLabel());
-check('the module pill and the footer action agree', pillAndActionAgree());
 
 console.log('\n5) Disable — captures previous_platform_status; the mock never touches is_explicitly_disabled (mirrors PackageSchema::applyTierEditionDisabledMask, which does not either)');
 menuLabels = await lifecycleMenuLabels();
@@ -1048,9 +1050,11 @@ setInputValue('#edt-billing-cycle', 'monthly');
 await sleep(20);
 clickButtonWithText('Save');
 await waitQuiet();
-selectDeclarationTab('Monthly Plan');
-await sleep(20);
-await clickPublishMenuItem('Publish Edition — Monthly Plan');
+// The rename is still pending — not yet visible anywhere — until the
+// explicit Publish click settles it (lifecycle correction, same as section
+// 3d/4 above). The Edition is already selected from line 1043; Publish is
+// still addressed by the OLD title until settle commits the new one.
+await clickPublishMenuItem('Publish Edition — Edition 2');
 await waitQuiet();
 check('Monthly Plan reads Active', pillLabel('Edition Overview') === 'Active', pillLabel('Edition Overview'));
 check('a second, distinct CZTE was minted', czteMints === 2, czteMints);

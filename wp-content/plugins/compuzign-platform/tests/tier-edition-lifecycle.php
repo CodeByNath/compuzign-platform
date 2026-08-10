@@ -237,6 +237,40 @@ $publish2 = tel_new_controller()->updateTierEditionStatus(new WP_REST_Request(
 check_edition_lifecycle($publish2->get_status() === 200, 'a repeat publish still succeeds');
 check_edition_lifecycle((tel_edition('basic', $editionId)['edition_platform_id'] ?? '') === $editionPlatformId1, 'a repeat publish reuses the exact same CZTE, never a second one');
 
+// ── Editing an already-Active Edition leaves it Pending until settle ────────
+// (lifecycle correction: inline Save must never auto-settle — see
+// docs/code-map/tier-edition.md and TierDrawerContent's onPublish.)
+
+$activeDraft = tel_new_controller()->saveTierEditionModule(new WP_REST_Request(
+    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic', 'edition' => $editionId, 'module' => 'overview'],
+    ['title' => 'Monthly', 'billing_cycle' => 'annually', 'rate_sheet_id' => 'rs_primary'],
+));
+check_edition_lifecycle($activeDraft->get_status() === 200, 'saving a new draft on an already-Active Edition succeeds');
+$afterActiveDraft = tel_edition('basic', $editionId);
+check_edition_lifecycle($afterActiveDraft['module_status']['overview'] === StationLifecycle::MODULE_PENDING, 'a saved draft on an Active Edition marks the module Pending, not settled');
+check_edition_lifecycle($afterActiveDraft['platform_status'] === 'active', 'saving a draft never itself changes platform_status');
+check_edition_lifecycle($afterActiveDraft['billing_cycle'] === 'monthly', 'the settled billing_cycle (monthly) is still live — the pending annually draft has not been committed');
+
+// The status endpoint alone (what the frontend's onPublish calls SECOND) must
+// never itself commit a pending draft — proving the settle-then-publish
+// ordering in TierDrawerContent's onPublish is load-bearing, not redundant.
+tel_new_controller()->updateTierEditionStatus(new WP_REST_Request(
+    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic', 'edition' => $editionId, 'platform_status' => 'active'],
+));
+$afterStatusOnly = tel_edition('basic', $editionId);
+check_edition_lifecycle($afterStatusOnly['module_status']['overview'] === StationLifecycle::MODULE_PENDING, 'the status transition endpoint alone never settles a pending draft');
+check_edition_lifecycle($afterStatusOnly['billing_cycle'] === 'monthly', 'the status transition endpoint alone never commits draft fields — settle is the only thing that does');
+
+// Now settle (what the frontend's onPublish calls FIRST) — commits the draft.
+$activeSettle = tel_new_controller()->settleTierEditionModule(new WP_REST_Request(
+    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic', 'edition' => $editionId, 'module' => 'overview'],
+));
+check_edition_lifecycle($activeSettle->get_status() === 200, 'settling the pending draft on an Active Edition succeeds');
+$afterActiveSettle = tel_edition('basic', $editionId);
+check_edition_lifecycle($afterActiveSettle['module_status']['overview'] === StationLifecycle::MODULE_SETTLED, 'settle commits the module to settled');
+check_edition_lifecycle($afterActiveSettle['billing_cycle'] === 'annually', 'settle commits the pending billing_cycle change into the live field');
+check_edition_lifecycle($afterActiveSettle['platform_status'] === 'active', 'settling a module never itself changes platform_status — the two remain independent operations');
+
 // ── Disable / Enable ──────────────────────────────────────────────────────────
 
 $disable = tel_new_controller()->updateTierEditionStatus(new WP_REST_Request(

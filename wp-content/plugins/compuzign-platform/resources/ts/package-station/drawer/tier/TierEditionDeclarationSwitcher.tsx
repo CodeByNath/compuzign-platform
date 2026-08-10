@@ -153,10 +153,14 @@ export function TierEditionDeclarationSwitcher({
     setEditingTab(tab);
   };
   const cancelEdit = () => { setEditingTab(null); setDraft(null); };
+  // Draft-only — the module stays Pending after inline Save (matching the
+  // occupant's own useTierModuleEditing.saveSection). Settling a pending
+  // draft is the explicit Publish action's job (TierDrawerContent's
+  // onPublish), not something an inline Save does silently, even when this
+  // Edition is already Active. See docs/code-map/tier-edition.md.
   const saveEdit = async () => {
     if (!selected || !draft) return;
-    const ok = await ctl.saveDraft(selected.id, draft);
-    if (ok) await ctl.settle(selected.id);
+    await ctl.saveDraft(selected.id, draft);
     setEditingTab(null);
     setDraft(null);
   };
