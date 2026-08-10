@@ -250,6 +250,16 @@ $manager = [
                 'per' => 'Per item',
                 'quantity' => 1,
                 'group_id' => null,
+                // A Price Option on the shared row — proves the occupant
+                // (Default Price) and its Edition (this option) can each
+                // price the SAME row differently through the SAME
+                // projection boundary.
+                'price_options' => [[
+                    'option_id' => 'opt_kairos_bulk',
+                    'cz_platform_id' => 'CZPRCIO-TEST',
+                    'label' => 'Bulk (3+)',
+                    'unit_price' => 20,
+                ]],
             ]],
         ],
         [
@@ -284,7 +294,9 @@ $instances = [
 $kairosEditionAdd = PackageSchema::addTierEdition([], [
     'title'            => 'KAIROS Annual',
     'rate_sheet_id'    => 'rs_kairos',
-    'rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 3]],
+    // quantity 3 of the shared row, priced from its own chosen Price Option
+    // (20/unit) rather than the row's Default Price (11/unit) the occupant uses.
+    'rate_sheet_items' => [['item_id' => $rateItemId, 'quantity' => 3, 'price_option_id' => 'opt_kairos_bulk']],
     'billing_cycle'    => 'annually',
 ]);
 $kairosEditions = PackageSchema::applyTierEditionStatus(
@@ -347,8 +359,8 @@ check_public_projection($publicMap[101]['tiers']['basic']['label'] === 'KAIROS B
 check_public_projection($publicMap[102]['tiers']['basic']['label'] === 'APTOS Basic', 'APTOS receives only its assigned Tier occupant');
 check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'KAIROS resolves the shared row id inside rs_kairos');
 check_public_projection(count($publicMap[101]['tiers']['basic']['edition_options']) === 1, 'KAIROS basic occupant carries its one Active Edition publicly');
-check_public_projection($publicMap[101]['tiers']['basic']['edition_options'][0]['price'] === 33.0, 'the Edition\'s OWN rate_sheet_items (quantity 3 of the shared row) project a live price through the same authoritative boundary — no longer a raw/null stored scalar');
-check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'the occupant\'s own price is unaffected by projecting its Edition\'s price — never a second calculation bleeding across rows');
+check_public_projection($publicMap[101]['tiers']['basic']['edition_options'][0]['price'] === 60.0, 'the Edition\'s OWN rate_sheet_items (quantity 3 of the shared row, priced from its own selected Price Option at 20/unit) project a live price through the same authoritative boundary — no longer a raw/null stored scalar, and never the row\'s Default Price when a Price Option is selected');
+check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'the occupant\'s own Default-Price selection of the SAME shared row is unaffected by its Edition choosing a different Price Option — one shared boundary, two independent selections');
 check_public_projection($publicMap[102]['tiers']['basic']['price'] === 22.0, 'APTOS resolves the shared row id inside rs_aptos');
 check_public_projection($publicMap[101]['popular_label'] === 'KAIROS Tier Set popular', 'KAIROS popular configuration comes from its instance');
 check_public_projection($publicMap[102]['popular_label'] === 'APTOS Tier Set popular', 'APTOS popular configuration comes from its instance');

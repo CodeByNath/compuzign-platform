@@ -107,6 +107,7 @@ export function buildRateSheetCatalogue(
     per: item.per,
     group_id: item.group_id,
     line_total: item.unit_price,
+    price_options: item.price_options,
   }));
   for (const selected of existingSelections) {
     if (!catalogue.some((item) => item.item_id === selected.item_id)) catalogue.push(selected);

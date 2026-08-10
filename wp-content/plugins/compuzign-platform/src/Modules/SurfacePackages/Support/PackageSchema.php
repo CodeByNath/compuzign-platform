@@ -50,7 +50,9 @@ class PackageSchema
             $id = sanitize_text_field((string) ($item['item_id'] ?? ''));
             if ($id === '' || isset($seen[$id])) { continue; }
             $seen[$id] = true;
-            $out[] = ['item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1))];
+            $rawOptionId = $item['price_option_id'] ?? null;
+            $optionId = ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId);
+            $out[] = ['item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1)), 'price_option_id' => $optionId];
         }
         return $out;
     }

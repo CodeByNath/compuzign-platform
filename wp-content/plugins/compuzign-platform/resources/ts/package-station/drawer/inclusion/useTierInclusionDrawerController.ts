@@ -122,7 +122,7 @@ export function useTierInclusionDrawerController({
       return;
     }
     const refs: TierRateSheetSelection[] = selections.map((selection) => ({
-      item_id:  selection.item_id,
+      ...selection,
       quantity: selection.item_id === itemId ? quantity : selection.quantity,
     }));
 

@@ -588,6 +588,11 @@ export interface TierOverviewDraft {
 export interface TierRateSheetSelection {
   item_id: string;
   quantity: number;
+  // Absent/null selects the row's own Default Price; present selects one of
+  // the row's price_options[] by option_id. An id that no longer resolves
+  // against the bound sheet is left as-is — never silently coerced back to
+  // Default Price. See docs/code-map/rate-sheet.md.
+  price_option_id?: string | null;
 }
 
 export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
@@ -599,6 +604,10 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   per: PackageRateSheetUnit | null;
   group_id: string | null;
   line_total: number | null;
+  // The row's own alternative-price children, carried through so the editor
+  // can offer a Price Option selector without a second lookup. Empty for a
+  // row with no options.
+  price_options?: PackageRateSheetPriceOption[];
 }
 
 export interface TierDrafts {

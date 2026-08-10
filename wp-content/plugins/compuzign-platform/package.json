@@ -21,6 +21,7 @@
     "contract:tier-addon-flow": "tsx scripts/tier-addon-flow-contract.ts",
     "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",
     "contract:rate-sheet-row-platform-identity": "tsx scripts/rate-sheet-row-platform-identity-contract.ts",
+    "contract:rate-sheet-price-option-selection": "tsx scripts/rate-sheet-price-option-selection-contract.ts",
     "contract:service-home-connections": "tsx scripts/service-home-connections-contract.ts",
     "contract:supported-action-footer": "tsx scripts/supported-action-footer-contract.ts",
     "contract:station-tabset": "tsx scripts/station-tabset-contract.ts",

@@ -49,15 +49,34 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
   if (rateSheetCatalogue) {
     const selections = draft as TierRateSheetSelection[];
     const selectedRows = selections.map((selection) => rateSheetCatalogue.find((item) => item.item_id === selection.item_id)
-      ?? { ...selection, resolved: false, label: '(unresolved Rate Sheet item)', unit_price: null, per: null, group_id: null, line_total: null });
+      ?? { ...selection, resolved: false, label: '(unresolved Rate Sheet item)', unit_price: null, per: null, group_id: null, line_total: null, price_options: [] });
     return <div class="cz-tf-form"><div class="cz-tf-field"><label class="cz-tf-label">Included Features</label>
       {selectedRows.length > 0 && <div class="cz-ie-list">{selectedRows.map((row, index) => {
         const selection = selections[index];
+        // Effective price mirrors PackageManagerSchema::projectTierRateSheetWith:
+        // Default Price unless price_option_id resolves against this row's own
+        // price_options[]; a present-but-unresolved id never falls back.
+        const priceOptions = row.price_options ?? [];
+        const selectedOption = selection.price_option_id
+          ? priceOptions.find((option) => option.option_id === selection.price_option_id) ?? null
+          : null;
+        const optionUnresolved = !!selection.price_option_id && !selectedOption;
+        const effectiveUnitPrice = optionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
         return <div key={selection.item_id} class="cz-ie-row">
-          <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : ` · $${row.unit_price?.toFixed(2)} ${row.per ?? ''}`}</div>
+          <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`)}</div>
+          {priceOptions.length > 0 && (
+            <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
+              onChange={(event) => {
+                const value = event.currentTarget.value || null;
+                onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, price_option_id: value } : item));
+              }}>
+              <option value="">Default Price · ${row.unit_price?.toFixed(2) ?? '—'}</option>
+              {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
+            </select>
+          )}
           <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
             onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-          <span>{row.unit_price !== null ? `$${(row.unit_price * selection.quantity).toFixed(2)}` : '—'}</span>
+          <span>{effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>✕</button>
         </div>;
       })}</div>}

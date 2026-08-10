@@ -1255,10 +1255,11 @@ final class PackageManagerSchema
             $itemId = sanitize_text_field((string) ($selection['item_id'] ?? ''));
             if ($itemId === '') { continue; }
             $quantity = max(1, (int) ($selection['quantity'] ?? 1));
+            $rawOptionId = $selection['price_option_id'] ?? null;
+            $priceOptionId = ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId);
             $rateItem = $rateItems[$itemId] ?? null;
             $source = $rateItem ? ($sources[$rateItem['source_item_id']] ?? null) : null;
             $resolved = $rateItem !== null && $source !== null && !empty($source['connection_resolved']);
-            $available = $resolved && !empty($source['available']);
             $label = '(unresolved Rate Sheet item)';
             if ($resolved) {
                 $label = $source['decorated_label']
@@ -1266,29 +1267,66 @@ final class PackageManagerSchema
                         ? (string) ($source['resolved']['question'] ?? '')
                         : (string) ($source['resolved']['label'] ?? ''));
             }
+            // Effective unit price: the row's own Default Price unless a
+            // price_option_id is present and resolves against that row's own
+            // price_options[]. A present-but-unresolved id never falls back
+            // to Default Price — it makes the row's price unavailable.
             $unitPrice = $rateItem !== null ? (float) $rateItem['unit_price'] : null;
+            $optionUnresolved = false;
+            if ($priceOptionId !== null) {
+                $matchedOption = null;
+                foreach ($rateItem['price_options'] ?? [] as $option) {
+                    if (($option['option_id'] ?? null) === $priceOptionId) { $matchedOption = $option; break; }
+                }
+                if ($matchedOption !== null) {
+                    $unitPrice = (float) $matchedOption['unit_price'];
+                } else {
+                    $optionUnresolved = true;
+                    $unitPrice = null;
+                }
+            }
+            $available = $resolved && !empty($source['available']) && !$optionUnresolved;
             $lineTotal = $available && $unitPrice !== null ? $unitPrice * $quantity : null;
+            $healthReasons = $source['health_reasons'] ?? ['rate_sheet_item_unresolved'];
+            if ($optionUnresolved) { $healthReasons = array_values(array_unique([...$healthReasons, 'price_option_unresolved'])); }
             $rows[] = [
                 'item_id' => $itemId, 'quantity' => $quantity, 'resolved' => $resolved,
+                'price_option_id' => $priceOptionId,
                 'source_type' => $source['source_type'] ?? null,
                 'source_id' => $source['source_id'] ?? null,
                 'available' => $available,
                 'operational_state' => $source['operational_state'] ?? 'source_missing',
-                'health_reasons' => $source['health_reasons'] ?? ['rate_sheet_item_unresolved'],
+                'health_reasons' => $healthReasons,
                 'label' => $label, 'unit_price' => $unitPrice,
                 'per' => $rateItem['per'] ?? null,
                 'group_id' => $rateItem['group_id'] ?? null,
                 'line_total' => $lineTotal,
             ];
         }
+        $rowsByItemId = [];
+        foreach ($rows as $row) { $rowsByItemId[$row['item_id']] = $row; }
         $pricingItems = [];
         foreach ($rateSheetItemsList as $rateItem) {
             $source = $sources[$rateItem['source_item_id']] ?? null;
             if ($source === null || empty($source['connection_resolved'])) { continue; }
+            $row = $rowsByItemId[$rateItem['item_id']] ?? null;
+            // A selected, resolving Price Option overrides the item's Default
+            // Price fed to the shared pricing engine; an unresolved one makes
+            // the item unavailable there too, so the total never silently
+            // reverts to Default Price.
+            $unitPriceForPricing = (float) $rateItem['unit_price'];
+            $availableForPricing = !empty($source['available']);
+            if ($row !== null && $row['price_option_id'] !== null) {
+                if ($row['unit_price'] !== null) {
+                    $unitPriceForPricing = $row['unit_price'];
+                } else {
+                    $availableForPricing = false;
+                }
+            }
             $pricingItems[] = [
                 'item_id' => $rateItem['item_id'],
-                'unit_price' => (float) $rateItem['unit_price'],
-                'available' => !empty($source['available']),
+                'unit_price' => $unitPriceForPricing,
+                'available' => $availableForPricing,
                 'options' => [],
             ];
         }

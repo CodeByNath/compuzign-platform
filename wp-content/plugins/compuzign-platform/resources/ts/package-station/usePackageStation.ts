@@ -224,14 +224,28 @@ export function usePackageStation(
       const label = resolved && source
         ? relationshipDisplayLabel(source)
         : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
+      // Effective unit price mirrors PackageManagerSchema::projectTierRateSheetWith:
+      // Default Price unless price_option_id resolves against this row's own
+      // price_options[]; a present-but-unresolved id never falls back to
+      // Default Price.
+      const priceOptionId = selection.price_option_id ?? null;
+      const selectedOption = priceOptionId !== null
+        ? rateItem?.price_options?.find((option) => option.option_id === priceOptionId) ?? null
+        : null;
+      const optionUnresolved = priceOptionId !== null && !selectedOption;
+      const unitPrice = resolved && rateItem && !optionUnresolved
+        ? (selectedOption ? selectedOption.unit_price : rateItem.unit_price)
+        : null;
       return {
         ...selection, resolved, label,
+        price_option_id: priceOptionId,
         source_type: source?.source_type ?? null,
         source_id: source?.source_id ?? null,
-        unit_price: resolved && rateItem ? rateItem.unit_price : null,
+        unit_price: unitPrice,
         per: resolved && rateItem ? rateItem.per : null,
         group_id: resolved && rateItem ? rateItem.group_id : null,
-        line_total: resolved && rateItem ? rateItem.unit_price * selection.quantity : null,
+        line_total: unitPrice !== null ? unitPrice * selection.quantity : null,
+        price_options: rateItem?.price_options,
       };
     });
     dp.rate_sheet_selections = resolvedSelections;
