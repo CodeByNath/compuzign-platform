@@ -1,4 +1,4 @@
-import type { QuoteItem, QuoteItemTierId } from '@/components/cost-builder/types';
+import type { CartItem, FamilyTierQuoteItem, QuoteItem, QuoteItemTierId } from '@/components/cost-builder/types';
 
 // ── Cart identity and mutation ──────────────────────────────────────────────
 //
@@ -11,8 +11,54 @@ import type { QuoteItem, QuoteItemTierId } from '@/components/cost-builder/types
 // exercised without mounting a component.
 
 /** Stable list key / identity string for one cart line. */
-export function quoteItemKey(item: QuoteItem): string {
+export function isFamilyTierQuoteItem(item: CartItem): item is FamilyTierQuoteItem {
+  return item.offer_type === 'family_tier';
+}
+
+export function familyTierSystemKey(item: FamilyTierQuoteItem): string {
+  return `family:${item.familyId}:instance:${item.tierInstanceId}`;
+}
+
+export function quoteItemKey(item: CartItem): string {
+  if (isFamilyTierQuoteItem(item)) {
+    const systemKey = familyTierSystemKey(item);
+    return item.isAddon ? `${systemKey}:addon:${item.tierOccupantId}` : `${systemKey}:primary`;
+  }
   return item.isAddon ? `${item.serviceId}:addon:${item.tierId}` : `${item.serviceId}:primary`;
+}
+
+export function replaceFamilyNormalQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
+  const systemKey = familyTierSystemKey(item);
+  return [
+    ...items.filter((existing) => isFamilyTierQuoteItem(existing)
+      ? existing.isAddon || familyTierSystemKey(existing) !== systemKey
+      : true),
+    item,
+  ];
+}
+
+export function upsertFamilyAddonQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
+  const key = quoteItemKey(item);
+  return [...items.filter((existing) => quoteItemKey(existing) !== key), item];
+}
+
+export function removeFamilyAddonQuoteItem(
+  items: CartItem[],
+  familyId: string,
+  tierInstanceId: string,
+  tierOccupantId: string,
+): CartItem[] {
+  const key = `family:${familyId}:instance:${tierInstanceId}:addon:${tierOccupantId}`;
+  return items.filter((item) => quoteItemKey(item) !== key);
+}
+
+export function removeFamilyTierSystemQuoteItems(
+  items: CartItem[],
+  familyId: string,
+  tierInstanceId: string,
+): CartItem[] {
+  const systemKey = `family:${familyId}:instance:${tierInstanceId}`;
+  return items.filter((item) => !isFamilyTierQuoteItem(item) || familyTierSystemKey(item) !== systemKey);
 }
 
 /**

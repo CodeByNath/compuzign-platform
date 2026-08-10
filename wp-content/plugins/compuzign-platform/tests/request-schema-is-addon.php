@@ -32,16 +32,27 @@ $rawItems = [
     ['serviceId' => -101, 'serviceTitle' => 'Bundle', 'tierId' => 'bundle', 'tierTitle' => 'Bundle', 'price' => 30, 'isAddon' => false],
     // A tampered/malicious payload asserting isAddon on a made-up field shape.
     ['serviceId' => 202, 'serviceTitle' => 'APTOS', 'tierId' => 'basic', 'tierTitle' => 'Basic', 'price' => 10, 'isAddon' => 'yes'],
+    // A Package Family line carries its actual Family / Tier Instance /
+    // occupant identities and deliberately has no Service identity.
+    [
+        'offer_type' => 'family_tier', 'familyId' => 'pcg_kairos', 'familyTitle' => 'KAIROS',
+        'tierInstanceId' => 'ti_kairos', 'tierOccupantId' => 'occ_basic',
+        'tierId' => 'basic', 'tierTitle' => 'KAIROS Basic', 'price' => 11, 'isAddon' => false,
+    ],
 ];
 
 $items = RequestSchema::sanitizeItems($rawItems);
 
-check_request_schema_is_addon(count($items) === 4, 'all four submitted lines survive sanitisation');
+check_request_schema_is_addon(count($items) === 5, 'all five submitted lines survive sanitisation');
 check_request_schema_is_addon($items[0]['isAddon'] === false, 'a line with no isAddon key defaults to false');
 check_request_schema_is_addon($items[1]['isAddon'] === true, 'an explicit true survives sanitisation');
 check_request_schema_is_addon($items[2]['isAddon'] === false, 'the legacy bundle line is not classified as an add-on merely for having a negative serviceId');
 check_request_schema_is_addon($items[2]['serviceId'] === -101, 'the legacy bundle keeps its real negative serviceId untouched — no ownership transfer to this sanitiser');
 check_request_schema_is_addon($items[3]['isAddon'] === true, 'any truthy value sanitises to a strict boolean true');
 check_request_schema_is_addon(is_bool($items[0]['isAddon']) && is_bool($items[1]['isAddon']) && is_bool($items[2]['isAddon']) && is_bool($items[3]['isAddon']), 'isAddon is always a strict boolean, never a passthrough scalar');
+check_request_schema_is_addon(!array_key_exists('serviceId', $items[4]), 'a Family line does not acquire serviceId zero during sanitisation');
+check_request_schema_is_addon($items[4]['familyId'] === 'pcg_kairos', 'the native Family identity survives sanitisation');
+check_request_schema_is_addon($items[4]['tierInstanceId'] === 'ti_kairos', 'the assigned Tier Instance identity survives sanitisation');
+check_request_schema_is_addon($items[4]['tierOccupantId'] === 'occ_basic', 'the real Tier occupant identity survives sanitisation');
 
 echo "Request schema is_addon checks passed.\n";

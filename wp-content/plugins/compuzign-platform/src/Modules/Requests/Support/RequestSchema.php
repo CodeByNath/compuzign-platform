@@ -102,8 +102,7 @@ class RequestSchema
                 $features = array_values(array_map('sanitize_text_field', $raw['features']));
             }
 
-            $items[] = [
-                'serviceId'    => intval($raw['serviceId'] ?? 0),
+            $item = [
                 'serviceTitle' => sanitize_text_field((string) ($raw['serviceTitle'] ?? '')),
                 'categoryName' => sanitize_text_field((string) ($raw['categoryName'] ?? '')),
                 'tierTitle'    => sanitize_text_field((string) ($raw['tierTitle'] ?? '')),
@@ -133,6 +132,16 @@ class RequestSchema
                     ? sanitize_text_field((string) $raw['minimumTermUnit'])
                     : null,
             ];
+            if ($item['offer_type'] === 'family_tier') {
+                unset($item['serviceTitle'], $item['categoryName']);
+                $item['familyId']       = sanitize_text_field((string) ($raw['familyId'] ?? ''));
+                $item['familyTitle']    = sanitize_text_field((string) ($raw['familyTitle'] ?? ''));
+                $item['tierInstanceId'] = sanitize_text_field((string) ($raw['tierInstanceId'] ?? ''));
+                $item['tierOccupantId'] = sanitize_text_field((string) ($raw['tierOccupantId'] ?? ''));
+            } else {
+                $item['serviceId'] = intval($raw['serviceId'] ?? 0);
+            }
+            $items[] = $item;
         }
 
         return $items;
@@ -206,6 +215,11 @@ class RequestSchema
                         'isAddon'      => ['type' => 'boolean'],
                         'minimumTermValue' => ['type' => ['number', 'null']],
                         'minimumTermUnit'  => ['type' => ['string', 'null']],
+                        'offer_type'       => ['type' => 'string'],
+                        'familyId'         => ['type' => 'string'],
+                        'familyTitle'      => ['type' => 'string'],
+                        'tierInstanceId'   => ['type' => 'string'],
+                        'tierOccupantId'   => ['type' => 'string'],
                     ],
                 ],
             ],

@@ -34,3 +34,26 @@ export interface QuoteItem {
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
 }
+
+/**
+ * A customer selection from a Package Family's explicitly assigned Tier
+ * Instance. It deliberately has no serviceId: Services are upstream inclusion
+ * sources, never the identity or discovery path for this cart line.
+ */
+export interface FamilyTierQuoteItem {
+  offer_type: 'family_tier';
+  familyId: string;
+  familyTitle: string;
+  tierInstanceId: string;
+  tierOccupantId: string;
+  tierId: TierId;
+  tierTitle: string;
+  price: number | null;
+  billingCycle: string;
+  features: string[];
+  isAddon: boolean;
+  minimumTermValue: number | null;
+  minimumTermUnit: string | null;
+}
+
+export type CartItem = QuoteItem | FamilyTierQuoteItem;

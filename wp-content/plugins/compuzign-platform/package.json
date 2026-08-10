@@ -7,6 +7,7 @@
     "contract:admin-station-css": "node scripts/admin-station-css-contract.mjs",
     "contract:cost-builder-isolation": "tsx scripts/cost-builder-isolation-contract.ts",
     "contract:package-builder-regression-lock": "tsx scripts/package-builder-regression-lock-contract.ts",
+    "contract:package-family-cart": "tsx scripts/package-family-cart-contract.ts",
     "contract:drawer-module-entry": "tsx scripts/drawer-module-entry-contract.ts",
     "contract:package-family-capability": "tsx scripts/package-family-capability-contract.ts",
     "contract:package-family-card-metrics": "tsx scripts/package-family-card-metrics-contract.ts",
