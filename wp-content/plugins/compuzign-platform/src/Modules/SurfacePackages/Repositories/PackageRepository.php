@@ -1162,65 +1162,82 @@ class PackageRepository
 
             $instanceId = (string) $instance['tier_instance_id'];
             if (!isset($projectedByInstanceId[$instanceId])) {
-                $projected = $station;
-                $flatTiers = [];
-                foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-                    $extracted = PackageSchema::extractTierForCostBuilder($instance['tiers'][$tierId] ?? []);
-                    if ($extracted === null) {
-                        continue;
-                    }
-                    $rateProjection = PackageManagerSchema::projectTierRateSheetWith(
-                        $readModel,
-                        $extracted['rate_sheet_items'] ?? [],
-                        $extracted['rate_sheet_id'] ?? null
-                    );
-                    $extracted['price'] = $rateProjection['price'];
-                    $extracted['inclusions_override'] = array_map(
-                        static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
-                        array_values(array_filter(
-                            $rateProjection['selections'],
-                            static fn(array $row): bool => $row['resolved']
-                                && ($row['source_type'] ?? null) === 'inclusion'
-                        ))
-                    );
-                    // Each public edition_option row prices from its own Edition's
-                    // rate_sheet_id/rate_sheet_items — the occupant's own
-                    // extracted['rate_sheet_items'] above is a DIFFERENT selection —
-                    // resolved against the SAME read model, never a second
-                    // calculation. The occupant slot (not the already-narrowed
-                    // $extracted shape) still carries the raw tier_editions[] this
-                    // needs; the public edition_options[] shape deliberately omits
-                    // rate_sheet_id/rate_sheet_items, so price is matched back in by id.
-                    if (!empty($extracted['edition_options'])) {
-                        $occupant = PackageSchema::isOccupantFormat($instance['tiers'][$tierId] ?? [])
-                            ? ($instance['tiers'][$tierId]['current_occupant'] ?? null)
-                            : null;
-                        $rawEditions = is_array($occupant) ? PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) : [];
-                        $editionPriceById = [];
-                        foreach (PackageManagerSchema::projectEditionPrices($readModel, $rawEditions) as $priced) {
-                            $editionPriceById[$priced['id']] = $priced['price'];
-                        }
-                        $extracted['edition_options'] = array_map(
-                            static fn(array $option): array => [...$option, 'price' => $editionPriceById[$option['id']] ?? $option['price']],
-                            $extracted['edition_options']
-                        );
-                    }
-                    $flatTiers[$tierId] = $extracted;
-                }
-                $projected['platform_status'] = 'active';
-                $projected['tiers'] = $flatTiers;
-                $projected['popular_tier'] = $instance['popular_tier'] ?? null;
-                $projected['popular_label'] = (string) ($instance['popular_label'] ?? '');
-                $projected['promotion_tiers'] = is_array($station['promotions'] ?? null)
-                    ? $station['promotions']
-                    : [];
-                $projectedByInstanceId[$instanceId] = $projected;
+                $projectedByInstanceId[$instanceId] = $this->projectTierInstanceForCostBuilder(
+                    $station,
+                    $instance,
+                    $readModel
+                );
             }
 
             $map[$coveredServiceId] = $projectedByInstanceId[$instanceId];
         }
 
         return $this->activePackageMapCache = $map;
+    }
+
+    /**
+     * Compile one already-resolved Tier Instance for public customer use.
+     *
+     * Resolution of the assignment consumer deliberately stays outside this
+     * method. It compiles only the supplied Tier-system container through the
+     * existing Rate Sheet projector, so Service and future Family reads share
+     * one pricing/inclusion boundary without sharing their lookup path.
+     *
+     * @param array<string, mixed> $station
+     * @param array<string, mixed> $instance
+     * @param array<string, mixed> $readModel
+     * @return array<string, mixed>
+     */
+    private function projectTierInstanceForCostBuilder(array $station, array $instance, array $readModel): array
+    {
+        $projected = $station;
+        $flatTiers = [];
+        foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+            $extracted = PackageSchema::extractTierForCostBuilder($instance['tiers'][$tierId] ?? []);
+            if ($extracted === null) {
+                continue;
+            }
+            $rateProjection = PackageManagerSchema::projectTierRateSheetWith(
+                $readModel,
+                $extracted['rate_sheet_items'] ?? [],
+                $extracted['rate_sheet_id'] ?? null
+            );
+            $extracted['price'] = $rateProjection['price'];
+            $extracted['inclusions_override'] = array_map(
+                static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
+                array_values(array_filter(
+                    $rateProjection['selections'],
+                    static fn(array $row): bool => $row['resolved']
+                        && ($row['source_type'] ?? null) === 'inclusion'
+                ))
+            );
+            // Each public edition_option row prices from its own Edition's
+            // rate_sheet_id/rate_sheet_items — the occupant's own selection
+            // above is different — through this same authoritative projector.
+            if (!empty($extracted['edition_options'])) {
+                $occupant = PackageSchema::isOccupantFormat($instance['tiers'][$tierId] ?? [])
+                    ? ($instance['tiers'][$tierId]['current_occupant'] ?? null)
+                    : null;
+                $rawEditions = is_array($occupant) ? PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) : [];
+                $editionPriceById = [];
+                foreach (PackageManagerSchema::projectEditionPrices($readModel, $rawEditions) as $priced) {
+                    $editionPriceById[$priced['id']] = $priced['price'];
+                }
+                $extracted['edition_options'] = array_map(
+                    static fn(array $option): array => [...$option, 'price' => $editionPriceById[$option['id']] ?? $option['price']],
+                    $extracted['edition_options']
+                );
+            }
+            $flatTiers[$tierId] = $extracted;
+        }
+        $projected['platform_status'] = 'active';
+        $projected['tiers'] = $flatTiers;
+        $projected['popular_tier'] = $instance['popular_tier'] ?? null;
+        $projected['popular_label'] = (string) ($instance['popular_label'] ?? '');
+        $projected['promotion_tiers'] = is_array($station['promotions'] ?? null)
+            ? $station['promotions']
+            : [];
+        return $projected;
     }
 
     /**
