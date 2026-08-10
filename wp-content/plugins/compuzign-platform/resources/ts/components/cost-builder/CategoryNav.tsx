@@ -1,10 +1,17 @@
 import { useRef, useState, useEffect } from 'preact/hooks';
 import { Tabs } from '@/components/ui/Tabs';
 import { decodeHtml } from '@/utils/format';
-import type { Category } from '@/api/types/cost-builder';
+
+// Structural, not entity-specific: any grouping lens (Service Category,
+// Package Family) that reduces to {slug, name} tabs can use this component —
+// it owns generic tab presentation, never Category domain semantics.
+interface NavGroup {
+  slug: string;
+  name: string;
+}
 
 interface CategoryNavProps {
-  categories: Category[];
+  categories: NavGroup[];
   activeSlug: string;
   onChange: (slug: string) => void;
 }

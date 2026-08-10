@@ -8,6 +8,18 @@ export interface Category {
   description?: string;
 }
 
+// Cost Builder's Package Family filter input — the Family a Service is
+// already connected to in Package Station, projected read-only into this
+// public payload (PricingBuilder::overlayPackage). Filter/nav metadata only;
+// never Tier/pricing authority. The same shape is used for the flat
+// `package_families` list and each Service's own `family` reference, mirroring
+// how `categories`/`ServiceItem.categories` already coexist.
+export interface PackageFamily {
+  id:         string;
+  label:      string;
+  sort_order: number;
+}
+
 export interface Tier {
   id: TierId;
   title: string;
@@ -144,6 +156,8 @@ export interface ServiceItem {
   meta: ServiceMeta;
   pricing: ServicePricing;
   promotion_tiers: PromotionOffer[];
+  // null for a Service with no (or ambiguous/inactive) Package Family connection.
+  family: PackageFamily | null;
 }
 
 export interface ServicesByCategory {
@@ -157,4 +171,7 @@ export interface CostBuilderResponse {
   categories: Category[];
   tiers: Tier[];
   services_by_category: ServicesByCategory[];
+  // Flat, deduped, sort_order-ordered — only Families with at least one
+  // publicly resolvable Service appear, same rule as `categories`.
+  package_families: PackageFamily[];
 }

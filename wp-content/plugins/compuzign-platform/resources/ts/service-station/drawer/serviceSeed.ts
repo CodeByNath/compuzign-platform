@@ -63,5 +63,8 @@ export function buildServiceItemForStationHandoff(summary: ServiceSummary): Serv
       bundle: { title: '', description: '', price: null },
     },
     promotion_tiers: [],
+    // Cost Builder-only filter metadata; this admin handoff seed carries no
+    // public projection, so there is nothing to place here.
+    family: null,
   };
 }
