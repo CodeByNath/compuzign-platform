@@ -152,9 +152,6 @@ function buildCreatedPendingService(response: CreateServiceResponse): ServiceIte
       bundle: { title: '', description: '', price: null },
     },
     promotion_tiers: [],
-    // Cost Builder-only filter metadata; this admin-created seed carries no
-    // public projection, so there is nothing to place here.
-    family: null,
   };
 }
 

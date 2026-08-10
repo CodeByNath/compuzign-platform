@@ -156,8 +156,12 @@ export interface ServiceItem {
   meta: ServiceMeta;
   pricing: ServicePricing;
   promotion_tiers: PromotionOffer[];
-  // null for a Service with no (or ambiguous/inactive) Package Family connection.
-  family: PackageFamily | null;
+  // Optional so unrelated ServiceItem producers (e.g. Service Station's own
+  // admin seed builders) aren't forced to know about the Cost Builder Family
+  // projection. The public Cost Builder response itself always sets this key
+  // explicitly (an object, or null when no Family resolves) — optionality
+  // exists at the shared type boundary only, not in what the API returns.
+  family?: PackageFamily | null;
 }
 
 export interface ServicesByCategory {
