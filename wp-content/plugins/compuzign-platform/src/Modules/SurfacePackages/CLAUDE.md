@@ -41,6 +41,35 @@ Service-scoped URLs use Service only as navigation context; canonical Tier reads
 
 Read [Package Manager](../../../../../../docs/code-map/package-manager.md), [Rate Sheet](../../../../../../docs/code-map/rate-sheet.md), [Tiers](../../../../../../docs/code-map/tiers.md), [Tier Capability](../../../../../../docs/code-map/tier-capability.md), [Tier Add-on Selection](../../../../../../docs/code-map/tier-addon.md), [Tier Edition](../../../../../../docs/code-map/tier-edition.md), and [Promotions](../../../../../../docs/code-map/promotions.md).
 
+## Maintenance
+
+`tools/repair-legacy-contact-override.php` is a **one-time historical
+reconciliation**, not a general `contact` repair and not part of runtime
+behaviour. The pre-Rate-Sheet, Service-hosted station published unpriced Tiers
+by setting `contact => true`; `PackageRepository::migrateFromLegacyServiceMeta()`
+copied that station into the option raw, `TierInstanceSchema::liftLegacyStation()`
+copied `tiers` verbatim into `ti_primary`, and every later write preserved the
+value through `??` fallbacks (`PackageSchema::buildOccupantSlot`,
+`PackageSchema::settleTierSlot`). Because
+`PackageStationSchema::evaluateTierPricing()` tests `$contact` before
+completeness, the inherited flag nulled the public total even where the
+occupant's own Rate Sheet binding resolved fully.
+
+The tool clears that flag only for occupants in the migrated
+`TierInstanceSchema::PRIMARY_INSTANCE_ID` instance whose own binding already
+resolves to a complete numeric total, and assigns only
+`current_occupant.contact` plus an already-existing Overview draft's own
+`contact` key. "Complete price + `contact`" is deliberately **not** treated as
+a platform-wide invariant — an administrator may legitimately run internal
+calculated pricing behind a contact-only sales model — so it is used solely as
+this migration's historical fingerprint.
+
+It does **not** apply to natively-created Tier Instances, `tier_editions[]`,
+`tier_edition_bin`, or `occupant_bin[]`, and changes no pricing, Rate Sheet,
+Tier/Edition lifecycle, `contact` semantics, or migration behaviour. Dry run by
+default; `apply` persists through `PackageRepository::saveStation()`. Boundaries
+are locked by `php tests/legacy-contact-override-repair.php`.
+
 ## Validation
 
-From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-occupant-is-addon.php`, `php tests/tier-addon-end-to-end.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-instance-schema.php`, `php tests/tier-instance-update.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-assignment-family-flow.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-capability-invariants.php`, `php tests/tier-occupant-platform-identity.php`, `php tests/rate-sheet-platform-identity-reconciliation.php`, `php tests/tier-edition-schema.php`, `php tests/tier-edition-repository.php`, `php tests/tier-edition-lifecycle.php`, `php tests/tier-edition-cascade.php`, `php tests/tier-edition-default-resolution.php`, `php tests/tier-edition-public-projection.php`, `php tests/tier-edition-bin.php`, `php tests/tier-edition-move-to-bin.php`, `php tests/tier-edition-price-projection.php`, `php tests/tier-rate-sheet-price-option.php`, `php tests/request-schema-minimum-term.php`, `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npm run contract:tier-overview-is-addon`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run contract:tier-edition-move-to-bin`, `npm run contract:rate-sheet-price-option-selection`, `npx tsc --noEmit`, and `npm run docs:check`.
+From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-occupant-is-addon.php`, `php tests/tier-addon-end-to-end.php`, `php tests/tier-pricing-parity.php`, `php tests/legacy-contact-override-repair.php`, `php tests/tier-instance-schema.php`, `php tests/tier-instance-update.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-assignment-family-flow.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-capability-invariants.php`, `php tests/tier-occupant-platform-identity.php`, `php tests/rate-sheet-platform-identity-reconciliation.php`, `php tests/tier-edition-schema.php`, `php tests/tier-edition-repository.php`, `php tests/tier-edition-lifecycle.php`, `php tests/tier-edition-cascade.php`, `php tests/tier-edition-default-resolution.php`, `php tests/tier-edition-public-projection.php`, `php tests/tier-edition-bin.php`, `php tests/tier-edition-move-to-bin.php`, `php tests/tier-edition-price-projection.php`, `php tests/tier-rate-sheet-price-option.php`, `php tests/request-schema-minimum-term.php`, `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npm run contract:tier-overview-is-addon`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run contract:tier-edition-move-to-bin`, `npm run contract:rate-sheet-price-option-selection`, `npx tsc --noEmit`, and `npm run docs:check`.
