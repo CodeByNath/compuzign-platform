@@ -113,8 +113,8 @@ export function PackageBuilderApp() {
           <div class="cz-package-builder__inclusions">
             <strong>All plans include:</strong>
             <span class="cz-package-builder__category-list">
-              {family.included_categories.map((category, index) => (
-                <span key={`${category}:${index}`} class="cz-package-builder__category"><CategoryIcon />{category}</span>
+              {family.included_categories.map((category) => (
+                <span key={category} class="cz-package-builder__category"><CategoryIcon />{category}</span>
               ))}
             </span>
           </div>

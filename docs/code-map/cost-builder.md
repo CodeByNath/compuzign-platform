@@ -36,8 +36,8 @@ Sheet inclusion sources.
   occupant `audience_group` tab control; it has no term/pricing logic.
   `FullBuildDetail.tsx` displays only the compiled
   effective inclusion labels. The focused Family heading also presents the
-  each connected Service's Category name, in Package relationship order, as a
-  non-interactive inline "All plans include" summary.
+  Categories resolve from Family Rate Sheet rows through source Services, then
+  deduplicate into "All plans include".
 
 ## Backend and Persistence
 

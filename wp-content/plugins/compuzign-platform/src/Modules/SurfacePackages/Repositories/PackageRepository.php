@@ -1355,16 +1355,35 @@ class PackageRepository
                 continue;
             }
 
-            $includedCategories = [];
+            $familyServiceIds = [];
             foreach ($manager['sources'] as $source) {
-                if (($source['provider_key'] ?? '') !== 'service'
-                    || ($source['entity_type'] ?? '') !== 'service'
-                    || ($source['category_group_id'] ?? null) !== $familyId
+                if (($source['provider_key'] ?? '') === 'service'
+                    && ($source['entity_type'] ?? '') === 'service'
+                    && ($source['category_group_id'] ?? null) === $familyId
                 ) {
-                    continue;
+                    $familyServiceIds[(int) ($source['entity_id'] ?? 0)] = true;
                 }
-                foreach ($this->serviceCategoryNames((int) ($source['entity_id'] ?? 0)) as $categoryName) {
-                    $includedCategories[] = $categoryName;
+            }
+            $managerItemsById = [];
+            foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
+                if (is_array($item)) {
+                    $managerItemsById[(string) ($item['item_id'] ?? '')] = $item;
+                }
+            }
+            $includedCategories = [];
+            foreach ($manager['rate_sheets'] as $sheet) {
+                foreach (is_array($sheet['items'] ?? null) ? $sheet['items'] : [] as $rateItem) {
+                    $managerItem = $managerItemsById[(string) ($rateItem['source_item_id'] ?? '')] ?? null;
+                    $sourceServiceId = is_array($managerItem) ? (int) ($managerItem['source_service_id'] ?? 0) : 0;
+                    if (!is_array($managerItem)
+                        || ($managerItem['source_type'] ?? null) !== 'inclusion'
+                        || !isset($familyServiceIds[$sourceServiceId])
+                    ) {
+                        continue;
+                    }
+                    foreach (is_array($managerItem['source_categories'] ?? null) ? $managerItem['source_categories'] : [] as $categoryName) {
+                        $includedCategories[(string) $categoryName] = true;
+                    }
                 }
             }
 
@@ -1378,7 +1397,7 @@ class PackageRepository
                 'tiers'           => $compiled['tiers'],
                 'popular_tier'    => $compiled['popular_tier'],
                 'popular_label'   => $compiled['popular_label'],
-                'included_categories' => $includedCategories,
+                'included_categories' => array_keys($includedCategories),
             ];
         }
 
