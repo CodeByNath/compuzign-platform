@@ -25,6 +25,7 @@
   --cz-font-size-base: 1rem;
   --cz-font-size-lg: 1.08rem;
   --cz-font-size-xl: 1.4rem;
+  --cz-font-weight-regular: 400;
   --cz-line-height-body: 1.75;
 
   /* Rhythm — foundation unit. All spatial values are multiples of this. */

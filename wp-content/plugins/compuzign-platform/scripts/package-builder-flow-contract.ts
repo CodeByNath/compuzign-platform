@@ -21,7 +21,8 @@ check(!app.includes('ServiceCard') && !app.includes('SubcategoryNav'), 'the Fami
 check(app.includes('Plans &amp; pricing'), 'the Family surface renders the centered plans and pricing hero');
 check(app.includes('id="cz-package-builder-title" class="cz-heading-lg"'), 'the hero uses the public large heading token');
 check(app.includes('<h2 class="cz-heading-md">{family.title}</h2>'), 'the focused Family uses the subordinate public heading token');
-check(app.includes('All plans include:'), 'the focused Family renders its category inclusion summary');
+check(app.includes('cz-package-builder__category-list'), 'the focused Family renders its category inclusion summary');
+check(!app.includes('All plans include:'), 'the category inclusion summary has no redundant label');
 check(app.includes('family.included_categories.map'), 'the inclusion summary follows the focused Family projection');
 check(!app.includes('onClick={category'), 'category inclusions are not navigation controls');
 check(app.includes('role="tablist"'), 'Family tabs sit inside the centered hero');

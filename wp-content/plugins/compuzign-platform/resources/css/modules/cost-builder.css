@@ -3217,11 +3217,13 @@
   display: inline-flex;
   flex-wrap: wrap;
   gap: var(--cz-space-2) var(--cz-space-5);
+  font-size: var(--cz-font-size-sm);
+  font-weight: var(--cz-font-weight-regular);
 }
 
 .cz-package-builder__category-icon {
-  width: 16px;
-  height: 16px;
+  width: var(--cz-space-3);
+  height: var(--cz-space-3);
   flex: 0 0 auto;
   color: var(--cz-color-accent);
 }

@@ -37,7 +37,7 @@ Sheet inclusion sources.
   `FullBuildDetail.tsx` displays compiled effective inclusion labels. Focused
   Family Categories follow compiled Tier inclusion selections → inclusion
   provenance → source Services, then deduplicate. Rate Sheets are never
-  consumer references.
+  consumer references. Use component classes and atomic tokens; no inline styles.
 
 ## Backend and Persistence
 

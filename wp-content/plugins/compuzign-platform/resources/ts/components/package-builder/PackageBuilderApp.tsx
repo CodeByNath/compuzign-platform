@@ -111,7 +111,6 @@ export function PackageBuilderApp() {
         {family.description && <p class="cz-copy cz-package-builder__family-description">{family.description}</p>}
         {family.included_categories.length > 0 && (
           <div class="cz-package-builder__inclusions">
-            <strong>All plans include:</strong>
             <span class="cz-package-builder__category-list">
               {family.included_categories.map((category) => (
                 <span key={category} class="cz-package-builder__category"><CategoryIcon />{category}</span>
