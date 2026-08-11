@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { PricingTiers } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
@@ -14,6 +15,21 @@ interface FamilyTierAdapterProps {
   onRemoveAddon: (tierPlatformId: string) => void;
 }
 
+const CUSTOMER_GROUPS = [
+  { value: 'personal_business', label: 'Personal & Business' },
+  { value: 'enterprise', label: 'Enterprise' },
+] as const;
+
+export function filterTiersByCustomerGroup(
+  tiers: Tier[],
+  pricing: PackageBuilderFamily['pricing'],
+  customerGroup: 'personal_business' | 'enterprise',
+): Tier[] {
+  return tiers.filter(
+    (tier) => (pricing.tiers[tier.id]?.audience_group ?? 'personal_business') === customerGroup,
+  );
+}
+
 export function FamilyTierAdapter({
   family,
   tiers,
@@ -23,6 +39,9 @@ export function FamilyTierAdapter({
   onRemovePrimary,
   onRemoveAddon,
 }: FamilyTierAdapterProps) {
+  const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
+  const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
+
   const itemFor = (tierId: TierId, effective: EffectiveTierDisplay, isAddon: boolean): FamilyTierQuoteItem => {
     const tier = tiers.find((candidate) => candidate.id === tierId);
     const tierData = family.pricing.tiers[tierId];
@@ -65,17 +84,33 @@ export function FamilyTierAdapter({
   };
 
   return (
-    <PricingTiers
-      tiers={tiers}
-      pricing={family.pricing}
-      popularTier={family.popular_tier}
-      popularLabel={family.popular_label}
-      selectedTierId={selectedTierId}
-      selectedAddonTierIds={selectedAddonTierIds}
-      billingCycle=""
-      onSelect={select}
-      onToggleAddon={toggleAddon}
-      renderFullBuild={(inclusionLabels) => <FullBuildDetail inclusionLabels={inclusionLabels} />}
-    />
+    <>
+      <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
+        {CUSTOMER_GROUPS.map((group) => (
+          <button
+            key={group.value}
+            type="button"
+            role="tab"
+            class="cz-package-builder__customer-tab"
+            aria-selected={customerGroup === group.value}
+            onClick={() => setCustomerGroup(group.value)}
+          >
+            {group.label}
+          </button>
+        ))}
+      </div>
+      <PricingTiers
+        tiers={visibleTiers}
+        pricing={family.pricing}
+        popularTier={family.popular_tier}
+        popularLabel={family.popular_label}
+        selectedTierId={selectedTierId}
+        selectedAddonTierIds={selectedAddonTierIds}
+        billingCycle=""
+        onSelect={select}
+        onToggleAddon={toggleAddon}
+        renderFullBuild={(inclusionLabels) => <FullBuildDetail inclusionLabels={inclusionLabels} />}
+      />
+    </>
   );
 }

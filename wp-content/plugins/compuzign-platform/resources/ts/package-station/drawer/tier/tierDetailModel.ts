@@ -136,6 +136,7 @@ export function buildTierDetail(
     data: {
       label:        detail.label,
       idealFor:     detail.ideal_for,
+      audienceGroup: detail.audience_group,
       tierName:     TIER_LABELS[editingTierId],
       contact:      detail.contact,
       price:        detail.price,

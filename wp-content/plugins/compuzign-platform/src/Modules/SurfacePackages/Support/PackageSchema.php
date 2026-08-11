@@ -26,6 +26,8 @@ class PackageSchema
     public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
     public const ALLOWED_PROMOTION_STATUSES  = ['draft', 'active', 'archived'];
     public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
+    public const DEFAULT_TIER_AUDIENCE_GROUP = 'personal_business';
+    public const TIER_AUDIENCE_GROUPS        = ['personal_business', 'enterprise'];
 
     // Phase 2 tier lifecycle (P2 — store schema): the per-tier-module draft + status
     // layer stored inside each cz_service_package_station tier slot, alongside
@@ -55,6 +57,14 @@ class PackageSchema
             $out[] = ['item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1)), 'price_option_id' => $optionId];
         }
         return $out;
+    }
+
+    public static function sanitizeTierAudienceGroup(mixed $group): string
+    {
+        $group = is_string($group) ? trim($group) : '';
+        return in_array($group, self::TIER_AUDIENCE_GROUPS, true)
+            ? $group
+            : self::DEFAULT_TIER_AUDIENCE_GROUP;
     }
 
     private static function sanitizePromotionDatetime(mixed $raw): ?string
@@ -844,6 +854,7 @@ class PackageSchema
                 'addon_platform_id'    => (string) ($occ['addon_platform_id'] ?? ''),
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
+                'audience_group'      => self::sanitizeTierAudienceGroup($occ['audience_group'] ?? null),
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
                 'contact'             => (bool) ($occ['contact'] ?? false),
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
@@ -884,6 +895,7 @@ class PackageSchema
             'addon_platform_id'    => (string) ($tier['addon_platform_id'] ?? ''),
             'label'               => $tier['label'] ?? '',
             'ideal_for'           => $tier['ideal_for'] ?? '',
+            'audience_group'      => self::sanitizeTierAudienceGroup($tier['audience_group'] ?? null),
             'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
             'contact'             => (bool) ($tier['contact'] ?? false),
             'billing_cycle'       => $tier['billing_cycle'] ?? null,
@@ -1018,6 +1030,7 @@ class PackageSchema
             return [
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
+                'audience_group'      => self::sanitizeTierAudienceGroup($occ['audience_group'] ?? null),
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
                 'contact'             => (bool) ($occ['contact'] ?? false),
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
@@ -1126,6 +1139,7 @@ class PackageSchema
                 'is_addon'            => (bool) ($data['is_addon'] ?? false),
                 'label'               => $data['label'] ?? '',
                 'ideal_for'           => $data['ideal_for'] ?? '',
+                'audience_group'      => self::sanitizeTierAudienceGroup($data['audience_group'] ?? null),
                 'price'               => $data['price'] ?? null,
                 'contact'             => $data['contact'] ?? false,
                 'billing_cycle'       => $data['billing_cycle'] ?? null,
@@ -1792,7 +1806,8 @@ class PackageSchema
     {
         return [
             'occupant_id' => null, 'platform_id' => '', 'addon_platform_id' => '',
-            'label' => '', 'ideal_for' => '', 'price' => null, 'contact' => false,
+            'label' => '', 'ideal_for' => '', 'audience_group' => self::DEFAULT_TIER_AUDIENCE_GROUP,
+            'price' => null, 'contact' => false,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
             'tier_editions' => [], 'tier_edition_bin' => [],
@@ -2341,6 +2356,7 @@ class PackageSchema
         $tierData = [
             'label'               => $ov['label']         ?? ($occ['label']         ?? ''),
             'ideal_for'           => $ov['ideal_for']     ?? ($occ['ideal_for']     ?? ''),
+            'audience_group'      => self::sanitizeTierAudienceGroup($ov['audience_group'] ?? ($occ['audience_group'] ?? null)),
             'price'               => null,
             'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
             'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),

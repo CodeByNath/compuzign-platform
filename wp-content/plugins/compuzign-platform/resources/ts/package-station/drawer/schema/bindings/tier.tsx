@@ -40,6 +40,7 @@ const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 export interface TierOverviewShellData {
   label:        string;
   idealFor:     string;
+  audienceGroup: 'personal_business' | 'enterprise';
   tierName:     string;          // canonical tier name (Basic/Standard/…) — label fallback
   contact:      boolean;
   price:        number | null;
@@ -73,6 +74,10 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     {
       id: 'type', element: 'text', label: 'Type',
       bind: (d): TextValue => ({ value: d.isAddon ? 'Package Add-on' : 'Package Tier' }),
+    },
+    {
+      id: 'audience-group', element: 'text', label: 'Customer Group',
+      bind: (d): TextValue => ({ value: d.audienceGroup === 'enterprise' ? 'Enterprise' : 'Personal & Business' }),
     },
     {
       id: 'price', element: 'text', label: 'Price',

@@ -10,6 +10,11 @@ const BILLING_CYCLES: AdminFieldOption[] = [
   { value: 'one-time', label: 'One-time' },
 ];
 
+const AUDIENCE_GROUPS: AdminFieldOption[] = [
+  { value: 'personal_business', label: 'Personal & Business' },
+  { value: 'enterprise', label: 'Enterprise' },
+];
+
 // Tier Overview module editor (extracted from ServiceTierStep in S3a — the
 // tier shells became bindings of the archetype shells and the editor is now
 // referenced by the tier binding's editor schema).
@@ -19,7 +24,11 @@ const BILLING_CYCLES: AdminFieldOption[] = [
 // routes the scalars through saveTierOverview and popular through
 // setPopularTier (station-level), exactly as before.
 
-export type TierOverviewEditDraft = TierOverviewDraft & { popular: boolean; popular_label: string };
+export type TierOverviewEditDraft = TierOverviewDraft & {
+  audience_group: 'personal_business' | 'enterprise';
+  popular: boolean;
+  popular_label: string;
+};
 
 export interface RateSheetPickerOption {
   id:     string;
@@ -86,6 +95,12 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         def={{ id: 'tier-label', type: 'text', label: 'Display Label (optional)' }}
         value={draft.label}
         onChange={(label) => onChange({ label })}
+      />
+
+      <AdminField
+        def={{ id: 'tier-audience-group', type: 'select', label: 'Customer Group', options: AUDIENCE_GROUPS }}
+        value={draft.audience_group}
+        onChange={(audience_group: string) => onChange({ audience_group: audience_group as 'personal_business' | 'enterprise' })}
       />
 
       <AdminField

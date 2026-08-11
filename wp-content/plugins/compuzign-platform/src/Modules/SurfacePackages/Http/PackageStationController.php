@@ -1411,6 +1411,12 @@ class PackageStationController
                 // endpoint; defaults false when the client omits it.
                 'is_addon'      => !empty($body['is_addon']),
             ];
+            // Occupant-owned customer grouping travels through Overview like
+            // every other occupant scalar. Omission preserves an existing
+            // value for older clients instead of silently resetting it.
+            if (array_key_exists('audience_group', $body)) {
+                $draftValue['audience_group'] = $PS::sanitizeTierAudienceGroup($body['audience_group']);
+            }
             // The Tier's bound Rate Sheet is edited alongside overview so a switch
             // commits (clearing selections at settle) before new rows are chosen.
             if (array_key_exists('rate_sheet_id', $body)) {

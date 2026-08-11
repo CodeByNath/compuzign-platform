@@ -38,6 +38,7 @@ export function useTierModuleEditing({
       setOverviewDraft({
         label:         d.label,
         ideal_for:     d.ideal_for,
+        audience_group: d.audience_group,
         price:         d.price,
         contact:       d.contact,
         billing_cycle: d.billing_cycle ?? 'monthly',
@@ -77,6 +78,7 @@ export function useTierModuleEditing({
         const r = await pkg.saveTierOverview(editingTierId, {
           label:         overviewDraft.label,
           ideal_for:     overviewDraft.ideal_for,
+          audience_group: overviewDraft.audience_group,
           price:         null,
           contact:       false,
           billing_cycle: overviewDraft.billing_cycle,

@@ -9,6 +9,7 @@
     "contract:package-builder-regression-lock": "tsx scripts/package-builder-regression-lock-contract.ts",
     "contract:package-family-cart": "tsx scripts/package-family-cart-contract.ts",
     "contract:package-builder-flow": "tsx scripts/package-builder-flow-contract.ts",
+    "contract:package-builder-customer-tabs": "tsx scripts/package-builder-customer-tabs-contract.ts",
     "contract:package-family-request-flow": "tsx scripts/package-family-request-flow-contract.ts",
     "contract:drawer-module-entry": "tsx scripts/drawer-module-entry-contract.ts",
     "contract:package-family-capability": "tsx scripts/package-family-capability-contract.ts",

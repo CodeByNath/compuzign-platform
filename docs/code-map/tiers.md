@@ -17,7 +17,11 @@ either binding.
 
 An occupant binds to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`.
 
-An occupant also carries `is_addon` — see [Tier Add-on Selection](tier-addon.md) — and may carry `tier_editions[]`, independently lifecycled child records (own `CZTE`) for additional declarations alongside the occupant's own permanent Default, e.g. Monthly vs Annual. Not a `TIER_MODULES` entry. See [Tier Edition](tier-edition.md).
+An occupant carries `is_addon` and Overview-owned `audience_group`
+(`personal_business` by default, or `enterprise`). It may also carry
+independently lifecycled `tier_editions[]` children with their own `CZTE`.
+Editions never own or override customer grouping. See [Tier Add-on
+Selection](tier-addon.md) and [Tier Edition](tier-edition.md).
 
 ## Locked creation and lifecycle
 

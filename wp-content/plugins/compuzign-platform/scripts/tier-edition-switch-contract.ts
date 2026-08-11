@@ -100,8 +100,8 @@ check(
   'clicking an Edition switch button stops propagation so it can never also trigger the card\'s own Tier-selection onClick',
 );
 check(
-  pricingTiers.includes('const normalTiers = tiers.filter((tier) => tier.id in pricing.tiers && !pricing.tiers[tier.id].is_addon)')
-    && pricingTiers.includes('const addonTiers = tiers.filter((tier) => tier.id in pricing.tiers && pricing.tiers[tier.id].is_addon)'),
+  pricingTiers.includes('const normalTiers = tiers.filter((tier) => pricing.tiers[tier.id] && !pricing.tiers[tier.id]?.is_addon)')
+    && pricingTiers.includes('const addonTiers = tiers.filter((tier) => pricing.tiers[tier.id]?.is_addon)'),
   'the normal-Tier / Add-on split still derives from is_addon alone, unaffected by edition_options',
 );
 check(

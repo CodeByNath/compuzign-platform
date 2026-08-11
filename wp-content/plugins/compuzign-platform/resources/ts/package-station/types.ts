@@ -437,6 +437,7 @@ export interface SurfaceTierDetail {
   addon_platform_id: string;
   label: string;
   ideal_for: string;
+  audience_group: 'personal_business' | 'enterprise';
   price: number | null;
   contact: boolean;
   billing_cycle: string | null;
@@ -573,6 +574,7 @@ export interface TierEditionResponse {
 export interface TierOverviewDraft {
   label: string;
   ideal_for: string;
+  audience_group?: 'personal_business' | 'enterprise';
   price: number | null;
   contact: boolean;
   billing_cycle: string;

@@ -146,6 +146,7 @@ function public_projection_instance(
     string $rateSheetId,
     string $rateItemId,
     string $status = 'active',
+    string $audienceGroup = 'personal_business',
     ?string $addonLabel = null
 ): array {
     $tiers = TierInstanceSchema::emptyTierMap();
@@ -156,6 +157,7 @@ function public_projection_instance(
             'addon_platform_id' => '',
             'label' => $label,
             'ideal_for' => '',
+            'audience_group' => $audienceGroup,
             'price' => null,
             'contact' => false,
             'billing_cycle' => 'monthly',
@@ -177,6 +179,7 @@ function public_projection_instance(
                 'addon_platform_id' => 'CZTA-' . strtoupper(substr(hash('sha256', $id . '_addon'), 0, 8)),
                 'label' => $addonLabel,
                 'ideal_for' => '',
+                'audience_group' => $audienceGroup,
                 'price' => null,
                 'contact' => false,
                 'billing_cycle' => 'monthly',
@@ -304,8 +307,8 @@ $manager = [
 ];
 
 $instances = [
-    public_projection_instance('ti_kairos', 'KAIROS Tier Set', 'KAIROS Basic', 'rs_kairos', $rateItemId, 'active', 'Backup & DR Shield'),
-    public_projection_instance('ti_aptos', 'APTOS Tier Set', 'APTOS Basic', 'rs_aptos', $rateItemId),
+    public_projection_instance('ti_kairos', 'KAIROS Tier Set', 'KAIROS Basic', 'rs_kairos', $rateItemId, 'active', 'personal_business', 'Backup & DR Shield'),
+    public_projection_instance('ti_aptos', 'APTOS Tier Set', 'APTOS Basic', 'rs_aptos', $rateItemId, 'active', 'enterprise'),
     public_projection_instance('ti_unready', 'Unready Tier Set', 'Unready Basic', 'rs_kairos', $rateItemId, 'disabled'),
 ];
 
@@ -406,6 +409,8 @@ check_public_projection($familyById['pcg_aptos']['tier_instance_id'] === 'ti_apt
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['price'] === 11.0, 'Family projection preserves the existing Rate Sheet total');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_occupant_id'] !== '', 'Family projection carries the real native occupant identity');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['standard']['is_addon'] === true, 'Family projection preserves the compiled add-on occupant');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['audience_group'] === 'personal_business', 'Family projection preserves the parent occupant audience group');
+check_public_projection($familyById['pcg_aptos']['pricing']['tiers']['basic']['audience_group'] === 'enterprise', 'Family projection exposes Enterprise as an occupant-owned value');
 check_public_projection(count($familyById['pcg_kairos']['pricing']['tiers']['basic']['edition_options']) === 1, 'Family projection preserves compiled active Editions');
 check_public_projection(str_starts_with($familyById['pcg_kairos']['family_platform_id'], 'CZPG-'), 'Family customer response carries the Family business identifier');
 check_public_projection(str_starts_with($familyById['pcg_kairos']['tier_instance_platform_id'], 'CZTG-'), 'Family customer response carries the Tier Instance business identifier');

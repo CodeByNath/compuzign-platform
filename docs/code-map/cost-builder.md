@@ -32,7 +32,9 @@ Sheet inclusion sources.
   presents the focused Family, and reuses `PricingTiers`, the shared cart,
   Quote Summary, and Request Flow.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
-  `family_tier` snapshot. `FullBuildDetail.tsx` displays only the compiled
+  `family_tier` snapshot and filters parent Tier cards through its two-option
+  occupant `audience_group` tab control; it has no term/pricing logic.
+  `FullBuildDetail.tsx` displays only the compiled
   effective inclusion labels. The focused Family heading also presents the
   deduplicated Service Category names from its existing connected Services as
   a non-interactive, inline "All plans include" summary.
