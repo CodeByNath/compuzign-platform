@@ -39,6 +39,10 @@ Use WordPress posts, terms, taxonomy relationships, metadata, and options accord
 - Entity meta suits entity-owned structured state.
 - Options/repositories suit Package Station's established aggregate persistence.
 - References across domains must write through the owning public contract.
+- Rate Sheets are pricing authority only, never a direct consumer reference.
+  Do not traverse Rate Sheet rows to infer Package Family membership, content,
+  inclusions, or Category summaries; follow the owning Family/source/inclusion
+  relationships instead.
 
 Registration is not ownership: centralized post-type or taxonomy registrars may declare an entity while its domain module owns behaviour. A nested REST path is likewise not ownership.
 

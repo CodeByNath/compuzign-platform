@@ -1355,6 +1355,12 @@ class PackageRepository
                 continue;
             }
 
+            $managerItemsById = [];
+            foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
+                if (is_array($item)) {
+                    $managerItemsById[(string) ($item['item_id'] ?? '')] = $item;
+                }
+            }
             $familyServiceIds = [];
             foreach ($manager['sources'] as $source) {
                 if (($source['provider_key'] ?? '') === 'service'
@@ -1364,26 +1370,16 @@ class PackageRepository
                     $familyServiceIds[(int) ($source['entity_id'] ?? 0)] = true;
                 }
             }
-            $managerItemsById = [];
-            foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
-                if (is_array($item)) {
-                    $managerItemsById[(string) ($item['item_id'] ?? '')] = $item;
-                }
-            }
             $includedCategories = [];
-            foreach ($manager['rate_sheets'] as $sheet) {
-                foreach (is_array($sheet['items'] ?? null) ? $sheet['items'] : [] as $rateItem) {
-                    $managerItem = $managerItemsById[(string) ($rateItem['source_item_id'] ?? '')] ?? null;
-                    $sourceServiceId = is_array($managerItem) ? (int) ($managerItem['source_service_id'] ?? 0) : 0;
-                    if (!is_array($managerItem)
-                        || ($managerItem['source_type'] ?? null) !== 'inclusion'
-                        || !isset($familyServiceIds[$sourceServiceId])
-                    ) {
-                        continue;
-                    }
-                    foreach (is_array($managerItem['source_categories'] ?? null) ? $managerItem['source_categories'] : [] as $categoryName) {
-                        $includedCategories[(string) $categoryName] = true;
-                    }
+            foreach ($managerItemsById as $managerItem) {
+                $sourceServiceId = (int) ($managerItem['source_service_id'] ?? 0);
+                if (($managerItem['source_type'] ?? null) !== 'inclusion'
+                    || !isset($familyServiceIds[$sourceServiceId])
+                ) {
+                    continue;
+                }
+                foreach (is_array($managerItem['source_categories'] ?? null) ? $managerItem['source_categories'] : [] as $categoryName) {
+                    $includedCategories[(string) $categoryName] = true;
                 }
             }
 

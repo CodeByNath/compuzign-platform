@@ -416,8 +416,7 @@ check_public_projection(str_starts_with($familyById['pcg_kairos']['family_platfo
 check_public_projection(str_starts_with($familyById['pcg_kairos']['tier_instance_platform_id'], 'CZTG-'), 'Family customer response carries the Tier Instance business identifier');
 check_public_projection(str_starts_with($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_platform_id'], 'CZT-'), 'Family customer response carries the Tier business identifier');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['edition_options'][0]['edition_platform_id'] === 'CZTE-KAIROS01', 'Family customer response carries the selected Edition business identifier');
-check_public_projection($familyById['pcg_kairos']['included_categories'] === ['Cloud Infrastructure', 'Migration'], 'Family category summary follows its inclusion rows through source Service provenance and deduplicates Categories');
-check_public_projection(!in_array('Connected Without Inclusion Rows', $familyById['pcg_kairos']['included_categories'], true), 'a connected Service without a Family inclusion row does not leak its Category into the summary');
+check_public_projection($familyById['pcg_kairos']['included_categories'] === ['Cloud Infrastructure', 'Migration', 'Connected Without Inclusion Rows'], 'Family category summary follows direct Family sources through their inclusion provenance and deduplicates Categories without Rate Sheet traversal');
 check_public_projection($familyById['pcg_aptos']['included_categories'] === ['Managed IT'], 'Family category summary follows sanitized Package-owned Service relationships');
 check_public_projection(!isset($publicMap[101]['tiers']['basic']['platform_id']), 'the established Service-rooted projection remains byte-compatible and does not gain Family-builder identity fields');
 
