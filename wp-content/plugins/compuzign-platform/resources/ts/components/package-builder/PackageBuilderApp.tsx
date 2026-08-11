@@ -107,7 +107,7 @@ export function PackageBuilderApp() {
         </div>
       </section>
       <header class="cz-package-builder__header">
-        <h2 class="cz-heading-xl">{family.title}</h2>
+        <h2 class="cz-heading-md">{family.title}</h2>
         {family.description && <p class="cz-copy">{family.description}</p>}
         {family.included_categories.length > 0 && (
           <div class="cz-package-builder__inclusions">
