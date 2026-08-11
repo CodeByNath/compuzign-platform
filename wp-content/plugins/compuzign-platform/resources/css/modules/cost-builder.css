@@ -3159,6 +3159,14 @@
   color: var(--cz-color-accent);
 }
 
+.cz-package-builder__selector {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--cz-space-3);
+  margin-block-start: var(--cz-space-3);
+}
+
 .cz-package-builder__inclusions {
   flex-wrap: wrap;
   gap: var(--cz-space-2) var(--cz-space-3);

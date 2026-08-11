@@ -22,7 +22,8 @@ check(app.includes('Plans &amp; pricing'), 'the Family surface renders the cente
 check(app.includes('All plans include:'), 'the focused Family renders its category inclusion summary');
 check(app.includes('family.included_categories.map'), 'the inclusion summary follows the focused Family projection');
 check(!app.includes('onClick={category'), 'category inclusions are not navigation controls');
-check(!app.includes('cz-package-builder__selector'), 'no extra Family navigation sits between the hero and focused Family');
+check(app.includes('role="tablist"'), 'Family tabs sit inside the centered hero');
+check(app.indexOf('cz-package-builder__selector') < app.indexOf('</section>'), 'Family tabs render before the hero closes');
 check(adapter.includes('<PricingTiers'), 'the existing PricingTiers renderer is reused');
 check(adapter.includes('renderFullBuild='), 'the Family adapter opts into the existing Tier card disclosure seam');
 check(fullBuild.includes('inclusionLabels'), 'full-build detail receives compiled effective inclusion labels');

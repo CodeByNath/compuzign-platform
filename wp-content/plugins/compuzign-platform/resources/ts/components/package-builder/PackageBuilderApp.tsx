@@ -40,6 +40,7 @@ function CategoryIcon() {
 
 export function PackageBuilderApp() {
   const { data, loading, error, refetch } = usePackageBuilder();
+  const [activeFamilyId, setActiveFamilyId] = useState<string | null>(null);
   const [items, setItems] = useState<CartItem[]>(() => loadCart());
   const [isFlowOpen, setIsFlowOpen] = useState(false);
 
@@ -57,7 +58,8 @@ export function PackageBuilderApp() {
   );
   if (!data || data.families.length === 0) return <div class="cz-cost-builder cz-cost-builder--empty"><p class="cz-muted">No packages available at this time.</p></div>;
 
-  const family = data.families[0];
+  const familyId = activeFamilyId ?? data.families[0].family_id;
+  const family = data.families.find((candidate) => candidate.family_id === familyId) ?? data.families[0];
   const familyItems = items.filter(
     (item): item is FamilyTierQuoteItem => isFamilyTierQuoteItem(item)
       && item.familyId === family.family_id
@@ -90,6 +92,18 @@ export function PackageBuilderApp() {
           <span><FeatureIcon kind="guarantee" />30-day money-back guarantee</span>
           <span><FeatureIcon kind="support" />24/7 support</span>
           <span><FeatureIcon kind="cancel" />Cancel anytime</span>
+        </div>
+        <div class="cz-package-builder__selector" role="tablist" aria-label="Package Families">
+          {data.families.map((candidate) => (
+            <button
+              key={candidate.family_id}
+              type="button"
+              role="tab"
+              aria-selected={candidate.family_id === family.family_id}
+              class={`cz-btn ${candidate.family_id === family.family_id ? 'cz-btn-primary' : 'cz-btn-secondary'}`}
+              onClick={() => setActiveFamilyId(candidate.family_id)}
+            >{candidate.title}</button>
+          ))}
         </div>
       </section>
       <header class="cz-package-builder__header">

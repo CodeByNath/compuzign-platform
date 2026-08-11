@@ -28,8 +28,9 @@ Sheet inclusion sources.
 - [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map into "Choose your Tier" (exclusive) and "Optional add-ons" (independent toggle) by `is_addon` — see [Tier Add-on Selection](tier-addon.md). Its `resolveEffectiveTierDisplay()` also renders an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card, never a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
 - [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior.
 - [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) loads, saves, and clears browser quote state. Use it for cart persistence format.
-- `components/package-builder/PackageBuilderApp.tsx` presents the focused
-  Family and reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
+- `components/package-builder/PackageBuilderApp.tsx` owns the hero Family tabs,
+  presents the focused Family, and reuses `PricingTiers`, the shared cart,
+  Quote Summary, and Request Flow.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
   `family_tier` snapshot. `FullBuildDetail.tsx` displays only the compiled
   effective inclusion labels. The focused Family heading also presents the
