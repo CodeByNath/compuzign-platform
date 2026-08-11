@@ -87,7 +87,7 @@ export function PackageBuilderApp() {
   return (
     <div class={`cz-cost-builder cz-package-builder${items.length ? ' cz-cost-builder--has-quote' : ''}`}>
       <section class="cz-package-builder__hero" aria-labelledby="cz-package-builder-title">
-        <h1 id="cz-package-builder-title" class="cz-heading-lg">Plans &amp; pricing</h1>
+        <h1 id="cz-package-builder-title">Plans &amp; pricing</h1>
         <div class="cz-package-builder__features" aria-label="Plan benefits">
           <span><FeatureIcon kind="guarantee" />30-day money-back guarantee</span>
           <span><FeatureIcon kind="support" />24/7 support</span>
@@ -107,7 +107,7 @@ export function PackageBuilderApp() {
         </div>
       </section>
       <header class="cz-package-builder__header">
-        <h2 class="cz-package-builder__family-heading">{family.title}</h2>
+        <h2 class="cz-heading-lg">{family.title}</h2>
         {family.description && <p class="cz-copy">{family.description}</p>}
         {family.included_categories.length > 0 && (
           <div class="cz-package-builder__inclusions">
