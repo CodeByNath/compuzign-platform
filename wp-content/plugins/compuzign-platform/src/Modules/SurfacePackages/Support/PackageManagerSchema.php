@@ -1216,11 +1216,12 @@ final class PackageManagerSchema
         array $inclusionPool,
         array $faqPool,
         string $platformStatus,
-        ?string $rateSheetId = null
+        ?string $rateSheetId = null,
+        bool $contact = false
     ): array {
         $manager = self::sanitize($storedManager);
         $model = self::buildReadModel($serviceId, $manager, $inclusionPool, $faqPool, $platformStatus);
-        return self::projectTierRateSheetWith($model, $selections, $rateSheetId);
+        return self::projectTierRateSheetWith($model, $selections, $rateSheetId, $contact);
     }
 
     /**
@@ -1228,11 +1229,18 @@ final class PackageManagerSchema
      * Public and collection projections use this entry point so the source
      * reconciliation model is built once per request, regardless of how many
      * assigned instances or Tier slots are projected.
+     *
+     * $contact is the occupant/Edition's own explicit "Contact Us" override —
+     * distinct from Rate Sheet resolution. When true, the resolved rows/
+     * inclusions still surface normally, but the numeric total is always
+     * null, matching evaluateTierPricing's existing 'mode' => 'contact'
+     * semantics rather than a second null-price code path.
      */
     public static function projectTierRateSheetWith(
         array $readModel,
         mixed $selections,
-        ?string $rateSheetId = null
+        ?string $rateSheetId = null,
+        bool $contact = false
     ): array {
         // Row identity is (rate_sheet_id, item_id): resolve strictly within the
         // sheet the Tier names. A null/unknown sheet resolves nothing.
@@ -1337,7 +1345,7 @@ final class PackageManagerSchema
         $pricing = PackageStationSchema::evaluateTierPricing(
             $pricingItems,
             $pricingSelections,
-            false
+            $contact
         );
         $availableRows = array_values(array_filter($rows, fn(array $row): bool => $row['available']));
         return [
@@ -1365,7 +1373,8 @@ final class PackageManagerSchema
             $projection = self::projectTierRateSheetWith(
                 $readModel,
                 $edition['rate_sheet_items'] ?? [],
-                $edition['rate_sheet_id'] ?? null
+                $edition['rate_sheet_id'] ?? null,
+                (bool) ($edition['contact'] ?? false)
             );
             $edition['price'] = $projection['price'];
             return $edition;

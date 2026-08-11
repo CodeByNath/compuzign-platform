@@ -85,7 +85,8 @@ class PackageStationReadController
                     $projection = PackageManagerSchema::projectTierRateSheetWith(
                         $readModel,
                         $extracted['rate_sheet_items'] ?? [],
-                        $extracted['rate_sheet_id'] ?? null
+                        $extracted['rate_sheet_id'] ?? null,
+                        (bool) ($extracted['contact'] ?? false)
                     );
                     $summary['price'] = $projection['price'];
                 }

@@ -40,7 +40,11 @@ export function TierEditionOverviewSection({ draft, onChange }: Pick<Props, 'dra
       <AdminField def={{ id: 'edt-title', type: 'text', label: 'Title' }} value={draft.title} onChange={(title: string) => onChange({ title })} />
       <AdminField def={{ id: 'edt-description', type: 'textarea', label: 'Admin description (optional)', rows: 2 }} value={draft.admin_description} onChange={(admin_description: string) => onChange({ admin_description })} />
       <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
-      <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value="Derived from Rate Sheet selections" onChange={() => undefined} />
+      {/* An explicit override, not a Rate Sheet resolution outcome — checking
+          it always reports Contact Us for this Edition, regardless of what
+          its own bound sheet's selected rows would otherwise total. */}
+      <AdminField def={{ id: 'edt-contact', type: 'checkbox', label: 'Mark as Contact Us' }} value={draft.contact} onChange={(contact: boolean) => onChange({ contact })} />
+      <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value={draft.contact ? 'Contact Us' : 'Derived from Rate Sheet selections'} onChange={() => undefined} />
       <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
       <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
     </div>

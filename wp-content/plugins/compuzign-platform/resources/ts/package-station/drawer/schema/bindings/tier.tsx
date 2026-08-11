@@ -82,7 +82,7 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     {
       id: 'price', element: 'text', label: 'Price',
       bind: (d): TextValue => ({
-        value: d.price != null ? `$${d.price}` : 'Not configured',
+        value: d.contact ? 'Contact' : d.price != null ? `$${d.price}` : 'Not configured',
       }),
     },
     {

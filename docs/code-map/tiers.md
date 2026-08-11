@@ -17,6 +17,8 @@ either binding.
 
 An occupant binds to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`.
 
+`contact` (Overview's "Mark as Contact Us" checkbox) is an explicit override, not a resolution outcome: `projectTierRateSheetWith()` threads it into `evaluateTierPricing()`'s `contact` mode, nulling the total while rows/inclusions still resolve normally. Every occupant-price call site passes it through; admin's live preview draft-prefers it like `rate_sheet_id`.
+
 An occupant carries `is_addon` and Overview-owned `audience_group`
 (`personal_business` by default, or `enterprise`). It may also carry
 independently lifecycled `tier_editions[]` children with their own `CZTE`.

@@ -511,6 +511,21 @@ check_public_projection(substr_count($repositoryProjection, 'buildReadModel(') =
 $readControllerSource = (string) file_get_contents(__DIR__ . '/../src/Modules/SurfacePackages/Http/PackageStationReadController.php');
 check_public_projection(substr_count($readControllerSource, 'buildReadModel(') === 1, 'assigned-instance read builds the manager read model exactly once');
 
+// ── Contact Us: an explicit occupant override, not a Rate Sheet failure ────
+// KAIROS basic's occupant resolves a real price (11.0) through fully
+// resolved rate_sheet_items. Marking it contact=true must null that price
+// publicly without touching its otherwise-identical resolved inclusions —
+// proving the override is independent of, not a side effect of, row health.
+$beforeContactOption = $publicProjectionOption;
+$withContact = $publicProjectionOption;
+$withContact['tier_instances'][0]['tiers']['basic']['current_occupant']['contact'] = true;
+$publicProjectionOption = $withContact;
+$contactMap = (new PackageRepository())->findAllActiveIndexedByServiceId();
+check_public_projection($contactMap[101]['tiers']['basic']['price'] === null, 'contact=true nulls the public Default price even though its rate_sheet_items still resolve cleanly');
+check_public_projection($contactMap[101]['tiers']['basic']['contact'] === true, 'the public Default tier reports its own contact override');
+check_public_projection($contactMap[101]['tiers']['basic']['inclusions_override'] !== [], 'contact=true does not suppress the occupant\'s resolved inclusions — only the numeric total');
+$publicProjectionOption = $beforeContactOption;
+
 $expired = $publicProjectionOption;
 $expired['valid_until'] = '2026-07-24 23:59:59';
 $publicProjectionOption = $expired;

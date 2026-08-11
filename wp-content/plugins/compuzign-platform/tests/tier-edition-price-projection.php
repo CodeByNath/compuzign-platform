@@ -134,4 +134,21 @@ assertSameValue(null, $noSelections[0]['price'], 'an Edition with no selections 
 $missingKeys = PMS::projectEditionPrices($readModel, [['id' => 'edt_7']]);
 assertSameValue(null, $missingKeys[0]['price'], 'a row missing rate_sheet_id/rate_sheet_items entirely fails safe to null rather than throwing');
 
+// ── Contact Us: an explicit override, not a Rate Sheet resolution outcome ──
+
+$contactOccupantStyle = PMS::projectTierRateSheetWith($readModel, [['item_id' => 'rate-1', 'quantity' => 1]], 'rs_test', true);
+assertSameValue(null, $contactOccupantStyle['price'], 'contact=true nulls the total even when every selected row resolves cleanly');
+assertSameValue('rate-1', $contactOccupantStyle['selections'][0]['item_id'], 'contact=true still returns the resolved row/inclusion data untouched — only the numeric total is suppressed');
+assertSameValue(true, $contactOccupantStyle['selections'][0]['resolved'], 'row resolution itself is unaffected by the contact override');
+
+$contactEdition = PMS::projectEditionPrices($readModel, [
+    ['id' => 'edt_8', 'rate_sheet_id' => 'rs_test', 'rate_sheet_items' => [['item_id' => 'rate-1', 'quantity' => 1]], 'contact' => true],
+]);
+assertSameValue(null, $contactEdition[0]['price'], 'an Edition\'s own contact flag nulls its price the same way the occupant\'s does, independent of its parent Tier');
+
+$nonContactEdition = PMS::projectEditionPrices($readModel, [
+    ['id' => 'edt_9', 'rate_sheet_id' => 'rs_test', 'rate_sheet_items' => [['item_id' => 'rate-1', 'quantity' => 1]], 'contact' => false],
+]);
+assertSameValue(36.0, $nonContactEdition[0]['price'], 'an Edition with contact=false still prices normally through the shared projector');
+
 echo "Tier Edition price projection contract: PASS\n";

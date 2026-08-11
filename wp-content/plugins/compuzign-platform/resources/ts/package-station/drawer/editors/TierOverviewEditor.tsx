@@ -71,12 +71,21 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         onChange={(next: string) => changeRateSheet(next || null)}
       />
 
+      {/* An explicit override, not a Rate Sheet resolution outcome — checking
+          it always reports Contact Us below, regardless of what the bound
+          sheet's selected rows would otherwise total. */}
+      <AdminField
+        def={{ id: 'tier-contact', type: 'checkbox', label: 'Mark as Contact Us' }}
+        value={draft.contact}
+        onChange={(contact) => onChange({ contact })}
+      />
+
       {/* Price is derived from the bound sheet's selected rows, so it reports
           rather than accepts. Readonly, not disabled: the value is still
           selectable and still submitted. */}
       <AdminField
         def={{ id: 'tier-price', type: 'text', label: 'Price', readonly: true }}
-        value={draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
+        value={draft.contact ? 'Contact Us' : draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
         onChange={() => undefined}
       />
 

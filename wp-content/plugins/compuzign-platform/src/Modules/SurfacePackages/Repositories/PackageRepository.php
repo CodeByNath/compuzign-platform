@@ -1210,7 +1210,8 @@ class PackageRepository
             $rateProjection = PackageManagerSchema::projectTierRateSheetWith(
                 $readModel,
                 $extracted['rate_sheet_items'] ?? [],
-                $extracted['rate_sheet_id'] ?? null
+                $extracted['rate_sheet_id'] ?? null,
+                (bool) ($extracted['contact'] ?? false)
             );
             $extracted['price'] = $rateProjection['price'];
             $resolvedInclusions = array_values(array_filter(

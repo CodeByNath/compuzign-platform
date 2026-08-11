@@ -25,7 +25,9 @@ let an Edition *replace* the occupant's terms, inverting the model, and was
 removed.
 
 `price` projects live via `projectEditionPrices()`
-(`projectTierRateSheetWith()` per Edition).
+(`projectTierRateSheetWith()` per Edition), each row's own `contact`
+threaded in independently — one Edition's "Contact Us" override (same
+mechanism/field as the occupant's) never affects a sibling's price.
 
 ## Overview registration
 

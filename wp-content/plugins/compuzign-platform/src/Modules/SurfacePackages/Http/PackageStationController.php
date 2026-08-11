@@ -789,15 +789,23 @@ class PackageStationController
             $effectiveSelections = is_array($detail['drafts']['features'] ?? null)
                 ? $detail['drafts']['features']
                 : ($detail['rate_sheet_items'] ?? []);
+            // Same draft-preferred convention as rate_sheet_items/rate_sheet_id
+            // above — an in-progress, unpublished Contact Us toggle previews
+            // in this live price computation just like an in-progress Rate
+            // Sheet selection change already does.
+            $effectiveContact = is_array($detail['drafts']['overview'] ?? null)
+                ? (bool) ($detail['drafts']['overview']['contact'] ?? false)
+                : (bool) ($detail['contact'] ?? false);
             $rateProjection = $PMS::projectTierRateSheet(
                 $serviceId, $rawManager, $effectiveSelections, $incPool,
                 $faqPool, $instanceStatus,
-                $detail['rate_sheet_id'] ?? null
+                $detail['rate_sheet_id'] ?? null,
+                $effectiveContact
             );
             $detail['rate_sheet_selections'] = $rateProjection['selections'];
             $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections);
             $detail['price'] = $rateProjection['price'];
-            $detail['contact'] = false;
+            $detail['contact'] = $effectiveContact;
             $detail['inclusions_override'] = array_map(
                 fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'missing' => !$row['resolved']],
                 array_values(array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'inclusion'))
