@@ -3113,7 +3113,7 @@
   display: grid;
   gap: var(--cz-space-4);
   margin-block-end: var(--cz-space-8);
-  padding-block-start: var(--cz-space-8);
+  padding-block-start: var(--cz-space-10);
   border-top: 1px solid var(--cz-color-line);
 }
 
@@ -3121,7 +3121,7 @@
   display: grid;
   justify-items: center;
   gap: var(--cz-space-5);
-  padding: var(--cz-space-8) var(--cz-space-4) var(--cz-space-12);
+  padding: var(--cz-space-8) var(--cz-space-4) var(--cz-space-10);
   text-align: center;
 }
 
