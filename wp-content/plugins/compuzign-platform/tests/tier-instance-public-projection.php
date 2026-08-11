@@ -5,6 +5,7 @@ declare(strict_types=1);
 $publicProjectionOption = null;
 $publicProjectionPosts = [];
 $publicProjectionMeta = [];
+$publicProjectionTerms = [];
 
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
@@ -53,8 +54,15 @@ if (!function_exists('get_post_meta')) {
         return $publicProjectionMeta[$postId][$key] ?? ($single ? null : []);
     }
 }
+if (!function_exists('get_term_meta')) {
+    function get_term_meta(int $termId, string $key = '', bool $single = false): mixed { return $single ? null : []; }
+}
 if (!function_exists('wp_get_post_terms')) {
-    function wp_get_post_terms(int $postId, string $taxonomy, array $args = []): array { return []; }
+    function wp_get_post_terms(int $postId, string $taxonomy, array $args = []): array
+    {
+        global $publicProjectionTerms;
+        return $publicProjectionTerms[$postId] ?? [];
+    }
 }
 if (!function_exists('rest_ensure_response')) {
     function rest_ensure_response(mixed $value): WP_REST_Response
@@ -78,6 +86,12 @@ if (!class_exists('WP_Post')) {
             $this->post_title = $title;
             $this->post_name = sanitize_title($title);
         }
+    }
+}
+if (!class_exists('WP_Term')) {
+    class WP_Term
+    {
+        public function __construct(public int $term_id, public string $name) {}
     }
 }
 if (!class_exists('WP_REST_Request')) {
@@ -212,6 +226,9 @@ foreach ($serviceNames as $serviceId => $title) {
         'cz_service_faqs' => [],
     ];
 }
+$publicProjectionTerms[101] = [new WP_Term(1, 'Cloud Infrastructure'), new WP_Term(2, 'Migration')];
+$publicProjectionTerms[107] = [new WP_Term(1, 'Cloud Infrastructure')];
+$publicProjectionTerms[102] = [new WP_Term(3, 'Managed IT')];
 
 $families = [
     public_projection_family('pcg_kairos', 'KAIROS'),
@@ -394,6 +411,8 @@ check_public_projection(str_starts_with($familyById['pcg_kairos']['family_platfo
 check_public_projection(str_starts_with($familyById['pcg_kairos']['tier_instance_platform_id'], 'CZTG-'), 'Family customer response carries the Tier Instance business identifier');
 check_public_projection(str_starts_with($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_platform_id'], 'CZT-'), 'Family customer response carries the Tier business identifier');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['edition_options'][0]['edition_platform_id'] === 'CZTE-KAIROS01', 'Family customer response carries the selected Edition business identifier');
+check_public_projection($familyById['pcg_kairos']['included_categories'] === ['Cloud Infrastructure', 'Migration'], 'Family customer response deduplicates Service Categories from connected Services');
+check_public_projection($familyById['pcg_aptos']['included_categories'] === ['Managed IT'], 'Family category summary follows sanitized Package-owned Service relationships');
 check_public_projection(!isset($publicMap[101]['tiers']['basic']['platform_id']), 'the established Service-rooted projection remains byte-compatible and does not gain Family-builder identity fields');
 
 $disabledServiceIds = $repository->findDisabledPackageServiceIds();

@@ -18,6 +18,11 @@ check(moduleSource.includes("add_shortcode('compuzign_package_builder'"), 'the a
 check(app.includes('usePackageBuilder()'), 'the Family surface uses its direct public read');
 check(!app.includes('useCostBuilder'), 'the Family surface never reads the Service-rooted Cost Builder response');
 check(!app.includes('ServiceCard') && !app.includes('SubcategoryNav'), 'the Family surface has no Service selection UI');
+check(app.includes('Plans &amp; pricing'), 'the Family surface renders the centered plans and pricing hero');
+check(app.includes('All plans include:'), 'the focused Family renders its category inclusion summary');
+check(app.includes('family.included_categories.map'), 'the inclusion summary follows the focused Family projection');
+check(!app.includes('onClick={category'), 'category inclusions are not navigation controls');
+check(!app.includes('cz-package-builder__selector'), 'no extra Family navigation sits between the hero and focused Family');
 check(adapter.includes('<PricingTiers'), 'the existing PricingTiers renderer is reused');
 check(adapter.includes('renderFullBuild='), 'the Family adapter opts into the existing Tier card disclosure seam');
 check(fullBuild.includes('inclusionLabels'), 'full-build detail receives compiled effective inclusion labels');

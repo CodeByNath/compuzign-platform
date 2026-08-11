@@ -52,6 +52,9 @@ final class PackageFamilyPricingBuilder
                 'tier_instance_platform_id' => $family['tier_instance_platform_id'],
                 'popular_tier'     => $family['popular_tier'],
                 'popular_label'    => $family['popular_label'],
+                'included_categories' => is_array($family['included_categories'] ?? null)
+                    ? array_values(array_map('strval', $family['included_categories']))
+                    : [],
                 'pricing'          => ['tiers' => $tiers],
             ];
         }, $this->packages->findAllActiveFamiliesForCostBuilder());

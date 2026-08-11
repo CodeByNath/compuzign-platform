@@ -1355,6 +1355,19 @@ class PackageRepository
                 continue;
             }
 
+            $includedCategories = [];
+            foreach ($manager['sources'] as $source) {
+                if (($source['provider_key'] ?? '') !== 'service'
+                    || ($source['entity_type'] ?? '') !== 'service'
+                    || ($source['category_group_id'] ?? null) !== $familyId
+                ) {
+                    continue;
+                }
+                foreach ($this->serviceCategoryNames((int) ($source['entity_id'] ?? 0)) as $categoryName) {
+                    $includedCategories[$categoryName] = true;
+                }
+            }
+
             $families[] = [
                 'family_id'       => $familyId,
                 'family_platform_id' => $familyPlatformId,
@@ -1365,6 +1378,7 @@ class PackageRepository
                 'tiers'           => $compiled['tiers'],
                 'popular_tier'    => $compiled['popular_tier'],
                 'popular_label'   => $compiled['popular_label'],
+                'included_categories' => array_keys($includedCategories),
             ];
         }
 

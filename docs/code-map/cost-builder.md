@@ -28,11 +28,13 @@ Sheet inclusion sources.
 - [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map into "Choose your Tier" (exclusive) and "Optional add-ons" (independent toggle) by `is_addon` — see [Tier Add-on Selection](tier-addon.md). Its `resolveEffectiveTierDisplay()` also renders an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card, never a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
 - [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior.
 - [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) loads, saves, and clears browser quote state. Use it for cart persistence format.
-- `components/package-builder/PackageBuilderApp.tsx` owns Family selection and
-  reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
+- `components/package-builder/PackageBuilderApp.tsx` presents the focused
+  Family and reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
   `family_tier` snapshot. `FullBuildDetail.tsx` displays only the compiled
-  effective inclusion labels.
+  effective inclusion labels. The focused Family heading also presents the
+  deduplicated Service Category names from its existing connected Services as
+  a non-interactive, inline "All plans include" summary.
 
 ## Backend and Persistence
 
@@ -40,11 +42,14 @@ Sheet inclusion sources.
 - `PackageBuilderController.php` registers public read-only `GET
   /package-builder`; `PackageFamilyPricingBuilder.php` narrows the direct
   Family projection into customer Tier data without another pricing engine.
+  Its additive `included_categories` field is derived from Package-owned
+  Family-to-Service relationships and Service-owned Category names; it carries
+  no Service mutation or pricing authority.
 - [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) assembles categories, Services, Tiers, packages, promotions, bundles, and FAQs into the public response. Use it for projection and visibility/readiness rules.
 - [ServiceRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Repositories/ServiceRepository.php) reads active Service posts, taxonomy, metadata, and pricing inputs. Use it for catalogue persistence queries.
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/cost-builder.ts) exposes the typed public fetch. Use it for client response contracts.
 
-Package Station resolves overlays before they reach `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder is only a consumer; it owns no assignment or Package rule. Missing or ambiguous edges create no overlay and mark a covered Service unavailable, preventing legacy XLSX pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` additionally copies each surviving occupant's own `is_addon` onto its projected Tier; no separate add-on collection is exposed. The occupant's own commercial terms (`PackageSchema::extractTierForCostBuilder`) are always the flat `price`/`billing_cycle`/`contact`/`inclusions` fields — never displaced by an Edition — plus an additive `edition_options` array (Active Editions only, no Platform ID) for the in-card switch, which renders once one Edition exists alongside an always-present Default option — see [Tier Edition](tier-edition.md). Every Tier with no Editions projects byte-identically to before this capability existed.
+Package Station resolves overlays before `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder owns no Package rule. Missing or ambiguous edges mark covered Services unavailable, preventing legacy pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` copies each occupant's `is_addon`; no separate add-on collection exists. Occupant commercial terms remain the flat `price`/`billing_cycle`/`contact`/`inclusions` fields plus additive active `edition_options` for the in-card switch — see [Tier Edition](tier-edition.md). Tiers without Editions remain unchanged.
 
 The Family-only response carries native Family/Tier Instance/occupant IDs for
 backend logic alongside their `CZPG`/`CZTG`/`CZT` or `CZTA` Platform business
