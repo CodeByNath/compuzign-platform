@@ -199,9 +199,6 @@ export function PricingTiers({
   renderFullBuild,
 }: PricingTiersProps) {
   // DEBUG — remove after diagnosis
-  console.log('[CZ PricingTiers] pricing:', pricing);
-  console.log('[CZ PricingTiers] pricing.tiers:', pricing.tiers);
-  console.log('[CZ PricingTiers] pricing.tiers.basic:', pricing.tiers['basic']);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const addonScrollRef = useRef<HTMLDivElement>(null);

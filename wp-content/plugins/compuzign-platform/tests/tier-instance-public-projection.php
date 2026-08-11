@@ -357,13 +357,22 @@ $instances[1]['tiers']['basic']['current_occupant']['rate_sheet_items'] = array_
         array_keys($aptosSelectedSourceIds)
     )
 );
+$instances[0]['tiers']['basic']['current_occupant']['price'] = 11;
+$instances[0]['tiers']['basic']['current_occupant']['inclusions_override'] = [[
+    'id' => $kairosSourceId,
+    'label' => 'KAIROS Service inclusion',
+]];
+$instances[0]['tiers']['basic']['current_occupant']['declaration_resolution_version'] = 1;
+$instances[1]['tiers']['basic']['current_occupant']['price'] = 22;
+$instances[1]['tiers']['basic']['current_occupant']['inclusions_override'] = array_map(
+    static fn(string $sourceId): array => ['id' => $sourceId, 'label' => $sourceId],
+    [$aptosSourceId, ...$aptosSelectedSourceIds]
+);
+$instances[1]['tiers']['basic']['current_occupant']['declaration_resolution_version'] = 1;
 
-// Parity repair contract — the KAIROS basic occupant additionally carries one
-// Active Edition, priced from ITS OWN rate_sheet_items (quantity 3 of the
-// shared row) rather than the occupant's own quantity-1 selection, proving
-// the public/Cost Builder projection resolves an Edition's price live
-// through the same authoritative pricing boundary as the occupant itself —
-// not a second calculation, and never the occupant's own price bleeding in.
+// The KAIROS basic occupant additionally carries one Active Edition whose
+// already-settled declaration differs from the Default. The public projector
+// must consume these durable values without traversing its internal binding.
 $kairosEditionAdd = PackageSchema::addTierEdition([], [
     'title'            => 'KAIROS Annual',
     'rate_sheet_id'    => 'rs_kairos',
@@ -378,7 +387,38 @@ $kairosEditions = PackageSchema::applyTierEditionStatus(
     StationLifecycle::STATUS_ACTIVE
 );
 $kairosEditions[0]['edition_platform_id'] = 'CZTE-KAIROS01';
+$kairosEditions[0]['price'] = 60;
 $instances[0]['tiers']['basic']['current_occupant']['tier_editions'] = $kairosEditions;
+$binnedEdition = $kairosEditions[0];
+$binnedEdition['id'] = 'edt_binned_backfill';
+$binnedEdition['edition_platform_id'] = 'CZTE-BINNED01';
+$binnedEdition['price'] = null;
+unset($binnedEdition['declaration_resolution_version']);
+$instances[0]['tiers']['basic']['current_occupant']['tier_edition_bin'] = [[
+    'bin_id' => 'tebin_backfill', 'edition' => $binnedEdition,
+    'status' => 'archived', 'displaced_at' => '2026-07-25 00:00:00',
+]];
+$failedBinnedEdition = $binnedEdition;
+$failedBinnedEdition['id'] = 'edt_failed_backfill';
+$failedBinnedEdition['edition_platform_id'] = 'CZTE-FAILED01';
+$failedBinnedEdition['rate_sheet_items'] = [['item_id' => 'missing-rate-row', 'quantity' => 1]];
+$instances[0]['tiers']['basic']['current_occupant']['tier_edition_bin'][] = [
+    'bin_id' => 'tebin_failed_backfill', 'edition' => $failedBinnedEdition,
+    'status' => 'archived', 'displaced_at' => '2026-07-25 00:00:00',
+];
+$binnedOccupant = $instances[0]['tiers']['standard']['current_occupant'];
+$binnedOccupant['id'] = 'occ_binned_backfill';
+$binnedOccupant['cz_platform_id'] = 'CZT-BINNED01';
+$binnedOccupant['addon_platform_id'] = '';
+$binnedOccupant['is_addon'] = false;
+$binnedOccupant['price'] = null;
+$binnedOccupant['tier_editions'] = [];
+$binnedOccupant['tier_edition_bin'] = [];
+unset($binnedOccupant['declaration_resolution_version']);
+$instances[0]['occupant_bin'][] = [
+    'bin_id' => 'bin_backfill', 'origin_tier' => 'standard', 'occupant' => $binnedOccupant,
+    'status' => 'archived', 'previous_enabled' => true, 'displaced_at' => '2026-07-25 00:00:00',
+];
 $assignments = [
     [
         'assignment_id' => TierAssignmentSchema::deriveAssignmentId('package_family', 'pcg_kairos', 'ti_kairos'),
@@ -431,11 +471,12 @@ $publicMap = $repository->findAllActiveIndexedByServiceId();
 check_public_projection(array_keys($publicMap) === [101, 102, 110, 111, 112, 113], 'only Services belonging unambiguously to ready KAIROS and APTOS Families resolve publicly');
 check_public_projection($publicMap[101]['tiers']['basic']['label'] === 'KAIROS Basic', 'KAIROS receives only its assigned Tier occupant');
 check_public_projection($publicMap[102]['tiers']['basic']['label'] === 'APTOS Basic', 'APTOS receives only its assigned Tier occupant');
-check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'KAIROS resolves the shared row id inside rs_kairos');
+check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'KAIROS exposes its durable settled Default price');
+check_public_projection(!array_key_exists('declaration_resolution_version', $publicMap[101]['tiers']['basic']), 'the internal declaration resolution marker is absent from the public Tier response');
 check_public_projection(count($publicMap[101]['tiers']['basic']['edition_options']) === 1, 'KAIROS basic occupant carries its one Active Edition publicly');
-check_public_projection($publicMap[101]['tiers']['basic']['edition_options'][0]['price'] === 60.0, 'the Edition\'s OWN rate_sheet_items (quantity 3 of the shared row, priced from its own selected Price Option at 20/unit) project a live price through the same authoritative boundary — no longer a raw/null stored scalar, and never the row\'s Default Price when a Price Option is selected');
-check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'the occupant\'s own Default-Price selection of the SAME shared row is unaffected by its Edition choosing a different Price Option — one shared boundary, two independent selections');
-check_public_projection($publicMap[102]['tiers']['basic']['price'] === 22.0, 'APTOS resolves the shared row id inside rs_aptos');
+check_public_projection((float) $publicMap[101]['tiers']['basic']['edition_options'][0]['price'] === 60.0, 'the public Edition uses its durable settlement price without traversing its private Rate Sheet binding');
+check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'the occupant\'s durable Default declaration remains independent of its Edition declaration');
+check_public_projection($publicMap[102]['tiers']['basic']['price'] === 22.0, 'APTOS exposes its durable settled Default price');
 check_public_projection($publicMap[101]['popular_label'] === 'KAIROS Tier Set popular', 'KAIROS popular configuration comes from its instance');
 check_public_projection($publicMap[102]['popular_label'] === 'APTOS Tier Set popular', 'APTOS popular configuration comes from its instance');
 check_public_projection($publicMap[101]['tiers']['basic']['is_addon'] === false, 'a normal occupant survives the repository projection as is_addon: false');
@@ -452,7 +493,7 @@ $familyById = [];
 foreach ($familyResponse['families'] as $family) $familyById[$family['family_id']] = $family;
 check_public_projection($familyById['pcg_kairos']['tier_instance_id'] === 'ti_kairos', 'KAIROS resolves its Tier Instance directly from the Family assignment');
 check_public_projection($familyById['pcg_aptos']['tier_instance_id'] === 'ti_aptos', 'APTOS resolves its own assigned Tier Instance');
-check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['price'] === 11.0, 'Family projection preserves the existing Rate Sheet total');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['price'] === 11.0, 'Family projection preserves the durable settled declaration price');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_occupant_id'] !== '', 'Family projection carries the real native occupant identity');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['standard']['is_addon'] === true, 'Family projection preserves the compiled add-on occupant');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['audience_group'] === 'personal_business', 'Family projection preserves the parent occupant audience group');
@@ -492,22 +533,66 @@ $rowsByTitle = [];
 foreach ($readResponse['packages'] as $row) $rowsByTitle[$row['title']] = $row;
 check_public_projection($rowsByTitle['KAIROS Tier Set']['service_refs'] === [101, 107], 'KAIROS assigned row carries its related Services');
 check_public_projection($rowsByTitle['APTOS Tier Set']['service_refs'] === [102, 107, 110, 111, 112, 113], 'APTOS assigned row remains separate and carries its related Services');
-check_public_projection($rowsByTitle['KAIROS Tier Set']['tiers']['basic']['price'] === 11.0, 'assigned-instance read row preserves KAIROS Rate Sheet identity');
-check_public_projection($rowsByTitle['APTOS Tier Set']['tiers']['basic']['price'] === 22.0, 'assigned-instance read row preserves APTOS Rate Sheet identity');
+check_public_projection((float) $rowsByTitle['KAIROS Tier Set']['tiers']['basic']['price'] === 11.0, 'assigned-instance admin read preserves KAIROS internal pricing');
+check_public_projection((float) $rowsByTitle['APTOS Tier Set']['tiers']['basic']['price'] === 22.0, 'assigned-instance admin read preserves APTOS internal pricing');
 
 $repositorySource = (string) file_get_contents(__DIR__ . '/../src/Modules/SurfacePackages/Repositories/PackageRepository.php');
 $familyProjectionStart = (int) strpos($repositorySource, 'public function findAllActiveFamiliesForCostBuilder');
 $familyProjection = substr($repositorySource, $familyProjectionStart);
 check_public_projection(!str_contains($familyProjection, 'resolveInstanceForService('), 'Family customer read never falls back through Service discovery');
+$publicProjectorStart = (int) strpos($repositorySource, 'private function projectTierInstanceForCostBuilder');
+$publicProjectorEnd = (int) strpos($repositorySource, 'public function findAllActiveFamiliesForCostBuilder');
+$publicProjector = substr($repositorySource, $publicProjectorStart, $publicProjectorEnd - $publicProjectorStart);
+foreach (['projectTierRateSheetWith', 'projectEditionPrices', 'rate_sheet_id', 'rate_sheet_items'] as $forbiddenPublicDependency) {
+    check_public_projection(!str_contains($publicProjector, $forbiddenPublicDependency), "public Package Builder projector has no {$forbiddenPublicDependency} dependency");
+    check_public_projection(!str_contains($familyProjection, $forbiddenPublicDependency), "Family Package Builder response has no {$forbiddenPublicDependency} dependency");
+}
 $repositoryProjection = substr(
     $repositorySource,
     (int) strpos($repositorySource, 'public function findAllActiveIndexedByServiceId'),
     (int) strpos($repositorySource, 'public function findAllActiveFamiliesForCostBuilder')
         - (int) strpos($repositorySource, 'public function findAllActiveIndexedByServiceId')
 );
-check_public_projection(substr_count($repositoryProjection, 'buildReadModel(') === 1, 'public index builds the manager read model exactly once');
+check_public_projection(substr_count($repositoryProjection, 'buildReadModel(') === 0, 'public index never builds the internal Manager/Rate Sheet read model');
 $readControllerSource = (string) file_get_contents(__DIR__ . '/../src/Modules/SurfacePackages/Http/PackageStationReadController.php');
 check_public_projection(substr_count($readControllerSource, 'buildReadModel(') === 1, 'assigned-instance read builds the manager read model exactly once');
+
+$backfillIdentityProjection = static fn(array $instances): array => array_map(
+    static fn(array $instance): array => [
+        'id' => $instance['tier_instance_id'],
+        'occupants' => array_map(static fn(array $slot): array => [
+            'id' => (string) ($slot['current_occupant']['id'] ?? ''),
+            'czt' => (string) ($slot['current_occupant']['cz_platform_id'] ?? ''),
+            'czta' => (string) ($slot['current_occupant']['addon_platform_id'] ?? ''),
+            'editions' => array_map(static fn(array $edition): array => [
+                'id' => $edition['id'], 'czte' => $edition['edition_platform_id'],
+            ], $slot['current_occupant']['tier_editions'] ?? []),
+            'edition_bin' => array_map(static fn(array $entry): array => [
+                'bin_id' => $entry['bin_id'],
+                'id' => $entry['edition']['id'],
+                'czte' => $entry['edition']['edition_platform_id'],
+            ], $slot['current_occupant']['tier_edition_bin'] ?? []),
+        ], $instance['tiers']),
+        'bin_occupants' => array_map(static fn(array $entry): array => [
+            'id' => $entry['occupant']['id'], 'czt' => $entry['occupant']['cz_platform_id'],
+        ], $instance['occupant_bin'] ?? []),
+    ],
+    $instances
+);
+$backfillIdentitySnapshot = serialize($backfillIdentityProjection($publicProjectionOption['tier_instances']));
+$backfill = (new PackageRepository())->backfillCustomerDeclarations();
+check_public_projection($backfill['updated'] > 0 && $backfill['failed'] === 1, 'explicit backfill materializes resolvable legacy declarations and reports unresolved declarations');
+$backfilledKairos = $publicProjectionOption['tier_instances'][0];
+check_public_projection(($backfilledKairos['occupant_bin'][0]['occupant']['declaration_resolution_version'] ?? 0) === 1, 'backfill covers occupant-bin declarations');
+check_public_projection($backfilledKairos['tiers']['basic']['current_occupant']['tier_editions'][0]['declaration_resolution_version'] === 1, 'backfill covers active Edition declarations');
+check_public_projection($backfilledKairos['tiers']['basic']['current_occupant']['tier_edition_bin'][0]['edition']['declaration_resolution_version'] === 1, 'backfill covers Edition-bin declarations');
+check_public_projection(!array_key_exists('declaration_resolution_version', $backfilledKairos['tiers']['basic']['current_occupant']['tier_edition_bin'][1]['edition']), 'failed backfill resolution leaves the declaration unmarked');
+check_public_projection($backfilledKairos['tiers']['basic']['current_occupant']['tier_edition_bin'][1]['edition']['price'] === null, 'failed backfill resolution persists no partial customer price');
+check_public_projection($backfilledKairos['occupant_bin'][0]['occupant']['inclusions_override'][0]['id'] === $kairosSourceId, 'backfill persists canonical inclusion source_id rather than Rate Sheet row identity');
+$backfillRetry = (new PackageRepository())->backfillCustomerDeclarations();
+check_public_projection($backfillRetry['updated'] === 0 && $backfillRetry['failed'] === 1, 'backfill is idempotent for successful declarations and leaves failed declarations retryable');
+$afterBackfillIdentitySnapshot = serialize($backfillIdentityProjection($publicProjectionOption['tier_instances']));
+check_public_projection($afterBackfillIdentitySnapshot === $backfillIdentitySnapshot, 'backfill preserves Tier Instance and occupant identities/order');
 
 $expired = $publicProjectionOption;
 $expired['valid_until'] = '2026-07-24 23:59:59';

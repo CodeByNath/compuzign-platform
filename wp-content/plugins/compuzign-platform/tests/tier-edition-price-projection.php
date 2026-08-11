@@ -3,23 +3,14 @@
 declare(strict_types=1);
 
 /*
- * Parity repair contract: PackageManagerSchema::projectEditionPrices() —
- * the thin batch wrapper around the SAME projectTierRateSheetWith() the
- * Default Tier occupant already uses, so a Tier Edition's own
- * rate_sheet_id + rate_sheet_items resolve through the one authoritative
- * Rate Sheet pricing boundary instead of leaving `price` a raw, never-
- * derived stored scalar (see docs/code-map/tier-edition.md).
+ * Internal pricing/settlement contract. Rate Sheet projection remains the
+ * single internal authority, while materializeCustomerDeclaration() converts
+ * that projection into the durable values consumed by public surfaces.
  *
  * This file exercises the projection function directly, at the same layer
  * package-manager-schema.php already tests projectTierRateSheetWith at.
- * The two live call sites (PackageStationController::getPackageStation()
- * for the admin read, PackageRepository::findAllActiveIndexedByServiceId()
- * for the public/Cost Builder projection) are each a single verified line
- * calling this same function — the public path is additionally proven
- * end-to-end in tier-instance-public-projection.php. No existing test in
- * this suite exercises PackageStationController's REST methods directly
- * (they are covered at the Schema/Repository layer instead); this file
- * keeps that same convention rather than inventing a new REST harness.
+ * Package Builder is intentionally absent from this internal path; its
+ * negative boundary is proven in tier-instance-public-projection.php.
  */
 
 if (!function_exists('sanitize_text_field')) {
@@ -133,5 +124,24 @@ assertSameValue(null, $noSelections[0]['price'], 'an Edition with no selections 
 
 $missingKeys = PMS::projectEditionPrices($readModel, [['id' => 'edt_7']]);
 assertSameValue(null, $missingKeys[0]['price'], 'a row missing rate_sheet_id/rate_sheet_items entirely fails safe to null rather than throwing');
+
+// ── Settlement materialization: customer identity and atomic failure ─────────
+
+$materialized = PMS::materializeCustomerDeclaration(
+    $readModel,
+    [['item_id' => 'rate-1', 'quantity' => 2]],
+    'rs_test'
+);
+assertSameValue(true, $materialized['success'], 'a fully resolved binding materializes successfully');
+assertSameValue(72.0, $materialized['price'], 'settlement persists the authoritative resolved price');
+assertSameValue('inc-a', $materialized['inclusions_override'][0]['id'], 'settlement persists canonical inclusion source_id, never the Rate Sheet row id');
+assertSameValue(1, $materialized['declaration_resolution_version'], 'successful materialization carries the durable resolution marker');
+
+$failedMaterialization = PMS::materializeCustomerDeclaration(
+    $readModel,
+    [['item_id' => 'missing-rate-row', 'quantity' => 1]],
+    'rs_test'
+);
+assertSameValue(['success' => false], $failedMaterialization, 'failed resolution returns no partial declaration fields or version marker');
 
 echo "Tier Edition price projection contract: PASS\n";

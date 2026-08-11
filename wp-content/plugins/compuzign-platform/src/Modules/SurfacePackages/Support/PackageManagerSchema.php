@@ -1372,6 +1372,46 @@ final class PackageManagerSchema
         }, $editions);
     }
 
+    /**
+     * Internal settlement boundary: materialise one durable customer
+     * declaration from its private Rate Sheet binding. Public repositories
+     * must consume only the returned declaration fields, never this binding.
+     *
+     * @return array{success: bool, price?: ?float, inclusions_override?: array, faq_refs?: array, declaration_resolution_version?: int}
+     */
+    public static function materializeCustomerDeclaration(
+        array $readModel,
+        mixed $selections,
+        ?string $rateSheetId,
+        bool $contact = false
+    ): array {
+        $projection = self::projectTierRateSheetWith($readModel, $selections, $rateSheetId);
+        foreach ($projection['selections'] as $row) {
+            if (empty($row['resolved']) || empty($row['available']) || (string) ($row['source_id'] ?? '') === '') {
+                return ['success' => false];
+            }
+        }
+
+        $inclusions = [];
+        $faqRefs = [];
+        foreach ($projection['selections'] as $row) {
+            $sourceId = (string) $row['source_id'];
+            if (($row['source_type'] ?? null) === 'inclusion') {
+                $inclusions[] = ['id' => $sourceId, 'label' => (string) ($row['label'] ?? '')];
+            } elseif (($row['source_type'] ?? null) === 'faq') {
+                $faqRefs[] = $sourceId;
+            }
+        }
+
+        return [
+            'success' => true,
+            'price' => $contact ? null : $projection['price'],
+            'inclusions_override' => $inclusions,
+            'faq_refs' => $faqRefs,
+            'declaration_resolution_version' => PackageSchema::DECLARATION_RESOLUTION_VERSION,
+        ];
+    }
+
     // ── Consumer projections ─────────────────────────────────────────────────
 
     /**

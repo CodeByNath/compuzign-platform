@@ -15,7 +15,7 @@ whole occupant through archive, restore, swap, retarget, and slot movement.
 Dormant `CZTA` is preserved and reused. Only permanent deletion tombstones
 either binding.
 
-An occupant binds to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`.
+An occupant binds internally to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`. Publish resolves that private binding once and atomically persists the customer declaration (`price`, canonical inclusion `source_id` references, FAQ references, and `declaration_resolution_version`). Failed resolution persists none of those fields or the marker.
 
 An occupant carries `is_addon` and Overview-owned `audience_group`
 (`personal_business` by default, or `enterprise`). It may also carry
@@ -49,30 +49,29 @@ occupant conformance. Its registration and Publish/Apply contract remains in
 
 [register.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/register.ts) registers the workspace source, `tier-workspace` kit, and `tier` drawer. Admin's string-key Packages binding hosts them without acquiring Tier authority.
 
-The Package-owned workspace entry points are:
+`useTierInstances.ts`/`tierInstanceModel.ts` own instance and assignment
+operations. `usePackageTierWorkspace.ts` resolves the selected Family's exact
+assignment; `PackageTierWorkspace.tsx` owns transient focus. `TierLowerDeck.tsx`
+presents Details/Connections/Settings. `TierDrawerHost.tsx` decodes occupant,
+empty-slot, and registration addresses without fabricating identity. Tier
+System registration remains documented in [Tier System Registration](tier-registration.md).
 
-- [useTierInstances.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) and [tierInstanceModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/tierInstanceModel.ts) own instance/assignment mutations and projections.
-- [usePackageTierWorkspace.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts) resolves the selected Family's exact assignment; unassigned instances use labelled management mode.
-- [deck.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageTierWorkspace/deck.ts) projects focused-Tier connections using stored sheet/group identities only.
-- [PackageTierWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx) owns transient slot/focus/grid selection.
-- [TierLowerDeck.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx) presents Details/Connections/Settings; Settings is read/launcher-only. See [Package Home Settings](package-settings.md).
-- [TierDrawerHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx) decodes occupant, empty-slot, and registration addresses. Empty slots open readable Overview with Pending guidance and Edit, never fabricated identity.
-- Tier System registration uses `tier-register:[familyId]`; see [Tier System Registration](tier-registration.md).
+Family and Tier instance remain assignment-linked peers.
 
-Family and Tier instance remain peers linked by assignment; neither stores or silently mutates the other.
-
-Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`.
+Public consumption follows exact assignments and fails closed. `PackageRepository` reads only the durable declaration; it neither projects nor requires Rate Sheet bindings. Rate Sheet row identity remains internal `(rate_sheet_id, item_id)` and never becomes inclusion identity.
 
 ## Drawer, state, and persistence
 
-- [TierDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerContent.tsx) is the host-neutral composition: the locked four-group model (Details/Options/Connections/Support) with an unpersisted Tabs/Accordion toggle ([contract §9](../architecture/StationDrawerLifecycleContract-v1.md#9-drawer-group-presentation-tabs-accordion-child-navigation-and-focused-tasks), [Tier Edition](tier-edition.md)).
+- [TierDrawerContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerContent.tsx) owns the locked four-group model and unpersisted Tabs/Accordion toggle.
 - [useTierDrawerController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/useTierDrawerController.ts) coordinates editing, bin travel, dialogs, and footer state without JSX.
 - [TierDrawerFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierDrawerFooter.tsx) is the locked dual independent-split footer: LEFT `split` (`buildTierLifecycleMenu`, Move Edition to Bin last) and RIGHT `splitForward` (`buildTierPublishMenu`), both `menuOnly`, no primary Publish button ([contract §12](../architecture/StationDrawerLifecycleContract-v1.md#12-footer-split-button-grammar)).
-- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns instance-scoped reads, drafts, saves, settle/status, pools, and bin mutations. Its second argument is instance id; `null` performs no Tier work.
+- [usePackageStation.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/usePackageStation.ts) owns instance-scoped reads and mutations; a null instance performs no Tier work.
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects occupants and resolves them back to slots.
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns occupant compatibility and lifecycle shapes; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations; [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`.
 
-Presentation calls no endpoints. New inclusion/FAQ pool items go through Service Station's public write contract.
+Legacy published declarations are materialized only by the explicit idempotent `wp compuzign package-declarations backfill` command. It covers current occupants, occupant-bin records, active Editions, and Edition-bin records; already-versioned declarations are skipped and failures remain unmarked for retry.
+
+Presentation calls no endpoints. Pool writes use Service Station's public contract.
 
 ## Related Code Maps
 

@@ -19,6 +19,7 @@ export interface BinnedOccupant {
   is_addon?:            boolean;
   label?:               string;
   price?:               number | null;
+  declaration_resolution_version?: number;
   contact?:             boolean;
   billing_cycle?:       string | null;
   rate_sheet_id?:       string | null;
@@ -439,6 +440,7 @@ export interface SurfaceTierDetail {
   ideal_for: string;
   audience_group: 'personal_business' | 'enterprise';
   price: number | null;
+  declaration_resolution_version: number;
   contact: boolean;
   billing_cycle: string | null;
   // The Rate Sheet this occupant's selections resolve against. Null when the
@@ -504,6 +506,7 @@ export interface TierEdition {
   rate_sheet_id: string | null;
   rate_sheet_items: TierRateSheetSelection[];
   price: number | null;
+  declaration_resolution_version: number;
   contact: boolean;
   billing_cycle: string | null;
   minimum_term_value: number | null;

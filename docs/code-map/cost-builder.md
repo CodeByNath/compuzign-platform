@@ -51,19 +51,17 @@ Sheet inclusion sources.
 - [ServiceRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Repositories/ServiceRepository.php) reads active Service posts, taxonomy, metadata, and pricing inputs. Use it for catalogue persistence queries.
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/cost-builder.ts) exposes the typed public fetch. Use it for client response contracts.
 
-Package Station resolves overlays before `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder owns no Package rule. Missing or ambiguous edges mark covered Services unavailable, preventing legacy pricing from borrowing another Family's offer. `PricingBuilder::overlayPackage` copies each occupant's `is_addon`; no separate add-on collection exists. Occupant commercial terms remain the flat `price`/`billing_cycle`/`contact`/`inclusions` fields plus additive active `edition_options` for the in-card switch — see [Tier Edition](tier-edition.md). Tiers without Editions remain unchanged.
+Package Station resolves overlays before `PricingBuilder`: Service source → active Package Family → assignment → ready Tier instance. Cost Builder owns no Package rule. Missing or ambiguous edges mark covered Services unavailable, preventing legacy pricing from borrowing another Family's offer. `PackageRepository` consumes the settled occupant/Edition declarations only; it does not call Rate Sheet projection or require `rate_sheet_id`/`rate_sheet_items`. `PricingBuilder::overlayPackage` copies each occupant's `is_addon`; no separate add-on collection exists. Occupant commercial terms remain the flat `price`/`billing_cycle`/`contact`/`inclusions` fields plus additive active `edition_options` for the in-card switch — see [Tier Edition](tier-edition.md). Tiers without Editions remain unchanged.
 
-The Family-only response carries native Family/Tier Instance/occupant IDs for
-backend logic alongside their `CZPG`/`CZTG`/`CZT` or `CZTA` Platform business
-identifiers. An offered Edition also carries `CZTE`. These additions do not
-enter the established Service-rooted response.
+The Family-only response carries native IDs alongside existing Platform
+business identifiers; these do not enter the Service-rooted response.
 
 Unavailable Service responses expose no selectable Tier, bundle, promotion,
 comparison, or quote offer.
 
 ## Runtime Flow
 
-The runtime mounts the app, the hook fetches the public projection, and UI selections persist locally before handing a quote cart to the request flow.
+The hook fetches the public projection; selections persist locally before request handoff.
 
 ## Validation
 

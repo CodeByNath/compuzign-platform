@@ -11,7 +11,7 @@ declare(strict_types=1);
  *
  * The rules under test:
  *   - the occupant's own commercial terms (price, billing_cycle, contact,
- *     Rate Sheet binding, label, ideal_for, inclusions_override, faq_refs)
+ *     label, ideal_for, inclusions_override, faq_refs)
  *     are ALWAYS what extractTierForCostBuilder() resolves as the primary
  *     projection — regardless of whether the occupant has Editions, and
  *     regardless of any Edition's own lifecycle status. An Edition never
@@ -94,7 +94,8 @@ $occupantWithActiveEdition['current_occupant']['tier_editions'] = $editionsActiv
 $activeProjection = Schema::extractTierForCostBuilder($occupantWithActiveEdition);
 check_default_resolution($activeProjection['price'] === 49.0, 'even an Active Edition never displaces the occupant\'s own price at the top level — the occupant is the permanent Default');
 check_default_resolution($activeProjection['billing_cycle'] === 'monthly', 'even an Active Edition never displaces the occupant\'s own billing_cycle at the top level');
-check_default_resolution($activeProjection['rate_sheet_id'] === 'rs_a', 'even an Active Edition never displaces the occupant\'s own Rate Sheet binding at the top level');
+check_default_resolution(!array_key_exists('rate_sheet_id', $activeProjection), 'the Default\'s private Rate Sheet binding is absent from the public declaration');
+check_default_resolution(!array_key_exists('rate_sheet_items', $activeProjection), 'the Default\'s private Rate Sheet rows are absent from the public declaration');
 check_default_resolution($activeProjection['label'] === 'Standard', 'the occupant\'s own customer-facing label is never overwritten by an Edition\'s title ("Annual")');
 
 // The Active Edition's own terms surface only as one edition_options[] entry.
@@ -104,6 +105,8 @@ check_default_resolution($activeOption['id'] === $editionAId, 'the option carrie
 check_default_resolution($activeOption['label'] === 'Annual', 'the option carries the Edition\'s own title as its label');
 check_default_resolution($activeOption['price'] === 490.0, 'the option carries the Edition\'s own price');
 check_default_resolution($activeOption['billing_cycle'] === 'annually', 'the option carries the Edition\'s own billing_cycle');
+check_default_resolution(!array_key_exists('rate_sheet_id', $activeOption), 'an Edition option never exposes its private Rate Sheet binding');
+check_default_resolution(!array_key_exists('rate_sheet_items', $activeOption), 'an Edition option never exposes its private Rate Sheet rows');
 check_default_resolution(!array_key_exists('edition_platform_id', $activeOption), 'CZTE never leaks into the public option');
 check_default_resolution(!array_key_exists('is_default', $activeOption), 'there is no "default" concept among Edition options — every Edition is an alternate to the occupant\'s own permanent Default');
 

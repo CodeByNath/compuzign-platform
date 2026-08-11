@@ -24,8 +24,11 @@ There is no default-Edition pointer — an earlier `default_edition_id` field
 let an Edition *replace* the occupant's terms, inverting the model, and was
 removed.
 
-`price` projects live via `projectEditionPrices()`
-(`projectTierRateSheetWith()` per Edition).
+Publish resolves the private Rate Sheet binding through the shared settlement
+resolver and atomically persists `price`, canonical inclusion references, FAQ
+references, and `declaration_resolution_version`. Public projection reads
+those durable fields only. Empty Edition overrides retain the established
+inherit-Default meaning; no Default declaration is copied into the Edition.
 
 ## Overview registration
 
@@ -73,6 +76,7 @@ binned Edition (`PackageRepository`/`upsertOccupant()` too).
 `publicTierEditionOptions()` (Active only, no `edition_platform_id`/"default"
 flag) feeds `edition_options`, empty otherwise.
 `extractTierForCostBuilder()` resolves the occupant's terms as primary.
+Neither function reads `rate_sheet_id` or `rate_sheet_items`.
 `PricingTiers.tsx` renders the switch once **one** Edition exists: Default
 plus Edition buttons. `ServiceCard.tsx` captures the declaration shown at click.
 
@@ -92,26 +96,17 @@ module is titled **Default Tier Inclusions**.
 on a real occupant: a `[Edition 2] [Edition 3]` child-chip strip
 (`ChildChipStrip`) with a fixed trailing Bin icon opening the Bin as its own
 focused task (`TierEditionBinFocusedView.tsx`, `FocusedTaskShell`), replacing the strip
-and cards. Default is never a row here; "+ Edition" lives in the drawer's
-nav chrome, reachable only in Options.
+and cards. Default is never a row; "+ Edition" lives in Options navigation.
 
-The pinned footer's ONE "Move Edition to Bin" row (any status) drives a
-separate command, `moveTierEditionToBinCommand` (`POST .../move-to-bin`) —
-not the narrow `moveTierEditionToBinEndpoint` (`POST .../bin`,
-still archived/trashed-only). It composes `applyTierEditionStatus(...,
-trashed)` and `moveTierEditionToBin()` in memory, one persist — never a
-stranded Trashed-but-unrelocated state. Permanent Delete lives only in
-`TierEditionBinList.tsx` (trashed rows).
+The footer's "Move Edition to Bin" command composes the Trashed transition
+and relocation in one persistence operation. Permanent Delete lives only in
+`TierEditionBinList.tsx` for trashed rows.
 
-The read surface is two module cards (`TIER_EDITION_ENTITY`'s `overview`/
-`inclusions` shells, one `ModuleState`), edited through one shared
-`TierEditionEditor.tsx` (two tabs, one draft, one Save/Cancel — draft-only;
-settle is Publish's job). Every read/re-edit resolves through
+The two module cards share `TierEditionEditor.tsx`, one draft, and draft-only
+Save/Cancel; Publish settles. Every read/re-edit resolves through
 `useTierEditions.editionView()`, mirroring `usePackageStation.tierView()`: a
 pending draft wins over settled fields, so a just-Saved Edition displays
-immediately, like the occupant. The
-selected id lives in `useTierDrawerController.ts`, not local state, since
-`TierDrawerContent.tsx` unmounts its child tree while `!pkg.detailLoaded`.
+immediately. Selection state lives in `useTierDrawerController.ts`.
 
 `TierDrawerFooter` carries two independent splits: LEFT
 (`buildTierLifecycleMenu` — Disable/Enable/Archive/Restore, Move to Bin
