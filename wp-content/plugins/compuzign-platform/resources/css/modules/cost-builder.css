@@ -3164,6 +3164,12 @@
   margin-block-start: var(--cz-space-3);
 }
 
+.cz-package-builder__family-description {
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-sm);
+  line-height: 1.45;
+}
+
 .cz-package-builder__inclusions {
   flex-wrap: wrap;
   gap: var(--cz-space-2) var(--cz-space-3);
