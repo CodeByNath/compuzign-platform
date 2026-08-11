@@ -250,14 +250,16 @@ export function usePackageStation(
       };
     });
     dp.rate_sheet_selections = resolvedSelections;
-    // Contact Us is an explicit override, not a Rate Sheet resolution
-    // outcome — it wins over the recomputed total the same way the backend's
-    // evaluateTierPricing treats its own 'mode' => 'contact' case.
-    dp.price = dp.contact
-      ? null
-      : resolvedSelections.some((item) => item.resolved)
-        ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
-        : null;
+    // The resolved Rate Sheet total stays intact regardless of dp.contact —
+    // display layers (resolveTierStatus's hasPrice, the editor's Price
+    // field, the read-only summary line) already branch on contact
+    // themselves. Nulling it here too would freeze a stale null into any
+    // edit session's draft.price the moment it's opened while contact is
+    // true, with no way to recompute it back when contact is unchecked
+    // again in that same session.
+    dp.price = resolvedSelections.some((item) => item.resolved)
+      ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
+      : null;
     dp.inclusions_override = resolvedSelections
       .filter((item) => item.source_type === 'inclusion')
       .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
