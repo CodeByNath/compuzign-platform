@@ -80,7 +80,7 @@ export function useTierModuleEditing({
           ideal_for:     overviewDraft.ideal_for,
           audience_group: overviewDraft.audience_group,
           price:         null,
-          contact:       false,
+          contact:       overviewDraft.contact,
           billing_cycle: overviewDraft.billing_cycle,
           rate_sheet_id: overviewDraft.rate_sheet_id,
           is_addon:      overviewDraft.is_addon,
