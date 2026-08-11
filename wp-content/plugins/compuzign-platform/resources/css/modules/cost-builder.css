@@ -3172,6 +3172,7 @@
 
 .cz-package-builder__customer-tabs {
   display: inline-flex;
+  max-width: fit-content;
   padding: var(--cz-space-1);
   margin-block-end: var(--cz-space-8);
   border: 1px solid var(--cz-color-line-strong);

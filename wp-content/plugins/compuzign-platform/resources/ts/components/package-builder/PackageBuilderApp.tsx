@@ -123,7 +123,6 @@ export function PackageBuilderApp() {
       <div class="cz-layout-sidebar cz-cost-builder__body">
         <main class="cz-cost-builder__main">
           <Card class="cz-cost-builder__card">
-            <h3 class="cz-heading-sm">Available tiers / plans</h3>
             <FamilyTierAdapter
               family={family}
               tiers={data.tiers}

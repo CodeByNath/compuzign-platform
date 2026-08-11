@@ -31,6 +31,8 @@ check(
 
 const root = resolve(import.meta.dirname, '..');
 const adapter = readFileSync(resolve(root, 'resources/ts/components/package-builder/FamilyTierAdapter.tsx'), 'utf8');
+const app = readFileSync(resolve(root, 'resources/ts/components/package-builder/PackageBuilderApp.tsx'), 'utf8');
+const styles = readFileSync(resolve(root, 'resources/css/modules/cost-builder.css'), 'utf8');
 const groupFilter = adapter.slice(
   adapter.indexOf('export function filterTiersByCustomerGroup'),
   adapter.indexOf('export function FamilyTierAdapter'),
@@ -39,5 +41,7 @@ check(adapter.includes('role="tablist"') && adapter.includes('role="tab"'), 'the
 check(adapter.includes('aria-selected={customerGroup === group.value}'), 'the active tab exposes selection state');
 check(groupFilter.includes('audience_group') && !groupFilter.match(/month|term|billing|edition/i), 'the filter reads only occupant customer grouping');
 check(!adapter.includes('<select') && !adapter.includes('activeTerm'), 'the tab UI introduces no month or term selector');
+check(!app.includes('Available tiers / plans'), 'the redundant Tier card heading is absent');
+check(styles.includes('.cz-package-builder__customer-tabs') && styles.includes('max-width: fit-content'), 'the segmented control sizes to its content');
 
 console.log('Package Builder customer tabs contract passed.');
