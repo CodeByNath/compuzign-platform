@@ -14,7 +14,6 @@ use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 use CompuZign\Platform\PlatformIdentifier\ExistingRecordAssignmentCommand;
 use CompuZign\Platform\PlatformIdentifier\TemporaryMigrationController;
-use CompuZign\Platform\Modules\SurfacePackages\Commands\DeclarationBackfillCommand;
 
 final class Plugin
 {
@@ -38,10 +37,6 @@ final class Plugin
             \WP_CLI::add_command(
                 'compuzign platform-identifiers assign',
                 new ExistingRecordAssignmentCommand($platformIdentifiers)
-            );
-            \WP_CLI::add_command(
-                'compuzign package-declarations backfill',
-                new DeclarationBackfillCommand()
             );
         }
         (new SurfacePackagesModule($platformIdentifiers))->register();

@@ -19,7 +19,6 @@ namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 /** Package-owned Promotion and Tier occupant/lifecycle rules. */
 class PackageSchema
 {
-    public const DECLARATION_RESOLUTION_VERSION = 1;
     // Station-level lifecycle: derived from tier occupants (deriveStationStatus),
     // never archived — occupants travel to the bin, the station shell does not.
     // 'archived' retired at E2 (confirmed unreachable).
@@ -857,7 +856,6 @@ class PackageSchema
                 'ideal_for'           => $occ['ideal_for'] ?? '',
                 'audience_group'      => self::sanitizeTierAudienceGroup($occ['audience_group'] ?? null),
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
-                'declaration_resolution_version' => max(0, (int) ($occ['declaration_resolution_version'] ?? 0)),
                 'contact'             => (bool) ($occ['contact'] ?? false),
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
@@ -899,7 +897,6 @@ class PackageSchema
             'ideal_for'           => $tier['ideal_for'] ?? '',
             'audience_group'      => self::sanitizeTierAudienceGroup($tier['audience_group'] ?? null),
             'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
-            'declaration_resolution_version' => max(0, (int) ($tier['declaration_resolution_version'] ?? 0)),
             'contact'             => (bool) ($tier['contact'] ?? false),
             'billing_cycle'       => $tier['billing_cycle'] ?? null,
             'inclusions_override' => $tier['inclusions_override'] ?? [],
@@ -1038,6 +1035,8 @@ class PackageSchema
                 'contact'             => (bool) ($occ['contact'] ?? false),
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => is_array($occ['inclusions_override'] ?? null) ? $occ['inclusions_override'] : [],
+                'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => is_array($occ['faq_refs'] ?? null) ? $occ['faq_refs'] : [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
@@ -1055,12 +1054,12 @@ class PackageSchema
             ];
         }
 
-        // Phase 1 flat format — pass through its already-stored declaration;
-        // internal Rate Sheet bindings never enter the public projection.
+        // Phase 1 flat format — pass through; null for empty slots. Carry a
+        // resolved rate_sheet_id so Cost Builder can scope pricing by sheet.
         if (empty($tier)) {
             return null;
         }
-        unset($tier['rate_sheet_id'], $tier['rate_sheet_items'], $tier['declaration_resolution_version']);
+        $tier['rate_sheet_id'] = self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []);
         $tier['is_addon']      = (bool) ($tier['is_addon'] ?? false);
         return $tier;
     }
@@ -1142,7 +1141,6 @@ class PackageSchema
                 'ideal_for'           => $data['ideal_for'] ?? '',
                 'audience_group'      => self::sanitizeTierAudienceGroup($data['audience_group'] ?? null),
                 'price'               => $data['price'] ?? null,
-                'declaration_resolution_version' => max(0, (int) ($data['declaration_resolution_version'] ?? 0)),
                 'contact'             => $data['contact'] ?? false,
                 'billing_cycle'       => $data['billing_cycle'] ?? null,
                 'rate_sheet_id'       => $rateSheetId,
@@ -1279,7 +1277,6 @@ class PackageSchema
             'rate_sheet_id'            => self::normaliseRateSheetId($edition['rate_sheet_id'] ?? null),
             'rate_sheet_items'         => self::sanitizeTierRateSheetSelections($edition['rate_sheet_items'] ?? []),
             'price'                    => $price,
-            'declaration_resolution_version' => max(0, (int) ($edition['declaration_resolution_version'] ?? 0)),
             'contact'                  => (bool) ($edition['contact'] ?? false),
             'billing_cycle'            => (isset($edition['billing_cycle']) && $edition['billing_cycle'] !== '')
                 ? sanitize_text_field((string) $edition['billing_cycle'])
@@ -1811,7 +1808,6 @@ class PackageSchema
             'occupant_id' => null, 'platform_id' => '', 'addon_platform_id' => '',
             'label' => '', 'ideal_for' => '', 'audience_group' => self::DEFAULT_TIER_AUDIENCE_GROUP,
             'price' => null, 'contact' => false,
-            'declaration_resolution_version' => 0,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
             'tier_editions' => [], 'tier_edition_bin' => [],

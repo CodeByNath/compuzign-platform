@@ -15,7 +15,7 @@ whole occupant through archive, restore, swap, retarget, and slot movement.
 Dormant `CZTA` is preserved and reused. Only permanent deletion tombstones
 either binding.
 
-An occupant binds internally to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`. Publish resolves that private binding once and atomically persists the customer declaration (`price`, canonical inclusion `source_id` references, FAQ references, and `declaration_resolution_version`). Failed resolution persists none of those fields or the marker.
+An occupant binds to **one** Rate Sheet via overview's confirm-then-clear picker; its rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`.
 
 An occupant carries `is_addon` and Overview-owned `audience_group`
 (`personal_business` by default, or `enterprise`). It may also carry
@@ -58,7 +58,7 @@ System registration remains documented in [Tier System Registration](tier-regist
 
 Family and Tier instance remain assignment-linked peers.
 
-Public consumption follows exact assignments and fails closed. `PackageRepository` reads only the durable declaration; it neither projects nor requires Rate Sheet bindings. Rate Sheet row identity remains internal `(rate_sheet_id, item_id)` and never becomes inclusion identity.
+Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`; `PackageRepository::projectTierInstanceForCostBuilder()` resolves price/inclusions live through this internal identity but strips both keys before the response, so neither reaches the browser.
 
 ## Drawer, state, and persistence
 
@@ -69,9 +69,7 @@ Public consumption follows exact assignments and fails closed. `PackageRepositor
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects occupants and resolves them back to slots.
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns occupant compatibility and lifecycle shapes; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations; [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`.
 
-Legacy published declarations are materialized only by the explicit idempotent `wp compuzign package-declarations backfill` command. It covers current occupants, occupant-bin records, active Editions, and Edition-bin records; already-versioned declarations are skipped and failures remain unmarked for retry.
-
-Presentation calls no endpoints. Pool writes use Service Station's public contract.
+Presentation calls no endpoints. New inclusion/FAQ pool items go through Service Station's public write contract.
 
 ## Related Code Maps
 

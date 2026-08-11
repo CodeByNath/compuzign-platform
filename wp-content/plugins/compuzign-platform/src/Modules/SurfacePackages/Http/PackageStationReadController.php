@@ -80,12 +80,12 @@ class PackageStationReadController
             foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
                 $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
                 $summary = PackageSchema::summariseTierSlot($slot);
-                $detail = PackageSchema::normaliseTierSlot($slot);
-                if (($detail['occupant_id'] ?? null) !== null) {
+                $extracted = PackageSchema::extractTierForCostBuilder($slot);
+                if ($extracted !== null) {
                     $projection = PackageManagerSchema::projectTierRateSheetWith(
                         $readModel,
-                        $detail['rate_sheet_items'] ?? [],
-                        $detail['rate_sheet_id'] ?? null
+                        $extracted['rate_sheet_items'] ?? [],
+                        $extracted['rate_sheet_id'] ?? null
                     );
                     $summary['price'] = $projection['price'];
                 }

@@ -180,103 +180,6 @@ class PackageRepository
         $this->activeFamilyOfferCache = false;
     }
 
-    /**
-     * Explicit, idempotent legacy declaration backfill. It never runs during
-     * load/public reads and never invokes identity or lifecycle transitions.
-     *
-     * @return array{updated: int, skipped: int, failed: int}
-     */
-    public function backfillCustomerDeclarations(): array
-    {
-        $station = $this->loadStation();
-        if ($station === null) {
-            return ['updated' => 0, 'skipped' => 0, 'failed' => 0];
-        }
-        $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
-        [$incPool, $faqPool] = $this->sourcePools($station, $manager['sources']);
-        $readModel = PackageManagerSchema::buildReadModel(
-            (int) ($station['legacy_host_service_id'] ?? 0),
-            $manager,
-            $incPool,
-            $faqPool,
-            'active'
-        );
-        $counts = ['updated' => 0, 'skipped' => 0, 'failed' => 0];
-        $materialize = static function (array &$declaration, string $platformIdKey) use ($readModel, &$counts): void {
-            if ((string) ($declaration[$platformIdKey] ?? '') === ''
-                || (int) ($declaration['declaration_resolution_version'] ?? 0) >= PackageSchema::DECLARATION_RESOLUTION_VERSION
-            ) {
-                $counts['skipped']++;
-                return;
-            }
-            $resolved = PackageManagerSchema::materializeCustomerDeclaration(
-                $readModel,
-                $declaration['rate_sheet_items'] ?? [],
-                $declaration['rate_sheet_id'] ?? null,
-                !empty($declaration['contact'])
-            );
-            if (empty($resolved['success'])) {
-                $counts['failed']++;
-                return;
-            }
-            unset($resolved['success']);
-            $declaration = [...$declaration, ...$resolved];
-            $counts['updated']++;
-        };
-        $walkOccupant = static function (array &$occupant) use (&$materialize): void {
-            $platformKey = !empty($occupant['is_addon']) ? 'addon_platform_id' : 'cz_platform_id';
-            $materialize($occupant, $platformKey);
-            if (!is_array($occupant['tier_editions'] ?? null)) {
-                $occupant['tier_editions'] = [];
-            }
-            foreach ($occupant['tier_editions'] as &$edition) {
-                if (is_array($edition)) {
-                    $materialize($edition, 'edition_platform_id');
-                }
-            }
-            unset($edition);
-            if (!is_array($occupant['tier_edition_bin'] ?? null)) {
-                $occupant['tier_edition_bin'] = [];
-            }
-            foreach ($occupant['tier_edition_bin'] as &$entry) {
-                if (is_array($entry['edition'] ?? null)) {
-                    $materialize($entry['edition'], 'edition_platform_id');
-                }
-            }
-            unset($entry);
-        };
-
-        if (!is_array($station['tier_instances'] ?? null)) {
-            $station['tier_instances'] = [];
-        }
-        foreach ($station['tier_instances'] as &$instance) {
-            if (!is_array($instance['tiers'] ?? null)) {
-                $instance['tiers'] = [];
-            }
-            foreach ($instance['tiers'] as &$slot) {
-                if (is_array($slot['current_occupant'] ?? null)) {
-                    $walkOccupant($slot['current_occupant']);
-                }
-            }
-            unset($slot);
-            if (!is_array($instance['occupant_bin'] ?? null)) {
-                $instance['occupant_bin'] = [];
-            }
-            foreach ($instance['occupant_bin'] as &$entry) {
-                if (is_array($entry['occupant'] ?? null)) {
-                    $walkOccupant($entry['occupant']);
-                }
-            }
-            unset($entry);
-        }
-        unset($instance);
-
-        if ($counts['updated'] > 0) {
-            $this->saveStation($station);
-        }
-        return $counts;
-    }
-
     /** Fresh station shell for first-time configuration. */
     public function defaultStation(): array
     {
@@ -1230,7 +1133,16 @@ class PackageRepository
             $consumerRegistry,
             $instances
         );
+        [$incPool, $faqPool] = $this->sourcePools($station);
         $coveredServiceIds   = $this->coveredServiceIds($station);
+        $hostId              = (int) ($station['legacy_host_service_id'] ?? 0);
+        $readModel = PackageManagerSchema::buildReadModel(
+            $hostId,
+            $manager,
+            $incPool,
+            $faqPool,
+            'active'
+        );
         // Keep the original source rows for ambiguity detection. Sanitisation
         // intentionally deduplicates identity, while a corrupt duplicate that
         // points one Service at two Families must fail closed publicly.
@@ -1256,7 +1168,8 @@ class PackageRepository
             if (!isset($projectedByInstanceId[$instanceId])) {
                 $projectedByInstanceId[$instanceId] = $this->projectTierInstanceForCostBuilder(
                     $station,
-                    $instance
+                    $instance,
+                    $readModel
                 );
             }
 
@@ -1270,25 +1183,72 @@ class PackageRepository
      * Compile one already-resolved Tier Instance for public customer use.
      *
      * Resolution of the assignment consumer deliberately stays outside this
-     * method. It reads only durable customer declarations materialized at the
-     * settlement boundary; Rate Sheet bindings are never public inputs.
+     * method. It compiles only the supplied Tier-system container through the
+     * existing Rate Sheet projector, so Service and future Family reads share
+     * one pricing/inclusion boundary without sharing their lookup path.
      *
      * @param array<string, mixed> $station
      * @param array<string, mixed> $instance
+     * @param array<string, mixed> $readModel
      * @return array<string, mixed>
      */
     private function projectTierInstanceForCostBuilder(
         array $station,
-        array $instance
+        array $instance,
+        array $readModel,
+        bool $includeSelectedInclusionProvenance = false
     ): array
     {
         $projected = $station;
         $flatTiers = [];
+        $selectedInclusionSourceIds = [];
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
             $extracted = PackageSchema::extractTierForCostBuilder($instance['tiers'][$tierId] ?? []);
             if ($extracted === null) {
                 continue;
             }
+            $rateProjection = PackageManagerSchema::projectTierRateSheetWith(
+                $readModel,
+                $extracted['rate_sheet_items'] ?? [],
+                $extracted['rate_sheet_id'] ?? null
+            );
+            $extracted['price'] = $rateProjection['price'];
+            $resolvedInclusions = array_values(array_filter(
+                $rateProjection['selections'],
+                static fn(array $row): bool => $row['resolved']
+                    && ($row['source_type'] ?? null) === 'inclusion'
+            ));
+            $extracted['inclusions_override'] = array_map(
+                static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
+                $resolvedInclusions
+            );
+            if ($includeSelectedInclusionProvenance) {
+                $selectedInclusionSourceIds[$tierId] = array_values(array_map(
+                    static fn(array $row): string => (string) ($row['source_id'] ?? ''),
+                    $resolvedInclusions
+                ));
+            }
+            // Each public edition_option row prices from its own Edition's
+            // rate_sheet_id/rate_sheet_items — the occupant's own selection
+            // above is different — through this same authoritative projector.
+            if (!empty($extracted['edition_options'])) {
+                $occupant = PackageSchema::isOccupantFormat($instance['tiers'][$tierId] ?? [])
+                    ? ($instance['tiers'][$tierId]['current_occupant'] ?? null)
+                    : null;
+                $rawEditions = is_array($occupant) ? PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) : [];
+                $editionPriceById = [];
+                foreach (PackageManagerSchema::projectEditionPrices($readModel, $rawEditions) as $priced) {
+                    $editionPriceById[$priced['id']] = $priced['price'];
+                }
+                $extracted['edition_options'] = array_map(
+                    static fn(array $option): array => [...$option, 'price' => $editionPriceById[$option['id']] ?? $option['price']],
+                    $extracted['edition_options']
+                );
+            }
+            // The projector above is the only internal consumer of these two
+            // keys; Rate Sheet binding identity itself never becomes a public
+            // response field, even though the server-side projection needs it.
+            unset($extracted['rate_sheet_id'], $extracted['rate_sheet_items']);
             $flatTiers[$tierId] = $extracted;
         }
         $projected['platform_status'] = 'active';
@@ -1298,6 +1258,9 @@ class PackageRepository
         $projected['promotion_tiers'] = is_array($station['promotions'] ?? null)
             ? $station['promotions']
             : [];
+        if ($includeSelectedInclusionProvenance) {
+            $projected['_selected_inclusion_source_ids'] = $selectedInclusionSourceIds;
+        }
         return $projected;
     }
 
@@ -1337,15 +1300,14 @@ class PackageRepository
             ['package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager)],
             $instances
         );
-        [$inclusionPool] = $this->sourcePools($station);
-        $categoriesByInclusionId = [];
-        foreach ($inclusionPool as $inclusion) {
-            if (is_array($inclusion) && (string) ($inclusion['id'] ?? '') !== '') {
-                $categoriesByInclusionId[(string) $inclusion['id']] = is_array($inclusion['_source_categories'] ?? null)
-                    ? array_values(array_map('strval', $inclusion['_source_categories']))
-                    : [];
-            }
-        }
+        [$inclusionPool, $faqPool] = $this->sourcePools($station);
+        $readModel = PackageManagerSchema::buildReadModel(
+            (int) ($station['legacy_host_service_id'] ?? 0),
+            $manager,
+            $inclusionPool,
+            $faqPool,
+            'active'
+        );
 
         $families = [];
         foreach ($manager['category_groups'] as $family) {
@@ -1377,7 +1339,7 @@ class PackageRepository
                 continue;
             }
 
-            $compiled = $this->projectTierInstanceForCostBuilder($station, $instance);
+            $compiled = $this->projectTierInstanceForCostBuilder($station, $instance, $readModel, true);
             foreach ($compiled['tiers'] as $tierId => &$tier) {
                 $slot = $instance['tiers'][$tierId] ?? [];
                 $occupant = PackageSchema::isOccupantFormat($slot)
@@ -1413,14 +1375,25 @@ class PackageRepository
                 continue;
             }
 
+            $managerItemsBySourceId = [];
+            foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
+                if (is_array($item) && ($item['source_type'] ?? null) === 'inclusion') {
+                    $managerItemsBySourceId[(string) ($item['source_id'] ?? '')] = $item;
+                }
+            }
             $includedCategories = [];
-            foreach ($compiled['tiers'] as $tier) {
-                foreach (is_array($tier['inclusions_override'] ?? null) ? $tier['inclusions_override'] : [] as $inclusion) {
-                    foreach ($categoriesByInclusionId[(string) ($inclusion['id'] ?? '')] ?? [] as $categoryName) {
+            foreach ($compiled['_selected_inclusion_source_ids'] ?? [] as $tierSourceIds) {
+                foreach (is_array($tierSourceIds) ? $tierSourceIds : [] as $sourceId) {
+                    $managerItem = $managerItemsBySourceId[(string) $sourceId] ?? null;
+                    if (!is_array($managerItem)) {
+                        continue;
+                    }
+                    foreach (is_array($managerItem['source_categories'] ?? null) ? $managerItem['source_categories'] : [] as $categoryName) {
                         $includedCategories[(string) $categoryName] = true;
                     }
                 }
             }
+            unset($compiled['_selected_inclusion_source_ids']);
 
             $families[] = [
                 'family_id'       => $familyId,

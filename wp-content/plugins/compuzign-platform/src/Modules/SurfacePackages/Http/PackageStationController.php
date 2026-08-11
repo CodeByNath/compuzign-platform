@@ -1749,15 +1749,6 @@ class PackageStationController
         $originalSlot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
         $slot = $PS::settleTierSlot($originalSlot);
         $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
-        if ($occupant !== null) {
-            $materialized = $this->materializeCustomerDeclaration($station, $occupant);
-            if (empty($materialized['success'])) {
-                return new \WP_REST_Response(['success' => false, 'message' => 'Tier declaration could not be resolved.'], 422);
-            }
-            $slot['current_occupant'] = [...$occupant, ...$materialized];
-            unset($slot['current_occupant']['success']);
-            $occupant = $slot['current_occupant'];
-        }
         $primaryReservation = null;
         $addonReservation = null;
         // Resumed (not freshly minted): the id already existed on the persisted
@@ -1899,36 +1890,6 @@ class PackageStationController
         return $this->persistTierInstance($station, $instanceId, $instance);
     }
 
-    /** Internal-only Rate Sheet binding → durable customer declaration. */
-    private function materializeCustomerDeclaration(array $station, array $declaration): array
-    {
-        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
-        $selections = $declaration['rate_sheet_items'] ?? [];
-        if (\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::sanitizeTierRateSheetSelections($selections) === []) {
-            return $PMS::materializeCustomerDeclaration(
-                ['rate_sheets' => [], 'items' => []],
-                [],
-                $declaration['rate_sheet_id'] ?? null,
-                !empty($declaration['contact'])
-            );
-        }
-        $manager = $PMS::sanitize($station['package_manager'] ?? []);
-        [$incPool, $faqPool] = $this->packages()->sourcePools($station, $manager['sources']);
-        $readModel = $PMS::buildReadModel(
-            (int) ($station['legacy_host_service_id'] ?? 0),
-            $manager,
-            $incPool,
-            $faqPool,
-            'active'
-        );
-        return $PMS::materializeCustomerDeclaration(
-            $readModel,
-            $selections,
-            $declaration['rate_sheet_id'] ?? null,
-            !empty($declaration['contact'])
-        );
-    }
-
     public function createTierEdition(\WP_REST_Request $request): \WP_REST_Response
     {
         if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
@@ -2001,15 +1962,6 @@ class PackageStationController
 
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
         $editions = $PS::settleTierEditionOverview($editions, $editionId);
-        $edition = $PS::findTierEdition($editions, $editionId);
-        if (is_array($edition)) {
-            $materialized = $this->materializeCustomerDeclaration($station, $edition);
-            if (empty($materialized['success'])) {
-                return new \WP_REST_Response(['success' => false, 'message' => 'Tier Edition declaration could not be resolved.'], 422);
-            }
-            unset($materialized['success']);
-            $editions = $PS::replaceTierEdition($editions, [...$edition, ...$materialized]);
-        }
         $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
 
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [

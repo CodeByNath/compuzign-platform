@@ -24,11 +24,8 @@ There is no default-Edition pointer — an earlier `default_edition_id` field
 let an Edition *replace* the occupant's terms, inverting the model, and was
 removed.
 
-Publish resolves the private Rate Sheet binding through the shared settlement
-resolver and atomically persists `price`, canonical inclusion references, FAQ
-references, and `declaration_resolution_version`. Public projection reads
-those durable fields only. Empty Edition overrides retain the established
-inherit-Default meaning; no Default declaration is copied into the Edition.
+`price` projects live via `projectEditionPrices()`
+(`projectTierRateSheetWith()` per Edition).
 
 ## Overview registration
 
@@ -75,8 +72,10 @@ binned Edition (`PackageRepository`/`upsertOccupant()` too).
 
 `publicTierEditionOptions()` (Active only, no `edition_platform_id`/"default"
 flag) feeds `edition_options`, empty otherwise.
-`extractTierForCostBuilder()` resolves the occupant's terms as primary.
-Neither function reads `rate_sheet_id` or `rate_sheet_items`.
+`extractTierForCostBuilder()` resolves the occupant's terms as primary; its
+`rate_sheet_id`/`rate_sheet_items` are internal projector inputs only —
+`PackageRepository::projectTierInstanceForCostBuilder()` strips both before
+the tier reaches `$flatTiers`, so neither ever reaches the public response.
 `PricingTiers.tsx` renders the switch once **one** Edition exists: Default
 plus Edition buttons. `ServiceCard.tsx` captures the declaration shown at click.
 
