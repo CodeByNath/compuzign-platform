@@ -1364,7 +1364,7 @@ class PackageRepository
                     continue;
                 }
                 foreach ($this->serviceCategoryNames((int) ($source['entity_id'] ?? 0)) as $categoryName) {
-                    $includedCategories[$categoryName] = true;
+                    $includedCategories[] = $categoryName;
                 }
             }
 
@@ -1378,7 +1378,7 @@ class PackageRepository
                 'tiers'           => $compiled['tiers'],
                 'popular_tier'    => $compiled['popular_tier'],
                 'popular_label'   => $compiled['popular_label'],
-                'included_categories' => array_keys($includedCategories),
+                'included_categories' => $includedCategories,
             ];
         }
 
