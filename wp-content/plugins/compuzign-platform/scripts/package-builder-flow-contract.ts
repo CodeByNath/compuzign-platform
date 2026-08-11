@@ -19,6 +19,8 @@ check(app.includes('usePackageBuilder()'), 'the Family surface uses its direct p
 check(!app.includes('useCostBuilder'), 'the Family surface never reads the Service-rooted Cost Builder response');
 check(!app.includes('ServiceCard') && !app.includes('SubcategoryNav'), 'the Family surface has no Service selection UI');
 check(app.includes('Plans &amp; pricing'), 'the Family surface renders the centered plans and pricing hero');
+check(app.includes('id="cz-package-builder-title" class="cz-heading-lg"'), 'the hero uses the public large heading token');
+check(app.includes('<h2 class="cz-heading-xl">{family.title}</h2>'), 'the focused Family uses the public extra-large heading token');
 check(app.includes('All plans include:'), 'the focused Family renders its category inclusion summary');
 check(app.includes('family.included_categories.map'), 'the inclusion summary follows the focused Family projection');
 check(!app.includes('onClick={category'), 'category inclusions are not navigation controls');
