@@ -6,6 +6,7 @@ $publicProjectionOption = null;
 $publicProjectionPosts = [];
 $publicProjectionMeta = [];
 $publicProjectionTerms = [];
+$publicProjectionTermMeta = [];
 
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
@@ -55,7 +56,11 @@ if (!function_exists('get_post_meta')) {
     }
 }
 if (!function_exists('get_term_meta')) {
-    function get_term_meta(int $termId, string $key = '', bool $single = false): mixed { return $single ? null : []; }
+    function get_term_meta(int $termId, string $key = '', bool $single = false): mixed
+    {
+        global $publicProjectionTermMeta;
+        return $publicProjectionTermMeta[$termId][$key] ?? ($single ? null : []);
+    }
 }
 if (!function_exists('wp_get_post_terms')) {
     function wp_get_post_terms(int $postId, string $taxonomy, array $args = []): array
@@ -217,6 +222,10 @@ $serviceNames = [
     107 => 'Ambiguous Family Service',
     108 => 'Unknown Instance Service',
     109 => 'No Relationship Service',
+    110 => 'Storage Service',
+    111 => 'Networking Service',
+    112 => 'Security Service',
+    113 => 'Unselected APTOS Service',
 ];
 foreach ($serviceNames as $serviceId => $title) {
     $publicProjectionPosts[$serviceId] = new WP_Post($serviceId, $title);
@@ -229,9 +238,18 @@ foreach ($serviceNames as $serviceId => $title) {
         'cz_service_faqs' => [],
     ];
 }
+$publicProjectionMeta[102]['cz_service_inclusions']['inclusions'][] = [
+    'id' => 'inc_102b',
+    'label' => 'APTOS second Compute inclusion',
+];
 $publicProjectionTerms[101] = [new WP_Term(1, 'Cloud Infrastructure'), new WP_Term(2, 'Migration')];
 $publicProjectionTerms[107] = [new WP_Term(4, 'Connected Without Inclusion Rows')];
-$publicProjectionTerms[102] = [new WP_Term(3, 'Managed IT')];
+$publicProjectionTerms[102] = [new WP_Term(3, 'Compute'), new WP_Term(99, 'Internal Group Role')];
+$publicProjectionTerms[110] = [new WP_Term(10, 'Storage')];
+$publicProjectionTerms[111] = [new WP_Term(11, 'Networking')];
+$publicProjectionTerms[112] = [new WP_Term(12, 'Security')];
+$publicProjectionTerms[113] = [new WP_Term(13, 'Unselected Category')];
+$publicProjectionTermMeta[99]['cz_category_meta'] = ['station_role' => 'group'];
 
 $families = [
     public_projection_family('pcg_kairos', 'KAIROS'),
@@ -252,12 +270,22 @@ $sources = [
     // Deliberately corrupt duplicate: the public resolver sees both and fails closed.
     ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 107, 'category_group_id' => 'pcg_aptos'],
     ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 108, 'category_group_id' => 'pcg_unknown'],
+    ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 110, 'category_group_id' => 'pcg_aptos'],
+    ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 111, 'category_group_id' => 'pcg_aptos'],
+    ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 112, 'category_group_id' => 'pcg_aptos'],
+    ['provider_key' => 'service', 'entity_type' => 'service', 'entity_id' => 113, 'category_group_id' => 'pcg_aptos'],
 ];
 
 $kairosSourceId = 'inc_101';
 $aptosSourceId = 'service:102:inc_102';
 $kairosManagerItemId = PackageManagerSchema::deriveItemId('inclusion', $kairosSourceId);
 $aptosManagerItemId = PackageManagerSchema::deriveItemId('inclusion', $aptosSourceId);
+$aptosSelectedSourceIds = [
+    'service:102:inc_102b',
+    'service:110:inc_110',
+    'service:111:inc_111',
+    'service:112:inc_112',
+];
 $rateItemId = 'rate_shared_identity';
 $manager = [
     'sources' => $sources,
@@ -294,14 +322,25 @@ $manager = [
             'title' => 'APTOS Rates',
             'status' => 'active',
             'groups' => [],
-            'items' => [[
+            'items' => array_merge([[
                 'item_id' => $rateItemId,
                 'source_item_id' => $aptosManagerItemId,
                 'unit_price' => 22,
                 'per' => 'Per item',
                 'quantity' => 1,
                 'group_id' => null,
-            ]],
+            ]], array_map(
+                static fn(string $sourceId, int $index): array => [
+                    'item_id' => 'rate_aptos_selected_' . $index,
+                    'source_item_id' => PackageManagerSchema::deriveItemId('inclusion', $sourceId),
+                    'unit_price' => 0,
+                    'per' => 'Per item',
+                    'quantity' => 1,
+                    'group_id' => null,
+                ],
+                $aptosSelectedSourceIds,
+                array_keys($aptosSelectedSourceIds)
+            )),
         ],
     ],
 ];
@@ -311,6 +350,13 @@ $instances = [
     public_projection_instance('ti_aptos', 'APTOS Tier Set', 'APTOS Basic', 'rs_aptos', $rateItemId, 'active', 'enterprise'),
     public_projection_instance('ti_unready', 'Unready Tier Set', 'Unready Basic', 'rs_kairos', $rateItemId, 'disabled'),
 ];
+$instances[1]['tiers']['basic']['current_occupant']['rate_sheet_items'] = array_merge(
+    $instances[1]['tiers']['basic']['current_occupant']['rate_sheet_items'],
+    array_map(
+        static fn(int $index): array => ['item_id' => 'rate_aptos_selected_' . $index, 'quantity' => 1],
+        array_keys($aptosSelectedSourceIds)
+    )
+);
 
 // Parity repair contract — the KAIROS basic occupant additionally carries one
 // Active Edition, priced from ITS OWN rate_sheet_items (quantity 3 of the
@@ -382,7 +428,7 @@ $publicProjectionOption = [
 
 $repository = new PackageRepository();
 $publicMap = $repository->findAllActiveIndexedByServiceId();
-check_public_projection(array_keys($publicMap) === [101, 102], 'only KAIROS and APTOS resolve publicly');
+check_public_projection(array_keys($publicMap) === [101, 102, 110, 111, 112, 113], 'only Services belonging unambiguously to ready KAIROS and APTOS Families resolve publicly');
 check_public_projection($publicMap[101]['tiers']['basic']['label'] === 'KAIROS Basic', 'KAIROS receives only its assigned Tier occupant');
 check_public_projection($publicMap[102]['tiers']['basic']['label'] === 'APTOS Basic', 'APTOS receives only its assigned Tier occupant');
 check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'KAIROS resolves the shared row id inside rs_kairos');
@@ -416,8 +462,10 @@ check_public_projection(str_starts_with($familyById['pcg_kairos']['family_platfo
 check_public_projection(str_starts_with($familyById['pcg_kairos']['tier_instance_platform_id'], 'CZTG-'), 'Family customer response carries the Tier Instance business identifier');
 check_public_projection(str_starts_with($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_platform_id'], 'CZT-'), 'Family customer response carries the Tier business identifier');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['edition_options'][0]['edition_platform_id'] === 'CZTE-KAIROS01', 'Family customer response carries the selected Edition business identifier');
-check_public_projection($familyById['pcg_kairos']['included_categories'] === ['Cloud Infrastructure', 'Migration', 'Connected Without Inclusion Rows'], 'Family category summary follows direct Family sources through their inclusion provenance and deduplicates Categories without Rate Sheet traversal');
-check_public_projection($familyById['pcg_aptos']['included_categories'] === ['Managed IT'], 'Family category summary follows sanitized Package-owned Service relationships');
+check_public_projection($familyById['pcg_kairos']['included_categories'] === ['Cloud Infrastructure', 'Migration'], 'an inclusion belonging to a Family-connected Service but not selected by the focused Tier contributes no Category');
+check_public_projection($familyById['pcg_aptos']['included_categories'] === ['Compute', 'Storage', 'Networking', 'Security'], 'selected Tier inclusions resolve through provenance to all four Service-owned Categories exactly once');
+check_public_projection(!in_array('Unselected Category', $familyById['pcg_aptos']['included_categories'], true), 'an unselected inclusion from a connected Family Service remains excluded');
+check_public_projection(!in_array('Internal Group Role', $familyById['pcg_aptos']['included_categories'], true), 'group-role taxonomy terms remain excluded from Service Categories');
 check_public_projection(!isset($publicMap[101]['tiers']['basic']['platform_id']), 'the established Service-rooted projection remains byte-compatible and does not gain Family-builder identity fields');
 
 $disabledServiceIds = $repository->findDisabledPackageServiceIds();
@@ -443,7 +491,7 @@ check_public_projection($readResponse['total'] === 4, 'admin read emits one row 
 $rowsByTitle = [];
 foreach ($readResponse['packages'] as $row) $rowsByTitle[$row['title']] = $row;
 check_public_projection($rowsByTitle['KAIROS Tier Set']['service_refs'] === [101, 107], 'KAIROS assigned row carries its related Services');
-check_public_projection($rowsByTitle['APTOS Tier Set']['service_refs'] === [102, 107], 'APTOS assigned row remains separate');
+check_public_projection($rowsByTitle['APTOS Tier Set']['service_refs'] === [102, 107, 110, 111, 112, 113], 'APTOS assigned row remains separate and carries its related Services');
 check_public_projection($rowsByTitle['KAIROS Tier Set']['tiers']['basic']['price'] === 11.0, 'assigned-instance read row preserves KAIROS Rate Sheet identity');
 check_public_projection($rowsByTitle['APTOS Tier Set']['tiers']['basic']['price'] === 22.0, 'assigned-instance read row preserves APTOS Rate Sheet identity');
 

@@ -1192,10 +1192,16 @@ class PackageRepository
      * @param array<string, mixed> $readModel
      * @return array<string, mixed>
      */
-    private function projectTierInstanceForCostBuilder(array $station, array $instance, array $readModel): array
+    private function projectTierInstanceForCostBuilder(
+        array $station,
+        array $instance,
+        array $readModel,
+        bool $includeSelectedInclusionProvenance = false
+    ): array
     {
         $projected = $station;
         $flatTiers = [];
+        $selectedInclusionSourceIds = [];
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
             $extracted = PackageSchema::extractTierForCostBuilder($instance['tiers'][$tierId] ?? []);
             if ($extracted === null) {
@@ -1207,14 +1213,21 @@ class PackageRepository
                 $extracted['rate_sheet_id'] ?? null
             );
             $extracted['price'] = $rateProjection['price'];
+            $resolvedInclusions = array_values(array_filter(
+                $rateProjection['selections'],
+                static fn(array $row): bool => $row['resolved']
+                    && ($row['source_type'] ?? null) === 'inclusion'
+            ));
             $extracted['inclusions_override'] = array_map(
                 static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
-                array_values(array_filter(
-                    $rateProjection['selections'],
-                    static fn(array $row): bool => $row['resolved']
-                        && ($row['source_type'] ?? null) === 'inclusion'
-                ))
+                $resolvedInclusions
             );
+            if ($includeSelectedInclusionProvenance) {
+                $selectedInclusionSourceIds[$tierId] = array_values(array_map(
+                    static fn(array $row): string => (string) ($row['source_id'] ?? ''),
+                    $resolvedInclusions
+                ));
+            }
             // Each public edition_option row prices from its own Edition's
             // rate_sheet_id/rate_sheet_items — the occupant's own selection
             // above is different — through this same authoritative projector.
@@ -1241,6 +1254,9 @@ class PackageRepository
         $projected['promotion_tiers'] = is_array($station['promotions'] ?? null)
             ? $station['promotions']
             : [];
+        if ($includeSelectedInclusionProvenance) {
+            $projected['_selected_inclusion_source_ids'] = $selectedInclusionSourceIds;
+        }
         return $projected;
     }
 
@@ -1319,7 +1335,7 @@ class PackageRepository
                 continue;
             }
 
-            $compiled = $this->projectTierInstanceForCostBuilder($station, $instance, $readModel);
+            $compiled = $this->projectTierInstanceForCostBuilder($station, $instance, $readModel, true);
             foreach ($compiled['tiers'] as $tierId => &$tier) {
                 $slot = $instance['tiers'][$tierId] ?? [];
                 $occupant = PackageSchema::isOccupantFormat($slot)
@@ -1355,33 +1371,25 @@ class PackageRepository
                 continue;
             }
 
-            $managerItemsById = [];
+            $managerItemsBySourceId = [];
             foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
-                if (is_array($item)) {
-                    $managerItemsById[(string) ($item['item_id'] ?? '')] = $item;
-                }
-            }
-            $familyServiceIds = [];
-            foreach ($manager['sources'] as $source) {
-                if (($source['provider_key'] ?? '') === 'service'
-                    && ($source['entity_type'] ?? '') === 'service'
-                    && ($source['category_group_id'] ?? null) === $familyId
-                ) {
-                    $familyServiceIds[(int) ($source['entity_id'] ?? 0)] = true;
+                if (is_array($item) && ($item['source_type'] ?? null) === 'inclusion') {
+                    $managerItemsBySourceId[(string) ($item['source_id'] ?? '')] = $item;
                 }
             }
             $includedCategories = [];
-            foreach ($managerItemsById as $managerItem) {
-                $sourceServiceId = (int) ($managerItem['source_service_id'] ?? 0);
-                if (($managerItem['source_type'] ?? null) !== 'inclusion'
-                    || !isset($familyServiceIds[$sourceServiceId])
-                ) {
-                    continue;
-                }
-                foreach (is_array($managerItem['source_categories'] ?? null) ? $managerItem['source_categories'] : [] as $categoryName) {
-                    $includedCategories[(string) $categoryName] = true;
+            foreach ($compiled['_selected_inclusion_source_ids'] ?? [] as $tierSourceIds) {
+                foreach (is_array($tierSourceIds) ? $tierSourceIds : [] as $sourceId) {
+                    $managerItem = $managerItemsBySourceId[(string) $sourceId] ?? null;
+                    if (!is_array($managerItem)) {
+                        continue;
+                    }
+                    foreach (is_array($managerItem['source_categories'] ?? null) ? $managerItem['source_categories'] : [] as $categoryName) {
+                        $includedCategories[(string) $categoryName] = true;
+                    }
                 }
             }
+            unset($compiled['_selected_inclusion_source_ids']);
 
             $families[] = [
                 'family_id'       => $familyId,

@@ -34,10 +34,10 @@ Sheet inclusion sources.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
   `family_tier` snapshot and filters parent Tier cards through its two-option
   occupant `audience_group` tab control; it has no term/pricing logic.
-  `FullBuildDetail.tsx` displays only the compiled
-  effective inclusion labels. The focused Family heading also presents the
-  Categories follow Family sources → inclusion relationships → source
-  Services, then deduplicate. Rate Sheets are never a consumer reference.
+  `FullBuildDetail.tsx` displays compiled effective inclusion labels. Focused
+  Family Categories follow compiled Tier inclusion selections → inclusion
+  provenance → source Services, then deduplicate. Rate Sheets are never
+  consumer references.
 
 ## Backend and Persistence
 
@@ -45,9 +45,8 @@ Sheet inclusion sources.
 - `PackageBuilderController.php` registers public read-only `GET
   /package-builder`; `PackageFamilyPricingBuilder.php` narrows the direct
   Family projection into customer Tier data without another pricing engine.
-  Its additive `included_categories` field is derived from Package-owned
-  Family-to-Service relationships and Service-owned Category names; it carries
-  no Service mutation or pricing authority.
+  Its additive `included_categories` field follows selected Tier inclusions to
+  Service-owned Category names; it carries no mutation or pricing authority.
 - [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) assembles categories, Services, Tiers, packages, promotions, bundles, and FAQs into the public response. Use it for projection and visibility/readiness rules.
 - [ServiceRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Repositories/ServiceRepository.php) reads active Service posts, taxonomy, metadata, and pricing inputs. Use it for catalogue persistence queries.
 - [cost-builder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/api/endpoints/cost-builder.ts) exposes the typed public fetch. Use it for client response contracts.
