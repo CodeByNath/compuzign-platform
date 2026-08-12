@@ -2900,25 +2900,6 @@ button.cz-station-status-pill {
   max-width: fit-content;
 }
 
-/* Platform Identifier check/repair — a hosted maintenance control. Layout and
-   spacing only: the buttons keep the shared `cz-btn` appearance and the report
-   keeps the notification panel's, so this owns no control chrome of its own. */
-.cz-identity-repair {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: var(--station-card-gap);
-  padding-top: var(--station-card-gap);
-  border-top: 1px solid var(--station-border);
-}
-
-.cz-identity-repair__actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 /* Each open group contributes one full-width settings leaf. */
 .cz-tier-settings__leaf {
   display: flex;

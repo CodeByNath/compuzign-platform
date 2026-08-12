@@ -1,11 +1,12 @@
 // Temporary one-time rollout notice. Remove after live assignment completes.
 //
 // This sweeps every scope once and hides itself for good when the rollout
-// reports complete. The permanent, per-scope, re-runnable equivalent is
-// `presentation/PlatformIdentifierRepairAction` — an operator still needs a way
-// to check one scope after this banner is gone. Both drive the SAME migration
-// endpoint through the shared `api/platformIdentifiers` client; neither mints
-// an identifier.
+// reports complete. It is the only UI over the migration boundary — once it
+// hides, repairing a scope is a WP-CLI operation
+// (`wp compuzign platform-identifiers assign <scope>`), deliberately, so no
+// dashboard control can drive identity assignment. It mints nothing itself: it
+// runs the existing actions through the shared `api/platformIdentifiers`
+// client, and the engine behind them owns every rule.
 import { useEffect, useState } from 'preact/hooks';
 import { ModuleNotificationPanel } from '@/drawer-kit/ui/ModuleNotificationPanel';
 import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications/shared';

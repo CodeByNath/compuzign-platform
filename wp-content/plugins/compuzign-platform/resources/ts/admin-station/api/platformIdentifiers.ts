@@ -3,9 +3,10 @@
 //
 // Owned here rather than by a station peer because route ownership decides:
 // the endpoint belongs to `src/PlatformIdentifier/TemporaryMigrationController`,
-// not to Package, Service, or Admin's own entities. A station that wants to
-// offer a repair control hosts the shared control below; it never calls this
-// module itself and never acquires the endpoint.
+// not to Package, Service, or Admin's own entities. Its one consumer is the
+// temporary rollout notice in `shell/`. No station surface calls it, and none
+// hosts a control over it — identity assignment outside that one-time rollout
+// is a WP-CLI operation.
 //
 // This module generates NO identity. It is a typed wrapper over an existing
 // backend action: the engine owns reservation, generation, binding, collision
