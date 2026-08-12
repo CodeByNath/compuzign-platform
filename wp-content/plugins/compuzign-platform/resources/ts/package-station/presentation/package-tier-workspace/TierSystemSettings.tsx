@@ -34,6 +34,7 @@ import {
   projectTierGroupConnectionRows,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
+import { PlatformIdentifierRepairAction } from '@/admin-station/presentation/PlatformIdentifierRepairAction';
 import { ConnectedStationsSummary, RateSheetPoolSummary, TierGroupPoolSummary } from './FocusedTierSettings';
 import { TierAccordionSection } from './TierAccordionSection';
 
@@ -305,7 +306,18 @@ export function TierSystemSettings({
             leaf: '',
             hideHeading: true,
             content: (
-              <TierGroupPoolSummary rows={tierGroupRows} loading={tool.loading} onIntent={onConnectionIntent} />
+              <>
+                <TierGroupPoolSummary rows={tierGroupRows} loading={tool.loading} onIntent={onConnectionIntent} />
+                {/*
+                  A hosted Admin Station maintenance control, not a Package
+                  capability: Package owns no Platform Identifier endpoint and
+                  acquires none by rendering this. It lives in the Tier Groups
+                  section because that is where an operator already manages this
+                  pool, and a Tier Group with no CZTG is unreadable through the
+                  canonical read the Family card depends on.
+                */}
+                <PlatformIdentifierRepairAction entityType="tier_group" label="Tier Group" />
+              </>
             ),
           },
         ],

@@ -10,6 +10,13 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `shell/AdminStationLayout|Header|Body|Footer|SlideMenu|Dropdown.tsx` — the station frame.
 - `shell/PlatformIdentifierMigrationNotice.tsx` — temporary one-time Platform
   ID migration notice/trigger; remove after live verification.
+- `api/platformIdentifiers.ts` — the ONE client for the existing
+  `admin/platform-identifiers/migration` boundary. Owned here because that route
+  belongs to `src/PlatformIdentifier`, not to any station's entities.
+- `presentation/PlatformIdentifierRepairAction.tsx` — the permanent, per-scope,
+  re-runnable check/repair control a station surface may host (Package Settings
+  mounts it for `tier_group`). It generates no identity: the engine behind the
+  existing endpoint owns reservation, binding, and every completion rule.
 - `shell/drawer/AdminStationDrawer.tsx` — **the one drawer host**: layer, backdrop, panel, size modifier, header, scrolling body, footer band, scroll lock, Escape, focus restore, close guard, mode clamping, unresolved-key fallback. It never branches on entity type.
 - `shell/drawer/AdminStationDrawerContext.tsx` — one open drawer: template key, opaque record id, mode, originating-wall refetch.
 - `home/`, `presentation/` — the home shell and the station-level presentation primitives (status pill, metric block, split action, category-group cards, tab set).

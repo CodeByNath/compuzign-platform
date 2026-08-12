@@ -145,6 +145,44 @@ $rowAReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlat
 migration_check($rowBatch['entity_complete'] === true && str_starts_with($packages->rateSheetPlatformId($rowAReference, 'item'), 'CZPRCI'), 'final migration assigns missing legacy row CZPRCI');
 migration_check($packages->rateSheetPlatformId($rowReference, 'item') === 'CZPRCI22222', 'final migration preserves an existing valid CZPRCI exactly');
 
+// ── Re-entrancy: a completed scope must still repair a later record ──────────
+// Enumeration is strictly cursor-forward, so a completed scope's parked cursor
+// sits past every record. Without a restart, `assign` would enumerate nothing
+// and silently no-op while the dry check kept reporting work — the exact state
+// a legacy `ti_primary` Tier Group lands in when it appears after the original
+// pass, and the reason the dashboard repair action would otherwise be useless.
+$repairStation = $GLOBALS['mig_options'][PackageRepository::OPTION_KEY];
+$repairStation['tier_instances'] = [[
+    'tier_instance_id' => 'ti_primary', 'cz_platform_id' => '',
+    'title' => 'Primary Tier Set', 'status' => 'active',
+    'allowed_rate_sheet_ids' => [], 'popular_tier' => null, 'popular_label' => '',
+    'tiers' => [], 'occupant_bin' => [],
+]];
+$GLOBALS['mig_options'][PackageRepository::OPTION_KEY] = $repairStation;
+$repairPackages = new PackageRepository();
+$repairController = new TemporaryMigrationController($station, $repairPackages);
+$tierReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference::tierGroup('ti_primary');
+
+$beforeRepair = $repairController->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => 'tier_group']))->get_data();
+migration_check($beforeRepair['report']['would_assign'] === 1, 'a Tier Group with no CZTG is reported by the dry check');
+
+$progress = $GLOBALS['mig_options']['cz_package_entity_identifier_migration_v3'] ?? [];
+$progress['tier_group'] = ['cursor' => 'zzzzzzzz', 'complete' => true, 'processed' => 1, 'assigned' => 0, 'preserved' => 0, 'conflicts' => []];
+$GLOBALS['mig_options']['cz_package_entity_identifier_migration_v3'] = $progress;
+
+$repaired = $repairController->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'tier_group']))->get_data();
+migration_check($repaired['assigned'] === 1, 'assigning an already-complete scope restarts and repairs the missing ID');
+migration_check(str_starts_with($repairPackages->tierGroupPlatformId($tierReference), 'CZTG'), 'the legacy Tier Group receives a real CZTG through the repair');
+migration_check(
+    $repairController->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => 'tier_group']))->get_data()['report']['would_assign'] === 0,
+    'the dry check reports nothing left to repair afterwards'
+);
+
+$assignedCztg = $repairPackages->tierGroupPlatformId($tierReference);
+$again = $repairController->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'tier_group']))->get_data();
+migration_check($again['assigned'] === 0, 're-running the repair assigns nothing — idempotent');
+migration_check($repairPackages->tierGroupPlatformId($tierReference) === $assignedCztg, 're-running preserves the CZTG exactly rather than reassigning it');
+
 $stored = $GLOBALS['mig_options'][PackageRepository::OPTION_KEY];
 $stored['package_manager']['category_groups'][0]['cz_platform_id'] = 'invalid';
 $GLOBALS['mig_options'][PackageRepository::OPTION_KEY] = $stored;

@@ -82,15 +82,30 @@ final class TemporaryMigrationController
 
         try {
             $progress = $this->progress();
-            $cursor = isset($progress[$entityType]['cursor']) && is_string($progress[$entityType]['cursor'])
-                ? $progress[$entityType]['cursor']
-                : null;
+            $scope = is_array($progress[$entityType] ?? null) ? $progress[$entityType] : [];
+            // Re-entrancy: a scope already marked complete restarts from the
+            // beginning rather than resuming its parked cursor. Every owner's
+            // enumeration is strictly cursor-forward (`strcmp($id, $cursor) > 0`),
+            // so a completed scope's cursor sits past every record — resuming
+            // from it enumerates nothing and silently no-ops while the dry check
+            // keeps reporting work to do. That is the exact state a record
+            // created or migrated AFTER the original pass lands in (a legacy
+            // `ti_primary` Tier Group with no CZTG), which makes this operation
+            // useless as a repair without the restart.
+            //
+            // Rescanning is safe and idempotent: assignment reads each stored ID
+            // first and preserves every valid one, so a restart re-walks records
+            // that already have identifiers and changes nothing about them.
+            $restarting = ($scope['complete'] ?? false) === true;
+            $cursor = !$restarting && is_string($scope['cursor'] ?? null) ? $scope['cursor'] : null;
             $result = $this->assignBatch($entityType, $cursor);
             if ($result->conflicts() !== []) {
                 return new \WP_REST_Response(['message' => 'Migration stopped on a batch conflict.', 'conflicts' => $result->conflicts()], 409);
             }
 
-            $previous = is_array($progress[$entityType] ?? null) ? $progress[$entityType] : [];
+            // A restart's counters start over too, so the reported totals
+            // describe this pass rather than accumulating across repairs.
+            $previous = $restarting ? [] : $scope;
             $progress[$entityType] = [
                 'cursor' => $result->nextCursor(),
                 'complete' => $result->complete(),

@@ -1,16 +1,25 @@
-// Temporary one-time migration notice. Remove after live assignment completes.
+// Temporary one-time rollout notice. Remove after live assignment completes.
+//
+// This sweeps every scope once and hides itself for good when the rollout
+// reports complete. The permanent, per-scope, re-runnable equivalent is
+// `presentation/PlatformIdentifierRepairAction` — an operator still needs a way
+// to check one scope after this banner is gone. Both drive the SAME migration
+// endpoint through the shared `api/platformIdentifiers` client; neither mints
+// an identifier.
 import { useEffect, useState } from 'preact/hooks';
-import { apiClient } from '@/api/client';
 import { ModuleNotificationPanel } from '@/drawer-kit/ui/ModuleNotificationPanel';
 import type { ModuleNote } from '@/drawer-kit/utils/moduleNotifications/shared';
 import { Button } from '@/components/ui/Button';
+import {
+  assignPlatformIdentifiers,
+  dryRunPlatformIdentifiers,
+  fetchPlatformIdentifierStatus,
+  type PlatformIdentifierEntityType as EntityType,
+  type PlatformIdentifierReport as Report,
+  type PlatformIdentifierStatus as StatusResponse,
+} from '../api/platformIdentifiers';
 
-type EntityType = 'package_family_group' | 'tier_group' | 'tier' | 'tier_addon' | 'package_rate_card_group' | 'package_rate_card' | 'package_rate_card_item';
 const ENTITY_TYPES: EntityType[] = ['package_family_group', 'tier_group', 'tier', 'tier_addon', 'package_rate_card_group', 'package_rate_card', 'package_rate_card_item'];
-interface Report { processed: number; would_assign: number; would_preserve: number; conflicts: Array<{ message: string }> }
-interface StatusResponse { complete: boolean; progress: Partial<Record<EntityType, { complete: boolean }>> }
-interface DryResponse { entity_type: EntityType; report: Report }
-interface BatchResponse { entity_complete: boolean; complete: boolean }
 
 export function PlatformIdentifierMigrationNotice() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -20,13 +29,12 @@ export function PlatformIdentifierMigrationNotice() {
 
   useEffect(() => {
     let active = true;
-    apiClient.get<StatusResponse>('admin/platform-identifiers/migration')
+    fetchPlatformIdentifierStatus()
       .then(async (next) => {
         if (!active) return;
         setStatus(next);
         if (!next.complete) {
-          const dryRuns = await Promise.all(ENTITY_TYPES.map((entityType) =>
-            apiClient.post<DryResponse>('admin/platform-identifiers/migration', { action: 'dry-run', entity_type: entityType })));
+          const dryRuns = await Promise.all(ENTITY_TYPES.map((entityType) => dryRunPlatformIdentifiers(entityType)));
           if (active) setReports(Object.fromEntries(dryRuns.map((dry) => [dry.entity_type, dry.report])) as Record<EntityType, Report>);
         }
       })
@@ -57,7 +65,7 @@ export function PlatformIdentifierMigrationNotice() {
       for (const entityType of ENTITY_TYPES) {
         let entityComplete = Boolean(status?.progress[entityType]?.complete);
         while (!entityComplete) {
-          const result = await apiClient.post<BatchResponse>('admin/platform-identifiers/migration', { action: 'assign', entity_type: entityType });
+          const result = await assignPlatformIdentifiers(entityType);
           entityComplete = result.entity_complete;
           complete = result.complete;
         }
