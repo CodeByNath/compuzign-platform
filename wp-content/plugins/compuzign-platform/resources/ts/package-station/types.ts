@@ -109,6 +109,12 @@ export interface PackageManagerItem {
   source_service_id?:    number | null;
   source_service_title?: string | null;
   source_categories?:    string[];
+  // The permanent identity behind the two display facets above: the supplying
+  // Service's own CZS, and the CZC of each category-role term it carries.
+  // Output-only. Empty when the owning record holds no Platform ID yet — a
+  // reader must never substitute the name, slug, or native id for it.
+  source_service_platform_id?:   string;
+  source_category_platform_ids?: string[];
 }
 
 // ── Package Family station (Package-owned commercial buckets) ─────────

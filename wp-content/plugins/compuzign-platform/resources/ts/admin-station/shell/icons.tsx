@@ -42,14 +42,21 @@ export const ServicesIcon: ComponentType<IconProps> = (props) => (
   </Icon>
 );
 
-// Table cells — Rate Sheet rows.
+// Tag — Service Categories.
+export const CategoriesIcon: ComponentType<IconProps> = (props) => (
+  <Icon {...props}>
+    <path fillRule="evenodd" d="M5.25 2.25a3 3 0 00-3 3v4.318a3 3 0 00.879 2.121l9.58 9.581c.92.92 2.39 1.186 3.548.428a18.849 18.849 0 005.441-5.44c.758-1.16.492-2.63-.428-3.55l-9.58-9.58a3 3 0 00-2.122-.879H5.25zM6.375 7.5a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" clipRule="evenodd" />
+  </Icon>
+);
+
+// Table cells — Rate Sheet rows / Inclusions.
 export const RateSheetIcon: ComponentType<IconProps> = (props) => (
   <Icon {...props}>
     <path fillRule="evenodd" d="M3.75 3A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21h16.5a2.25 2.25 0 002.25-2.25V5.25A2.25 2.25 0 0020.25 3H3.75zM3 9h5.25V4.5h-4.5A.75.75 0 003 5.25V9zm6.75-4.5V9H21V5.25a.75.75 0 00-.75-.75H9.75zM21 10.5H9.75v4.25H21V10.5zm0 5.75H9.75v3.25h10.5a.75.75 0 00.75-.75v-2.5zm-12.75 3.25v-3.25H3v2.5c0 .414.336.75.75.75h4.5zM3 14.75h5.25V10.5H3v4.25z" clipRule="evenodd" />
   </Icon>
 );
 
-// Stacked layers — Tier selections.
+// Stacked layers — Tiers.
 export const TiersIcon: ComponentType<IconProps> = (props) => (
   <Icon {...props}>
     <path d="M11.644 1.59a.75.75 0 01.712 0l9 4.875a.75.75 0 010 1.32l-9 4.875a.75.75 0 01-.712 0l-9-4.875a.75.75 0 010-1.32l9-4.875z" />

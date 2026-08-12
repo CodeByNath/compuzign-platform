@@ -993,11 +993,26 @@ class PackageRepository
             // filters, group dependency guards). Category names are the
             // Service-owned category-role terms only — group-role terms are a
             // different station and never read as a Service Category.
+            //
+            // The Platform IDs travel beside the names, read from the SAME
+            // Service post and the SAME category-role terms already resolved
+            // here. They are permanent downstream identity (a name is a label
+            // and a native post/term id is not portable identity), so a reader
+            // collating what an inclusion row represents never has to fall back
+            // to matching display text. Empty when the owner holds none yet —
+            // never substituted with a name, slug, or native id.
+            $categories = $this->serviceCategoryProvenance($sourceServiceId);
             $provenance = [
                 '_source_available'     => $sourceAvailable,
                 '_source_service_id'    => $sourceServiceId,
                 '_source_service_title' => html_entity_decode($post->post_title, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                '_source_categories'    => $this->serviceCategoryNames($sourceServiceId),
+                '_source_service_platform_id' => (string) get_post_meta(
+                    $sourceServiceId,
+                    \CompuZign\Platform\Modules\Service\Support\ServiceSchema::PLATFORM_ID_META,
+                    true
+                ),
+                '_source_categories'    => $categories['names'],
+                '_source_category_platform_ids' => $categories['platform_ids'],
             ];
             $rawInc = get_post_meta($sourceServiceId, 'cz_service_inclusions', true) ?: [];
             foreach ((isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [] as $item) {
@@ -1019,19 +1034,26 @@ class PackageRepository
     }
 
     /**
-     * Service-owned category names for a supplying service — category-role
+     * Service-owned category provenance for a supplying service — category-role
      * terms only. A group-role term shares the taxonomy but is a different
      * station (Service Category Group) and must never read as a Service Category.
      *
-     * @return string[]
+     * One walk yields both facets of the same terms: the display `names` the
+     * Rate Sheet filters already render, and the Category-owned permanent
+     * `platform_ids` (CZC) a downstream reader identifies them by. A term
+     * carrying no Platform ID yet contributes no identity rather than a
+     * fabricated one, so identity is never inferred from a name or term id.
+     *
+     * @return array{names: string[], platform_ids: string[]}
      */
-    private function serviceCategoryNames(int $serviceId): array
+    private function serviceCategoryProvenance(int $serviceId): array
     {
         $terms = wp_get_post_terms($serviceId, \CompuZign\Platform\Modules\Admin\Support\CategoryMeta::TAXONOMY, ['fields' => 'all']);
         if (!is_array($terms)) {
-            return [];
+            return ['names' => [], 'platform_ids' => []];
         }
         $names = [];
+        $platformIds = [];
         foreach ($terms as $term) {
             if (!$term instanceof \WP_Term) {
                 continue;
@@ -1041,8 +1063,16 @@ class PackageRepository
                 continue;
             }
             $names[] = html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $platformId = (string) get_term_meta(
+                (int) $term->term_id,
+                \CompuZign\Platform\Modules\Admin\Support\CategoryMeta::PLATFORM_ID_META,
+                true
+            );
+            if ($platformId !== '') {
+                $platformIds[] = $platformId;
+            }
         }
-        return $names;
+        return ['names' => $names, 'platform_ids' => array_values(array_unique($platformIds))];
     }
 
     /**

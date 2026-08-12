@@ -163,16 +163,36 @@ $pool = [[
     'id' => 'inc-a', 'label' => 'Feature A', '_source_available' => true,
     '_source_service_id' => 10, '_source_service_title' => 'Virtual Machines',
     '_source_categories' => ['Compute'],
+    '_source_service_platform_id' => 'CZS00001',
+    '_source_category_platform_ids' => ['CZC00001'],
 ]];
 $model = PMS::buildReadModel(10, $manager, $pool, [], 'active');
 assertSameValue('KAIROS', $model['category_groups'][0]['label'], 'read model projects the group registry');
 assertSameValue(10, $model['items'][0]['source_service_id'], 'read model carries supplying-service provenance');
 assertSameValue('Virtual Machines', $model['items'][0]['source_service_title'], 'read model carries supplying-service title');
 assertSameValue(['Compute'], $model['items'][0]['source_categories'], 'read model carries Service-owned category names');
+// The identity facet of the same provenance: the permanent Platform IDs a
+// downstream reader (the Package Family card) identifies a row's Service and
+// Service Categories by. Names remain display-only.
+assertSameValue('CZS00001', $model['items'][0]['source_service_platform_id'], 'read model carries the supplying Service Platform ID');
+assertSameValue(['CZC00001'], $model['items'][0]['source_category_platform_ids'], 'read model carries the Service Category Platform IDs');
 
 // Pools without provenance (legacy callers) stay null-safe.
 $bareModel = PMS::buildReadModel(10, $manager, [['id' => 'inc-a', 'label' => 'Feature A']], [], 'active');
 assertSameValue(null, $bareModel['items'][0]['source_service_id'], 'provenance is null-safe for bare pools');
+assertSameValue('', $bareModel['items'][0]['source_service_platform_id'], 'a source with no Platform ID projects empty identity, never a substitute');
+assertSameValue([], $bareModel['items'][0]['source_category_platform_ids'], 'a source with no Category Platform IDs projects none, never the category names');
+
+// A Service that has a Platform ID while its categories do not (mid-backfill)
+// contributes Service identity only — the names are never promoted to identity.
+$partialPool = [[
+    'id' => 'inc-a', 'label' => 'Feature A', '_source_available' => true,
+    '_source_service_id' => 10, '_source_categories' => ['Compute', 'Storage'],
+    '_source_service_platform_id' => 'CZS00001',
+]];
+$partialModel = PMS::buildReadModel(10, $manager, $partialPool, [], 'active');
+assertSameValue(['Compute', 'Storage'], $partialModel['items'][0]['source_categories'], 'category names survive an incomplete Platform ID backfill');
+assertSameValue([], $partialModel['items'][0]['source_category_platform_ids'], 'unidentified categories contribute no identity rather than falling back to their names');
 
 // ── Dependency counting across the station ────────────────────────────────────
 

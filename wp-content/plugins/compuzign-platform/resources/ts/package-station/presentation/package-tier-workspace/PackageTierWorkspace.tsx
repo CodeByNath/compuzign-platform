@@ -312,7 +312,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             onSelect={tool.selectFamily}
           />
           {tool.selectedFamily ? (
-            <PackageFamilySummary family={tool.selectedFamily} />
+            <PackageFamilySummary family={tool.selectedFamily} composition={tool.familyComposition} />
           ) : (
             <p class="cz-station-empty">
               Direct instance management. This instance is not being presented as a Family capability.

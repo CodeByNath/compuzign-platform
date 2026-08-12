@@ -1072,6 +1072,13 @@ final class PackageManagerSchema
                 'source_service_id'    => $provenance['service_id'],
                 'source_service_title' => $provenance['service_title'],
                 'source_categories'    => $provenance['categories'],
+                // The permanent identity behind the two display facets above:
+                // the supplying Service's CZS and the CZC of each category-role
+                // term it carries. Output-only, resolved live like the rest of
+                // the provenance block — a reader collating what a row
+                // represents identifies by these, never by name or native id.
+                'source_service_platform_id'   => $provenance['service_platform_id'],
+                'source_category_platform_ids' => $provenance['category_platform_ids'],
             ];
         }
 
@@ -1125,7 +1132,7 @@ final class PackageManagerSchema
      * pools built without provenance (tests, legacy callers) and for missing
      * sources.
      *
-     * @return array{service_id: int|null, service_title: string|null, categories: array<int, string>}
+     * @return array{service_id: int|null, service_title: string|null, categories: array<int, string>, service_platform_id: string, category_platform_ids: array<int, string>}
      */
     private static function sourceProvenance(string $sourceType, string $sourceId, array $inclusionPool, array $faqPool): array
     {
@@ -1140,9 +1147,21 @@ final class PackageManagerSchema
                 'categories'    => is_array($entry['_source_categories'] ?? null)
                     ? array_values(array_map('strval', $entry['_source_categories']))
                     : [],
+                'service_platform_id' => isset($entry['_source_service_platform_id'])
+                    ? (string) $entry['_source_service_platform_id']
+                    : '',
+                'category_platform_ids' => is_array($entry['_source_category_platform_ids'] ?? null)
+                    ? array_values(array_map('strval', $entry['_source_category_platform_ids']))
+                    : [],
             ];
         }
-        return ['service_id' => null, 'service_title' => null, 'categories' => []];
+        return [
+            'service_id' => null,
+            'service_title' => null,
+            'categories' => [],
+            'service_platform_id' => '',
+            'category_platform_ids' => [],
+        ];
     }
 
     private static function countSourceMatches(

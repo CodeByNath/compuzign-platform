@@ -58,9 +58,13 @@ presents Details/Connections/Settings. `TierDrawerHost.tsx` decodes occupant,
 empty-slot, and registration addresses without fabricating identity. Tier
 System registration remains documented in [Tier System Registration](tier-registration.md).
 
-Family and Tier instance remain assignment-linked peers.
+Family and Tier instance remain assignment-linked peers. `familySummary.ts`'s
+Family card composes that edge — Tiers, Service Categories, Services,
+Inclusions — from its resolved instance's occupants, identified by their
+rows' `CZS`/`CZC`, never `dependents`
+(`npm run regression:package-family-card-scope`).
 
-Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`; `PackageRepository::projectTierInstanceForCostBuilder()` resolves price/inclusions live through this internal identity but strips both keys before the response, so neither reaches the browser.
+Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`; `PackageRepository::projectTierInstanceForCostBuilder()` resolves price/inclusions live through it but strips both keys before responding, so neither reaches the browser.
 
 ## Drawer, state, and persistence
 

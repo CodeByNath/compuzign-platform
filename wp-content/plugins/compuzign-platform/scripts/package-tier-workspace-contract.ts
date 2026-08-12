@@ -20,9 +20,12 @@ import {
   summarizeTierInstance,
   type WorkspaceFamilyScope,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/projection';
-import { buildFamilySummary } from '../resources/ts/package-station/surface/packageTierWorkspace/familySummary';
 import {
-  buildRateItemCategoryMap,
+  buildFamilySummary,
+  collateFamilyTierComposition,
+} from '../resources/ts/package-station/surface/packageTierWorkspace/familySummary';
+import {
+  buildRateItemProvenanceMap,
   projectTierDeck,
   projectTierInclusions,
   projectTierRateSheet,
@@ -208,27 +211,105 @@ check(
   'a filter with no matching occupants yields an empty visible list rather than falling back to another filter',
 );
 
-const summary = buildFamilySummary(kairos);
-check(summary.metrics.length === 3, 'Family summary keeps exactly three dependency metrics');
+// The Family card is the composition of existing atomic relations —
+// Family → Tier → occupant → inclusion — never a Family-owned edge to a
+// Service Category, Service, or Rate Sheet. It reports exactly four counts,
+// and only Tiers is the Family's own direct relation.
+// `kairos.dependents` is deliberately {services: 1, rate_sheet_rows: 2,
+// tier_selections: 3} and none of the four counts below is derived from it —
+// the zero-composition case further down is the proof that the old Family-owned
+// edges can no longer reach this card.
+const summary = buildFamilySummary(kairos, collateFamilyTierComposition(3, [
+  {
+    inclusions: [
+      { servicePlatformId: 'CZS_INFRA', categoryPlatformIds: ['CZC_CLOUD'] },
+      { servicePlatformId: 'CZS_INFRA', categoryPlatformIds: ['CZC_CLOUD'] },
+    ],
+  },
+  {
+    inclusions: [
+      { servicePlatformId: 'CZS_OPS', categoryPlatformIds: ['CZC_MANAGED', 'CZC_CLOUD'] },
+      { servicePlatformId: 'CZS_BACKUP', categoryPlatformIds: ['CZC_RESILIENCE', 'CZC_ARCHIVE'] },
+    ],
+  },
+  { inclusions: [] },
+]));
+check(summary.metrics.length === 4, 'Family summary reports exactly four collated relationships');
 check(
-  summary.metrics.map((metric) => metric.id).join(',') === 'services,rate-sheet-rows,tier-selections',
-  'capability use is not added to Family dependents',
+  summary.metrics.map((metric) => metric.id).join(',') === 'tiers,service-categories,services,inclusions',
+  'the Family card reads Tiers, Service Categories, Services, Inclusions in that fixed order',
+);
+const metricValue = (id: string): number =>
+  summary.metrics.find((metric) => metric.id === id)?.value ?? -1;
+check(metricValue('tiers') === 3, 'Tiers is the assigned Tier system\'s own registered-Tier count, supplied by the direct relation');
+// Tiers must NOT be re-derived from the occupant bridge. Handing the same three
+// registered Tiers a SHORTER occupant list (one occupant's inclusions loaded)
+// must leave Tiers at 3 while only the downstream metrics shrink.
+const partialBridge = buildFamilySummary(kairos, collateFamilyTierComposition(3, [
+  { inclusions: [{ servicePlatformId: 'CZS_INFRA', categoryPlatformIds: ['CZC_CLOUD'] }] },
+]));
+check(
+  partialBridge.metrics.find((metric) => metric.id === 'tiers')?.value === 3
+  && partialBridge.metrics.find((metric) => metric.id === 'inclusions')?.value === 1,
+  'the occupant traversal is the inclusion bridge only — it can never redefine the Tier count',
+);
+check(metricValue('inclusions') === 4, 'Inclusions totals every Rate Sheet row belonging to those occupants, duplicates included');
+check(metricValue('services') === 3, 'Services is the distinct Service Platform IDs those inclusions carry, deduplicated across rows');
+check(metricValue('service-categories') === 4, 'Service Categories is the distinct Category Platform IDs those inclusions carry, deduplicated across occupants');
+
+// A Family whose Tier assignment does not resolve composes nothing. Zero is the
+// honest answer; the direct `dependents` edges must never fill the gap.
+const unassignedSummary = buildFamilySummary(kairos);
+check(
+  unassignedSummary.metrics.every((metric) => metric.value === 0),
+  'a Family with no resolved Tier system reports zeros, never its Family→Service/Rate Sheet dependents',
 );
 
-// Category enrichment remains the same two-hop presentation projection.
-const categoryByRateItem = buildRateItemCategoryMap(
+// An owner holding no Platform ID yet contributes no identity — never a bucket
+// keyed on its name, and never a silent +1.
+const anonymousSummary = buildFamilySummary(kairos, collateFamilyTierComposition(1, [
+  { inclusions: [
+    { servicePlatformId: '', categoryPlatformIds: [] },
+    { servicePlatformId: 'CZS_INFRA', categoryPlatformIds: ['CZC_CLOUD'] },
+  ] },
+]));
+check(
+  anonymousSummary.metrics.find((metric) => metric.id === 'services')?.value === 1
+  && anonymousSummary.metrics.find((metric) => metric.id === 'service-categories')?.value === 1
+  && anonymousSummary.metrics.find((metric) => metric.id === 'inclusions')?.value === 2,
+  'a row whose Service/Category carries no Platform ID still counts as an Inclusion but adds no identity',
+);
+
+// Source provenance remains the same single two-hop projection, now carrying
+// the identity facet beside the display facet.
+const provenanceByRateItem = buildRateItemProvenanceMap(
   [
     { item_id: 'rate_inc_a', source_item_id: 'rel_infra' },
     { item_id: 'rate_inc_b', source_item_id: 'rel_ops' },
   ],
   [
-    { item_id: 'rel_infra', source_categories: ['Cloud Infrastructure'] },
-    { item_id: 'rel_ops', source_categories: ['Managed Services'] },
+    {
+      item_id: 'rel_infra',
+      source_categories: ['Cloud Infrastructure'],
+      source_service_platform_id: 'CZS_INFRA',
+      source_category_platform_ids: ['CZC_CLOUD'],
+    },
+    {
+      item_id: 'rel_ops',
+      source_categories: ['Managed Services'],
+      source_service_platform_id: 'CZS_OPS',
+      source_category_platform_ids: ['CZC_MANAGED'],
+    },
   ],
 );
 check(
-  JSON.stringify(categoryByRateItem.get('rate_inc_a')) === JSON.stringify(['Cloud Infrastructure']),
+  JSON.stringify(provenanceByRateItem.get('rate_inc_a')?.categories) === JSON.stringify(['Cloud Infrastructure']),
   'Service categories still enrich Rate Sheet inclusion rows',
+);
+check(
+  provenanceByRateItem.get('rate_inc_a')?.servicePlatformId === 'CZS_INFRA'
+  && JSON.stringify(provenanceByRateItem.get('rate_inc_a')?.categoryPlatformIds) === JSON.stringify(['CZC_CLOUD']),
+  'the same two-hop read carries the row\'s downstream Platform IDs, so identity and display can never drift apart',
 );
 
 const deckSelections: DeckSelection[] = [
@@ -244,8 +325,17 @@ const rateSheet: DeckRateSheet = {
   status: 'active',
   groups: [{ group_id: 'grp', label: 'Infrastructure', sort_order: 0, platform_id: 'CZPRCG_INFRA' }],
 };
-const inclusions = projectTierInclusions(deckSelections, categoryByRateItem);
+const inclusions = projectTierInclusions(deckSelections, provenanceByRateItem);
 check(inclusions.length === 3 && inclusions[0].lineTotal === 140, 'lower-deck inclusion projection remains unchanged');
+check(
+  inclusions[0].servicePlatformId === 'CZS_INFRA'
+  && JSON.stringify(inclusions[0].categoryPlatformIds) === JSON.stringify(['CZC_CLOUD']),
+  'an inclusion row carries the downstream Platform IDs a collating reader identifies it by',
+);
+check(
+  inclusions[2].servicePlatformId === '' && inclusions[2].categoryPlatformIds.length === 0,
+  'a row with no resolvable relationship carries no identity rather than a fabricated one',
+);
 
 // Connections: every summary resolves through a stored identity, never a label.
 const groupConnections = projectTierRateSheetGroups(deckSelections, rateSheet);
@@ -290,7 +380,7 @@ check(
 );
 check(projectTierRateSheet(deckSelections, null) === null, 'an unbound Tier reports no Rate Sheet connection');
 
-const deck = projectTierDeck(deckSelections, categoryByRateItem, rateSheet);
+const deck = projectTierDeck(deckSelections, provenanceByRateItem, rateSheet);
 check(deck.categories.join(',') === 'Cloud Infrastructure,Managed Services', 'lower-deck category filter remains distinct and sorted');
 check(deck.rateSheet !== null && deck.groups.length === 1, 'the deck carries the Rate Sheet and group connections it renders');
 

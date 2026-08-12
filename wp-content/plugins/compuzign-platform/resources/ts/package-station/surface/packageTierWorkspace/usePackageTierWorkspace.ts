@@ -25,10 +25,15 @@ import {
   type WorkspaceTierSlot,
 } from './projection';
 import {
-  buildRateItemCategoryMap,
+  buildRateItemProvenanceMap,
   projectTierDeck,
   type TierDeck,
 } from './deck';
+import {
+  collateFamilyTierComposition,
+  EMPTY_FAMILY_TIER_COMPOSITION,
+  type FamilyTierComposition,
+} from './familySummary';
 import {
   projectConnectionNavigation,
   type ConnectionNavigationCategory,
@@ -42,6 +47,10 @@ export interface PackageTierWorkspaceTool {
   assignedInstance: TierInstanceSummary | null;
   workspaceInstance: TierInstanceSummary | null;
   occupants: CategoryGroupCardItem[];
+  // What the selected Family's OWN Tiers compose — the only source the Family
+  // summary card's counts may come from. Empty for a Family with no resolved
+  // Tier system, and for direct-instance scope (which selects no Family).
+  familyComposition: FamilyTierComposition;
   slots: WorkspaceTierSlot[];
   decks: Record<string, TierDeck>;
   connectionNavigation: Record<string, ConnectionNavigationCategory[]>;
@@ -204,7 +213,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
   const model = useMemo<PackageTierWorkspaceTool>(() => {
     const rateSheets = manager?.rate_sheets ?? pkg.service?.rate_sheets ?? [];
     const relationships = manager?.items ?? pkg.service?.package_relationships ?? [];
-    const categoryByRateItem = buildRateItemCategoryMap(
+    const provenanceByRateItem = buildRateItemProvenanceMap(
       rateSheets.flatMap((sheet) => sheet.items),
       relationships,
     );
@@ -216,7 +225,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         const view = pkg.tierView(slotId);
         const deck = projectTierDeck(
           view?.detail.rate_sheet_selections ?? [],
-          categoryByRateItem,
+          provenanceByRateItem,
           rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
           view?.detail.rate_sheet_id ?? null,
         );
@@ -230,6 +239,9 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         return {
           occupantId,
           slotId,
+          // Carried with its own occupant so the Family card's Tier count and
+          // its inclusion rows can only ever describe the same occupants.
+          deck,
           isAddon: view?.detail.is_addon ?? false,
           isPopular: pkg.popularTier === slotId,
           item: toTierOccupantCard({
@@ -242,6 +254,21 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       }),
     );
     const occupants = resolvedOccupants.map((occupant) => occupant.item);
+    // The Family card collates ONLY what this Family's own Tiers reach.
+    // `resolvedOccupants` is already the resolved instance's occupants (empty
+    // when the Family resolves no assignment); requiring the assignment as well
+    // keeps a directly-operated, unassigned instance — which the workspace can
+    // legitimately be scoped to — out of any Family's numbers.
+    // Tiers comes from the DIRECT relation — the assigned Tier system's own
+    // registered-Tier count — while the occupant decks are only the bridge to
+    // the inclusion rows. Reading the occupant list's length for both would let
+    // the downstream traversal redefine what a Tier is.
+    const familyComposition = selectedFamily !== null && assignedInstance !== null
+      ? collateFamilyTierComposition(
+        assignedInstance.occupant_count,
+        resolvedOccupants.map((occupant) => occupant.deck),
+      )
+      : EMPTY_FAMILY_TIER_COMPOSITION;
     return {
       kind: 'tier-instance-tool',
       tierInstances: workspaceTierInstances,
@@ -250,6 +277,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       assignedInstance,
       workspaceInstance,
       occupants,
+      familyComposition,
       slots: projectWorkspaceTierSlots(resolvedOccupants),
       decks,
       connectionNavigation,

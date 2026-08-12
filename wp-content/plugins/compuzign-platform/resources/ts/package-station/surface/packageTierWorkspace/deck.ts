@@ -20,9 +20,11 @@
 // IT INVENTS NO DATA AND NO SECOND PRICE. Every inclusion row is one of the
 // Tier's already-resolved `rate_sheet_selections` (usePackageStation.tierView),
 // re-read here — its label, resolution, unit price, per, quantity and line total
-// are carried through untouched. Category is the only field added: a Rate Sheet row
-// (`item_id`) → its priced relationship (`source_item_id`) → that relationship's
-// admin-read-model `source_categories`. Nothing is recomputed.
+// are carried through untouched. Source provenance is the only thing added, on one
+// two-hop read: a Rate Sheet row (`item_id`) → its priced relationship
+// (`source_item_id`) → that relationship's admin-read-model `source_categories`
+// (display) plus `source_service_platform_id` / `source_category_platform_ids`
+// (identity). Nothing is recomputed.
 
 // ── Structural inputs ─────────────────────────────────────────────────────────
 // Kept local and structural (like ./projection) so the pure functions carry no
@@ -50,11 +52,36 @@ export interface DeckSelection {
   group_id:     string | null;             // Rate Sheet group the row belongs to
 }
 
-/** A relationship carrying the admin-read-model source categories for a row. */
+/** A relationship carrying the admin-read-model source provenance for a row. */
 export interface DeckCategoryRelationship {
   item_id:           string;
   source_categories?: string[] | null;
+  // Permanent downstream identity of the same source: the supplying Service's
+  // CZS and the CZC of each category-role term it carries.
+  source_service_platform_id?:   string | null;
+  source_category_platform_ids?: string[] | null;
 }
+
+/**
+ * What one Rate Sheet row represents downstream, resolved through the
+ * relationship it prices. The Rate Sheet Engine built the row from an existing
+ * Service Category → Service structure, so the row does not own these — it
+ * carries them, and a reader collating rows identifies them by Platform ID.
+ *
+ * `categories` stays the display facet the Details lane already renders.
+ * `servicePlatformId` / `categoryPlatformIds` are the identity facet: empty
+ * when the owning record holds no Platform ID yet, never back-filled from a
+ * name, slug, or native id.
+ */
+export interface RateItemProvenance {
+  categories:          string[];
+  servicePlatformId:   string;
+  categoryPlatformIds: string[];
+}
+
+const EMPTY_RATE_ITEM_PROVENANCE: RateItemProvenance = {
+  categories: [], servicePlatformId: '', categoryPlatformIds: [],
+};
 
 /** The Rate Sheet the focused Tier is bound to, as the connections lane reads it. */
 export interface DeckRateSheet {
@@ -77,6 +104,11 @@ export interface DeckInclusion {
   sourceId:   string | null;
   name:       string;          // Service-owned label
   categories: string[];        // admin-read-model source categories (may be empty)
+  // The row's downstream identity, carried through unchanged from the
+  // relationship it prices. Collating readers (the Family summary) count these;
+  // they never count `categories`, which are display names.
+  servicePlatformId:   string;   // supplying Service's CZS ('' when unassigned)
+  categoryPlatformIds: string[]; // that Service's category-role CZCs
   quantity:   number;
   unitPrice:  number | null;   // Rate Sheet row unit price, carried through
   per:        string | null;
@@ -149,32 +181,36 @@ export const EMPTY_TIER_DECK: TierDeck = {
 // ── Category provenance ───────────────────────────────────────────────────────
 
 /**
- * Map each Rate Sheet row id → its source categories, via the relationship it
- * prices. This two-hop read enriches inclusion presentation with
- * `source_categories`. A row whose relationship
- * carries no categories simply contributes none, so its inclusion shows no
- * category — the same silence the backend read model keeps.
+ * Map each Rate Sheet row id → what it represents downstream, via the
+ * relationship it prices. THE single two-hop read: presentation (`categories`)
+ * and identity (`servicePlatformId`, `categoryPlatformIds`) come from the same
+ * relationship in the same pass, so no second, drifting resolution of "what is
+ * this row?" can appear. A row whose relationship carries no provenance simply
+ * contributes none — the same silence the backend read model keeps.
  */
-export function buildRateItemCategoryMap(
+export function buildRateItemProvenanceMap(
   rateItems: readonly WorkspaceRateItem[],
   relationships: readonly DeckCategoryRelationship[],
-): Map<string, string[]> {
-  const categoriesByRelationship = new Map<string, string[]>();
+): Map<string, RateItemProvenance> {
+  const byRelationship = new Map<string, RateItemProvenance>();
   for (const relationship of relationships) {
-    const categories = relationship.source_categories;
-    if (Array.isArray(categories) && categories.length > 0) {
-      categoriesByRelationship.set(relationship.item_id, categories);
-    }
+    const categories = Array.isArray(relationship.source_categories) ? relationship.source_categories : [];
+    const categoryPlatformIds = Array.isArray(relationship.source_category_platform_ids)
+      ? relationship.source_category_platform_ids.filter((id) => id !== '')
+      : [];
+    const servicePlatformId = relationship.source_service_platform_id ?? '';
+    if (categories.length === 0 && categoryPlatformIds.length === 0 && servicePlatformId === '') continue;
+    byRelationship.set(relationship.item_id, { categories, servicePlatformId, categoryPlatformIds });
   }
 
-  const categoriesByRateItem = new Map<string, string[]>();
+  const byRateItem = new Map<string, RateItemProvenance>();
   for (const item of rateItems) {
-    const categories = categoriesByRelationship.get(item.source_item_id);
-    if (categories !== undefined) {
-      categoriesByRateItem.set(item.item_id, categories);
+    const provenance = byRelationship.get(item.source_item_id);
+    if (provenance !== undefined) {
+      byRateItem.set(item.item_id, provenance);
     }
   }
-  return categoriesByRateItem;
+  return byRateItem;
 }
 
 // ── Lane projections ──────────────────────────────────────────────────────────
@@ -187,21 +223,26 @@ export function buildRateItemCategoryMap(
  */
 export function projectTierInclusions(
   selections: readonly DeckSelection[],
-  categoryByRateItem: ReadonlyMap<string, string[]>,
+  provenanceByRateItem: ReadonlyMap<string, RateItemProvenance>,
 ): DeckInclusion[] {
   return selections
     .filter((selection) => selection.source_type === 'inclusion')
-    .map((selection) => ({
+    .map((selection) => {
+    const provenance = provenanceByRateItem.get(selection.item_id) ?? EMPTY_RATE_ITEM_PROVENANCE;
+    return {
       itemId:     selection.item_id,
       sourceId:   selection.source_id ?? null,
       name:       selection.label,
-      categories: categoryByRateItem.get(selection.item_id) ?? [],
+      categories: provenance.categories,
+      servicePlatformId:   provenance.servicePlatformId,
+      categoryPlatformIds: provenance.categoryPlatformIds,
       quantity:   selection.quantity,
       unitPrice:  selection.unit_price,
       per:        selection.per,
       lineTotal:  selection.line_total,
       resolved:   selection.resolved,
-    }));
+    };
+  });
 }
 
 /**
@@ -299,11 +340,11 @@ export function projectTierRateSheet(
  */
 export function projectTierDeck(
   selections: readonly DeckSelection[],
-  categoryByRateItem: ReadonlyMap<string, string[]>,
+  provenanceByRateItem: ReadonlyMap<string, RateItemProvenance>,
   rateSheet: DeckRateSheet | null,
   boundRateSheetId: string | null = rateSheet?.rate_sheet_id ?? null,
 ): TierDeck {
-  const inclusions = projectTierInclusions(selections, categoryByRateItem);
+  const inclusions = projectTierInclusions(selections, provenanceByRateItem);
   const categories = [...new Set(inclusions.flatMap((inclusion) => inclusion.categories))].sort((a, b) =>
     a.localeCompare(b),
   );
