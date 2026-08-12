@@ -72,6 +72,12 @@ export function repairLegacyContactOverride(): Promise<{
   return apiClient.post('admin/package-station/tier-instances/ti_primary/repair-legacy-contact');
 }
 
+// TEMPORARY — read-only companion to repairLegacyContactOverride(). See
+// PackageStationController::diagnoseLegacyContact(). Delete alongside it.
+export function diagnoseLegacyContact(): Promise<Record<string, unknown>> {
+  return apiClient.get('admin/package-station/tier-instances/ti_primary/diagnose-legacy-contact');
+}
+
 export function fetchTierAssignments(): Promise<TierAssignmentsResponse> {
   return apiClient.get<TierAssignmentsResponse>('admin/package-station/tier-assignments');
 }

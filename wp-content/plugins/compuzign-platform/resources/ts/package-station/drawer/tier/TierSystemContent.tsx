@@ -16,7 +16,7 @@
 // modules are never placed here — those stay on TIER_ENTITY / TierDrawerContent.
 
 import { useEffect, useState } from 'preact/hooks';
-import { repairLegacyContactOverride } from '../../api';
+import { repairLegacyContactOverride, diagnoseLegacyContact } from '../../api';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
@@ -71,6 +71,13 @@ export function TierSystemContent({
         status: 'error',
         message: error instanceof Error ? error.message : 'Repair failed.',
       }));
+  };
+  const [diagnosis, setDiagnosis] = useState<string | null>(null);
+  const runLegacyContactDiagnosis = () => {
+    setDiagnosis('Running…');
+    diagnoseLegacyContact()
+      .then((result) => setDiagnosis(JSON.stringify(result, null, 2)))
+      .catch((error: unknown) => setDiagnosis(error instanceof Error ? error.message : 'Diagnosis failed.'));
   };
 
   useEffect(() => {
@@ -223,6 +230,17 @@ export function TierSystemContent({
             )}
             {repairState.status === 'error' && (
               <div class="cz-admin-error-msg" role="alert">{repairState.message}</div>
+            )}
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--secondary"
+              style={{ marginLeft: '8px' }}
+              onClick={runLegacyContactDiagnosis}
+            >
+              Diagnose ti_primary
+            </button>
+            {diagnosis && (
+              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '11px', marginTop: '8px' }}>{diagnosis}</pre>
             )}
           </div>
         )}

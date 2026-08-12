@@ -183,6 +183,15 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
         ]);
 
+        // TEMPORARY — read-only companion to the repair route above, so we
+        // can see WHY a slot was or wasn't touched instead of guessing from
+        // a bare cleared/kept count. Delete alongside the same cleanup.
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-instances/ti_primary/diagnose-legacy-contact', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'diagnoseLegacyContact'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
         $instanceBase = '/admin/services/(?P<id>\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)';
         $instanceArgs = [
             'id'       => ['required' => true, 'type' => 'integer'],
@@ -768,6 +777,113 @@ class PackageStationController
             'cleared'   => $cleared,
             'kept'      => $kept,
             'occupants' => $occupants,
+        ]);
+    }
+
+    /**
+     * TEMPORARY — read-only. Reports, per Tier slot in ti_primary: whether an
+     * occupant exists, its format, its stored contact/price/Rate-Sheet
+     * binding, and what evaluateTierPricing would resolve if contact were
+     * false — plus which Package Families are assigned to this instance.
+     * Delete alongside repairLegacyContactOverride() and its route.
+     */
+    public function diagnoseLegacyContact(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $station = $this->packages()->loadStation();
+        if (!is_array($station) || $station === []) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+        [$inclusionPool, $faqPool] = $this->packages()->sourcePools($station);
+        $readModel = PackageManagerSchema::buildReadModel(
+            (int) ($station['legacy_host_service_id'] ?? 0),
+            $manager,
+            $inclusionPool,
+            $faqPool,
+            'active'
+        );
+
+        $sanitizedInstances = TierInstanceSchema::sanitizeInstances($station['tier_instances'] ?? []);
+        $instance = null;
+        foreach ($station['tier_instances'] ?? [] as $candidate) {
+            if (is_array($candidate) && ($candidate['tier_instance_id'] ?? null) === TierInstanceSchema::PRIMARY_INSTANCE_ID) {
+                $instance = $candidate;
+                break;
+            }
+        }
+        if ($instance === null) {
+            return rest_ensure_response(['success' => true, 'found' => false]);
+        }
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $assignments = TierAssignmentSchema::sanitizeAssignments(
+            $station['tier_assignments'] ?? [],
+            ['package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager)],
+            $sanitizedInstances
+        );
+        $families = [];
+        foreach ($assignments as $assignment) {
+            if (($assignment['tier_instance_id'] ?? null) !== TierInstanceSchema::PRIMARY_INSTANCE_ID) {
+                continue;
+            }
+            $familyId = (string) ($assignment['consumer_id'] ?? '');
+            $family = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageCategoryGroups::find(
+                is_array($manager['category_groups'] ?? null) ? $manager['category_groups'] : [],
+                $familyId
+            );
+            $families[] = [
+                'family_id'       => $familyId,
+                'title'           => $family['title'] ?? null,
+                'platform_status' => $family['platform_status'] ?? null,
+            ];
+        }
+
+        $tiers = [];
+        foreach ($PS::ALLOWED_TIERS as $tierId) {
+            $slot = $instance['tiers'][$tierId] ?? [];
+            if (!is_array($slot) || $slot === []) {
+                $tiers[] = ['tier' => $tierId, 'occupant' => false];
+                continue;
+            }
+
+            $extracted = $PS::extractTierForCostBuilder($slot);
+            if ($extracted === null) {
+                $tiers[] = ['tier' => $tierId, 'occupant' => false];
+                continue;
+            }
+
+            $projection = PackageManagerSchema::projectTierRateSheetWith(
+                $readModel,
+                $extracted['rate_sheet_items'] ?? [],
+                $extracted['rate_sheet_id'] ?? null,
+                false
+            );
+
+            $tiers[] = [
+                'tier'                  => $tierId,
+                'occupant'              => true,
+                'occupant_format'       => $PS::isOccupantFormat($slot),
+                'label'                 => $extracted['label'] ?? '',
+                'enabled'               => $extracted['enabled'] ?? null,
+                'contact'               => (bool) ($extracted['contact'] ?? false),
+                'stored_price'          => $extracted['price'] ?? null,
+                'rate_sheet_id'         => $extracted['rate_sheet_id'] ?? null,
+                'rate_sheet_item_count' => is_array($extracted['rate_sheet_items'] ?? null) ? count($extracted['rate_sheet_items']) : 0,
+                'would_resolve_price'   => $projection['price'] ?? null,
+            ];
+        }
+
+        return rest_ensure_response([
+            'success'          => true,
+            'found'            => true,
+            'instance_status'  => $instance['status'] ?? null,
+            'derived_status'   => TierInstanceSchema::deriveInstanceStatus($instance),
+            'assigned_families' => $families,
+            'tiers'            => $tiers,
         ]);
     }
 
