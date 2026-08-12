@@ -863,6 +863,31 @@ class PackageStationController
                 false
             );
 
+            $rateSheetFound = PackageManagerSchema::findRateSheet(
+                is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
+                $extracted['rate_sheet_id'] ?? null
+            ) !== null;
+
+            $reasonCounts = [];
+            $sampleUnresolved = [];
+            foreach ($projection['selections'] ?? [] as $row) {
+                if (($row['resolved'] ?? false) && ($row['available'] ?? false)) {
+                    continue;
+                }
+                foreach ($row['health_reasons'] ?? [] as $reason) {
+                    $reasonCounts[$reason] = ($reasonCounts[$reason] ?? 0) + 1;
+                }
+                if (count($sampleUnresolved) < 3) {
+                    $sampleUnresolved[] = [
+                        'item_id'        => $row['item_id'] ?? null,
+                        'label'          => $row['label'] ?? null,
+                        'resolved'       => $row['resolved'] ?? null,
+                        'available'      => $row['available'] ?? null,
+                        'health_reasons' => $row['health_reasons'] ?? [],
+                    ];
+                }
+            }
+
             $tiers[] = [
                 'tier'                  => $tierId,
                 'occupant'              => true,
@@ -872,8 +897,11 @@ class PackageStationController
                 'contact'               => (bool) ($extracted['contact'] ?? false),
                 'stored_price'          => $extracted['price'] ?? null,
                 'rate_sheet_id'         => $extracted['rate_sheet_id'] ?? null,
+                'rate_sheet_found'      => $rateSheetFound,
                 'rate_sheet_item_count' => is_array($extracted['rate_sheet_items'] ?? null) ? count($extracted['rate_sheet_items']) : 0,
                 'would_resolve_price'   => $projection['price'] ?? null,
+                'unresolved_reason_counts' => $reasonCounts,
+                'sample_unresolved_items'  => $sampleUnresolved,
             ];
         }
 
