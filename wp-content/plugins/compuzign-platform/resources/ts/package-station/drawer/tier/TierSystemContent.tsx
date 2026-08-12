@@ -16,7 +16,6 @@
 // modules are never placed here — those stay on TIER_ENTITY / TierDrawerContent.
 
 import { useEffect, useState } from 'preact/hooks';
-import { repairLegacyContactOverride, diagnoseLegacyContact } from '../../api';
 import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
@@ -51,34 +50,6 @@ export function TierSystemContent({
     tool, instance, initialFamilyId, rateSheets: rateSheets ?? [], refetchRateSheets, bridge,
   });
   const [openPanel, setOpenPanel] = useState<string | null>(null);
-
-  // TEMPORARY — one-time trigger for the historical legacy-contact
-  // reconciliation (see api.ts's repairLegacyContactOverride and
-  // PackageStationController::repairLegacyContactOverride). Delete this
-  // state and the button block below, alongside those two, once
-  // ti_primary has been repaired on the live station.
-  const [repairState, setRepairState] = useState<
-    | { status: 'idle' }
-    | { status: 'running' }
-    | { status: 'done'; cleared: number; kept: number }
-    | { status: 'error'; message: string }
-  >({ status: 'idle' });
-  const runLegacyContactRepair = () => {
-    setRepairState({ status: 'running' });
-    repairLegacyContactOverride()
-      .then((result) => setRepairState({ status: 'done', cleared: result.cleared, kept: result.kept }))
-      .catch((error: unknown) => setRepairState({
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Repair failed.',
-      }));
-  };
-  const [diagnosis, setDiagnosis] = useState<string | null>(null);
-  const runLegacyContactDiagnosis = () => {
-    setDiagnosis('Running…');
-    diagnoseLegacyContact()
-      .then((result) => setDiagnosis(JSON.stringify(result, null, 2)))
-      .catch((error: unknown) => setDiagnosis(error instanceof Error ? error.message : 'Diagnosis failed.'));
-  };
 
   useEffect(() => {
     bridge.setFooter(
@@ -213,37 +184,6 @@ export function TierSystemContent({
       >
         {c.saveOk && !c.editingModule && <div class="cz-admin-ok-msg">Changes saved.</div>}
         {c.error && !c.editingModule && <div class="cz-admin-error-msg" role="alert">{c.error}</div>}
-
-        {/* TEMPORARY — see repairState above. Delete this block with it. */}
-        {c.isPersisted && c.instance?.tier_instance_id === 'ti_primary' && (
-          <div class="cz-admin-ok-msg" style={{ marginTop: '12px' }}>
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--secondary"
-              disabled={repairState.status === 'running'}
-              onClick={runLegacyContactRepair}
-            >
-              {repairState.status === 'running' ? 'Repairing…' : 'Repair legacy contact override'}
-            </button>
-            {repairState.status === 'done' && (
-              <div>Cleared {repairState.cleared}, kept {repairState.kept}.</div>
-            )}
-            {repairState.status === 'error' && (
-              <div class="cz-admin-error-msg" role="alert">{repairState.message}</div>
-            )}
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--secondary"
-              style={{ marginLeft: '8px' }}
-              onClick={runLegacyContactDiagnosis}
-            >
-              Diagnose ti_primary
-            </button>
-            {diagnosis && (
-              <pre style={{ whiteSpace: 'pre-wrap', fontSize: '11px', marginTop: '8px' }}>{diagnosis}</pre>
-            )}
-          </div>
-        )}
       </EntityDrawer>
 
       {c.deleteDialogOpen && (

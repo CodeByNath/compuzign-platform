@@ -59,25 +59,6 @@ export function deleteTierInstance(instanceId: string): Promise<TierInstanceDele
   );
 }
 
-// TEMPORARY — one-time trigger for the historical legacy-contact
-// reconciliation. Delete alongside PackageStationController::
-// repairLegacyContactOverride() and its route, and the button that calls
-// this, once ti_primary has been repaired on the live station.
-export function repairLegacyContactOverride(): Promise<{
-  success: boolean;
-  cleared: number;
-  kept: number;
-  occupants: Array<{ tier: string; label: string; decision: string; reason?: string; price?: number | null }>;
-}> {
-  return apiClient.post('admin/package-station/tier-instances/ti_primary/repair-legacy-contact');
-}
-
-// TEMPORARY — read-only companion to repairLegacyContactOverride(). See
-// PackageStationController::diagnoseLegacyContact(). Delete alongside it.
-export function diagnoseLegacyContact(): Promise<Record<string, unknown>> {
-  return apiClient.get('admin/package-station/tier-instances/ti_primary/diagnose-legacy-contact');
-}
-
 export function fetchTierAssignments(): Promise<TierAssignmentsResponse> {
   return apiClient.get<TierAssignmentsResponse>('admin/package-station/tier-assignments');
 }
