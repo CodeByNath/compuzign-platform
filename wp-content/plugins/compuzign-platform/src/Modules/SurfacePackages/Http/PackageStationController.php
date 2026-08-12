@@ -172,6 +172,17 @@ class PackageStationController
             'args'                => ['instance' => ['required' => true, 'type' => 'string']],
         ]);
 
+        // TEMPORARY — one-time trigger for the historical legacy-contact
+        // reconciliation. Delete this route, repairLegacyContactOverride(),
+        // and the matching frontend button once ti_primary has been repaired
+        // on the live station. See tools/repair-legacy-contact-override.php
+        // and this module's CLAUDE.md "Maintenance" section.
+        register_rest_route('compuzign/v1', '/admin/package-station/tier-instances/ti_primary/repair-legacy-contact', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'repairLegacyContactOverride'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
         $instanceBase = '/admin/services/(?P<id>\d+)/package-station/tier-instances/(?P<instance>[a-z0-9_]+)';
         $instanceArgs = [
             'id'       => ['required' => true, 'type' => 'integer'],
@@ -667,6 +678,97 @@ class PackageStationController
             }
         }
         return rest_ensure_response(['success' => true, 'deleted' => $instanceId]);
+    }
+
+    /**
+     * TEMPORARY — HTTP trigger for tools/repair-legacy-contact-override.php's
+     * pure decision/clear helpers, scoped to ti_primary only. Reuses the SAME
+     * tested logic as the CLI tool rather than re-deriving it; persists
+     * through the SAME PackageRepository::saveStation() every other Tier
+     * mutation uses. Delete this method, its route above, and the matching
+     * frontend button once the live station's ti_primary occupants are
+     * repaired — this is a one-off data backfill, not runtime behaviour.
+     */
+    public function repairLegacyContactOverride(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $station = $this->packages()->loadStation();
+        if (!is_array($station) || $station === []) {
+            return rest_ensure_response(['success' => false, 'message' => 'Package Station not found.']);
+        }
+
+        if (!function_exists('cz_legacy_contact_decision')) {
+            if (!defined('CZ_LEGACY_CONTACT_DEFINE_ONLY')) {
+                define('CZ_LEGACY_CONTACT_DEFINE_ONLY', true);
+            }
+            require dirname(__DIR__, 4) . '/tools/repair-legacy-contact-override.php';
+        }
+
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+        [$inclusionPool, $faqPool] = $this->packages()->sourcePools($station);
+        $readModel = PackageManagerSchema::buildReadModel(
+            (int) ($station['legacy_host_service_id'] ?? 0),
+            $manager,
+            $inclusionPool,
+            $faqPool,
+            'active'
+        );
+
+        $instanceIndex = null;
+        foreach ($station['tier_instances'] ?? [] as $index => $instance) {
+            if (is_array($instance) && ($instance['tier_instance_id'] ?? null) === TierInstanceSchema::PRIMARY_INSTANCE_ID) {
+                $instanceIndex = $index;
+                break;
+            }
+        }
+        if ($instanceIndex === null) {
+            return rest_ensure_response(['success' => true, 'cleared' => 0, 'kept' => 0, 'occupants' => []]);
+        }
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $cleared = 0;
+        $kept = 0;
+        $occupants = [];
+        $touched = false;
+
+        foreach ($PS::ALLOWED_TIERS as $tierId) {
+            $slot = $station['tier_instances'][$instanceIndex]['tiers'][$tierId] ?? [];
+            if (!is_array($slot)) {
+                continue;
+            }
+
+            $verdict = \cz_legacy_contact_decision($slot, $readModel, true);
+            if ($verdict['decision'] === 'skip') {
+                continue;
+            }
+
+            $occupant = $PS::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? null) : null;
+            $label = is_array($occupant) ? (string) ($occupant['label'] ?? '') : '';
+
+            if ($verdict['decision'] === 'keep') {
+                $kept++;
+                $occupants[] = ['tier' => $tierId, 'label' => $label, 'decision' => 'kept', 'reason' => $verdict['reason']];
+                continue;
+            }
+
+            [$repaired] = \cz_legacy_contact_clear($slot);
+            $station['tier_instances'][$instanceIndex]['tiers'][$tierId] = $repaired;
+            $cleared++;
+            $touched = true;
+            $occupants[] = ['tier' => $tierId, 'label' => $label, 'decision' => 'cleared', 'price' => $verdict['price']];
+        }
+
+        if ($touched) {
+            $this->packages()->saveStation($station);
+        }
+
+        return rest_ensure_response([
+            'success'   => true,
+            'cleared'   => $cleared,
+            'kept'      => $kept,
+            'occupants' => $occupants,
+        ]);
     }
 
     private function rejectPlatformIdMutation(\WP_REST_Request $request): ?\WP_REST_Response
