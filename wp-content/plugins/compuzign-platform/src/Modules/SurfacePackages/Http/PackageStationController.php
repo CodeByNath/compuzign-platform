@@ -863,10 +863,17 @@ class PackageStationController
                 false
             );
 
-            $rateSheetFound = PackageManagerSchema::findRateSheet(
+            $rateSheet = PackageManagerSchema::findRateSheet(
                 is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
                 $extracted['rate_sheet_id'] ?? null
-            ) !== null;
+            );
+            $rateSheetFound = $rateSheet !== null;
+            $sourceItemIdByRateItemId = [];
+            foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $rateSheetRow) {
+                if (is_array($rateSheetRow) && isset($rateSheetRow['item_id'])) {
+                    $sourceItemIdByRateItemId[$rateSheetRow['item_id']] = $rateSheetRow['source_item_id'] ?? null;
+                }
+            }
 
             $reasonCounts = [];
             $sampleUnresolved = [];
@@ -879,11 +886,12 @@ class PackageStationController
                 }
                 if (count($sampleUnresolved) < 3) {
                     $sampleUnresolved[] = [
-                        'item_id'        => $row['item_id'] ?? null,
-                        'label'          => $row['label'] ?? null,
-                        'resolved'       => $row['resolved'] ?? null,
-                        'available'      => $row['available'] ?? null,
-                        'health_reasons' => $row['health_reasons'] ?? [],
+                        'item_id'         => $row['item_id'] ?? null,
+                        'source_item_id'  => $sourceItemIdByRateItemId[$row['item_id']] ?? null,
+                        'label'           => $row['label'] ?? null,
+                        'resolved'        => $row['resolved'] ?? null,
+                        'available'       => $row['available'] ?? null,
+                        'health_reasons'  => $row['health_reasons'] ?? [],
                     ];
                 }
             }
