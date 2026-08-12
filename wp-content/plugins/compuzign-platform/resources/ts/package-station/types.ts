@@ -219,6 +219,28 @@ export interface TierInstancesResponse {
   tier_instances: TierInstanceRecord[];
 }
 
+/**
+ * A Tier Group's OWN derived composition, resolved live by the Tier Group when
+ * it is read by Platform ID. Output-only and never persisted: no counter is
+ * stored on the instance, so these can never go stale against the occupants,
+ * Rate Sheet rows, Services, or Categories they are derived from.
+ *
+ * `inclusions` is the count of DISTINCT Rate Sheet rows the group's occupants
+ * select — a row two Tiers both select is one row of the group's composition.
+ * `services`/`service_categories` are distinct CZS/CZC carried by those rows.
+ */
+export interface TierGroupComposition {
+  tiers:              number;
+  service_categories: number;
+  services:           number;
+  inclusions:         number;
+}
+
+export interface TierGroupReadResponse {
+  success:       boolean;
+  tier_instance: TierInstanceRecord & { composition?: TierGroupComposition };
+}
+
 export interface TierInstanceMutationResponse {
   success:       boolean;
   tier_instance: TierInstanceRecord;

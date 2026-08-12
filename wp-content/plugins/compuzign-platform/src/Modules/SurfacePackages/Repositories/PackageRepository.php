@@ -324,7 +324,134 @@ class PackageRepository
         $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-group', 1);
         if ($parts === null) return null;
         $station = $this->loadStation();
-        return TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+        if ($instance === null) return null;
+        // Derived, output-only, never stored: this Tier Group answering for its
+        // own downstream structure so upstream consumers do not reproduce it.
+        $instance['composition'] = $this->tierGroupComposition($station, $instance);
+        return $instance;
+    }
+
+    /**
+     * What this Tier Group composes, resolved live through its OWN structure:
+     *
+     *   Tier Group → Tiers → occupants → selected inclusions → Rate Sheet rows
+     *   → the Service Category → Service provenance those rows already carry.
+     *
+     * Computed on read and never persisted — a stored counter would go stale on
+     * every occupant, Rate Sheet, Service, or Edition write, and the platform
+     * derives every comparable figure (`dependents()`, `activeTierSlotSummary()`,
+     * the occupant's own Editions count) the same way.
+     *
+     * Scope is structural: the walk starts at this instance's own `tiers` map,
+     * so no other Tier Group's occupants — and therefore no other Package
+     * Family's composition — can be reached from here. The Tier Group gains no
+     * ownership of a Service, Category, or Rate Sheet by counting what its own
+     * occupants already reference.
+     *
+     * @return array{tiers:int, service_categories:int, services:int, inclusions:int}
+     */
+    private function tierGroupComposition(array $station, array $instance): array
+    {
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+        [$inclusionPool, $faqPool] = $this->sourcePools($station);
+        $readModel = PackageManagerSchema::buildReadModel(
+            (int) ($station['legacy_host_service_id'] ?? 0),
+            $manager,
+            $inclusionPool,
+            $faqPool,
+            (string) ($station['platform_status'] ?? 'disabled')
+        );
+
+        // Manager items by their own id, and Rate Sheet rows by the canonical
+        // `(rate_sheet_id, item_id)` row identity.
+        $sourceByItemId = [];
+        foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
+            if (is_array($item)) {
+                $sourceByItemId[(string) ($item['item_id'] ?? '')] = $item;
+            }
+        }
+        $rowsBySheet = [];
+        foreach (is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [] as $sheet) {
+            if (!is_array($sheet)) {
+                continue;
+            }
+            $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
+            foreach (is_array($sheet['items'] ?? null) ? $sheet['items'] : [] as $row) {
+                if (is_array($row)) {
+                    $rowsBySheet[$sheetId][(string) ($row['item_id'] ?? '')] = $row;
+                }
+            }
+        }
+
+        $tiers = 0;
+        $seenRows = [];
+        $services = [];
+        $categories = [];
+
+        foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
+            $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
+            $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : [];
+            if ($occupant === []) {
+                continue; // an empty shell is neither a Tier nor an Add-on
+            }
+            // Registration is the fact counted here, exactly as
+            // `summarizeTierInstance`/`projectTierGroupConnectionRows` count it:
+            // an occupant's own lifecycle status does not unregister its Tier.
+            $tiers++;
+
+            // The occupant's settled declaration. Its own pending drafts are a
+            // Tier-level editing concern and are deliberately not composed here.
+            $sheetId = (string) ($occupant['rate_sheet_id'] ?? '');
+            foreach (is_array($occupant['rate_sheet_items'] ?? null) ? $occupant['rate_sheet_items'] : [] as $selection) {
+                if (!is_array($selection)) {
+                    continue;
+                }
+                $itemId = (string) ($selection['item_id'] ?? '');
+                if ($itemId === '') {
+                    continue;
+                }
+                $row = $rowsBySheet[$sheetId][$itemId] ?? null;
+                $source = is_array($row) ? ($sourceByItemId[(string) ($row['source_item_id'] ?? '')] ?? null) : null;
+                // Only an inclusion-sourced, resolving row is an Inclusion — an
+                // unresolved selection references no live row, and a FAQ row is
+                // not an inclusion. Same rule the Tier's own deck applies, and
+                // it is applied BEFORE the row is recorded so a skipped row can
+                // never occupy the identity of a real one.
+                if (!is_array($source) || ($source['source_type'] ?? null) !== 'inclusion') {
+                    continue;
+                }
+
+                // DEDUPE: row identity is the (rate_sheet_id, item_id) pair, so
+                // the same row selected by several Tiers is ONE row of this
+                // group's composition. Each Tier's own count is untouched.
+                $rowKey = $sheetId . "\0" . $itemId;
+                if (isset($seenRows[$rowKey])) {
+                    continue;
+                }
+                $seenRows[$rowKey] = true;
+
+                $servicePlatformId = (string) ($source['source_service_platform_id'] ?? '');
+                if ($servicePlatformId !== '') {
+                    $services[$servicePlatformId] = true;
+                }
+                foreach (is_array($source['source_category_platform_ids'] ?? null) ? $source['source_category_platform_ids'] : [] as $categoryPlatformId) {
+                    $categoryPlatformId = (string) $categoryPlatformId;
+                    if ($categoryPlatformId !== '') {
+                        $categories[$categoryPlatformId] = true;
+                    }
+                }
+            }
+        }
+
+        return [
+            'tiers'              => $tiers,
+            'service_categories' => count($categories),
+            'services'           => count($services),
+            'inclusions'         => count($seenRows),
+        ];
     }
 
     public function tierOccupantPlatformId(string $nativeReference, bool $addon = false): string

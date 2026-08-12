@@ -1,23 +1,23 @@
 // Tier Workspace Engine — the authoritative Family group summary.
 //
 // The selected Package Family's name, description, resolved status, and the four
-// counts of its collated relationship in the right side of the workspace. It is a
-// read-only Family panel, never an editor or Tier-instance owner.
+// counts its assigned Tier Group reported for itself, in the right side of the
+// workspace. It is a read-only Family panel, never an editor or Tier-instance owner.
 //
-// It takes a Family SCOPE plus the composition of that Family's OWN Tiers, and
-// derives its whole shape from the pure buildFamilySummary model, so the "which
-// fields" decision stays in one tested place and no fabricated figure (estimated
-// margin, demand score, "last updated") can enter it. Read-only by design: Family
+// It takes a Family SCOPE plus the composition the Tier Group returned from its
+// own canonical CZTG read, and derives its whole shape from the pure
+// buildFamilySummary model, so the "which fields" decision stays in one tested
+// place and no fabricated figure (estimated margin, demand score, "last updated")
+// can enter it. It computes no count of its own. Read-only by design: Family
 // editing stays with the Package Families surface and the mature Family drawer,
 // so this band introduces no second-drawer routing.
 
 import type { ComponentType, VNode } from 'preact';
+import type { TierGroupComposition } from '../../types';
 import type { WorkspaceFamilyScope } from '../../surface/packageTierWorkspace/projection';
 import {
   buildFamilySummary,
-  EMPTY_FAMILY_TIER_COMPOSITION,
   type FamilySummaryMetric,
-  type FamilyTierComposition,
 } from '../../surface/packageTierWorkspace/familySummary';
 import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
 import { StationMetricBlock } from '@/admin-station/presentation/StationMetricBlock';
@@ -34,10 +34,10 @@ const METRIC_ICONS: Record<FamilySummaryMetric['id'], ComponentType<{ class?: st
 
 export function PackageFamilySummary({
   family,
-  composition = EMPTY_FAMILY_TIER_COMPOSITION,
+  composition = null,
 }: {
   family: WorkspaceFamilyScope;
-  composition?: FamilyTierComposition;
+  composition?: TierGroupComposition | null;
 }): VNode {
   const summary = buildFamilySummary(family, composition);
 
@@ -52,7 +52,12 @@ export function PackageFamilySummary({
         </div>
         <StationStatusPill status={summary.status} />
       </header>
-      <div class="cz-tier-workspace__family-metrics">
+      <div
+        class="cz-tier-workspace__family-metrics"
+        // Announced so an uncomposed card reads as "not available yet" rather
+        // than as four silent em dashes.
+        aria-busy={!summary.composed}
+      >
         {summary.metrics.map((metric) => (
           <StationMetricBlock key={metric.id} metric={{ ...metric, icon: METRIC_ICONS[metric.id] }} />
         ))}

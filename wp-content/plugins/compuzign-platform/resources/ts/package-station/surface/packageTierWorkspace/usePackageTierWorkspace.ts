@@ -4,10 +4,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { CategoryGroupCardItem } from '@/admin-station/presentation/category-groups/types';
-import { fetchPackageStationManager } from '../../api';
+import { fetchPackageStationManager, fetchTierGroupByPlatformId } from '../../api';
 import type {
   PackageManagerReadModel,
   PackageRateSheet,
+  TierGroupComposition,
   TierInstanceSummary,
 } from '../../types';
 import { usePackageStation } from '../../usePackageStation';
@@ -25,15 +26,10 @@ import {
   type WorkspaceTierSlot,
 } from './projection';
 import {
-  buildRateItemProvenanceMap,
+  buildRateItemCategoryMap,
   projectTierDeck,
   type TierDeck,
 } from './deck';
-import {
-  collateFamilyTierComposition,
-  EMPTY_FAMILY_TIER_COMPOSITION,
-  type FamilyTierComposition,
-} from './familySummary';
 import {
   projectConnectionNavigation,
   type ConnectionNavigationCategory,
@@ -47,10 +43,12 @@ export interface PackageTierWorkspaceTool {
   assignedInstance: TierInstanceSummary | null;
   workspaceInstance: TierInstanceSummary | null;
   occupants: CategoryGroupCardItem[];
-  // What the selected Family's OWN Tiers compose — the only source the Family
-  // summary card's counts may come from. Empty for a Family with no resolved
-  // Tier system, and for direct-instance scope (which selects no Family).
-  familyComposition: FamilyTierComposition;
+  // The composition the selected Family's assigned Tier Group reported for
+  // ITSELF, read by that group's own CZTG. The workspace never derives it.
+  // Null whenever there is no usable answer — no Family, no assignment, no
+  // CZTG on the assigned group, or an unresolved/failed read — and the card
+  // fails closed rather than showing a fabricated zero.
+  familyComposition: TierGroupComposition | null;
   slots: WorkspaceTierSlot[];
   decks: Record<string, TierDeck>;
   connectionNavigation: Record<string, ConnectionNavigationCategory[]>;
@@ -77,6 +75,8 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [managerRevision, setManagerRevision] = useState(0);
+  const [familyComposition, setFamilyComposition] = useState<TierGroupComposition | null>(null);
+  const [compositionRevision, setCompositionRevision] = useState(0);
 
   const summaries = useMemo(
     () => tierInstances.instances.map(summarizeTierInstance),
@@ -135,6 +135,37 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       .finally(() => { if (active) setSettingsLoading(false); });
     return () => { active = false; };
   }, [host.service?.id, managerRevision]);
+
+  // The Family summary's four counts, read from the assigned Tier Group BY ITS
+  // OWN CZTG. The Family knows only which group it is assigned; the group
+  // answers for its own composition, so this surface never walks occupants,
+  // Rate Sheet rows, Services or Categories to build that summary.
+  //
+  // Fails closed, deliberately and without a native-id fallback: a group with
+  // no CZTG is not addressable through this boundary, and reaching for its
+  // native id instead would re-introduce the coupling this read exists to
+  // remove. The card shows an explicit unavailable state in that case.
+  const assignedTierGroupPlatformId = selectedFamily !== null
+    ? assignedInstance?.platform_id ?? ''
+    : '';
+  useEffect(() => {
+    if (assignedTierGroupPlatformId === '') {
+      setFamilyComposition(null);
+      return;
+    }
+    let active = true;
+    setFamilyComposition(null);
+    fetchTierGroupByPlatformId(assignedTierGroupPlatformId)
+      .then((response) => {
+        if (!active) return;
+        setFamilyComposition(
+          response.success ? response.tier_instance?.composition ?? null : null,
+        );
+      })
+      .catch(() => { if (active) setFamilyComposition(null); });
+    return () => { active = false; };
+    // `compositionRevision` re-reads after a mutation the workspace refetches.
+  }, [assignedTierGroupPlatformId, compositionRevision]);
 
   // Pool creation is not this surface's work. Families, Rate Sheets and the
   // groups a sheet stores are authored in the drawers that already own those
@@ -213,7 +244,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
   const model = useMemo<PackageTierWorkspaceTool>(() => {
     const rateSheets = manager?.rate_sheets ?? pkg.service?.rate_sheets ?? [];
     const relationships = manager?.items ?? pkg.service?.package_relationships ?? [];
-    const provenanceByRateItem = buildRateItemProvenanceMap(
+    const categoryByRateItem = buildRateItemCategoryMap(
       rateSheets.flatMap((sheet) => sheet.items),
       relationships,
     );
@@ -225,7 +256,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         const view = pkg.tierView(slotId);
         const deck = projectTierDeck(
           view?.detail.rate_sheet_selections ?? [],
-          provenanceByRateItem,
+          categoryByRateItem,
           rateSheets.find((sheet) => sheet.rate_sheet_id === view?.detail.rate_sheet_id) ?? null,
           view?.detail.rate_sheet_id ?? null,
         );
@@ -239,9 +270,6 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         return {
           occupantId,
           slotId,
-          // Carried with its own occupant so the Family card's Tier count and
-          // its inclusion rows can only ever describe the same occupants.
-          deck,
           isAddon: view?.detail.is_addon ?? false,
           isPopular: pkg.popularTier === slotId,
           item: toTierOccupantCard({
@@ -254,21 +282,6 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       }),
     );
     const occupants = resolvedOccupants.map((occupant) => occupant.item);
-    // The Family card collates ONLY what this Family's own Tiers reach.
-    // `resolvedOccupants` is already the resolved instance's occupants (empty
-    // when the Family resolves no assignment); requiring the assignment as well
-    // keeps a directly-operated, unassigned instance — which the workspace can
-    // legitimately be scoped to — out of any Family's numbers.
-    // Tiers comes from the DIRECT relation — the assigned Tier system's own
-    // registered-Tier count — while the occupant decks are only the bridge to
-    // the inclusion rows. Reading the occupant list's length for both would let
-    // the downstream traversal redefine what a Tier is.
-    const familyComposition = selectedFamily !== null && assignedInstance !== null
-      ? collateFamilyTierComposition(
-        assignedInstance.occupant_count,
-        resolvedOccupants.map((occupant) => occupant.deck),
-      )
-      : EMPTY_FAMILY_TIER_COMPOSITION;
     return {
       kind: 'tier-instance-tool',
       tierInstances: workspaceTierInstances,
@@ -294,6 +307,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     };
   }, [
     assignedInstance,
+    familyComposition,
     families,
     pkg.service,
     pkg.tierOccupants,
@@ -320,6 +334,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
     error: tierInstances.error ?? host.error,
     refetch: () => {
       tierInstances.refetch();
+      setCompositionRevision((value) => value + 1);
       pkg.refetch();
       setManagerRevision((value) => value + 1);
     },

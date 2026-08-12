@@ -57,7 +57,6 @@
     "regression:category-create": "node scripts/category-create-regression.mjs",
     "regression:package-family-create-handoff": "node scripts/package-family-create-handoff-regression.mjs",
     "regression:package-family-disable-enable": "node scripts/package-family-disable-enable-regression.mjs",
-    "regression:package-family-card-scope": "tsx scripts/package-family-card-scope-regression.ts",
     "docs:check": "node scripts/docs-check.mjs",
     "dev": "vite"
   },

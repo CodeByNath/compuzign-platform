@@ -53,16 +53,15 @@ occupant conformance. Its registration and Publish/Apply contract remains in
 
 `useTierInstances.ts`/`tierInstanceModel.ts` own instance and assignment
 operations. `usePackageTierWorkspace.ts` resolves the selected Family's exact
-assignment; `PackageTierWorkspace.tsx` owns transient focus. `TierLowerDeck.tsx`
-presents Details/Connections/Settings. `TierDrawerHost.tsx` decodes occupant,
+assignment; `PackageTierWorkspace.tsx` owns transient focus; `TierLowerDeck.tsx` presents
+Details/Connections/Settings. `TierDrawerHost.tsx` decodes occupant,
 empty-slot, and registration addresses without fabricating identity. Tier
 System registration remains documented in [Tier System Registration](tier-registration.md).
 
-Family and Tier instance remain assignment-linked peers. `familySummary.ts`'s
-Family card composes that edge — Tiers, Service Categories, Services,
-Inclusions — from its resolved instance's occupants, identified by their
-rows' `CZS`/`CZC`, never `dependents`
-(`npm run regression:package-family-card-scope`).
+Family and Tier instance remain assignment-linked peers. The Family card reads
+its four counts from the assigned Tier Group's `CZTG` read, derived
+from that group's own occupants and never persisted
+(`PackageRepository::tierGroupProjection`; `php tests/tier-group-composition.php`).
 
 Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`; `PackageRepository::projectTierInstanceForCostBuilder()` resolves price/inclusions live through it but strips both keys before responding, so neither reaches the browser.
 

@@ -21,6 +21,7 @@ import type {
   TierAssignmentMutationResponse,
   TierAssignmentsResponse,
   TierInstancesResponse,
+  TierGroupReadResponse,
   TierInstanceMutationResponse,
   TierInstanceDeleteResponse,
   TierEditionOverviewDraft,
@@ -30,6 +31,17 @@ import type {
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
   return apiClient.get<TierInstancesResponse>('admin/package-station/tier-instances');
+}
+
+/**
+ * The canonical Tier Group read, addressed by its durable CZTG. The response
+ * carries the Tier Group's own derived `composition`; a consumer reads that
+ * expression rather than reproducing the group's internals. There is
+ * deliberately no native-id form of this call — the Platform ID IS the
+ * boundary, and a Tier Group without one is not addressable here.
+ */
+export function fetchTierGroupByPlatformId(platformId: string): Promise<TierGroupReadResponse> {
+  return apiClient.get<TierGroupReadResponse>(`admin/tier-groups/${platformId}`);
 }
 
 export function createTierInstance(payload: {
@@ -50,9 +62,10 @@ export function updateTierInstance(
   );
 }
 
-// Guarded permanent delete: blocked by an existing Family assignment, an
-// occupied Tier slot, an occupant-bin entry, or an outstanding Tier draft
-// (each a distinct 409 code — see PackageStationController::deleteTierInstance).
+// Destructive cascade delete, scoped to this Tier Group's own instance id: it
+// takes every record the group owns with it — its Package Family assignment,
+// every Default Tier occupant, and every occupant-bin entry — rather than
+// refusing while any of them exist (PackageStationController::deleteTierInstance).
 export function deleteTierInstance(instanceId: string): Promise<TierInstanceDeleteResponse> {
   return apiClient.delete<TierInstanceDeleteResponse>(
     `admin/package-station/tier-instances/${instanceId}`,
