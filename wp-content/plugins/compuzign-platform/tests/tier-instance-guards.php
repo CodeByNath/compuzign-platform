@@ -66,7 +66,6 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use CompuZign\Platform\Modules\SurfacePackages\Http\PackageStationController;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
-use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 
 function check_tier_guard(bool $condition, string $message): void
@@ -157,32 +156,8 @@ $archive = (new PackageStationController(new PackageRepository()))->savePackageS
 check_tier_guard(($archive->get_data()['code'] ?? null) === 'rate_sheet_in_use_archive', 'archive guard uses the dedicated code');
 check_tier_guard(($archive->get_data()['tier_instance_ids'] ?? null) === ['ti_bound'], 'archive guard names the bound instance');
 
-// Instance deletion refuses each protected state with its exact code.
-$cases = [];
-$assigned = guard_instance('ti_delete');
-$cases['instance_in_use'] = guard_station($assigned, [[
-    'assignment_id' => TierAssignmentSchema::deriveAssignmentId('package_family', 'pcg_guard', 'ti_delete'),
-    'consumer_type' => 'package_family', 'consumer_id' => 'pcg_guard', 'tier_instance_id' => 'ti_delete',
-]]);
-$occupied = guard_instance('ti_delete');
-$occupied['tiers']['basic'] = ['current_occupant' => ['id' => 'occ_guard', 'platform_status' => 'disabled']];
-$cases['instance_has_occupants'] = guard_station($occupied);
-$binned = guard_instance('ti_delete');
-$binned['occupant_bin'] = $bin['occupant_bin'];
-$cases['instance_has_bin_entries'] = guard_station($binned);
-$drafted = guard_instance('ti_delete');
-$drafted['tiers']['basic'] = ['current_occupant' => null, 'drafts' => ['overview' => ['label' => 'Draft']]];
-$cases['instance_has_drafts'] = guard_station($drafted);
-
-foreach ($cases as $expectedCode => $station) {
-    $tierGuardOption = $station;
-    $response = (new PackageStationController(new PackageRepository()))->deleteTierInstance(
-        new WP_REST_Request(['instance' => 'ti_delete'])
-    );
-    check_tier_guard($response->get_status() === 409, "{$expectedCode} returns 409");
-    check_tier_guard(($response->get_data()['code'] ?? null) === $expectedCode, "{$expectedCode} is exact");
-}
-
+// Tier Group delete is now a destructive cascade rather than a refusal —
+// see tests/tier-instance-delete-cascade.php for that behaviour.
 $tierGuardOption = guard_station(guard_instance('ti_delete'));
 $deleted = (new PackageStationController(new PackageRepository()))->deleteTierInstance(
     new WP_REST_Request(['instance' => 'ti_delete'])

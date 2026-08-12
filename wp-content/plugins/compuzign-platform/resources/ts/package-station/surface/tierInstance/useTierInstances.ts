@@ -49,7 +49,7 @@ export interface TierInstancesToolState {
   ) => Promise<TierInstanceRecord | null>;
   assignInstance: (instanceId: string, familyId: string) => Promise<boolean>;
   unassignInstance: (instanceId: string) => Promise<boolean>;
-  /** Guarded permanent delete. Null succeeds; a string is the endpoint error for the owning dialog. */
+  /** Destructive cascade delete — also removes the Tier Group's owned occupants, occupant-bin entries, and Family assignment. Null succeeds; a string is the endpoint error for the owning dialog. */
   deleteInstance: (instanceId: string) => Promise<string | null>;
   refetch: () => void;
 }

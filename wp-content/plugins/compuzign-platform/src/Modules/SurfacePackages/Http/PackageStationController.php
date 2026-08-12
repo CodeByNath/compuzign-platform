@@ -620,6 +620,19 @@ class PackageStationController
         ]);
     }
 
+    /**
+     * Permanent destructive cleanup, scoped entirely to this Tier Group's own
+     * `tier_instance_id`. Deleting a Tier Group takes every record it owns
+     * with it — its Package Family assignment, every Default Tier occupant,
+     * and every occupant-bin entry — rather than refusing while any of them
+     * exist; nothing outside this instance is touched. `removeInstance()`
+     * discards the occupants and occupant_bin structurally (the same
+     * one-splice parent-cascade precedent `deleteBinnedOccupant()` already
+     * relies on for Edition bin entries); the assignment ledger lives in a
+     * separate top-level array, so every row referencing this instance is
+     * removed explicitly first — not just the first match, since storage
+     * carries no guarantee against a stale/legacy duplicate.
+     */
     public function deleteTierInstance(\WP_REST_Request $request): \WP_REST_Response
     {
         $instanceId = sanitize_text_field((string) $request->get_param('instance'));
@@ -628,30 +641,11 @@ class PackageStationController
         if ($instance === null) {
             return $this->unknownTierInstanceResponse();
         }
-        if (TierAssignmentSchema::findForInstance($station['tier_assignments'] ?? [], $instanceId) !== null) {
-            return $this->instanceDeleteGuardResponse('instance_in_use', 'Remove the Tier assignment first.');
-        }
-        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
-            if (!is_array($slot)) {
-                continue;
-            }
-            $hasOccupant = array_key_exists('current_occupant', $slot)
-                ? is_array($slot['current_occupant'] ?? null) && $slot['current_occupant'] !== []
-                : array_diff_key($slot, ['drafts' => true, 'module_status' => true]) !== [];
-            if ($hasOccupant) {
-                return $this->instanceDeleteGuardResponse('instance_has_occupants', 'Remove or archive every occupant first.');
-            }
-        }
-        if (is_array($instance['occupant_bin'] ?? null) && $instance['occupant_bin'] !== []) {
-            return $this->instanceDeleteGuardResponse('instance_has_bin_entries', 'Empty the occupant bin first.');
-        }
-        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
-            foreach (is_array($slot['drafts'] ?? null) ? $slot['drafts'] : [] as $draft) {
-                if ($draft !== null) {
-                    return $this->instanceDeleteGuardResponse('instance_has_drafts', 'Discard every Tier draft first.');
-                }
-            }
-        }
+
+        $station['tier_assignments'] = TierAssignmentSchema::removeAllForInstance(
+            is_array($station['tier_assignments'] ?? null) ? $station['tier_assignments'] : [],
+            $instanceId
+        );
 
         $station['tier_instances'] = TierInstanceSchema::removeInstance($station['tier_instances'], $instanceId);
         $station['platform_status'] = TierInstanceSchema::deriveStationStatusFromInstances($station['tier_instances']);

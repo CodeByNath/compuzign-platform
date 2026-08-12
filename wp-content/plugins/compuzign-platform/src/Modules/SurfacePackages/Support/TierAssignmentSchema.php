@@ -143,6 +143,27 @@ final class TierAssignmentSchema
         return array_values($out);
     }
 
+    /**
+     * Remove every row referencing this Tier instance, not just the first.
+     * `assign()` enforces at-most-one only at its own call site; storage
+     * itself carries no such constraint — nothing re-checks it on every
+     * write (`saveStation()`/`loadStation()` never re-run
+     * `sanitizeAssignments()`), so a stale, legacy, or malformed duplicate
+     * row for the same instance is possible. A Tier Group's own permanent
+     * delete must clear every row it owns, matching the same structural
+     * array_filter `TierInstanceSchema::removeInstance()` already uses.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function removeAllForInstance(array $rows, string $instanceId): array
+    {
+        return array_values(array_filter(
+            $rows,
+            static fn(mixed $row): bool => !is_array($row)
+                || ($row['tier_instance_id'] ?? null) !== $instanceId
+        ));
+    }
+
     /** @return array<string, true> */
     public static function consumerRegistryFor(string $type, array $manager): array
     {

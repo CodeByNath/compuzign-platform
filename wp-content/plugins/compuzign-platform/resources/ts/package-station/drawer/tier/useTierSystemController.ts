@@ -206,7 +206,7 @@ export function useTierSystemController({
     setEditingModule(null);
   }, [rateSheetOriginal]);
 
-  // ── Footer — Publish (pending) / Apply + guarded Delete (persisted) ───────
+  // ── Footer — Publish (pending) / Apply + destructive cascade Delete (persisted) ───────
 
   const canPublish = overview.title.trim().length > 0;
   const overviewDirty = instance !== null && (

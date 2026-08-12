@@ -8,7 +8,7 @@
 // one module cycle before and after Publish — never a bespoke form.
 //
 // Footer: readable state publishes the mature Tier System footer (Publish
-// while pending; Apply + guarded Delete once persisted); editing withdraws
+// while pending; Apply + destructive cascade Delete once persisted); editing withdraws
 // it, because InlineEditorShell owns Save/Cancel for whichever module is
 // open. One footer is present at a time.
 //
@@ -197,8 +197,9 @@ export function TierSystemContent({
             </div>
             <div class="cz-publish-confirm__body">
               <p class="cz-publish-confirm__lead">
-                This cannot be undone. A Package Family assignment, an occupied Tier slot, an
-                occupant-bin entry, or an outstanding Tier draft each block deletion while present.
+                This cannot be undone. Deleting this Tier Group will also permanently remove every
+                Default Tier occupant and occupant-bin record it owns, and disconnect its Package
+                Family assignment if it has one.
               </p>
               {c.deleteError && <p class="cz-admin-error-msg" role="alert">{c.deleteError}</p>}
             </div>

@@ -1,6 +1,6 @@
 // Tier System aggregate footer — Milestone 1 action set only.
 //
-// Pending: Close, Publish. Persisted: Close, Apply, guarded Delete. No
+// Pending: Close, Publish. Persisted: Close, Apply, destructive cascade Delete. No
 // Enable / Disable / Archive / Trash / Restore: the aggregate's `status` is
 // currently DERIVED from occupant state (TierInstanceSchema::withInstance
 // recomputes it on every write — see docs/code-map/tier-registration.md) and
