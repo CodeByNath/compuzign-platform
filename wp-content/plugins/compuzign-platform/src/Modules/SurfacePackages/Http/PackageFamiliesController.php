@@ -211,6 +211,7 @@ class PackageFamiliesController
         $readModelItems = $this->readModelItems($station, $manager);
 
         $groups = [];
+        $assignedTierGroupIds = [];
         foreach ($manager['category_groups'] as $group) {
             $dependents = PackageCategoryGroups::dependents($station, $readModelItems, (string) $group['group_id']);
             $projection = PackageCategoryGroups::projection($group, $dependents);
@@ -235,10 +236,37 @@ class PackageFamiliesController
                 continue;
             }
 
+            $assignedTierGroupIds[count($groups)] = $this->assignedTierGroupId($station, (string) $group['group_id']);
             $groups[] = $projection;
         }
 
+        // One batch for the whole wall — see tierGroupCompositions(). Resolved
+        // AFTER filtering so a hidden Family never costs a walk.
+        $compositions = $this->packages()->tierGroupCompositions(array_values($assignedTierGroupIds));
+        foreach ($groups as $index => $projection) {
+            $groups[$index]['composition'] = $compositions[$assignedTierGroupIds[$index] ?? ''] ?? null;
+        }
+
         return rest_ensure_response(['package_category_groups' => $groups]);
+    }
+
+    /**
+     * The Tier Group this Family is assigned to, or '' when it has none.
+     *
+     * The Family's ONLY downstream edge. It resolves which group answers for
+     * this Family and stops there — it never reaches through to the group's
+     * occupants, Rate Sheet rows, Services or Categories, which is precisely
+     * the traversal the Tier Group's own composition exists to keep here.
+     */
+    private function assignedTierGroupId(array $station, string $groupId): string
+    {
+        $assignment = TierAssignmentSchema::findForConsumer(
+            is_array($station['tier_assignments'] ?? null) ? $station['tier_assignments'] : [],
+            'package_family',
+            $groupId
+        );
+
+        return is_array($assignment) ? (string) ($assignment['tier_instance_id'] ?? '') : '';
     }
 
     public function createGroup(\WP_REST_Request $request): \WP_REST_Response
@@ -537,6 +565,8 @@ class PackageFamiliesController
             $gid
         );
         $activeTierSlots = PackageCategoryGroups::activeTierSlotSummary($station, $gid);
+        $assignedTierGroupId = $this->assignedTierGroupId($station, $gid);
+        $compositions = $this->packages()->tierGroupCompositions([$assignedTierGroupId]);
 
         return rest_ensure_response([
             'success' => true,
@@ -544,6 +574,9 @@ class PackageFamiliesController
                 ...PackageCategoryGroups::projection($group, $dependents),
                 'tier_assignment_count' => $tierAssignmentCount,
                 'active_tier_slots'     => $activeTierSlots,
+                // Same expression the list route carries, so a Family refetched
+                // after a save never disagrees with its own card on the wall.
+                'composition'           => $compositions[$assignedTierGroupId] ?? null,
             ],
         ]);
     }

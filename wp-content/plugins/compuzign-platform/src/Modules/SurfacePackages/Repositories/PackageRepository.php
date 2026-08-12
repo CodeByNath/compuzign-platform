@@ -353,6 +353,67 @@ class PackageRepository
      */
     private function tierGroupComposition(array $station, array $instance): array
     {
+        return $this->composeTierGroup($this->compositionIndex($station), $instance);
+    }
+
+    /**
+     * Composition for several Tier Groups in one pass, keyed by
+     * `tier_instance_id` — the batch form the Package Family list route needs
+     * so a wall of N Families costs ONE read-model build rather than N.
+     *
+     * Fails closed exactly as the canonical `CZTG` read does: a Tier Group with
+     * no Platform ID is OMITTED, never returned under its native id. A caller
+     * reading through here therefore can never obtain a composition it could
+     * not equally have addressed by `CZTG`, so batching is a performance
+     * detail and not a second, weaker way in.
+     *
+     * @param  array<int, string> $instanceIds
+     * @return array<string, array{tiers:int, service_categories:int, services:int, inclusions:int}>
+     */
+    public function tierGroupCompositions(array $instanceIds): array
+    {
+        $ids = [];
+        foreach ($instanceIds as $instanceId) {
+            $instanceId = (string) $instanceId;
+            if ($instanceId !== '') {
+                $ids[$instanceId] = true;
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+
+        $station = $this->loadStation();
+        if (!is_array($station)) {
+            return [];
+        }
+
+        // Built lazily and at most once: a station whose Tier Groups all lack a
+        // CZTG must not pay for a read model nothing will consume.
+        $index = null;
+        $compositions = [];
+        foreach (array_keys($ids) as $instanceId) {
+            $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
+            if ($instance === null || (string) ($instance['cz_platform_id'] ?? '') === '') {
+                continue;
+            }
+            $index ??= $this->compositionIndex($station);
+            $compositions[$instanceId] = $this->composeTierGroup($index, $instance);
+        }
+
+        return $compositions;
+    }
+
+    /**
+     * The station-wide lookup every composition walk resolves rows against:
+     * manager items by their own id, and Rate Sheet rows by the canonical
+     * `(rate_sheet_id, item_id)` row identity. Depends only on the station, so
+     * it is computed once and shared across Tier Groups.
+     *
+     * @return array{items: array<string, array<string, mixed>>, rows: array<string, array<string, array<string, mixed>>>}
+     */
+    private function compositionIndex(array $station): array
+    {
         $manager = is_array($station['package_manager'] ?? null)
             ? PackageManagerSchema::sanitize($station['package_manager'])
             : PackageManagerSchema::defaultManager();
@@ -365,8 +426,6 @@ class PackageRepository
             (string) ($station['platform_status'] ?? 'disabled')
         );
 
-        // Manager items by their own id, and Rate Sheet rows by the canonical
-        // `(rate_sheet_id, item_id)` row identity.
         $sourceByItemId = [];
         foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
             if (is_array($item)) {
@@ -385,6 +444,21 @@ class PackageRepository
                 }
             }
         }
+
+        return ['items' => $sourceByItemId, 'rows' => $rowsBySheet];
+    }
+
+    /**
+     * The walk itself, over ONE Tier Group's own slots. Pure with respect to
+     * the index: it reads, and never rebuilds, the shared lookup.
+     *
+     * @param  array{items: array<string, array<string, mixed>>, rows: array<string, array<string, array<string, mixed>>>} $index
+     * @return array{tiers:int, service_categories:int, services:int, inclusions:int}
+     */
+    private function composeTierGroup(array $index, array $instance): array
+    {
+        $sourceByItemId = $index['items'];
+        $rowsBySheet = $index['rows'];
 
         $tiers = 0;
         $seenRows = [];

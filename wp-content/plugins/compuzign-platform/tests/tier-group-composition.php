@@ -301,4 +301,69 @@ check_composition(
     'an unknown Tier Group resolves to null rather than an empty composition'
 );
 
+// ── The batch form the Package Family wall reads through ────────────────────
+//
+// One Family card wall asks for many Tier Groups at once. That must be a
+// performance detail only: identical answers, and the SAME closed identity
+// boundary as the canonical CZTG read — otherwise the batch becomes a second,
+// weaker way to reach a composition that could not be addressed by Platform ID.
+
+$restored = get_option('cz_package_station');
+$restored['tier_instances'][0]['tiers']['basic']['current_occupant']['rate_sheet_items'] = [
+    ['item_id' => 'row_compute', 'quantity' => 1],
+    ['item_id' => 'row_storage', 'quantity' => 1],
+];
+// A Tier Group with real occupants but NO Platform ID. It composes perfectly
+// well; it simply is not addressable, so the batch must refuse to answer for it.
+$restored['tier_instances'][] = [
+    'tier_instance_id' => 'ti_unidentified', 'cz_platform_id' => '',
+    'title' => 'Unidentified', 'status' => 'active', 'allowed_rate_sheet_ids' => [],
+    'popular_tier' => null, 'popular_label' => '',
+    'tiers' => [...TierInstanceSchema::emptyTierMap(),
+        'basic' => composition_occupant('occ_u_basic', 'rs_shared', ['row_desk'])],
+    'occupant_bin' => [],
+];
+update_option('cz_package_station', $restored);
+
+$batchRepository = new PackageRepository();
+$batch = $batchRepository->tierGroupCompositions([
+    'ti_kairos', 'ti_aptos', 'ti_empty', 'ti_unidentified', 'ti_missing', '',
+]);
+
+check_composition(
+    $batch['ti_kairos'] === $batchRepository->tierGroupProjection(
+        PackagePlatformNativeReference::tierGroup('ti_kairos')
+    )['composition'],
+    'the batch returns exactly what the canonical CZTG read returns for the same group'
+);
+check_composition(
+    $batch['ti_aptos']['inclusions'] === 2 && $batch['ti_aptos']['services'] === 1,
+    'each group in one batch still composes only its own structure'
+);
+check_composition(
+    $batch['ti_empty'] === ['tiers' => 0, 'service_categories' => 0, 'services' => 0, 'inclusions' => 0],
+    'an occupant-less group still reports genuine zeros through the batch'
+);
+check_composition(
+    !array_key_exists('ti_unidentified', $batch),
+    'a Tier Group with no CZTG is OMITTED, never answered for under its native id — the batch fails closed'
+);
+check_composition(
+    !array_key_exists('ti_missing', $batch) && !array_key_exists('', $batch),
+    'unknown and empty instance ids are omitted rather than composing zeros'
+);
+check_composition(
+    $batchRepository->tierGroupCompositions([]) === []
+        && $batchRepository->tierGroupCompositions(['ti_unidentified']) === [],
+    'a batch with nothing addressable returns nothing at all'
+);
+
+$stored = get_option('cz_package_station')['tier_instances'] ?? [];
+foreach ($stored as $storedInstance) {
+    check_composition(
+        !array_key_exists('composition', $storedInstance),
+        'the batch is output-only too — reading a wall of Families writes no counter back'
+    );
+}
+
 echo "Tier Group composition contract passed.\n";

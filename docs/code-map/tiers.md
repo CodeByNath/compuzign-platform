@@ -58,10 +58,11 @@ Details/Connections/Settings. `TierDrawerHost.tsx` decodes occupant,
 empty-slot, and registration addresses without fabricating identity. Tier
 System registration remains documented in [Tier System Registration](tier-registration.md).
 
-Family and Tier instance remain assignment-linked peers. The Family card reads
-its four counts from the assigned Tier Group's `CZTG` read, derived
-from that group's own occupants and never persisted
-(`PackageRepository::tierGroupProjection`; `php tests/tier-group-composition.php`).
+Family and Tier instance remain assignment-linked peers. Both Family surfaces
+read four counts derived from the assigned Tier Group's occupants,
+never persisted — `tierGroupProjection` for one, `tierGroupCompositions` for
+walls, omitting groups lacking `CZTG` (`php tests/tier-group-composition.php`;
+`npm run contract:package-family-card-metrics`).
 
 Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`; `PackageRepository::projectTierInstanceForCostBuilder()` resolves price/inclusions live through it but strips both keys before responding, so neither reaches the browser.
 

@@ -1,18 +1,15 @@
-import {
-  formatActiveTierSlots,
-  toPackageFamilyCard,
-} from '../resources/ts/package-station/surface/packageFamily/cardAdapter';
-import type { PackageFamilyItem } from '../resources/ts/package-station/types';
+import { toPackageFamilyCard } from '../resources/ts/package-station/surface/packageFamily/cardAdapter';
+import { buildFamilySummary } from '../resources/ts/package-station/surface/packageTierWorkspace/familySummary';
+import type { PackageFamilyItem, TierGroupComposition } from '../resources/ts/package-station/types';
 
-// Focused contract for the Package Family summary card's metric labels and
-// count semantics (Service Home wall). Guards four regressions specifically:
-// a relabelled metric silently keeping its old meaning, the Tiers metric
-// drifting back to `dependents.tier_selections` (a per-rate-sheet-selection
-// tally, not a slot count — see cardAdapter.ts's Truthfulness rules), the
-// three Tier occupancy states — no assignment, assigned with nothing active,
-// assigned with active occupants — collapsing into indistinguishable text,
-// and the retired "N of 5 active" phrasing silently creeping back in instead
-// of the bare occupied count.
+// Focused contract for the Package Family summary card's metrics (Service Home
+// wall). The card reports what the Family's assigned Tier Group composes, so
+// this guards four regressions specifically: the card drifting back onto the
+// `dependents` guard counts or `active_tier_slots` (both of which answer a
+// different question and would print a confident wrong number), an absent
+// composition being zero-filled instead of shown as unavailable, the four
+// metrics or their order changing on one screen only, and the wall disagreeing
+// with the Tier Workspace panel about the same Family.
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Package Family card metrics contract: ${message}`);
@@ -20,70 +17,85 @@ function check(condition: unknown, message: string): asserts condition {
 
 function family(overrides: Partial<PackageFamilyItem> = {}): PackageFamilyItem {
   return {
-    platform_id: '',
-    group_id: 'pcg_kairos', label: 'KAIROS', description: '', platform_status: 'active',
-    previous_platform_status: null, module_status: { overview: 'settled' }, has_draft: false,
+    platform_id: '', group_id: 'pcg_kairos', label: 'KAIROS', description: '',
+    platform_status: 'active', previous_platform_status: null,
+    module_status: { overview: 'settled' }, has_draft: false,
     sort_order: 0, assigned_service_count: 3,
-    // A deliberately large tier_selections proves the card never reads it:
-    // real Tier occupancy for this family is only ever 0-5 (five fixed slots).
+    // Deliberately large, deliberately unlike the composition below: every one
+    // of these is a number the card must NOT print.
     dependents: { services: 3, rate_sheet_rows: 7, tier_selections: 41 },
+    active_tier_slots: { occupied: 2, capacity: 5 },
     ...overrides,
   };
 }
 
-// ── formatActiveTierSlots — the three Tier occupancy states stay distinct ──
+const composition: TierGroupComposition = {
+  tiers: 5, service_categories: 6, services: 17, inclusions: 26,
+};
 
-// State 1: no Tier assignment at all. Reads "Not assigned" (the platform's
-// existing vocabulary — tierInstanceModel.ts's `consumerName: 'Unassigned'`,
-// PackageTierWorkspace's "No Tier system assigned") rather than "0 of 0
-// active", which would misread as zero Tier capacity rather than no instance.
-check(formatActiveTierSlots(undefined) === 'Not assigned', 'missing active_tier_slots reads as unassigned, never a guess');
-check(formatActiveTierSlots({ occupied: 0, capacity: 0 }) === 'Not assigned', 'zero capacity means no assignment, so it reads Not assigned, not zero of zero');
+// ── The four metrics, their identity, order, and values ────────────────────
 
-// State 2: assigned instance, nothing active yet. Must NOT collapse into
-// "Not assigned" — capacity is the real fixed 5-slot count, occupied is 0.
-// The metric renders the bare occupied count now, not the "N of 5 active"
-// phrase — capacity still decides Not-assigned-vs-assigned but is never shown.
-check(formatActiveTierSlots({ occupied: 0, capacity: 5 }) === 0, 'an assigned instance with no active occupants reads the number 0, staying visibly distinct from Not assigned');
-
-// State 3: assigned instance with active occupants.
-check(formatActiveTierSlots({ occupied: 2, capacity: 5 }) === 2, 'an assigned instance reports its raw occupied count, not "N of 5 active"');
-check(formatActiveTierSlots({ occupied: 5, capacity: 5 }) === 5, 'a fully occupied instance reports the number 5, not "5 of 5 active"');
-
-// ── toPackageFamilyCard metric identity, labels, and values ───────────────
-
-const unassignedCard = toPackageFamilyCard(family());
-const metricById = new Map(unassignedCard.metrics.map((metric) => [metric.id, metric]));
-
-check(metricById.get('services')?.label === 'Services', 'Services label is unchanged');
-check(metricById.get('services')?.value === 3, 'Services value is dependents.services, unchanged');
-
-check(metricById.get('inclusions') !== undefined, 'the Rate Sheet rows metric is now identified as inclusions');
-check(metricById.get('inclusions')?.label === 'Inclusions', 'Rate Sheet rows is relabelled Inclusions');
-check(metricById.get('inclusions')?.value === 7, 'Inclusions reuses dependents.rate_sheet_rows verbatim, unchanged in meaning');
-check(metricById.get('rate-sheet-rows') === undefined, 'the old rate-sheet-rows metric id is retired, not duplicated');
-
-check(metricById.get('tiers') !== undefined, 'the Tier selections metric is now identified as tiers');
-check(metricById.get('tiers')?.label === 'Tiers', 'Tier selections is relabelled Tiers');
-check(metricById.get('tiers')?.value === 'Not assigned', 'an unassigned Family shows Not assigned, never dependents.tier_selections (41)');
-check(metricById.get('tier-selections') === undefined, 'the old tier-selections metric id is retired, not duplicated');
-
-const assignedIdleCard = toPackageFamilyCard(family({ active_tier_slots: { occupied: 0, capacity: 5 } }));
+const card = toPackageFamilyCard(family({ composition }));
+check(card.metrics.length === 4, 'the card shows exactly four metrics');
 check(
-  assignedIdleCard.metrics.find((metric) => metric.id === 'tiers')?.value === 0,
-  'a Family with an assigned instance but no active occupants reads the number 0, distinct from an unassigned Family',
+  card.metrics.map((metric) => metric.id).join(',') === 'tiers,service-categories,services,inclusions',
+  'metric identity and order are fixed: Tiers, Service Categories, Services, Inclusions',
+);
+check(
+  card.metrics.map((metric) => metric.label).join(',') === 'Tiers,Service Categories,Services,Inclusions',
+  'metric labels are unchanged',
 );
 
-const assignedCard = toPackageFamilyCard(family({ active_tier_slots: { occupied: 3, capacity: 5 } }));
+const valueById = new Map(card.metrics.map((metric) => [metric.id, metric.value]));
+check(valueById.get('tiers') === 5, 'Tiers is the composition\'s registered-Tier count');
+check(valueById.get('service-categories') === 6, 'Service Categories is the composition\'s distinct CZC count');
+check(valueById.get('services') === 17, 'Services is the composition\'s distinct CZS count');
+check(valueById.get('inclusions') === 26, 'Inclusions is the composition\'s deduplicated row count');
+
+// ── The guard counts must never resurface as metrics ───────────────────────
+// Every fixture number below is a value the card would print if it regressed
+// onto the old source, so an exact-value assertion is the whole test.
+const printed = card.metrics.map((metric) => metric.value);
+check(!printed.includes(41), 'Tiers never reads dependents.tier_selections');
+check(!printed.includes(7), 'Inclusions never reads dependents.rate_sheet_rows');
+check(!printed.includes(3), 'Services never reads dependents.services');
+check(!printed.includes(2), 'Tiers never reads active_tier_slots.occupied, which counts only ACTIVE occupants');
+check(card.metrics.every((metric) => metric.icon !== undefined), 'every metric carries its glyph');
+
+// ── Unavailable composition fails closed on every metric ───────────────────
+
+for (const absent of [toPackageFamilyCard(family()), toPackageFamilyCard(family({ composition: null }))]) {
+  check(
+    absent.metrics.length === 4 && absent.metrics.every((metric) => metric.value === '—'),
+    'an absent composition reads — on all four metrics, never 0 and never a locally recomputed substitute',
+  );
+}
+
+// A real zero stays a real zero: a Tier Group that genuinely composes nothing
+// is a different fact from one that could not be read, and they must not
+// render alike.
+const emptyCard = toPackageFamilyCard(family({
+  composition: { tiers: 0, service_categories: 0, services: 0, inclusions: 0 },
+}));
 check(
-  assignedCard.metrics.find((metric) => metric.id === 'tiers')?.value === 3,
-  'an assigned Family with 3 active occupied slots reads the number 3, not the raw tier_selections tally and not "3 of 5 active"',
+  emptyCard.metrics.every((metric) => metric.value === 0),
+  'a composition of genuine zeroes prints 0, staying visibly distinct from unavailable',
 );
 
-const fullyOccupiedCard = toPackageFamilyCard(family({ active_tier_slots: { occupied: 5, capacity: 5 } }));
+// ── The wall and the Tier Workspace panel cannot drift apart ───────────────
+// Both screens project the same Family through the same shared model, so the
+// same composition must produce identical ids, labels, and values.
+
+const panel = buildFamilySummary(
+  { id: 'pcg_kairos', name: 'KAIROS', description: '', status: 'active',
+    dependents: { services: 3, rate_sheet_rows: 7, tier_selections: 41 }, platformId: '' },
+  composition,
+);
 check(
-  fullyOccupiedCard.metrics.find((metric) => metric.id === 'tiers')?.value === 5,
-  'a fully occupied Family reads the number 5, and the old "5 of 5 active" phrase must never render',
+  JSON.stringify(panel.metrics) === JSON.stringify(
+    card.metrics.map((metric) => ({ id: metric.id, label: metric.label, value: metric.value })),
+  ),
+  'the Family card wall and the Tier Workspace panel report one Family identically',
 );
 
 // ── Card presentation flag ─────────────────────────────────────────────────
@@ -91,6 +103,6 @@ check(
 // this data flag, never a shared/global style change (Service cards and Tier
 // occupant cards render the same CategoryGroupCardItem contract and must
 // keep the card kit's default large/bold metric value).
-check(unassignedCard.compactMetrics === true, 'the Package Family card opts into compact (small, regular-weight) metric values');
+check(card.compactMetrics === true, 'the Package Family card opts into compact (small, regular-weight) metric values');
 
 console.log('Package Family card metrics contract passed.');

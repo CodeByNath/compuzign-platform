@@ -153,6 +153,16 @@ export interface PackageFamilyItem {
   /** Capability use is not a readiness/dependency metric. */
   tier_assignment_count?:   number;
   active_tier_slots?:       ActiveTierSlots;
+  /**
+   * What this Family's assigned Tier Group composes — the SAME four counts the
+   * Tier Workspace card shows, resolved by that group about itself.
+   *
+   * `null` when the Family has no Tier assignment, or when the assigned group
+   * carries no `CZTG`: the backend batch fails closed rather than answering
+   * under a native id, so this is never a silently different number. Optional
+   * only for responses cached before the field existed.
+   */
+  composition?:             TierGroupComposition | null;
 }
 
 /** Package Family list row with Package-owned Service relationship identity. */

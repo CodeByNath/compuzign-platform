@@ -15,20 +15,23 @@
 //   - Identity is the record's own `group_id` — a STRING — carried through
 //     unchanged. It is never coerced to a number to look like a term_id; the
 //     family's routes are all string-keyed, so the string is the real id.
-//   - Metrics: Services and Inclusions repeat the backend's `dependents`
-//     counts (connected Services; configured Rate Sheet rows, in the card's
-//     language "Inclusions"). Tiers is NOT `dependents.tier_selections` —
-//     that field counts every rate-sheet-row selection nested across all
-//     occupants (a per-selection tally, not a slot count) and stays reserved
-//     for the delete dependency guard. The card instead reads
-//     `active_tier_slots`, the backend's count of unique ACTIVE occupied
-//     Tier slots out of the assigned instance's fixed slot capacity — shown
-//     as "X of Y active" when the family has an assigned Tier instance
-//     (capacity is then a known constant, 5), or "Not assigned" when it has
-//     none, since an unassigned Family owns no Tier system to report slots
-//     for and "0 of 0 active" would misread as zero capacity rather than no
-//     instance. The adapter supplies data records; the shared card loops
-//     them and knows none of these names.
+//   - Metrics are the assigned Tier Group's OWN composition — the same four
+//     counts, from the same source, that the Tier Workspace Family panel
+//     shows, so one Family never reads two different ways depending on which
+//     screen it is on. The card derives none of them and reads NONE of the
+//     `dependents` guard counts, which answer a different question: they
+//     tally what the Family's connected Services could supply across every
+//     Rate Sheet in the station, not what its Tiers actually compose, and
+//     they exist for the delete dependency guard. `active_tier_slots` is
+//     likewise not a metric here — it counts only ACTIVE occupants, while
+//     the composition's `tiers` counts every registered one.
+//     `buildFamilyCompositionMetrics` owns which four and in what order; this
+//     adapter adds only the glyphs. The shared card loops them and knows none
+//     of these names.
+//   - An absent composition reads "—" on every metric, never 0 and never a
+//     locally recomputed substitute. The backend fails closed when the Family
+//     has no Tier assignment or its Tier Group carries no CZTG, and the card
+//     shows that honestly rather than inventing a number for it.
 //   - `assigned_service_count` IS `dependents.services` (the projection assigns
 //     one from the other), so this metric and the drawer's Services connection
 //     can never disagree.
@@ -42,10 +45,15 @@
 // Type-only across the tree: the backend row type is imported for its shape and
 // erased at build.
 
-import type { ActiveTierSlots, PackageFamilyItem } from '../../types';
+import type { ComponentType } from 'preact';
+import type { PackageFamilyItem } from '../../types';
+import {
+  buildFamilyCompositionMetrics,
+  type FamilySummaryMetric,
+} from '../packageTierWorkspace/familySummary';
 import { evaluateModule, packageFamilyOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
-import { ChevronRightIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon } from '@/admin-station/shell/icons';
+import { ChevronRightIcon, PackagesIcon, ServicesIcon, RateSheetIcon, TiersIcon, CategoriesIcon } from '@/admin-station/shell/icons';
 import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
@@ -83,32 +91,13 @@ export function resolvePackageFamilyCardStatus(item: PackageFamilyItem): Categor
   return resolvePackageFamilyCardModule(item).status as CategoryGroupStatus;
 }
 
-/**
- * Render the Tiers metric.
- *
- * The card shows the raw active-occupant count only (`occupied`) — not the
- * "N of 5 active" phrase — so it reads as a plain number alongside Services
- * and Inclusions rather than a sentence that dominates the row. `capacity`
- * itself is never shown; it still governs only whether the Family has a Tier
- * system at all.
- *
- * `capacity` is 0 only when the Family has no Tier assignment at all (or,
- * degenerately, an assignment pointing at a missing instance) — the backend
- * never reports a nonzero capacity without a real assigned instance behind
- * it (PackageCategoryGroups::activeTierSlotSummary). That case still reads
- * "Not assigned", echoing the platform's existing vocabulary for the same
- * state (tierInstanceModel.ts's `consumerName: 'Unassigned'`,
- * PackageTierWorkspace's "No Tier system assigned") rather than the number
- * `0`, which would misread as an assigned instance with nothing active
- * rather than no Tier system yet. An assigned instance with nothing active
- * reads the number `0`, staying visibly distinct from "Not assigned".
- * `active_tier_slots` is optional only for older cached responses that
- * predate the field — absence reads the same as unassigned.
- */
-export function formatActiveTierSlots(slots: ActiveTierSlots | undefined): number | string {
-  const { occupied, capacity } = slots ?? { occupied: 0, capacity: 0 };
-  return capacity === 0 ? 'Not assigned' : occupied;
-}
+/** The glyph each composition metric shows, keyed by the shared model's id. */
+const METRIC_ICONS: Record<FamilySummaryMetric['id'], ComponentType<{ class?: string }>> = {
+  'tiers':              TiersIcon,
+  'service-categories': CategoriesIcon,
+  'services':           ServicesIcon,
+  'inclusions':         RateSheetIcon,
+};
 
 /** Project one backend family record into the card the grid renders. */
 export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardItem {
@@ -128,17 +117,15 @@ export function toPackageFamilyCard(item: PackageFamilyItem): CategoryGroupCardI
     // way the card kit's default large/bold value would. Scoped to this
     // card only — Service cards and Tier occupant cards keep the default.
     compactMetrics: true,
-    // Complete live dependency list. The shared card renders this as a repeater.
-    metrics: [
-      { id: 'services', label: 'Services', value: item.dependents.services, icon: ServicesIcon },
-      { id: 'inclusions', label: 'Inclusions', value: item.dependents.rate_sheet_rows, icon: RateSheetIcon },
-      {
-        id: 'tiers',
-        label: 'Tiers',
-        value: formatActiveTierSlots(item.active_tier_slots),
-        icon: TiersIcon,
-      },
-    ],
+    // The assigned Tier Group's own composition. The shared card renders this
+    // as a repeater; `?? null` treats a response predating the field exactly
+    // like an unavailable one, so it reads "—" rather than throwing.
+    metrics: buildFamilyCompositionMetrics(item.composition ?? null).map((metric) => ({
+      id:    metric.id,
+      label: metric.label,
+      value: metric.value,
+      icon:  METRIC_ICONS[metric.id],
+    })),
     // A single action. Identity-only dispatch; the string group_id travels to
     // the drawer exactly as it sits here, and Edit lives inside that drawer.
     actions: [

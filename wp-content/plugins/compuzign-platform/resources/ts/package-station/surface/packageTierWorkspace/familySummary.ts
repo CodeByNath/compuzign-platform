@@ -82,6 +82,24 @@ const METRIC_ORDER: readonly {
 ];
 
 /**
+ * The four counts, in their fixed order, from a composition that may be absent.
+ *
+ * Exported because the Family is shown in TWO places — this workspace panel and
+ * the Package Family card wall — and they must not drift into two answers for
+ * one Family. Which four metrics, their order, their labels, and what an
+ * unavailable one reads are decided here, once. Callers own only the glyphs.
+ */
+export function buildFamilyCompositionMetrics(
+  composition: TierGroupComposition | null,
+): FamilySummaryMetric[] {
+  return METRIC_ORDER.map((metric) => ({
+    id:    metric.id,
+    label: metric.label,
+    value: composition === null ? UNAVAILABLE : composition[metric.of],
+  }));
+}
+
+/**
  * Project a Package Family scope plus the composition its assigned Tier Group
  * reported into the summary model.
  *
@@ -100,10 +118,6 @@ export function buildFamilySummary(
     positioning: family.description,
     status:      family.status,
     composed:    composition !== null,
-    metrics: METRIC_ORDER.map((metric) => ({
-      id:    metric.id,
-      label: metric.label,
-      value: composition === null ? UNAVAILABLE : composition[metric.of],
-    })),
+    metrics:     buildFamilyCompositionMetrics(composition),
   };
 }
