@@ -353,13 +353,18 @@ class PackageRepository
      */
     private function tierGroupComposition(array $station, array $instance): array
     {
-        return $this->composeTierGroup($this->compositionIndex($station), $instance);
+        return $this->composeTierGroup($this->compositionIndex($station), $instance)['composition'];
     }
 
     /**
-     * Composition for several Tier Groups in one pass, keyed by
+     * What several Tier Groups derive, in one pass, keyed by
      * `tier_instance_id` — the batch form the Package Family list route needs
      * so a wall of N Families costs ONE read-model build rather than N.
+     *
+     * Each entry carries the group's `composition` (the four counts) and the
+     * native `service_ids` behind it. Both come from ONE walk because they are
+     * one fact: the Services a Family reaches and the number of them must never
+     * be computed two different ways.
      *
      * Fails closed exactly as the canonical `CZTG` read does: a Tier Group with
      * no Platform ID is OMITTED, never returned under its native id. A caller
@@ -368,9 +373,9 @@ class PackageRepository
      * detail and not a second, weaker way in.
      *
      * @param  array<int, string> $instanceIds
-     * @return array<string, array{tiers:int, service_categories:int, services:int, inclusions:int}>
+     * @return array<string, array{composition: array{tiers:int, service_categories:int, services:int, inclusions:int}, service_ids: array<int, int>}>
      */
-    public function tierGroupCompositions(array $instanceIds): array
+    public function tierGroupDerivations(array $instanceIds): array
     {
         $ids = [];
         foreach ($instanceIds as $instanceId) {
@@ -402,6 +407,20 @@ class PackageRepository
         }
 
         return $compositions;
+    }
+
+    /**
+     * Just the four counts, for callers that render a card and need no ids.
+     *
+     * @param  array<int, string> $instanceIds
+     * @return array<string, array{tiers:int, service_categories:int, services:int, inclusions:int}>
+     */
+    public function tierGroupCompositions(array $instanceIds): array
+    {
+        return array_map(
+            static fn(array $derivation): array => $derivation['composition'],
+            $this->tierGroupDerivations($instanceIds)
+        );
     }
 
     /**
@@ -452,8 +471,15 @@ class PackageRepository
      * The walk itself, over ONE Tier Group's own slots. Pure with respect to
      * the index: it reads, and never rebuilds, the shared lookup.
      *
+     * Services and Categories are collected by their OWN native identity — the
+     * supplying Service's post id, the category term's id. Platform IDs remain
+     * how a downstream reader RESOLVES either record; they are the wrong key to
+     * COUNT by, because a Service or term whose CZS/CZC has not been assigned
+     * yet would silently drop out and turn the tally into a report on
+     * identifier backfill instead of on what the Tier Group actually reaches.
+     *
      * @param  array{items: array<string, array<string, mixed>>, rows: array<string, array<string, array<string, mixed>>>} $index
-     * @return array{tiers:int, service_categories:int, services:int, inclusions:int}
+     * @return array{composition: array{tiers:int, service_categories:int, services:int, inclusions:int}, service_ids: array<int, int>}
      */
     private function composeTierGroup(array $index, array $instance): array
     {
@@ -507,24 +533,32 @@ class PackageRepository
                 }
                 $seenRows[$rowKey] = true;
 
-                $servicePlatformId = (string) ($source['source_service_platform_id'] ?? '');
-                if ($servicePlatformId !== '') {
-                    $services[$servicePlatformId] = true;
+                $serviceId = (int) ($source['source_service_id'] ?? 0);
+                if ($serviceId > 0) {
+                    $services[$serviceId] = true;
                 }
-                foreach (is_array($source['source_category_platform_ids'] ?? null) ? $source['source_category_platform_ids'] : [] as $categoryPlatformId) {
-                    $categoryPlatformId = (string) $categoryPlatformId;
-                    if ($categoryPlatformId !== '') {
-                        $categories[$categoryPlatformId] = true;
+                foreach (is_array($source['source_category_term_ids'] ?? null) ? $source['source_category_term_ids'] : [] as $categoryTermId) {
+                    $categoryTermId = (int) $categoryTermId;
+                    if ($categoryTermId > 0) {
+                        $categories[$categoryTermId] = true;
                     }
                 }
             }
         }
 
+        // Ascending so the list route's output is stable between requests
+        // regardless of which Tier happened to reach a Service first.
+        $serviceIds = array_map('intval', array_keys($services));
+        sort($serviceIds);
+
         return [
-            'tiers'              => $tiers,
-            'service_categories' => count($categories),
-            'services'           => count($services),
-            'inclusions'         => count($seenRows),
+            'composition' => [
+                'tiers'              => $tiers,
+                'service_categories' => count($categories),
+                'services'           => count($services),
+                'inclusions'         => count($seenRows),
+            ],
+            'service_ids' => $serviceIds,
         ];
     }
 
@@ -1214,6 +1248,7 @@ class PackageRepository
                 ),
                 '_source_categories'    => $categories['names'],
                 '_source_category_platform_ids' => $categories['platform_ids'],
+                '_source_category_term_ids'     => $categories['term_ids'],
             ];
             $rawInc = get_post_meta($sourceServiceId, 'cz_service_inclusions', true) ?: [];
             foreach ((isset($rawInc['inclusions']) && is_array($rawInc['inclusions'])) ? $rawInc['inclusions'] : [] as $item) {
@@ -1245,16 +1280,24 @@ class PackageRepository
      * carrying no Platform ID yet contributes no identity rather than a
      * fabricated one, so identity is never inferred from a name or term id.
      *
-     * @return array{names: string[], platform_ids: string[]}
+     * The term's own `term_ids` travel alongside. Platform ID remains the
+     * identity a downstream reader RESOLVES a Category by; the native term id
+     * exists so a reader can COUNT distinct Categories without silently
+     * dropping every term whose CZC has not been assigned yet. Counting by
+     * Platform ID alone made the tally a report on identifier backfill rather
+     * than on Categories.
+     *
+     * @return array{names: string[], platform_ids: string[], term_ids: int[]}
      */
     private function serviceCategoryProvenance(int $serviceId): array
     {
         $terms = wp_get_post_terms($serviceId, \CompuZign\Platform\Modules\Admin\Support\CategoryMeta::TAXONOMY, ['fields' => 'all']);
         if (!is_array($terms)) {
-            return ['names' => [], 'platform_ids' => []];
+            return ['names' => [], 'platform_ids' => [], 'term_ids' => []];
         }
         $names = [];
         $platformIds = [];
+        $termIds = [];
         foreach ($terms as $term) {
             if (!$term instanceof \WP_Term) {
                 continue;
@@ -1264,6 +1307,7 @@ class PackageRepository
                 continue;
             }
             $names[] = html_entity_decode($term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $termIds[] = (int) $term->term_id;
             $platformId = (string) get_term_meta(
                 (int) $term->term_id,
                 \CompuZign\Platform\Modules\Admin\Support\CategoryMeta::PLATFORM_ID_META,
@@ -1273,7 +1317,11 @@ class PackageRepository
                 $platformIds[] = $platformId;
             }
         }
-        return ['names' => $names, 'platform_ids' => array_values(array_unique($platformIds))];
+        return [
+            'names'        => $names,
+            'platform_ids' => array_values(array_unique($platformIds)),
+            'term_ids'     => array_values(array_unique($termIds)),
+        ];
     }
 
     /**

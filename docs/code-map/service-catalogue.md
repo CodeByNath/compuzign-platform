@@ -28,14 +28,14 @@ The Catalogue is no longer a wall of its own. [ServiceLowerDeck.tsx](../../wp-co
 ## Data boundaries
 
 - [ServiceController.php](../../wp-content/plugins/compuzign-platform/src/Modules/Service/Http/ServiceController.php) owns Service REST reads and WordPress post/meta mutations.
-- [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) exposes Package Family rows with Package-owned `related_service_ids`.
+- [PackageFamiliesController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageFamiliesController.php) exposes Package Family rows whose `related_service_ids` come from the assigned Tier Group's own walk — the same one supplying the Family card's counts, so the filter and the count cannot disagree. Not `sources[].category_group_id`, which holds one Family per Service and hid every shared Service.
 - [usePackageFamilyRelationships.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/packageFamily/usePackageFamilyRelationships.ts) reads all Family lifecycle scopes; the Catalogue joins those native string Family IDs to numeric Service IDs without moving authority.
 
 The Category filter uses the Service's direct Category slug. The Family filter uses `packageFamilies[].id` and rows show every related Family name. Service Category Group is not Catalogue grouping. The retired Command Centre manager and Rate Sheet editor are not part of this surface.
 
 ## Validation
 
-Run `npx tsx scripts/service-catalogue-projection-contract.ts`, `npm run contract:station-tabset`, `npm run contract:service-home-connections`, `npm run regression:service-create`, `npm run regression:category-create`, `php tests/package-category-groups.php`, `php tests/service-route-baseline.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
+Run `npm run contract:service-catalogue-projection`, `npm run contract:station-tabset`, `npm run contract:service-home-connections`, `npm run regression:service-create`, `npm run regression:category-create`, `php tests/package-category-groups.php`, `php tests/service-route-baseline.php`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check` from the plugin root.
 
 ## Related Code Maps
 

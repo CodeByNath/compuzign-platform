@@ -223,11 +223,6 @@ class PackageFamiliesController
                 $station,
                 (string) $group['group_id']
             );
-            $projection['related_service_ids'] = PackageCategoryGroups::relatedServiceIds(
-                $station,
-                (string) $group['group_id']
-            );
-
             if ($filterStatus !== null) {
                 if ($projection['platform_status'] !== $filterStatus) {
                     continue;
@@ -240,11 +235,25 @@ class PackageFamiliesController
             $groups[] = $projection;
         }
 
-        // One batch for the whole wall — see tierGroupCompositions(). Resolved
+        // One batch for the whole wall — see tierGroupDerivations(). Resolved
         // AFTER filtering so a hidden Family never costs a walk.
-        $compositions = $this->packages()->tierGroupCompositions(array_values($assignedTierGroupIds));
+        //
+        // `related_service_ids` comes from that same walk rather than from
+        // `PackageCategoryGroups::relatedServiceIds`. The manager's
+        // `sources[].category_group_id` is a SINGLE-VALUED field: a Service sits
+        // in at most one Family group, so a Service supplying Tiers in three
+        // Families was reported under one of them and was missing from the other
+        // two. That undercounted every Family's Services and made the Service
+        // Catalogue's Family filter return too few rows — one relation, one
+        // walk, so the count and the filter can no longer disagree.
+        // `PackageStationReadController` keeps the curation edge deliberately:
+        // it intersects with its own instance coverage and emits a different
+        // field, so the two are not the same contract.
+        $derivations = $this->packages()->tierGroupDerivations(array_values($assignedTierGroupIds));
         foreach ($groups as $index => $projection) {
-            $groups[$index]['composition'] = $compositions[$assignedTierGroupIds[$index] ?? ''] ?? null;
+            $derivation = $derivations[$assignedTierGroupIds[$index] ?? ''] ?? null;
+            $groups[$index]['composition'] = $derivation['composition'] ?? null;
+            $groups[$index]['related_service_ids'] = $derivation['service_ids'] ?? [];
         }
 
         return rest_ensure_response(['package_category_groups' => $groups]);
@@ -566,7 +575,7 @@ class PackageFamiliesController
         );
         $activeTierSlots = PackageCategoryGroups::activeTierSlotSummary($station, $gid);
         $assignedTierGroupId = $this->assignedTierGroupId($station, $gid);
-        $compositions = $this->packages()->tierGroupCompositions([$assignedTierGroupId]);
+        $derivation = $this->packages()->tierGroupDerivations([$assignedTierGroupId])[$assignedTierGroupId] ?? null;
 
         return rest_ensure_response([
             'success' => true,
@@ -574,9 +583,10 @@ class PackageFamiliesController
                 ...PackageCategoryGroups::projection($group, $dependents),
                 'tier_assignment_count' => $tierAssignmentCount,
                 'active_tier_slots'     => $activeTierSlots,
-                // Same expression the list route carries, so a Family refetched
+                // Same expressions the list route carries, so a Family refetched
                 // after a save never disagrees with its own card on the wall.
-                'composition'           => $compositions[$assignedTierGroupId] ?? null,
+                'composition'           => $derivation['composition'] ?? null,
+                'related_service_ids'   => $derivation['service_ids'] ?? [],
             ],
         ]);
     }

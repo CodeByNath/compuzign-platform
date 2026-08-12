@@ -252,8 +252,12 @@ check_composition($kairos['service_categories'] === 2, 'Service Categories is th
 
 check_composition($aptos['tiers'] === 1, 'a second Tier Group reports only its own occupant');
 check_composition($aptos['inclusions'] === 2, 'a FAQ-sourced row and a row the bound sheet does not hold are both excluded');
-check_composition($aptos['services'] === 1, 'the Platform-ID-less Service adds an Inclusion but no Service identity');
-check_composition($aptos['service_categories'] === 1, 'its Platform-ID-less category adds no Category identity either');
+// Counting is by the record's OWN identity, not by whether its Platform ID has
+// been assigned yet. Service 105 and term 204 deliberately carry no CZS/CZC:
+// they are still a Service and still a Category, and an unbackfilled identifier
+// must not make them disappear from the tally.
+check_composition($aptos['services'] === 2, 'a Service with no CZS is still counted as a Service');
+check_composition($aptos['service_categories'] === 2, 'a Category term with no CZC is still counted as a Category');
 
 // ── Neither group can reach the other, though both draw on one Rate Sheet ────
 
@@ -262,7 +266,7 @@ check_composition(
     'the two groups compose six rows between them — neither absorbs the other\'s'
 );
 check_composition(
-    $kairos['services'] !== 5 && $aptos['services'] !== 5,
+    $kairos['services'] === 3 && $aptos['services'] === 2,
     'neither group reports every supplying Service on the shared Rate Sheet, only what its own Tiers select'
 );
 check_composition(
@@ -326,6 +330,9 @@ $restored['tier_instances'][] = [
 update_option('cz_package_station', $restored);
 
 $batchRepository = new PackageRepository();
+$derivations = $batchRepository->tierGroupDerivations([
+    'ti_kairos', 'ti_aptos', 'ti_empty', 'ti_unidentified', 'ti_missing', '',
+]);
 $batch = $batchRepository->tierGroupCompositions([
     'ti_kairos', 'ti_aptos', 'ti_empty', 'ti_unidentified', 'ti_missing', '',
 ]);
@@ -337,7 +344,7 @@ check_composition(
     'the batch returns exactly what the canonical CZTG read returns for the same group'
 );
 check_composition(
-    $batch['ti_aptos']['inclusions'] === 2 && $batch['ti_aptos']['services'] === 1,
+    $batch['ti_aptos']['inclusions'] === 2 && $batch['ti_aptos']['services'] === 2,
     'each group in one batch still composes only its own structure'
 );
 check_composition(
@@ -345,8 +352,36 @@ check_composition(
     'an occupant-less group still reports genuine zeros through the batch'
 );
 check_composition(
-    !array_key_exists('ti_unidentified', $batch),
+    !array_key_exists('ti_unidentified', $batch) && !array_key_exists('ti_unidentified', $derivations),
     'a Tier Group with no CZTG is OMITTED, never answered for under its native id — the batch fails closed'
+);
+
+// ── The Services a Family reaches, and the count of them, are ONE walk ───────
+//
+// The Service Catalogue's Family filter reads these ids while the Family card
+// reads the count beside them. Deriving them separately is what let the filter
+// return fewer Services than the card claimed the Family had.
+
+check_composition(
+    $derivations['ti_kairos']['service_ids'] === [101, 102, 103],
+    'the Family\'s Service set is every Service its own Tiers reach, ascending and deduplicated'
+);
+check_composition(
+    count($derivations['ti_kairos']['service_ids']) === $derivations['ti_kairos']['composition']['services'],
+    'the Service set and the Services count come from one walk and cannot disagree'
+);
+check_composition(
+    $derivations['ti_aptos']['service_ids'] === [104, 105],
+    'a Service with no CZS still appears in the Family\'s Service set'
+);
+check_composition(
+    !in_array(101, $derivations['ti_aptos']['service_ids'], true)
+        && !in_array(104, $derivations['ti_kairos']['service_ids'], true),
+    'neither Family absorbs a Service reached only by the other, though both draw on one Rate Sheet'
+);
+check_composition(
+    $derivations['ti_empty']['service_ids'] === [],
+    'a Tier Group with no occupants reaches no Services'
 );
 check_composition(
     !array_key_exists('ti_missing', $batch) && !array_key_exists('', $batch),

@@ -78,9 +78,38 @@ check(!/familyGroups|group_name/.test(`${catalogue}\n${model}\n${adapter}`), 'Fa
 check(!/group_id|group_name/.test(serviceTypes), 'Service catalogue summary exposes no taxonomy-parent fields');
 check(!/group_id|group_name/.test(serviceController), 'Service catalogue response exposes no taxonomy-parent fields');
 check(serviceController.includes('CategoryMeta::STATION_ROLE_CATEGORY'), 'Service catalogue response retains direct Category-role terms');
-check(packageController.includes("$projection['related_service_ids'] = PackageCategoryGroups::relatedServiceIds"), 'Package Family list boundary exposes related Service identities');
+check(
+  packageController.includes("$groups[$index]['related_service_ids'] = $derivation['service_ids'] ?? []"),
+  'Package Family list boundary exposes related Service identities',
+);
+// The ids come from the Tier Group's own walk, never from the manager's
+// single-valued `sources[].category_group_id`. That field can place a Service in
+// at most ONE Family, so a Service supplying Tiers in several Families was
+// reported under one and missing from the rest — the Catalogue's Family filter
+// returned too few rows and every other Family undercounted its Services.
+check(
+  !packageController.includes("PackageCategoryGroups::relatedServiceIds("),
+  'the Family list boundary does not fall back to the single-valued manager grouping',
+);
+// One walk supplies both, so the filter and the card count cannot disagree.
+check(
+  packageController.includes("$groups[$index]['composition'] = $derivation['composition'] ?? null"),
+  'the Family Service set and the Family composition come from the same derivation',
+);
 check(/is_int\(\$serviceId\)/.test(packageRelationships) && !/\(int\).*entity_id/.test(packageRelationships), 'Package relationship projection preserves native numeric Service identity');
 check(model.includes('family.id === selectedFamilyId'), 'Family matching is strict against native Family ID');
+// A post id is a small integer; a parsed date is epoch milliseconds. Comparing
+// one against the other pinned every dateless Service to one end of the list.
+check(
+  !/Number\.isFinite\(\w+\)\s*\?\s*\w+\s*:\s*\w+\.id/.test(catalogue),
+  'sorting never substitutes a native id for a missing timestamp',
+);
+// Reset and its disabled state must cover every toolbar control, sort included.
+check(
+  /const resetFilters[\s\S]*?setSort\('newest'\)/.test(catalogue)
+    && /hasFilters = Boolean\([\s\S]*?sort !== 'newest'/.test(catalogue),
+  'Reset clears every toolbar control and reports itself accurately',
+);
 check(catalogue.includes("onIntent(service.id, 'view')"), 'mature Service drawer intent keeps the native Service ID');
 check(adapter.includes('platformId:         summary.platformId'), 'catalogue adapter preserves immutable platform identity');
 check(

@@ -28,6 +28,7 @@
     "contract:rate-sheet-row-platform-identity": "tsx scripts/rate-sheet-row-platform-identity-contract.ts",
     "contract:rate-sheet-price-option-selection": "tsx scripts/rate-sheet-price-option-selection-contract.ts",
     "contract:service-home-connections": "tsx scripts/service-home-connections-contract.ts",
+    "contract:service-catalogue-projection": "tsx scripts/service-catalogue-projection-contract.ts",
     "contract:supported-action-footer": "tsx scripts/supported-action-footer-contract.ts",
     "contract:station-tabset": "tsx scripts/station-tabset-contract.ts",
     "contract:tier-instance-scope": "tsx scripts/tier-instance-scope-contract.ts",

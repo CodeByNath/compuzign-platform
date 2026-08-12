@@ -1079,6 +1079,11 @@ final class PackageManagerSchema
                 // represents identifies by these, never by name or native id.
                 'source_service_platform_id'   => $provenance['service_platform_id'],
                 'source_category_platform_ids' => $provenance['category_platform_ids'],
+                // Native Category identity, for COUNTING distinct Categories.
+                // Resolution still happens by CZC above; this exists so a term
+                // with no Platform ID yet is still counted as the Category it
+                // is instead of vanishing from the tally.
+                'source_category_term_ids'     => $provenance['category_term_ids'],
             ];
         }
 
@@ -1132,7 +1137,7 @@ final class PackageManagerSchema
      * pools built without provenance (tests, legacy callers) and for missing
      * sources.
      *
-     * @return array{service_id: int|null, service_title: string|null, categories: array<int, string>, service_platform_id: string, category_platform_ids: array<int, string>}
+     * @return array{service_id: int|null, service_title: string|null, categories: array<int, string>, service_platform_id: string, category_platform_ids: array<int, string>, category_term_ids: array<int, int>}
      */
     private static function sourceProvenance(string $sourceType, string $sourceId, array $inclusionPool, array $faqPool): array
     {
@@ -1153,6 +1158,9 @@ final class PackageManagerSchema
                 'category_platform_ids' => is_array($entry['_source_category_platform_ids'] ?? null)
                     ? array_values(array_map('strval', $entry['_source_category_platform_ids']))
                     : [],
+                'category_term_ids' => is_array($entry['_source_category_term_ids'] ?? null)
+                    ? array_values(array_map('intval', $entry['_source_category_term_ids']))
+                    : [],
             ];
         }
         return [
@@ -1161,6 +1169,7 @@ final class PackageManagerSchema
             'categories' => [],
             'service_platform_id' => '',
             'category_platform_ids' => [],
+            'category_term_ids' => [],
         ];
     }
 

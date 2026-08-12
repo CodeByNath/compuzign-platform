@@ -67,9 +67,19 @@ function sortItems(items: ServiceCatalogueItem[], order: SortOrder): ServiceCata
 
     const aParsed = a.createdAt ? Date.parse(a.createdAt) : Number.NaN;
     const bParsed = b.createdAt ? Date.parse(b.createdAt) : Number.NaN;
-    const aCreated = Number.isFinite(aParsed) ? aParsed : a.id;
-    const bCreated = Number.isFinite(bParsed) ? bParsed : b.id;
-    return order === 'newest' ? bCreated - aCreated : aCreated - bCreated;
+    const aKnown = Number.isFinite(aParsed);
+    const bKnown = Number.isFinite(bParsed);
+    // A missing or unparseable date is unknown, not "1970". Comparing it as a
+    // timestamp is what the previous `?? a.id` fallback did — a post id is a
+    // small integer against epoch milliseconds, so any Service without a date
+    // was pinned to one end of the list regardless of when it was created.
+    // Unknown dates sort last in BOTH directions and settle among themselves by
+    // id, which is the only ordering fact left.
+    if (!aKnown || !bKnown) {
+      if (aKnown !== bKnown) return aKnown ? -1 : 1;
+      return order === 'newest' ? b.id - a.id : a.id - b.id;
+    }
+    return order === 'newest' ? bParsed - aParsed : aParsed - bParsed;
   });
 }
 
@@ -127,13 +137,19 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
   const firstResult = filtered.length === 0 ? 0 : ((page - 1) * pageSize) + 1;
   const lastResult = Math.min(page * pageSize, filtered.length);
-  const hasFilters = Boolean(query || status !== 'all' || category !== 'all' || family !== 'all');
+  // Sort counts as a control the toolbar owns: it sits in the same row, and a
+  // Reset that left the table reordered while claiming nothing was set was the
+  // inconsistency. Both the enabled state and the reset cover every control.
+  const hasFilters = Boolean(
+    query || status !== 'all' || category !== 'all' || family !== 'all' || sort !== 'newest',
+  );
 
   const resetFilters = () => {
     setQuery('');
     setStatus('all');
     setCategory('all');
     setFamily('all');
+    setSort('newest');
     setRequestedPage(1);
   };
 
