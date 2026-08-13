@@ -37,6 +37,7 @@ final class PackageFamilyPricingBuilder
                         $inclusions
                     ),
                     'label'             => (string) ($tier['label'] ?? ''),
+                    'ideal_for'         => (string) ($tier['ideal_for'] ?? ''),
                     'audience_group'    => (string) ($tier['audience_group'] ?? 'personal_business'),
                     'is_addon'          => (bool) ($tier['is_addon'] ?? false),
                     'edition_options'   => is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : [],

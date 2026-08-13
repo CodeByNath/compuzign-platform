@@ -342,7 +342,9 @@
   color: var(--cz-color-muted);
 }
 
-/* "Ideal For" content: reserved, empty until that occupant field exists. */
+/* "Ideal For" — the occupant's own short description of who the Tier suits.
+   Renders only when set; the Tier Overview row still reserves whatever
+   height the tallest card in the strip needs. */
 .cz-cost-builder__tier-ideal-for {
   margin: 0;
   font-size: var(--cz-font-size-xs);
@@ -1365,8 +1367,8 @@
   flex: 1;
 }
 
-/* Quantity: empty until a per-inclusion quantity value exists; reserved so
-   its later addition doesn't reflow every existing label. */
+/* Quantity: the resolved Rate Sheet selection's own quantity; renders only
+   when the inclusion carries one. */
 .cz-cost-builder__tier-feature-qty {
   flex-shrink: 0;
   font-size: var(--cz-font-size-xs);
@@ -3321,14 +3323,4 @@
   height: var(--cz-space-3);
   flex: 0 0 auto;
   color: var(--cz-color-accent);
-}
-
-.cz-package-builder__full-build {
-  margin-block: var(--cz-space-3);
-}
-
-.cz-package-builder__full-build summary {
-  color: var(--cz-color-primary);
-  cursor: pointer;
-  font-weight: 600;
 }

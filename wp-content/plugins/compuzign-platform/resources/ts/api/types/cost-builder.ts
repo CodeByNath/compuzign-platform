@@ -16,6 +16,9 @@ export interface Tier {
 export interface ServiceInclusion {
   id: string;
   label: string;
+  // Resolved Rate Sheet selection quantity. Present on occupant-sourced
+  // inclusions; absent on plain text-feature-derived ones.
+  quantity?: number;
 }
 
 export interface ServiceFaq {
@@ -83,6 +86,9 @@ export interface PricingTierData {
   inclusions: ServiceInclusion[];
   features: string[]; // transitional compatibility — prefer inclusions
   label?: string; // admin display-label override; falls back to Tier.title when absent
+  // Occupant's own short description of who this Tier suits. Present on the
+  // direct Family projection; absent on legacy Service payloads.
+  ideal_for?: string;
   audience_group?: 'personal_business' | 'enterprise';
   // Selection mode: false = this Tier is offered as the customer's one
   // exclusive normal choice; true = it is offered as a stackable add-on

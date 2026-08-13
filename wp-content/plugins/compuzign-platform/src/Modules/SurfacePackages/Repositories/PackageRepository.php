@@ -1499,7 +1499,7 @@ class PackageRepository
                     && ($row['source_type'] ?? null) === 'inclusion'
             ));
             $extracted['inclusions_override'] = array_map(
-                static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label']],
+                static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'quantity' => $row['quantity']],
                 $resolvedInclusions
             );
             if ($includeSelectedInclusionProvenance) {

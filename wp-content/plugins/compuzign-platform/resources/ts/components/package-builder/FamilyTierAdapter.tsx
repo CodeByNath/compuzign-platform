@@ -3,7 +3,6 @@ import { PricingTiers } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { PackageBuilderFamily, Tier, TierId } from '@/api/types/cost-builder';
-import { FullBuildDetail } from './FullBuildDetail';
 
 interface FamilyTierAdapterProps {
   family: PackageBuilderFamily;
@@ -109,7 +108,6 @@ export function FamilyTierAdapter({
         billingCycle=""
         onSelect={select}
         onToggleAddon={toggleAddon}
-        renderFullBuild={(inclusionLabels) => <FullBuildDetail inclusionLabels={inclusionLabels} />}
       />
     </>
   );

@@ -1,14 +1,17 @@
 import { useRef, useState } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import type { PricingEditionOption, PricingTierData, Tier, TierId } from '@/api/types/cost-builder';
+import type { PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItemTierId } from './types';
 
 export interface EffectiveTierDisplay {
   price: number | null;
   billingCycle: string;
   inclusionLabels: string[];
+  // Structured form of inclusionLabels (same resolved list), additive for the
+  // card's own row rendering (e.g. per-inclusion quantity) — inclusionLabels
+  // stays the flat string[] the quote cart already carries.
+  inclusionItems: ServiceInclusion[];
   selectedEdition: PricingEditionOption | null;
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
@@ -46,21 +49,20 @@ export function resolveEffectiveTierDisplay(
   const inclusionLabels = inclusions?.length
     ? inclusions.map((inc) => inc.label)
     : (data?.features ?? []);
+  const inclusionItems = inclusions?.length
+    ? inclusions
+    : (data?.features ?? []).map((label): ServiceInclusion => ({ id: label, label }));
   const minimumTermValue = selectedEdition ? selectedEdition.minimum_term_value : (data?.minimum_term_value ?? null);
   const minimumTermUnit  = selectedEdition ? selectedEdition.minimum_term_unit  : (data?.minimum_term_unit  ?? null);
 
-  return { price, billingCycle: effectiveCycle, inclusionLabels, selectedEdition, minimumTermValue, minimumTermUnit };
+  return { price, billingCycle: effectiveCycle, inclusionLabels, inclusionItems, selectedEdition, minimumTermValue, minimumTermUnit };
 }
 
 // Inline check glyph for Tier Inclusions rows — follows this codebase's
 // existing inline-SVG icon convention (viewBox 0 0 24 24, stroke-based,
 // currentColor, aria-hidden) rather than the CSS '✓' pseudo-element it
 // replaces, so the mark scales and themes exactly like other stroke icons.
-// Exported so FullBuildDetail's own .cz-cost-builder__tier-features list
-// (the same class, a second consumer) renders the identical mark instead of
-// duplicating it — that list lost its checkmark when the CSS pseudo-element
-// it used to rely on was removed here.
-export function TierInclusionCheckIcon() {
+function TierInclusionCheckIcon() {
   return (
     <svg
       width="16"
@@ -95,7 +97,6 @@ interface PricingTiersProps {
   // default, so existing single-declaration Tiers behave identically).
   onSelect: (tierId: TierId, effective: EffectiveTierDisplay) => void;
   onToggleAddon: (tierId: TierId, effective: EffectiveTierDisplay) => void;
-  renderFullBuild?: (inclusionLabels: string[]) => ComponentChildren;
 }
 
 // One Tier/add-on card. Shared by both strips below so the visual language and
@@ -111,7 +112,6 @@ function TierCard({
   billingCycle,
   addedLabel,
   onClick,
-  renderFullBuild,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -121,7 +121,6 @@ function TierCard({
   billingCycle: string;
   addedLabel: string;
   onClick: (effective: EffectiveTierDisplay) => void;
-  renderFullBuild?: (inclusionLabels: string[]) => ComponentChildren;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -135,7 +134,7 @@ function TierCard({
   const editionOptions = data?.edition_options ?? [];
   const [selectedEditionId, setSelectedEditionId] = useState<string | null>(null);
   const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
-  const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionLabels: displayList, selectedEdition } = effective;
+  const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, selectedEdition } = effective;
 
   const suffix = formatCycleLabel(effectiveBillingCycle);
 
@@ -172,9 +171,9 @@ function TierCard({
         <div class="cz-cost-builder__tier-name">
           <span>{label}</span>
         </div>
-        {/* "Ideal For" content: no data source yet — reserved so a future
-            occupant field doesn't shift the Price row below on any card. */}
-        <p class="cz-cost-builder__tier-ideal-for" />
+        {data?.ideal_for && (
+          <p class="cz-cost-builder__tier-ideal-for">{data.ideal_for}</p>
+        )}
       </div>
 
       {/* 4. Price — Edition switch (if any), old price (reserved for a
@@ -246,20 +245,19 @@ function TierCard({
 
       {/* 7. Tier Inclusions — check icon + inclusion + quantity. */}
       <div class="cz-cost-builder__tier-inclusions">
-        {displayList.length > 0 && (
+        {inclusionItems.length > 0 && (
           <ul class="cz-cost-builder__tier-features">
-            {displayList.map((featureLabel, i) => (
-              <li key={i}>
+            {inclusionItems.map((item, i) => (
+              <li key={item.id || i}>
                 <TierInclusionCheckIcon />
-                <span class="cz-cost-builder__tier-feature-label">{featureLabel}</span>
-                {/* Quantity: no per-inclusion quantity data yet — reserved
-                    slot beside the label for when it exists. */}
-                <span class="cz-cost-builder__tier-feature-qty" />
+                <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
+                {item.quantity != null && (
+                  <span class="cz-cost-builder__tier-feature-qty">× {item.quantity}</span>
+                )}
               </li>
             ))}
           </ul>
         )}
-        {renderFullBuild?.(displayList)}
       </div>
 
       {/* 8. Tier Card Footer — kept now as a placeholder; special Tier
@@ -281,7 +279,6 @@ export function PricingTiers({
   billingCycle,
   onSelect,
   onToggleAddon,
-  renderFullBuild,
 }: PricingTiersProps) {
   // DEBUG — remove after diagnosis
 
@@ -322,7 +319,6 @@ export function PricingTiers({
               billingCycle={billingCycle}
               addedLabel="✓ Selected"
               onClick={(effective) => onSelect(tier.id, effective)}
-              renderFullBuild={renderFullBuild}
             />
           ))}
         </div>
@@ -360,7 +356,6 @@ export function PricingTiers({
                   billingCycle={billingCycle}
                   addedLabel="✓ Added"
                   onClick={(effective) => onToggleAddon(tier.id, effective)}
-                  renderFullBuild={renderFullBuild}
                 />
               ))}
             </div>

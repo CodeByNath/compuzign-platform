@@ -34,10 +34,10 @@ Sheet inclusion sources.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
   `family_tier` snapshot and filters parent Tier cards through its two-option
   occupant `audience_group` tab control; it has no term/pricing logic.
-  `FullBuildDetail.tsx` displays compiled effective inclusion labels. Focused
-  Family Categories follow compiled Tier inclusion selections → inclusion
-  provenance → source Services, then deduplicate. Rate Sheets are never
-  consumer references. Use component classes and atomic tokens; no inline styles.
+  Focused Family Categories follow compiled Tier inclusion selections →
+  inclusion provenance → source Services, then deduplicate. Rate Sheets are
+  never consumer references. Use component classes and atomic tokens; no
+  inline styles.
 
 ## Backend and Persistence
 
