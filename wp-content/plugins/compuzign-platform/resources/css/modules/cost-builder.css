@@ -3370,6 +3370,30 @@
   gap: var(--cz-space-3);
 }
 
+/* Return path to the card comparison — a quiet text control, not a CTA, so
+   it never competes with Choose Plan / Add to Quote. */
+.cz-package-builder__focused-back {
+  align-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-color-muted);
+  font: inherit;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--cz-transition-fast);
+}
+
+.cz-package-builder__focused-back:hover {
+  color: var(--cz-color-accent);
+}
+
+.cz-package-builder__focused-back:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
 .cz-package-builder__focused-name {
   margin: 0;
   font-size: var(--cz-font-size-xl);

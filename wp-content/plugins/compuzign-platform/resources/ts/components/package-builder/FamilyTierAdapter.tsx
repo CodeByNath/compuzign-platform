@@ -110,6 +110,17 @@ export function FamilyTierAdapter({
     return (
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
+          {/* Return path out of the focused view. It only clears this local
+              focused-Tier state, restoring the card comparison — no
+              navigation, routing, or persisted builder state. The chosen
+              duration simply stays in state, since nothing unmounts. */}
+          <button
+            type="button"
+            class="cz-package-builder__focused-back"
+            onClick={() => setFocusedTierId(null)}
+          >
+            ← All plans
+          </button>
           <h3 class="cz-package-builder__focused-name">
             {focusedData?.label || focusedTier.title}
           </h3>
