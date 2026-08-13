@@ -202,10 +202,17 @@
   min-width: 0;
 }
 
-/* Tier strip: always horizontal above 767px — scrolls if constrained, sidebar does not control this */
+/* Tier strip: always horizontal above 767px — scrolls if constrained, sidebar does not control this.
+   A grid rather than a flex row: 8 shared row tracks (one per TierCard section, see
+   .cz-cost-builder__tier below) let every card's equivalent section land on the same
+   row and reach the same height across the whole strip, with no per-card fixed height. */
 .cz-cost-builder__tiers {
   flex: 1;
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(180px, 1fr);
+  grid-template-rows: repeat(8, auto);
+  align-items: stretch;
   gap: var(--cz-space-3);
   overflow-x: auto;
   min-width: 0;
@@ -218,6 +225,9 @@
 
 @media (max-width: 767px) {
   .cz-cost-builder__tiers {
+    /* Cards stack one-per-row on mobile, so the shared row-track/subgrid
+       alignment above no longer applies — fall back to a plain column. */
+    display: flex;
     flex-direction: column;
     overflow-x: visible;
   }
@@ -253,11 +263,15 @@
   }
 }
 
+/* One TierCard = one grid column, subgridding the strip's 8 row tracks so its
+   8 fixed sections (Product Badge, Tier Labels, Tier Overview, Price, Action,
+   Notes, Tier Inclusions, Tier Card Footer — in that order, each a direct
+   child below) share row height with the same section on every other card. */
 .cz-cost-builder__tier {
-  flex: 1 1 180px;
   min-width: 180px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: 1 / span 8;
   gap: var(--cz-space-2);
   padding: var(--cz-space-3);
   background: var(--cz-color-surface-2);
@@ -268,7 +282,8 @@
 
 @media (max-width: 767px) {
   .cz-cost-builder__tier {
-    flex: none;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     min-width: 0;
   }
@@ -293,16 +308,53 @@
   border-bottom: 4px solid var(--cz-color-accent);
 }
 
+/* 1. Product Badge row — empty except on the popular card, which still
+   reserves the same row height on every other card in the strip. */
+.cz-cost-builder__tier-badge {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 1px;
+}
+
+/* 2. Tier Labels row — reserved for sale badges/future Tier labels; no
+   content renders into it yet (see TierCard's JSX comment). */
+.cz-cost-builder__tier-labels {
+  min-height: 1px;
+}
+
+/* 3. Tier Overview — name/title today; "Ideal For" content lands here too
+   once that field exists. */
+.cz-cost-builder__tier-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
 .cz-cost-builder__tier-name {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--cz-space-1);
   font-size: var(--cz-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--cz-color-muted);
+}
+
+/* 4. Price — Edition switch, old price (reserved), current price/"Contact
+   Us", minimum-commitment note. One column so the rows below stack in the
+   fixed order the section owns. */
+.cz-cost-builder__tier-price-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
+/* Old price row: reserved for a future discount/compare-at value so its
+   later addition doesn't shift the current-price row on any card. */
+.cz-cost-builder__tier-price-old {
+  min-height: 1px;
 }
 
 /* Tier Edition switch — an in-card, mutually-exclusive choice among this
@@ -355,8 +407,14 @@
   color: var(--cz-color-muted);
 }
 
+/* 7. Tier Inclusions — check icon + inclusion + quantity per row. */
+.cz-cost-builder__tier-inclusions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+}
+
 .cz-cost-builder__tier-features {
-  flex: 1;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -367,9 +425,14 @@
   color: var(--cz-color-muted);
 }
 
+/* 5. Action row — Add to Quote / selected-state action. */
+.cz-cost-builder__tier-action-row {
+  display: flex;
+}
+
 /* Tier action button */
 .cz-cost-builder__tier-action {
-  margin-top: auto;
+  width: 100%;
   padding: var(--cz-space-2) var(--cz-space-3);
   font-size: var(--cz-font-size-xs);
   font-weight: 600;
@@ -398,6 +461,25 @@
   background: rgba(255, 97, 97, 0.08);
   border-color: var(--cz-color-danger);
   color: var(--cz-color-danger);
+}
+
+/* 6. Notes row — reserved for future Tier notes; no content renders into it
+   yet (see TierCard's JSX comment). */
+.cz-cost-builder__tier-notes {
+  min-height: 1px;
+}
+
+/* 8. Tier Card Footer — placeholder today; special per-Tier notes can be
+   surfaced here later without another card restructure. */
+.cz-cost-builder__tier-footer {
+  padding-top: var(--cz-space-2);
+  border-top: 1px solid var(--cz-color-line);
+}
+
+.cz-cost-builder__tier-footer-note {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+  font-style: italic;
 }
 
 /* Optional add-ons section — same tier-card language as the Tier strip above;
@@ -1257,25 +1339,31 @@
 
 /* ─── Tier Feature Scanability ─── */
 
-/* Explicit stretch ensures all tier cards in a row reach the same height,
-   keeping the Add-to-Quote button baseline-aligned across tiers. */
-.cz-cost-builder__tiers {
-  align-items: stretch;
-}
-
-/* Checkmark prefix on feature items */
+/* Inclusion row: inline SVG check icon (TierInclusionCheckIcon in
+   PricingTiers.tsx) + label + a reserved quantity slot, replacing the
+   former CSS '✓' pseudo-element. */
 .cz-cost-builder__tier-features li {
   display: flex;
   align-items: flex-start;
   gap: var(--cz-space-1);
 }
 
-.cz-cost-builder__tier-features li::before {
-  content: '✓';
+.cz-cost-builder__tier-feature-icon {
   flex-shrink: 0;
   color: var(--cz-color-accent);
+  margin-top: 1px;
+}
+
+.cz-cost-builder__tier-feature-label {
+  flex: 1;
+}
+
+/* Quantity: empty until a per-inclusion quantity value exists; reserved so
+   its later addition doesn't reflow every existing label. */
+.cz-cost-builder__tier-feature-qty {
+  flex-shrink: 0;
   font-size: var(--cz-font-size-xs);
-  line-height: inherit;
+  color: var(--cz-color-muted);
 }
 
 /* ─── Clear-All Confirmation ─── */

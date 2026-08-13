@@ -52,6 +52,29 @@ export function resolveEffectiveTierDisplay(
   return { price, billingCycle: effectiveCycle, inclusionLabels, selectedEdition, minimumTermValue, minimumTermUnit };
 }
 
+// Inline check glyph for Tier Inclusions rows — follows this codebase's
+// existing inline-SVG icon convention (viewBox 0 0 24 24, stroke-based,
+// currentColor, aria-hidden) rather than the CSS '✓' pseudo-element it
+// replaces, so the mark scales and themes exactly like other stroke icons.
+function TierInclusionCheckIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+      class="cz-cost-builder__tier-feature-icon"
+    >
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 interface PricingTiersProps {
   tiers: Tier[];
   pricing: { tiers: Partial<Record<TierId, PricingTierData>> };
@@ -112,6 +135,12 @@ function TierCard({
 
   const suffix = formatCycleLabel(effectiveBillingCycle);
 
+  const label = data?.label || tier.title;
+
+  // Fixed card-section structure (1–8 below): every section renders on every
+  // card, even carrying no content, so equivalent sections land on the same
+  // subgrid row (see .cz-cost-builder__tier in cost-builder.css) and no card
+  // collapses upward past a taller neighbor.
   return (
     <div
       class={[
@@ -122,66 +151,117 @@ function TierCard({
         .filter(Boolean)
         .join(' ')}
     >
-      <div class="cz-cost-builder__tier-name">
-        <span>{data?.label || tier.title}</span>
+      {/* 1. Product Badge — Best/Popular. Reserved on every card so a
+          non-popular neighbor's rows below still line up with the popular
+          card's badge row instead of shifting up. */}
+      <div class="cz-cost-builder__tier-badge">
         {isPopular && <Badge variant="accent">{popularLabel || 'Best'}</Badge>}
       </div>
-      {editionOptions.length >= 1 && (
-        <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${data?.label || tier.title} payment options`}>
-          <button
-            type="button"
-            class={`cz-cost-builder__tier-edition${selectedEditionId === null ? ' is-active' : ''}`}
-            aria-pressed={selectedEditionId === null}
-            onClick={(e) => { e.stopPropagation(); setSelectedEditionId(null); }}
-          >
-            Default
-          </button>
-          {editionOptions.map((edition) => {
-            const active = selectedEditionId === edition.id;
-            return (
-              <button
-                key={edition.id}
-                type="button"
-                class={`cz-cost-builder__tier-edition${active ? ' is-active' : ''}`}
-                aria-pressed={active}
-                onClick={(e) => { e.stopPropagation(); setSelectedEditionId(edition.id); }}
-              >
-                {edition.label}
-              </button>
-            );
-          })}
+
+      {/* 2. Tier Labels — sale badges or future Tier labels. No data source
+          exists yet; the row is reserved so a future label doesn't shift
+          every other card's rows down. */}
+      <div class="cz-cost-builder__tier-labels" />
+
+      {/* 3. Tier Overview — Tier name/title plus "Ideal For" content. */}
+      <div class="cz-cost-builder__tier-overview">
+        <div class="cz-cost-builder__tier-name">
+          <span>{label}</span>
         </div>
-      )}
-      <div class="cz-cost-builder__tier-price">
-        <span class="cz-cost-builder__tier-amount">
-          {formatPrice(effectivePrice)}
-        </span>
-        {effectivePrice !== null && suffix && (
-          <span class="cz-cost-builder__tier-cycle">{suffix}</span>
+        {/* "Ideal For" content: no data source yet — reserved for a future
+            occupant field alongside the name above. */}
+      </div>
+
+      {/* 4. Price — Edition switch (if any), old price (reserved for a
+          future discount/compare-at value), then the current price or its
+          "Contact Us" replacement. */}
+      <div class="cz-cost-builder__tier-price-block">
+        {editionOptions.length >= 1 && (
+          <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${label} payment options`}>
+            <button
+              type="button"
+              class={`cz-cost-builder__tier-edition${selectedEditionId === null ? ' is-active' : ''}`}
+              aria-pressed={selectedEditionId === null}
+              onClick={(e) => { e.stopPropagation(); setSelectedEditionId(null); }}
+            >
+              Default
+            </button>
+            {editionOptions.map((edition) => {
+              const active = selectedEditionId === edition.id;
+              return (
+                <button
+                  key={edition.id}
+                  type="button"
+                  class={`cz-cost-builder__tier-edition${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={(e) => { e.stopPropagation(); setSelectedEditionId(edition.id); }}
+                >
+                  {edition.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {/* Old price row: no discount/compare-at data source yet — reserved
+            so a future sale price doesn't shift the current-price row. */}
+        <div class="cz-cost-builder__tier-price-old" />
+        <div class="cz-cost-builder__tier-price">
+          <span class="cz-cost-builder__tier-amount">
+            {formatPrice(effectivePrice)}
+          </span>
+          {effectivePrice !== null && suffix && (
+            <span class="cz-cost-builder__tier-cycle">{suffix}</span>
+          )}
+        </div>
+        {selectedEdition && (selectedEdition.minimum_term_value != null) && (
+          <p class="cz-cost-builder__tier-commitment">
+            Minimum {selectedEdition.minimum_term_value} {selectedEdition.minimum_term_unit ?? ''}
+          </p>
         )}
       </div>
-      {selectedEdition && (selectedEdition.minimum_term_value != null) && (
-        <p class="cz-cost-builder__tier-commitment">
-          Minimum {selectedEdition.minimum_term_value} {selectedEdition.minimum_term_unit ?? ''}
-        </p>
-      )}
-      {displayList.length > 0 && (
-        <ul class="cz-cost-builder__tier-features">
-          {displayList.map((label, i) => (
-            <li key={i}>{label}</li>
-          ))}
-        </ul>
-      )}
-      {renderFullBuild?.(displayList)}
-      <button
-        type="button"
-        class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}`}
-        onClick={() => onClick(effective)}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-      >
-        {isRemoving ? '× Remove' : isActive ? addedLabel : 'Add to Quote'}
-      </button>
+
+      {/* 5. Action — Add to Quote / selected-state action, kept aligned
+          across cards regardless of how tall the sections above it are. */}
+      <div class="cz-cost-builder__tier-action-row">
+        <button
+          type="button"
+          class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}`}
+          onClick={() => onClick(effective)}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
+        >
+          {isRemoving ? '× Remove' : isActive ? addedLabel : 'Add to Quote'}
+        </button>
+      </div>
+
+      {/* 6. Notes — Tier notes. No content today; the row is created and
+          retained now so a future note doesn't require another pass to
+          re-align every card's rows. */}
+      <div class="cz-cost-builder__tier-notes" />
+
+      {/* 7. Tier Inclusions — check icon + inclusion + quantity. */}
+      <div class="cz-cost-builder__tier-inclusions">
+        {displayList.length > 0 && (
+          <ul class="cz-cost-builder__tier-features">
+            {displayList.map((featureLabel, i) => (
+              <li key={i}>
+                <TierInclusionCheckIcon />
+                <span class="cz-cost-builder__tier-feature-label">{featureLabel}</span>
+                {/* Quantity: no per-inclusion quantity data yet — reserved
+                    slot beside the label for when it exists. */}
+                <span class="cz-cost-builder__tier-feature-qty" />
+              </li>
+            ))}
+          </ul>
+        )}
+        {renderFullBuild?.(displayList)}
+      </div>
+
+      {/* 8. Tier Card Footer — kept now as a placeholder; special Tier
+          notes can be surfaced here later without another restructure. */}
+      <div class="cz-cost-builder__tier-footer">
+        <span class="cz-cost-builder__tier-footer-note">Special notes for this Tier may appear here.</span>
+      </div>
     </div>
   );
 }
