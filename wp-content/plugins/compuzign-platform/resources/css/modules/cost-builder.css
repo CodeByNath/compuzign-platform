@@ -423,12 +423,16 @@
   gap: var(--cz-space-2);
 }
 
+/* 3-column row grid: 16px check icon, flexible label, right-aligned
+   quantity. One shared grid (not one grid per row) so the quantity column
+   is a single consistent width across every inclusion in the list. */
 .cz-cost-builder__tier-features {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: start;
   gap: var(--cz-space-1);
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted);
@@ -1350,27 +1354,28 @@
 
 /* Inclusion row: inline SVG check icon (TierInclusionCheckIcon in
    PricingTiers.tsx) + label + a reserved quantity slot, replacing the
-   former CSS '✓' pseudo-element. */
+   former CSS '✓' pseudo-element. li is `display: contents` so its three
+   children become direct grid items of the list — one shared quantity
+   column, sized to the widest value across every row, keeps every
+   quantity aligned regardless of how long its own label is. */
 .cz-cost-builder__tier-features li {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--cz-space-1);
+  display: contents;
 }
 
 .cz-cost-builder__tier-feature-icon {
-  flex-shrink: 0;
   color: var(--cz-color-accent);
   margin-top: 1px;
 }
 
 .cz-cost-builder__tier-feature-label {
-  flex: 1;
+  min-width: 0;
 }
 
-/* Quantity: the resolved Rate Sheet selection's own quantity; renders only
-   when the inclusion carries one. */
+/* Quantity: the resolved Rate Sheet selection's own raw value, right-aligned
+   and visually secondary to the label. Renders only when the inclusion
+   carries one — no prefix, unit, or other generated text. */
 .cz-cost-builder__tier-feature-qty {
-  flex-shrink: 0;
+  justify-self: end;
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted);
 }

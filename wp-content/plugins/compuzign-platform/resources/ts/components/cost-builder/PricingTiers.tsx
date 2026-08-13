@@ -251,9 +251,10 @@ function TierCard({
               <li key={item.id || i}>
                 <TierInclusionCheckIcon />
                 <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
-                {item.quantity != null && (
-                  <span class="cz-cost-builder__tier-feature-qty">× {item.quantity}</span>
-                )}
+                {/* Always rendered (even empty) so every row keeps the same
+                    3 grid children — a row with no quantity would otherwise
+                    push the next row's icon into this column. */}
+                <span class="cz-cost-builder__tier-feature-qty">{item.quantity ?? ''}</span>
               </li>
             ))}
           </ul>
