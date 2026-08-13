@@ -34,6 +34,10 @@ Sheet inclusion sources.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
   `family_tier` snapshot and filters parent Tier cards through its two-option
   occupant `audience_group` tab control; it has no term/pricing logic.
+  Package-Builder-only focused plan: Choose Plan hides the other cards and
+  pairs the Tier's name/`Ideal For` and a presentation-only 1/12/24-month
+  line with the same `TierCard` (`hideOverview`); duration changes no price,
+  Edition, or quote.
   Focused Family Categories follow compiled Tier inclusion selections →
   inclusion provenance → source Services, then deduplicate. Rate Sheets are
   never consumer references. Use component classes and atomic tokens; no

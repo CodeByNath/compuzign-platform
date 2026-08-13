@@ -97,13 +97,17 @@ interface PricingTiersProps {
   // default, so existing single-declaration Tiers behave identically).
   onSelect: (tierId: TierId, effective: EffectiveTierDisplay) => void;
   onToggleAddon: (tierId: TierId, effective: EffectiveTierDisplay) => void;
+  // Package Builder only. Supplying it adds a "Choose Plan" action to each
+  // normal Tier card; Cost Builder passes nothing and renders as before.
+  onChoosePlan?: (tierId: TierId) => void;
 }
 
-// One Tier/add-on card. Shared by both strips below so the visual language and
-// interaction primitives (card, price, feature list, action button) are defined
-// exactly once — the strips differ only in which Tiers they list, whether the
-// popular badge applies, the active flag, and which handler a click reaches.
-function TierCard({
+// One Tier/add-on card. Shared by both strips below — and by the Package
+// Builder's focused-plan view — so the visual language and interaction
+// primitives (card, price, feature list, action button) are defined exactly
+// once. Callers differ only in which Tiers they list, whether the popular
+// badge applies, the active flag, and which handler a click reaches.
+export function TierCard({
   tier,
   data,
   isPopular,
@@ -112,6 +116,8 @@ function TierCard({
   billingCycle,
   addedLabel,
   onClick,
+  onChoosePlan,
+  hideOverview = false,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -121,6 +127,12 @@ function TierCard({
   billingCycle: string;
   addedLabel: string;
   onClick: (effective: EffectiveTierDisplay) => void;
+  // Optional, Package Builder only — see PricingTiersProps.onChoosePlan.
+  // Omitted while already focused, which is how the focused card hides it.
+  onChoosePlan?: () => void;
+  // Focused view only: the Tier name and Ideal For are presented on its left
+  // column instead, so the card must not repeat them.
+  hideOverview?: boolean;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -166,13 +178,19 @@ function TierCard({
           every other card's rows down. */}
       <div class="cz-cost-builder__tier-labels" />
 
-      {/* 3. Tier Overview — Tier name/title plus "Ideal For" content. */}
+      {/* 3. Tier Overview — Tier name/title plus "Ideal For" content. The
+          section wrapper is kept even when the focused view presents both on
+          its own left column, so the card still has its 8 fixed sections. */}
       <div class="cz-cost-builder__tier-overview">
-        <div class="cz-cost-builder__tier-name">
-          <span>{label}</span>
-        </div>
-        {data?.ideal_for && (
-          <p class="cz-cost-builder__tier-ideal-for">{data.ideal_for}</p>
+        {!hideOverview && (
+          <>
+            <div class="cz-cost-builder__tier-name">
+              <span>{label}</span>
+            </div>
+            {data?.ideal_for && (
+              <p class="cz-cost-builder__tier-ideal-for">{data.ideal_for}</p>
+            )}
+          </>
         )}
       </div>
 
@@ -224,9 +242,19 @@ function TierCard({
         )}
       </div>
 
-      {/* 5. Action — Add to Quote / selected-state action, kept aligned
-          across cards regardless of how tall the sections above it are. */}
+      {/* 5. Action — Choose Plan (Package Builder only, above) and the
+          Add to Quote / selected-state action, kept aligned across cards
+          regardless of how tall the sections above it are. */}
       <div class="cz-cost-builder__tier-action-row">
+        {onChoosePlan && (
+          <button
+            type="button"
+            class="cz-cost-builder__tier-choose"
+            onClick={() => onChoosePlan()}
+          >
+            Choose Plan
+          </button>
+        )}
         <button
           type="button"
           class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}`}
@@ -280,6 +308,7 @@ export function PricingTiers({
   billingCycle,
   onSelect,
   onToggleAddon,
+  onChoosePlan,
 }: PricingTiersProps) {
   // DEBUG — remove after diagnosis
 
@@ -320,6 +349,7 @@ export function PricingTiers({
               billingCycle={billingCycle}
               addedLabel="✓ Selected"
               onClick={(effective) => onSelect(tier.id, effective)}
+              onChoosePlan={onChoosePlan && (() => onChoosePlan(tier.id))}
             />
           ))}
         </div>

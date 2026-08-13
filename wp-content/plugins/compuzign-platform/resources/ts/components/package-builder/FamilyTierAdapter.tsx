@@ -1,8 +1,20 @@
 import { useState } from 'preact/hooks';
-import { PricingTiers } from '@/components/cost-builder/PricingTiers';
+import { PricingTiers, TierCard } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { PackageBuilderFamily, Tier, TierId } from '@/api/types/cost-builder';
+
+// Focused-plan durations. Presentation only: the selection prints the plan
+// line below the dropdown and nothing else. It deliberately does not touch
+// price, billing cycle, Editions, or the quote — those stay owned by the
+// Tier's own declaration exactly as before.
+const PLAN_DURATIONS = [1, 12, 24] as const;
+type PlanDuration = (typeof PLAN_DURATIONS)[number];
+
+const durationLabel = (months: PlanDuration): string =>
+  `${months} ${months === 1 ? 'month' : 'months'}`;
+
+const planLine = (months: PlanDuration): string => `${durationLabel(months)} plan`;
 
 interface FamilyTierAdapterProps {
   family: PackageBuilderFamily;
@@ -40,6 +52,13 @@ export function FamilyTierAdapter({
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
+
+  // Focused-plan state. Choosing a plan hides the other Tier cards and
+  // presents the one Tier beside its plan details; it changes nothing about
+  // which Tier is selected in the quote.
+  const [focusedTierId, setFocusedTierId] = useState<TierId | null>(null);
+  const [planDuration, setPlanDuration] = useState<PlanDuration>(1);
+  const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
 
   const itemFor = (tierId: TierId, effective: EffectiveTierDisplay, isAddon: boolean): FamilyTierQuoteItem => {
     const tier = tiers.find((candidate) => candidate.id === tierId);
@@ -82,6 +101,64 @@ export function FamilyTierAdapter({
     onAdd(itemFor(tierId, effective, true));
   };
 
+  // Focused Tier: the other cards are hidden and the chosen Tier is presented
+  // beside its plan details. The card itself is the SAME TierCard the strip
+  // renders — only its Overview section moves to the left column here, and
+  // Choose Plan is withheld because this is already that Tier's focused view.
+  if (focusedTier) {
+    const focusedData = family.pricing.tiers[focusedTier.id];
+    return (
+      <div class="cz-package-builder__focused">
+        <div class="cz-package-builder__focused-detail">
+          <h3 class="cz-package-builder__focused-name">
+            {focusedData?.label || focusedTier.title}
+          </h3>
+          {focusedData?.ideal_for && (
+            <p class="cz-package-builder__focused-ideal-for">{focusedData.ideal_for}</p>
+          )}
+          <label class="cz-package-builder__focused-field">
+            <span class="cz-package-builder__focused-field-label">Plan duration</span>
+            <select
+              class="cz-package-builder__plan-select"
+              value={String(planDuration)}
+              onChange={(event) => {
+                const next = Number((event.target as HTMLSelectElement).value) as PlanDuration;
+                setPlanDuration(next);
+              }}
+            >
+              {PLAN_DURATIONS.map((months) => (
+                <option key={months} value={String(months)}>{durationLabel(months)}</option>
+              ))}
+            </select>
+          </label>
+          <p class="cz-package-builder__focused-plan-line">{planLine(planDuration)}</p>
+          {/* Reserved: the rest of the left column is intentionally empty for
+              now. Future focused-plan content (term comparison, commitment
+              detail, plan-specific messaging) belongs here, beneath the
+              duration control, without disturbing the card on the right. */}
+          <div class="cz-package-builder__focused-reserved" />
+        </div>
+        <div class="cz-package-builder__focused-card">
+          {/* The strip's own grid context, so the one focused card keeps the
+              exact 8-row section structure it has everywhere else. */}
+          <div class="cz-cost-builder__tiers">
+            <TierCard
+              tier={focusedTier}
+              data={focusedData}
+              isPopular={focusedTier.id === family.popular_tier}
+              popularLabel={family.popular_label}
+              isActive={focusedTier.id === selectedTierId}
+              billingCycle=""
+              addedLabel="✓ Selected"
+              onClick={(effective) => select(focusedTier.id, effective)}
+              hideOverview
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
@@ -108,6 +185,7 @@ export function FamilyTierAdapter({
         billingCycle=""
         onSelect={select}
         onToggleAddon={toggleAddon}
+        onChoosePlan={setFocusedTierId}
       />
     </>
   );
