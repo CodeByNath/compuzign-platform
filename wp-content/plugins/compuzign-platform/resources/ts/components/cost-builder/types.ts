@@ -58,6 +58,13 @@ export interface FamilyTierQuoteItem {
   isAddon: boolean;
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
+  // Plan duration in months chosen in the focused Choose Plan view, captured
+  // at the moment of selection so it travels with the line. Null for a direct
+  // card selection (no duration was ever shown) and for add-on lines. Distinct
+  // from minimumTermValue above, which is the Edition's own commitment —
+  // nothing derives price, term, or Edition meaning from this yet. Optional
+  // because carts persisted before this field existed simply omit it.
+  planDurationMonths?: number | null;
 }
 
 export type CartItem = QuoteItem | FamilyTierQuoteItem;

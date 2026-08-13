@@ -3370,6 +3370,13 @@
   gap: var(--cz-space-3);
 }
 
+/* Selected-Tier view header — carries the same return control back to the
+   card comparison. */
+.cz-package-builder__staged-header {
+  display: flex;
+  margin-block-end: var(--cz-space-3);
+}
+
 /* Return path to the card comparison — a quiet text control, not a CTA, so
    it never competes with Choose Plan / Add to Quote. */
 .cz-package-builder__focused-back {

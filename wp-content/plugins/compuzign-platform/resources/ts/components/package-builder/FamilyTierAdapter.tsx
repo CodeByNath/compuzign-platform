@@ -60,7 +60,28 @@ export function FamilyTierAdapter({
   const [planDuration, setPlanDuration] = useState<PlanDuration>(1);
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
 
-  const itemFor = (tierId: TierId, effective: EffectiveTierDisplay, isAddon: boolean): FamilyTierQuoteItem => {
+  // Add-ons come from this Family's one Tier System, where compatibility is
+  // implicit — there is no per-Tier compatibility ledger, so "does this Tier
+  // have Add-ons" is answered by the Tier System offering any at all.
+  const normalTiers = visibleTiers.filter((tier) => !family.pricing.tiers[tier.id]?.is_addon);
+  const addonTiers = visibleTiers.filter((tier) => family.pricing.tiers[tier.id]?.is_addon);
+
+  // The selected-Tier view both Add to Quote entry points land in: the chosen
+  // Tier alone, with its Add-ons revealed. Derived against the live selection
+  // rather than stored independently, so removing the line anywhere (quote
+  // summary included) or switching customer group drops straight back to the
+  // card comparison without a second piece of state to keep in sync.
+  const [stagedTierId, setStagedTierId] = useState<TierId | null>(null);
+  const stagedTier = stagedTierId !== null && stagedTierId === selectedTierId
+    ? normalTiers.find((tier) => tier.id === stagedTierId) ?? null
+    : null;
+
+  const itemFor = (
+    tierId: TierId,
+    effective: EffectiveTierDisplay,
+    isAddon: boolean,
+    planDurationMonths: number | null = null,
+  ): FamilyTierQuoteItem => {
     const tier = tiers.find((candidate) => candidate.id === tierId);
     const tierData = family.pricing.tiers[tierId];
     return {
@@ -81,15 +102,34 @@ export function FamilyTierAdapter({
       isAddon,
       minimumTermValue: effective.minimumTermValue,
       minimumTermUnit: effective.minimumTermUnit,
+      planDurationMonths,
     };
+  };
+
+  /**
+   * The one Add to Quote action, reached from either entry point: a Tier
+   * card's own button, or the focused Choose Plan view (which supplies the
+   * duration it collected). It always performs today's quote action, then
+   * isolates the Tier and reveals Add-ons when the Tier System offers any —
+   * with none there is nothing to choose, so it stays exactly as it was.
+   */
+  const commitSelection = (
+    tierId: TierId,
+    effective: EffectiveTierDisplay,
+    planDurationMonths: number | null,
+  ) => {
+    onAdd(itemFor(tierId, effective, false, planDurationMonths));
+    setFocusedTierId(null);
+    setStagedTierId(addonTiers.length > 0 ? tierId : null);
   };
 
   const select = (tierId: TierId, effective: EffectiveTierDisplay) => {
     if (selectedTierId === tierId) {
       onRemovePrimary();
+      setStagedTierId(null);
       return;
     }
-    onAdd(itemFor(tierId, effective, false));
+    commitSelection(tierId, effective, null);
   };
 
   const toggleAddon = (tierId: TierId, effective: EffectiveTierDisplay) => {
@@ -161,12 +201,56 @@ export function FamilyTierAdapter({
               isActive={focusedTier.id === selectedTierId}
               billingCycle=""
               addedLabel="✓ Selected"
-              onClick={(effective) => select(focusedTier.id, effective)}
+              // Same single selection action as a card's own button — it just
+              // hands over the duration this view collected. Add to Quote
+              // leaves the focused presentation and lands in the selected-Tier
+              // view; removing an already-selected Tier is not that action, so
+              // it stays here.
+              onClick={(effective) => {
+                if (selectedTierId === focusedTier.id) {
+                  onRemovePrimary();
+                  setStagedTierId(null);
+                  return;
+                }
+                commitSelection(focusedTier.id, effective, planDuration);
+              }}
               hideOverview
             />
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Selected-Tier view: the chosen Tier alone plus its Add-ons. Reached only
+  // when the Tier System actually offers Add-ons, so this view always has
+  // something to choose. It is the same PricingTiers as the comparison —
+  // narrowing the Tier list is what hides the other cards and reveals the
+  // Add-ons strip, so there is no second Add-on or quote flow here.
+  if (stagedTier) {
+    return (
+      <>
+        <div class="cz-package-builder__staged-header">
+          <button
+            type="button"
+            class="cz-package-builder__focused-back"
+            onClick={() => setStagedTierId(null)}
+          >
+            ← All plans
+          </button>
+        </div>
+        <PricingTiers
+          tiers={[stagedTier, ...addonTiers]}
+          pricing={family.pricing}
+          popularTier={family.popular_tier}
+          popularLabel={family.popular_label}
+          selectedTierId={selectedTierId}
+          selectedAddonTierIds={selectedAddonTierIds}
+          billingCycle=""
+          onSelect={select}
+          onToggleAddon={toggleAddon}
+        />
+      </>
     );
   }
 
@@ -186,8 +270,10 @@ export function FamilyTierAdapter({
           </button>
         ))}
       </div>
+      {/* Add-ons stay out of the comparison view — they are offered once a
+          Tier is selected, in the selected-Tier view above. */}
       <PricingTiers
-        tiers={visibleTiers}
+        tiers={normalTiers}
         pricing={family.pricing}
         popularTier={family.popular_tier}
         popularLabel={family.popular_label}

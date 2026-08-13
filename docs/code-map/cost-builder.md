@@ -28,20 +28,18 @@ Sheet inclusion sources.
 - [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map into "Choose your Tier" (exclusive) and "Optional add-ons" (independent toggle) by `is_addon` — see [Tier Add-on Selection](tier-addon.md). Its `resolveEffectiveTierDisplay()` also renders an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card, never a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
 - [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior.
 - [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) loads, saves, and clears browser quote state. Use it for cart persistence format.
-- `components/package-builder/PackageBuilderApp.tsx` owns the hero Family tabs,
-  presents the focused Family, and reuses `PricingTiers`, the shared cart,
-  Quote Summary, and Request Flow.
-  `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a discriminated
-  `family_tier` snapshot and filters parent Tier cards through its two-option
-  occupant `audience_group` tab control; it has no term/pricing logic.
-  Package-Builder-only focused plan: Choose Plan hides the other cards and
-  pairs the Tier's name/`Ideal For` and a presentation-only 1/12/24-month
-  line with the same `TierCard` (`hideOverview`); duration changes no price,
-  Edition, or quote.
-  Focused Family Categories follow compiled Tier inclusion selections →
-  inclusion provenance → source Services, then deduplicate. Rate Sheets are
-  never consumer references. Use component classes and atomic tokens; no
-  inline styles.
+- `components/package-builder/PackageBuilderApp.tsx` owns the hero Family tabs
+  and reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
+  `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a `family_tier`
+  snapshot and filters cards by `audience_group`; no term/pricing logic.
+  Package-Builder-only: Choose Plan swaps the strip for one `TierCard`
+  (`hideOverview`) beside the Tier's name/`Ideal For` and a presentation-only
+  1/12/24-month line. Add to Quote is one action from either entry point: it
+  adds the line, then isolates the Tier and reveals Add-ons if any exist.
+  Duration rides along as cart-local `planDurationMonths`.
+  Focused Family Categories follow compiled Tier inclusions → provenance →
+  source Services, then deduplicate. Rate Sheets are never consumer
+  references. Use component classes and atomic tokens; no inline styles.
 
 ## Backend and Persistence
 
