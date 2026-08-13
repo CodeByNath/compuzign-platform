@@ -1,3 +1,5 @@
+import { TierInclusionCheckIcon } from '@/components/cost-builder/PricingTiers';
+
 interface FullBuildDetailProps {
   inclusionLabels: string[];
 }
@@ -10,7 +12,12 @@ export function FullBuildDetail({ inclusionLabels }: FullBuildDetailProps) {
     <details class="cz-package-builder__full-build">
       <summary>View full build</summary>
       <ul class="cz-cost-builder__tier-features">
-        {inclusionLabels.map((label, index) => <li key={`${label}:${index}`}>{label}</li>)}
+        {inclusionLabels.map((label, index) => (
+          <li key={`${label}:${index}`}>
+            <TierInclusionCheckIcon />
+            <span class="cz-cost-builder__tier-feature-label">{label}</span>
+          </li>
+        ))}
       </ul>
     </details>
   );

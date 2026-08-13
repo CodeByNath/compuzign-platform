@@ -56,7 +56,11 @@ export function resolveEffectiveTierDisplay(
 // existing inline-SVG icon convention (viewBox 0 0 24 24, stroke-based,
 // currentColor, aria-hidden) rather than the CSS '✓' pseudo-element it
 // replaces, so the mark scales and themes exactly like other stroke icons.
-function TierInclusionCheckIcon() {
+// Exported so FullBuildDetail's own .cz-cost-builder__tier-features list
+// (the same class, a second consumer) renders the identical mark instead of
+// duplicating it — that list lost its checkmark when the CSS pseudo-element
+// it used to rely on was removed here.
+export function TierInclusionCheckIcon() {
   return (
     <svg
       width="16"
@@ -168,8 +172,9 @@ function TierCard({
         <div class="cz-cost-builder__tier-name">
           <span>{label}</span>
         </div>
-        {/* "Ideal For" content: no data source yet — reserved for a future
-            occupant field alongside the name above. */}
+        {/* "Ideal For" content: no data source yet — reserved so a future
+            occupant field doesn't shift the Price row below on any card. */}
+        <p class="cz-cost-builder__tier-ideal-for" />
       </div>
 
       {/* 4. Price — Edition switch (if any), old price (reserved for a

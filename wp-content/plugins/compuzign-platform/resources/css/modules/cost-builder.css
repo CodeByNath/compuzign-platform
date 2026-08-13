@@ -342,6 +342,13 @@
   color: var(--cz-color-muted);
 }
 
+/* "Ideal For" content: reserved, empty until that occupant field exists. */
+.cz-cost-builder__tier-ideal-for {
+  margin: 0;
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+}
+
 /* 4. Price — Edition switch, old price (reserved), current price/"Contact
    Us", minimum-commitment note. One column so the rows below stack in the
    fixed order the section owns. */
