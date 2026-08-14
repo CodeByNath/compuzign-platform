@@ -774,6 +774,10 @@ button.cz-station-status-pill {
   position: relative;
 }
 
+#tier-audience-groups-trigger {
+  display: flex;
+}
+
 .cz-tier-audience-groups__panel {
   position: absolute;
   top: calc(100% + var(--station-grid-gap));
