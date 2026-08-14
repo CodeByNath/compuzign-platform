@@ -332,11 +332,23 @@ export function PricingTiers({
   const normalTiers = tiers.filter((tier) => pricing.tiers[tier.id] && !pricing.tiers[tier.id]?.is_addon);
   const addonTiers = tiers.filter((tier) => pricing.tiers[tier.id]?.is_addon);
 
-  // Optional Add-ons — Recommendations' first/default group. Same data, same
-  // cards, same independent toggle, same implicit same-Tier-System
-  // compatibility as before. Extracted from the Recommendations wrapper
-  // below so the isolated shell can carry it as its own first child instead
-  // of nesting a second, unwanted "Recommendations" heading inside itself.
+  const renderAddonTierCard = (tier: Tier) => (
+    <TierCard
+      key={tier.id}
+      tier={tier}
+      data={pricing.tiers[tier.id]}
+      isPopular={tier.id === popularTier}
+      popularLabel={popularLabel}
+      isActive={selectedAddonTierIds.includes(tier.id)}
+      billingCycle={billingCycle}
+      addedLabel="✓ Added"
+      onClick={(effective) => onToggleAddon(tier.id, effective)}
+    />
+  );
+
+  // Optional Add-ons — Recommendations' one group. Same data, same cards,
+  // same independent toggle, same implicit same-Tier-System compatibility as
+  // before.
   const addonsGroup = addonTiers.length > 0 ? (
     <div class="cz-cost-builder__addons">
       <h5 class="cz-cost-builder__addons-heading">Optional add-ons</h5>
@@ -350,19 +362,7 @@ export function PricingTiers({
           ‹
         </button>
         <div class="cz-cost-builder__tiers" ref={addonScrollRef}>
-          {addonTiers.map((tier) => (
-            <TierCard
-              key={tier.id}
-              tier={tier}
-              data={pricing.tiers[tier.id]}
-              isPopular={tier.id === popularTier}
-              popularLabel={popularLabel}
-              isActive={selectedAddonTierIds.includes(tier.id)}
-              billingCycle={billingCycle}
-              addedLabel="✓ Added"
-              onClick={(effective) => onToggleAddon(tier.id, effective)}
-            />
-          ))}
+          {addonTiers.map(renderAddonTierCard)}
         </div>
         <button
           type="button"
@@ -390,21 +390,17 @@ export function PricingTiers({
     </div>
   ) : null;
 
-  // Isolated selected-Tier view only: the Recommendations area as the
-  // trailing card in the SAME Tier strip as the selected Tier — not a
-  // separate lane beside it — so it lands beside the selected Tier without a
-  // second carousel shell of its own. Optional Add-ons is its first/default
-  // group, carrying the real cards; Plan Conditions is a second, empty group
-  // reserved for later content. Renders exactly when Add-ons exist, which is
-  // also exactly when a Tier occupant's Add to Quote has fired and put this
-  // view on screen, so no separate show/hide wiring is needed here.
-  const recommendationsShell = recommendationsAside && addonsGroup ? (
+  // Isolated selected-Tier view only: the Recommendations label plus the
+  // Add-on cards themselves, directly — no "Optional add-ons" sub-heading,
+  // no second carousel shell, just the cards as the trailing card in the
+  // SAME Tier strip as the selected Tier. Renders exactly when Add-ons
+  // exist, which is also exactly when a Tier occupant's Add to Quote has
+  // fired and put this view on screen, so no separate show/hide wiring is
+  // needed here.
+  const recommendationsShell = recommendationsAside && addonTiers.length > 0 ? (
     <div class="cz-cost-builder__recommendations-shell">
       <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
-      {addonsGroup}
-      <div class="cz-cost-builder__plan-conditions">
-        <h5 class="cz-cost-builder__addons-heading">Plan conditions</h5>
-      </div>
+      {addonTiers.map(renderAddonTierCard)}
     </div>
   ) : null;
 

@@ -566,11 +566,11 @@
 }
 
 /* Recommendations, as the trailing card inside .cz-cost-builder__tiers next
-   to the selected Tier. Spans the same 8 row tracks as a TierCard so it
-   matches the strip's card height, but lays its own children out with flex
-   rather than subgridding those tracks — its content (headings, an Add-ons
-   carousel) doesn't map to TierCard's fixed 8 sections. Reuses TierCard's
-   own surface/border/radius so it still reads as one of the strip's cards. */
+   to the selected Tier: the label plus the Add-on cards directly, no
+   carousel. Spans the same 8 row tracks as a TierCard so it matches the
+   strip's card height, but lays its own children out with flex rather than
+   subgridding those tracks. Reuses TierCard's own surface/border/radius so
+   it still reads as one of the strip's cards. */
 .cz-cost-builder__recommendations-shell {
   grid-row: 1 / span 8;
   display: flex;
@@ -581,12 +581,6 @@
   background: var(--cz-color-surface-2);
   border-radius: var(--cz-radius-sm);
   border: 1px solid var(--cz-color-line);
-}
-
-/* Plan Conditions — Recommendations' second group inside the shell,
-   reserved for later content; empty today like Tier Labels/Notes above. */
-.cz-cost-builder__plan-conditions {
-  min-height: 1px;
 }
 
 /* Quote summary sidebar */
