@@ -383,6 +383,53 @@ export function PricingTiers({
     </div>
   ) : null;
 
+  const renderNormalTierCard = (tier: Tier) => (
+    <TierCard
+      key={tier.id}
+      tier={tier}
+      data={pricing.tiers[tier.id]}
+      isPopular={tier.id === popularTier}
+      popularLabel={popularLabel}
+      isActive={tier.id === selectedTierId}
+      billingCycle={billingCycle}
+      addedLabel="✓ Selected"
+      onClick={(effective) => onSelect(tier.id, effective)}
+      onChoosePlan={onChoosePlan && (() => onChoosePlan(tier.id))}
+    />
+  );
+
+  // The isolated selected Tier (recommendationsAside) renders its one card
+  // directly into the Tier System's left lane — no carousel shell, since
+  // there is nothing left to scroll between once the strip has narrowed to
+  // it. The comparison strip keeps its carousel for multiple Tiers.
+  const tierLane = recommendationsAside ? (
+    <div class="cz-cost-builder__tier-selected">
+      {normalTiers.map(renderNormalTierCard)}
+    </div>
+  ) : (
+    <div class="cz-cost-builder__tiers-wrap">
+      <button
+        type="button"
+        class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
+        onClick={() => scroll(scrollRef, -1)}
+        aria-label="Scroll tiers left"
+      >
+        ‹
+      </button>
+      <div class="cz-cost-builder__tiers" ref={scrollRef}>
+        {normalTiers.map(renderNormalTierCard)}
+      </div>
+      <button
+        type="button"
+        class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
+        onClick={() => scroll(scrollRef, 1)}
+        aria-label="Scroll tiers right"
+      >
+        ›
+      </button>
+    </div>
+  );
+
   // Tier strip + Recommendations. Stacked by default; the caller opts into
   // placing Recommendations beside the strip once the strip has been narrowed
   // to one selected Tier.
@@ -395,40 +442,7 @@ export function PricingTiers({
         .filter(Boolean)
         .join(' ')}
     >
-      <div class="cz-cost-builder__tiers-wrap">
-        <button
-          type="button"
-          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
-          onClick={() => scroll(scrollRef, -1)}
-          aria-label="Scroll tiers left"
-        >
-          ‹
-        </button>
-        <div class="cz-cost-builder__tiers" ref={scrollRef}>
-          {normalTiers.map((tier) => (
-            <TierCard
-              key={tier.id}
-              tier={tier}
-              data={pricing.tiers[tier.id]}
-              isPopular={tier.id === popularTier}
-              popularLabel={popularLabel}
-              isActive={tier.id === selectedTierId}
-              billingCycle={billingCycle}
-              addedLabel="✓ Selected"
-              onClick={(effective) => onSelect(tier.id, effective)}
-              onChoosePlan={onChoosePlan && (() => onChoosePlan(tier.id))}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
-          onClick={() => scroll(scrollRef, 1)}
-          aria-label="Scroll tiers right"
-        >
-          ›
-        </button>
-      </div>
+      {tierLane}
 
       {recommendations}
     </div>
