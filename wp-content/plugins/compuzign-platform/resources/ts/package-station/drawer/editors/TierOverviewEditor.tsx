@@ -26,6 +26,10 @@ const AUDIENCE_GROUPS: AdminFieldOption[] = [
 
 export type TierOverviewEditDraft = TierOverviewDraft & {
   audience_group: 'personal_business' | 'enterprise';
+  // Additive multi-select alongside audience_group above — see
+  // SurfaceTierDetail.audience_groups. Optional here only because it rides
+  // the same generic draft payload shape as is_addon/rate_sheet_id.
+  audience_groups?: ('personal_business' | 'enterprise')[];
   popular: boolean;
   popular_label: string;
 };
@@ -56,6 +60,17 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
     label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
   }));
   const isAddon: boolean = draft.is_addon ?? false;
+  // Additive multi-select, independent of the dropdown above — an occupant
+  // belongs to its Tier Group, not one customer audience. Toggling a box
+  // adds/removes just that value; it never touches audience_group.
+  const audienceGroups: ('personal_business' | 'enterprise')[] = draft.audience_groups ?? [];
+  const toggleAudienceGroup = (value: 'personal_business' | 'enterprise', checked: boolean) => {
+    onChange({
+      audience_groups: checked
+        ? (audienceGroups.includes(value) ? audienceGroups : [...audienceGroups, value])
+        : audienceGroups.filter((group) => group !== value),
+    });
+  };
 
   return (
     <div class="cz-tf-form">
@@ -111,6 +126,18 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         value={draft.audience_group}
         onChange={(audience_group: string) => onChange({ audience_group: audience_group as 'personal_business' | 'enterprise' })}
       />
+
+      {/* Additive multi-select, independent of the dropdown above — belongs
+          to the Tier Group, not one customer audience, so it is never
+          filtered by audience_group. Unset defaults to every group. */}
+      {AUDIENCE_GROUPS.map((group) => (
+        <AdminField
+          key={group.value}
+          def={{ id: `tier-audience-groups-${group.value}`, type: 'checkbox', label: `Customer Groups: ${group.label}` }}
+          value={audienceGroups.includes(group.value as 'personal_business' | 'enterprise')}
+          onChange={(checked: boolean) => toggleAudienceGroup(group.value as 'personal_business' | 'enterprise', checked)}
+        />
+      ))}
 
       <AdminField
         def={{ id: 'tier-ideal-for', type: 'textarea', label: 'Ideal For', rows: 3 }}

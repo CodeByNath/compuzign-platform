@@ -90,6 +90,11 @@ export interface PricingTierData {
   // direct Family projection; absent on legacy Service payloads.
   ideal_for?: string;
   audience_group?: 'personal_business' | 'enterprise';
+  // Additive multi-select alongside audience_group above — an occupant
+  // belongs to its Tier Group, not one customer audience, so this is never
+  // filtered by audience_group. Present on the direct Family projection;
+  // absent on legacy Service payloads (same as audience_group itself).
+  audience_groups?: ('personal_business' | 'enterprise')[];
   // Selection mode: false = this Tier is offered as the customer's one
   // exclusive normal choice; true = it is offered as a stackable add-on
   // alongside whichever normal Tier is selected. Always present — legacy/

@@ -476,6 +476,10 @@ export interface SurfaceTierDetail {
   label: string;
   ideal_for: string;
   audience_group: 'personal_business' | 'enterprise';
+  // Additive multi-select alongside audience_group above (its own dropdown
+  // stays untouched) — an occupant belongs to its Tier Group, not one
+  // customer audience, so this is never filtered by audience_group.
+  audience_groups: ('personal_business' | 'enterprise')[];
   price: number | null;
   contact: boolean;
   billing_cycle: string | null;
@@ -613,6 +617,9 @@ export interface TierOverviewDraft {
   label: string;
   ideal_for: string;
   audience_group?: 'personal_business' | 'enterprise';
+  // Additive multi-select alongside audience_group above — see
+  // SurfaceTierDetail.audience_groups.
+  audience_groups?: ('personal_business' | 'enterprise')[];
   price: number | null;
   contact: boolean;
   billing_cycle: string;

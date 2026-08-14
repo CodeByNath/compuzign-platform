@@ -31,14 +31,26 @@ const CUSTOMER_GROUPS = [
   { value: 'enterprise', label: 'Enterprise' },
 ] as const;
 
+// Applies equally to every Tier occupant, normal or add-on — audience_groups
+// is a general occupant field, not an add-on-specific one. An occupant
+// belongs to its Tier Group; audience_groups only says which customer tabs
+// it additionally appears under, defaulting to every tab when unset (see
+// PackageSchema::DEFAULT_TIER_AUDIENCE_GROUPS), so a never-configured
+// add-on shows up regardless of which tab the customer is browsing. Falls
+// back to the legacy single audience_group for payloads/fixtures that
+// predate the multi-select field.
 export function filterTiersByCustomerGroup(
   tiers: Tier[],
   pricing: PackageBuilderFamily['pricing'],
   customerGroup: 'personal_business' | 'enterprise',
 ): Tier[] {
-  return tiers.filter(
-    (tier) => (pricing.tiers[tier.id]?.audience_group ?? 'personal_business') === customerGroup,
-  );
+  return tiers.filter((tier) => {
+    const data = pricing.tiers[tier.id];
+    const groups = data?.audience_groups;
+    return groups
+      ? groups.includes(customerGroup)
+      : (data?.audience_group ?? 'personal_business') === customerGroup;
+  });
 }
 
 export function FamilyTierAdapter({

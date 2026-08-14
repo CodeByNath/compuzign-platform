@@ -30,7 +30,7 @@ Sheet inclusion sources.
 - `components/package-builder/PackageBuilderApp.tsx` owns the hero Family tabs
   and reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a `family_tier`
-  snapshot and filters cards by `audience_group`; no term/pricing logic.
+  snapshot and filters cards by `audience_groups[]`; no term/pricing logic.
   Package-Builder-only: Choose Plan swaps the strip for one `TierCard`
   (`hideOverview`) beside the Tier's name/`Ideal For` and a presentation-only
   1/12/24-month line. Add to Quote is one action from either entry point: it
