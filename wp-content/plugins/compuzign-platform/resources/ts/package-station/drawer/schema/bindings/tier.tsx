@@ -41,6 +41,9 @@ export interface TierOverviewShellData {
   label:        string;
   idealFor:     string;
   audienceGroup: 'personal_business' | 'enterprise';
+  // Additive multi-select alongside audienceGroup above — see
+  // SurfaceTierDetail.audience_groups.
+  audienceGroups: ('personal_business' | 'enterprise')[];
   tierName:     string;          // canonical tier name (Basic/Standard/…) — label fallback
   contact:      boolean;
   price:        number | null;
@@ -76,8 +79,16 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.isAddon ? 'Package Add-on' : 'Package Tier' }),
     },
     {
+      // One line per selected group — unchanged single-line reading when
+      // one or none is selected; additional groups print on their own line
+      // below via the field's own scoped white-space rule (drawer-kit.css),
+      // never a second field or a layout change to any other row.
       id: 'audience-group', element: 'text', label: 'Customer Group',
-      bind: (d): TextValue => ({ value: d.audienceGroup === 'enterprise' ? 'Enterprise' : 'Personal & Business' }),
+      bind: (d): TextValue => ({
+        value: d.audienceGroups.length > 0
+          ? d.audienceGroups.map((g) => (g === 'enterprise' ? 'Enterprise' : 'Personal & Business')).join('\n')
+          : (d.audienceGroup === 'enterprise' ? 'Enterprise' : 'Personal & Business'),
+      }),
     },
     {
       id: 'price', element: 'text', label: 'Price',

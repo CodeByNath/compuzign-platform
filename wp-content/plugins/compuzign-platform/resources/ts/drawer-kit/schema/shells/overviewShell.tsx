@@ -31,7 +31,7 @@ export function OverviewShell<T>({ schema, binding, panelOpen, onTogglePanel, ed
           const render = resolveModeRenderer(el.element, mode);
           if (!render) return null;   // no renderer for (element, mode) = absent from this viewpoint
           return (
-            <div key={el.id} class="drawerModule__field">
+            <div key={el.id} class="drawerModule__field" data-field-id={el.id}>
               {el.label && <p class="drawerModule__label">{el.label}</p>}
               {render(el.bind(binding.data), ctx)}
             </div>

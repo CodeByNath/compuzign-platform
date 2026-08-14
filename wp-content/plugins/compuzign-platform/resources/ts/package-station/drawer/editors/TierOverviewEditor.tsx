@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { TierOverviewDraft } from '../../types';
@@ -71,6 +72,21 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         : audienceGroups.filter((group) => group !== value),
     });
   };
+  const audienceGroupsSummary = audienceGroups.length === 0
+    ? 'None selected'
+    : AUDIENCE_GROUPS.filter((group) => audienceGroups.includes(group.value as 'personal_business' | 'enterprise'))
+      .map((group) => group.label)
+      .join(', ');
+  const [audienceGroupsOpen, setAudienceGroupsOpen] = useState(false);
+  const audienceGroupsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!audienceGroupsOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!audienceGroupsRef.current?.contains(e.target as Node)) setAudienceGroupsOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [audienceGroupsOpen]);
 
   return (
     <div class="cz-tf-form">
@@ -129,15 +145,38 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
 
       {/* Additive multi-select, independent of the dropdown above — belongs
           to the Tier Group, not one customer audience, so it is never
-          filtered by audience_group. Unset defaults to every group. */}
-      {AUDIENCE_GROUPS.map((group) => (
-        <AdminField
-          key={group.value}
-          def={{ id: `tier-audience-groups-${group.value}`, type: 'checkbox', label: `Customer Groups: ${group.label}` }}
-          value={audienceGroups.includes(group.value as 'personal_business' | 'enterprise')}
-          onChange={(checked: boolean) => toggleAudienceGroup(group.value as 'personal_business' | 'enterprise', checked)}
-        />
-      ))}
+          filtered by audience_group. Unset defaults to every group. Reuses
+          the field system's own checkbox for each option and the same
+          floating-panel pattern station menus already use (see
+          .cz-station-split__menu) — no new control family. */}
+      <div class="cz-tf-field">
+        <label class="cz-tf-label" id="tier-audience-groups-label">Customer Groups</label>
+        <div class="cz-tier-audience-groups" ref={audienceGroupsRef}>
+          <button
+            type="button"
+            id="tier-audience-groups-trigger"
+            class="cz-tf-control cz-tf-select"
+            aria-haspopup="true"
+            aria-expanded={audienceGroupsOpen}
+            aria-labelledby="tier-audience-groups-label tier-audience-groups-trigger"
+            onClick={() => setAudienceGroupsOpen((open) => !open)}
+          >
+            {audienceGroupsSummary}
+          </button>
+          {audienceGroupsOpen && (
+            <div class="cz-tier-audience-groups__panel" role="group" aria-label="Customer Groups">
+              {AUDIENCE_GROUPS.map((group) => (
+                <AdminField
+                  key={group.value}
+                  def={{ id: `tier-audience-groups-${group.value}`, type: 'checkbox', label: group.label }}
+                  value={audienceGroups.includes(group.value as 'personal_business' | 'enterprise')}
+                  onChange={(checked: boolean) => toggleAudienceGroup(group.value as 'personal_business' | 'enterprise', checked)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <AdminField
         def={{ id: 'tier-ideal-for', type: 'textarea', label: 'Ideal For', rows: 3 }}
