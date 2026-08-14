@@ -338,7 +338,7 @@ export function PricingTiers({
   // than as a second parallel add-on/recommendation system. It renders only
   // when a group actually has content, which today means this Tier System
   // offers add-on Tiers at all.
-  const recommendations = addonTiers.length > 0 ? (
+  const populatedRecommendations = addonTiers.length > 0 ? (
     <div class="cz-cost-builder__recommendations">
       <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
       {/* Group 1 — Optional Add-ons. Same data, same cards, same independent
@@ -383,6 +383,19 @@ export function PricingTiers({
     </div>
   ) : null;
 
+  // Isolated selected-Tier view only: a small placeholder shell in the
+  // Recommendations slot, in place of the populated Add-ons content above.
+  // Nothing is transferred into it yet — that is a later step once the shell
+  // itself is confirmed. It exists at all only when the populated
+  // Recommendations would have (i.e. this Tier System has Add-ons), which is
+  // also exactly when a Tier occupant's Add to Quote has fired and put this
+  // view on screen, so no separate show/hide wiring is needed here.
+  const recommendationsShell = populatedRecommendations ? (
+    <div class="cz-cost-builder__tier cz-cost-builder__recommendations-shell" aria-hidden="true" />
+  ) : null;
+
+  const recommendationsArea = recommendationsAside ? recommendationsShell : populatedRecommendations;
+
   // Tier strip + Recommendations. Stacked by default; the caller opts into
   // placing Recommendations beside the strip once the strip has been narrowed
   // to one selected Tier.
@@ -390,7 +403,7 @@ export function PricingTiers({
     <div
       class={[
         'cz-cost-builder__tier-area',
-        recommendations && recommendationsAside && 'cz-cost-builder__tier-area--aside',
+        recommendationsArea && recommendationsAside && 'cz-cost-builder__tier-area--aside',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -430,7 +443,7 @@ export function PricingTiers({
         </button>
       </div>
 
-      {recommendations}
+      {recommendationsArea}
     </div>
   );
 }

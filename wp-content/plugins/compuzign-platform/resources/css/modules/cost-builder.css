@@ -588,6 +588,16 @@
   margin-top: 0;
 }
 
+/* Recommendations placeholder shell — a small, empty stand-in for the
+   populated Add-ons content above, in the isolated selected-Tier view. Caps
+   at one card's own width instead of stretching across the wider
+   Recommendations column, and stays unstretched vertically. */
+.cz-cost-builder__recommendations-shell {
+  justify-self: start;
+  align-self: start;
+  max-width: 220px;
+}
+
 /* Quote summary sidebar */
 .cz-quote-summary {
   background: var(--cz-color-surface-2);
