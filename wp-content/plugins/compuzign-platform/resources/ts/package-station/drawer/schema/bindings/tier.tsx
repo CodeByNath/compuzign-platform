@@ -40,8 +40,7 @@ const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 export interface TierOverviewShellData {
   label:        string;
   idealFor:     string;
-  audienceGroup: 'personal_business' | 'enterprise';
-  // Additive multi-select alongside audienceGroup above — see
+  // An occupant belongs to its Tier Group, not one customer audience. See
   // SurfaceTierDetail.audience_groups.
   audienceGroups: ('personal_business' | 'enterprise')[];
   tierName:     string;          // canonical tier name (Basic/Standard/…) — label fallback
@@ -87,7 +86,7 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({
         value: d.audienceGroups.length > 0
           ? d.audienceGroups.map((g) => (g === 'enterprise' ? 'Enterprise' : 'Personal & Business')).join('\n')
-          : (d.audienceGroup === 'enterprise' ? 'Enterprise' : 'Personal & Business'),
+          : 'None selected',
       }),
     },
     {

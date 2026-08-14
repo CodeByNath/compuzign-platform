@@ -103,7 +103,6 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     ...slot,
     label:               ov ? ov.label         : slot.label,
     ideal_for:           ov ? ov.ideal_for     : slot.ideal_for,
-    audience_group:      ov?.audience_group ?? slot.audience_group,
     audience_groups:     ov?.audience_groups ?? slot.audience_groups,
     price:               ov ? ov.price         : slot.price,
     contact:             ov ? ov.contact       : slot.contact,

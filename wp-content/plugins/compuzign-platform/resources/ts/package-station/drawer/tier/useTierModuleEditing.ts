@@ -38,7 +38,6 @@ export function useTierModuleEditing({
       setOverviewDraft({
         label:         d.label,
         ideal_for:     d.ideal_for,
-        audience_group: d.audience_group,
         audience_groups: d.audience_groups,
         price:         d.price,
         contact:       d.contact,
@@ -79,7 +78,6 @@ export function useTierModuleEditing({
         const r = await pkg.saveTierOverview(editingTierId, {
           label:         overviewDraft.label,
           ideal_for:     overviewDraft.ideal_for,
-          audience_group: overviewDraft.audience_group,
           audience_groups: overviewDraft.audience_groups,
           price:         null,
           contact:       overviewDraft.contact,

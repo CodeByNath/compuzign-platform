@@ -26,11 +26,8 @@ const AUDIENCE_GROUPS: AdminFieldOption[] = [
 // setPopularTier (station-level), exactly as before.
 
 export type TierOverviewEditDraft = TierOverviewDraft & {
-  audience_group: 'personal_business' | 'enterprise';
-  // Additive multi-select alongside audience_group above — see
-  // SurfaceTierDetail.audience_groups. Optional here only because it rides
-  // the same generic draft payload shape as is_addon/rate_sheet_id.
-  audience_groups?: ('personal_business' | 'enterprise')[];
+  // See SurfaceTierDetail.audience_groups.
+  audience_groups: ('personal_business' | 'enterprise')[];
   popular: boolean;
   popular_label: string;
 };
@@ -61,9 +58,8 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
     label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
   }));
   const isAddon: boolean = draft.is_addon ?? false;
-  // Additive multi-select, independent of the dropdown above — an occupant
-  // belongs to its Tier Group, not one customer audience. Toggling a box
-  // adds/removes just that value; it never touches audience_group.
+  // An occupant belongs to its Tier Group, not one customer audience.
+  // Toggling a box adds/removes just that value.
   const audienceGroups: ('personal_business' | 'enterprise')[] = draft.audience_groups ?? [];
   const toggleAudienceGroup = (value: 'personal_business' | 'enterprise', checked: boolean) => {
     onChange({
@@ -137,18 +133,11 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         onChange={(label) => onChange({ label })}
       />
 
-      <AdminField
-        def={{ id: 'tier-audience-group', type: 'select', label: 'Customer Group', options: AUDIENCE_GROUPS }}
-        value={draft.audience_group}
-        onChange={(audience_group: string) => onChange({ audience_group: audience_group as 'personal_business' | 'enterprise' })}
-      />
-
-      {/* Additive multi-select, independent of the dropdown above — belongs
-          to the Tier Group, not one customer audience, so it is never
-          filtered by audience_group. Unset defaults to every group. Reuses
-          the field system's own checkbox for each option and the same
-          floating-panel pattern station menus already use (see
-          .cz-station-split__menu) — no new control family. */}
+      {/* An occupant belongs to its Tier Group, not one customer audience.
+          Unset defaults to every group. Reuses the field system's own
+          checkbox for each option and the same floating-panel pattern
+          station menus already use (see .cz-station-split__menu) — no new
+          control family. */}
       <div class="cz-tf-field">
         <label class="cz-tf-label" id="tier-audience-groups-label">Customer Groups</label>
         <div class="cz-tier-audience-groups" ref={audienceGroupsRef}>

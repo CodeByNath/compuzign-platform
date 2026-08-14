@@ -1416,13 +1416,6 @@ class PackageStationController
             // Occupant-owned customer grouping travels through Overview like
             // every other occupant scalar. Omission preserves an existing
             // value for older clients instead of silently resetting it.
-            if (array_key_exists('audience_group', $body)) {
-                $draftValue['audience_group'] = $PS::sanitizeTierAudienceGroup($body['audience_group']);
-            }
-            // Additive multi-select alongside the field above — an occupant
-            // belongs to its Tier Group, not one customer audience, so this
-            // is independent of audience_group and not filtered by it.
-            // Same omission-preserves-existing rule.
             if (array_key_exists('audience_groups', $body)) {
                 $draftValue['audience_groups'] = $PS::sanitizeTierAudienceGroups($body['audience_groups']);
             }

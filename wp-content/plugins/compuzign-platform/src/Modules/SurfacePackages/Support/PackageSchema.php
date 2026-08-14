@@ -26,15 +26,12 @@ class PackageSchema
     public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
     public const ALLOWED_PROMOTION_STATUSES  = ['draft', 'active', 'archived'];
     public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
-    public const DEFAULT_TIER_AUDIENCE_GROUP = 'personal_business';
     public const TIER_AUDIENCE_GROUPS        = ['personal_business', 'enterprise'];
-    // Additive multi-select alongside the legacy single audience_group above
-    // (untouched — its own dropdown keeps reading/writing it exactly as
-    // before). An add-on belongs to its Tier Group, not one customer
-    // audience, so a never-configured occupant defaults to every group
-    // rather than DEFAULT_TIER_AUDIENCE_GROUP's single 'personal_business'.
-    // An administrator may still deselect down to a narrower set, including
-    // none — that explicit choice is preserved, not coerced back to "all".
+    // An occupant's customer-group membership. An add-on belongs to its Tier
+    // Group, not one customer audience, so a never-configured occupant
+    // defaults to every group rather than a single value. An administrator
+    // may still narrow it, including to none — that explicit choice is
+    // preserved, not coerced back to "all".
     public const DEFAULT_TIER_AUDIENCE_GROUPS = ['personal_business', 'enterprise'];
 
     // Phase 2 tier lifecycle (P2 — store schema): the per-tier-module draft + status
@@ -67,20 +64,12 @@ class PackageSchema
         return $out;
     }
 
-    public static function sanitizeTierAudienceGroup(mixed $group): string
-    {
-        $group = is_string($group) ? trim($group) : '';
-        return in_array($group, self::TIER_AUDIENCE_GROUPS, true)
-            ? $group
-            : self::DEFAULT_TIER_AUDIENCE_GROUP;
-    }
-
     /**
-     * Sanitize the additive multi-select audience_groups. Unlike the legacy
-     * single-value sanitizer, an explicitly-empty array is a valid,
-     * preserved administrator choice — callers apply the "missing key
-     * defaults to all groups" fallback themselves via `?? DEFAULT_TIER_AUDIENCE_GROUPS`
-     * before this only filters/dedupes whatever array was actually given.
+     * Sanitize the multi-select audience_groups. An explicitly-empty array is
+     * a valid, preserved administrator choice — callers apply the "missing
+     * key defaults to all groups" fallback themselves via
+     * `?? DEFAULT_TIER_AUDIENCE_GROUPS` before this only filters/dedupes
+     * whatever array was actually given.
      */
     public static function sanitizeTierAudienceGroups(mixed $groups): array
     {
@@ -884,7 +873,6 @@ class PackageSchema
                 'addon_platform_id'    => (string) ($occ['addon_platform_id'] ?? ''),
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
-                'audience_group'      => self::sanitizeTierAudienceGroup($occ['audience_group'] ?? null),
                 'audience_groups'     => self::sanitizeTierAudienceGroups($occ['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS),
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
                 'contact'             => (bool) ($occ['contact'] ?? false),
@@ -926,7 +914,6 @@ class PackageSchema
             'addon_platform_id'    => (string) ($tier['addon_platform_id'] ?? ''),
             'label'               => $tier['label'] ?? '',
             'ideal_for'           => $tier['ideal_for'] ?? '',
-            'audience_group'      => self::sanitizeTierAudienceGroup($tier['audience_group'] ?? null),
             'audience_groups'     => self::sanitizeTierAudienceGroups($tier['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS),
             'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
             'contact'             => (bool) ($tier['contact'] ?? false),
@@ -1062,7 +1049,6 @@ class PackageSchema
             return [
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
-                'audience_group'      => self::sanitizeTierAudienceGroup($occ['audience_group'] ?? null),
                 'audience_groups'     => self::sanitizeTierAudienceGroups($occ['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS),
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
                 'contact'             => (bool) ($occ['contact'] ?? false),
@@ -1172,7 +1158,6 @@ class PackageSchema
                 'is_addon'            => (bool) ($data['is_addon'] ?? false),
                 'label'               => $data['label'] ?? '',
                 'ideal_for'           => $data['ideal_for'] ?? '',
-                'audience_group'      => self::sanitizeTierAudienceGroup($data['audience_group'] ?? null),
                 'audience_groups'     => self::sanitizeTierAudienceGroups($data['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS),
                 'price'               => $data['price'] ?? null,
                 'contact'             => $data['contact'] ?? false,
@@ -1840,7 +1825,7 @@ class PackageSchema
     {
         return [
             'occupant_id' => null, 'platform_id' => '', 'addon_platform_id' => '',
-            'label' => '', 'ideal_for' => '', 'audience_group' => self::DEFAULT_TIER_AUDIENCE_GROUP,
+            'label' => '', 'ideal_for' => '',
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
             'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
@@ -2391,7 +2376,6 @@ class PackageSchema
         $tierData = [
             'label'               => $ov['label']         ?? ($occ['label']         ?? ''),
             'ideal_for'           => $ov['ideal_for']     ?? ($occ['ideal_for']     ?? ''),
-            'audience_group'      => self::sanitizeTierAudienceGroup($ov['audience_group'] ?? ($occ['audience_group'] ?? null)),
             'audience_groups'     => self::sanitizeTierAudienceGroups($ov['audience_groups'] ?? ($occ['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS)),
             'price'               => null,
             'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),

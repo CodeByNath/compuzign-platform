@@ -38,11 +38,9 @@ final class PackageFamilyPricingBuilder
                     ),
                     'label'             => (string) ($tier['label'] ?? ''),
                     'ideal_for'         => (string) ($tier['ideal_for'] ?? ''),
-                    'audience_group'    => (string) ($tier['audience_group'] ?? 'personal_business'),
-                    // Additive multi-select — an occupant belongs to its Tier
-                    // Group, not one customer audience, so this is never
-                    // filtered by audience_group. Defaults to both groups for
-                    // occupants that predate this field.
+                    // An occupant belongs to its Tier Group, not one customer
+                    // audience. Defaults to both groups for occupants that
+                    // predate this field.
                     'audience_groups'   => is_array($tier['audience_groups'] ?? null)
                         ? array_values(array_map('strval', $tier['audience_groups']))
                         : ['personal_business', 'enterprise'],

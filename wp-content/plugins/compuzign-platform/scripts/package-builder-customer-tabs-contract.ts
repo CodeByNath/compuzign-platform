@@ -15,18 +15,21 @@ const tiers: Tier[] = [
 const pricing = {
   tiers: {
     basic: { price: 10, billing_cycle: 'monthly', inclusions: [], features: [], is_addon: false },
-    standard: { price: 20, billing_cycle: 'monthly', inclusions: [], features: [], is_addon: false, audience_group: 'personal_business' as const },
-    premium: { price: 30, billing_cycle: 'monthly', inclusions: [], features: [], is_addon: false, audience_group: 'enterprise' as const },
+    standard: { price: 20, billing_cycle: 'monthly', inclusions: [], features: [], is_addon: false, audience_groups: ['personal_business'] as const },
+    premium: { price: 30, billing_cycle: 'monthly', inclusions: [], features: [], is_addon: false, audience_groups: ['enterprise'] as const },
   },
 } as PackageBuilderFamily['pricing'];
 
+// basic never configures audience_groups, so it defaults to every group (an
+// occupant belongs to its Tier Group, not one customer audience) and shows
+// under both tabs; standard/premium each narrow to one.
 check(
   filterTiersByCustomerGroup(tiers, pricing, 'personal_business').map((tier) => tier.id).join(',') === 'basic,standard',
-  'Personal & Business includes explicit and backward-compatible default occupants',
+  'Personal & Business includes its own explicit occupant plus the never-configured one',
 );
 check(
-  filterTiersByCustomerGroup(tiers, pricing, 'enterprise').map((tier) => tier.id).join(',') === 'premium',
-  'Enterprise exposes only Enterprise occupants',
+  filterTiersByCustomerGroup(tiers, pricing, 'enterprise').map((tier) => tier.id).join(',') === 'basic,premium',
+  'Enterprise includes its own explicit occupant plus the never-configured one',
 );
 
 const root = resolve(import.meta.dirname, '..');
@@ -39,7 +42,7 @@ const groupFilter = adapter.slice(
 );
 check(adapter.includes('role="tablist"') && adapter.includes('role="tab"'), 'the control uses tab semantics');
 check(adapter.includes('aria-selected={customerGroup === group.value}'), 'the active tab exposes selection state');
-check(groupFilter.includes('audience_group') && !groupFilter.match(/month|term|billing|edition/i), 'the filter reads only occupant customer grouping');
+check(groupFilter.includes('audience_groups') && !groupFilter.match(/month|term|billing|edition/i), 'the filter reads only occupant customer grouping');
 check(!adapter.includes('<select') && !adapter.includes('activeTerm'), 'the tab UI introduces no month or term selector');
 check(!app.includes('Available tiers / plans'), 'the redundant Tier card heading is absent');
 check(styles.includes('.cz-package-builder__customer-tabs') && styles.includes('max-width: fit-content'), 'the segmented control sizes to its content');

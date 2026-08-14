@@ -20,10 +20,9 @@ function check_audience_groups(bool $condition, string $message): void
     }
 }
 
-// A never-configured occupant belongs to every group — unlike the legacy
-// single audience_group, which defaults to just 'personal_business'. An
-// occupant (add-on or not) belongs to its Tier Group, not one customer
-// audience, so absence must not silently exclude it from either tab.
+// A never-configured occupant belongs to every group. An occupant (add-on
+// or not) belongs to its Tier Group, not one customer audience, so absence
+// must not silently exclude it from either tab.
 $legacy = Schema::normaliseTierSlot([
     'label' => 'Legacy', 'billing_cycle' => 'monthly', 'inclusions_override' => [],
     'features' => [], 'faq_refs' => [], 'enabled' => true,
