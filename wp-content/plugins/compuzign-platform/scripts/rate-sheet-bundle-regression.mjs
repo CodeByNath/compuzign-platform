@@ -5,15 +5,19 @@
 // against a fixture Package Manager, and proves the Bundle option-tab system
 // end to end:
 //
-//   Phase 1 — the focused sheet carries a [Rate Sheet][Bundle …] child chip
-//     strip with a fixed "+ Bundle" trailing control; creating a Bundle selects
-//     it and opens its own workspace, with no API request until Save; the
-//     sheet's own rows are untouched and reachable again by chip.
-//   Phase 2 — the Bundle workspace is the FULL Rate Sheet row tooling: the same
-//     "+ Add Service" picker, the same grid, the same one-row-at-a-time
-//     Edit/Save/Cancel lock, the same Price Options tab strip — every command
-//     addressing the Bundle's rows and never the sheet's, through the same
-//     single full-manager save.
+//   Phase 1 — the focused sheet is a DRAWER GROUP screen (Details / Options,
+//     the same vocabulary and the same shared Tabs/Accordion renderers as the
+//     Tier drawer). Both groups open READABLE; "+ Bundle" lives in the drawer's
+//     own nav chrome beside the view toggle, gated on Options being active, and
+//     never on the chip strip. Options navigates its Bundles with the shared
+//     child chip strip and reads the selected one as a module card; only that
+//     card's Edit opens the inline editor, as a focused task that suppresses
+//     the group chrome without unmounting the group renderers.
+//   Phase 2 — the Bundle workspace behind that Edit is the FULL Rate Sheet row
+//     tooling: the same "+ Add Service" picker, the same grid, the same
+//     one-row-at-a-time Edit/Save/Cancel lock, the same Price Options tab strip
+//     — every command addressing the Bundle's rows and never the sheet's,
+//     through the same single full-manager save.
 //
 // Usage: npm run regression:rate-sheet-bundle
 //    or: node scripts/rate-sheet-bundle-regression.mjs
@@ -273,9 +277,32 @@ function chipByLabel(label) { return chips().find((c) => c.textContent.trim() ==
 function activeChipLabel() {
   return chips().find((c) => c.getAttribute('aria-selected') === 'true')?.textContent.trim() ?? null;
 }
-function addBundleButton() {
-  return [...container.querySelectorAll('.cz-drawer-groups__chip-strip-trailing button')][0] ?? null;
+// ── Drawer group chrome (the top-level Details/Options nav) ──────────────
+function detailRoot() { return container.querySelector('.cz-req-detail'); }
+function groupTabs() { return [...container.querySelectorAll('.cz-drawer-groups__tab')]; }
+function groupTabLabels() { return groupTabs().map((t) => t.textContent.trim()); }
+function activeGroupTab() {
+  return groupTabs().find((t) => t.getAttribute('aria-selected') === 'true')?.textContent.trim() ?? null;
 }
+function selectGroup(label) { click(groupTabs().find((t) => t.textContent.trim() === label)); }
+function navTrailingButtons() {
+  return [...container.querySelectorAll('.cz-drawer-groups__tablist-trailing button')];
+}
+function addBundleButton() {
+  return navTrailingButtons().find((b) => b.textContent.trim() === '+ Bundle') ?? null;
+}
+function viewToggleButton() { return container.querySelector('.cz-drawer-groups__view-toggle'); }
+// ── Readable module cards and the focused editor they open ──────────────
+function moduleCard(title) {
+  return [...container.querySelectorAll('.drawerModule')]
+    .find((card) => card.querySelector('.drawerModule__title')?.textContent.trim() === title) ?? null;
+}
+function cardEditButton(title) {
+  return [...(moduleCard(title)?.querySelectorAll('.drawerModule__footer button') ?? [])]
+    .find((b) => b.textContent.trim() === 'Edit') ?? null;
+}
+function editorShell() { return container.querySelector('.cz-ies'); }
+function editorTitle() { return container.querySelector('.cz-ies__title')?.textContent.trim() ?? null; }
 function bundleWorkspace() { return container.querySelector('.cz-rate-sheet-tool__bundle'); }
 function rowsIn() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__grid tbody tr')]
@@ -295,24 +322,58 @@ function importActionButton(text) {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__import-actions button')].find((b) => b.textContent.trim().startsWith(text)) ?? null;
 }
 
+// The drawer opens in VIEW, the way the module entry contract requires — every
+// group is readable first, and only a card's own Edit opens an editor.
 async function remount() {
   render(null, container);
   server = { manager: baseManager() };
   saveCalls = 0; lastSavePayload = null; confirmReturnValue = true;
   optionSeq = 0; bundleSeq = 0;
-  render(h(Harness, { recordId: 'rs_1', mode: 'edit' }), container);
+  render(h(Harness, { recordId: 'rs_1', mode: 'view' }), container);
+  await settle();
+}
+
+/** Options → "+ Bundle" → the new Bundle's card → Edit: the whole authoring
+ *  entry path, exactly as an admin walks it. */
+async function openNewBundleEditor() {
+  selectGroup('Options');
+  await settle();
+  click(addBundleButton());
+  await settle();
+  click(cardEditButton('Bundle'));
   await settle();
 }
 
 console.log('Rate Sheet Bundle regression\n');
 
-// ── A) Phase 1 — option-tab navigation and Bundle creation ───────────────
-console.log('A) Bundle option-tab navigation and creation');
+// ── A) Phase 1 — the drawer group screen and Bundle creation ─────────────
+console.log('A) The focused sheet is a Details/Options drawer group screen');
 await remount();
-check('the focused sheet opens on its own rows', activeChipLabel() === 'Rate Sheet', activeChipLabel());
-check('the chip strip carries only the Rate Sheet itself before any Bundle exists', chipLabels().join('|') === 'Rate Sheet', chipLabels().join('|'));
-check('the sheet\'s own row is visible', rowByText('Website') != null);
-check('+ Bundle is offered as the strip\'s fixed trailing control', addBundleButton()?.textContent.trim() === '+ Bundle');
+check('the focused sheet opens on drawer group tabs', groupTabLabels().join('|') === 'Details|Options', groupTabLabels().join('|'));
+check('it opens READABLE on Details, never in an editor', activeGroupTab() === 'Details' && editorShell() == null, activeGroupTab());
+check('Details reads the Rate Sheet itself, with its CZPRC', moduleCard('Rate Sheet')?.textContent.includes('CZPRC22222'));
+check('the nav carries the Tabs/Accordion view toggle', viewToggleButton() != null);
+check('"+ Bundle" is not offered while Details is the active group', addBundleButton() == null);
+
+selectGroup('Options');
+await settle();
+check('Options becomes the active group', activeGroupTab() === 'Options', activeGroupTab());
+check('"+ Bundle" lives in the drawer nav, beside the view toggle', addBundleButton() != null);
+check('and never on the chip strip\'s own trailing seam', container.querySelector('.cz-drawer-groups__chip-strip-trailing') == null);
+check('Options renders a proper empty state with zero Bundles', container.querySelector('.cz-admin-empty')?.textContent.includes('No Bundles yet'));
+check('and no Bundle card, because none is selected', moduleCard('Bundle') == null);
+
+// The view toggle swaps which shared renderer draws the nav — never which
+// groups exist or which one is active.
+click(viewToggleButton());
+await settle();
+check('the view toggle switches the nav to the shared accordion renderer', container.querySelector('.cz-drawer-groups__accordion') != null);
+check('the same two groups are offered in accordion view', [...container.querySelectorAll('.cz-drawer-groups__accordion-trigger')].map((t) => t.textContent.trim()).join('|') === 'Details|Options');
+check('"+ Bundle" rides the accordion nav\'s own trailing slot', [...container.querySelectorAll('.cz-drawer-groups__accordion-trailing button')].some((b) => b.textContent.trim() === '+ Bundle'));
+check('and Options is still the open group', container.querySelector('#cz-drawer-group-options-panel')?.hasAttribute('hidden') === false);
+click(viewToggleButton());
+await settle();
+check('toggling back restores the tab bar with Options still active', activeGroupTab() === 'Options', activeGroupTab());
 
 const savesBeforeCreate = saveCalls;
 click(addBundleButton());
@@ -320,20 +381,21 @@ await settle();
 check('creating a Bundle makes no API request — it is local until Save', saveCalls === savesBeforeCreate);
 check('the new Bundle appears as a chip', chipLabels().includes('Bundle 1'), chipLabels().join('|'));
 check('the new Bundle is selected', activeChipLabel() === 'Bundle 1', activeChipLabel());
+check('it opens READABLE as a module card, not straight into an editor', moduleCard('Bundle') != null && editorShell() == null);
+check('a not-yet-saved Bundle reports that its Platform ID comes after Save', moduleCard('Bundle')?.textContent.includes('Assigned after Save'));
+
+click(cardEditButton('Bundle'));
+await settle();
+check('only Edit opens the inline editor', editorShell() != null);
+check('the editor is a focused task that suppresses the group chrome', detailRoot()?.className.includes('cz-req-detail--editing'), detailRoot()?.className);
+check('the group renderers stay mounted beneath it, never unmounted', container.querySelector('.cz-drawer-groups__tablist') != null);
 check('its own workspace is mounted', bundleWorkspace() != null);
-check('a not-yet-saved Bundle reports that its Platform ID comes after Save', bundleWorkspace()?.textContent.includes('Assigned after Save'));
 check('it opens with no rows', rowsIn().length === 0, rowsIn().length);
 
-click(chipByLabel('Rate Sheet'));
-await settle();
-check('the Rate Sheet chip returns to the sheet\'s own rows', bundleWorkspace() == null && rowByText('Website') != null);
-
-click(chipByLabel('Bundle 1'));
-await settle();
 const nameInput = bundleWorkspace()?.querySelector('input[aria-label="Bundle name"]');
 setInputValue(nameInput, 'Digital Banking Website');
 await settle();
-check('the Bundle can be renamed', chipLabels().includes('Digital Banking Website'), chipLabels().join('|'));
+check('the Bundle can be renamed', editorTitle() === 'Digital Banking Website', editorTitle());
 check('renaming it makes no API request', saveCalls === savesBeforeCreate);
 
 // ── B) Phase 2 — full Rate Sheet row tooling inside the Bundle ───────────
@@ -362,7 +424,7 @@ check('the Bundle is submitted with a blank id — the backend mints it', publis
 check('its rows landed in the BUNDLE, not in the sheet\'s own rows', (publishedBundle?.items ?? []).length === 2, (publishedBundle?.items ?? []).length);
 check('the sheet\'s own rows are untouched by the Bundle import', (publishedSheet?.items ?? []).length === 1, (publishedSheet?.items ?? []).length);
 check('every Bundle row carries its own label field', (publishedBundle?.items ?? []).every((row) => typeof row.label === 'string'));
-check('the Bundle survives the save and stays selected', activeChipLabel() === 'Digital Banking Website', activeChipLabel());
+check('the Bundle survives the save and stays selected', editorTitle() === 'Digital Banking Website', editorTitle());
 check('a saved Bundle shows its minted Platform ID', bundleWorkspace()?.textContent.includes('CZPRCB'), bundleWorkspace()?.textContent.slice(0, 200));
 check('its rows render in the Bundle workspace', rowsIn().length === 2, rowsIn().length);
 check('each Bundle row shows its own CZPRCBI', rowByText('Website Revamp')?.textContent.includes('CZPRCBI'));
@@ -407,16 +469,26 @@ check(
 check('the renamed row displays its own name once locked', rowByText('Revamp (bundled)') != null);
 check('and still shows the supplied content it prices', rowByText('Revamp (bundled)')?.textContent.includes('Website Revamp'));
 
-click(chipByLabel('Rate Sheet'));
+// The row Save above already persisted, so nothing is dirty and Cancel leaves
+// the focused task without a discard prompt.
+click(anyButton('Cancel'));
 await settle();
-check('the sheet\'s own rows are unchanged after all the Bundle editing', rowsIn().length === 1 && rowByText('Website') != null);
+check('leaving the Bundle editor returns to the readable Options group', editorShell() == null && activeGroupTab() === 'Options', activeGroupTab());
+check('and the group chrome is restored', detailRoot()?.className.includes('cz-req-detail--editing') === false);
+check('the saved Bundle reads its minted Platform ID on its card', moduleCard('Bundle')?.textContent.includes('CZPRCB'), moduleCard('Bundle')?.textContent.slice(0, 200));
+check('and reports the rows it holds', moduleCard('Bundle')?.textContent.includes('2 rows'), moduleCard('Bundle')?.textContent.slice(0, 300));
+
+selectGroup('Details');
+await settle();
+click(cardEditButton('Rate Sheet'));
+await settle();
+check('the sheet\'s own rows are unchanged after all the Bundle editing', rowsIn().length === 1 && rowByText('Website') != null, rowsIn().length);
 check('the sheet\'s own row is NOT renamed and shows no name input', rowsIn()[0]?.querySelector('input[type="text"]') == null);
 
 // ── C) Phase 3/4 — the Bundle engine composes from OTHER Rate Sheets ─────
 console.log('\nC) The Bundle engine composes rows from other Rate Sheets');
 await remount();
-click(addBundleButton());
-await settle();
+await openNewBundleEditor();
 click(anyButton('Import from Rate Sheets'));
 await settle();
 check('the engine browses Rate Sheets, not Services', container.querySelector('[aria-label="Import from Rate Sheets"]') != null);
@@ -450,7 +522,7 @@ check('a staged row starts from the price its source row carried', stagedRows.fi
 const combinationName = container.querySelector('input[aria-label="Name for this combination"]');
 setInputValue(combinationName, 'Digital Banking Website');
 await settle();
-check('the combination can be named in the engine itself', chipLabels().includes('Digital Banking Website'), chipLabels().join('|'));
+check('the combination can be named in the engine itself', editorTitle() === 'Digital Banking Website', editorTitle());
 
 const stagedBanking = [...container.querySelectorAll('.cz-rate-sheet-tool__import .cz-rate-sheet-tool__grid tbody tr')]
   .find((r) => r.textContent.includes('from Banking'));
@@ -554,9 +626,9 @@ server.manager.rate_sheets[0].items = [
   },
 ];
 render(null, container);
-render(h(Harness, { recordId: 'rs_1', mode: 'edit' }), container);
+render(h(Harness, { recordId: 'rs_1', mode: 'view' }), container);
 await settle();
-click(chipByLabel('Rate Sheet'));
+click(cardEditButton('Rate Sheet'));
 await settle();
 check(
   "the Tool never shows the Bundle's own upstream row as an editable sheet row",

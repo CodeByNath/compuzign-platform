@@ -21,6 +21,14 @@
 // and opens one compact read card; `new` enters the same one-sheet editor with
 // one empty sheet selected.
 //
+// A FOCUSED sheet presents its two drawer groups through the shared
+// Tabs/Accordion renderers — Details (the sheet itself and its own priced rows)
+// and Options (its Bundles) — exactly as TierDrawerContent composes the Tier
+// drawer's own groups. Both groups open READABLE; only Edit opens the inline
+// editor, which is a focused task that suppresses the group chrome in CSS
+// (`.cz-req-detail--editing`) rather than by unmounting the renderers. There is
+// no Bin: Rate Sheets have no bin lifecycle.
+//
 // Presentation only. Every read, edit, and save lives on the controller the
 // Package-owned `useRateSheetTool` hook supplies; this file calls no endpoint and
 // mints no id. Deleting a sheet a Tier still uses is rejected by the backend
@@ -35,11 +43,14 @@ import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { evaluateModule, rateSheetCollectionModule } from '@/drawer-kit/utils/moduleNotifications';
 import { ChildChipStrip } from '@/drawer-kit/ui/ChildChipStrip';
-import { RateSheetIcon } from '@/admin-station/shell/icons';
+import { DrawerGroupAccordion } from '@/drawer-kit/ui/DrawerGroupAccordion';
+import { DrawerGroupTabs } from '@/drawer-kit/ui/DrawerGroupTabs';
+import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
+import { AppsIcon, MenuIcon, RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
-import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
+import type { RateSheetGroupId, RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 import { bundleKey, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
-import type { RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
+import type { RateSheetEditorBundle, RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
 import { RateSheetGridEditor } from './rateSheetParts';
 import { RateSheetBundleWorkspace } from './RateSheetBundleWorkspace';
 import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
@@ -47,9 +58,7 @@ import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
 const plural = (count: number, singular: string, pluralForm = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralForm}`;
 
-/** The chip that selects the sheet's OWN rows. Navigation state only: the Rate
- *  Sheet is not one of its Bundles, and this id is never stored or sent. */
-const SHEET_CHIP_ID = '__sheet__';
+const money = (value: number): string => `$${value.toFixed(2)}`;
 
 // ── SECTION: drawer content ───────────────────────────────────────────────────
 
@@ -156,26 +165,268 @@ function RateSheetDrawerBody({
       ? <div class="cz-station-drawer__state" aria-busy="true">Preparing Rate Sheet…</div>
       : <div class="cz-station-drawer__state" role="alert">This Rate Sheet could not be selected.</div>;
   }
+  // The focused sheet is the group screen: Details and Options both render
+  // (readable, or as this group's own focused editor) beneath the one shared
+  // Tabs/Accordion nav. Edit no longer swaps the whole body for an editor.
+  if (focused && controller.selected) {
+    return (
+      <FocusedRateSheetGroups
+        controller={controller}
+        value={controller.selected}
+        editing={editing}
+        onEdit={requestEdit}
+        onSave={save}
+        onCancel={leaveEdit}
+      />
+    );
+  }
   if (editing) {
     return (
       <InlineEditorShell
-        title={focused ? (controller.selected?.title.trim() || 'New Rate Sheet') : 'Rate Sheets'}
+        title="Rate Sheets"
         onSave={save}
         onCancel={leaveEdit}
         saving={saving}
         saveErr={saveError}
         isDirty={dirty}
-        saveDisabled={!dirty || (focused && !controller.selected?.title.trim()) || controller.editingRowId !== null}
+        saveDisabled={!dirty || controller.editingRowId !== null}
       >
-        {focused && controller.selected
-          ? <FocusedRateSheetEditor controller={controller} value={controller.selected} />
-          : <RateSheetCollectionEditor controller={controller} />}
+        <RateSheetCollectionEditor controller={controller} />
       </InlineEditorShell>
     );
   }
-  return focused && controller.selected
-    ? <FocusedRateSheetRead value={controller.selected} onEdit={requestEdit} />
-    : <RateSheetCollectionView controller={controller} onEdit={requestEdit} />;
+  return <RateSheetCollectionView controller={controller} onEdit={requestEdit} />;
+}
+
+// ── SECTION: focused sheet — the two drawer groups ────────────────────────────
+
+/**
+ * The focused Rate Sheet's Details/Options group screen — the same composition
+ * TierDrawerContent renders: one `.cz-req-detail` root, one group array, one of
+ * the two shared renderers, and a `trailing` nav slot carrying the view toggle
+ * plus the group-scoped create action.
+ *
+ * Both groups own a readable entry state and open their OWN inline editor in
+ * place, so exactly one editor can be open at a time (the inactive group's
+ * content is not rendered by either renderer). While one is open,
+ * `.cz-req-detail--editing` suppresses the nav chrome in CSS — the renderers and
+ * every group's content stay mounted at the same tree position, so an editor's
+ * own local state is never wiped by a reparenting remount.
+ */
+function FocusedRateSheetGroups({
+  controller, value, editing, onEdit, onSave, onCancel,
+}: {
+  controller: RateSheetToolController;
+  value:      RateSheetEditorValue;
+  editing:    boolean;
+  onEdit:     () => void;
+  onSave:     () => Promise<void>;
+  onCancel:   () => void;
+}): VNode {
+  const { dirty, saving, saveError, groupTab, groupView } = controller;
+
+  // One editor session for the whole focused sheet — the same footer grammar,
+  // dirty guard and row lock whichever group opened it. Only its title and body
+  // differ, because only the SCOPE differs.
+  const openEditor = (title: string, body: VNode): VNode => (
+    <InlineEditorShell
+      title={title}
+      onSave={onSave}
+      onCancel={onCancel}
+      saving={saving}
+      saveErr={saveError}
+      isDirty={dirty}
+      saveDisabled={!dirty || !value.title.trim() || controller.editingRowId !== null}
+    >
+      {body}
+    </InlineEditorShell>
+  );
+
+  const groups: DrawerGroup<RateSheetGroupId>[] = [
+    {
+      id: 'details',
+      label: 'Details',
+      content: editing && groupTab === 'details'
+        ? openEditor(
+          value.title.trim() || 'New Rate Sheet',
+          <FocusedRateSheetEditor controller={controller} value={value} />,
+        )
+        : <FocusedRateSheetRead value={value} onEdit={onEdit} />,
+    },
+    {
+      id: 'options',
+      label: 'Options',
+      content: (
+        <RateSheetBundleSwitcher
+          controller={controller}
+          sheet={value}
+          editing={editing && groupTab === 'options'}
+          onEdit={onEdit}
+          openEditor={openEditor}
+        />
+      ),
+    },
+  ];
+
+  // The icon shown is the AVAILABLE ALTERNATE view, not the current one — the
+  // same convention the Tier drawer's own toggle and the Admin header's theme
+  // toggle already use.
+  const viewToggleTarget = groupView === 'tabs' ? 'accordion' : 'tabs';
+  const viewToggleLabel  = viewToggleTarget === 'accordion' ? 'Switch to accordion view' : 'Switch to tabs view';
+  // "+ Bundle" lives here, in the drawer's own nav chrome beside the view
+  // toggle, reachable only while Options is the active group — never on the
+  // chip strip's trailing seam, which is navigation, not creation.
+  const trailing = (
+    <>
+      <button
+        type="button"
+        class="cz-station-iconbtn cz-drawer-groups__view-toggle"
+        aria-label={viewToggleLabel}
+        title={viewToggleLabel}
+        onClick={() => controller.setGroupView(viewToggleTarget)}
+      >
+        {viewToggleTarget === 'accordion' ? <MenuIcon /> : <AppsIcon />}
+      </button>
+      {groupTab === 'options' && (
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          disabled={controller.editingRowId !== null}
+          onClick={() => controller.createBundle()}
+        >
+          + Bundle
+        </button>
+      )}
+    </>
+  );
+
+  return (
+    <div class={`cz-req-detail${editing ? ' cz-req-detail--editing' : ''}`}>
+      {groupView === 'accordion' ? (
+        <DrawerGroupAccordion groups={groups} activeId={groupTab} onSelect={controller.selectGroupTab} trailing={trailing} />
+      ) : (
+        <DrawerGroupTabs groups={groups} activeId={groupTab} onSelect={controller.selectGroupTab} trailing={trailing} />
+      )}
+    </div>
+  );
+}
+
+// ── SECTION: Options — the sheet's Bundles ────────────────────────────────────
+
+/**
+ * The Options group's content: a `[Bundle …]` child chip strip over the SELECTED
+ * Bundle's readable module card, or — once Edit is pressed — that Bundle's own
+ * focused workspace. The exact shape TierEditionDeclarationSwitcher gives Tier
+ * Options, minus the Bin, which Rate Sheets do not have.
+ *
+ * The selection itself is a CONTROLLED value read from the controller, not local
+ * state: the drawer body unmounts on every refetch, which would silently reset a
+ * local selection after each save.
+ */
+function RateSheetBundleSwitcher({
+  controller, sheet, editing, onEdit, openEditor,
+}: {
+  controller: RateSheetToolController;
+  sheet:      RateSheetEditorValue;
+  editing:    boolean;
+  onEdit:     () => void;
+  openEditor: (title: string, body: VNode) => VNode;
+}): VNode {
+  const { bundles, selectedBundle, selectedBundleKey } = controller;
+
+  // Options must never sit on a selection that names nothing — a fresh mount, a
+  // Bundle just deleted, or a Bundle dropped by a save all land here. There is
+  // no sheet-level fallback inside Options: the sheet itself is Details.
+  useEffect(() => {
+    if (bundles.length === 0) return;
+    if (bundles.some((bundle) => bundleKey(bundle) === selectedBundleKey)) return;
+    controller.selectBundle(bundleKey(bundles[0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bundles, selectedBundleKey]);
+
+  if (editing) {
+    return openEditor(
+      selectedBundle ? (selectedBundle.title.trim() || 'New Bundle') : 'Bundles',
+      <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
+        {selectedBundle && selectedBundleKey ? (
+          <RateSheetBundleWorkspace
+            controller={controller}
+            bundle={selectedBundle}
+            bundleKey={selectedBundleKey}
+            sheet={sheet}
+          />
+        ) : (
+          <p class="cz-station-empty">
+            This Rate Sheet has no Bundles left to edit. Save or Cancel to return, then use "+ Bundle" to add one.
+          </p>
+        )}
+      </div>,
+    );
+  }
+
+  return (
+    <div class="cz-shell-section">
+      <ChildChipStrip
+        chips={bundles.map((bundle) => ({ id: bundleKey(bundle), label: bundle.title.trim() || 'Untitled Bundle' }))}
+        activeId={selectedBundleKey}
+        ariaLabel="Bundles"
+        onSelect={(id) => controller.selectBundle(id)}
+      />
+
+      {bundles.length === 0 && (
+        <div class="cz-admin-empty" style="margin-top: var(--cz-space-2)">
+          <p>No Bundles yet. Use "+ Bundle" to compose one from this Rate Sheet's own rows and other sheets'.</p>
+        </div>
+      )}
+
+      {selectedBundle && <RateSheetBundleRead bundle={selectedBundle} onEdit={onEdit} />}
+    </div>
+  );
+}
+
+/** The selected Bundle's readable module card — the same `ReadBlock` /
+ *  `ModuleStatusPill` card the sheet's own Details module reads through. */
+function RateSheetBundleRead({
+  bundle, onEdit,
+}: { bundle: RateSheetEditorBundle; onEdit: () => void }): VNode {
+  return (
+    <ReadBlock
+      title="Bundle"
+      subtitle="One priced combination of Rate Sheet rows, offered upstream as a single item."
+      icon={<RateSheetIcon />}
+      scopeClass="drawerOverview"
+      status={bundle.status === 'archived' ? 'disabled' : 'active'}
+      actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}
+    >
+      <div class="drawerModule__fields">
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Name</p>
+          <p class="drawerModule__value">{bundle.title.trim() || 'Untitled Bundle'}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Platform ID</p>
+          <p class="drawerModule__value">{bundle.platformId || (bundle.id ? 'Not assigned' : 'Assigned after Save')}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Bundle price</p>
+          <p class="drawerModule__value">{money(bundle.unitPrice)} · {bundle.per}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Price Options</p>
+          <p class="drawerModule__value">
+            {bundle.priceOptions.length}
+            {bundle.priceOptions.length > 0
+              ? ` · ${bundle.priceOptions.map((option) => option.label.trim() || 'Untitled option').join(', ')}`
+              : ''}
+          </p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Rows</p>
+          <p class="drawerModule__value">{plural(bundle.items.length, 'row')}</p>
+        </div>
+      </div>
+    </ReadBlock>
+  );
 }
 
 // ── SECTION: view mode (the list) ─────────────────────────────────────────────
@@ -248,8 +499,9 @@ function FocusedRateSheetRead({
 }: { value: RateSheetEditorValue; onEdit: () => void }): VNode {
   const summary = useMemo(() => summariseRateSheet(value, 0), [value]);
   const perValues = useMemo(() => [...new Set(value.items.map((row) => row.per))], [value.items]);
+  // No `.cz-req-detail` wrapper of its own: the caller owns that root — the
+  // Details group inside the focused group screen, or the collection view.
   return (
-    <div class="cz-req-detail">
       <ReadBlock
         title="Rate Sheet"
         subtitle="Pricing configuration and inclusion summary for this Rate Sheet."
@@ -289,76 +541,46 @@ function FocusedRateSheetRead({
         </div>
         </div>
       </ReadBlock>
-    </div>
   );
 }
 
-// ── SECTION: edit mode (the collection editor) ────────────────────────────────
+// ── SECTION: edit mode (the sheet and collection editors) ─────────────────────
 
+/**
+ * The Details group's own editor: the sheet's own fields and its own priced
+ * rows. It carries no Bundle navigation at all — Bundles are the Options group,
+ * and the controller's row scope follows the active group, so every command in
+ * here addresses the sheet's own rows.
+ */
 function FocusedRateSheetEditor({ controller, value }: {
   controller: RateSheetToolController;
   value: RateSheetEditorValue;
 }): VNode {
   const selectedKey = controller.selectedKey;
-  const { selectedBundle, selectedBundleKey } = controller;
-
-  // The sheet's own child navigation: the Rate Sheet itself, then each of its
-  // Bundles. `SHEET_CHIP_ID` is navigation state, never a record — the sheet is
-  // not a Bundle, exactly as a Tier's own Default declaration is not an Edition.
-  const chips = [
-    { id: SHEET_CHIP_ID, label: 'Rate Sheet' },
-    ...controller.bundles.map((bundle) => ({
-      id:    bundleKey(bundle),
-      label: bundle.title.trim() || 'Untitled Bundle',
-    })),
-  ];
 
   return (
     <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
-      <ChildChipStrip
-        chips={chips}
-        activeId={selectedBundleKey ?? SHEET_CHIP_ID}
-        onSelect={(id) => controller.selectBundle(id === SHEET_CHIP_ID ? null : id)}
-        ariaLabel="Rate Sheet and its Bundles"
-        trailing={(
-          <button
-            type="button"
-            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-            disabled={controller.editingRowId !== null}
-            onClick={() => controller.createBundle()}
-          >
-            + Bundle
-          </button>
-        )}
-      />
-
-      {selectedBundle && selectedBundleKey ? (
-        <RateSheetBundleWorkspace controller={controller} bundle={selectedBundle} bundleKey={selectedBundleKey} sheet={value} />
-      ) : (
-        <>
-          <div class="cz-rate-sheet-tool__focused-head">
-            <input
-              class="cz-tf-control cz-tf-input"
-              value={value.title}
-              placeholder="Rate Sheet title"
-              aria-label="Rate Sheet title"
-              onInput={(event) => controller.setTitle((event.currentTarget as HTMLInputElement).value)}
-            />
-            <select
-              class="cz-tf-control cz-tf-select"
-              value={value.status}
-              aria-label="Rate Sheet status"
-              onChange={(event) => {
-                if (selectedKey) controller.setSheetStatus(selectedKey, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived');
-              }}
-            >
-              <option value="active">Active</option>
-              <option value="archived">Disabled</option>
-            </select>
-          </div>
-          <RateSheetSheetEditor controller={controller} value={value} indented={false} />
-        </>
-      )}
+      <div class="cz-rate-sheet-tool__focused-head">
+        <input
+          class="cz-tf-control cz-tf-input"
+          value={value.title}
+          placeholder="Rate Sheet title"
+          aria-label="Rate Sheet title"
+          onInput={(event) => controller.setTitle((event.currentTarget as HTMLInputElement).value)}
+        />
+        <select
+          class="cz-tf-control cz-tf-select"
+          value={value.status}
+          aria-label="Rate Sheet status"
+          onChange={(event) => {
+            if (selectedKey) controller.setSheetStatus(selectedKey, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived');
+          }}
+        >
+          <option value="active">Active</option>
+          <option value="archived">Disabled</option>
+        </select>
+      </div>
+      <RateSheetSheetEditor controller={controller} value={value} indented={false} />
     </div>
   );
 }

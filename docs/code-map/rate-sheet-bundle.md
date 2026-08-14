@@ -5,7 +5,9 @@
 A **Bundle** is a Rate Sheet-owned composition space: a named set of complete
 Rate Sheet rows, offered upstream as one commercial item at its own price. Not a
 second Rate Sheet — it stores no groups and no unit vocabulary, and each of its
-rows is a separate record with its own identity, price, and Price Options.
+rows is a separate record with its own identity, price, and Price Options, so
+the same supplied content priced on a sheet row and inside a Bundle is **two
+records, two identities, two prices**.
 
 ```text
 Rate Sheet            CZPRC     rate_sheet_id
@@ -17,9 +19,6 @@ Rate Sheet            CZPRC     rate_sheet_id
      └─ Bundle Item   CZPRCBI   (rate_sheet_id, bundle_id, item_id)
          └─ Option    CZPRCBIO  (rate_sheet_id, bundle_id, item_id, option_id)
 ```
-
-Pricing the same supplied content on a sheet row and inside a Bundle produces
-**two records with two identities and two prices**.
 
 ## Storage
 
@@ -37,8 +36,8 @@ Bundle auto-settles on the same rule sheet rows use.
 
 ## Identity
 
-`PlatformIdentifierPolicy` gains the four prefixes above (unambiguous: the suffix
-alphabet excludes I/L/O/U and every suffix is exactly five characters).
+`PlatformIdentifierPolicy` gains the four prefixes above, unambiguous under its
+own suffix rules ([Platform Identifier Station](platform-identifier-station.md)).
 `PackagePlatformNativeReference::rateSheetBundle*()` supplies the references;
 `PackagePlatformIdentifierAdapters` adds the matching scopes to the same
 `rateSheetAdapter()` factory, and `PackageRepository`'s
@@ -50,17 +49,23 @@ Price Option.
 
 ## Authoring
 
-One controller and one save engine, made scope-aware — never a second editor.
+One scope-aware controller and save engine — never a second editor — over a
+**drawer group screen**: `Details` (the sheet), `Options` (its Bundles), no Bin.
+
 - [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts)
   — `RateSheetEditorBundle`, Bundle CRUD, and the row transforms (`patchRowIn`,
   `removeRowIn`, `addRowsIn`, price-option `*In`) written once against a row list.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts)
-  — `selectedBundleKey` plus the `editRows`/`withScopedRows` seam every row
-  command routes through, so the same commands address the selected Bundle's
-  rows. Selection survives a save by position.
+  — owns `groupTab`, `groupView`, `selectedBundleKey`; no refetch resets them.
+  The active group decides row scope (`scopedBundleKey`), so the one
+  `editRows`/`withScopedRows` seam reaches a Bundle only under `Options`.
 - [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx)
-  — the `[Rate Sheet][Bundle …]` `ChildChipStrip` with `+ Bundle` on its
-  `trailing` seam. No Bin: Rate Sheets have no bin lifecycle.
+  — `FocusedRateSheetGroups` over `DrawerGroupTabs`/`DrawerGroupAccordion`; the
+  view toggle and `+ Bundle` (`Options` only, not the chip strip) ride the nav's
+  `trailing` slot. `RateSheetBundleSwitcher` is `Options`' content:
+  `ChildChipStrip`, empty state, the selected Bundle's readable card, whose Edit
+  alone opens `InlineEditorShell`; `.cz-req-detail--editing` hides the nav
+  without unmounting it.
 - [RateSheetBundleWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleWorkspace.tsx)
   — the Bundle head, its own price through the shared
   `RateSheetPriceOptionEditor`, and the SAME grid, row lock, and `+ Add Service`
@@ -68,16 +73,14 @@ One controller and one save engine, made scope-aware — never a second editor.
 - [RateSheetBundleImportPicker.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleImportPicker.tsx)
   — the Bundle engine: browses **Rate Sheets** (not Services), multi-selects rows
   across them, stages name/price/unit/quantity/group locally, names the
-  combination, and Publishes through `controller.publishRows` — the one existing
-  save. Composing copies; the source sheet is never modified.
+  combination, then adds through `controller.publishRows` — the one existing
+  save. Composing copies; the source sheet is untouched.
 
 ## Bundle pricing and consumption
 
 A Bundle's **own commercial price** is independent of what its rows sum to:
-Chef's Soup is $75 whether or not carrot + potato + chicken is $90. Same fields
-and Price Option shape as any priced row.
-
-Upstream, the Bundle **is** one Rate Sheet row:
+Chef's Soup is $75 even if carrot + potato + chicken is $90. Same fields and
+Price Option shape as any priced row. Upstream, the Bundle **is** one row:
 
 ```text
 Service Inclusion → Rate Sheet → Rate Sheet Row
@@ -88,28 +91,28 @@ Service Inclusion → Rate Sheet → Rate Sheet Row
 
 `consumableRateSheetRows()` is what the sheet offers: its own priced rows plus
 one row per active Bundle (`bundleConsumableRow()`) — id
-`deriveBundleRowId($bundleId)` in the ordinary `rate_` grammar, the Bundle's price
-and Price Options in the ordinary row positions, `includes[]` for presentation
-only. `buildReadModel` puts it straight into the sheet's **`items`** — the rows
-every consumer already reads — so there is no new field and no consumer changes.
-The authoring tool cannot round-trip it: the row carries no `source_item_id`, and
-`toEditorRows()` and `sanitizeRateRows()` both already drop a row without one.
+`deriveBundleRowId($bundleId)` in the ordinary `rate_` grammar, the Bundle's
+price and Price Options in the ordinary positions, `includes[]` for presentation
+only. `buildReadModel` puts it straight into the sheet's own **`items`**, so
+there is no new field and no consumer changes. The authoring tool cannot
+round-trip it: it carries no `source_item_id`, which `toEditorRows()` and
+`sanitizeRateRows()` already drop a row for.
 
 Component rows are **ingredients, not separately chargeable rows**: absent from
-that offer, so selecting the Bundle charges $75 once and can never also charge its
-parts. The sheet's own rows stay individually sellable.
+that offer, so selecting the Bundle charges $75 once, never its parts too. The
+sheet's own rows stay individually sellable.
 
 **No consumer learns that Bundles exist.** Tier storage and selection stay
 `{ item_id, quantity, price_option_id? }` — no Bundle-shaped storage, addressing,
 dedup, or pricing path, and no Tier file changed. A Bundle row resolves through
 `projectTierRateSheetWith()` and the one `evaluateTierPricing` engine like any
-row; the single difference, `self_priced`, is read inside the Rate Sheet projector
-and says only that a combination stands behind itself.
+row; its one difference, `self_priced`, is read inside the Rate Sheet projector
+and means only that a combination stands behind it.
 
-A component row is identified by `deriveBundleRateItemId($bundleId,
-$sourceItemId)`, unique within its sheet. A stored row's id is never recomputed;
-only a Tool-curated blank one is derived, and a Bundle minted in the same request
-has its rows derived on the write path.
+A component row's id is `deriveBundleRateItemId($bundleId, $sourceItemId)`,
+unique within its sheet. A stored id is never recomputed — only a Tool-curated
+blank one, and a Bundle minted in the same request has its rows derived on the
+write path.
 
 ## Validation
 

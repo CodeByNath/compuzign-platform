@@ -57,6 +57,17 @@ import type {
   RateSheetRowEntry,
 } from './rateSheetToolModel';
 
+/**
+ * The focused Rate Sheet's drawer groups — the same Details/Options vocabulary
+ * the Tier drawer uses. Details is the sheet itself (its own fields and its own
+ * priced rows); Options is its Bundles. There is no Bin: Rate Sheets have no bin
+ * lifecycle.
+ */
+export type RateSheetGroupId = 'details' | 'options';
+
+/** Which of the two shared group renderers draws the nav. Presentation only. */
+export type RateSheetGroupView = 'tabs' | 'accordion';
+
 /** A row in the Rate Sheet list. */
 export interface RateSheetListRow {
   id:     string;         // '' for a not-yet-saved sheet
@@ -90,12 +101,25 @@ export interface RateSheetToolController {
   duplicateSheet:       (key: string) => void;
   setSheetStatus:       (key: string, status: 'active' | 'archived') => void;
   deleteSheet:          (key: string) => void;
+  // ── Drawer groups ──────────────────────────────────────────────────────
+  // The focused sheet's group navigation, owned here rather than in the
+  // presentation for the same reason `selectedBundleKey` is: the drawer body
+  // unmounts on every refetch/address change, which would otherwise reset the
+  // active group and the view mode after each save.
+  groupTab:             RateSheetGroupId;
+  selectGroupTab:       (id: RateSheetGroupId) => void;
+  groupView:            RateSheetGroupView;
+  setGroupView:         (view: RateSheetGroupView) => void;
   // ── Bundles ────────────────────────────────────────────────────────────
   // The selected sheet's own Bundles: composition spaces holding complete Rate
   // Sheet rows, each with its own CZPRCB. Navigation state only lives here —
   // `selectedBundleKey === null` means the sheet's own rows are in focus, which
   // is the state every consumer that predates Bundles is always in.
   bundles:              RateSheetEditorBundle[];
+  /** The Bundle IN SCOPE — the remembered selection while Options is the active
+   *  group, and always `null` under Details, whose scope is the sheet's own
+   *  rows. The remembered selection itself is kept privately, so returning to
+   *  Options lands back on the Bundle the admin left. */
   selectedBundleKey:    string | null;
   selectedBundle:       RateSheetEditorBundle | null;
   /** The rows every row command below addresses: the selected Bundle's rows,
@@ -199,6 +223,10 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   // Which child of the selected sheet is in focus: null is the sheet's own
   // rows (the only state before Bundles existed), a key is one of its Bundles.
   const [selectedBundleKey, setSelectedBundleKey] = useState<string | null>(null);
+  // The focused sheet's drawer groups. Details is the sheet itself, Options is
+  // its Bundles; `groupView` picks which shared renderer draws the nav.
+  const [groupTab, setGroupTab]     = useState<RateSheetGroupId>('details');
+  const [groupView, setGroupView]   = useState<RateSheetGroupView>('tabs');
   const [dirty, setDirty]           = useState(false);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
@@ -262,6 +290,15 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   }, [selectedKey]);
 
   /**
+   * The Bundle the row commands actually address. The ACTIVE GROUP decides the
+   * scope: Details is always the sheet's own rows, Options is the selected
+   * Bundle's. `selectedBundleKey` itself is only remembered, never cleared, so
+   * leaving Options for Details and coming back lands on the same Bundle —
+   * while a row command issued from Details can never reach a Bundle's rows.
+   */
+  const scopedBundleKey = groupTab === 'options' ? selectedBundleKey : null;
+
+  /**
    * Apply a row transform to whichever row list is IN SCOPE — the selected
    * sheet's own rows, or the selected Bundle's. Every row command below goes
    * through this one seam, which is what gives a Bundle the complete Rate Sheet
@@ -269,10 +306,10 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
    * without a second controller, a second save path, or a second editor.
    */
   const editRows = useCallback((transform: (rows: readonly RateSheetEditorRow[]) => RateSheetEditorRow[]) => {
-    editSelected((value) => (selectedBundleKey === null
+    editSelected((value) => (scopedBundleKey === null
       ? { ...value, items: transform(value.items) }
-      : mapEditorBundleRows(value, selectedBundleKey, transform)));
-  }, [editSelected, selectedBundleKey]);
+      : mapEditorBundleRows(value, scopedBundleKey, transform)));
+  }, [editSelected, scopedBundleKey]);
 
   /** The same scope, applied to a whole working-sheet list (used where a
    *  handler must compute the post-edit state itself rather than wait for a
@@ -280,10 +317,10 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   const withScopedRows = useCallback((
     sheet: WorkingSheet,
     transform: (rows: readonly RateSheetEditorRow[]) => RateSheetEditorRow[],
-  ): WorkingSheet => (selectedBundleKey === null
+  ): WorkingSheet => (scopedBundleKey === null
     ? { ...sheet, items: transform(sheet.items) }
-    : { ...mapEditorBundleRows(sheet, selectedBundleKey, transform), key: sheet.key }),
-  [selectedBundleKey]);
+    : { ...mapEditorBundleRows(sheet, scopedBundleKey, transform), key: sheet.key }),
+  [scopedBundleKey]);
 
   const persist = useCallback(
     async (
@@ -364,8 +401,8 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   );
   const selected = useMemo(() => sheets.find((sheet) => sheet.key === selectedKey) ?? null, [sheets, selectedKey]);
   const selectedBundle = useMemo(
-    () => (selected === null ? null : findEditorBundle(selected, selectedBundleKey)),
-    [selected, selectedBundleKey],
+    () => (selected === null ? null : findEditorBundle(selected, scopedBundleKey)),
+    [selected, scopedBundleKey],
   );
   /** The rows currently in scope — the selected Bundle's, or the sheet's own. */
   const activeRows = useMemo<readonly RateSheetEditorRow[]>(
@@ -429,8 +466,12 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       setDirty(true);
       setSaveError(null);
     },
+    groupTab,
+    selectGroupTab: (id) => setGroupTab(id),
+    groupView,
+    setGroupView: (view) => setGroupView(view),
     bundles: selected?.bundles ?? [],
-    selectedBundleKey,
+    selectedBundleKey: scopedBundleKey,
     selectedBundle,
     activeRows,
     bundleSources,
@@ -506,7 +547,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       // would still be stale (pre-import) if we relied on a setSheets() commit
       // to land first.
       const nextSheets = sheets.map((sheet) => (sheet.key === selectedKey
-        ? withScopedRows(sheet, (rows) => addRowsIn(rows, entries, currentOptions, selectedBundleKey !== null))
+        ? withScopedRows(sheet, (rows) => addRowsIn(rows, entries, currentOptions, scopedBundleKey !== null))
         : sheet));
       setSheets(nextSheets);
       setDirty(true);
@@ -650,7 +691,8 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       }
     },
   }), [
-    hostServiceId, list, selected, selectedKey, selectedBundle, selectedBundleKey, activeRows, bundleSources,
+    hostServiceId, list, selected, selectedKey, selectedBundle, selectedBundleKey, scopedBundleKey,
+    groupTab, groupView, activeRows, bundleSources,
     readModel, sheets, deletions, units, dirty, saving, saveError,
     editingRowId, editingRowSnapshot,
     catalog, catalogLoading, catalogError, loadCatalog,

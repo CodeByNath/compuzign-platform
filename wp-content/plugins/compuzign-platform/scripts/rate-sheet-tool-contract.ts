@@ -311,11 +311,23 @@ check(
     && !drawerSource.includes('fetchRateSheetByPlatformId'),
   'a Settings row opens the already-loaded native sheet without a second request',
 );
+// A focused sheet is the two-group screen (Details / Options); the collection
+// editor is reached only when no sheet is addressed, so focused View and Edit
+// can never fall through to it.
 check(
-  drawerSource.includes('? <FocusedRateSheetEditor controller={controller} value={controller.selected} />')
-    && drawerSource.includes(': <RateSheetCollectionEditor controller={controller} />')
-    && drawerSource.includes('? <FocusedRateSheetRead value={controller.selected} onEdit={requestEdit} />'),
+  drawerSource.includes('if (focused && controller.selected) {')
+    && drawerSource.includes('<FocusedRateSheetGroups')
+    && drawerSource.includes('<RateSheetCollectionEditor controller={controller} />')
+    && drawerSource.indexOf('if (focused && controller.selected) {')
+      < drawerSource.indexOf('<RateSheetCollectionEditor controller={controller} />'),
   'focused View and Edit use one-sheet presentations and never fall through to the collection editor',
+);
+check(
+  drawerSource.includes('<FocusedRateSheetEditor controller={controller} value={value} />')
+    && drawerSource.includes('<FocusedRateSheetRead value={value} onEdit={onEdit} />')
+    && drawerSource.includes("id: 'details'")
+    && drawerSource.includes("id: 'options'"),
+  'the focused sheet composes Details and Options as drawer groups over the one-sheet read and edit presentations',
 );
 const focusedRead = drawerSource.slice(
   drawerSource.indexOf('function FocusedRateSheetRead'),
