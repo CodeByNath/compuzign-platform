@@ -24,7 +24,7 @@ Sheet inclusion sources.
 ## UI and State
 
 - [useCostBuilder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCostBuilder.ts) owns public projection loading, errors, and refetch. Use it for fetch state.
-- [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map by `is_addon` into "Choose your Tier" (exclusive) and the **Recommendations** area, an extensible container whose only group today is "Optional add-ons"; `recommendationsAside` places it beside the strip — see [Tier Add-on Selection](tier-addon.md). `resolveEffectiveTierDisplay()` also drives an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card or a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
+- [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map by `is_addon` into "Choose your Tier" (exclusive) and the **Recommendations** area, an extensible container whose first group is "Optional add-ons"; `recommendationsAside` places it as the trailing card — see [Tier Add-on Selection](tier-addon.md). `resolveEffectiveTierDisplay()` also drives an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card or a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
 - [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior.
 - [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) loads, saves, and clears browser quote state. Use it for cart persistence format.
 - `components/package-builder/PackageBuilderApp.tsx` owns the hero Family tabs
@@ -34,7 +34,7 @@ Sheet inclusion sources.
   Package-Builder-only: Choose Plan swaps the strip for one `TierCard`
   (`hideOverview`) beside the Tier's name/`Ideal For` and a presentation-only
   1/12/24-month line. Add to Quote is one action from either entry point: it
-  adds the line, then isolates the Tier and reveals Recommendations beside it,
+  adds the line, then isolates the Tier and reveals Recommendations inside,
   stacking at 767px. Duration rides along as cart-local `planDurationMonths`.
   Focused Family Categories follow compiled Tier inclusions → provenance →
   source Services, then deduplicate. Rate Sheets are never consumer

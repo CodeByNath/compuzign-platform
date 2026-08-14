@@ -332,73 +332,85 @@ export function PricingTiers({
   const normalTiers = tiers.filter((tier) => pricing.tiers[tier.id] && !pricing.tiers[tier.id]?.is_addon);
   const addonTiers = tiers.filter((tier) => pricing.tiers[tier.id]?.is_addon);
 
+  // Optional Add-ons — Recommendations' first/default group. Same data, same
+  // cards, same independent toggle, same implicit same-Tier-System
+  // compatibility as before. Extracted from the Recommendations wrapper
+  // below so the isolated shell can carry it as its own first child instead
+  // of nesting a second, unwanted "Recommendations" heading inside itself.
+  const addonsGroup = addonTiers.length > 0 ? (
+    <div class="cz-cost-builder__addons">
+      <h5 class="cz-cost-builder__addons-heading">Optional add-ons</h5>
+      <div class="cz-cost-builder__tiers-wrap">
+        <button
+          type="button"
+          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
+          onClick={() => scroll(addonScrollRef, -1)}
+          aria-label="Scroll add-ons left"
+        >
+          ‹
+        </button>
+        <div class="cz-cost-builder__tiers" ref={addonScrollRef}>
+          {addonTiers.map((tier) => (
+            <TierCard
+              key={tier.id}
+              tier={tier}
+              data={pricing.tiers[tier.id]}
+              isPopular={tier.id === popularTier}
+              popularLabel={popularLabel}
+              isActive={selectedAddonTierIds.includes(tier.id)}
+              billingCycle={billingCycle}
+              addedLabel="✓ Added"
+              onClick={(effective) => onToggleAddon(tier.id, effective)}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
+          onClick={() => scroll(addonScrollRef, 1)}
+          aria-label="Scroll add-ons right"
+        >
+          ›
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   // Recommendations — the area offered alongside the Tier itself. It holds
   // exactly one group today, the existing Optional Add-ons, and exists as its
   // own container so a later recommendation group is added inside it rather
   // than as a second parallel add-on/recommendation system. It renders only
   // when a group actually has content, which today means this Tier System
-  // offers add-on Tiers at all.
-  const populatedRecommendations = addonTiers.length > 0 ? (
+  // offers add-on Tiers at all. Stacked below the Tier strip — unchanged,
+  // still how Cost Builder (and any non-isolated caller) shows Add-ons.
+  const populatedRecommendations = addonsGroup ? (
     <div class="cz-cost-builder__recommendations">
       <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
-      {/* Group 1 — Optional Add-ons. Same data, same cards, same independent
-          toggle, same implicit same-Tier-System compatibility as before; only
-          its heading level moved under the area heading above. */}
-      <div class="cz-cost-builder__addons">
-        <h5 class="cz-cost-builder__addons-heading">Optional add-ons</h5>
-        <div class="cz-cost-builder__tiers-wrap">
-          <button
-            type="button"
-            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
-            onClick={() => scroll(addonScrollRef, -1)}
-            aria-label="Scroll add-ons left"
-          >
-            ‹
-          </button>
-          <div class="cz-cost-builder__tiers" ref={addonScrollRef}>
-            {addonTiers.map((tier) => (
-              <TierCard
-                key={tier.id}
-                tier={tier}
-                data={pricing.tiers[tier.id]}
-                isPopular={tier.id === popularTier}
-                popularLabel={popularLabel}
-                isActive={selectedAddonTierIds.includes(tier.id)}
-                billingCycle={billingCycle}
-                addedLabel="✓ Added"
-                onClick={(effective) => onToggleAddon(tier.id, effective)}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
-            onClick={() => scroll(addonScrollRef, 1)}
-            aria-label="Scroll add-ons right"
-          >
-            ›
-          </button>
-        </div>
+      {addonsGroup}
+    </div>
+  ) : null;
+
+  // Isolated selected-Tier view only: the Recommendations area as the
+  // trailing card in the SAME Tier strip as the selected Tier — not a
+  // separate lane beside it — so it lands beside the selected Tier without a
+  // second carousel shell of its own. Optional Add-ons is its first/default
+  // group, carrying the real cards; Plan Conditions is a second, empty group
+  // reserved for later content. Renders exactly when Add-ons exist, which is
+  // also exactly when a Tier occupant's Add to Quote has fired and put this
+  // view on screen, so no separate show/hide wiring is needed here.
+  const recommendationsShell = recommendationsAside && addonsGroup ? (
+    <div class="cz-cost-builder__recommendations-shell">
+      <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
+      {addonsGroup}
+      <div class="cz-cost-builder__plan-conditions">
+        <h5 class="cz-cost-builder__addons-heading">Plan conditions</h5>
       </div>
     </div>
   ) : null;
 
-  // Isolated selected-Tier view only: a placeholder shell as the trailing
-  // card in the SAME Tier strip as the selected Tier — not a separate lane
-  // beside it — so it shares the strip's own subgrid/column sizing and
-  // lands at equal height and width for free, whatever the strip's card
-  // count. It carries no content yet; that transfer is a later step. It
-  // renders exactly when the populated Recommendations would have (i.e.
-  // this Tier System has Add-ons), which is also exactly when a Tier
-  // occupant's Add to Quote has fired and put this view on screen, so no
-  // separate show/hide wiring is needed here.
-  const recommendationsShell = recommendationsAside && populatedRecommendations ? (
-    <div class="cz-cost-builder__tier cz-cost-builder__recommendations-shell" aria-hidden="true" />
-  ) : null;
-
-  // Tier strip, with the placeholder shell trailing inside it when isolated.
-  // Stacked Recommendations (populated Add-ons) still follows below in every
-  // other case, unchanged.
+  // Tier strip, with Recommendations trailing inside it as its own card when
+  // isolated. Stacked Recommendations (populated Add-ons) still follows
+  // below in every other case, unchanged.
   return (
     <div class="cz-cost-builder__tier-area">
       <div class="cz-cost-builder__tiers-wrap">
