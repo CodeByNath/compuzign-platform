@@ -178,10 +178,12 @@ export function TierCard({
         {isPopular && <Badge variant="accent">{popularLabel || 'Best'}</Badge>}
       </div>
 
-      {/* 2. Tier Labels — sale badges or future Tier labels. No data source
-          exists yet; the row is reserved so a future label doesn't shift
-          every other card's rows down. */}
-      <div class="cz-cost-builder__tier-labels" />
+      {/* 2. Tier Labels — sale badges or future Tier labels; today just the
+          Add-ons marker for add-on Tiers, right-aligned. The row is reserved
+          on every card so a label doesn't shift other cards' rows down. */}
+      <div class="cz-cost-builder__tier-labels">
+        {data?.is_addon && <Badge variant="accent">Add-ons</Badge>}
+      </div>
 
       {/* 3. Tier Overview — Tier name/title plus "Ideal For" content. The
           section wrapper is kept even when the focused view presents both on

@@ -317,9 +317,12 @@
   min-height: 1px;
 }
 
-/* 2. Tier Labels row — reserved for sale badges/future Tier labels; no
-   content renders into it yet (see TierCard's JSX comment). */
+/* 2. Tier Labels row — reserved for sale badges/future Tier labels; today
+   just the right-aligned Add-ons marker on add-on Tiers (see TierCard's
+   JSX comment). */
 .cz-cost-builder__tier-labels {
+  display: flex;
+  justify-content: flex-end;
   min-height: 1px;
 }
 
