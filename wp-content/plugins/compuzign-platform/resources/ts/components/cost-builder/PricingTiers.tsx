@@ -383,31 +383,24 @@ export function PricingTiers({
     </div>
   ) : null;
 
-  // Isolated selected-Tier view only: a small placeholder shell in the
-  // Recommendations slot, in place of the populated Add-ons content above.
-  // Nothing is transferred into it yet — that is a later step once the shell
-  // itself is confirmed. It exists at all only when the populated
-  // Recommendations would have (i.e. this Tier System has Add-ons), which is
-  // also exactly when a Tier occupant's Add to Quote has fired and put this
-  // view on screen, so no separate show/hide wiring is needed here.
-  const recommendationsShell = populatedRecommendations ? (
+  // Isolated selected-Tier view only: a placeholder shell as the trailing
+  // card in the SAME Tier strip as the selected Tier — not a separate lane
+  // beside it — so it shares the strip's own subgrid/column sizing and
+  // lands at equal height and width for free, whatever the strip's card
+  // count. It carries no content yet; that transfer is a later step. It
+  // renders exactly when the populated Recommendations would have (i.e.
+  // this Tier System has Add-ons), which is also exactly when a Tier
+  // occupant's Add to Quote has fired and put this view on screen, so no
+  // separate show/hide wiring is needed here.
+  const recommendationsShell = recommendationsAside && populatedRecommendations ? (
     <div class="cz-cost-builder__tier cz-cost-builder__recommendations-shell" aria-hidden="true" />
   ) : null;
 
-  const recommendationsArea = recommendationsAside ? recommendationsShell : populatedRecommendations;
-
-  // Tier strip + Recommendations. Stacked by default; the caller opts into
-  // placing Recommendations beside the strip once the strip has been narrowed
-  // to one selected Tier.
+  // Tier strip, with the placeholder shell trailing inside it when isolated.
+  // Stacked Recommendations (populated Add-ons) still follows below in every
+  // other case, unchanged.
   return (
-    <div
-      class={[
-        'cz-cost-builder__tier-area',
-        recommendationsArea && recommendationsAside && 'cz-cost-builder__tier-area--aside',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+    <div class="cz-cost-builder__tier-area">
       <div class="cz-cost-builder__tiers-wrap">
         <button
           type="button"
@@ -432,6 +425,7 @@ export function PricingTiers({
               onChoosePlan={onChoosePlan && (() => onChoosePlan(tier.id))}
             />
           ))}
+          {recommendationsShell}
         </div>
         <button
           type="button"
@@ -443,7 +437,7 @@ export function PricingTiers({
         </button>
       </div>
 
-      {recommendationsArea}
+      {!recommendationsAside && populatedRecommendations}
     </div>
   );
 }

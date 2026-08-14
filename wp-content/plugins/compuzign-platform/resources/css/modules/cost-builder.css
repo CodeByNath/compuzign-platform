@@ -532,29 +532,6 @@
   min-width: 0;
 }
 
-/* Selected-Tier arrangement: the isolated Tier keeps the left column and
-   Recommendations sits beside it rather than underneath. Recommendations
-   carries several cards to the Tier's one, so it takes the wider share.
-   Collapses to one column at the same breakpoint the Tier strip already
-   stacks at. */
-.cz-cost-builder__tier-area--aside {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: var(--cz-space-5);
-  align-items: start;
-}
-
-.cz-cost-builder__tier-area--aside > .cz-cost-builder__tiers-wrap,
-.cz-cost-builder__tier-area--aside > .cz-cost-builder__recommendations {
-  margin-top: 0;
-}
-
-@media (max-width: 767px) {
-  .cz-cost-builder__tier-area--aside {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Recommendations — the extensible area offered alongside the Tier. It holds
    one group today (Optional Add-ons) and owns the spacing between groups, so
    a later group needs no rule of its own. */
@@ -588,15 +565,10 @@
   margin-top: 0;
 }
 
-/* Recommendations placeholder shell — a small, empty stand-in for the
-   populated Add-ons content above, in the isolated selected-Tier view. Caps
-   at one card's own width instead of stretching across the wider
-   Recommendations column, and stays unstretched vertically. */
-.cz-cost-builder__recommendations-shell {
-  justify-self: start;
-  align-self: start;
-  max-width: 220px;
-}
+/* .cz-cost-builder__recommendations-shell intentionally carries no rules of
+   its own — it shares .cz-cost-builder__tier as the trailing card inside
+   .cz-cost-builder__tiers, so that grid's existing equal column width and
+   stretch-to-tallest row height already apply to it. */
 
 /* Quote summary sidebar */
 .cz-quote-summary {
