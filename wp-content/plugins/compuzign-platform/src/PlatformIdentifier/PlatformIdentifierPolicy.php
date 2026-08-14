@@ -25,6 +25,10 @@ final class PlatformIdentifierPolicy
     public const PACKAGE_RATE_CARD_GROUP  = 'package_rate_card_group';
     public const PACKAGE_RATE_CARD_ITEM   = 'package_rate_card_item';
     public const PACKAGE_RATE_CARD_ITEM_OPTION = 'package_rate_card_item_option';
+    public const PACKAGE_RATE_CARD_BUNDLE      = 'package_rate_card_bundle';
+    public const PACKAGE_RATE_CARD_BUNDLE_ITEM = 'package_rate_card_bundle_item';
+    public const PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION = 'package_rate_card_bundle_item_option';
+    public const PACKAGE_RATE_CARD_BUNDLE_OPTION      = 'package_rate_card_bundle_option';
 
     public const ALPHABET    = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
     public const SUFFIX_LENGTH = 5;
@@ -43,6 +47,18 @@ final class PlatformIdentifierPolicy
         self::PACKAGE_RATE_CARD_GROUP  => 'CZPRCG',
         self::PACKAGE_RATE_CARD_ITEM   => 'CZPRCI',
         self::PACKAGE_RATE_CARD_ITEM_OPTION => 'CZPRCIO',
+        // A Rate Sheet Bundle and its own rows. Unambiguous against the four
+        // prefixes above without any startsWith reasoning: the suffix alphabet
+        // excludes I/L/O/U and every suffix is exactly SUFFIX_LENGTH long, so
+        // `CZPRCBI…` can never be read as CZPRCB + suffix, `CZPRCBIO…` never as
+        // CZPRCBI + suffix, and none of them as CZPRC/CZPRCI + suffix.
+        self::PACKAGE_RATE_CARD_BUNDLE      => 'CZPRCB',
+        self::PACKAGE_RATE_CARD_BUNDLE_ITEM => 'CZPRCBI',
+        self::PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION => 'CZPRCBIO',
+        // The Bundle's OWN commercial Price Option — a child of the Bundle
+        // (CZPRCB), not of one of its rows. 'O' is outside the suffix alphabet,
+        // so this can never be read as CZPRCB + suffix.
+        self::PACKAGE_RATE_CARD_BUNDLE_OPTION      => 'CZPRCBO',
     ];
 
     /** @return array<string, string> */

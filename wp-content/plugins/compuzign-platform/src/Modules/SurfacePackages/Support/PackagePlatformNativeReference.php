@@ -60,6 +60,38 @@ final class PackagePlatformNativeReference
         return self::composite('rate-sheet-item-option', [$rateSheetId, $itemId, $optionId]);
     }
 
+    /**
+     * A Bundle is a sheet-qualified composition space, so its reference is
+     * `(rate_sheet_id, bundle_id)` — the same shape rateSheetGroup() uses, and
+     * for the same reason: the Bundle exists only inside the sheet that owns it.
+     */
+    public static function rateSheetBundle(string $rateSheetId, string $bundleId): string
+    {
+        return self::composite('rate-sheet-bundle', [$rateSheetId, $bundleId]);
+    }
+
+    /**
+     * A Bundle row is qualified by its own Bundle, not by the sheet alone: the
+     * same supplied content may be a row of the sheet AND a row of any number
+     * of its Bundles, and those are separate records with separate identities.
+     */
+    public static function rateSheetBundleItem(string $rateSheetId, string $bundleId, string $itemId): string
+    {
+        return self::composite('rate-sheet-bundle-item', [$rateSheetId, $bundleId, $itemId]);
+    }
+
+    /** The Bundle's OWN commercial Price Option — a child of the Bundle itself. */
+    public static function rateSheetBundleOption(string $rateSheetId, string $bundleId, string $optionId): string
+    {
+        return self::composite('rate-sheet-bundle-option', [$rateSheetId, $bundleId, $optionId]);
+    }
+
+    /** A Bundle row's own alternative-price child — the CZPRCIO shape, one level deeper. */
+    public static function rateSheetBundleItemOption(string $rateSheetId, string $bundleId, string $itemId, string $optionId): string
+    {
+        return self::composite('rate-sheet-bundle-item-option', [$rateSheetId, $bundleId, $itemId, $optionId]);
+    }
+
     /** @return list<string>|null */
     public static function parse(string $reference, string $context, int $segments): ?array
     {

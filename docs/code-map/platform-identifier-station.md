@@ -55,9 +55,9 @@ Every option is non-autoloaded. Records carry version, Platform ID, entity type,
 native reference, `reserved|bound|retired|deleted` status, and timestamps.
 Reservations and tombstones are never deleted or reused.
 
-The shared scalar entity key is `cz_platform_id`, but each owning domain
-controls its own persistence mechanism. `int|string` native references support
-both WordPress-native and owner-defined stored identities.
+The shared scalar entity key is `cz_platform_id`, though each owning domain
+controls its own persistence. `int|string` native references support both
+WordPress-native and owner-defined stored identities.
 
 ## Current integration status
 
@@ -78,13 +78,12 @@ active. `--limit` defaults to 100, capped at 500; `--cursor` defaults to zero.
 Each invocation returns JSON with processed/assigned/preserved/conflict counts,
 completion, and the next cursor.
 
-During the final temporary Package entity rollout, Admin refresh reads independent v3
-progress and runs zero-write preflights for Package Family, Tier Group, Tier,
-Tier Add-on, Rate Sheet Group, Rate Sheet, and Rate Sheet Item. Assignment processes
-100-record Package-owned string-cursor batches through `assignExistingBatch()`,
-guarded by a 45-second atomic lock. Invalid, duplicate, or conflicting bindings
-stop assignment; valid IDs are preserved. Completion hides the notice. The
-controller remains only until live allocation is verified.
+During the final temporary Package entity rollout, Admin refresh reads
+independent v3 progress and runs zero-write preflights for each Package entity.
+Assignment processes 100-record Package-owned string-cursor batches through
+`assignExistingBatch()`, guarded by a 45-second atomic lock. Invalid, duplicate,
+or conflicting bindings stop assignment; valid IDs are preserved. Completion
+hides the notice. The controller remains only until live allocation is verified.
 
 Package Phase 4 began with Package Families. `Core\Plugin` injects the
 shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`
@@ -98,11 +97,12 @@ pages and Package-owned immutable scalar callbacks.
 
 Package identity covers Tier Group (`CZTG`), Tier (`CZT`), Tier Add-on
 (`CZTA`), Tier Edition (`CZTE`), Rate Sheet (`CZPRC`), Rate Sheet Group
-(`CZPRCG`), Rate Sheet Item (`CZPRCI`), Price Option (`CZPRCIO`).
+(`CZPRCG`), Rate Sheet Item (`CZPRCI`), Price Option (`CZPRCIO`), and
+[Rate Sheet Bundle](rate-sheet-bundle.md)'s `CZPRCB`/`CZPRCBI`/`CZPRCBIO`.
 Tier/Add-on share one instance-qualified occupant reference; Tier Edition's
 reference is occupant- not slot-qualified — see
 [Tier Edition](tier-edition.md). Rate Sheet Group/Item/Option use
 `(rate_sheet_id, group_id)`/`(rate_sheet_id, item_id)`/
-`(rate_sheet_id, item_id, option_id)`. Package adapters retain
+`(rate_sheet_id, item_id, option_id)`; Bundle scopes qualify by `bundle_id`. Package adapters retain
 storage/projection ownership and delegate registry work here. Tier
 Promotion (`CZTP`) is deferred.

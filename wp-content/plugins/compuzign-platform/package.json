@@ -51,6 +51,7 @@
     "regression:tier-publish-timeout": "node scripts/tier-publish-timeout-regression.mjs",
     "regression:rate-sheet-row-lock": "node scripts/rate-sheet-row-lock-regression.mjs",
     "regression:rate-sheet-service-import": "node scripts/rate-sheet-service-import-regression.mjs",
+    "regression:rate-sheet-bundle": "node scripts/rate-sheet-bundle-regression.mjs",
     "regression:service-create": "node scripts/service-create-regression.mjs",
     "regression:service-create-handoff": "node scripts/service-create-handoff-regression.mjs",
     "regression:service-open-save-race": "node scripts/service-open-save-race-regression.mjs",

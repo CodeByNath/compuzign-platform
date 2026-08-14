@@ -2994,6 +2994,58 @@ button.cz-station-status-pill {
   gap: 10px;
 }
 
+/* The focused Rate Sheet's own child navigation — the shared ChildChipStrip
+   (drawer-kit) carrying [Rate Sheet][Bundle …] plus the fixed "+ Bundle"
+   trailing control. The strip's own gutter margin is authored for the Tier
+   drawer's space-6 padded groups; this editor is not that container, so the
+   gutter is neutralised HERE rather than by changing the shared primitive. */
+.cz-rate-sheet-tool__editor--focused > .cz-drawer-groups__chip-strip {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
+.cz-rate-sheet-tool__bundle {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The Bundle engine's own browse list: one collapsible block per source Rate
+   Sheet, whose rows are the same selectable chips the Service import uses. */
+.cz-rate-sheet-tool__bundle-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.cz-rate-sheet-tool__bundle-source {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cz-rate-sheet-tool__bundle-source-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cz-rate-sheet-tool__bundle-source-head small {
+  color: var(--station-text-muted);
+}
+
 .cz-rate-sheet-tool__inline-values {
   display: flex;
   min-width: 240px;
@@ -3292,4 +3344,12 @@ button.cz-station-status-pill {
 .cz-rate-sheet-tool__import-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+/* The Bundle's own commercial price — its own block above the ingredient grid,
+   using the same Price Options tab strip a row's Unit Price cell uses. */
+.cz-rate-sheet-tool__bundle-price {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }

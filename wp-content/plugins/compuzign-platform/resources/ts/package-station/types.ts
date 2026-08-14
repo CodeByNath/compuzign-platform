@@ -330,6 +330,16 @@ export interface PackageRateSheetPriceOption {
 
 export interface PackageRateSheetItem {
   item_id: string;
+  /**
+   * Set only on the single row a Bundle offers upstream: it stands behind
+   * itself rather than behind supplied content. Read inside the Rate Sheet's
+   * own projection; consumers read this row like any other priced row.
+   */
+  self_priced?: boolean;
+  /** A row's own display name, when it has one. */
+  label?: string;
+  /** Present on a Bundle's row — its ingredients, for presentation only. */
+  includes?: { item_id: string; label: string; quantity: number }[];
   platform_id?: string;
   source_item_id: string;
   unit_price: number;
@@ -342,6 +352,46 @@ export interface PackageRateSheetItem {
 
 export type PackageRateSheetStatus = 'active' | 'archived';
 
+/**
+ * One row of a Rate Sheet Bundle — a COMPLETE Rate Sheet row (same source
+ * identity, unit vocabulary, quantity, group, and `price_options[]` children),
+ * carrying its own `CZPRCBI` rather than the sheet row's `CZPRCI`, because
+ * `(rate_sheet_id, bundle_id, item_id)` is a different record from
+ * `(rate_sheet_id, item_id)` even when both price the same supplied content.
+ *
+ * `label` is the one addition: this row's own editable display name. Empty
+ * inherits the resolved supplied-content label — the same inherit-when-empty
+ * rule a Tier Edition's own `inclusions_override` uses.
+ */
+export interface PackageRateSheetBundleItem extends PackageRateSheetItem {
+  label: string;
+}
+
+/**
+ * A Rate Sheet Bundle — an admin-composed grouping of complete Rate Sheet rows
+ * that a Tier can select as ONE commercial item. Owned by the Rate Sheet it
+ * lives in; it stores no groups and no unit vocabulary of its own, because its
+ * rows validate against the owning sheet's. `platform_id` (`CZPRCB`) is
+ * output-only; native `bundle_id` remains the mutation identity.
+ */
+export interface PackageRateSheetBundle {
+  bundle_id: string;
+  platform_id?: string;
+  title: string;
+  status: PackageRateSheetStatus;
+  sort_order: number;
+  /**
+   * The Bundle's OWN commercial price for consuming this combination together
+   * — deliberately independent of what its component rows sum to. Same fields
+   * and same Price Option shape as any priced row, because that is exactly
+   * what the Bundle becomes upstream.
+   */
+  unit_price: number;
+  per: PackageRateSheetUnit;
+  price_options: PackageRateSheetPriceOption[];
+  items: PackageRateSheetBundleItem[];
+}
+
 export interface PackageRateSheet {
   rate_sheet_id: string;
   platform_id?: string;
@@ -349,6 +399,8 @@ export interface PackageRateSheet {
   status: PackageRateSheetStatus;
   groups: PackageManagerGroup[];
   items: PackageRateSheetItem[];
+  /** Absent/empty for every sheet that has never used the capability. */
+  bundles?: PackageRateSheetBundle[];
 }
 
 export interface PackageManagerReadModel {

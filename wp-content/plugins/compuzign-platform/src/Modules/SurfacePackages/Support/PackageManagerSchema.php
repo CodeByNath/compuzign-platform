@@ -256,6 +256,7 @@ final class PackageManagerSchema
                     'status'        => self::sanitizeRateSheetStatus($sheet['status'] ?? null),
                     'groups'        => $core['groups'],
                     'items'         => $core['items'],
+                    'bundles'       => $core['bundles'],
                 ];
             }
             return $out;
@@ -271,6 +272,7 @@ final class PackageManagerSchema
                 'status'        => 'active',
                 'groups'        => $core['groups'],
                 'items'         => $core['items'],
+                'bundles'       => $core['bundles'],
             ];
         }
         return $out;
@@ -293,10 +295,42 @@ final class PackageManagerSchema
         return 'rate_' . substr(hash('sha256', $sourceItemId), 0, 16);
     }
 
+    /**
+     * Canonical identity for a row created inside a Bundle — the same kind of
+     * record, derived the same pure way, qualified by the Bundle that created
+     * it so it is UNIQUE WITHIN ITS SHEET.
+     *
+     * This is what lets a Bundle row travel the ordinary Rate Sheet-row
+     * pipeline: a Tier selects it by `item_id` alone, exactly like any other
+     * row, because no two rows of one sheet can share an id — not even the
+     * sheet's own row and a Bundle's row for the same supplied content. The
+     * scope lives in this derivation, never in the consumer.
+     *
+     * Same `rate_` grammar and same 64-bit digest as `deriveRateItemId()`
+     * (whose collision reasoning applies unchanged): a Bundle row is not a
+     * different species of row and must not be recognisable as one by its id.
+     */
+    public static function deriveBundleRateItemId(string $bundleId, string $sourceItemId): string
+    {
+        return 'rate_' . substr(hash('sha256', $bundleId . ':' . $sourceItemId), 0, 16);
+    }
+
     /** Mint a fresh Rate Sheet identity. Write-path only (commitConfiguration). */
     private static function mintRateSheetId(): string
     {
         return 'rs_' . bin2hex(random_bytes(6));
+    }
+
+    /**
+     * Mint a fresh Rate Sheet Bundle identity. Write-path only
+     * (commitConfiguration), exactly like mintRateSheetId() — a Bundle is an
+     * admin-created composition space with no external source to derive from,
+     * so it is minted fresh rather than hashed, and never derived from its
+     * editable title.
+     */
+    private static function mintBundleId(): string
+    {
+        return 'rsb_' . bin2hex(random_bytes(6));
     }
 
     /**
@@ -308,6 +342,101 @@ final class PackageManagerSchema
     private static function mintOptionId(): string
     {
         return 'opt_' . bin2hex(random_bytes(6));
+    }
+
+    /**
+     * The upstream row id of a Bundle — an ordinary Rate Sheet row id, derived
+     * purely from the Bundle it represents. Same `rate_` grammar and digest as
+     * every other row, because upstream this IS just another priced row.
+     */
+    public static function deriveBundleRowId(string $bundleId): string
+    {
+        return 'rate_' . substr(hash('sha256', 'bundle:' . $bundleId), 0, 16);
+    }
+
+    /**
+     * What a Rate Sheet offers upstream: its own priced rows, plus ONE priced
+     * row per Bundle carrying that Bundle's own commercial price.
+     *
+     * `buildReadModel` puts the result straight into the sheet's `items` — the
+     * rows every consumer already reads — so a Bundle needs no new field and no
+     * consumer needs changing. The authoring tool cannot round-trip the Bundle's
+     * row back into storage: it carries no `source_item_id`, and both
+     * `toEditorRows()` (frontend) and `sanitizeRateRows()` (here) already drop a
+     * row without one.
+     *
+     * This is where the Bundle stops being a Bundle. A consumer receives a flat
+     * list of Rate Sheet rows and can neither tell nor care which of them a
+     * Bundle produced — selecting Chef's Soup's row charges the Bundle's $75
+     * once, exactly as selecting the carrot's row charges $20.
+     *
+     * A Bundle's COMPONENT rows are deliberately not offered here. They are the
+     * ingredients of that one commercial row (carried as `includes` for
+     * presentation), not separately chargeable rows of the same selection; the
+     * sheet's own rows are what remains individually sellable. An archived
+     * Bundle offers nothing, mirroring an archived sheet.
+     *
+     * @param  array $rateSheet one stored/projected sheet
+     * @return array<int, array> priced rows, in offer order
+     */
+    public static function consumableRateSheetRows(array $rateSheet): array
+    {
+        $rows = [];
+        foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $item) {
+            if (is_array($item)) { $rows[] = $item; }
+        }
+        foreach (is_array($rateSheet['bundles'] ?? null) ? $rateSheet['bundles'] : [] as $bundle) {
+            if (!is_array($bundle)) { continue; }
+            $bundleId = (string) ($bundle['bundle_id'] ?? '');
+            if ($bundleId === '' || (string) ($bundle['status'] ?? 'active') !== 'active') { continue; }
+            $rows[] = self::bundleConsumableRow($bundle, $bundleId);
+        }
+        return $rows;
+    }
+
+    /**
+     * One Bundle as the single priced row it presents upstream.
+     *
+     * `self_priced` marks the one thing that differs from a row backed by
+     * supplied content: it draws its label and availability from itself rather
+     * than from a Manager source, because a combination is not itself a Service
+     * inclusion. Everything a consumer reads — id, price, unit, Price Options —
+     * is in the ordinary row positions.
+     */
+    private static function bundleConsumableRow(array $bundle, string $bundleId): array
+    {
+        $includes = [];
+        foreach (is_array($bundle['items'] ?? null) ? $bundle['items'] : [] as $component) {
+            if (!is_array($component)) { continue; }
+            $includes[] = [
+                'item_id'        => (string) ($component['item_id'] ?? ''),
+                'cz_platform_id' => (string) ($component['cz_platform_id'] ?? ''),
+                'source_item_id' => (string) ($component['source_item_id'] ?? ''),
+                'label'          => (string) ($component['label'] ?? ''),
+                'quantity'       => (int) ($component['quantity'] ?? 1),
+            ];
+        }
+
+        return [
+            'item_id'        => self::deriveBundleRowId($bundleId),
+            // Stored sheets carry `cz_platform_id`; an already-projected one
+            // carries `platform_id`. The Bundle's own CZPRCB identifies the row
+            // it presents — it is the same record.
+            'cz_platform_id' => (string) ($bundle['cz_platform_id'] ?? ($bundle['platform_id'] ?? '')),
+            // No supplied content stands behind a combination.
+            'source_item_id' => '',
+            'self_priced'    => true,
+            'label'          => (string) ($bundle['title'] ?? ''),
+            'unit_price'     => (float) ($bundle['unit_price'] ?? 0),
+            'per'            => (string) ($bundle['per'] ?? ''),
+            'quantity'       => 1,
+            'group_id'       => null,
+            'sort_order'     => (int) ($bundle['sort_order'] ?? 0),
+            'price_options'  => is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [],
+            // The ingredients, for the "Includes:" presentation only — never a
+            // second set of chargeable lines.
+            'includes'       => $includes,
+        ];
     }
 
     /**
@@ -342,25 +471,84 @@ final class PackageManagerSchema
         $title = sanitize_text_field((string) ($rateSheet['title'] ?? ''));
         $groups = self::sanitizeGroups($rateSheet['groups'] ?? [], true);
         $groupIds = array_column($groups, 'group_id');
-        $items = [];
-        $seen = [];
         $allowedUnits ??= self::BUILT_IN_RATE_SHEET_UNITS;
 
-        foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $item) {
+        $items = self::sanitizeRateRows($rateSheet['items'] ?? [], $groupIds, $allowedUnits, false);
+        // Bundles are validated against the SAME groups and the SAME unit
+        // vocabulary as the sheet's own rows — a Bundle is a composition space
+        // inside this sheet, not a second catalogue with rules of its own.
+        $bundles = self::sanitizeRateSheetBundles($rateSheet['bundles'] ?? [], $groupIds, $allowedUnits);
+
+        if ($title === '' && $groups === [] && $items === [] && $bundles === []) {
+            return null;
+        }
+        return ['title' => $title, 'groups' => $groups, 'items' => $items, 'bundles' => $bundles];
+    }
+
+    /**
+     * Priced Rate Sheet rows. ONE implementation for both consumers with the
+     * same semantic responsibility: a sheet's own `items[]` and a Bundle's own
+     * `items[]`. A Bundle row is a complete Rate Sheet row — same source
+     * identity, same derived `item_id`, same unit vocabulary, same group
+     * validation, same `price_options[]` children — differing only by
+     * `$withLabel`, its own editable display label (blank inherits the
+     * resolved supplied-content label, the same inherit-when-empty rule Tier
+     * Edition's own overrides use). Identity stays scoped by the container:
+     * `(rate_sheet_id, item_id)` for a sheet row, `(rate_sheet_id, bundle_id,
+     * item_id)` for a Bundle row.
+     *
+     * `$bundleScopeId` decides ONE thing: which pure derivation gives the row
+     * its `item_id`. A Bundle row is qualified by the Bundle that created it
+     * (`deriveBundleRateItemId`), which makes it unique within its sheet and
+     * therefore consumable by `item_id` alone — exactly like the sheet's own
+     * rows, and the reason no consumer ever has to know a Bundle exists.
+     * Passing null keeps `deriveRateItemId`, the sheet's own derivation,
+     * byte-for-byte. A Bundle whose id is minted later in this same request
+     * leaves its rows' ids blank here; the write path derives them once the
+     * Bundle has its id.
+     *
+     * @param  string[] $groupIds
+     * @param  array<int, string> $allowedUnits
+     * @return array<int, array>
+     */
+    private static function sanitizeRateRows(
+        mixed $items,
+        array $groupIds,
+        array $allowedUnits,
+        bool $withLabel,
+        ?string $bundleScopeId = null
+    ): array {
+        $out  = [];
+        $seen = [];
+        foreach (is_array($items) ? $items : [] as $item) {
             if (!is_array($item)) {
                 continue;
             }
             $sourceItemId = sanitize_text_field((string) ($item['source_item_id'] ?? ''));
             $itemId = sanitize_text_field((string) ($item['item_id'] ?? ''));
-            // A row curated by the Tool carries its source but no item_id; the
-            // canonical id is derived here (the backend mints, never the Tool).
-            if ($itemId === '' && $sourceItemId !== '') {
-                $itemId = self::deriveRateItemId($sourceItemId);
+            // A stored row KEEPS its id — Platform identity is bound to it, so
+            // it is never recomputed. Only a row curated by the Tool, which
+            // carries its source but no id, is derived here (the backend
+            // derives, never the Tool). A Bundle row derives from the Bundle
+            // that created it, which is what makes it unique within its sheet;
+            // a Bundle minted later in this same request leaves the row blank
+            // for the write path to finish.
+            if ($itemId === '' && $sourceItemId !== '' && $bundleScopeId !== '') {
+                $itemId = $bundleScopeId === null
+                    ? self::deriveRateItemId($sourceItemId)
+                    : self::deriveBundleRateItemId($bundleScopeId, $sourceItemId);
             }
-            if ($itemId === '' || $sourceItemId === '' || isset($seen[$itemId])) {
+            if ($sourceItemId === '') {
+                continue; // no source — nothing to price, and no identity to derive
+            }
+            // One row per source per scope. Keyed on the id once it exists, and
+            // on the source before then, so a not-yet-derived Bundle row obeys
+            // the same rule.
+            $seenKey = $itemId !== '' ? $itemId : 'src:' . $sourceItemId;
+            if (isset($seen[$seenKey])) {
                 continue;
             }
-            $seen[$itemId] = true;
+            $seen[$seenKey] = true;
             $unit = sanitize_text_field((string) ($item['per'] ?? ''));
             if (!in_array($unit, $allowedUnits, true)) {
                 $unit = '';
@@ -369,7 +557,7 @@ final class PackageManagerSchema
             if ($groupId === '' || !in_array($groupId, $groupIds, true)) {
                 $groupId = null;
             }
-            $items[] = [
+            $row = [
                 'item_id'       => $itemId,
                 'cz_platform_id'=> sanitize_text_field((string) ($item['cz_platform_id'] ?? '')),
                 'source_item_id'=> $sourceItemId,
@@ -380,12 +568,84 @@ final class PackageManagerSchema
                 'sort_order'    => (int) ($item['sort_order'] ?? 0),
                 'price_options' => self::sanitizePriceOptions($item['price_options'] ?? []),
             ];
+            if ($withLabel) {
+                $row['label'] = sanitize_text_field((string) ($item['label'] ?? ''));
+            }
+            $out[] = $row;
         }
+        return $out;
+    }
 
-        if ($title === '' && $groups === [] && $items === []) {
-            return null;
+    /**
+     * A sheet's Bundles — admin-composed groupings of complete Rate Sheet rows
+     * that carry their own identity (`CZPRCB`) and their own rows (`CZPRCBI`).
+     *
+     * A Bundle is NOT a second Rate Sheet: it stores no groups and no unit
+     * vocabulary of its own, and its rows validate against the owning sheet's.
+     * `bundle_id` is passed through as submitted — blank when the Tool has just
+     * created one — and minted on the write path only (commitConfiguration),
+     * exactly like a price option's `option_id`. This helper serves both the
+     * read and write paths, so it must never mint here.
+     *
+     * @param  string[] $groupIds
+     * @param  array<int, string> $allowedUnits
+     * @return array<int, array{bundle_id:string,cz_platform_id:string,title:string,status:string,sort_order:int,items:array}>
+     */
+    private static function sanitizeRateSheetBundles(
+        mixed $bundles,
+        array $groupIds,
+        array $allowedUnits
+    ): array {
+        if (!is_array($bundles)) {
+            return [];
         }
-        return ['title' => $title, 'groups' => $groups, 'items' => $items];
+        $out  = [];
+        $seen = [];
+        foreach ($bundles as $index => $bundle) {
+            if (!is_array($bundle)) {
+                continue;
+            }
+            $bundleId = sanitize_text_field((string) ($bundle['bundle_id'] ?? ''));
+            if ($bundleId !== '' && isset($seen[$bundleId])) {
+                continue;
+            }
+            if ($bundleId !== '') {
+                $seen[$bundleId] = true;
+            }
+            $title = sanitize_text_field((string) ($bundle['title'] ?? ''));
+            // The Bundle's own id is the scope its rows' identities derive
+            // from; blank means "minted later in this request", and the write
+            // path finishes the derivation.
+            $items = self::sanitizeRateRows($bundle['items'] ?? [], $groupIds, $allowedUnits, true, $bundleId);
+            // An entirely empty Bundle carries nothing to identify or price, so
+            // it is dropped rather than persisted — the same rule that drops an
+            // entirely empty sheet.
+            if ($bundleId === '' && $title === '' && $items === []) {
+                continue;
+            }
+            // The Bundle's OWN commercial price for consuming this combination
+            // together — deliberately independent of what its component rows
+            // sum to (Chef's Soup is $75 whatever the carrot costs). Same
+            // fields, same vocabulary, same Price Option shape as any priced
+            // Rate Sheet row, because that is exactly what it becomes upstream.
+            $unit = sanitize_text_field((string) ($bundle['per'] ?? ''));
+            if (!in_array($unit, $allowedUnits, true)) {
+                $unit = '';
+            }
+            $out[] = [
+                'bundle_id'     => $bundleId,
+                'cz_platform_id'=> sanitize_text_field((string) ($bundle['cz_platform_id'] ?? '')),
+                'title'         => $title,
+                'status'        => self::sanitizeRateSheetStatus($bundle['status'] ?? null),
+                'sort_order'    => (int) ($bundle['sort_order'] ?? $index),
+                'unit_price'    => max(0, (float) ($bundle['unit_price'] ?? 0)),
+                'per'           => $unit,
+                'price_options' => self::sanitizePriceOptions($bundle['price_options'] ?? []),
+                'items'         => $items,
+            ];
+        }
+        usort($out, static fn(array $a, array $b): int => $a['sort_order'] <=> $b['sort_order']);
+        return $out;
     }
 
     /**
@@ -737,6 +997,36 @@ final class PackageManagerSchema
                 unset($coreOption);
             }
             unset($coreItem);
+            // Same write-path mint for a Bundle the Tool just created and for
+            // its rows' own price options. A Bundle row's item_id is already
+            // derived from its source, exactly like a sheet row's.
+            foreach ($core['bundles'] as &$coreBundle) {
+                if ($coreBundle['bundle_id'] === '') { $coreBundle['bundle_id'] = self::mintBundleId(); }
+                // The Bundle's own commercial Price Options mint exactly like a
+                // row's — write path only, never derived from the label.
+                foreach ($coreBundle['price_options'] as &$coreBundleOwnOption) {
+                    if ($coreBundleOwnOption['option_id'] === '') { $coreBundleOwnOption['option_id'] = self::mintOptionId(); }
+                }
+                unset($coreBundleOwnOption);
+                foreach ($coreBundle['items'] as &$coreBundleItem) {
+                    // A row of a Bundle minted in THIS request could not derive
+                    // its id at sanitize time — the scope did not exist yet.
+                    // Finish it here, with the same pure derivation, so every
+                    // stored Bundle row is addressable by `item_id` alone.
+                    if ($coreBundleItem['item_id'] === '') {
+                        $coreBundleItem['item_id'] = self::deriveBundleRateItemId(
+                            $coreBundle['bundle_id'],
+                            (string) $coreBundleItem['source_item_id']
+                        );
+                    }
+                    foreach ($coreBundleItem['price_options'] as &$coreBundleOption) {
+                        if ($coreBundleOption['option_id'] === '') { $coreBundleOption['option_id'] = self::mintOptionId(); }
+                    }
+                    unset($coreBundleOption);
+                }
+                unset($coreBundleItem);
+            }
+            unset($coreBundle);
             $id = sanitize_text_field((string) ($submitted['rate_sheet_id'] ?? ''));
             if ($id === '') { $id = self::mintRateSheetId(); } // write-path mint
             $reconciled = self::reconcileRateSheetRows(
@@ -775,6 +1065,50 @@ final class PackageManagerSchema
                 $group['cz_platform_id'] = $existingGroups[(string) $group['group_id']] ?? '';
             }
             unset($group);
+            // Bundle identity carries forward on its own three keys — bundle,
+            // bundle row, and bundle-row price option — never borrowed from the
+            // sheet's own row of the same supplied content.
+            $existingBundles = [];
+            $existingBundleOwnOptions = [];
+            $existingBundleItems = [];
+            $existingBundleOptions = [];
+            foreach (is_array($existingSheet['bundles'] ?? null) ? $existingSheet['bundles'] : [] as $bundle) {
+                if (!is_array($bundle)) { continue; }
+                $existingBundleId = (string) ($bundle['bundle_id'] ?? '');
+                if ($existingBundleId === '') { continue; }
+                $existingBundles[$existingBundleId] = (string) ($bundle['cz_platform_id'] ?? '');
+                foreach (is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [] as $bundleOwnOption) {
+                    if (!is_array($bundleOwnOption)) { continue; }
+                    $existingBundleOwnOptions[$existingBundleId . "\0" . (string) ($bundleOwnOption['option_id'] ?? '')] = (string) ($bundleOwnOption['cz_platform_id'] ?? '');
+                }
+                foreach (is_array($bundle['items'] ?? null) ? $bundle['items'] : [] as $bundleItem) {
+                    if (!is_array($bundleItem)) { continue; }
+                    $existingBundleItemId = (string) ($bundleItem['item_id'] ?? '');
+                    $existingBundleItems[$existingBundleId . "\0" . $existingBundleItemId] = (string) ($bundleItem['cz_platform_id'] ?? '');
+                    foreach (is_array($bundleItem['price_options'] ?? null) ? $bundleItem['price_options'] : [] as $bundleOption) {
+                        if (!is_array($bundleOption)) { continue; }
+                        $existingBundleOptions[$existingBundleId . "\0" . $existingBundleItemId . "\0" . (string) ($bundleOption['option_id'] ?? '')] = (string) ($bundleOption['cz_platform_id'] ?? '');
+                    }
+                }
+            }
+            foreach ($reconciled['bundles'] as &$bundle) {
+                $bundleKey = (string) $bundle['bundle_id'];
+                $bundle['cz_platform_id'] = $existingBundles[$bundleKey] ?? '';
+                foreach ($bundle['price_options'] as &$bundleOwnOption) {
+                    $bundleOwnOption['cz_platform_id'] = $existingBundleOwnOptions[$bundleKey . "\0" . (string) $bundleOwnOption['option_id']] ?? '';
+                }
+                unset($bundleOwnOption);
+                foreach ($bundle['items'] as &$bundleItem) {
+                    $bundleItemKey = $bundleKey . "\0" . (string) $bundleItem['item_id'];
+                    $bundleItem['cz_platform_id'] = $existingBundleItems[$bundleItemKey] ?? '';
+                    foreach ($bundleItem['price_options'] as &$bundleOption) {
+                        $bundleOption['cz_platform_id'] = $existingBundleOptions[$bundleItemKey . "\0" . (string) $bundleOption['option_id']] ?? '';
+                    }
+                    unset($bundleOption);
+                }
+                unset($bundleItem);
+            }
+            unset($bundle);
             $sheetsById[$id] = $reconciled;
         }
         foreach (is_array($rateSheetDeletions) ? $rateSheetDeletions : [] as $deleteId) {
@@ -825,15 +1159,28 @@ final class PackageManagerSchema
         array $liveIds,
         array $persistedById
     ): array {
-        $items = array_values(array_filter(
-            $core['items'],
-            static fn(array $rateItem): bool => isset($liveIds[$rateItem['source_item_id']])
-                || isset($persistedById[$rateItem['source_item_id']])
-        ));
+        $keep = static fn(array $rateItem): bool => isset($liveIds[$rateItem['source_item_id']])
+            || isset($persistedById[$rateItem['source_item_id']]);
+
+        $items = array_values(array_filter($core['items'], $keep));
         foreach ($items as $index => &$rateItem) {
             $rateItem['sort_order'] = $index;
         }
         unset($rateItem);
+
+        // A Bundle's rows are Rate Sheet rows and are reconciled by the same
+        // rule — a Bundle never keeps a row the sheet itself would have dropped.
+        $bundles = $core['bundles'] ?? [];
+        foreach ($bundles as $bundleIndex => &$bundle) {
+            $bundleItems = array_values(array_filter($bundle['items'], $keep));
+            foreach ($bundleItems as $index => &$bundleItem) {
+                $bundleItem['sort_order'] = $index;
+            }
+            unset($bundleItem);
+            $bundle['items'] = $bundleItems;
+            $bundle['sort_order'] = $bundleIndex;
+        }
+        unset($bundle);
 
         return [
             'rate_sheet_id' => $rateSheetId,
@@ -842,6 +1189,7 @@ final class PackageManagerSchema
             'status'        => $status,
             'groups'        => $core['groups'],
             'items'         => $items,
+            'bundles'       => $bundles,
         ];
     }
 
@@ -1032,6 +1380,15 @@ final class PackageManagerSchema
                 $sourceItemId = (string) ($rateItem['source_item_id'] ?? '');
                 if ($sourceItemId !== '') { $rateSheetSourceItemIds[$sourceItemId] = true; }
             }
+            // A Bundle row is a Rate Sheet row, so the source behind it settles
+            // on the same rule — a source priced only inside a Bundle must not
+            // need a second, legacy Manager item-settle action.
+            foreach (is_array($sheet['bundles'] ?? null) ? $sheet['bundles'] : [] as $bundle) {
+                foreach (is_array($bundle['items'] ?? null) ? $bundle['items'] : [] as $bundleItem) {
+                    $sourceItemId = (string) ($bundleItem['source_item_id'] ?? '');
+                    if ($sourceItemId !== '') { $rateSheetSourceItemIds[$sourceItemId] = true; }
+                }
+            }
         }
         $rateSheetSourceIds = $rateSheetSourceItemIds;
 
@@ -1107,7 +1464,7 @@ final class PackageManagerSchema
                         unset($group['cz_platform_id']);
                         return $group;
                     }, is_array($sheet['groups'] ?? null) ? $sheet['groups'] : []);
-                    $sheet['items'] = array_map(static function (array $item): array {
+                    $projectRow = static function (array $item): array {
                         $item['platform_id'] = (string) ($item['cz_platform_id'] ?? '');
                         unset($item['cz_platform_id']);
                         $item['price_options'] = array_map(static function (array $option): array {
@@ -1116,7 +1473,25 @@ final class PackageManagerSchema
                             return $option;
                         }, is_array($item['price_options'] ?? null) ? $item['price_options'] : []);
                         return $item;
-                    }, is_array($sheet['items'] ?? null) ? $sheet['items'] : []);
+                    };
+                    // The rows this sheet offers: its own, plus one per active
+                    // Bundle. They go into `items` — the rows every consumer
+                    // already reads — so nothing downstream changes at all.
+                    $offered = self::consumableRateSheetRows($sheet);
+                    // A Bundle projects exactly like the sheet that owns it:
+                    // output-only `platform_id`, same for its own rows.
+                    $sheet['bundles'] = array_map(static function (array $bundle) use ($projectRow): array {
+                        $bundle['platform_id'] = (string) ($bundle['cz_platform_id'] ?? '');
+                        unset($bundle['cz_platform_id']);
+                        $bundle['price_options'] = array_map(static function (array $option): array {
+                            $option['platform_id'] = (string) ($option['cz_platform_id'] ?? '');
+                            unset($option['cz_platform_id']);
+                            return $option;
+                        }, is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : []);
+                        $bundle['items'] = array_map($projectRow, is_array($bundle['items'] ?? null) ? $bundle['items'] : []);
+                        return $bundle;
+                    }, is_array($sheet['bundles'] ?? null) ? $sheet['bundles'] : []);
+                    $sheet['items'] = array_map($projectRow, $offered);
                     return $sheet;
                 },
                 is_array($storedManager['rate_sheets'] ?? null) ? $storedManager['rate_sheets'] : []
@@ -1276,6 +1651,9 @@ final class PackageManagerSchema
             is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
             $rateSheetId
         );
+        // What this sheet offers: its own priced rows plus one priced row per
+        // Bundle. Resolved once, by the Rate Sheet, before anything is handed
+        // to a consumer — so from here down there are only Rate Sheet rows.
         $rateSheetItemsList = is_array($rateSheet) ? ($rateSheet['items'] ?? []) : [];
         $rateItems = [];
         foreach ($rateSheetItemsList as $item) {
@@ -1295,13 +1673,23 @@ final class PackageManagerSchema
             $priceOptionId = ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId);
             $rateItem = $rateItems[$itemId] ?? null;
             $source = $rateItem ? ($sources[$rateItem['source_item_id']] ?? null) : null;
-            $resolved = $rateItem !== null && $source !== null && !empty($source['connection_resolved']);
+            // A self-priced row stands behind itself: no Manager source backs a
+            // combination, so it resolves on its own existence and names itself.
+            $selfPriced = $rateItem !== null && !empty($rateItem['self_priced']);
+            $resolved = $rateItem !== null
+                && ($selfPriced || ($source !== null && !empty($source['connection_resolved'])));
             $label = '(unresolved Rate Sheet item)';
             if ($resolved) {
-                $label = $source['decorated_label']
-                    ?: (($source['source_type'] === 'faq')
-                        ? (string) ($source['resolved']['question'] ?? '')
-                        : (string) ($source['resolved']['label'] ?? ''));
+                $label = $selfPriced
+                    ? (string) ($rateItem['label'] ?? '')
+                    : ($source['decorated_label']
+                        ?: (($source['source_type'] === 'faq')
+                            ? (string) ($source['resolved']['question'] ?? '')
+                            : (string) ($source['resolved']['label'] ?? '')));
+                // A row may carry its own name (Bundle-created rows do); blank
+                // inherits the resolved supplied-content label above.
+                $ownLabel = trim((string) ($rateItem['label'] ?? ''));
+                if ($ownLabel !== '') { $label = $ownLabel; }
             }
             // Effective unit price: the row's own Default Price unless a
             // price_option_id is present and resolves against that row's own
@@ -1321,9 +1709,9 @@ final class PackageManagerSchema
                     $unitPrice = null;
                 }
             }
-            $available = $resolved && !empty($source['available']) && !$optionUnresolved;
+            $available = $resolved && ($selfPriced || !empty($source['available'])) && !$optionUnresolved;
             $lineTotal = $available && $unitPrice !== null ? $unitPrice * $quantity : null;
-            $healthReasons = $source['health_reasons'] ?? ['rate_sheet_item_unresolved'];
+            $healthReasons = $selfPriced ? [] : ($source['health_reasons'] ?? ['rate_sheet_item_unresolved']);
             if ($optionUnresolved) { $healthReasons = array_values(array_unique([...$healthReasons, 'price_option_unresolved'])); }
             $rows[] = [
                 'item_id' => $itemId, 'quantity' => $quantity, 'resolved' => $resolved,
@@ -1331,27 +1719,33 @@ final class PackageManagerSchema
                 'source_type' => $source['source_type'] ?? null,
                 'source_id' => $source['source_id'] ?? null,
                 'available' => $available,
-                'operational_state' => $source['operational_state'] ?? 'source_missing',
+                'operational_state' => $selfPriced
+                    ? 'connected_available'
+                    : ($source['operational_state'] ?? 'source_missing'),
                 'health_reasons' => $healthReasons,
                 'label' => $label, 'unit_price' => $unitPrice,
                 'per' => $rateItem['per'] ?? null,
                 'group_id' => $rateItem['group_id'] ?? null,
                 'line_total' => $lineTotal,
+                // Present for a row that carries ingredients — the "Includes:"
+                // list. Never chargeable lines of their own.
+                'includes' => $rateItem['includes'] ?? null,
             ];
         }
         $rowsByItemId = [];
         foreach ($rows as $row) { $rowsByItemId[$row['item_id']] = $row; }
         $pricingItems = [];
         foreach ($rateSheetItemsList as $rateItem) {
+            $selfPricedItem = !empty($rateItem['self_priced']);
             $source = $sources[$rateItem['source_item_id']] ?? null;
-            if ($source === null || empty($source['connection_resolved'])) { continue; }
+            if (!$selfPricedItem && ($source === null || empty($source['connection_resolved']))) { continue; }
             $row = $rowsByItemId[$rateItem['item_id']] ?? null;
             // A selected, resolving Price Option overrides the item's Default
             // Price fed to the shared pricing engine; an unresolved one makes
             // the item unavailable there too, so the total never silently
             // reverts to Default Price.
             $unitPriceForPricing = (float) $rateItem['unit_price'];
-            $availableForPricing = !empty($source['available']);
+            $availableForPricing = $selfPricedItem || !empty($source['available']);
             if ($row !== null && $row['price_option_id'] !== null) {
                 if ($row['unit_price'] !== null) {
                     $unitPriceForPricing = $row['unit_price'];

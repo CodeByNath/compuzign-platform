@@ -34,16 +34,22 @@ import { InlineEditorShell } from '@/drawer-kit/InlineEditorShell';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { evaluateModule, rateSheetCollectionModule } from '@/drawer-kit/utils/moduleNotifications';
+import { ChildChipStrip } from '@/drawer-kit/ui/ChildChipStrip';
 import { RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
-import { summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { bundleKey, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
 import { RateSheetGridEditor } from './rateSheetParts';
+import { RateSheetBundleWorkspace } from './RateSheetBundleWorkspace';
 import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
 
 const plural = (count: number, singular: string, pluralForm = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralForm}`;
+
+/** The chip that selects the sheet's OWN rows. Navigation state only: the Rate
+ *  Sheet is not one of its Bundles, and this id is never stored or sent. */
+const SHEET_CHIP_ID = '__sheet__';
 
 // ── SECTION: drawer content ───────────────────────────────────────────────────
 
@@ -271,6 +277,13 @@ function FocusedRateSheetRead({
           <p class="drawerModule__value">{summary.groups}</p>
         </div>
         <div class="drawerModule__field">
+          <p class="drawerModule__label">Bundles</p>
+          <p class="drawerModule__value">
+            {value.bundles.length}
+            {value.bundles.length > 0 ? ` · ${value.bundles.map((bundle) => bundle.title.trim() || 'Untitled Bundle').join(', ')}` : ''}
+          </p>
+        </div>
+        <div class="drawerModule__field">
           <p class="drawerModule__label">Per values</p>
           <p class="drawerModule__value">{perValues.length}{perValues.length > 0 ? ` · ${perValues.join(', ')}` : ''}</p>
         </div>
@@ -287,29 +300,65 @@ function FocusedRateSheetEditor({ controller, value }: {
   value: RateSheetEditorValue;
 }): VNode {
   const selectedKey = controller.selectedKey;
+  const { selectedBundle, selectedBundleKey } = controller;
+
+  // The sheet's own child navigation: the Rate Sheet itself, then each of its
+  // Bundles. `SHEET_CHIP_ID` is navigation state, never a record — the sheet is
+  // not a Bundle, exactly as a Tier's own Default declaration is not an Edition.
+  const chips = [
+    { id: SHEET_CHIP_ID, label: 'Rate Sheet' },
+    ...controller.bundles.map((bundle) => ({
+      id:    bundleKey(bundle),
+      label: bundle.title.trim() || 'Untitled Bundle',
+    })),
+  ];
+
   return (
     <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
-      <div class="cz-rate-sheet-tool__focused-head">
-        <input
-          class="cz-tf-control cz-tf-input"
-          value={value.title}
-          placeholder="Rate Sheet title"
-          aria-label="Rate Sheet title"
-          onInput={(event) => controller.setTitle((event.currentTarget as HTMLInputElement).value)}
-        />
-        <select
-          class="cz-tf-control cz-tf-select"
-          value={value.status}
-          aria-label="Rate Sheet status"
-          onChange={(event) => {
-            if (selectedKey) controller.setSheetStatus(selectedKey, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived');
-          }}
-        >
-          <option value="active">Active</option>
-          <option value="archived">Disabled</option>
-        </select>
-      </div>
-      <RateSheetSheetEditor controller={controller} value={value} indented={false} />
+      <ChildChipStrip
+        chips={chips}
+        activeId={selectedBundleKey ?? SHEET_CHIP_ID}
+        onSelect={(id) => controller.selectBundle(id === SHEET_CHIP_ID ? null : id)}
+        ariaLabel="Rate Sheet and its Bundles"
+        trailing={(
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+            disabled={controller.editingRowId !== null}
+            onClick={() => controller.createBundle()}
+          >
+            + Bundle
+          </button>
+        )}
+      />
+
+      {selectedBundle && selectedBundleKey ? (
+        <RateSheetBundleWorkspace controller={controller} bundle={selectedBundle} bundleKey={selectedBundleKey} sheet={value} />
+      ) : (
+        <>
+          <div class="cz-rate-sheet-tool__focused-head">
+            <input
+              class="cz-tf-control cz-tf-input"
+              value={value.title}
+              placeholder="Rate Sheet title"
+              aria-label="Rate Sheet title"
+              onInput={(event) => controller.setTitle((event.currentTarget as HTMLInputElement).value)}
+            />
+            <select
+              class="cz-tf-control cz-tf-select"
+              value={value.status}
+              aria-label="Rate Sheet status"
+              onChange={(event) => {
+                if (selectedKey) controller.setSheetStatus(selectedKey, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived');
+              }}
+            >
+              <option value="active">Active</option>
+              <option value="archived">Disabled</option>
+            </select>
+          </div>
+          <RateSheetSheetEditor controller={controller} value={value} indented={false} />
+        </>
+      )}
     </div>
   );
 }

@@ -19,9 +19,10 @@ import { useState } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
 import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageRateSheetUnit } from '../../types';
-import { priceOptionKey, rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { priceOptionKey, rowDisplayLabel, rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
   RateSheetEditorGroup,
+  RateSheetEditorPriceOption,
   RateSheetEditorRow,
 } from '../../surface/rateSheetTool/rateSheetToolModel';
 
@@ -45,6 +46,10 @@ export interface RateSheetRowCommands {
   setRowPer:       (rowId: string, per: PackageRateSheetUnit) => void;
   setRowQuantity:  (rowId: string, quantity: number) => void;
   setRowGroup:     (rowId: string, groupId: string | null) => void;
+  /** A Bundle row's own display label. Offered only for a row that carries one
+   *  (`row.label !== undefined`); a sheet row's label has always been the
+   *  Service-resolved supplied-content label and still is. */
+  setRowLabel:     (rowId: string, label: string) => void;
   removeRow:       (rowId: string) => void;
   /** Creates a group in this sheet and returns its stored id, or null if blank. */
   createGroup:     (label: string) => string | null;
@@ -234,7 +239,7 @@ export function RateSheetGridRead({
             <tr key={rowKey(row)}>
               <td class="cz-rate-sheet-tool__cell-name">
                 <div class="cz-rate-sheet-tool__cell-name-stack">
-                  <span>{row.optionLabel}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
+                  <span>{rowDisplayLabel(row)}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
                   <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
                 </div>
               </td>
@@ -327,7 +332,20 @@ function RateSheetRowFieldCells({
     <>
       <td class="cz-rate-sheet-tool__cell-name">
         <div class="cz-rate-sheet-tool__cell-name-stack">
-          <span>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</span>
+          {row.label === undefined ? (
+            <span>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</span>
+          ) : (
+            // A Bundle row names itself. The supplied content it prices stays
+            // visible beneath, so the Rate Sheet association is never hidden by
+            // the rename.
+            <>
+              <input class="cz-tf-control cz-tf-input" type="text" value={row.label} disabled={disabled}
+                placeholder={row.optionLabel}
+                aria-label={`Name for ${row.optionLabel}`}
+                onInput={(event) => commands.setRowLabel(key, (event.currentTarget as HTMLInputElement).value)} />
+              <small>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</small>
+            </>
+          )}
           <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
         </div>
       </td>
@@ -396,28 +414,35 @@ function RateSheetRowFieldCells({
  * Default Price on every mount, i.e. every time this row becomes active,
  * since this component is only rendered inside that branch.
  */
-function RateSheetUnitPriceOptionEditor({
-  row, commands, disabled,
+export function RateSheetPriceOptionEditor({
+  ariaLabel, unitPrice, priceOptions, disabled,
+  onUnitPrice, onAddOption, onRemoveOption, onOptionLabel, onOptionUnitPrice,
 }: {
-  row:      RateSheetEditorRow;
-  commands: RateSheetRowCommands;
-  disabled: boolean;
+  ariaLabel:    string;
+  unitPrice:    number;
+  priceOptions: readonly RateSheetEditorPriceOption[];
+  disabled:     boolean;
+  onUnitPrice:  (unitPrice: number) => void;
+  /** Adds a blank option and returns the key that addresses it. */
+  onAddOption:  () => string;
+  onRemoveOption:    (optionKey: string) => void;
+  onOptionLabel:     (optionKey: string, label: string) => void;
+  onOptionUnitPrice: (optionKey: string, unitPrice: number) => void;
 }): VNode {
-  const rowId = rowKey(row);
   const [selectedTab, setSelectedTab] = useState<string>('default');
   const selectedOption = selectedTab === 'default'
     ? null
-    : row.priceOptions.find((option) => priceOptionKey(option) === selectedTab) ?? null;
+    : priceOptions.find((option) => priceOptionKey(option) === selectedTab) ?? null;
 
   return (
     <div class="cz-rate-sheet-tool__price-options">
-      <div class="cz-rate-sheet-tool__price-options-tabs" role="tablist" aria-label={`Unit Price options for ${row.optionLabel}`}>
+      <div class="cz-rate-sheet-tool__price-options-tabs" role="tablist" aria-label={ariaLabel}>
         <button type="button" role="tab" aria-selected={selectedTab === 'default'}
           class={`cz-rate-sheet-tool__price-options-tab${selectedTab === 'default' ? ' cz-rate-sheet-tool__price-options-tab--active' : ''}`}
           onClick={() => setSelectedTab('default')}>
           Default Price
         </button>
-        {row.priceOptions.map((option, index) => {
+        {priceOptions.map((option, index) => {
           const optionTabKey = priceOptionKey(option);
           return (
             <button type="button" role="tab" key={optionTabKey} aria-selected={selectedTab === optionTabKey}
@@ -429,35 +454,60 @@ function RateSheetUnitPriceOptionEditor({
         })}
         {!disabled && (
           <button type="button" class="cz-rate-sheet-tool__price-options-tab cz-rate-sheet-tool__price-options-tab--add"
-            aria-label={`Add price option for ${row.optionLabel}`}
-            onClick={() => setSelectedTab(commands.addPriceOption(rowId))}>
+            aria-label={`Add price option for ${ariaLabel}`}
+            onClick={() => setSelectedTab(onAddOption())}>
             +
           </button>
         )}
       </div>
       {selectedOption === null ? (
-        <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
-          aria-label={`Unit price for ${row.optionLabel}`}
-          onInput={(event) => commands.setRowUnitPrice(rowId, Number((event.currentTarget as HTMLInputElement).value))} />
+        <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={unitPrice} disabled={disabled}
+          aria-label={ariaLabel}
+          onInput={(event) => onUnitPrice(Number((event.currentTarget as HTMLInputElement).value))} />
       ) : (
         <div class="cz-rate-sheet-tool__price-option-fields">
           <input class="cz-tf-control cz-tf-input" type="text" value={selectedOption.label} disabled={disabled}
             placeholder="Option label"
-            aria-label={`Label for price option of ${row.optionLabel}`}
-            onInput={(event) => commands.setPriceOptionLabel(rowId, selectedTab, (event.currentTarget as HTMLInputElement).value)} />
+            aria-label={`Label for price option of ${ariaLabel}`}
+            onInput={(event) => onOptionLabel(selectedTab, (event.currentTarget as HTMLInputElement).value)} />
           <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={selectedOption.unitPrice} disabled={disabled}
-            aria-label={`Unit price for price option of ${row.optionLabel}`}
-            onInput={(event) => commands.setPriceOptionUnitPrice(rowId, selectedTab, Number((event.currentTarget as HTMLInputElement).value))} />
+            aria-label={`Unit price for price option of ${ariaLabel}`}
+            onInput={(event) => onOptionUnitPrice(selectedTab, Number((event.currentTarget as HTMLInputElement).value))} />
           {!disabled && (
             <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-              aria-label={`Remove price option ${selectedOption.label || `Option`}`}
-              onClick={() => { commands.removePriceOption(rowId, selectedTab); setSelectedTab('default'); }}>
+              aria-label={`Remove price option ${selectedOption.label || 'Option'}`}
+              onClick={() => { onRemoveOption(selectedTab); setSelectedTab('default'); }}>
               Remove
             </button>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/** The row-scoped use of the editor above: a row's Unit Price cell. Default
+ *  Price is not Option 0 — selecting it edits the row's own `unit_price`. */
+function RateSheetUnitPriceOptionEditor({
+  row, commands, disabled,
+}: {
+  row:      RateSheetEditorRow;
+  commands: RateSheetRowCommands;
+  disabled: boolean;
+}): VNode {
+  const rowId = rowKey(row);
+  return (
+    <RateSheetPriceOptionEditor
+      ariaLabel={`Unit price for ${row.optionLabel}`}
+      unitPrice={row.unitPrice}
+      priceOptions={row.priceOptions}
+      disabled={disabled}
+      onUnitPrice={(next) => commands.setRowUnitPrice(rowId, next)}
+      onAddOption={() => commands.addPriceOption(rowId)}
+      onRemoveOption={(optionKey) => commands.removePriceOption(rowId, optionKey)}
+      onOptionLabel={(optionKey, label) => commands.setPriceOptionLabel(rowId, optionKey, label)}
+      onOptionUnitPrice={(optionKey, next) => commands.setPriceOptionUnitPrice(rowId, optionKey, next)}
+    />
   );
 }
 
@@ -501,11 +551,13 @@ function RateSheetRowReadCells({
   row:    RateSheetEditorRow;
   groups: readonly RateSheetEditorGroup[];
 }): VNode {
+  const renamed = (row.label?.trim() ?? '') !== '';
   return (
     <>
       <td class="cz-rate-sheet-tool__cell-name">
         <div class="cz-rate-sheet-tool__cell-name-stack">
-          <span>{row.optionLabel}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
+          <span>{rowDisplayLabel(row)}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
+          {renamed && <small>{row.optionLabel}</small>}
           <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
         </div>
       </td>

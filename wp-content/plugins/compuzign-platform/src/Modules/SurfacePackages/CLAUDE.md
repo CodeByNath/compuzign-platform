@@ -30,7 +30,31 @@ reference. A Price Option is further-qualified by its own row —
 `rateSheetItem()` already use, with `option_id` minted write-path-only in
 `PackageManagerSchema::commitConfiguration` (never derived from its label);
 it has no dedicated `/admin/...` read route of its own yet, unlike Rate
-Sheet/Group/Item. Package adapters own
+Sheet/Group/Item. A sheet may additionally hold `bundles[]` — Rate
+Sheet-owned composition spaces holding COMPLETE Rate Sheet rows, each Bundle
+carrying `CZPRCB` against `(rate_sheet_id, bundle_id)`, each of its rows
+`CZPRCBI` against `(rate_sheet_id, bundle_id, item_id)`, and each of those
+rows' price options `CZPRCBIO` — separate records from the sheet's own row for
+the same supplied content, never references to it. A Bundle stores no groups
+and no unit vocabulary: its rows validate against the owning sheet's, and its
+`bundle_id` is minted write-path-only in `commitConfiguration` like a sheet id.
+A Bundle row additionally carries its own editable `label` (blank inherits the
+resolved supplied-content label). A Bundle carries its OWN commercial price
+(`unit_price`/`per`/`price_options[]`, the latter `CZPRCBO`) for consuming that
+combination together, independent of what its component rows sum to. Upstream it
+IS one Rate Sheet row: `consumableRateSheetRows()` offers the sheet's own rows
+plus one row per active Bundle (`deriveBundleRowId`, ordinary `rate_` grammar,
+`includes[]` for presentation only), placed by `buildReadModel` straight into the
+sheet's own `items` — the rows every consumer already reads, so there is no new
+field and no consumer changes. The Tool cannot round-trip it: it carries no
+`source_item_id`, which `toEditorRows()`/`sanitizeRateRows()` already drop. Component rows are ingredients, not separately chargeable
+rows, so they are absent from that offer. NO consumer learns Bundles exist: Tier
+storage and selection stay `{ item_id, quantity, price_option_id }` with no
+Bundle-shaped storage, addressing, dedup, or pricing path — `PackageSchema` is
+untouched. Component-row identity uses `deriveBundleRateItemId` so it never
+collides with the sheet's own row for the same supplied content. See
+[Rate Sheet Bundle](../../../../../../docs/code-map/rate-sheet-bundle.md).
+Package adapters own
 storage/enumeration/projection callbacks and delegate registry work to the
 shared Station. Owner-specific read routes and durable CLI selectors exist for
 all five scopes existing before it. Promotion `CZTP` remains deferred.
@@ -72,4 +96,4 @@ are locked by `php tests/legacy-contact-override-repair.php`.
 
 ## Validation
 
-From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-occupant-is-addon.php`, `php tests/tier-addon-end-to-end.php`, `php tests/tier-pricing-parity.php`, `php tests/legacy-contact-override-repair.php`, `php tests/tier-group-composition.php`, `php tests/tier-group-platform-identity-backfill.php`, `php tests/tier-instance-schema.php`, `php tests/tier-instance-update.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-assignment-family-flow.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-capability-invariants.php`, `php tests/tier-occupant-platform-identity.php`, `php tests/rate-sheet-platform-identity-reconciliation.php`, `php tests/tier-edition-schema.php`, `php tests/tier-edition-repository.php`, `php tests/tier-edition-lifecycle.php`, `php tests/tier-edition-cascade.php`, `php tests/tier-edition-default-resolution.php`, `php tests/tier-edition-public-projection.php`, `php tests/tier-edition-bin.php`, `php tests/tier-edition-move-to-bin.php`, `php tests/tier-edition-price-projection.php`, `php tests/tier-rate-sheet-price-option.php`, `php tests/request-schema-minimum-term.php`, `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npm run contract:tier-overview-is-addon`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run contract:tier-edition-move-to-bin`, `npm run contract:rate-sheet-price-option-selection`, `npx tsc --noEmit`, and `npm run docs:check`.
+From the plugin root: `php tests/package-manager-schema.php`, `php tests/package-category-groups.php`, `php tests/active-package-contract.php`, `php tests/tier-occupant-compatibility.php`, `php tests/tier-occupant-is-addon.php`, `php tests/tier-addon-end-to-end.php`, `php tests/tier-pricing-parity.php`, `php tests/legacy-contact-override-repair.php`, `php tests/tier-group-composition.php`, `php tests/tier-group-platform-identity-backfill.php`, `php tests/tier-instance-schema.php`, `php tests/tier-instance-update.php`, `php tests/tier-instance-migration.php`, `php tests/tier-assignment-schema.php`, `php tests/tier-assignment-family-flow.php`, `php tests/tier-instance-mutations.php`, `php tests/tier-instance-guards.php`, `php tests/package-capability-peer-isolation.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-capability-invariants.php`, `php tests/tier-occupant-platform-identity.php`, `php tests/rate-sheet-platform-identity-reconciliation.php`, `php tests/rate-sheet-bundle.php`, `php tests/tier-edition-schema.php`, `php tests/tier-edition-repository.php`, `php tests/tier-edition-lifecycle.php`, `php tests/tier-edition-cascade.php`, `php tests/tier-edition-default-resolution.php`, `php tests/tier-edition-public-projection.php`, `php tests/tier-edition-bin.php`, `php tests/tier-edition-move-to-bin.php`, `php tests/tier-edition-price-projection.php`, `php tests/tier-rate-sheet-price-option.php`, `php tests/request-schema-minimum-term.php`, `npm run contract:package-family-capability`, `npm run contract:tier-instance-scope`, `npm run contract:tier-overview-is-addon`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run contract:tier-edition-move-to-bin`, `npm run contract:rate-sheet-price-option-selection`, `npx tsc --noEmit`, and `npm run docs:check`.
