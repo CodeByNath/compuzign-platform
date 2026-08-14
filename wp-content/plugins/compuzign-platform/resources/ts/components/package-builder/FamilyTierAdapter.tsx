@@ -222,11 +222,12 @@ export function FamilyTierAdapter({
     );
   }
 
-  // Selected-Tier view: the chosen Tier alone plus its Add-ons. Reached only
-  // when the Tier System actually offers Add-ons, so this view always has
-  // something to choose. It is the same PricingTiers as the comparison —
-  // narrowing the Tier list is what hides the other cards and reveals the
-  // Add-ons strip, so there is no second Add-on or quote flow here.
+  // Selected-Tier view: the chosen Tier alone, with Recommendations beside
+  // it. Reached only when recommendation content exists — today that means
+  // the Tier System offers Add-ons — so this view always has something to
+  // choose. It is the same PricingTiers as the comparison: narrowing the Tier
+  // list is what hides the other cards and reveals Recommendations, so there
+  // is no second Add-on, recommendation, or quote flow here.
   if (stagedTier) {
     return (
       <>
@@ -249,6 +250,7 @@ export function FamilyTierAdapter({
           billingCycle=""
           onSelect={select}
           onToggleAddon={toggleAddon}
+          recommendationsAside
         />
       </>
     );

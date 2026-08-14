@@ -474,6 +474,21 @@
   color: var(--cz-color-accent);
 }
 
+/* Once this Tier is selected — the same state that makes its Add to Quote
+   read "Selected" — Choose Plan steps back and swaps the pair above: it takes
+   the outline treatment it previously showed only on hover, and fills on
+   hover instead. Unselected cards are untouched. */
+.cz-cost-builder__tier--selected .cz-cost-builder__tier-choose {
+  background: transparent;
+  color: var(--cz-color-accent);
+}
+
+.cz-cost-builder__tier--selected .cz-cost-builder__tier-choose:hover {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
 .cz-cost-builder__tier-action:hover {
   border-color: var(--cz-color-accent);
   color: var(--cz-color-accent);
@@ -511,12 +526,55 @@
   font-style: italic;
 }
 
-/* Optional add-ons section — same tier-card language as the Tier strip above;
-   the heading reuses .cz-cost-builder__tier-name's small-uppercase treatment. */
-.cz-cost-builder__addons {
-  margin-top: var(--cz-space-4);
+/* Tier area — the Tier strip together with its Recommendations. Stacked by
+   default (Cost Builder, and the Package Builder card comparison). */
+.cz-cost-builder__tier-area {
+  min-width: 0;
 }
 
+/* Selected-Tier arrangement: the isolated Tier keeps the left column and
+   Recommendations sits beside it rather than underneath. Recommendations
+   carries several cards to the Tier's one, so it takes the wider share.
+   Collapses to one column at the same breakpoint the Tier strip already
+   stacks at. */
+.cz-cost-builder__tier-area--aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--cz-space-5);
+  align-items: start;
+}
+
+.cz-cost-builder__tier-area--aside > .cz-cost-builder__tiers-wrap,
+.cz-cost-builder__tier-area--aside > .cz-cost-builder__recommendations {
+  margin-top: 0;
+}
+
+@media (max-width: 767px) {
+  .cz-cost-builder__tier-area--aside {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Recommendations — the extensible area offered alongside the Tier. It holds
+   one group today (Optional Add-ons) and owns the spacing between groups, so
+   a later group needs no rule of its own. */
+.cz-cost-builder__recommendations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+  margin-top: var(--cz-space-4);
+  min-width: 0;
+}
+
+.cz-cost-builder__recommendations-heading {
+  margin: 0;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-text);
+}
+
+/* Optional add-ons group — same tier-card language as the Tier strip above;
+   the heading reuses .cz-cost-builder__tier-name's small-uppercase treatment. */
 .cz-cost-builder__addons-heading {
   margin: 0 0 var(--cz-space-2);
   font-size: var(--cz-font-size-xs);
@@ -3455,4 +3513,20 @@
 /* Reserved for future focused-plan content — see FamilyTierAdapter.tsx. */
 .cz-package-builder__focused-reserved {
   min-height: 1px;
+}
+
+/* Inside the focused view Choose Plan is withheld (this already is that
+   Tier's focused view), so Add to Quote is the card's only action and takes
+   the accent fill Choose Plan carries in the strip — the control that opened
+   this view hands its emphasis to the one that completes it. The selected and
+   removing states keep their own treatment. */
+.cz-package-builder__focused-card .cz-cost-builder__tier-action:not(.is-selected):not(.is-removing) {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-package-builder__focused-card .cz-cost-builder__tier-action:not(.is-selected):not(.is-removing):hover {
+  background: transparent;
+  color: var(--cz-color-accent);
 }

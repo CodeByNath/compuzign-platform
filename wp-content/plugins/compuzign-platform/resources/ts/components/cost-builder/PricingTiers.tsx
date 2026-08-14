@@ -100,6 +100,11 @@ interface PricingTiersProps {
   // Package Builder only. Supplying it adds a "Choose Plan" action to each
   // normal Tier card; Cost Builder passes nothing and renders as before.
   onChoosePlan?: (tierId: TierId) => void;
+  // Package Builder only. Places the Recommendations area beside the Tier
+  // strip instead of below it — used once a Tier is selected and the strip
+  // has been narrowed to that one Tier. Cost Builder passes nothing and keeps
+  // the stacked arrangement.
+  recommendationsAside?: boolean;
 }
 
 // One Tier/add-on card. Shared by both strips below — and by the Package
@@ -309,6 +314,7 @@ export function PricingTiers({
   onSelect,
   onToggleAddon,
   onChoosePlan,
+  recommendationsAside = false,
 }: PricingTiersProps) {
   // DEBUG — remove after diagnosis
 
@@ -326,8 +332,69 @@ export function PricingTiers({
   const normalTiers = tiers.filter((tier) => pricing.tiers[tier.id] && !pricing.tiers[tier.id]?.is_addon);
   const addonTiers = tiers.filter((tier) => pricing.tiers[tier.id]?.is_addon);
 
+  // Recommendations — the area offered alongside the Tier itself. It holds
+  // exactly one group today, the existing Optional Add-ons, and exists as its
+  // own container so a later recommendation group is added inside it rather
+  // than as a second parallel add-on/recommendation system. It renders only
+  // when a group actually has content, which today means this Tier System
+  // offers add-on Tiers at all.
+  const recommendations = addonTiers.length > 0 ? (
+    <div class="cz-cost-builder__recommendations">
+      <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
+      {/* Group 1 — Optional Add-ons. Same data, same cards, same independent
+          toggle, same implicit same-Tier-System compatibility as before; only
+          its heading level moved under the area heading above. */}
+      <div class="cz-cost-builder__addons">
+        <h5 class="cz-cost-builder__addons-heading">Optional add-ons</h5>
+        <div class="cz-cost-builder__tiers-wrap">
+          <button
+            type="button"
+            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
+            onClick={() => scroll(addonScrollRef, -1)}
+            aria-label="Scroll add-ons left"
+          >
+            ‹
+          </button>
+          <div class="cz-cost-builder__tiers" ref={addonScrollRef}>
+            {addonTiers.map((tier) => (
+              <TierCard
+                key={tier.id}
+                tier={tier}
+                data={pricing.tiers[tier.id]}
+                isPopular={tier.id === popularTier}
+                popularLabel={popularLabel}
+                isActive={selectedAddonTierIds.includes(tier.id)}
+                billingCycle={billingCycle}
+                addedLabel="✓ Added"
+                onClick={(effective) => onToggleAddon(tier.id, effective)}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
+            onClick={() => scroll(addonScrollRef, 1)}
+            aria-label="Scroll add-ons right"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  // Tier strip + Recommendations. Stacked by default; the caller opts into
+  // placing Recommendations beside the strip once the strip has been narrowed
+  // to one selected Tier.
   return (
-    <>
+    <div
+      class={[
+        'cz-cost-builder__tier-area',
+        recommendations && recommendationsAside && 'cz-cost-builder__tier-area--aside',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div class="cz-cost-builder__tiers-wrap">
         <button
           type="button"
@@ -363,44 +430,7 @@ export function PricingTiers({
         </button>
       </div>
 
-      {addonTiers.length > 0 && (
-        <div class="cz-cost-builder__addons">
-          <h4 class="cz-cost-builder__addons-heading">Optional add-ons</h4>
-          <div class="cz-cost-builder__tiers-wrap">
-            <button
-              type="button"
-              class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
-              onClick={() => scroll(addonScrollRef, -1)}
-              aria-label="Scroll add-ons left"
-            >
-              ‹
-            </button>
-            <div class="cz-cost-builder__tiers" ref={addonScrollRef}>
-              {addonTiers.map((tier) => (
-                <TierCard
-                  key={tier.id}
-                  tier={tier}
-                  data={pricing.tiers[tier.id]}
-                  isPopular={tier.id === popularTier}
-                  popularLabel={popularLabel}
-                  isActive={selectedAddonTierIds.includes(tier.id)}
-                  billingCycle={billingCycle}
-                  addedLabel="✓ Added"
-                  onClick={(effective) => onToggleAddon(tier.id, effective)}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
-              onClick={() => scroll(addonScrollRef, 1)}
-              aria-label="Scroll add-ons right"
-            >
-              ›
-            </button>
-          </div>
-        </div>
-      )}
-    </>
+      {recommendations}
+    </div>
   );
 }
