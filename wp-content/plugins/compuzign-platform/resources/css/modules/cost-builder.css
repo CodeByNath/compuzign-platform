@@ -544,6 +544,7 @@
   align-items: start;
 }
 
+.cz-cost-builder__tier-area--aside > .cz-cost-builder__tiers-wrap,
 .cz-cost-builder__tier-area--aside > .cz-cost-builder__recommendations {
   margin-top: 0;
 }
@@ -552,14 +553,6 @@
   .cz-cost-builder__tier-area--aside {
     grid-template-columns: 1fr;
   }
-}
-
-/* The isolated selected Tier's left lane — its one TierCard rendered
-   directly, with no carousel shell around it. min-width: 0 lets it shrink
-   inside its grid track instead of forcing the row wider (TierCard itself
-   carries a 180px min-width). */
-.cz-cost-builder__tier-selected {
-  min-width: 0;
 }
 
 /* Recommendations — the extensible area offered alongside the Tier. It holds
