@@ -70,8 +70,11 @@ export function FamilyTierAdapter({
   // Tier alone, with its Add-ons revealed. Derived against the live selection
   // rather than stored independently, so removing the line anywhere (quote
   // summary included) or switching customer group drops straight back to the
-  // card comparison without a second piece of state to keep in sync.
-  const [stagedTierId, setStagedTierId] = useState<TierId | null>(null);
+  // card comparison without a second piece of state to keep in sync. Seeded
+  // from selectedTierId on mount (not just null) so a page reload — which
+  // restores the cart synchronously before first render — lands back in this
+  // view instead of the full comparison strip.
+  const [stagedTierId, setStagedTierId] = useState<TierId | null>(selectedTierId);
   const stagedTier = stagedTierId !== null && stagedTierId === selectedTierId
     ? normalTiers.find((tier) => tier.id === stagedTierId) ?? null
     : null;
