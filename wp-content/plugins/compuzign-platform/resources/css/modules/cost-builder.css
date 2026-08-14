@@ -533,86 +533,25 @@
 }
 
 /* Selected-Tier arrangement: the isolated Tier keeps the left column and
-   Recommendations sits beside it rather than underneath — one state, not two
-   modules. Both columns share three row tracks — area heading, group label,
-   cards — and Recommendations subgrids them, so the Tier card's top lands on
-   exactly the same axis as the first Add-on card's top instead of floating
-   against a heading stack. The Tier column is sized to one card; Add-on cards
-   take the remaining width and read as wider siblings of the same card family.
+   Recommendations sits beside it rather than underneath. Recommendations
+   carries several cards to the Tier's one, so it takes the wider share.
    Collapses to one column at the same breakpoint the Tier strip already
    stacks at. */
 .cz-cost-builder__tier-area--aside {
   display: grid;
-  grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
-  grid-template-rows: auto auto 1fr;
-  column-gap: var(--cz-space-5);
-  /* No row gap: each label's own margin sizes its track, so the shared rows
-     stay identical whether or not a subgrid inherits its parent's gutters. */
-  row-gap: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--cz-space-5);
+  align-items: start;
 }
 
-.cz-cost-builder__tier-area--aside > .cz-cost-builder__tiers-wrap {
-  grid-column: 1;
-  grid-row: 3;
-  margin-top: 0;
-}
-
+.cz-cost-builder__tier-area--aside > .cz-cost-builder__tiers-wrap,
 .cz-cost-builder__tier-area--aside > .cz-cost-builder__recommendations {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  display: grid;
-  grid-template-rows: subgrid;
-  gap: 0;
   margin-top: 0;
-}
-
-/* The group spans the label and card tracks, so a later group added beside it
-   lines up on the same two rows without a rule of its own. */
-.cz-cost-builder__tier-area--aside .cz-cost-builder__addons {
-  grid-row: 2 / span 2;
-  display: grid;
-  grid-template-rows: subgrid;
-  min-width: 0;
-}
-
-/* Tight enough that the area label and the group label below it read as one
-   compact header rather than a stack of two headings. */
-.cz-cost-builder__tier-area--aside .cz-cost-builder__recommendations-heading {
-  margin-bottom: var(--cz-space-2);
-}
-
-/* Keep the Add-on strip at its own content height rather than stretched to
-   the shared card row, so its arrows centre on the cards they scroll instead
-   of on whatever the taller column happens to be. */
-.cz-cost-builder__tier-area--aside .cz-cost-builder__addons .cz-cost-builder__tiers-wrap {
-  align-self: start;
-}
-
-/* An Add-on card may run wider than the Tier card beside it, but not
-   unbounded — capped and packed from the left so a single Add-on still reads
-   as the same card, and a third one scrolls under the arrows as before. */
-.cz-cost-builder__tier-area--aside .cz-cost-builder__addons .cz-cost-builder__tiers {
-  grid-auto-columns: minmax(180px, 22rem);
-  justify-content: start;
-}
-
-/* The Tier column holds exactly one card here, so its strip has nothing to
-   scroll and its arrows would only float in the gutter between the columns.
-   That leaves one pair, sitting with the Add-on strip it actually controls. */
-.cz-cost-builder__tier-area--aside > .cz-cost-builder__tiers-wrap .cz-cost-builder__tiers-nav {
-  display: none;
 }
 
 @media (max-width: 767px) {
-  .cz-cost-builder__tier-area--aside,
-  .cz-cost-builder__tier-area--aside > .cz-cost-builder__recommendations,
-  .cz-cost-builder__tier-area--aside .cz-cost-builder__addons {
-    display: flex;
-    flex-direction: column;
-  }
-
   .cz-cost-builder__tier-area--aside {
-    gap: var(--cz-space-4);
+    grid-template-columns: 1fr;
   }
 }
 
@@ -627,13 +566,10 @@
   min-width: 0;
 }
 
-/* A quiet section label, not a panel title — it introduces the column without
-   outweighing the selected Tier beside it, and the group label below it stays
-   smaller again so the two never read as a heading stack. */
 .cz-cost-builder__recommendations-heading {
   margin: 0;
   font-size: var(--cz-font-size-sm);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--cz-color-text);
 }
 
