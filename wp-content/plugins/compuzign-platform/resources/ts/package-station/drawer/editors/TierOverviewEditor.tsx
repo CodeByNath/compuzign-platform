@@ -1,7 +1,7 @@
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { TierOverviewDraft } from '../../types';
-import { CheckboxDropdown } from './CheckboxDropdown';
 
 // The billing cycles a Tier can carry. A fixed vocabulary, so it is a constant
 // rather than a value rebuilt on every render.
@@ -58,7 +58,31 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
     label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
   }));
   const isAddon: boolean = draft.is_addon ?? false;
+  // An occupant belongs to its Tier Group, not one customer audience.
+  // Toggling a box adds/removes just that value.
   const audienceGroups: ('personal_business' | 'enterprise')[] = draft.audience_groups ?? [];
+  const toggleAudienceGroup = (value: 'personal_business' | 'enterprise', checked: boolean) => {
+    onChange({
+      audience_groups: checked
+        ? (audienceGroups.includes(value) ? audienceGroups : [...audienceGroups, value])
+        : audienceGroups.filter((group) => group !== value),
+    });
+  };
+  const audienceGroupsSummary = audienceGroups.length === 0
+    ? 'None selected'
+    : AUDIENCE_GROUPS.filter((group) => audienceGroups.includes(group.value as 'personal_business' | 'enterprise'))
+      .map((group) => group.label)
+      .join(', ');
+  const [audienceGroupsOpen, setAudienceGroupsOpen] = useState(false);
+  const audienceGroupsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!audienceGroupsOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!audienceGroupsRef.current?.contains(e.target as Node)) setAudienceGroupsOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [audienceGroupsOpen]);
 
   return (
     <div class="cz-tf-form">
@@ -114,14 +138,34 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
           checkbox for each option and the same floating-panel pattern
           station menus already use (see .cz-station-split__menu) — no new
           control family. */}
-      <CheckboxDropdown
-        id="tier-audience-groups"
-        label="Customer Groups"
-        options={AUDIENCE_GROUPS}
-        selected={audienceGroups}
-        emptyLabel="None selected"
-        onChange={(next) => onChange({ audience_groups: next as ('personal_business' | 'enterprise')[] })}
-      />
+      <div class="cz-tf-field">
+        <label class="cz-tf-label" id="tier-audience-groups-label">Customer Groups</label>
+        <div class="cz-tier-audience-groups" ref={audienceGroupsRef}>
+          <button
+            type="button"
+            id="tier-audience-groups-trigger"
+            class="cz-tf-control cz-tf-select"
+            aria-haspopup="true"
+            aria-expanded={audienceGroupsOpen}
+            aria-labelledby="tier-audience-groups-label tier-audience-groups-trigger"
+            onClick={() => setAudienceGroupsOpen((open) => !open)}
+          >
+            {audienceGroupsSummary}
+          </button>
+          {audienceGroupsOpen && (
+            <div class="cz-tier-audience-groups__panel" role="group" aria-label="Customer Groups">
+              {AUDIENCE_GROUPS.map((group) => (
+                <AdminField
+                  key={group.value}
+                  def={{ id: `tier-audience-groups-${group.value}`, type: 'checkbox', label: group.label }}
+                  value={audienceGroups.includes(group.value as 'personal_business' | 'enterprise')}
+                  onChange={(checked: boolean) => toggleAudienceGroup(group.value as 'personal_business' | 'enterprise', checked)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <AdminField
         def={{ id: 'tier-ideal-for', type: 'textarea', label: 'Ideal For', rows: 3 }}

@@ -12,8 +12,8 @@
 // Inline Save commits a module's draft LOCALLY ONLY — no create, no update
 // request. Footer Publish is the sole authoritative creation; footer Apply is
 // the sole authoritative update for an existing Tier System, bundling
-// every locally saved Overview field (title, description, Family, and
-// allowed_rate_sheet_ids) into one
+// whatever either module last committed locally (title/description/Family
+// from Overview, allowed_rate_sheet_ids from Rate Sheet Access) into one
 // PATCH. This mirrors usePackageFamilyStation's group_id==='' branch and
 // createFamily's footer-owned authoritative write.
 
@@ -27,9 +27,16 @@ import type {
 } from '../../types';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import type { TierSystemOverviewDraftFields } from '../editors/TierSystemOverviewEditor';
-import { tierRateSheetAccessIsDirty, tierRateSheetAccessPayload } from '../../surface/tierInstance/tierRateSheetAccessModel';
+import {
+  projectTierRateSheetAccess,
+  tierRateSheetAccessDraft,
+  tierRateSheetAccessIsDirty,
+  tierRateSheetAccessPayload,
+  type TierRateSheetAccessDraft,
+  type TierRateSheetAccessProjection,
+} from '../../surface/tierInstance/tierRateSheetAccessModel';
 
-export type TierSystemModule = 'overview';
+export type TierSystemModule = 'overview' | 'rate-sheet-access';
 export type TierSystemFooterMode = 'pending' | 'persisted' | 'none';
 
 export interface TierSystemControllerArgs {
@@ -62,14 +69,13 @@ function seedOverview(
       title:       instance.title,
       description: instance.description,
       familyId:    assignedFamilyId(instance.tier_instance_id, tool.assignments),
-      allowedRateSheetIds: instance.allowed_rate_sheet_ids,
     };
   }
   const familyId = initialFamilyId !== null
     && tool.eligibleFamilies.some((family) => family.group_id === initialFamilyId)
     ? initialFamilyId
     : null;
-  return { title: '', description: '', familyId, allowedRateSheetIds: [] };
+  return { title: '', description: '', familyId };
 }
 
 // api.ts's apiClient throws `API ${method} ${path} → ${status}: ${bodyText}`
@@ -111,6 +117,8 @@ export function useTierSystemController({
     () => seedOverview(initialInstance, initialFamilyId, tool),
   );
   const [overviewOriginal, setOverviewOriginal] = useState<TierSystemOverviewDraftFields>(overview);
+  const [rateSheetAccess, setRateSheetAccess] = useState<TierRateSheetAccessDraft | null>(null);
+  const [rateSheetOriginal, setRateSheetOriginal] = useState<TierRateSheetAccessDraft | null>(null);
   const [editingModule, setEditingModule] = useState<TierSystemModule | null>(null);
 
   const [saving, setSaving] = useState(false);
@@ -122,13 +130,7 @@ export function useTierSystemController({
 
   // The registered system's own Family stays selectable so it can be kept;
   // every other option must be a Family that holds nothing yet.
-  // The ledger refresh is asynchronous. Retain a successful assignment in
-  // this mounted controller so a Rate Sheet-only Apply never attempts to
-  // reassign the same Family before the host has refreshed its collection.
-  const [knownFamilyId, setKnownFamilyId] = useState<string | null>(
-    () => assignedFamilyId(initialInstance?.tier_instance_id ?? null, tool.assignments),
-  );
-  const heldFamilyId = knownFamilyId;
+  const heldFamilyId = assignedFamilyId(instance?.tier_instance_id ?? null, tool.assignments);
   const selectable: PackageFamilyListItem[] = heldFamilyId === null
     ? tool.eligibleFamilies
     : [
@@ -139,9 +141,9 @@ export function useTierSystemController({
     ? null
     : selectable.find((family) => family.group_id === overview.familyId)?.label ?? null;
 
-  const rateSheetLabel = overview.allowedRateSheetIds.length === 0
-    ? 'Not selected'
-    : overview.allowedRateSheetIds.map((id) => rateSheets.find((sheet) => sheet.rate_sheet_id === id)?.title.trim() || 'Unavailable Rate Sheet').join(', ');
+  const projection: TierRateSheetAccessProjection | null = instance !== null
+    ? projectTierRateSheetAccess(instance, rateSheets)
+    : null;
 
   // One assignment row per instance, so re-pointing is a delete then a
   // create. The instance is authoritative either way: a failed ledger write
@@ -181,6 +183,28 @@ export function useTierSystemController({
     setEditingModule(null);
   }, [overviewOriginal]);
 
+  const openRateSheetEditor = useCallback(() => {
+    if (projection === null) return;
+    const seed = rateSheetAccess ?? tierRateSheetAccessDraft(projection);
+    setRateSheetAccess(seed);
+    setRateSheetOriginal(seed);
+    setEditingModule('rate-sheet-access');
+    setError(null);
+  }, [projection, rateSheetAccess]);
+
+  const replaceRateSheetDraft = useCallback((next: TierRateSheetAccessDraft) => {
+    setRateSheetAccess(next);
+  }, []);
+
+  const saveRateSheetDraft = useCallback(() => {
+    setEditingModule(null);
+  }, []);
+
+  const cancelRateSheetEdit = useCallback(() => {
+    setRateSheetAccess(rateSheetOriginal);
+    setEditingModule(null);
+  }, [rateSheetOriginal]);
+
   // ── Footer — Publish (pending) / Apply + destructive cascade Delete (persisted) ───────
 
   const canPublish = overview.title.trim().length > 0;
@@ -189,9 +213,10 @@ export function useTierSystemController({
     || overview.description !== instance.description
     || overview.familyId !== heldFamilyId
   );
-  const rateSheetDirty = instance !== null
-    && tierRateSheetAccessIsDirty({ allowedRateSheetIds: overview.allowedRateSheetIds }, instance);
-  // Any subset of the candidate pool, including empty, is a valid selection.
+  const rateSheetDirty = instance !== null && rateSheetAccess !== null
+    && tierRateSheetAccessIsDirty(rateSheetAccess, instance);
+  // Any subset of the candidate pool, including empty, is a valid selection —
+  // there is no invalid Rate Sheet Access draft to gate Apply on anymore.
   const canApply = instance !== null && canPublish && (overviewDirty || rateSheetDirty);
 
   const publish = useCallback(async () => {
@@ -227,8 +252,6 @@ export function useTierSystemController({
         // retried automatically.
         setOverview((current) => ({ ...current, familyId: null }));
         setError('The Tier system was published, but it could not be given to that Package Family.');
-      } else {
-        setKnownFamilyId(overview.familyId);
       }
       setSaveOk(true);
       bridge.onMutationComplete?.();
@@ -257,7 +280,9 @@ export function useTierSystemController({
       const saved = await tool.updateInstance(instance.tier_instance_id, {
         title,
         description: overview.description.trim(),
-        allowed_rate_sheet_ids: tierRateSheetAccessPayload({ allowedRateSheetIds: overview.allowedRateSheetIds }),
+        ...(rateSheetAccess !== null
+          ? { allowed_rate_sheet_ids: tierRateSheetAccessPayload(rateSheetAccess) }
+          : {}),
       });
       if (!saved) {
         setError(tool.error ?? 'Could not apply changes to the Tier system.');
@@ -267,14 +292,13 @@ export function useTierSystemController({
         setError('The Tier system was saved, but its Package Family could not be changed.');
         return;
       }
-      setKnownFamilyId(overview.familyId);
       refetchRateSheets?.();
       bridge.onMutationComplete?.();
       setSaveOk(true);
     } finally {
       setSaving(false);
     }
-  }, [bridge, heldFamilyId, instance, overview, pointAssignment, refetchRateSheets, tool]);
+  }, [bridge, heldFamilyId, instance, overview, pointAssignment, rateSheetAccess, refetchRateSheets, tool]);
 
   const requestDelete = useCallback(() => {
     setDeleteError(null);
@@ -314,11 +338,12 @@ export function useTierSystemController({
   }, [bridge, instance, tool]);
 
   const isDirty = editingModule === 'overview'
-    && (overview.title !== overviewOriginal.title
+    ? (overview.title !== overviewOriginal.title
       || overview.description !== overviewOriginal.description
-      || overview.familyId !== overviewOriginal.familyId
-      || tierRateSheetAccessPayload({ allowedRateSheetIds: overview.allowedRateSheetIds }).join(',')
-        !== tierRateSheetAccessPayload({ allowedRateSheetIds: overviewOriginal.allowedRateSheetIds }).join(','));
+      || overview.familyId !== overviewOriginal.familyId)
+    : editingModule === 'rate-sheet-access' && rateSheetAccess !== null && rateSheetOriginal !== null
+      ? tierRateSheetAccessPayload(rateSheetAccess).join(',') !== tierRateSheetAccessPayload(rateSheetOriginal).join(',')
+      : false;
 
   const footerMode: TierSystemFooterMode = editingModule !== null
     ? 'none'
@@ -331,13 +356,18 @@ export function useTierSystemController({
     isPersisted: instance !== null,
     overview,
     familyLabel,
-    rateSheetLabel,
     selectable,
+    projection,
+    rateSheetAccess,
     editingModule,
     openOverviewEditor,
     patchOverview,
     saveOverviewDraft,
     cancelOverviewEdit,
+    openRateSheetEditor,
+    replaceRateSheetDraft,
+    saveRateSheetDraft,
+    cancelRateSheetEdit,
     isDirty,
     footerMode,
     canPublish,
@@ -355,6 +385,7 @@ export function useTierSystemController({
     deleteError,
     requestClose,
     overviewHasUnappliedChanges: overviewDirty,
+    rateSheetHasUnappliedChanges: rateSheetDirty,
     hasUnappliedChanges: overviewDirty || rateSheetDirty,
   };
 }

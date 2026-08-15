@@ -20,11 +20,15 @@ import type { VNode } from 'preact';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
 import { EntityDrawer } from '@/drawer-kit/EntityDrawer';
 import { evaluateModule } from '@/drawer-kit/utils/moduleNotifications';
-import { tierSystemOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
+import { tierSystemOverviewModule, tierRateSheetAccessModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import { TIER_SYSTEM_ENTITY } from '../schema/entities/tierSystem';
-import type { TierSystemOverviewShellData } from '../schema/bindings/tierSystem';
+import type {
+  TierRateSheetAccessShellData,
+  TierSystemOverviewShellData,
+} from '../schema/bindings/tierSystem';
 import type { TierSystemOverviewDraftFields } from '../editors/TierSystemOverviewEditor';
+import type { TierRateSheetAccessDraft } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import type { PackageRateSheet, TierInstanceRecord } from '../../types';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import { useTierSystemController } from './useTierSystemController';
@@ -87,7 +91,6 @@ export function TierSystemContent({
     title:       c.overview.title,
     description: c.overview.description,
     familyLabel: c.familyLabel,
-    rateSheetLabel: c.rateSheetLabel,
     reference:   c.instance?.tier_instance_id ?? null,
     platformId:  c.instance?.cz_platform_id || null,
     platformIdFallback: c.isPersisted ? 'Not assigned' : 'Assigned after Publish',
@@ -110,13 +113,44 @@ export function TierSystemContent({
     handlers: { edit: c.openOverviewEditor },
   };
 
+  const accessData: TierRateSheetAccessShellData = c.projection === null
+    ? { mode: 'Unavailable', availability: 'Available once this Tier system is published.', activeCount: 0, unresolvedCount: 0 }
+    : {
+        // There is only one mode now — explicit selection — so this row
+        // states whether anything has been configured yet rather than
+        // naming a mode that no longer exists.
+        mode:            c.projection.allowedActiveCount === 0 ? 'Not configured' : 'Explicit selection',
+        availability:    c.projection.summary,
+        activeCount:     c.projection.activeCount,
+        unresolvedCount: c.projection.unresolvedCount,
+      };
+  const accessBinding: ShellBinding<TierRateSheetAccessShellData> = {
+    data: accessData,
+    // Access has no enable/disable lifecycle of its own. A resolved policy is
+    // evaluated in its module-local active context so the generic lifecycle
+    // tail cannot invent a parent-instance activation note — unchanged from
+    // the prior persisted-only composition.
+    state: c.projection === null
+      ? { status: 'pending-dim', notes: [] }
+      : evaluateModule(tierRateSheetAccessModule, {
+          allowedActiveCount: c.projection.allowedActiveCount,
+          activeCount:        c.projection.activeCount,
+          unresolvedCount:    c.projection.unresolvedCount,
+        }, { platformStatus: 'active', platformLabel: 'Tier system' }),
+    hasDraft: c.rateSheetHasUnappliedChanges,
+    // No `edit` handler pre-publish: the action renders (disabled) rather
+    // than vanishing, per the shared Module entry contract, and no slot
+    // identity or endpoint is fabricated before the instance exists.
+    handlers: c.projection !== null ? { edit: c.openRateSheetEditor } : {},
+  };
+
   const name = c.overview.title.trim() || 'this Tier system';
 
   return (
     <>
       <EntityDrawer
         entity={TIER_SYSTEM_ENTITY}
-        bindings={{ overview: overviewBinding }}
+        bindings={{ overview: overviewBinding, 'rate-sheet-access': accessBinding }}
         openPanel={openPanel}
         onTogglePanel={(module) => setOpenPanel((current) => current === module ? null : module)}
         editing={c.editingModule === 'overview' ? {
@@ -132,7 +166,23 @@ export function TierSystemContent({
             isDirty: c.isDirty,
             saveDisabled: c.overview.title.trim() === '',
             title: c.isPersisted ? 'Tier System' : 'New Tier System',
-            extras: { selectable: c.selectable, rateSheets },
+            extras: { selectable: c.selectable },
+          },
+        } : c.editingModule === 'rate-sheet-access' && c.rateSheetAccess !== null ? {
+          module: 'rate-sheet-access',
+          session: {
+            draft:   c.rateSheetAccess,
+            replace: (next) => c.replaceRateSheetDraft(next as TierRateSheetAccessDraft),
+            onSave:  () => { c.saveRateSheetDraft(); },
+            onCancel: c.cancelRateSheetEdit,
+            saving:  false,
+            saveErr: null,
+            isDirty: c.isDirty,
+            // Any subset of the candidate pool, including empty, is a valid
+            // draft now — nothing to reject beyond "no change to save".
+            saveDisabled: !c.isDirty,
+            title: 'Rate Sheet Access',
+            extras: { projection: c.projection },
           },
         } : null}
       >

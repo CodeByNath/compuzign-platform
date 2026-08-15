@@ -32,6 +32,7 @@ import {
   tierFaqsModule,
   tierFeaturesModule,
   tierOverviewModule,
+  tierRateSheetAccessModule,
   tierSystemOverviewModule,
 } from '../resources/ts/drawer-kit/utils/moduleNotifications';
 import type { ShellSchema } from '../resources/ts/drawer-kit/schema/types';
@@ -56,7 +57,7 @@ import {
   tierOverviewShell,
 } from '../resources/ts/package-station/drawer/schema/bindings/tier';
 import { tierInclusionOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierInclusion';
-import { tierSystemOverviewShell } from '../resources/ts/package-station/drawer/schema/bindings/tierSystem';
+import { tierSystemOverviewShell, tierRateSheetAccessShell } from '../resources/ts/package-station/drawer/schema/bindings/tierSystem';
 
 const root = resolve(import.meta.dirname, '..');
 
@@ -85,6 +86,7 @@ const SHELLS: Array<[string, ShellSchema<any>]> = [
   ['Tier FAQs', tierFaqsShell],
   ['Tier System Overview', tierSystemOverviewShell],
   ['Tier Inclusion Overview', tierInclusionOverviewShell],
+  ['Tier System Rate Sheet Access', tierRateSheetAccessShell],
 ];
 
 // An editable module is always reachable from its readable card, and a card that
@@ -239,6 +241,40 @@ check(
   'a stocked Rate Sheet pool reads Active',
 );
 
+const validAccessState = evaluateModule(tierRateSheetAccessModule, {
+  activeCount: 2,
+  allowedActiveCount: 1,
+  unresolvedCount: 0,
+}, { platformStatus: 'active' });
+check(
+  validAccessState.status === 'active' && validAccessState.notes.length === 0,
+  'valid Rate Sheet access reads Active with no irrelevant parent-lifecycle note',
+);
+const invalidAccessState = evaluateModule(tierRateSheetAccessModule, {
+  activeCount: 2,
+  allowedActiveCount: 0,
+  unresolvedCount: 1,
+}, { platformStatus: 'active' });
+check(
+  invalidAccessState.status === 'pending-full' && invalidAccessState.notes.length === 2,
+  'Rate Sheet access needing review reads Pending and explains both unconfigured access and unresolved references',
+);
+// Semantic correction (2026-08-15): zero allowed is the ORDINARY default for
+// an unconfigured Tier system, not a defect — its note is informational
+// (never counts toward the error badge) and carries no unresolved-reference
+// problem alongside it.
+const unconfiguredAccessState = evaluateModule(tierRateSheetAccessModule, {
+  activeCount: 2,
+  allowedActiveCount: 0,
+  unresolvedCount: 0,
+}, { platformStatus: 'active' });
+check(
+  unconfiguredAccessState.status === 'pending-full'
+    && unconfiguredAccessState.notes.length === 1
+    && unconfiguredAccessState.notes[0]?.type === 'info',
+  'unconfigured Rate Sheet access (nothing allowed, nothing broken) reads Pending with one informational note, not an error',
+);
+
 // ── The compositions that open these modules ─────────────────────────────────
 // Each opens readable and wires the panel its pill needs. `useState(false)` is
 // the entry state itself: `useState(true)` here means the drawer opens in its
@@ -263,10 +299,26 @@ check(
   tierSystemContent.includes('onTogglePanel='),
   'the Tier System composition wires its module\'s notification panel, so the pill can open it',
 );
-const cancelOverviewBody = bodyBetween(tierSystemController, 'const cancelOverviewEdit = useCallback', 'Footer — Publish');
+const cancelOverviewBody = bodyBetween(tierSystemController, 'const cancelOverviewEdit = useCallback', 'const openRateSheetEditor');
 check(
   cancelOverviewBody.includes('setEditingModule(null)') && !cancelOverviewBody.includes('bridge.close'),
   'Overview Cancel returns to the readable module rather than closing the drawer',
+);
+const cancelRateSheetBody = bodyBetween(tierSystemController, 'const cancelRateSheetEdit = useCallback', 'Footer — Publish');
+check(
+  cancelRateSheetBody.includes('setEditingModule(null)') && !cancelRateSheetBody.includes('bridge.close'),
+  'Rate Sheet Access Cancel returns to the readable module rather than closing the drawer',
+);
+check(
+  tierSystemController.includes('const openRateSheetEditor = useCallback')
+    && tierSystemController.includes("setEditingModule('rate-sheet-access')"),
+  'Rate Sheet Access opens readable and enters editing only through Edit',
+);
+const tierAccessBinding = bodyBetween(tierSystemContent, 'const accessBinding', 'const name');
+check(
+  tierAccessBinding.includes("platformStatus: 'active', platformLabel: 'Tier system' }")
+    && !tierAccessBinding.includes('platformStatus: c.instance'),
+  'the Rate Sheet Access module uses its own resolved-policy context rather than inheriting Tier System lifecycle notes',
 );
 
 // Package Family creation (the 'new' recordId) is not a bespoke create
@@ -298,11 +350,16 @@ check(
 // The Tier System footer is now the mature Publish/Apply/Delete footer (see
 // tier-system-drawer-contract.ts for the full action-set assertions);
 // this contract's own concern is only the entry-state / editor-reachability
-// rule, already covered above for the single Overview module.
+// rule, already covered above for both the Overview and Rate Sheet Access
+// modules on the one shared composition.
 check(
   tierSystemContent.includes('bridge.setFooter(') && tierSystemContent.includes('<TierSystemFooter'),
   'the Tier System drawer publishes its record footer through the host bridge',
 );
+const accessEditor = source('resources/ts/package-station/drawer/editors/TierRateSheetAccessEditor.tsx');
+for (const forbidden of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions', 'updateInstance', 'api.']) {
+  check(!accessEditor.includes(forbidden), `the Rate Sheet access field editor owns no ${forbidden}`);
+}
 
 // The Rate Sheet collection renders through ReadBlock rather than a shell, so it
 // must pass the same three things explicitly.
