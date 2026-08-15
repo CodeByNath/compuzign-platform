@@ -1017,6 +1017,7 @@ class PackageStationController
             $oldGroups = [];
             $oldItems = [];
             $oldOptions = [];
+            $oldCompiledBundleItems = [];
             $oldBundles = [];
             $oldBundleOwnOptions = [];
             $oldBundleItems = [];
@@ -1042,6 +1043,10 @@ class PackageStationController
                     $bundleId = (string) ($bundle['bundle_id'] ?? '');
                     if ($bundleId === '') continue;
                     $oldBundles[$sheetId . "\0" . $bundleId] = $bundle;
+                    $compiledItemId = PackageManagerSchema::deriveBundleRowId($bundleId);
+                    $oldCompiledBundleItems[$sheetId . "\0" . $compiledItemId] = [
+                        'cz_platform_id' => (string) ($bundle['compiled_item_cz_platform_id'] ?? ''),
+                    ];
                     foreach (is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [] as $bundleOwnOption) {
                         $bundleOwnOptionId = (string) ($bundleOwnOption['option_id'] ?? '');
                         if ($bundleOwnOptionId !== '') $oldBundleOwnOptions[$sheetId . "\0" . $bundleId . "\0" . $bundleOwnOptionId] = $bundleOwnOption;
@@ -1154,6 +1159,18 @@ class PackageStationController
                         if ($bundlePlatformId !== null) {
                             $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['cz_platform_id'] = $bundlePlatformId;
                         }
+                        $compiledItemId = PackageManagerSchema::deriveBundleRowId($bundleId);
+                        $compiledItemKey = $sheetId . "\0" . $compiledItemId;
+                        $compiledItemPlatformId = $resolveIdentity(
+                            $this->identityAdapters->rateSheetItem(),
+                            !isset($oldCompiledBundleItems[$compiledItemKey])
+                                || (string) ($oldCompiledBundleItems[$compiledItemKey]['cz_platform_id'] ?? '') === '',
+                            (string) ($bundle['compiled_item_cz_platform_id'] ?? ''),
+                            PackagePlatformNativeReference::rateSheetItem($sheetId, $compiledItemId)
+                        );
+                        if ($compiledItemPlatformId !== null) {
+                            $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['compiled_item_cz_platform_id'] = $compiledItemPlatformId;
+                        }
                         // The Bundle's OWN commercial Price Options — children of
                         // the Bundle (CZPRCB), not of any of its rows.
                         foreach ($bundle['price_options'] ?? [] as $bundleOwnOptionIndex => $bundleOwnOption) {
@@ -1205,6 +1222,10 @@ class PackageStationController
             foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['groups'] as $group) $newGroupKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $group['group_id']] = true;
             $newItemKeys = [];
             foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['items'] as $item) $newItemKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $item['item_id']] = true;
+            $newCompiledBundleItemKeys = [];
+            foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['bundles'] ?? [] as $bundle) {
+                $newCompiledBundleItemKeys[(string) $sheet['rate_sheet_id'] . "\0" . PackageManagerSchema::deriveBundleRowId((string) $bundle['bundle_id'])] = true;
+            }
             $newOptionKeys = [];
             foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['items'] as $item) foreach ($item['price_options'] ?? [] as $option) {
                 $newOptionKeys[(string) $sheet['rate_sheet_id'] . "\0" . (string) $item['item_id'] . "\0" . (string) $option['option_id']] = true;
@@ -1214,6 +1235,10 @@ class PackageStationController
                 $identityDeletions[] = [$this->identityAdapters->rateSheetItemOption(), PackagePlatformNativeReference::rateSheetItemOption($sheetId, $itemId, $optionId)];
             }
             foreach ($oldItems as $key => $item) if (!isset($newItemKeys[$key]) && (string) ($item['cz_platform_id'] ?? '') !== '') {
+                [$sheetId, $itemId] = explode("\0", $key, 2);
+                $identityDeletions[] = [$this->identityAdapters->rateSheetItem(), PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];
+            }
+            foreach ($oldCompiledBundleItems as $key => $item) if (!isset($newCompiledBundleItemKeys[$key]) && (string) ($item['cz_platform_id'] ?? '') !== '') {
                 [$sheetId, $itemId] = explode("\0", $key, 2);
                 $identityDeletions[] = [$this->identityAdapters->rateSheetItem(), PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId)];
             }

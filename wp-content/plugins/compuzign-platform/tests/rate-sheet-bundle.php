@@ -246,6 +246,8 @@ $response = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id
     'bundles' => [[
         // Blank bundle_id — the Tool never mints; the backend does, on the write path.
         'bundle_id' => '', 'title' => 'Digital Banking Website', 'status' => 'active',
+        'unit_price' => 75, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null,
+        'price_options' => [['option_id' => '', 'label' => 'Annual', 'unit_price' => 750]],
         'items' => [
             ['source_item_id' => $itemA, 'label' => 'Website', 'unit_price' => 90, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null,
                 'price_options' => [['option_id' => '', 'label' => 'Annual', 'unit_price' => 900]]],
@@ -257,11 +259,27 @@ $response = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id
 check_bundle($response->get_status() === 200 && ($response->get_data()['success'] ?? false) === true, 'a sheet carrying a new Bundle saves in one request');
 $savedSheet = $response->get_data()['manager']['rate_sheets'][0];
 $savedBundle = $savedSheet['bundles'][0];
+$savedCompiledRow = array_values(array_filter(
+    $savedSheet['items'],
+    static fn(array $row): bool => ($row['item_id'] ?? '') === PackageManagerSchema::deriveBundleRowId((string) $savedBundle['bundle_id'])
+))[0];
 
 check_bundle(str_starts_with((string) $savedBundle['bundle_id'], 'rsb_'), 'the backend minted the Bundle id on the write path');
 check_bundle(
     PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE, (string) $savedBundle['platform_id']),
     'the Bundle carries a valid CZPRCB'
+);
+check_bundle(
+    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, (string) $savedCompiledRow['platform_id']),
+    'the compiled output carries its own valid CZPRCI'
+);
+check_bundle($savedCompiledRow['platform_id'] !== $savedBundle['platform_id'], 'the compiled CZPRCI is distinct from the Bundle CZPRCB');
+check_bundle($savedCompiledRow['bundle_platform_id'] === $savedBundle['platform_id'], 'the compiled row traces back to the Bundle CZPRCB');
+check_bundle($savedBundle['compiled_item_platform_id'] === $savedCompiledRow['platform_id'], 'the Bundle persists the compiled-row CZPRCI linkage');
+check_bundle($savedCompiledRow['unit_price'] === 75.0, 'the compiled CZPRCI carries the Bundle configured price');
+check_bundle(
+    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_OPTION, (string) $savedBundle['price_options'][0]['platform_id']),
+    'the Bundle keeps its own CZPRCBO Price Option identity'
 );
 check_bundle(
     PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM, (string) $savedBundle['items'][0]['platform_id']),
@@ -288,9 +306,22 @@ check_bundle($savedBundle['items'][1]['label'] === '', 'a Bundle row that inheri
 $mintedBundleId = (string) $savedBundle['bundle_id'];
 $compiledItemId = PackageManagerSchema::deriveBundleRowId($mintedBundleId);
 $bundleReference = PackagePlatformNativeReference::rateSheetBundle('rs_live', $mintedBundleId);
+$compiledReference = PackagePlatformNativeReference::rateSheetItem('rs_live', $compiledItemId);
 $bundleRecord = $rsbOptions['cz_platform_identifier_v1_' . $savedBundle['platform_id']];
+$compiledRecord = $rsbOptions['cz_platform_identifier_v1_' . $savedCompiledRow['platform_id']];
 check_bundle($bundleRecord['status'] === PlatformIdentifierStation::STATUS_BOUND, 'the Bundle registry record is bound, not merely reserved');
 check_bundle($bundleRecord['native_reference'] === $bundleReference, 'it is bound to (rate_sheet_id, bundle_id)');
+check_bundle($compiledRecord['status'] === PlatformIdentifierStation::STATUS_BOUND, 'the compiled CZPRCI registry record is bound');
+check_bundle($compiledRecord['native_reference'] === $compiledReference, 'the compiled CZPRCI uses the normal (rate_sheet_id, item_id) native reference');
+$identityRepository = new PackageRepository();
+check_bundle(
+    $identityRepository->rateSheetPlatformId($compiledReference, 'item') === $savedCompiledRow['platform_id'],
+    'normal Rate Sheet Item lookup resolves the Bundle-produced CZPRCI'
+);
+check_bundle(
+    in_array($compiledReference, $identityRepository->rateSheetAssignmentPage(null, 500, 'item')['items'], true),
+    'normal Rate Sheet Item enumeration includes the compiled row native reference'
+);
 check_bundle(
     $rsbOptions['cz_platform_identifier_v1_' . $savedBundle['items'][0]['platform_id']]['native_reference']
         === PackagePlatformNativeReference::rateSheetBundleItem('rs_live', $mintedBundleId, (string) $savedBundle['items'][0]['item_id']),
@@ -319,11 +350,17 @@ $reSubmit = $stripPlatformIds($savedSheet);
 $reSubmit['bundles'][0]['title'] = 'Digital Banking Website v2';
 $reSubmit['bundles'][0]['unit_price'] = 77;
 $reSubmit['bundles'][0]['quantity'] = 4;
+$reSubmit['bundles'][0]['price_options'][0]['label'] = 'Annual revised';
+$reSubmit['bundles'][0]['price_options'][0]['unit_price'] = 770;
+array_pop($reSubmit['bundles'][0]['items']);
 $response2 = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$reSubmit])));
 $savedSheet2 = $response2->get_data()['manager']['rate_sheets'][0];
 $savedBundle2 = $savedSheet2['bundles'][0];
 check_bundle($savedBundle2['bundle_id'] === $mintedBundleId, 're-saving a Bundle keeps its native id');
 check_bundle($savedBundle2['platform_id'] === $savedBundle['platform_id'], 'renaming a Bundle never re-mints its Platform ID');
+check_bundle($savedBundle2['compiled_item_platform_id'] === $savedBundle['compiled_item_platform_id'], 'republishing keeps the compiled CZPRCI');
+check_bundle($savedBundle2['price_options'][0]['platform_id'] === $savedBundle['price_options'][0]['platform_id'], 'Bundle Price Option changes keep the existing CZPRCBO');
+check_bundle(count($savedBundle2['items']) === 1, 'component changes persist without replacing the Bundle');
 check_bundle($savedBundle2['items'][0]['platform_id'] === $savedBundle['items'][0]['platform_id'], "its rows' identities are equally stable");
 check_bundle($savedBundle2['items'][0]['price_options'][0]['platform_id'] === $savedBundle['items'][0]['price_options'][0]['platform_id'], "its rows' Price Option identities are equally stable");
 check_bundle(
@@ -343,6 +380,10 @@ check_bundle($sheetAfterRemoval['bundles'] === [], 'removing a Bundle removes it
 check_bundle(
     $rsbOptions['cz_platform_identifier_v1_' . $savedBundle['platform_id']]['status'] === PlatformIdentifierStation::STATUS_DELETED,
     "the removed Bundle's identity is tombstoned, never reused"
+);
+check_bundle(
+    $rsbOptions['cz_platform_identifier_v1_' . $savedCompiledRow['platform_id']]['status'] === PlatformIdentifierStation::STATUS_DELETED,
+    "the removed Bundle's compiled CZPRCI is tombstoned with its published row"
 );
 check_bundle(
     $rsbOptions['cz_platform_identifier_v1_' . $savedBundle['items'][0]['platform_id']]['status'] === PlatformIdentifierStation::STATUS_DELETED,
@@ -371,6 +412,8 @@ $readModel = PackageManagerSchema::buildReadModel(
             'items' => [
                 ['item_id' => '', 'source_item_id' => $itemA, 'unit_price' => 100, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null, 'sort_order' => 0,
                     'price_options' => [['option_id' => 'opt_sheet', 'label' => 'Annual', 'unit_price' => 1000]]],
+                ['item_id' => '', 'source_item_id' => $itemB, 'unit_price' => 200, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null, 'sort_order' => 1,
+                    'price_options' => []],
             ],
             'bundles' => [[
                 'bundle_id' => 'rsb_tier', 'title' => 'Digital Banking Website', 'status' => 'active', 'sort_order' => 0,
@@ -397,15 +440,17 @@ $readModel = PackageManagerSchema::buildReadModel(
     'active'
 );
 $carrot    = PackageManagerSchema::deriveRateItemId($itemA);
+$potato    = PackageManagerSchema::deriveRateItemId($itemB);
 $soupRow   = PackageManagerSchema::deriveBundleRowId('rsb_tier');
 $ingredient = PackageManagerSchema::deriveBundleRateItemId('rsb_tier', $itemA);
 $offered   = array_column($readModel['rate_sheets'][0]['items'], 'item_id');
 
 check_bundle(in_array($carrot, $offered, true), "the sheet's own row stays individually sellable");
+check_bundle(in_array($potato, $offered, true), 'a second normal CZPRCI row is offered beside it');
 check_bundle(!array_key_exists('consumable_items', $readModel['rate_sheets'][0]), 'the Bundle needs no new read-model field — it is in the rows every consumer already reads');
 check_bundle(in_array($soupRow, $offered, true), 'the Bundle is offered upstream as ONE priced row');
 check_bundle(!in_array($ingredient, $offered, true), 'its component rows are ingredients, not separately chargeable rows');
-check_bundle(count($offered) === 2, 'so one sheet row plus one Bundle row is all that is offered', json_encode($offered));
+check_bundle(count($offered) === 3, 'two normal rows plus one compiled Bundle row share the owning sheet items[]', json_encode($offered));
 check_bundle(str_starts_with($soupRow, 'rate_'), "the Bundle's row id is an ordinary Rate Sheet row id");
 $compiledSoup = array_values(array_filter(
     $readModel['rate_sheets'][0]['items'],

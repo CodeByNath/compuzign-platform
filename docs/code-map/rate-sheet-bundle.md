@@ -14,6 +14,7 @@ Rate Sheet            CZPRC     rate_sheet_id
  ├─ Item              CZPRCI    (rate_sheet_id, item_id)
  │   └─ Price Option  CZPRCIO   (rate_sheet_id, item_id, option_id)
  └─ Bundle            CZPRCB    (rate_sheet_id, bundle_id)
+     ├─ Compiled Item  CZPRCI    (rate_sheet_id, deriveBundleRowId(bundle_id))
      ├─ Price Option  CZPRCBO   (rate_sheet_id, bundle_id, option_id)
      └─ Bundle Item   CZPRCBI   (rate_sheet_id, bundle_id, item_id)
          └─ Option    CZPRCBIO  (rate_sheet_id, bundle_id, item_id, option_id)
@@ -21,7 +22,8 @@ Rate Sheet            CZPRC     rate_sheet_id
 
 ## Storage
 
-`rate_sheets[].bundles[]` holds `bundle_id`, `cz_platform_id`, `title`, `status`
+`rate_sheets[].bundles[]` holds `bundle_id`, `cz_platform_id`,
+`compiled_item_cz_platform_id`, `title`, `status`
 (`active|archived`), `sort_order`, `items[]`, and its own complete Rate Sheet
 row field set —
 `unit_price`/`per`/`quantity`/`group_id`/`price_options[]`/`default_price_label`.
@@ -66,10 +68,14 @@ Service Inclusion → Rate Sheet → Rate Sheet Row
 one row per active Bundle (`bundleConsumableRow()`) — id
 `deriveBundleRowId($bundleId)` in the ordinary `rate_` grammar, the Bundle's
 price, Price Options, quantity and group in the ordinary positions,
-`includes[]` for presentation only, and the same resolved label, availability,
+`includes[]` for presentation only, its own durable normal `CZPRCI`, and the same resolved label, availability,
 operational state, and health facts carried by every offered row.
 `buildReadModel` resolves ordinary source-backed rows at this same compilation
 boundary and puts all offered rows straight into the sheet's own **`items`**.
+The compiled `CZPRCI` binds through the existing Rate Sheet Item authority to
+`(rate_sheet_id, deriveBundleRowId(bundle_id))`; the Bundle stores that linkage,
+so name, price, quantity, option, component, and repeat-publish changes reuse it.
+Its published `bundle_platform_id` traces back to the producing `CZPRCB`.
 The Tool cannot round-trip the compiled Bundle row: it carries no
 `source_item_id`, which `toEditorRows()`/`sanitizeRateRows()` already drop a row
 for. That empty field is an authoring guard, not a consumer-resolution signal.

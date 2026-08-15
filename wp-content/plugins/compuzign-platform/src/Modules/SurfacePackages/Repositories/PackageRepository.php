@@ -903,9 +903,17 @@ class PackageRepository
                     }
                 }
             } elseif ($scope === 'item') {
-                foreach ($sheet['items'] as $itemIndex => $item) {
-                    if ((string) ($item['item_id'] ?? '') === $located['item_id']) {
-                        $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $platformId;
+                if (isset($located['bundle_id'])) {
+                    foreach ($sheet['bundles'] ?? [] as $bundleIndex => $bundle) {
+                        if ((string) ($bundle['bundle_id'] ?? '') === $located['bundle_id']) {
+                            $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['compiled_item_cz_platform_id'] = $platformId;
+                        }
+                    }
+                } else {
+                    foreach ($sheet['items'] as $itemIndex => $item) {
+                        if ((string) ($item['item_id'] ?? '') === $located['item_id']) {
+                            $manager['rate_sheets'][$sheetIndex]['items'][$itemIndex]['cz_platform_id'] = $platformId;
+                        }
                     }
                 }
             } elseif ($scope === 'option') {
@@ -961,8 +969,13 @@ class PackageRepository
             if ($scope === 'group') foreach ($sheet['groups'] as $group) {
                 if (($group['cz_platform_id'] ?? '') === $platformId) return true;
             }
-            if ($scope === 'item') foreach ($sheet['items'] as $item) {
-                if (($item['cz_platform_id'] ?? '') === $platformId) return true;
+            if ($scope === 'item') {
+                foreach ($sheet['items'] as $item) {
+                    if (($item['cz_platform_id'] ?? '') === $platformId) return true;
+                }
+                foreach ($sheet['bundles'] ?? [] as $bundle) {
+                    if (($bundle['compiled_item_cz_platform_id'] ?? '') === $platformId) return true;
+                }
             }
             if ($scope === 'option') foreach ($sheet['items'] as $item) {
                 foreach ($item['price_options'] ?? [] as $option) {
@@ -1003,9 +1016,15 @@ class PackageRepository
                 $groupId = (string) ($group['group_id'] ?? '');
                 if ($groupId !== '') $references[] = PackagePlatformNativeReference::rateSheetGroup($sheetId, $groupId);
             }
-            elseif ($scope === 'item') foreach ($sheet['items'] as $item) {
-                $itemId = (string) ($item['item_id'] ?? '');
-                if ($itemId !== '') $references[] = PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId);
+            elseif ($scope === 'item') {
+                foreach ($sheet['items'] as $item) {
+                    $itemId = (string) ($item['item_id'] ?? '');
+                    if ($itemId !== '') $references[] = PackagePlatformNativeReference::rateSheetItem($sheetId, $itemId);
+                }
+                foreach ($sheet['bundles'] ?? [] as $bundle) {
+                    $bundleId = (string) ($bundle['bundle_id'] ?? '');
+                    if ($bundleId !== '') $references[] = PackagePlatformNativeReference::rateSheetItem($sheetId, PackageManagerSchema::deriveBundleRowId($bundleId));
+                }
             }
             elseif ($scope === 'option') foreach ($sheet['items'] as $item) {
                 $itemId = (string) ($item['item_id'] ?? '');
@@ -1086,6 +1105,20 @@ class PackageRepository
         if ($scope === 'item') foreach ($sheet['items'] as $item) {
             if ((string) ($item['item_id'] ?? '') === $parts[1]) {
                 return ['rate_sheet_id' => $parts[0], 'item_id' => $parts[1], 'record' => $item];
+            }
+        }
+        if ($scope === 'item') foreach ($sheet['bundles'] ?? [] as $bundle) {
+            $bundleId = (string) ($bundle['bundle_id'] ?? '');
+            if ($bundleId !== '' && PackageManagerSchema::deriveBundleRowId($bundleId) === $parts[1]) {
+                return [
+                    'rate_sheet_id' => $parts[0],
+                    'bundle_id' => $bundleId,
+                    'item_id' => $parts[1],
+                    'record' => [
+                        'item_id' => $parts[1],
+                        'cz_platform_id' => (string) ($bundle['compiled_item_cz_platform_id'] ?? ''),
+                    ],
+                ];
             }
         }
         if ($scope === 'option') foreach ($sheet['items'] as $item) {

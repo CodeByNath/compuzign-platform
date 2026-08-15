@@ -379,6 +379,8 @@ export interface PackageRateSheetBundleItem extends PackageRateSheetItem {
 export interface PackageRateSheetBundle {
   bundle_id: string;
   platform_id?: string;
+  /** Output-only CZPRCI of the normal Rate Sheet row compiled from this Bundle. */
+  compiled_item_platform_id?: string;
   title: string;
   status: PackageRateSheetStatus;
   sort_order: number;

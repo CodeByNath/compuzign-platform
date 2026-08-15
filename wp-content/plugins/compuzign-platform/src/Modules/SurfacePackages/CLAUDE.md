@@ -52,7 +52,8 @@ rows sum to. `quantity`/`group_id` are clamped and validated by the same rules
 reads back on `1`/`null`, the defaults `bundleConsumableRow()` used to hardcode.
 Upstream it IS one Rate Sheet row: `consumableRateSheetRows()` offers the
 sheet's own rows plus one row per active Bundle (`deriveBundleRowId`, ordinary
-`rate_` grammar, `includes[]` for presentation only), placed by `buildReadModel`
+`rate_` grammar, its own durable `CZPRCI` bound through the normal
+`(rate_sheet_id, item_id)` authority, and `includes[]` for presentation only), placed by `buildReadModel`
 straight into the sheet's own `items` after normal row-resolution facts have
 been compiled — the rows every consumer already reads. The Tool cannot
 round-trip it: it carries no `source_item_id`, which
@@ -62,7 +63,8 @@ rows, so they are absent from that offer. NO consumer learns Bundles exist: Tier
 storage and selection stay `{ item_id, quantity, price_option_id }` with no
 Bundle-shaped storage, addressing, dedup, or pricing path; the shared projector
 reads compiled resolution/availability fields uniformly and contains no
-Bundle-origin switch — `PackageSchema` is untouched. Component-row identity uses `deriveBundleRateItemId` so it never
+Bundle-origin switch — `PackageSchema` is untouched. The Bundle persists the
+compiled `CZPRCI` linkage while retaining its separate `CZPRCB`; component-row identity uses `deriveBundleRateItemId` so it never
 collides with the sheet's own row for the same supplied content. See
 [Rate Sheet Bundle](../../../../../../docs/code-map/rate-sheet-bundle.md).
 Package adapters own

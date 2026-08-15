@@ -17,7 +17,7 @@ are unchanged.
 
 Rate Sheets are Package Station supply/pricing configuration; Station Manager and Admin only host presentation.
 
-The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has a stable `rate_sheet_id`, title, status, groups, and explicit priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Totals derive; Services and pools stay Service-owned.
+The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has a `rate_sheet_id`, title, status, groups, and priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Bundle outputs use the same `CZPRCI` reference, persisted beside `CZPRCB`; see [Rate Sheet Bundle](rate-sheet-bundle.md).
 
 A row's `per` uses the built-in plus curated unit vocabulary; only curated units
 are stored, and unknown values fail closed.

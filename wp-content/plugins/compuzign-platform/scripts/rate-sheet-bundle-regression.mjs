@@ -640,7 +640,7 @@ console.log("\nE) The Bundle's upstream row rides the ordinary items list");
 server.manager.rate_sheets[0].items = [
   ...server.manager.rate_sheets[0].items,
   {
-    item_id: 'rate_bundle_offer', platform_id: 'CZPRCB22223', source_item_id: '',
+    item_id: 'rate_bundle_offer', platform_id: 'CZPRCI22223', bundle_platform_id: 'CZPRCB22223', source_item_id: '',
     label: 'Digital Banking Website', resolved_label: 'Digital Banking Website',
     connection_resolved: true, available: true, operational_state: 'connected_available', health_reasons: [],
     unit_price: 75, per: 'Per item',

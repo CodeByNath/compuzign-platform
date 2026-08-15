@@ -418,10 +418,11 @@ final class PackageManagerSchema
 
         return [
             'item_id'        => self::deriveBundleRowId($bundleId),
-            // Stored sheets carry `cz_platform_id`; an already-projected one
-            // carries `platform_id`. The Bundle's own CZPRCB identifies the row
-            // it presents — it is the same record.
-            'cz_platform_id' => (string) ($bundle['cz_platform_id'] ?? ($bundle['platform_id'] ?? '')),
+            // The compiled output is a normal Rate Sheet Item with its own
+            // durable CZPRCI. The Bundle's CZPRCB remains on the authoring
+            // record and is retained below as provenance only.
+            'cz_platform_id' => (string) ($bundle['compiled_item_cz_platform_id'] ?? ($bundle['compiled_item_platform_id'] ?? '')),
+            'bundle_platform_id' => (string) ($bundle['cz_platform_id'] ?? ($bundle['platform_id'] ?? '')),
             // No supplied content stands behind a combination.
             'source_item_id' => '',
             'label'          => (string) ($bundle['title'] ?? ''),
@@ -662,6 +663,7 @@ final class PackageManagerSchema
             $out[] = [
                 'bundle_id'     => $bundleId,
                 'cz_platform_id'=> sanitize_text_field((string) ($bundle['cz_platform_id'] ?? '')),
+                'compiled_item_cz_platform_id' => sanitize_text_field((string) ($bundle['compiled_item_cz_platform_id'] ?? '')),
                 'title'         => $title,
                 'status'        => self::sanitizeRateSheetStatus($bundle['status'] ?? null),
                 'sort_order'    => (int) ($bundle['sort_order'] ?? $index),
@@ -1101,6 +1103,7 @@ final class PackageManagerSchema
             // bundle row, and bundle-row price option — never borrowed from the
             // sheet's own row of the same supplied content.
             $existingBundles = [];
+            $existingCompiledBundleItems = [];
             $existingBundleOwnOptions = [];
             $existingBundleItems = [];
             $existingBundleOptions = [];
@@ -1109,6 +1112,7 @@ final class PackageManagerSchema
                 $existingBundleId = (string) ($bundle['bundle_id'] ?? '');
                 if ($existingBundleId === '') { continue; }
                 $existingBundles[$existingBundleId] = (string) ($bundle['cz_platform_id'] ?? '');
+                $existingCompiledBundleItems[$existingBundleId] = (string) ($bundle['compiled_item_cz_platform_id'] ?? '');
                 foreach (is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [] as $bundleOwnOption) {
                     if (!is_array($bundleOwnOption)) { continue; }
                     $existingBundleOwnOptions[$existingBundleId . "\0" . (string) ($bundleOwnOption['option_id'] ?? '')] = (string) ($bundleOwnOption['cz_platform_id'] ?? '');
@@ -1126,6 +1130,7 @@ final class PackageManagerSchema
             foreach ($reconciled['bundles'] as &$bundle) {
                 $bundleKey = (string) $bundle['bundle_id'];
                 $bundle['cz_platform_id'] = $existingBundles[$bundleKey] ?? '';
+                $bundle['compiled_item_cz_platform_id'] = $existingCompiledBundleItems[$bundleKey] ?? '';
                 foreach ($bundle['price_options'] as &$bundleOwnOption) {
                     $bundleOwnOption['cz_platform_id'] = $existingBundleOwnOptions[$bundleKey . "\0" . (string) $bundleOwnOption['option_id']] ?? '';
                 }
@@ -1530,6 +1535,8 @@ final class PackageManagerSchema
                     $sheet['bundles'] = array_map(static function (array $bundle) use ($projectRow): array {
                         $bundle['platform_id'] = (string) ($bundle['cz_platform_id'] ?? '');
                         unset($bundle['cz_platform_id']);
+                        $bundle['compiled_item_platform_id'] = (string) ($bundle['compiled_item_cz_platform_id'] ?? '');
+                        unset($bundle['compiled_item_cz_platform_id']);
                         $bundle['price_options'] = array_map(static function (array $option): array {
                             $option['platform_id'] = (string) ($option['cz_platform_id'] ?? '');
                             unset($option['cz_platform_id']);
