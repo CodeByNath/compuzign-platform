@@ -326,6 +326,7 @@ function gridHeaders() {
 function suppliedItems() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__supplied-item')];
 }
+
 function suppliedLabels() {
   return suppliedItems().map((li) => li.querySelector('span')?.textContent.trim() ?? '');
 }
@@ -550,19 +551,35 @@ check(
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.items?.[0]?.unit_price === 5,
 );
 
-// Removing individual supplied content stays available.
+// Supplied content lives in the ROW's own cell — one place, no second block.
+check('the compiled content reads inside the row itself', rowsIn()[0]?.querySelector('.cz-rate-sheet-tool__supplied-list') != null);
+check('and never in a second block beneath the grid', container.querySelector('.cz-rate-sheet-tool__supplied') == null);
+check('a LOCKED row offers no removal — it is read-only like any row', container.querySelector('.cz-rate-sheet-tool__supplied-remove') == null);
+
+// Removing individual supplied content stays available on the unlocked row.
+click(buttonIn(rowsIn()[0], 'Edit'));
+await settle();
 const beforeRemove = suppliedLabels().length;
+check('the unlocked row offers removal per entry', container.querySelector('.cz-rate-sheet-tool__supplied-remove') != null);
 click(container.querySelector('.cz-rate-sheet-tool__supplied-remove'));
 await settle();
 check('a component can still be removed from the combination', suppliedLabels().length === beforeRemove - 1, suppliedLabels().length);
 
-// Removing a component left the session dirty, so Cancel raises the shared
-// discard confirm before it closes — the same guard every editor here uses.
+// Persist the removal through the row's own Save — the same one save — so the
+// row is locked again before the editor is left.
+const savesBeforeDrop = saveCalls;
+click(buttonIn(rowsIn().find((tr) => buttonIn(tr, 'Save') != null), 'Save'));
+await settle(60);
+check('removing a component persists through the same one save', saveCalls === savesBeforeDrop + 1, saveCalls - savesBeforeDrop);
+check('and the row locks again', buttonIn(rowsIn()[0], 'Edit') != null);
+check(
+  'the dropped component is gone from the payload',
+  (lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.bundles?.[0]?.items ?? []).length === 1,
+);
+
 click(anyButton('Cancel'));
 await settle();
-check('a dirty Cancel raises the shared discard confirm', anyButton('Discard') != null);
-click(anyButton('Discard'));
-await settle();
+if (anyButton('Discard')) { click(anyButton('Discard')); await settle(); }
 check('leaving the editor returns to the readable Options group', editorShell() == null && activeGroupTab() === 'Options', activeGroupTab());
 check('the module card reads lean — no single-declaration price/per/qty/group', !moduleCard('Bundle')?.textContent.includes('Qty'), moduleCard('Bundle')?.textContent.slice(0, 300));
 check('it names the Bundle and what it compiles', moduleCard('Bundle')?.textContent.includes('Product Bundle') && moduleCard('Bundle')?.textContent.includes('Supplied content'));

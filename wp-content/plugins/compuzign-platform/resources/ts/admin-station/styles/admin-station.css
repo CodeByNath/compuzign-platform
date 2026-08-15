@@ -3365,15 +3365,9 @@ button.cz-station-status-pill {
   gap: 6px;
 }
 
-/* The Bundle editor's Supplied content block, beneath its one row: the
-   read-only list of what the combination compiles. Each entry was declared on
-   the Rate Sheet it came from, so only the removal control is interactive. */
-.cz-rate-sheet-tool__supplied {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
+/* The Bundle row's own supplied-content list, inside its name cell — the ONE
+   place a Bundle's compiled content appears. It is read-only apart from taking
+   an entry out, which only the unlocked row offers. */
 .cz-rate-sheet-tool__supplied-list {
   display: flex;
   flex-direction: column;
@@ -3388,6 +3382,8 @@ button.cz-station-status-pill {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
 }
 
 .cz-rate-sheet-tool__supplied-remove {

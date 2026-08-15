@@ -274,7 +274,7 @@ export function RateSheetGridRead({
  * that default and never pass it.
  */
 export function RateSheetGridEditor({
-  rows, groups, units, commands, allowRemove = true, lockCommands, nameLabel = 'Supplied content',
+  rows, groups, units, commands, allowRemove = true, lockCommands, nameLabel = 'Supplied content', nameDetail,
 }: {
   rows:     readonly RateSheetEditorRow[];
   groups:   readonly RateSheetEditorGroup[];
@@ -282,6 +282,12 @@ export function RateSheetGridEditor({
   commands: RateSheetRowCommands;
   allowRemove?: boolean;
   lockCommands?: RateSheetRowLockCommands;
+  /** Replaces the supplied-content line inside the name cell. Additive and
+   *  optional: omitted, the cell renders `optionLabel` exactly as it always
+   *  has. The Bundle editor supplies the list of what its ONE row compiles,
+   *  each entry removable — so that list lives in the row, never in a second
+   *  block beneath the grid. */
+  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
   /** What the first column is CALLED. Additive and defaulted, so every existing
    *  caller keeps `Supplied content` byte-for-byte; the Bundle editor names it
    *  `Product Bundle`, because for that row the first cell is the combination's
@@ -311,6 +317,7 @@ export function RateSheetGridEditor({
               commands={commands}
               allowRemove={allowRemove}
               lockCommands={lockCommands}
+              nameDetail={nameDetail}
             />
           ))}
         </tbody>
@@ -323,13 +330,14 @@ export function RateSheetGridEditor({
  *  or the active row of a locked grid. Extracted once so the locked editor
  *  never re-authors the same inputs the always-editable grid already has. */
 function RateSheetRowFieldCells({
-  row, groups, units, commands, disabled, showPriceOptions = false,
+  row, groups, units, commands, disabled, showPriceOptions = false, nameDetail,
 }: {
   row:      RateSheetEditorRow;
   groups:   readonly RateSheetEditorGroup[];
   units:    readonly PackageRateSheetUnit[];
   commands: RateSheetRowCommands;
   disabled: boolean;
+  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
   // Standalone-drawer-only: the locked row lock's active-row branch opts in
   // so its Unit Price cell becomes the tabbed Default/Option editor.
   // Omitted (every other caller — the always-editable grid the focused-Tier
@@ -352,7 +360,7 @@ function RateSheetRowFieldCells({
                 placeholder={row.optionLabel}
                 aria-label={`Name for ${row.optionLabel}`}
                 onInput={(event) => commands.setRowLabel(key, (event.currentTarget as HTMLInputElement).value)} />
-              <small>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</small>
+              {nameDetail ? nameDetail(row) : <small>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</small>}
             </>
           )}
           <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
@@ -576,10 +584,11 @@ function RateSheetPriceOptionsSummary({ row }: { row: RateSheetEditorRow }): VNo
  *  before; only a row that actually has Price Options gains the compact
  *  summary in the same cell. */
 function RateSheetRowReadCells({
-  row, groups,
+  row, groups, nameDetail,
 }: {
   row:    RateSheetEditorRow;
   groups: readonly RateSheetEditorGroup[];
+  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
 }): VNode {
   const renamed = (row.label?.trim() ?? '') !== '';
   return (
@@ -587,7 +596,7 @@ function RateSheetRowReadCells({
       <td class="cz-rate-sheet-tool__cell-name">
         <div class="cz-rate-sheet-tool__cell-name-stack">
           <span>{rowDisplayLabel(row)}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
-          {renamed && <small>{row.optionLabel}</small>}
+          {nameDetail ? nameDetail(row) : (renamed && <small>{row.optionLabel}</small>)}
           <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
         </div>
       </td>
@@ -600,7 +609,7 @@ function RateSheetRowReadCells({
 }
 
 function RateSheetEditRow({
-  row, groups, units, commands, allowRemove, lockCommands,
+  row, groups, units, commands, allowRemove, lockCommands, nameDetail,
 }: {
   row:      RateSheetEditorRow;
   groups:   readonly RateSheetEditorGroup[];
@@ -608,6 +617,7 @@ function RateSheetEditRow({
   commands: RateSheetRowCommands;
   allowRemove: boolean;
   lockCommands?: RateSheetRowLockCommands;
+  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
 }): VNode {
   const key = rowKey(row);
   const disabled = !row.sourceAvailable;
@@ -625,7 +635,7 @@ function RateSheetEditRow({
       const busy = otherRowActive || lockCommands.saving;
       return (
         <tr>
-          <RateSheetRowReadCells row={row} groups={groups} />
+          <RateSheetRowReadCells row={row} groups={groups} nameDetail={nameDetail} />
           {allowRemove && (
             <td>
               <div style="display:flex;gap:var(--cz-space-2)">
@@ -650,7 +660,7 @@ function RateSheetEditRow({
     const isNewRow = row.id === '';
     return (
       <tr>
-        <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} showPriceOptions />
+        <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} showPriceOptions nameDetail={nameDetail} />
         {allowRemove && (
           <td>
             <div style="display:flex;gap:var(--cz-space-2)">
@@ -675,7 +685,7 @@ function RateSheetEditRow({
   // No lock offered: the original always-editable row, unchanged.
   return (
     <tr>
-      <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} />
+      <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} nameDetail={nameDetail} />
       {allowRemove && (
         <td>
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.optionLabel}`} onClick={() => commands.removeRow(key)}>Remove</button>
