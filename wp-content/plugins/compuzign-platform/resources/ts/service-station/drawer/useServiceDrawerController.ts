@@ -150,7 +150,7 @@ export function useServiceDrawerController({
 
   // ── Shell bindings — Station DNA delivered to the archetype shells ──────────
   const overviewShellBinding: ShellBinding<ServiceOverviewShellData> = {
-    data:  { title: displayTitle, category: displayCategory, content: displayContent },
+    data:  { title: displayTitle, platformId: service?.platformId ?? '', category: displayCategory, content: displayContent },
     state: detailLoaded ? modules.overview : { status: 'loading', notes: [] },
     hasDraft: moduleStatus?.overview === 'pending' && stationOverviewDraft !== null,
     handlers: { edit: editing.openOverviewEditor, 'discard-draft': () => setDiscardConfirm('overview') },

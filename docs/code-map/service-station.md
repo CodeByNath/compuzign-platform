@@ -43,7 +43,10 @@ and response projection; the Station owns reservation, binding, lookup,
 conflict, and deletion tombstone. Numeric routes and native IDs remain
 unchanged. Adapters map backend `platform_id` to application `platformId`.
 The drawer manifest exposes it through optional `identity.platformIdOf`;
-`identity.idOf` still returns the numeric Service ID.
+`identity.idOf` still returns the numeric Service ID. Service Overview reads
+that `CZS` directly beneath the Service's own **Name** — the term that replaced
+"Title" in every label an admin reads or edits, matching Package Family
+Overview, which likewise shows Platform ID alone and no native `group_id`.
 
 ## Module and lifecycle states
 

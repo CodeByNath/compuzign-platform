@@ -1377,33 +1377,9 @@ button.cz-station-status-pill {
   font-weight: 700;
 }
 
-.cz-service-deck__status {
-  justify-self: start;
-  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
-  border: 1px solid transparent;
-  border-radius: var(--station-pill-radius);
-  font-size: var(--station-text-xs);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.cz-service-deck__status[data-status="active"] {
-  background: var(--station-status-active-bg);
-  border-color: var(--station-status-active-border);
-  color: var(--station-status-active-fg);
-}
-
-.cz-service-deck__status[data-status="pending"] {
-  background: var(--station-status-pending-bg);
-  border-color: var(--station-status-pending-border);
-  color: var(--station-status-pending-fg);
-}
-
-.cz-service-deck__status[data-status="inactive"] {
-  background: var(--station-status-inactive-bg);
-  border-color: var(--station-status-inactive-border);
-  color: var(--station-status-inactive-fg);
-}
+/* Service Home's own status swatch is retired: its rows now read the shared
+   `cz-module-status-pill` through StationStatusPill, so the Presentation Status
+   Contract is the only place a status maps to a label and a colour. */
 
 .cz-service-deck__row-actions {
   display: flex;
@@ -1703,8 +1679,11 @@ button.cz-station-status-pill {
    above, so they declare their own modifiers rather than reusing `--connection`
    / `--settings`, per the shared list system's "add a selector, not a second
    family" rule. */
+/* Identity · Platform ID · Services · status · actions — the same five-column
+   connected-record shape `--connection` reads with, so Service Home's
+   Connections list and Package Manager's align column for column. */
 .cz-station-list__row--service-connections {
-  grid-template-columns: minmax(200px, 1.6fr) minmax(160px, 0.8fr) minmax(120px, 0.6fr) auto;
+  grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 0.8fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
 }
 
 .cz-station-list__row--service-settings {

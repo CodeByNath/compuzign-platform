@@ -2,46 +2,50 @@
 // currently connected to the full Service Catalogue (assigned_count > 0).
 //
 // Renders through the shared station list system (`cz-station-list`,
-// `cz-station-list__cell`, `StationSplitAction`, `StationStatusPill`'s status
-// vocabulary) exactly as Package Home's Connections lane does, under Service's
-// own row/column classes — no Package presentation import, no copied Package
-// CSS. View opens the existing mature Category drawer by its real numeric id;
-// this lane invents no second Category relationship model and performs no
-// mutation of its own.
+// `cz-station-list__cell`, `StationSplitAction`, `StationStatusPill`) in the
+// SAME connected-record row grammar Package Manager's own Connections list
+// reads with — identity, Platform ID, a labelled count, the lifecycle pill,
+// then View — under Service's own row/column classes. No Package presentation
+// import, no copied Package CSS: the shared pieces come from the Admin and
+// drawer-kit systems both stations already consume.
+//
+// View opens the existing mature Category drawer by its real numeric id; this
+// lane invents no second Category relationship model and performs no mutation
+// of its own.
 
 import type { VNode } from 'preact';
 import { StationSplitAction } from '@/admin-station/presentation/StationSplitAction';
+import { StationStatusPill } from '@/admin-station/presentation/StationStatusPill';
 import { PackagesIcon } from '@/admin-station/shell/icons';
 import { ServiceDeckRowIdentity } from './ServiceDeckRowIdentity';
 import { useServiceHomeConnections } from '../surface/serviceHomeConnections';
 import type { ServiceHomeConnectionRow } from '../surface/serviceHomeConnections';
 import type { StationIntentDispatch } from '@/station-manager/registry/templateKits';
 
-const STATUS_LABEL: Record<string, string> = {
-  active:   'Active',
-  disabled: 'Disabled',
-};
-
-const STATUS_TOKEN: Record<string, string> = {
-  active:   'active',
-  disabled: 'inactive',
-};
+// The platform's established visible treatment for an existing record whose
+// Platform ID is not set — never an empty cell.
+const PLATFORM_ID_FALLBACK = 'Not assigned';
 
 function ServiceConnectionRow({ row, onIntent }: {
   row: ServiceHomeConnectionRow;
   onIntent: StationIntentDispatch;
 }): VNode {
-  const token = STATUS_TOKEN[row.status] ?? 'pending';
-  const label = STATUS_LABEL[row.status] ?? row.status;
   return (
     <li class="cz-station-list__row cz-station-list__row--service-connections">
-      <ServiceDeckRowIdentity icon={<PackagesIcon />} name={row.name} reference={`${row.connectedCount} connected Service${row.connectedCount === 1 ? '' : 's'}`} />
+      <ServiceDeckRowIdentity icon={<PackagesIcon />} name={row.name} />
       <div class="cz-station-list__cell cz-service-deck__field">
-        <span class="cz-service-deck__field-label">Connected Services</span>
+        <span class="cz-service-deck__field-label">Platform ID</span>
+        {row.platformId || PLATFORM_ID_FALLBACK}
+      </div>
+      <div class="cz-station-list__cell cz-service-deck__field">
+        <span class="cz-service-deck__field-label">Services</span>
         <span class="cz-service-deck__count">{row.connectedCount}</span>
       </div>
       <span class="cz-station-list__cell">
-        <span class="cz-service-deck__status" data-status={token}>{label}</span>
+        {/* The Presentation Status Contract owns every status→label/class
+            mapping; this lane defines none of its own. `module` is the pill
+            variant the connected-record row reads with. */}
+        <StationStatusPill status={row.status} pillVariant="module" />
       </span>
       <div class="cz-station-list__cell cz-service-deck__row-actions">
         <StationSplitAction

@@ -36,13 +36,10 @@ export const packageFamilyOverviewShell: ShellSchema<PackageFamilyOverviewShellD
   content: [
     { id: 'name', element: 'text', label: 'Name', bind: (data): TextValue => ({ value: data.name, fallback: 'New Package Family' }) },
     {
-      // The stored id, or an honest statement that none exists yet — this shell
-      // is also the surface a Family is created through, where PHP has not
-      // minted one.
-      id: 'group-id', element: 'text', label: 'Group ID',
-      bind: (data): TextValue => ({ value: data.groupId, fallback: 'Minted when saved' }),
-    },
-    {
+      // The Platform ID is the only identity this read surface shows. Native
+      // `groupId` stays in the data — the mutation address, and what tells
+      // "not assigned yet" apart from "this Family does not exist yet" below —
+      // but an admin never needs to read it.
       id: 'platform-id', element: 'text', label: 'Platform ID',
       bind: (data): TextValue => ({
         value: data.platformId,

@@ -20,6 +20,9 @@ const DETAILS_ACTIONS: Record<string, ShellActionSchema> = {
 
 export interface CategoryOverviewShellData {
   name: string;
+  /** Permanent `CZC`, read-only. Blank only while the Category is still the
+   *  unsaved pending draft — the reservation happens at create. */
+  platformId: string;
   description: string;
 }
 
@@ -37,6 +40,12 @@ export const categoryOverviewShell: ShellSchema<CategoryOverviewShellData> = {
     {
       id: 'name', element: 'text', label: 'Name',
       bind: (data): TextValue => ({ value: data.name, fallback: 'New Category' }),
+    },
+    {
+      // Read-only permanent identity, directly under the name it belongs to —
+      // the same pairing Service and Package Family Overview read with.
+      id: 'platform-id', element: 'text', label: 'Platform ID',
+      bind: (data): TextValue => ({ value: data.platformId, fallback: 'Assigned after Overview save' }),
     },
     {
       id: 'description', element: 'rich-text', label: 'Description',

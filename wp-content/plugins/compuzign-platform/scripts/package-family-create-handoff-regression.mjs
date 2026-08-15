@@ -231,14 +231,19 @@ shouldFailCreate = false;
 clickButton('Save');
 check('successful create settles', await settle());
 check('successful retry creates exactly once', createCalls === 2, `create=${createCalls}`);
-check('authoritative native identity appears immediately', container.textContent.includes(CREATED_ID));
+// The Overview deliberately renders no native `group_id` — Platform ID is the
+// only identity an admin reads there — so the adopted native identity is proved
+// where it actually acts: EVERY id-scoped endpoint below is keyed to CREATED_ID
+// by the fetch mock, which rejects any other path outright. A drawer that had
+// not adopted it could not save, settle, publish, disable, or enable at all.
 check('authoritative Platform identity appears immediately', container.textContent.includes('CZPG2A7KZ'));
+check('the native group_id is never shown to the admin', !container.textContent.includes(CREATED_ID));
 check('editor closes only after success', container.querySelector('#cz-package-family-name') === null);
 check('Overview remains Pending', overviewModule()?.textContent.includes('Pending'));
 overviewModule()?.querySelector('.cz-module-status-pill')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 await sleep(10);
 check('publication notification remains bound', container.textContent.includes('Waiting for Package Family publication'));
-check('host refresh occurred without rewinding the identity', savedCalls === 1 && container.textContent.includes(CREATED_ID));
+check('host refresh occurred without rewinding the identity', savedCalls === 1 && container.textContent.includes('CZPG2A7KZ'));
 check('handoff never rendered a loading replacement', !container.textContent.includes('Loading Package Family'));
 check('persisted footer is available in the same mount', typeof latestFooter?.props?.onPublish === 'function');
 

@@ -312,6 +312,11 @@ check('republish still creates no second Category', createCalls === 1, `createCa
 check('republish settles the saved draft and activates', settleCalls === 2 && activateCalls === 2, `settle=${settleCalls}, active=${activateCalls}`);
 check('server-side response retains the cleared Description', serverCategory.description === '', `description=${serverCategory.description}`);
 check('every mounted lifecycle response preserves the permanent Category identifier', serverCategory.platform_id === 'CZC2A7KZ', `platform_id=${serverCategory.platform_id}`);
+// The admin reads that identifier where it belongs: under the Category's own
+// name in Overview, read-only — the same pairing Service Overview reads with.
+check('Overview reads the permanent Category identifier under its name',
+  overviewModule()?.textContent.includes('CZC2A7KZ'),
+  overviewModule()?.textContent.slice(0, 200));
 
 if (failures.length > 0) {
   console.error(`\nREGRESSION FAILED — ${failures.length} check(s):`);

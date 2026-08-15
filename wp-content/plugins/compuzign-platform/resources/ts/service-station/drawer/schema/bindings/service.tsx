@@ -54,7 +54,12 @@ const DETAILS_FOOTER = { actions: ['discard-draft', 'edit'] };
 // draft-preferred and already resolved (fallback chain + HTML decode).
 
 export interface ServiceOverviewShellData {
+  // The Service's own name. Stored as the post `title`; called "Name"
+  // everywhere an admin reads or edits it.
   title:    string;
+  /** Permanent `CZS`. Blank only while the Service is still the unsaved
+   *  pending draft — the reservation happens at create. */
+  platformId: string;
   category: string;   // resolved display name, incl. 'Not selected'
   content:  string;
   // Child-relation counts — supplied by relational placements (the tier/
@@ -78,6 +83,9 @@ export function serviceConnectionBinding(
   return {
     data: {
       title: decodeHtml(serviceItem?.title ?? stub.title) || 'Untitled service',
+      // The stub carries no identity; a related Service the parent cannot
+      // resolve simply shows none rather than a borrowed one.
+      platformId: serviceItem?.platformId ?? '',
       category: serviceItem && serviceItem.categories.length > 0
         ? serviceItem.categories.map((c) => decodeHtml(c.name)).join(', ')
         : 'Not selected',
@@ -107,8 +115,14 @@ export const serviceOverviewShell: ShellSchema<ServiceOverviewShellData> = {
     // Short Description (excerpt) is intentionally excluded from the workflow
     // (mirrors the DNA's completeness rule).
     {
-      id: 'title', element: 'text', label: 'Title',
+      id: 'title', element: 'text', label: 'Name',
       bind: (d): TextValue => ({ value: d.title, fallback: 'New Service' }),
+    },
+    {
+      // Read-only permanent identity, directly under the name it belongs to —
+      // the same pairing the Package Family Overview reads with.
+      id: 'platform-id', element: 'text', label: 'Platform ID',
+      bind: (d): TextValue => ({ value: d.platformId, fallback: 'Assigned after Overview save' }),
     },
     {
       id: 'category', element: 'term', label: 'Category',

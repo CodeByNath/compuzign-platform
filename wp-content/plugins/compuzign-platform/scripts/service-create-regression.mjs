@@ -312,8 +312,13 @@ await sleep(20);
 const titleInput = container.querySelector('#cz-service-title');
 const descTextarea = container.querySelector('#cz-service-description');
 const categorySelect = container.querySelector('#cz-service-category');
-check('title/description/category fields are present once the editor is open',
+check('name/description/category fields are present once the editor is open',
   titleInput != null && descTextarea != null && categorySelect != null);
+// The Service's own name is called "Name", never "Title" — the same word the
+// Package Family Overview already uses for the same thing.
+check('the name field is labelled Name, not Title',
+  container.querySelector('label[for="cz-service-title"]')?.textContent.trim() === 'Name',
+  container.querySelector('label[for="cz-service-title"]')?.textContent);
 
 titleInput.value = 'Regression Test Service';
 titleInput.dispatchEvent(new window.Event('input', { bubbles: true }));
@@ -330,7 +335,12 @@ check(
   result.settled && createServiceCalls === 1 && settleCalls === 0 && activationCalls === 0,
   `settled=${result.settled}, create=${createServiceCalls}, settle=${settleCalls}, activate=${activationCalls}`,
 );
-check('the typed title is reflected in the rendered Overview', container.textContent.includes('Regression Test Service'));
+check('the typed name is reflected in the rendered Overview', container.textContent.includes('Regression Test Service'));
+// CZS is reserved at create, so the Overview reads its permanent identity in
+// the same mount — beneath the name it belongs to, never a native post id.
+check('the Overview reads the created Service\'s Platform ID under its name',
+  findModule('Service Overview')?.textContent.includes(PLATFORM_ID),
+  findModule('Service Overview')?.textContent.slice(0, 200));
 check('the returned Service id is handed off without a full loading replacement or detail fetch',
   !loadingTextSeenDuringLastWait && detailFetchCalls === 0, `detailFetchCalls=${detailFetchCalls}`);
 const overviewModuleAfterSave = findModule('Service Overview');

@@ -116,6 +116,8 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
     const matches = current.filter((item) => {
       const matchesQuery = !needle || [
         item.name,
+        // The row now shows its Platform ID, so search reaches what is on screen.
+        item.platformId,
         item.description,
         item.slug,
         ...item.categories.map((entry) => entry.name),
@@ -254,7 +256,10 @@ export function ServiceCatalogue({ items, loading, error, onIntent }: TemplateKi
                     <span class="cz-service-row__icon" aria-hidden="true"><ServicesIcon /></span>
                     <span class="cz-service-row__copy">
                       <strong>{service.name}</strong>
-                      <span>{service.description || 'No service summary yet.'}</span>
+                      {/* The row's permanent identity, bare — the ID reads as
+                          what it is, so it is never labelled. Blank until the
+                          Service is published and CZS is assigned. */}
+                      <span>{service.platformId}</span>
                     </span>
                   </span>
                 </td>

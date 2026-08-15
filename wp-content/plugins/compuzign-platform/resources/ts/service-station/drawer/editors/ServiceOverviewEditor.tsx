@@ -98,7 +98,7 @@ export function ServiceOverviewEditor({ draft, onChange, categories: initialCate
   return (
     <div class="cz-tf-form">
       <AdminField
-        def={{ id: 'cz-service-title', type: 'text', label: 'Title' }}
+        def={{ id: 'cz-service-title', type: 'text', label: 'Name' }}
         value={draft.title}
         onChange={(title) => onChange({ title })}
       />
