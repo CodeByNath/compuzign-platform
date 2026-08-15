@@ -49,8 +49,12 @@ import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
 import { AppsIcon, MenuIcon, RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetGroupId, RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
-import { bundleKey, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
-import type { RateSheetEditorBundle, RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { bundleKey, bundleSuppliedContent, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
+import type {
+  RateSheetEditorBundle,
+  RateSheetEditorGroup,
+  RateSheetEditorValue,
+} from '../../surface/rateSheetTool/rateSheetToolModel';
 import { RateSheetGridEditor } from './rateSheetParts';
 import { RateSheetBundleWorkspace } from './RateSheetBundleWorkspace';
 import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
@@ -379,20 +383,26 @@ function RateSheetBundleSwitcher({
         </div>
       )}
 
-      {selectedBundle && <RateSheetBundleRead bundle={selectedBundle} onEdit={onEdit} />}
+      {selectedBundle && <RateSheetBundleRead bundle={selectedBundle} groups={sheet.groups} onEdit={onEdit} />}
     </div>
   );
 }
 
 /** The selected Bundle's readable module card — the same `ReadBlock` /
- *  `ModuleStatusPill` card the sheet's own Details module reads through. */
+ *  `ModuleStatusPill` card the sheet's own Details module reads through, and
+ *  the same one-row field set its inline editor edits. */
 function RateSheetBundleRead({
-  bundle, onEdit,
-}: { bundle: RateSheetEditorBundle; onEdit: () => void }): VNode {
+  bundle, groups, onEdit,
+}: {
+  bundle: RateSheetEditorBundle;
+  groups: readonly RateSheetEditorGroup[];
+  onEdit: () => void;
+}): VNode {
+  const supplied = bundleSuppliedContent(bundle);
   return (
     <ReadBlock
       title="Bundle"
-      subtitle="One priced combination of Rate Sheet rows, offered upstream as a single item."
+      subtitle="Compiled supplied content, offered upstream as one priced Rate Sheet row."
       icon={<RateSheetIcon />}
       scopeClass="drawerOverview"
       status={bundle.status === 'archived' ? 'disabled' : 'active'}
@@ -400,29 +410,41 @@ function RateSheetBundleRead({
     >
       <div class="drawerModule__fields">
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Name</p>
+          <p class="drawerModule__label">Product Bundle</p>
           <p class="drawerModule__value">{bundle.title.trim() || 'Untitled Bundle'}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Supplied content</p>
+          <p class="drawerModule__value">
+            {supplied.length > 0 ? supplied.join('; ') : 'Nothing compiled yet'}
+          </p>
         </div>
         <div class="drawerModule__field">
           <p class="drawerModule__label">Platform ID</p>
           <p class="drawerModule__value">{bundle.platformId || (bundle.id ? 'Not assigned' : 'Assigned after Save')}</p>
         </div>
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Bundle price</p>
-          <p class="drawerModule__value">{money(bundle.unitPrice)} · {bundle.per}</p>
-        </div>
-        <div class="drawerModule__field">
-          <p class="drawerModule__label">Price Options</p>
+          <p class="drawerModule__label">Unit Price</p>
           <p class="drawerModule__value">
-            {bundle.priceOptions.length}
+            {money(bundle.unitPrice)}
             {bundle.priceOptions.length > 0
-              ? ` · ${bundle.priceOptions.map((option) => option.label.trim() || 'Untitled option').join(', ')}`
+              ? ` · ${plural(bundle.priceOptions.length, 'Price Option')}: ${bundle.priceOptions.map((option) => option.label.trim() || 'Untitled option').join(', ')}`
               : ''}
           </p>
         </div>
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Rows</p>
-          <p class="drawerModule__value">{plural(bundle.items.length, 'row')}</p>
+          <p class="drawerModule__label">Per</p>
+          <p class="drawerModule__value">{bundle.per}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Qty</p>
+          <p class="drawerModule__value">{bundle.quantity}</p>
+        </div>
+        <div class="drawerModule__field">
+          <p class="drawerModule__label">Group</p>
+          <p class="drawerModule__value">
+            {groups.find((group) => group.id === bundle.groupId)?.label ?? 'Ungrouped'}
+          </p>
         </div>
       </div>
     </ReadBlock>

@@ -429,8 +429,13 @@ final class PackageManagerSchema
             'label'          => (string) ($bundle['title'] ?? ''),
             'unit_price'     => (float) ($bundle['unit_price'] ?? 0),
             'per'            => (string) ($bundle['per'] ?? ''),
-            'quantity'       => 1,
-            'group_id'       => null,
+            // The Bundle's OWN quantity and group, in the ordinary row
+            // positions. A sheet stored before Bundles carried either field
+            // falls back to the same defaults this projection used to hardcode.
+            'quantity'       => max(1, (int) ($bundle['quantity'] ?? 1)),
+            'group_id'       => ($bundle['group_id'] ?? null) === null || ($bundle['group_id'] ?? '') === ''
+                ? null
+                : (string) $bundle['group_id'],
             'sort_order'     => (int) ($bundle['sort_order'] ?? 0),
             'price_options'  => is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [],
             // A combination names its own default price exactly like any other
@@ -598,7 +603,7 @@ final class PackageManagerSchema
      *
      * @param  string[] $groupIds
      * @param  array<int, string> $allowedUnits
-     * @return array<int, array{bundle_id:string,cz_platform_id:string,title:string,status:string,sort_order:int,items:array}>
+     * @return array<int, array{bundle_id:string,cz_platform_id:string,title:string,status:string,sort_order:int,quantity:int,group_id:?string,items:array}>
      */
     private static function sanitizeRateSheetBundles(
         mixed $bundles,
@@ -641,6 +646,14 @@ final class PackageManagerSchema
             if (!in_array($unit, $allowedUnits, true)) {
                 $unit = '';
             }
+            // A Bundle's own quantity and group, clamped and validated by the
+            // SAME rules `sanitizeRateRows` applies to a row's — the Bundle IS
+            // the row it presents upstream, so it carries the row's complete
+            // field set rather than defaulting two of them at projection time.
+            $bundleGroupId = sanitize_text_field((string) ($bundle['group_id'] ?? ''));
+            if ($bundleGroupId === '' || !in_array($bundleGroupId, $groupIds, true)) {
+                $bundleGroupId = null;
+            }
             $out[] = [
                 'bundle_id'     => $bundleId,
                 'cz_platform_id'=> sanitize_text_field((string) ($bundle['cz_platform_id'] ?? '')),
@@ -649,6 +662,8 @@ final class PackageManagerSchema
                 'sort_order'    => (int) ($bundle['sort_order'] ?? $index),
                 'unit_price'    => max(0, (float) ($bundle['unit_price'] ?? 0)),
                 'per'           => $unit,
+                'quantity'      => max(1, (int) ($bundle['quantity'] ?? 1)),
+                'group_id'      => $bundleGroupId,
                 'price_options' => self::sanitizePriceOptions($bundle['price_options'] ?? []),
                 // The Bundle's own default price is named the same display-only
                 // way a row's is.

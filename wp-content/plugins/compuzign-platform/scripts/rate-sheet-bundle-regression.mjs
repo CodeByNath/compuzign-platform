@@ -13,11 +13,15 @@
 //     child chip strip and reads the selected one as a module card; only that
 //     card's Edit opens the inline editor, as a focused task that suppresses
 //     the group chrome without unmounting the group renderers.
-//   Phase 2 — the Bundle workspace behind that Edit is the FULL Rate Sheet row
-//     tooling: the same "+ Add Service" picker, the same grid, the same
-//     one-row-at-a-time Edit/Save/Cancel lock, the same Price Options tab strip
-//     — every command addressing the Bundle's rows and never the sheet's,
+//   Phase 2 — the Bundle inline editor behind that Edit is ONE Rate Sheet row:
+//     `Product Bundle` (the combination's name), a READ-ONLY Supplied content
+//     cell listing what it compiles, and the ordinary Unit Price (with the same
+//     Price Options tab strip), Per, Qty and Group cells — all persisting
 //     through the same single full-manager save.
+//   Phase 3 — one 3-column import engine feeds it: Source (Services | Rate
+//     Sheets, the Services branch reusing Category → Service → Inclusions),
+//     Available rows, Selected rows. Import lands the selection in the OPEN
+//     Bundle through the same one save; the source sheet is never touched.
 //
 // Usage: npm run regression:rate-sheet-bundle
 //    or: node scripts/rate-sheet-bundle-regression.mjs
@@ -309,6 +313,32 @@ function rowsIn() {
     .filter((tr) => tr.closest('.cz-rate-sheet-tool__import') === null);
 }
 function rowByText(text) { return rowsIn().find((tr) => tr.textContent.includes(text)) ?? null; }
+function gridHeaders() {
+  const grid = [...container.querySelectorAll('.cz-rate-sheet-tool__grid')]
+    .find((table) => table.closest('.cz-rate-sheet-tool__import') === null) ?? null;
+  return [...(grid?.querySelectorAll('thead th') ?? [])].map((th) => th.textContent.trim());
+}
+/** The Bundle row's read-only Supplied content cell — one entry per component. */
+function suppliedItems() {
+  return [...container.querySelectorAll('.cz-rate-sheet-tool__supplied-item')];
+}
+function suppliedLabels() {
+  return suppliedItems().map((li) => li.querySelector('span')?.textContent.trim() ?? '');
+}
+/** The engine's Source column toggle. */
+function sourceToggle(label) {
+  return [...container.querySelectorAll('.cz-rate-sheet-tool__import-source-toggle button')]
+    .find((b) => b.textContent.trim() === label) ?? null;
+}
+/** Chips of one of the engine's columns, addressed by that column's own label. */
+function columnChips(columnLabel) {
+  const column = [...container.querySelectorAll('.cz-rate-sheet-tool__import-column')]
+    .find((col) => col.querySelector('.cz-rate-sheet-tool__import-column-label')?.textContent.trim().startsWith(columnLabel)) ?? null;
+  return [...(column?.querySelectorAll('.cz-rate-sheet-tool__import-chip') ?? [])];
+}
+function columnChip(columnLabel, labelSubstring) {
+  return columnChips(columnLabel).find((b) => b.textContent.includes(labelSubstring)) ?? null;
+}
 function buttonIn(row, label) {
   return [...(row?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim() === label) ?? null;
 }
@@ -389,94 +419,109 @@ await settle();
 check('only Edit opens the inline editor', editorShell() != null);
 check('the editor is a focused task that suppresses the group chrome', detailRoot()?.className.includes('cz-req-detail--editing'), detailRoot()?.className);
 check('the group renderers stay mounted beneath it, never unmounted', container.querySelector('.cz-drawer-groups__tablist') != null);
-check('its own workspace is mounted', bundleWorkspace() != null);
-check('it opens with no rows', rowsIn().length === 0, rowsIn().length);
+check('its own editor is mounted', bundleWorkspace() != null);
+check('it is ONE Rate Sheet row, not a grid of component rows', rowsIn().length === 1, rowsIn().length);
+check(
+  'whose columns are the Rate Sheet row columns plus Product Bundle',
+  gridHeaders().join('|') === 'Product Bundle|Supplied content|Unit Price|Per|Qty|Group',
+  gridHeaders().join('|'),
+);
+check('it compiles nothing yet', suppliedItems().length === 0, suppliedItems().length);
 
-const nameInput = bundleWorkspace()?.querySelector('input[aria-label="Bundle name"]');
+const nameInput = bundleWorkspace()?.querySelector('input[aria-label="Product Bundle name"]');
 setInputValue(nameInput, 'Digital Banking Website');
 await settle();
-check('the Bundle can be renamed', editorTitle() === 'Digital Banking Website', editorTitle());
-check('renaming it makes no API request', saveCalls === savesBeforeCreate);
+check('the Product Bundle name is the row\'s own first cell', editorTitle() === 'Digital Banking Website', editorTitle());
+check('naming it makes no API request', saveCalls === savesBeforeCreate);
 
-// ── B) Phase 2 — full Rate Sheet row tooling inside the Bundle ───────────
-console.log('\nB) Full Rate Sheet row tooling inside the Bundle');
-click(anyButton('+ Add Service'));
+// ── B) Phase 3 — the 3-column import engine, Services source ─────────────
+console.log('\nB) The import engine: Source → Available rows → Selected rows');
+click(anyButton('+ Import supplied content'));
 await settle();
-click(importChip('Alpha Co'));
+check('one engine serves the Bundle, not a separate picker per source', container.querySelector('[aria-label="Import into this Bundle"]') != null);
+check('it offers both sources in the first column', sourceToggle('Services') != null && sourceToggle('Rate Sheets') != null);
+check('Services is the source it opens on', sourceToggle('Services')?.getAttribute('aria-pressed') === 'true');
+check('the Services branch reuses Category → Service in the Source column', columnChip('Source', 'Alpha Co') != null);
+check('nothing is available until a Service is picked', columnChips('Available').length === 0, columnChips('Available').length);
+check('and nothing is selected yet', columnChips('Selected').length === 0);
+
+click(columnChip('Source', 'Alpha Co'));
 await settle();
-check('a source already priced by the SHEET is still offerable inside a Bundle', importChip('Website') != null);
-click(importChip('Website'));
+check("a Service's own inclusions become the Available rows", columnChip('Available', 'Website') != null);
+check('a source already priced by the SHEET is still offerable inside a Bundle', columnChip('Available', 'Website') != null);
+
+click(columnChip('Available', 'Website Revamp'));
 await settle();
-click(importChip('Website Revamp'));
+check('picking one moves it into Selected rows', columnChip('Selected', 'Website Revamp') != null);
+check('and out of Available rows — never offered twice', columnChip('Available', 'Website Revamp') == null);
+click(columnChip('Available', 'Website'));
 await settle();
-click(importActionButton('Import'));
-await settle();
+check('several inclusions can be selected together', columnChips('Selected').length === 2, columnChips('Selected').length);
 
 const savesBeforePublish = saveCalls;
-click(importActionButton('Publish'));
+click(importActionButton('Import'));
 await settle(60);
-check('Publish persists through exactly one full-manager save', saveCalls === savesBeforePublish + 1, saveCalls - savesBeforePublish);
+check('Import persists through exactly one full-manager save', saveCalls === savesBeforePublish + 1, saveCalls - savesBeforePublish);
 
 const publishedSheet = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1');
 const publishedBundle = publishedSheet?.bundles?.[0];
 check('the save payload carries the Bundle under its owning sheet', publishedBundle != null);
 check('the Bundle is submitted with a blank id — the backend mints it', publishedBundle?.bundle_id === '', publishedBundle?.bundle_id);
-check('its rows landed in the BUNDLE, not in the sheet\'s own rows', (publishedBundle?.items ?? []).length === 2, (publishedBundle?.items ?? []).length);
+check('its components landed in the BUNDLE, not in the sheet\'s own rows', (publishedBundle?.items ?? []).length === 2, (publishedBundle?.items ?? []).length);
 check('the sheet\'s own rows are untouched by the Bundle import', (publishedSheet?.items ?? []).length === 1, (publishedSheet?.items ?? []).length);
-check('every Bundle row carries its own label field', (publishedBundle?.items ?? []).every((row) => typeof row.label === 'string'));
+check('every component still carries its own label field', (publishedBundle?.items ?? []).every((row) => typeof row.label === 'string'));
 check('the Bundle survives the save and stays selected', editorTitle() === 'Digital Banking Website', editorTitle());
 check('a saved Bundle shows its minted Platform ID', bundleWorkspace()?.textContent.includes('CZPRCB'), bundleWorkspace()?.textContent.slice(0, 200));
-check('its rows render in the Bundle workspace', rowsIn().length === 2, rowsIn().length);
-check('each Bundle row shows its own CZPRCBI', rowByText('Website Revamp')?.textContent.includes('CZPRCBI'));
 
-const revampRow = rowByText('Website Revamp');
-click(buttonIn(revampRow, 'Edit'));
-await settle();
-check('a Bundle row unlocks with the same Edit/Save/Cancel lock', buttonIn(rowByText('Website Revamp'), 'Save') != null);
-check('the other Bundle row is locked out while one is active', buttonIn(rowsIn()[0], 'Edit')?.disabled === true);
+// ── C) Phase 2 — the Bundle IS one Rate Sheet row ────────────────────────
+console.log('\nC) The Bundle reads and edits as ONE Rate Sheet row');
+check('importing added NO extra rows — the Bundle is still one row', rowsIn().length === 1, rowsIn().length);
+check('both imports read in the ONE Supplied content cell', suppliedLabels().join('; ') === 'Website Revamp; Website', suppliedLabels().join('; '));
+check(
+  'supplied content is read-only — no name, price, unit or qty input per component',
+  suppliedItems().every((li) => li.querySelector('input') == null && li.querySelector('select') == null),
+);
 
-const activeRow = rowsIn().find((tr) => buttonIn(tr, 'Save') != null);
-const labelInput = activeRow?.querySelector('input[type="text"]');
-check('an active Bundle row offers its own editable name', labelInput != null);
-setInputValue(labelInput, 'Revamp (bundled)');
+const bundleRow = rowsIn()[0];
+check('the row carries the ordinary Price Options tab strip', bundleRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
+check('and the ordinary Per and Group dropdowns', bundleRow.querySelectorAll('select').length === 2, bundleRow.querySelectorAll('select').length);
+check('and the ordinary Qty input', bundleRow.querySelector('input[aria-label="Quantity for this Bundle"]') != null);
+
+const priceField = bundleRow.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]');
+setInputValue(priceField, 75);
 await settle();
-const priceInput = activeRow?.querySelector('input[type="number"]');
-setInputValue(priceInput, 250);
+click([...bundleRow.querySelectorAll('.cz-rate-sheet-tool__price-options-tab')].find((b) => b.textContent.trim() === '+'));
 await settle();
-click([...activeRow.querySelectorAll('.cz-rate-sheet-tool__price-options-tab')].find((b) => b.textContent.trim() === '+'));
-await settle();
-const optionRow = rowsIn().find((tr) => buttonIn(tr, 'Save') != null);
-const optionFields = optionRow.querySelectorAll('.cz-rate-sheet-tool__price-option-fields input');
+const optionFields = rowsIn()[0].querySelectorAll('.cz-rate-sheet-tool__price-option-fields input');
 setInputValue(optionFields[0], 'Annual');
 await settle();
-setInputValue(optionFields[1], 2500);
+setInputValue(optionFields[1], 750);
+await settle();
+setInputValue(rowsIn()[0].querySelector('input[aria-label="Quantity for this Bundle"]'), 3);
 await settle();
 
 const savesBeforeRowSave = saveCalls;
-click(buttonIn(rowsIn().find((tr) => buttonIn(tr, 'Save') != null), 'Save'));
+check('none of that made an API request on its own', saveCalls === savesBeforeRowSave);
+click(anyButton('Save'));
 await settle(60);
-check('saving the active Bundle row persists through the same one save', saveCalls === savesBeforeRowSave + 1, saveCalls - savesBeforeRowSave);
+check('the editor\'s own Save persists through the same one full-manager save', saveCalls === savesBeforeRowSave + 1, saveCalls - savesBeforeRowSave);
 
 const savedBundle = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.bundles?.[0];
-const savedRevamp = (savedBundle?.items ?? []).find((row) => row.source_item_id === 'mgr_revamp');
-check('the Bundle row carries its own name', savedRevamp?.label === 'Revamp (bundled)', savedRevamp?.label);
-check('the Bundle row carries its own price', savedRevamp?.unit_price === 250, savedRevamp?.unit_price);
-check('the Bundle row carries its own Price Option', (savedRevamp?.price_options ?? []).length === 1 && savedRevamp.price_options[0].label === 'Annual');
+check('the save payload carries the Product Bundle name', savedBundle?.title === 'Digital Banking Website', savedBundle?.title);
+check("the Bundle's own price", savedBundle?.unit_price === 75, savedBundle?.unit_price);
+check("the Bundle's own Price Option", (savedBundle?.price_options ?? []).length === 1 && savedBundle.price_options[0].label === 'Annual', JSON.stringify(savedBundle?.price_options));
+check("the Bundle's own quantity", savedBundle?.quantity === 3, savedBundle?.quantity);
+check('and its compiled supplied content', (savedBundle?.items ?? []).length === 2, (savedBundle?.items ?? []).length);
 check(
   "the sheet's own row for the SAME supplied content kept its own price",
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.items?.[0]?.unit_price === 5,
 );
-check('the renamed row displays its own name once locked', rowByText('Revamp (bundled)') != null);
-check('and still shows the supplied content it prices', rowByText('Revamp (bundled)')?.textContent.includes('Website Revamp'));
 
-// The row Save above already persisted, so nothing is dirty and Cancel leaves
-// the focused task without a discard prompt.
-click(anyButton('Cancel'));
-await settle();
-check('leaving the Bundle editor returns to the readable Options group', editorShell() == null && activeGroupTab() === 'Options', activeGroupTab());
+check('leaving the editor returns to the readable Options group', editorShell() == null && activeGroupTab() === 'Options', activeGroupTab());
 check('and the group chrome is restored', detailRoot()?.className.includes('cz-req-detail--editing') === false);
 check('the saved Bundle reads its minted Platform ID on its card', moduleCard('Bundle')?.textContent.includes('CZPRCB'), moduleCard('Bundle')?.textContent.slice(0, 200));
-check('and reports the rows it holds', moduleCard('Bundle')?.textContent.includes('2 rows'), moduleCard('Bundle')?.textContent.slice(0, 300));
+check('the card reads the same one-row field set', moduleCard('Bundle')?.textContent.includes('Product Bundle'), moduleCard('Bundle')?.textContent.slice(0, 300));
+check('including the supplied content it compiles', moduleCard('Bundle')?.textContent.includes('Website Revamp; Website'), moduleCard('Bundle')?.textContent.slice(0, 400));
 
 selectGroup('Details');
 await settle();
@@ -485,133 +530,83 @@ await settle();
 check('the sheet\'s own rows are unchanged after all the Bundle editing', rowsIn().length === 1 && rowByText('Website') != null, rowsIn().length);
 check('the sheet\'s own row is NOT renamed and shows no name input', rowsIn()[0]?.querySelector('input[type="text"]') == null);
 
-// ── C) Phase 3/4 — the Bundle engine composes from OTHER Rate Sheets ─────
-console.log('\nC) The Bundle engine composes rows from other Rate Sheets');
+// ── D) The engine's Rate Sheets source ───────────────────────────────────
+console.log('\nD) The engine composes from other Rate Sheets too');
 await remount();
 await openNewBundleEditor();
-click(anyButton('Import from Rate Sheets'));
+setInputValue(bundleWorkspace()?.querySelector('input[aria-label="Product Bundle name"]'), 'Foundation Bundle');
 await settle();
-check('the engine browses Rate Sheets, not Services', container.querySelector('[aria-label="Import from Rate Sheets"]') != null);
-const sourceHeads = [...container.querySelectorAll('.cz-rate-sheet-tool__bundle-source-head')];
-check('every Rate Sheet in the collection is offered as a source', sourceHeads.length === 2, sourceHeads.length);
-check('each source reports how many of its rows are available', sourceHeads[0]?.textContent.includes('1 of 1 rows available'), sourceHeads[0]?.textContent);
+click(anyButton('+ Import supplied content'));
+await settle();
+click(sourceToggle('Rate Sheets'));
+await settle();
+check('the Source column swaps to the Rate Sheet list', columnChip('Source', 'Websites') != null);
+check('every Rate Sheet in the collection is offered', columnChips('Source').filter((c) => !['Services', 'Rate Sheets'].includes(c.textContent.trim())).length === 2);
+check('nothing is available until a Rate Sheet is picked', columnChips('Available').length === 0, columnChips('Available').length);
 
-click(sourceHeads.find((head) => head.textContent.includes('Websites')));
+click(columnChip('Source', 'Websites'));
 await settle();
-check("opening a source Rate Sheet lists its own priced rows", importChip('Website') != null);
-check('a source row shows the price it already carries', importChip('Website')?.textContent.includes('$5'), importChip('Website')?.textContent);
-click(importChip('Website'));
-await settle();
-
-click([...container.querySelectorAll('.cz-rate-sheet-tool__bundle-source-head')].find((head) => head.textContent.includes('Banking')));
-await settle();
-check('a second Rate Sheet can be opened alongside the first', importChip('Online Banking') != null);
-click(importChip('Online Banking'));
-await settle();
-check('rows from DIFFERENT Rate Sheets select together', anyButton('Combine (2)') != null);
-
-const savesBeforeCombine = saveCalls;
-click(importActionButton('Combine'));
-await settle();
-check('Combine makes no API request — the combination is local until it is added', saveCalls === savesBeforeCombine);
-const stagedRows = [...container.querySelectorAll('.cz-rate-sheet-tool__import .cz-rate-sheet-tool__grid tbody tr')];
-check('both selected rows are staged', stagedRows.length === 2, stagedRows.length);
-check('each staged row records which Rate Sheet it came from', stagedRows.map((r) => r.textContent).join('|').includes('from Websites'));
-check('a staged row starts from the price its source row carried', stagedRows.find((r) => r.textContent.includes('from Banking'))?.querySelector('input[type="number"]')?.value === '40');
-
-const combinationName = container.querySelector('input[aria-label="Name for this combination"]');
-setInputValue(combinationName, 'Digital Banking Website');
-await settle();
-check('the combination can be named in the engine itself', editorTitle() === 'Digital Banking Website', editorTitle());
-
-const stagedBanking = [...container.querySelectorAll('.cz-rate-sheet-tool__import .cz-rate-sheet-tool__grid tbody tr')]
-  .find((r) => r.textContent.includes('from Banking'));
-setInputValue(stagedBanking.querySelector('input[type="text"]'), 'Banking module');
-await settle();
-setInputValue(stagedBanking.querySelector('input[type="number"]'), 35);
+check("picking a source Rate Sheet lists its own priced rows", columnChip('Available', 'Website') != null);
+check('a source row shows the price it already carries', columnChip('Available', 'Website')?.textContent.includes('$5'), columnChip('Available', 'Website')?.textContent);
+click(columnChip('Available', 'Website'));
 await settle();
 
-const savesBeforeAdd = saveCalls;
-click(importActionButton('Add to Bundle'));
+click(columnChip('Source', 'Banking'));
+await settle();
+check('a second Rate Sheet can be browsed alongside the first', columnChip('Available', 'Online Banking') != null);
+check('rows from the first stay in Selected rows across the switch', columnChip('Selected', 'Website') != null);
+click(columnChip('Available', 'Online Banking'));
+await settle();
+check('rows from DIFFERENT Rate Sheets select together', columnChips('Selected').length === 2, columnChips('Selected').length);
+
+click(sourceToggle('Services'));
+await settle();
+check('switching source keeps the Selected rows already chosen', columnChips('Selected').length === 2, columnChips('Selected').length);
+click(sourceToggle('Rate Sheets'));
+await settle();
+
+const savesBeforeImport = saveCalls;
+click(columnChip('Selected', 'Online Banking'));
+await settle();
+check('a Selected row can be dropped before Import, with no request', columnChips('Selected').length === 1 && saveCalls === savesBeforeImport, columnChips('Selected').length);
+click(columnChip('Available', 'Online Banking'));
+await settle();
+
+click(importActionButton('Import'));
 await settle(60);
-check('Add to Bundle persists through exactly one full-manager save', saveCalls === savesBeforeAdd + 1, saveCalls - savesBeforeAdd);
+check('Import persists through exactly one full-manager save', saveCalls === savesBeforeImport + 1, saveCalls - savesBeforeImport);
 
 const composedSheet = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1');
 const composedBundle = composedSheet?.bundles?.[0];
-check('the composed rows landed in the Bundle', (composedBundle?.items ?? []).length === 2, (composedBundle?.items ?? []).length);
-check('the Bundle carries the name given in the engine', composedBundle?.title === 'Digital Banking Website', composedBundle?.title);
+check('the composed content landed in the Bundle', (composedBundle?.items ?? []).length === 2, (composedBundle?.items ?? []).length);
+check('the Bundle carries the Product Bundle name', composedBundle?.title === 'Foundation Bundle', composedBundle?.title);
 check(
-  'a row composed from ANOTHER Rate Sheet keeps that sheet\'s supplied content',
+  'content composed from ANOTHER Rate Sheet keeps that sheet\'s supplied content',
   (composedBundle?.items ?? []).some((row) => row.source_item_id === 'mgr_banking'),
-);
-check(
-  'the composed row carries the name and price given during composition',
-  (composedBundle?.items ?? []).some((row) => row.source_item_id === 'mgr_banking' && row.label === 'Banking module' && row.unit_price === 35),
-  JSON.stringify(composedBundle?.items),
 );
 check(
   'the SOURCE Rate Sheet keeps its own row and its own price — composing copies, never moves',
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_2')?.items?.[0]?.unit_price === 40,
 );
+check('the Bundle is still ONE row after composing across sheets', rowsIn().length === 1, rowsIn().length);
+check('both origins read in the one Supplied content cell', suppliedLabels().length === 2, suppliedLabels().join('; '));
 
-// Phase 4 — an imported row is an ordinary Bundle row, not a reduced reference.
-const importedRow = rowByText('Banking module');
-check('the imported row renders in the normal Bundle grid', importedRow != null);
-check('it carries its own CZPRCBI', importedRow?.textContent.includes('CZPRCBI'));
-click(buttonIn(importedRow, 'Edit'));
+click(anyButton('+ Import supplied content'));
 await settle();
-const activeImported = rowsIn().find((tr) => buttonIn(tr, 'Save') != null);
-check('an imported row opens in the SAME inline row editor', activeImported != null);
-check('it keeps its editable name', activeImported?.querySelector('input[type="text"]') != null);
-check('it keeps the Price Options tab strip', activeImported?.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
-check('it keeps its Per and Group dropdowns', activeImported?.querySelectorAll('select').length === 2, activeImported?.querySelectorAll('select').length);
-check('it keeps Save, Cancel and Delete', buttonIn(activeImported, 'Save') != null && buttonIn(activeImported, 'Cancel') != null && buttonIn(activeImported, 'Delete') != null);
-click(buttonIn(activeImported, 'Cancel'));
+click(sourceToggle('Rate Sheets'));
 await settle();
-
-click(anyButton('Import from Rate Sheets'));
+click(columnChip('Source', 'Banking'));
 await settle();
-click([...container.querySelectorAll('.cz-rate-sheet-tool__bundle-source-head')].find((head) => head.textContent.includes('Banking')));
-await settle();
-check('a source row already in this Bundle is never offered twice', importChip('Online Banking') == null);
-
-// ── D) The Bundle's own commercial price ────────────────────────────────
-console.log("\nD) The Bundle's own commercial price");
-const bundlePriceInput = () => bundleWorkspace()?.querySelector('.cz-rate-sheet-tool__bundle-price input[type="number"]') ?? null;
-check('the Bundle workspace offers its own price field', bundlePriceInput() != null);
-setInputValue(bundlePriceInput(), 75);
-await settle();
-const bundlePriceTabs = bundleWorkspace()?.querySelectorAll('.cz-rate-sheet-tool__bundle-price .cz-rate-sheet-tool__price-options-tab');
-check('and its own Price Options tab strip', (bundlePriceTabs?.length ?? 0) >= 2, bundlePriceTabs?.length);
-click([...bundlePriceTabs].find((b) => b.textContent.trim() === '+'));
-await settle();
-const bundleOptionFields = bundleWorkspace()?.querySelectorAll('.cz-rate-sheet-tool__bundle-price .cz-rate-sheet-tool__price-option-fields input');
-setInputValue(bundleOptionFields[0], 'Annual');
-await settle();
-setInputValue(bundleOptionFields[1], 750);
-await settle();
-
-const savesBeforeBundlePrice = saveCalls;
-click(anyButton('Import from Rate Sheets'));
-await settle();
-check('editing the Bundle price makes no API request on its own', saveCalls === savesBeforeBundlePrice);
+check('a source row already in this Bundle is never offered twice', columnChip('Available', 'Online Banking') == null);
 click(anyButton('Close'));
 await settle();
 
-// Persist through the row lock's own save, the same one save path.
-const anyRow = rowsIn()[0];
-click(buttonIn(anyRow, 'Edit'));
+// Removing compiled content stays available — "read-only" is about a
+// component's DEFINITION, not about whether the Bundle may drop it.
+const before = suppliedLabels().length;
+click(suppliedItems()[0]?.querySelector('.cz-rate-sheet-tool__supplied-remove'));
 await settle();
-click(buttonIn(rowsIn().find((tr) => buttonIn(tr, 'Save') != null), 'Save'));
-await settle(60);
-const pricedBundle = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.bundles?.[0];
-check("the save payload carries the Bundle's own price", pricedBundle?.unit_price === 75, pricedBundle?.unit_price);
-check("and the Bundle's own Price Option", (pricedBundle?.price_options ?? []).length === 1 && pricedBundle.price_options[0].label === 'Annual', JSON.stringify(pricedBundle?.price_options));
-check(
-  "the ingredient rows keep their own prices, untouched by the Bundle price",
-  (pricedBundle?.items ?? []).some((row) => row.unit_price === 35),
-  JSON.stringify((pricedBundle?.items ?? []).map((r) => r.unit_price)),
-);
+check('a component can still be removed from the combination', suppliedLabels().length === before - 1, suppliedLabels().length);
 
 // ── E) The Bundle's row is in `items`, and the Tool ignores it ───────────
 console.log("\nE) The Bundle's upstream row rides the ordinary items list");
@@ -654,4 +649,4 @@ if (failures.length > 0) {
   console.error(`\n${failures.length} check(s) failed.`);
   process.exit(1);
 }
-console.log('All checks passed — a Rate Sheet Bundle is a Rate Sheet-owned child record with its own identity, navigated by the shared child chip strip, and its rows carry the complete Rate Sheet row tooling through the one existing full-manager save.');
+console.log('All checks passed — a Rate Sheet Bundle is a Rate Sheet-owned child record with its own identity, navigated by the shared child chip strip, authored through one 3-column import engine, and edited as ONE Rate Sheet row (Product Bundle + read-only Supplied content + the ordinary price/per/qty/group cells) through the one existing full-manager save.');

@@ -1339,6 +1339,20 @@ button.cz-station-status-pill {
   height: var(--station-card-glyph-size);
 }
 
+/* Connected-record rows read with the smaller plate — the glyph marks the row,
+   it never competes with the record's name. Same tokens the Tier deck's own
+   compact identity uses, so both Connections lists carry one icon scale. */
+.cz-service-deck__identity-icon--compact {
+  width: var(--station-metric-glyph-plate);
+  height: var(--station-metric-glyph-plate);
+  border-radius: var(--station-metric-glyph-radius);
+}
+
+.cz-service-deck__identity-icon--compact > svg {
+  width: var(--station-metric-glyph-size);
+  height: var(--station-metric-glyph-size);
+}
+
 .cz-service-deck__identity-copy {
   min-width: 0;
 }
@@ -2989,42 +3003,6 @@ button.cz-station-status-pill {
   gap: 16px;
 }
 
-/* The Bundle engine's own browse list: one collapsible block per source Rate
-   Sheet, whose rows are the same selectable chips the Service import uses. */
-.cz-rate-sheet-tool__bundle-sources {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.cz-rate-sheet-tool__bundle-source {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cz-rate-sheet-tool__bundle-source-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  background: var(--station-surface);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.cz-rate-sheet-tool__bundle-source-head small {
-  color: var(--station-text-muted);
-}
-
 .cz-rate-sheet-tool__inline-values {
   display: flex;
   min-width: 240px;
@@ -3325,10 +3303,76 @@ button.cz-station-status-pill {
   justify-content: flex-end;
 }
 
-/* The Bundle's own commercial price — its own block above the ingredient grid,
-   using the same Price Options tab strip a row's Unit Price cell uses. */
-.cz-rate-sheet-tool__bundle-price {
+/* The Bundle engine's Source column: the [Services] [Rate Sheets] toggle, in the
+   same chip grammar the columns below it already use. */
+.cz-rate-sheet-tool__import-source-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A shorter chip list, so the Source column can stack two browse levels
+   (categories then services) without the column outgrowing its siblings. */
+.cz-rate-sheet-tool__import-chip-list--short {
+  max-height: 132px;
+}
+
+/* One origin heading plus its chips, inside the Available/Selected columns —
+   what keeps rows from several Services or Rate Sheets legible in one list. */
+.cz-rate-sheet-tool__import-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
+}
+
+.cz-rate-sheet-tool__import-group-title {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  font-weight: 600;
+}
+
+.cz-rate-sheet-tool__import-group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* A Bundle row's Supplied content cell: the read-only list of what the
+   combination compiles. Each component was declared on its own Rate Sheet, so
+   only the removal control is interactive here. */
+.cz-rate-sheet-tool__cell-supplied {
+  min-width: 220px;
+}
+
+.cz-rate-sheet-tool__supplied-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cz-rate-sheet-tool__supplied-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cz-rate-sheet-tool__supplied-remove {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  background: transparent;
+  border: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cz-rate-sheet-tool__supplied-remove:hover {
+  color: var(--station-text);
 }

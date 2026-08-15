@@ -139,6 +139,10 @@ export interface RateSheetToolController {
   // path as every other edit here.
   setBundleUnitPrice:   (key: string, unitPrice: number) => void;
   setBundlePer:         (key: string, per: PackageRateSheetUnit) => void;
+  /** The Bundle's own quantity and group — the last two cells of the single
+   *  Rate Sheet row a Bundle presents. Same clamp/validation as a row's. */
+  setBundleQuantity:    (key: string, quantity: number) => void;
+  setBundleGroup:       (key: string, groupId: string | null) => void;
   /** What the Bundle's own default price is CALLED. Display configuration for
    *  the price it already has — see `setRowDefaultPriceLabel`. */
   setBundleDefaultPriceLabel: (key: string, label: string) => void;
@@ -494,6 +498,8 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     setBundleStatus: (key, status) => editSelected((value) => patchEditorBundle(value, key, { status })),
     setBundleUnitPrice: (key, unitPrice) => editSelected((value) => patchEditorBundle(value, key, { unitPrice: Math.max(0, unitPrice) })),
     setBundlePer: (key, per) => editSelected((value) => patchEditorBundle(value, key, { per })),
+    setBundleQuantity: (key, quantity) => editSelected((value) => patchEditorBundle(value, key, { quantity: Math.max(1, Math.trunc(quantity) || 1) })),
+    setBundleGroup: (key, groupId) => editSelected((value) => patchEditorBundle(value, key, { groupId })),
     setBundleDefaultPriceLabel: (key, label) => editSelected((value) => patchEditorBundle(value, key, { defaultPriceLabel: label })),
     addBundlePriceOption: (key) => {
       const option = newEditorPriceOption();

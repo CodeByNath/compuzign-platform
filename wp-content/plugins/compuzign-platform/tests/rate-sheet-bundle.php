@@ -179,6 +179,43 @@ check_bundle($bundle['items'][1]['quantity'] === 1 && (float) $bundle['items'][1
 check_bundle(!array_key_exists('groups', $bundle) && !array_key_exists('rate_sheet_units', $bundle), 'a Bundle stores no groups and no unit vocabulary of its own');
 check_bundle($bundle['items'][0]['price_options'][0]['option_id'] === '', 'sanitize never mints — a blank option_id survives the read path');
 
+// A Bundle IS the single Rate Sheet row it presents, so it carries the row's
+// COMPLETE field set — quantity and group included, validated by the same rules
+// a row's are rather than defaulted at projection time.
+$bundleRowFields = PackageManagerSchema::sanitize([
+    'rate_sheets' => [[
+        'rate_sheet_id' => 'rs_q', 'title' => 'Sheet', 'status' => 'active',
+        'groups' => [['group_id' => 'g1', 'label' => 'Web', 'sort_order' => 0]],
+        'items' => [],
+        'bundles' => [[
+            'bundle_id' => 'rsb_q', 'title' => 'Foundation Bundle', 'status' => 'active',
+            'unit_price' => 750, 'per' => 'Per item', 'quantity' => 3, 'group_id' => 'g1',
+            'items' => [['source_item_id' => $itemA, 'label' => '', 'unit_price' => 0, 'per' => 'Per item']],
+        ], [
+            'bundle_id' => 'rsb_q2', 'title' => 'Clamped', 'status' => 'active',
+            'unit_price' => 10, 'per' => 'Per item', 'quantity' => 0, 'group_id' => 'g_missing',
+            'items' => [['source_item_id' => $itemB, 'label' => '', 'unit_price' => 0, 'per' => 'Per item']],
+        ]],
+    ]],
+]);
+$withFields = $bundleRowFields['rate_sheets'][0]['bundles'][0];
+$clamped    = $bundleRowFields['rate_sheets'][0]['bundles'][1];
+check_bundle($withFields['quantity'] === 3 && $withFields['group_id'] === 'g1', "a Bundle carries its OWN quantity and group, the row's remaining two cells");
+check_bundle($clamped['quantity'] === 1 && $clamped['group_id'] === null, 'and clamps/fails them closed exactly as a row does');
+
+$offeredFields = PackageManagerSchema::consumableRateSheetRows($bundleRowFields['rate_sheets'][0]);
+check_bundle(count($offeredFields) === 2, 'each active Bundle is still offered upstream as one row');
+check_bundle($offeredFields[0]['quantity'] === 3 && $offeredFields[0]['group_id'] === 'g1', "the offered row carries the Bundle's own quantity and group in the ordinary positions");
+
+$legacyFields = PackageManagerSchema::sanitize([
+    'rate_sheets' => [[
+        'rate_sheet_id' => 'rs_lf', 'title' => 'Sheet', 'status' => 'active', 'groups' => [], 'items' => [],
+        'bundles' => [['bundle_id' => 'rsb_lf', 'title' => 'Older', 'status' => 'active', 'unit_price' => 5, 'per' => 'Per item', 'items' => []]],
+    ]],
+]);
+$legacyBundle = $legacyFields['rate_sheets'][0]['bundles'][0];
+check_bundle($legacyBundle['quantity'] === 1 && $legacyBundle['group_id'] === null, 'a Bundle stored before those fields existed reads back on the defaults the projection used to hardcode');
+
 $bundleOnly = PackageManagerSchema::sanitize([
     'rate_sheets' => [[
         'rate_sheet_id' => 'rs_2', 'title' => '', 'status' => 'active', 'groups' => [], 'items' => [],

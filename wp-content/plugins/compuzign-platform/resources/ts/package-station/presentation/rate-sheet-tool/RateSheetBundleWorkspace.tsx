@@ -1,28 +1,36 @@
-// Rate Sheet tool — the focused workspace for ONE Bundle of the selected sheet.
+// Rate Sheet tool — the inline editor for ONE Bundle of the selected sheet.
 //
-// A Bundle is a Rate Sheet-owned composition space: a named set of complete
-// Rate Sheet rows that a Tier can later select as one commercial item. This
-// file is the Bundle's own head (title, status, its `CZPRCB`, delete) and the
-// host for its rows.
+// A Bundle is compiled supplied content offered as ONE Rate Sheet row, so this
+// editor IS that row:
 //
-// It is deliberately NOT a second Rate Sheet editor. Everything below the head
-// is the SAME row tooling the sheet's own rows use — the shared
-// `RateSheetGridEditor` driven by the same `RateSheetToolController`, which is
-// scope-aware: while a Bundle is selected, every row command it exposes
-// addresses that Bundle's rows. No second controller, no second save path, no
-// endpoint of its own.
+//   | Product Bundle | Supplied content | Unit Price | Per | Qty | Group |
 //
-// Presentation only: it calls no endpoint and mints no id. The Bundle's own
-// `bundle_id` and `CZPRCB` are both backend-assigned on save.
+// `Product Bundle` is the one field an ordinary row does not have — the
+// combination's name. Everything else is the Rate Sheet row system the sheet's
+// own rows already use: the same Price Options tab strip
+// (`RateSheetPriceOptionEditor`, Default Price name included), the same
+// `InlineCreateSelect` for Per and Group, the same quantity input, all riding
+// the same controller and the same full-manager save.
+//
+// Supplied content is READ-ONLY. Each component was already declared on the
+// Rate Sheet it came from — that is where its own name, price and unit live —
+// so this cell lists what the combination compiles rather than re-declaring it.
+// Removing a component from the combination stays available: read-only refers
+// to a component's DEFINITION, not to whether the Bundle may drop it.
+//
+// It is deliberately NOT a second Rate Sheet editor and mounts no per-component
+// grid. Presentation only: it calls no endpoint and mints no id — the Bundle's
+// `bundle_id` and `CZPRCB`, and each component's `CZPRCBI`, are all backend-
+// assigned on save.
 
 import { useState } from 'preact/hooks';
 import type { VNode } from 'preact';
+import { bundleSuppliedContent, rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetEditorBundle, RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
-import { InlineCreateSelect, RateSheetGridEditor, RateSheetPriceOptionEditor } from './rateSheetParts';
+import { InlineCreateSelect, RateSheetPriceOptionEditor } from './rateSheetParts';
 import { RateSheetBundleImportPicker } from './RateSheetBundleImportPicker';
-import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
 
 export function RateSheetBundleWorkspace({
   controller, bundle, bundleKey, sheet,
@@ -30,26 +38,16 @@ export function RateSheetBundleWorkspace({
   controller: RateSheetToolController;
   bundle:     RateSheetEditorBundle;
   bundleKey:  string;
-  /** The owning sheet — a Bundle row's Group dropdown and its Service import
-   *  both work against the sheet's own groups, because a Bundle stores none. */
+  /** The owning sheet — a Bundle's Group dropdown works against the sheet's own
+   *  groups, because a Bundle stores none of its own. */
   sheet:      RateSheetEditorValue;
 }): VNode {
-  const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  // A row being edited holds the same one-mutation-at-a-time lock the sheet's
-  // own rows obey, so Bundle-level actions stand down while it is open.
-  const rowLocked = controller.editingRowId !== null;
+  const suppliedContent = bundleSuppliedContent(bundle);
 
   return (
     <div class="cz-rate-sheet-tool__bundle" aria-label={`Bundle ${bundle.title}`}>
       <div class="cz-rate-sheet-tool__focused-head">
-        <input
-          class="cz-tf-control cz-tf-input"
-          value={bundle.title}
-          placeholder="Bundle name"
-          aria-label="Bundle name"
-          onInput={(event) => controller.setBundleTitle(bundleKey, (event.currentTarget as HTMLInputElement).value)}
-        />
         <select
           class="cz-tf-control cz-tf-select"
           value={bundle.status}
@@ -62,8 +60,14 @@ export function RateSheetBundleWorkspace({
         <button
           type="button"
           class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          onClick={() => setImportOpen((open) => !open)}
+        >
+          {importOpen ? 'Close' : '+ Import supplied content'}
+        </button>
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
           aria-label={`Delete Bundle ${bundle.title || 'untitled'}`}
-          disabled={rowLocked}
           onClick={() => {
             if (window.confirm('Delete this Bundle and its rows? The Rate Sheet’s own rows are not affected.')) {
               controller.deleteBundle(bundleKey);
@@ -78,94 +82,131 @@ export function RateSheetBundleWorkspace({
         Platform ID: {bundle.platformId || (bundle.id ? 'Not assigned' : 'Assigned after Save')}
       </p>
 
-      {/* The Bundle's own commercial price — what a consumer pays for this
-          combination, independent of what the rows below sum to. It rides the
-          same Price Options tab strip a row's Unit Price cell uses. */}
-      <div class="cz-rate-sheet-tool__bundle-price">
-        <p class="cz-rate-sheet-tool__import-column-label">Bundle price</p>
-        <div class="cz-rate-sheet-tool__focused-head">
-          <RateSheetPriceOptionEditor
-            ariaLabel={`Bundle price for ${bundle.title || 'this Bundle'}`}
-            unitPrice={bundle.unitPrice}
-            defaultLabel={bundle.defaultPriceLabel}
-            priceOptions={bundle.priceOptions}
-            disabled={rowLocked}
-            onUnitPrice={(next) => controller.setBundleUnitPrice(bundleKey, next)}
-            onDefaultLabel={(label) => controller.setBundleDefaultPriceLabel(bundleKey, label)}
-            onAddOption={() => controller.addBundlePriceOption(bundleKey)}
-            onRemoveOption={(optionKey) => controller.removeBundlePriceOption(bundleKey, optionKey)}
-            onOptionLabel={(optionKey, label) => controller.setBundlePriceOptionLabel(bundleKey, optionKey, label)}
-            onOptionUnitPrice={(optionKey, next) => controller.setBundlePriceOptionUnitPrice(bundleKey, optionKey, next)}
-          />
-          <InlineCreateSelect
-            value={bundle.per}
-            disabled={rowLocked}
-            ariaLabel="Bundle unit"
-            addLabel="+ Add new unit"
-            editLabel="Edit Per values"
-            editValues={controller.units
-              .filter((unit) => !(BUILT_IN_RATE_SHEET_UNITS as readonly string[]).includes(unit))
-              .map((unit) => ({ value: unit, label: unit }))}
-            placeholder="New unit name"
-            onSelect={(next) => controller.setBundlePer(bundleKey, next)}
-            onCreate={controller.createUnit}
-            onRename={(unit, label) => { controller.renameUnit(unit, label); }}
-          >
-            {controller.units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-          </InlineCreateSelect>
-        </div>
-      </div>
-
-      <div class="cz-rate-sheet-tool__toolbar">
-        {/* The Bundle engine sits first — composing from already-priced Rate
-            Sheet rows is what a Bundle is for. "+ Add Service" stays available
-            underneath it for supply this Bundle wants to price directly. */}
-        <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" disabled={rowLocked}
-          onClick={() => { setImportOpen((open) => !open); setAddOpen(false); }}>
-          {importOpen ? 'Close' : 'Import from Rate Sheets'}
-        </button>
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
-          onClick={() => { setAddOpen((open) => !open); setImportOpen(false); }}>{addOpen ? 'Close' : '+ Add Service'}</button>
-      </div>
-
       {importOpen && (
         <RateSheetBundleImportPicker
           controller={controller}
           bundle={bundle}
-          bundleKey={bundleKey}
-          sheet={sheet}
           onDone={() => setImportOpen(false)}
         />
       )}
 
-      {addOpen && (
-        // The same import engine the sheet's own rows use. `rows` scopes its
-        // already-used check to THIS Bundle: a source the sheet prices is still
-        // offered here, because a Bundle row is a separate record.
-        <RateSheetServiceImportPicker
-          controller={controller}
-          value={sheet}
-          rows={bundle.items}
-          onDone={() => setAddOpen(false)}
-        />
-      )}
-
-      {bundle.items.length === 0 ? (
-        <p class="cz-station-empty">
-          No Bundle rows yet. Use + Add Service to price supplied content directly, or the Bundle engine to bring in rows from other Rate Sheets.
-        </p>
-      ) : (
-        // The SAME grid, the same one-row-at-a-time lock, the same Price Option
-        // editor the sheet's own rows get. The controller is scope-aware, so
-        // every command here addresses this Bundle's rows.
-        <RateSheetGridEditor
-          rows={bundle.items}
-          groups={sheet.groups}
-          units={controller.units}
-          commands={controller}
-          lockCommands={controller}
-        />
-      )}
+      {/* The combination as the ONE Rate Sheet row it is. Same grid shell, same
+          cells, same header vocabulary as the sheet's own rows — plus the one
+          field only a Bundle has. */}
+      <div class="cz-rate-sheet-tool__grid-wrap">
+        <table class="cz-rate-sheet-tool__grid">
+          <thead>
+            <tr>
+              <th scope="col">Product Bundle</th>
+              <th scope="col">Supplied content</th>
+              <th scope="col">Unit Price</th>
+              <th scope="col">Per</th>
+              <th scope="col">Qty</th>
+              <th scope="col">Group</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cz-rate-sheet-tool__cell-name">
+                <input
+                  class="cz-tf-control cz-tf-input"
+                  type="text"
+                  value={bundle.title}
+                  placeholder="Bundle name"
+                  aria-label="Product Bundle name"
+                  onInput={(event) => controller.setBundleTitle(bundleKey, (event.currentTarget as HTMLInputElement).value)}
+                />
+              </td>
+              <td class="cz-rate-sheet-tool__cell-supplied">
+                {suppliedContent.length === 0 ? (
+                  <p class="cz-rate-sheet-tool__picker-note">
+                    Nothing compiled yet. Use “+ Import supplied content”.
+                  </p>
+                ) : (
+                  <ul class="cz-rate-sheet-tool__supplied-list">
+                    {bundle.items.map((row, index) => (
+                      <li key={rowKey(row)} class="cz-rate-sheet-tool__supplied-item">
+                        <span>{suppliedContent[index]}</span>
+                        <button
+                          type="button"
+                          class="cz-rate-sheet-tool__supplied-remove"
+                          aria-label={`Remove ${suppliedContent[index]} from this Bundle`}
+                          title="Remove from this Bundle"
+                          onClick={() => controller.removeRow(rowKey(row))}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </td>
+              <td>
+                <RateSheetPriceOptionEditor
+                  ariaLabel={`Price for ${bundle.title || 'this Bundle'}`}
+                  unitPrice={bundle.unitPrice}
+                  defaultLabel={bundle.defaultPriceLabel}
+                  priceOptions={bundle.priceOptions}
+                  disabled={false}
+                  onUnitPrice={(next) => controller.setBundleUnitPrice(bundleKey, next)}
+                  onDefaultLabel={(label) => controller.setBundleDefaultPriceLabel(bundleKey, label)}
+                  onAddOption={() => controller.addBundlePriceOption(bundleKey)}
+                  onRemoveOption={(optionKey) => controller.removeBundlePriceOption(bundleKey, optionKey)}
+                  onOptionLabel={(optionKey, label) => controller.setBundlePriceOptionLabel(bundleKey, optionKey, label)}
+                  onOptionUnitPrice={(optionKey, next) => controller.setBundlePriceOptionUnitPrice(bundleKey, optionKey, next)}
+                />
+              </td>
+              <td>
+                <InlineCreateSelect
+                  value={bundle.per}
+                  disabled={false}
+                  ariaLabel="Unit for this Bundle"
+                  addLabel="+ Add new unit"
+                  editLabel="Edit Per values"
+                  editValues={controller.units
+                    .filter((unit) => !(BUILT_IN_RATE_SHEET_UNITS as readonly string[]).includes(unit))
+                    .map((unit) => ({ value: unit, label: unit }))}
+                  placeholder="New unit name"
+                  onSelect={(next) => controller.setBundlePer(bundleKey, next)}
+                  onCreate={controller.createUnit}
+                  onRename={(unit, label) => { controller.renameUnit(unit, label); }}
+                >
+                  {controller.units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                </InlineCreateSelect>
+              </td>
+              <td>
+                <input
+                  class="cz-tf-control cz-tf-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={bundle.quantity}
+                  aria-label="Quantity for this Bundle"
+                  onInput={(event) => controller.setBundleQuantity(bundleKey, Number((event.currentTarget as HTMLInputElement).value))}
+                />
+              </td>
+              <td>
+                <InlineCreateSelect
+                  value={bundle.groupId ?? ''}
+                  disabled={false}
+                  ariaLabel="Group for this Bundle"
+                  addLabel="+ Add new group"
+                  editLabel="Edit Group values"
+                  editValues={sheet.groups.map((group) => ({ value: group.id, label: group.label }))}
+                  placeholder="New group name"
+                  onSelect={(next) => controller.setBundleGroup(bundleKey, next === '' ? null : next)}
+                  onCreate={controller.createGroup}
+                  onRename={controller.renameGroup}
+                  onDelete={controller.deleteGroup}
+                >
+                  <option value="">Ungrouped</option>
+                  {sheet.groups.map((group) => <option key={group.id} value={group.id}>{group.label}</option>)}
+                </InlineCreateSelect>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

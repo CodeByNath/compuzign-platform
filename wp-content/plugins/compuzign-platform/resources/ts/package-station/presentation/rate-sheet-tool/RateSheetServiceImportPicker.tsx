@@ -24,7 +24,7 @@ import type { VNode } from 'preact';
 import type { ServiceSummary } from '@/service-station';
 import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageRateSheetUnit } from '../../types';
-import type { RateSheetEditorRow, RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
+import type { RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 import { InlineCreateSelect } from './rateSheetParts';
 
@@ -47,16 +47,11 @@ function categoryKeyOf(category: ServiceCategory): string {
 }
 
 export function RateSheetServiceImportPicker({
-  controller, value, onDone, rows,
+  controller, value, onDone,
 }: {
   controller: RateSheetToolController;
   value:      RateSheetEditorValue;
   onDone:     () => void;
-  // Which rows the one-row-per-source check runs against. Defaults to the
-  // sheet's own rows (every caller before Bundles existed). A Bundle passes its
-  // OWN rows: a source the sheet already prices is still offerable inside a
-  // Bundle, because the Bundle row is a separate record with its own identity.
-  rows?:      readonly RateSheetEditorRow[];
 }): VNode {
   const [phase, setPhase]                       = useState<'browse' | 'staging'>('browse');
   const [categoryQuery, setCategoryQuery]       = useState('');
@@ -98,11 +93,10 @@ export function RateSheetServiceImportPicker({
   // this same open session — the sheet's own one-row-per-source discipline
   // (addEditorRow/addEditorRows) applies here too, just checked earlier so
   // the picker never shows a choice Publish would silently drop.
-  const scopedRows = rows ?? value.items;
   const usedOptionIds = useMemo(() => new Set([
-    ...scopedRows.map((row) => row.optionId),
+    ...value.items.map((row) => row.optionId),
     ...stagingEntries.map((entry) => entry.optionId),
-  ]), [scopedRows, stagingEntries]);
+  ]), [value.items, stagingEntries]);
 
   const availableInclusions = useMemo(() => controller.options.filter((option) =>
     option.sourceServiceId != null

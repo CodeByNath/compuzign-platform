@@ -396,6 +396,13 @@ export interface PackageRateSheetBundle {
    */
   unit_price: number;
   per: PackageRateSheetUnit;
+  /**
+   * The Bundle's own quantity and group, validated by the same rules a row's
+   * are — the Bundle IS the single row it presents upstream, so it carries the
+   * complete row field set. Absent on a sheet stored before they existed.
+   */
+  quantity?: number;
+  group_id?: string | null;
   price_options: PackageRateSheetPriceOption[];
   /** What the Bundle's own default price is called. See
    *  `PackageRateSheetItem.default_price_label` — same display-only rule. */

@@ -118,6 +118,14 @@ export interface RateSheetEditorBundle {
    */
   unitPrice:    number;
   per:          PackageRateSheetUnit;
+  /**
+   * The Bundle's own quantity and group — the remaining two cells of the ONE
+   * Rate Sheet row a Bundle presents. They live on the Bundle, not on its
+   * components: a combination is quantified and grouped as the single item it
+   * is sold as.
+   */
+  quantity:     number;
+  groupId:      string | null;
   priceOptions: RateSheetEditorPriceOption[];
   /** What the Bundle calls its own default price. Same display-only rule as a
    *  row's — see `RateSheetEditorRow.defaultPriceLabel`. */
@@ -189,6 +197,11 @@ function toEditorValue(
       status:     bundle.status,
       unitPrice:  bundle.unit_price,
       per:        bundle.per,
+      quantity:   bundle.quantity ?? 1,
+      // Validated against the owning sheet's groups exactly like a row's, so a
+      // group deleted since the last save reads as Ungrouped rather than as a
+      // dangling id.
+      groupId:    bundle.group_id != null && groupIds.has(bundle.group_id) ? bundle.group_id : null,
       priceOptions: (bundle.price_options ?? []).map((option) => ({
         id: option.option_id, localKey: option.option_id,
         platformId: option.platform_id, label: option.label, unitPrice: option.unit_price,
@@ -381,12 +394,20 @@ export function renameEditorGroup(value: RateSheetEditorValue, groupId: string, 
 }
 
 /** Delete a group; rows that referenced it fall back to ungrouped (reassign,
- *  never drop — the same rule the schema keeps). */
+ *  never drop — the same rule the schema keeps). Bundles are reassigned by the
+ *  same rule: a Bundle carries its own group, so it can dangle the same way. */
 export function deleteEditorGroup(value: RateSheetEditorValue, groupId: string): RateSheetEditorValue {
+  const ungroup = (row: RateSheetEditorRow): RateSheetEditorRow =>
+    (row.groupId === groupId ? { ...row, groupId: null } : row);
   return {
     ...value,
     groups: value.groups.filter((group) => group.id !== groupId),
-    items:  value.items.map((row) => (row.groupId === groupId ? { ...row, groupId: null } : row)),
+    items:  value.items.map(ungroup),
+    bundles: value.bundles.map((bundle) => ({
+      ...bundle,
+      groupId: bundle.groupId === groupId ? null : bundle.groupId,
+      items:   bundle.items.map(ungroup),
+    })),
   };
 }
 
@@ -551,6 +572,8 @@ export function createEditorBundle(
     status:   'active',
     unitPrice: 0,
     per:       DEFAULT_UNIT,
+    quantity:  1,
+    groupId:   null,
     priceOptions: [],
     defaultPriceLabel: '',
     items:    [],
@@ -570,7 +593,7 @@ export function findEditorBundle(
 export function patchEditorBundle(
   value: RateSheetEditorValue,
   key: string,
-  patch: Partial<Pick<RateSheetEditorBundle, 'title' | 'status' | 'unitPrice' | 'per' | 'priceOptions' | 'defaultPriceLabel'>>,
+  patch: Partial<Pick<RateSheetEditorBundle, 'title' | 'status' | 'unitPrice' | 'per' | 'quantity' | 'groupId' | 'priceOptions' | 'defaultPriceLabel'>>,
 ): RateSheetEditorValue {
   return {
     ...value,
@@ -582,6 +605,20 @@ export function patchEditorBundle(
  *  a Bundle row is a separate record, never a reference to a sheet row. */
 export function deleteEditorBundle(value: RateSheetEditorValue, key: string): RateSheetEditorValue {
   return { ...value, bundles: value.bundles.filter((bundle) => bundleKey(bundle) !== key) };
+}
+
+/**
+ * What a Bundle's single row shows in its Supplied content cell: the display
+ * label of every component it compiles, in stored order.
+ *
+ * This is the read side of "a Bundle is one Rate Sheet row". Each component
+ * keeps its own stored record and identity (`CZPRCBI`) exactly as before — what
+ * the authoring UI no longer does is re-declare that component's definition,
+ * because it was already declared on the Rate Sheet the component came from.
+ * That is why the cell is read-only.
+ */
+export function bundleSuppliedContent(bundle: RateSheetEditorBundle): string[] {
+  return bundle.items.map(rowDisplayLabel);
 }
 
 /**
@@ -786,6 +823,8 @@ function toStoredSheet(value: RateSheetEditorValue): PackageRateSheet {
       sort_order: index,
       unit_price: bundle.unitPrice,
       per:        bundle.per,
+      quantity:   bundle.quantity,
+      group_id:   bundle.groupId,
       price_options: bundle.priceOptions.map((option) => ({
         option_id: option.id, label: option.label.trim(), unit_price: option.unitPrice,
       })),

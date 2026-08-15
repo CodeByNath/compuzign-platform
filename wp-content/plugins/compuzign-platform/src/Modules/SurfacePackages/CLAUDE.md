@@ -44,14 +44,17 @@ the same supplied content, never references to it. A Bundle stores no groups
 and no unit vocabulary: its rows validate against the owning sheet's, and its
 `bundle_id` is minted write-path-only in `commitConfiguration` like a sheet id.
 A Bundle row additionally carries its own editable `label` (blank inherits the
-resolved supplied-content label). A Bundle carries its OWN commercial price
-(`unit_price`/`per`/`price_options[]`, the latter `CZPRCBO`) for consuming that
-combination together, independent of what its component rows sum to. Upstream it
-IS one Rate Sheet row: `consumableRateSheetRows()` offers the sheet's own rows
-plus one row per active Bundle (`deriveBundleRowId`, ordinary `rate_` grammar,
-`includes[]` for presentation only), placed by `buildReadModel` straight into the
-sheet's own `items` — the rows every consumer already reads, so there is no new
-field and no consumer changes. The Tool cannot round-trip it: it carries no
+resolved supplied-content label). A Bundle carries the COMPLETE Rate Sheet row field set for consuming that
+combination together — `unit_price`/`per`/`quantity`/`group_id`/
+`price_options[]` (the latter `CZPRCBO`) — independent of what its component
+rows sum to. `quantity`/`group_id` are clamped and validated by the same rules
+`sanitizeRateRows` applies to a row's, and a Bundle stored before they existed
+reads back on `1`/`null`, the defaults `bundleConsumableRow()` used to hardcode.
+Upstream it IS one Rate Sheet row: `consumableRateSheetRows()` offers the
+sheet's own rows plus one row per active Bundle (`deriveBundleRowId`, ordinary
+`rate_` grammar, `includes[]` for presentation only), placed by `buildReadModel`
+straight into the sheet's own `items` — the rows every consumer already reads,
+so there is no new field and no consumer changes. The Tool cannot round-trip it: it carries no
 `source_item_id`, which `toEditorRows()`/`sanitizeRateRows()` already drop. Component rows are ingredients, not separately chargeable
 rows, so they are absent from that offer. NO consumer learns Bundles exist: Tier
 storage and selection stay `{ item_id, quantity, price_option_id }` with no
