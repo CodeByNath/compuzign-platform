@@ -173,7 +173,14 @@ export function tierRateSheetInventory(
   });
 }
 
-/** Active allowed sheets, plus the current binding even when archived. */
+/**
+ * Explicitly allowed active sheets, plus the current binding even when
+ * archived or no longer allowed. An empty allow-list selects nothing new —
+ * it is the ordinary "not configured yet" state, never a wildcard — but an
+ * occupant's own already-bound sheet always stays visible and re-saveable
+ * regardless of the allow-list, so narrowing access never hides or silently
+ * reassigns an existing selection.
+ */
 export function selectableRateSheets(
   rateSheets: readonly PackageRateSheet[],
   allowedRateSheetIds: readonly string[],
@@ -183,6 +190,6 @@ export function selectableRateSheets(
   return rateSheets.filter((sheet) => {
     if (sheet.rate_sheet_id === boundRateSheetId) return true;
     if (sheet.status !== 'active') return false;
-    return allowed.size === 0 || allowed.has(sheet.rate_sheet_id);
+    return allowed.has(sheet.rate_sheet_id);
   });
 }

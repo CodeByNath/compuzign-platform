@@ -29,7 +29,6 @@ import type {
 } from '../schema/bindings/tierSystem';
 import type { TierSystemOverviewDraftFields } from '../editors/TierSystemOverviewEditor';
 import type { TierRateSheetAccessDraft } from '../../surface/tierInstance/tierRateSheetAccessModel';
-import { tierRateSheetAccessIsValid } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import type { PackageRateSheet, TierInstanceRecord } from '../../types';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import { useTierSystemController } from './useTierSystemController';
@@ -117,7 +116,10 @@ export function TierSystemContent({
   const accessData: TierRateSheetAccessShellData = c.projection === null
     ? { mode: 'Unavailable', availability: 'Available once this Tier system is published.', activeCount: 0, unresolvedCount: 0 }
     : {
-        mode:            c.projection.unrestricted ? 'All active Rate Sheets' : 'Limited',
+        // There is only one mode now — explicit selection — so this row
+        // states whether anything has been configured yet rather than
+        // naming a mode that no longer exists.
+        mode:            c.projection.allowedActiveCount === 0 ? 'Not configured' : 'Explicit selection',
         availability:    c.projection.summary,
         activeCount:     c.projection.activeCount,
         unresolvedCount: c.projection.unresolvedCount,
@@ -176,7 +178,9 @@ export function TierSystemContent({
             saving:  false,
             saveErr: null,
             isDirty: c.isDirty,
-            saveDisabled: !c.isDirty || (c.projection !== null && !tierRateSheetAccessIsValid(c.rateSheetAccess, c.projection)),
+            // Any subset of the candidate pool, including empty, is a valid
+            // draft now — nothing to reject beyond "no change to save".
+            saveDisabled: !c.isDirty,
             title: 'Rate Sheet Access',
             extras: { projection: c.projection },
           },

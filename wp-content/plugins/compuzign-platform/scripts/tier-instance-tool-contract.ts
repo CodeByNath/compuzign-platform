@@ -108,9 +108,21 @@ check(
   selectableRateSheets(sheets, ['rs_a'], 'rs_old').map((sheet) => sheet.rate_sheet_id).join(',') === 'rs_a,rs_old',
   'allow-list narrowing includes only allowed active sheets plus the bound archived sheet',
 );
+// Semantic correction (2026-08-15): an empty allow-list selects nothing NEW —
+// it is the ordinary "not configured yet" state, never a wildcard. The
+// occupant's own already-bound sheet still stays visible and re-saveable
+// regardless, so narrowing/emptying access never hides or reassigns it.
 check(
-  selectableRateSheets(sheets, [], 'rs_old').map((sheet) => sheet.rate_sheet_id).join(',') === 'rs_a,rs_b,rs_old',
-  'empty allow-list exposes every active sheet plus the bound archived sheet',
+  selectableRateSheets(sheets, [], 'rs_old').map((sheet) => sheet.rate_sheet_id).join(',') === 'rs_old',
+  'an empty allow-list offers no new active candidates — only the already-bound sheet remains selectable',
+);
+check(
+  selectableRateSheets(sheets, [], null).length === 0,
+  'an empty allow-list with no existing binding offers zero candidates — an honest empty state, never every active sheet',
+);
+check(
+  selectableRateSheets(sheets, ['rs_a', 'rs_b'], null).map((sheet) => sheet.rate_sheet_id).join(',') === 'rs_a,rs_b',
+  'every explicitly allowed active sheet is selectable together',
 );
 
 check(

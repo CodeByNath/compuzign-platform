@@ -31,7 +31,6 @@ import {
   projectTierRateSheetAccess,
   tierRateSheetAccessDraft,
   tierRateSheetAccessIsDirty,
-  tierRateSheetAccessIsValid,
   tierRateSheetAccessPayload,
   type TierRateSheetAccessDraft,
   type TierRateSheetAccessProjection,
@@ -216,9 +215,9 @@ export function useTierSystemController({
   );
   const rateSheetDirty = instance !== null && rateSheetAccess !== null
     && tierRateSheetAccessIsDirty(rateSheetAccess, instance);
-  const rateSheetValid = rateSheetAccess === null || projection === null
-    || tierRateSheetAccessIsValid(rateSheetAccess, projection);
-  const canApply = instance !== null && canPublish && rateSheetValid && (overviewDirty || rateSheetDirty);
+  // Any subset of the candidate pool, including empty, is a valid selection —
+  // there is no invalid Rate Sheet Access draft to gate Apply on anymore.
+  const canApply = instance !== null && canPublish && (overviewDirty || rateSheetDirty);
 
   const publish = useCallback(async () => {
     const title = overview.title.trim();
@@ -228,6 +227,9 @@ export function useTierSystemController({
     }
     setSaving(true);
     setError(null);
+    // A prior attempt's success banner must not survive into this one — see
+    // apply()'s own reset for why.
+    setSaveOk(false);
     try {
       // A retry after a failed ledger write must never mint a SECOND Tier
       // Group. The first attempt's instance is already persisted and is what
@@ -267,6 +269,13 @@ export function useTierSystemController({
     }
     setSaving(true);
     setError(null);
+    // Neither error nor a stale success banner from an earlier attempt may
+    // outlive this one: apply() can fail partway (title/description/Rate
+    // Sheet Access persist, then the Family step rejects), and without this
+    // reset a "Changes saved." from a PRIOR successful Apply in the same
+    // drawer session would keep rendering alongside the new error, making a
+    // real partial failure read as a full success.
+    setSaveOk(false);
     try {
       const saved = await tool.updateInstance(instance.tier_instance_id, {
         title,
@@ -334,7 +343,6 @@ export function useTierSystemController({
       || overview.familyId !== overviewOriginal.familyId)
     : editingModule === 'rate-sheet-access' && rateSheetAccess !== null && rateSheetOriginal !== null
       ? tierRateSheetAccessPayload(rateSheetAccess).join(',') !== tierRateSheetAccessPayload(rateSheetOriginal).join(',')
-        || rateSheetAccess.mode !== rateSheetOriginal.mode
       : false;
 
   const footerMode: TierSystemFooterMode = editingModule !== null

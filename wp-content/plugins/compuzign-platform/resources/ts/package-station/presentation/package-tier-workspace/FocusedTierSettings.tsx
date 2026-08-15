@@ -124,9 +124,17 @@ export function RateSheetAccessSummary({
         </div>
         <span class="cz-station-list__cell">
           <span class={`cz-module-status-pill ${
-            projection.needsReview ? PRESENTATION_PILL.pending.cls : PRESENTATION_PILL.active.cls
+            // needsReview means a stored reference no longer resolves — a
+            // real problem. Zero allowed is the ordinary unconfigured
+            // default, distinct from that: worth a neutral pending pill,
+            // never the same "Review" wording a genuine defect uses.
+            projection.needsReview || projection.allowedActiveCount === 0
+              ? PRESENTATION_PILL.pending.cls
+              : PRESENTATION_PILL.active.cls
           }`}>
-            {projection.needsReview ? 'Review' : 'Configured'}
+            {projection.needsReview
+              ? 'Review'
+              : projection.allowedActiveCount === 0 ? 'Not configured' : 'Configured'}
           </span>
         </span>
         <div class="cz-station-list__cell cz-tier-deck__row-actions">

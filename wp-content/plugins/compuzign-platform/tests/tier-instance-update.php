@@ -149,4 +149,61 @@ $missing = controller()->updateTierInstance(new WP_REST_Request(
 check_tier_update(($missing->get_data()['code'] ?? null) === 'unknown_tier_instance', 'an unknown instance id is reported explicitly');
 check_tier_update(serialize($tierUpdateOption) === $beforeStation, 'an unknown instance update leaves station bytes unchanged');
 
+// ── Rate Sheet access semantic correction (2026-08-15) ──────────────────────
+// A Tier system is an independent Package-owned capability instance. Rate
+// Sheet access is a deliberate later admin decision, never something creation
+// or Family assignment grants implicitly — an empty allowed_rate_sheet_ids
+// means nothing is configured yet, not "every active Rate Sheet".
+
+$tierUpdateOption = update_station(update_instance('ti_seed'));
+$created = controller()->createTierInstance(new WP_REST_Request(['title' => 'New Tier System'], []));
+check_tier_update($created->get_status() === 200, 'creating a Tier system succeeds with no Rate Sheet configuration at all');
+$createdInstance = $created->get_data()['tier_instance'];
+check_tier_update(
+    $createdInstance['allowed_rate_sheet_ids'] === [],
+    'a newly created Tier system starts with zero allowed Rate Sheets, not every active one',
+);
+$newId = $createdInstance['tier_instance_id'];
+check_tier_update(
+    instance_from_option($newId)['allowed_rate_sheet_ids'] === [],
+    'the freshly created instance reloads with zero allowed Rate Sheets',
+);
+
+// The admin can move access [] -> [A,B] -> [A] -> [], and each step persists
+// and round-trips through a fresh read exactly as stored — deselecting
+// everything is a valid, savable state, never rejected or reinterpreted.
+controller()->updateTierInstance(new WP_REST_Request(
+    ['instance' => $newId], ['allowed_rate_sheet_ids' => ['rs_a', 'rs_b']],
+));
+check_tier_update(
+    instance_from_option($newId)['allowed_rate_sheet_ids'] === ['rs_a', 'rs_b'],
+    'access [] -> [A,B] persists and reloads exactly as stored',
+);
+controller()->updateTierInstance(new WP_REST_Request(
+    ['instance' => $newId], ['allowed_rate_sheet_ids' => ['rs_a']],
+));
+check_tier_update(
+    instance_from_option($newId)['allowed_rate_sheet_ids'] === ['rs_a'],
+    'access [A,B] -> [A] persists and reloads exactly as stored',
+);
+controller()->updateTierInstance(new WP_REST_Request(
+    ['instance' => $newId], ['allowed_rate_sheet_ids' => []],
+));
+check_tier_update(
+    instance_from_option($newId)['allowed_rate_sheet_ids'] === [],
+    'access [A] -> [] persists and reloads exactly as stored',
+);
+
+// A Rate Sheet created later must never silently become available to an
+// existing Tier system: allowed_rate_sheet_ids is a fixed stored list, not a
+// rule re-evaluated against whatever sheets happen to exist afterward.
+global $tierUpdateOption;
+$tierUpdateOption['package_manager']['rate_sheets'][] = PackageManagerSchema::sanitize([
+    'rate_sheets' => [['rate_sheet_id' => 'rs_c', 'title' => 'C', 'status' => 'active', 'groups' => [], 'items' => []]],
+])['rate_sheets'][0];
+check_tier_update(
+    instance_from_option($newId)['allowed_rate_sheet_ids'] === [],
+    'a newly created active Rate Sheet does not alter an existing Tier system\'s stored access',
+);
+
 echo "Tier instance update checks passed.\n";

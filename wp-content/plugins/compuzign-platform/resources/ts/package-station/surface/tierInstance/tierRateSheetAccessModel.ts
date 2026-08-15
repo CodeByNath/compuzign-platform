@@ -1,8 +1,19 @@
 // Tier-system Rate Sheet access — pure read/edit/save projection.
 //
-// `allowed_rate_sheet_ids` belongs to one Tier instance. An empty list means all
-// active sheets; an explicit list is limited access. Missing or archived stored
-// ids remain visible and removable rather than being silently substituted.
+// `allowed_rate_sheet_ids` belongs to one Tier instance and is explicit:
+// an empty list means NO Rate Sheets are configured yet — never every active
+// sheet. A Tier system is independent Package-owned capability; access is a
+// deliberate later admin decision, not something creation or Family
+// assignment grants implicitly. An occupant gains a NEW candidate only once
+// its own Tier system's allow-list names that sheet; its own already-bound
+// sheet stays visible regardless (see `selectableRateSheets`). Missing or
+// archived stored ids remain visible and removable rather than being
+// silently substituted.
+//
+// (Corrected 2026-08-15: this file previously treated `[]` as "all active
+// sheets" — see docs/code-map/package-settings.md and
+// docs/architecture/PackageCapabilityAssignments-v1.md for the same
+// correction to their own prior statements of that reversed contract.)
 
 import type { PackageRateSheet, TierInstanceRecord } from '../../types';
 
@@ -16,18 +27,22 @@ export interface TierRateSheetAccessRow {
 }
 
 export interface TierRateSheetAccessProjection {
-  unrestricted: boolean;
   activeCount: number;
   allowedCount: number;
   allowedActiveCount: number;
   unresolvedCount: number;
+  /**
+   * A stored id that no longer resolves to a known Rate Sheet — the one real
+   * problem this projection reports. Having nothing allowed yet is the
+   * ordinary, valid default state for an unconfigured Tier system, not a
+   * defect, so it is deliberately NOT part of this flag.
+   */
   needsReview: boolean;
   summary: string;
   rows: TierRateSheetAccessRow[];
 }
 
 export interface TierRateSheetAccessDraft {
-  mode: 'all-active' | 'limited';
   allowedRateSheetIds: string[];
 }
 
@@ -41,15 +56,17 @@ export function projectTierRateSheetAccess(
 ): TierRateSheetAccessProjection {
   const storedIds = uniqueIds(record.allowed_rate_sheet_ids);
   const allowed = new Set(storedIds);
-  const unrestricted = storedIds.length === 0;
   const activeSheets = rateSheets.filter((sheet) => sheet.status === 'active');
   const activeIds = new Set(activeSheets.map((sheet) => sheet.rate_sheet_id));
   const byId = new Map(rateSheets.map((sheet) => [sheet.rate_sheet_id, sheet]));
+  // Every active sheet is a CANDIDATE the admin may choose from, independent
+  // of whether it is currently allowed — the candidate pool never shrinks
+  // just because the allow-list is empty or narrow.
   const activeRows: TierRateSheetAccessRow[] = activeSheets.map((sheet) => ({
       rateSheetId: sheet.rate_sheet_id,
       title: sheet.title.trim() || 'Untitled Rate Sheet',
       status: sheet.status,
-      allowed: unrestricted || allowed.has(sheet.rate_sheet_id),
+      allowed: allowed.has(sheet.rate_sheet_id),
     }));
   const storedRows: TierRateSheetAccessRow[] = storedIds
     .filter((id) => !activeIds.has(id))
@@ -65,19 +82,14 @@ export function projectTierRateSheetAccess(
   const rows = [...activeRows, ...storedRows];
   const unresolvedCount = rows.filter((row) => row.status === 'unresolved').length;
   const allowedActiveCount = activeRows.filter((row) => row.allowed).length;
-  const allowedCount = unrestricted ? activeSheets.length : storedIds.length;
-  const needsReview = activeSheets.length === 0
-    || allowedActiveCount === 0
-    || unresolvedCount > 0;
   return {
-    unrestricted,
     activeCount: activeSheets.length,
-    allowedCount,
+    allowedCount: storedIds.length,
     allowedActiveCount,
     unresolvedCount,
-    needsReview,
-    summary: unrestricted
-      ? `All ${activeSheets.length} active Rate Sheets`
+    needsReview: unresolvedCount > 0,
+    summary: storedIds.length === 0
+      ? 'No Rate Sheets allowed yet'
       : `${allowedActiveCount} active of ${storedIds.length} explicitly allowed`,
     rows,
   };
@@ -86,22 +98,11 @@ export function projectTierRateSheetAccess(
 export function tierRateSheetAccessDraft(
   projection: TierRateSheetAccessProjection,
 ): TierRateSheetAccessDraft {
-  return projection.unrestricted
-    ? { mode: 'all-active', allowedRateSheetIds: [] }
-    : { mode: 'limited', allowedRateSheetIds: projection.rows.filter((row) => row.allowed).map((row) => row.rateSheetId) };
+  return { allowedRateSheetIds: projection.rows.filter((row) => row.allowed).map((row) => row.rateSheetId) };
 }
 
 export function tierRateSheetAccessPayload(draft: TierRateSheetAccessDraft): string[] {
-  return draft.mode === 'all-active' ? [] : uniqueIds(draft.allowedRateSheetIds);
-}
-
-export function tierRateSheetAccessIsValid(
-  draft: TierRateSheetAccessDraft,
-  projection: TierRateSheetAccessProjection,
-): boolean {
-  if (draft.mode === 'all-active') return true;
-  const activeIds = new Set(projection.rows.filter((row) => row.status === 'active').map((row) => row.rateSheetId));
-  return tierRateSheetAccessPayload(draft).some((id) => activeIds.has(id));
+  return uniqueIds(draft.allowedRateSheetIds);
 }
 
 export function tierRateSheetAccessIsDirty(

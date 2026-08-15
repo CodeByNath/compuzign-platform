@@ -35,7 +35,6 @@ import {
   projectTierRateSheetAccess,
   tierRateSheetAccessDraft,
   tierRateSheetAccessIsDirty,
-  tierRateSheetAccessIsValid,
   tierRateSheetAccessPayload,
 } from '../resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel';
 import type {
@@ -355,18 +354,48 @@ const accessSheets: PackageRateSheet[] = [
   { rate_sheet_id: 'rs_second', title: 'Second', status: 'active', groups: [], items: [] },
   { rate_sheet_id: 'rs_archived', title: 'Archived', status: 'archived', groups: [], items: [] },
 ];
-const unrestrictedAccess = projectTierRateSheetAccess(
+
+// Semantic correction (2026-08-15): an empty allow-list is EXPLICIT — it
+// means nothing is configured yet, never "every active Rate Sheet". A newly
+// created/assigned Tier system must be able to exist with zero access.
+const emptyAccess = projectTierRateSheetAccess(
   { ...kairosRecord, allowed_rate_sheet_ids: [] },
   accessSheets,
 );
 check(
-  unrestrictedAccess.unrestricted
-    && unrestrictedAccess.activeCount === 2
-    && unrestrictedAccess.allowedActiveCount === 2
-    && unrestrictedAccess.summary === 'All 2 active Rate Sheets'
-    && !unrestrictedAccess.needsReview,
-  'an empty allow-list means all active Rate Sheets and its summary/counts share that projection',
+  !('unrestricted' in emptyAccess),
+  'the projection carries no unrestricted flag — there is no implicit "all active" mode left to derive',
 );
+check(
+  emptyAccess.activeCount === 2
+    && emptyAccess.allowedActiveCount === 0
+    && emptyAccess.allowedCount === 0
+    && emptyAccess.summary === 'No Rate Sheets allowed yet'
+    && emptyAccess.rows.every((row) => !row.allowed),
+  'an empty allow-list projects zero allowed active sheets, not every active sheet',
+);
+check(
+  !emptyAccess.needsReview,
+  'zero configured access is the ordinary unconfigured default, not a state needing review',
+);
+// The candidate pool — every active sheet the admin MAY choose — is
+// unaffected by an empty allow-list. Candidates and allowed are different
+// concepts: hiding the candidates because nothing is allowed yet is the exact
+// defect this correction removes.
+check(
+  emptyAccess.rows.filter((row) => row.status === 'active').length === 2,
+  'the candidate pool (active sheets) stays fully visible even when nothing is allowed yet',
+);
+const emptyDraft = tierRateSheetAccessDraft(emptyAccess);
+check(
+  emptyDraft.allowedRateSheetIds.length === 0 && tierRateSheetAccessPayload(emptyDraft).length === 0,
+  'a zero-access projection seeds and saves as a genuinely empty draft',
+);
+check(
+  !tierRateSheetAccessIsDirty(emptyDraft, { ...kairosRecord, allowed_rate_sheet_ids: [] }),
+  'an unchanged empty draft is not dirty against an already-empty stored record',
+);
+
 const limitedRecord = {
   ...kairosRecord,
   allowed_rate_sheet_ids: ['rs_active', 'rs_archived', 'rs_missing'],
@@ -377,7 +406,12 @@ check(
     && limitedAccess.allowedActiveCount === 1
     && limitedAccess.unresolvedCount === 1
     && limitedAccess.needsReview,
-  'limited access distinguishes usable active grants from archived and unresolved stored ids',
+  'explicit access distinguishes usable active grants from archived and unresolved stored ids, and an unresolved reference DOES need review',
+);
+check(
+  limitedAccess.rows.some((row) => row.rateSheetId === 'rs_active' && row.allowed)
+    && limitedAccess.rows.some((row) => row.rateSheetId === 'rs_second' && !row.allowed),
+  'an explicitly allowed active sheet is selectable; a non-allowed active sheet is not',
 );
 check(
   limitedAccess.rows.some((row) => row.rateSheetId === 'rs_archived' && row.status === 'archived')
@@ -385,18 +419,28 @@ check(
   'archived and unresolved stored ids remain visible by their own identities',
 );
 const limitedDraft = tierRateSheetAccessDraft(limitedAccess);
-check(!tierRateSheetAccessIsDirty(limitedDraft, limitedRecord), 'an unchanged limited draft is not saveable');
-check(tierRateSheetAccessIsValid(limitedDraft, limitedAccess), 'a limited draft with one active sheet is valid');
+check(!tierRateSheetAccessIsDirty(limitedDraft, limitedRecord), 'an unchanged limited draft is not dirty');
 check(
-  !tierRateSheetAccessIsValid(
-    { mode: 'limited', allowedRateSheetIds: ['rs_archived', 'rs_missing'] },
-    limitedAccess,
-  ),
-  'limited access must retain at least one active Rate Sheet',
+  tierRateSheetAccessPayload({ allowedRateSheetIds: [' rs_active ', 'rs_active'] }).join(',') === 'rs_active',
+  'the save payload trims and de-duplicates the draft ids before backend validation',
 );
 check(
-  tierRateSheetAccessPayload({ mode: 'limited', allowedRateSheetIds: [' rs_active ', 'rs_active'] }).join(',') === 'rs_active',
-  'the save payload trims and de-duplicates the draft ids before backend validation',
+  tierRateSheetAccessPayload({ allowedRateSheetIds: [] }).length === 0,
+  'an explicitly empty draft saves as empty — deselecting everything is a valid, savable choice, never rejected',
+);
+
+// A brand new active Rate Sheet must never silently inherit an existing Tier
+// system's access — the allow-list is a fixed stored list, not a rule that
+// re-evaluates against whatever sheets happen to exist later.
+const growingSheets: PackageRateSheet[] = [
+  ...accessSheets,
+  { rate_sheet_id: 'rs_new', title: 'New', status: 'active', groups: [], items: [] },
+];
+const afterGrowth = projectTierRateSheetAccess(limitedRecord, growingSheets);
+check(
+  afterGrowth.allowedActiveCount === limitedAccess.allowedActiveCount
+    && afterGrowth.rows.find((row) => row.rateSheetId === 'rs_new')?.allowed === false,
+  'a newly created active Rate Sheet is a new candidate row, never automatically allowed for an existing Tier system',
 );
 
 // The Connections navigation is one typed projection: the same rows feed cards,

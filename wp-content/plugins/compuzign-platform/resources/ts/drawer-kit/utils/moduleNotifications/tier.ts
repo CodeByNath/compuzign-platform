@@ -155,18 +155,21 @@ export const tierSystemOverviewModule: ModuleDefinition<{ titled: boolean }> = {
 
 // Rate Sheet access is instance-level configuration. It never inherits the
 // parent instance lifecycle as its module status; the projected access policy
-// alone reports whether usable active sheets and stored references need review.
+// alone reports whether anything is allowed yet and whether stored references
+// need review. Zero allowed is the ordinary default for an unconfigured Tier
+// system — informational, not an error — so it never counts toward the
+// module's error badge; an unresolved reference is the one real problem.
 export const tierRateSheetAccessModule: ModuleDefinition<{
   allowedActiveCount: number;
   activeCount: number;
   unresolvedCount: number;
 }> = {
   key: 'tier-rate-sheet-access',
-  problems: ({ allowedActiveCount, activeCount, unresolvedCount }) => [
-    ...(activeCount === 0 || allowedActiveCount === 0 ? [{
-      id: 'tier-rate-sheet-access.active.required',
-      message: 'Allow at least one active Rate Sheet for this Tier system.',
-      type: 'error' as const,
+  problems: ({ allowedActiveCount, unresolvedCount }) => [
+    ...(allowedActiveCount === 0 ? [{
+      id: 'tier-rate-sheet-access.none.configured',
+      message: 'No Rate Sheets are allowed yet. Choose which active Rate Sheets this Tier system may use.',
+      type: 'info' as const,
     }] : []),
     ...(unresolvedCount > 0 ? [{
       id: 'tier-rate-sheet-access.references.unresolved',
@@ -174,8 +177,8 @@ export const tierRateSheetAccessModule: ModuleDefinition<{
       type: 'error' as const,
     }] : []),
   ],
-  resolveStatus: ({ activeCount, allowedActiveCount, unresolvedCount }) =>
-    activeCount === 0 || allowedActiveCount === 0 || unresolvedCount > 0
+  resolveStatus: ({ allowedActiveCount, unresolvedCount }) =>
+    allowedActiveCount === 0 || unresolvedCount > 0
       ? 'pending-full'
       : 'active',
 };

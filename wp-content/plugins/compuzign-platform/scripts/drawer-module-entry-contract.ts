@@ -257,7 +257,22 @@ const invalidAccessState = evaluateModule(tierRateSheetAccessModule, {
 }, { platformStatus: 'active' });
 check(
   invalidAccessState.status === 'pending-full' && invalidAccessState.notes.length === 2,
-  'Rate Sheet access needing review reads Pending and explains both unusable access and unresolved references',
+  'Rate Sheet access needing review reads Pending and explains both unconfigured access and unresolved references',
+);
+// Semantic correction (2026-08-15): zero allowed is the ORDINARY default for
+// an unconfigured Tier system, not a defect — its note is informational
+// (never counts toward the error badge) and carries no unresolved-reference
+// problem alongside it.
+const unconfiguredAccessState = evaluateModule(tierRateSheetAccessModule, {
+  activeCount: 2,
+  allowedActiveCount: 0,
+  unresolvedCount: 0,
+}, { platformStatus: 'active' });
+check(
+  unconfiguredAccessState.status === 'pending-full'
+    && unconfiguredAccessState.notes.length === 1
+    && unconfiguredAccessState.notes[0]?.type === 'info',
+  'unconfigured Rate Sheet access (nothing allowed, nothing broken) reads Pending with one informational note, not an error',
 );
 
 // ── The compositions that open these modules ─────────────────────────────────

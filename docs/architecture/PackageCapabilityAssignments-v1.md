@@ -536,6 +536,8 @@ Scope contract: `PackageStationController.php` contains zero `$station['tiers']`
 
 **Contract tests:** eligible consumers exclude already-assigned and binned Families; an unassigned instance lists as operable, not as an error; instance rows carry counts from the loaded instance, never from provenance; allowed-sheet narrowing (`['rs_a']` → `rs_a` + bound sheet; `[]` → all active + bound); slots always five in `TIER_KEYS` order; `suggestConsumerForInstance` returns exactly one candidate or none, never a default pick.
 
+**Correction (2026-08-15).** The allowed-sheet narrowing rule above is reversed. A Tier system is independent Package-owned capability; Rate Sheet access is a deliberate later admin decision, not something creation or Family assignment grants implicitly. The corrected rule is `['rs_a']` → `rs_a` + bound sheet (unchanged); `[]` → **only** the bound sheet, never every active one. `selectableRateSheets()` (`tierInstanceModel.ts`) and `projectTierRateSheetAccess()` (`tierRateSheetAccessModel.ts`) carry this correction; see [Package Home Settings](../code-map/package-settings.md).
+
 ---
 
 ## Phase 6 — Re-host the Package Family creation surface + optional-capability UX
