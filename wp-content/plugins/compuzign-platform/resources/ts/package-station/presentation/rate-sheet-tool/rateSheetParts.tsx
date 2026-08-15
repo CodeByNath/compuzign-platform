@@ -19,6 +19,7 @@ import { useState } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
 import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageRateSheetUnit } from '../../types';
+import { DEFAULT_PRICE_LABEL, defaultPriceLabel } from '../../rateSheetLabels';
 import { priceOptionKey, rowDisplayLabel, rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
   RateSheetEditorGroup,
@@ -43,6 +44,9 @@ export interface RateSheetGroupCommands {
 /** Row edits the grid reports back. `RateSheetToolController` satisfies it. */
 export interface RateSheetRowCommands {
   setRowUnitPrice: (rowId: string, unitPrice: number) => void;
+  /** What the row's own Default Price is CALLED. Blank restores the built-in
+   *  name; nothing about the price or its selection changes. */
+  setRowDefaultPriceLabel: (rowId: string, label: string) => void;
   setRowPer:       (rowId: string, per: PackageRateSheetUnit) => void;
   setRowQuantity:  (rowId: string, quantity: number) => void;
   setRowGroup:     (rowId: string, groupId: string | null) => void;
@@ -408,21 +412,27 @@ function RateSheetRowFieldCells({
  * [ Option 2 ] [+]` — for the standalone drawer's active row only. Default
  * Price is not Option 0: selecting it edits the row's own existing
  * `unit_price` through the exact same `setRowUnitPrice` the plain input
- * always used. An option tab edits `row.priceOptions[n]`'s own `label`/
- * `unitPrice`. `selectedTab` is local, ephemeral presentation state — never
- * part of `RateSheetToolController`, never persisted — and resets to
- * Default Price on every mount, i.e. every time this row becomes active,
- * since this component is only rendered inside that branch.
+ * always used, plus the NAME that price goes by (`defaultPriceLabel` — admin
+ * display configuration for the price already there, never a price option,
+ * never an identity, and never a change to how a Tier selects it). An option
+ * tab edits `row.priceOptions[n]`'s own `label`/`unitPrice`. `selectedTab` is
+ * local, ephemeral presentation state — never part of
+ * `RateSheetToolController`, never persisted — and resets to Default Price on
+ * every mount, i.e. every time this row becomes active, since this component
+ * is only rendered inside that branch.
  */
 export function RateSheetPriceOptionEditor({
-  ariaLabel, unitPrice, priceOptions, disabled,
-  onUnitPrice, onAddOption, onRemoveOption, onOptionLabel, onOptionUnitPrice,
+  ariaLabel, unitPrice, defaultLabel, priceOptions, disabled,
+  onUnitPrice, onDefaultLabel, onAddOption, onRemoveOption, onOptionLabel, onOptionUnitPrice,
 }: {
   ariaLabel:    string;
   unitPrice:    number;
+  /** The admin's own name for that price; blank shows the built-in one. */
+  defaultLabel: string;
   priceOptions: readonly RateSheetEditorPriceOption[];
   disabled:     boolean;
   onUnitPrice:  (unitPrice: number) => void;
+  onDefaultLabel: (label: string) => void;
   /** Adds a blank option and returns the key that addresses it. */
   onAddOption:  () => string;
   onRemoveOption:    (optionKey: string) => void;
@@ -440,7 +450,7 @@ export function RateSheetPriceOptionEditor({
         <button type="button" role="tab" aria-selected={selectedTab === 'default'}
           class={`cz-rate-sheet-tool__price-options-tab${selectedTab === 'default' ? ' cz-rate-sheet-tool__price-options-tab--active' : ''}`}
           onClick={() => setSelectedTab('default')}>
-          Default Price
+          {defaultPriceLabel(defaultLabel)}
         </button>
         {priceOptions.map((option, index) => {
           const optionTabKey = priceOptionKey(option);
@@ -461,9 +471,20 @@ export function RateSheetPriceOptionEditor({
         )}
       </div>
       {selectedOption === null ? (
-        <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={unitPrice} disabled={disabled}
-          aria-label={ariaLabel}
-          onInput={(event) => onUnitPrice(Number((event.currentTarget as HTMLInputElement).value))} />
+        // The SAME two fields an option tab offers — a name and the price —
+        // except the price is the row's own `unit_price`, edited through the
+        // exact same handler the plain input always used, and there is no
+        // Remove: the Default Price is the price itself, not one of the
+        // alternatives. Naming it changes only what it is called.
+        <div class="cz-rate-sheet-tool__price-option-fields cz-rate-sheet-tool__price-option-fields--default">
+          <input class="cz-tf-control cz-tf-input" type="text" value={defaultLabel} disabled={disabled}
+            placeholder={DEFAULT_PRICE_LABEL}
+            aria-label={`Label for default price of ${ariaLabel}`}
+            onInput={(event) => onDefaultLabel((event.currentTarget as HTMLInputElement).value)} />
+          <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={unitPrice} disabled={disabled}
+            aria-label={ariaLabel}
+            onInput={(event) => onUnitPrice(Number((event.currentTarget as HTMLInputElement).value))} />
+        </div>
       ) : (
         <div class="cz-rate-sheet-tool__price-option-fields">
           <input class="cz-tf-control cz-tf-input" type="text" value={selectedOption.label} disabled={disabled}
@@ -500,9 +521,11 @@ function RateSheetUnitPriceOptionEditor({
     <RateSheetPriceOptionEditor
       ariaLabel={`Unit price for ${row.optionLabel}`}
       unitPrice={row.unitPrice}
+      defaultLabel={row.defaultPriceLabel}
       priceOptions={row.priceOptions}
       disabled={disabled}
       onUnitPrice={(next) => commands.setRowUnitPrice(rowId, next)}
+      onDefaultLabel={(label) => commands.setRowDefaultPriceLabel(rowId, label)}
       onAddOption={() => commands.addPriceOption(rowId)}
       onRemoveOption={(optionKey) => commands.removePriceOption(rowId, optionKey)}
       onOptionLabel={(optionKey, label) => commands.setPriceOptionLabel(rowId, optionKey, label)}
@@ -516,10 +539,12 @@ function RateSheetUnitPriceOptionEditor({
  * the edit editor's tab strip — nothing here is selectable/clickable; it is
  * a static list inside the same Unit Price cell so a locked row with Price
  * Options still reads at a glance, no click required. Default is the row's
- * own existing `unitPrice`, listed first and always present; each further
- * line is one `row.priceOptions[]` entry, labelled exactly as the edit tab
- * strip labels an unlabeled option (`Option ${index + 1}`) so the two
- * presentations never disagree on a row's own option names.
+ * own existing `unitPrice`, listed first and always present, under the name
+ * the row gives it (`defaultPriceLabel`, the same rule the edit tab strip
+ * uses); each further line is one `row.priceOptions[]` entry, labelled
+ * exactly as the edit tab strip labels an unlabeled option
+ * (`Option ${index + 1}`) so the two presentations never disagree on a row's
+ * own price names.
  */
 function RateSheetPriceOptionsSummary({ row }: { row: RateSheetEditorRow }): VNode {
   return (
@@ -527,7 +552,7 @@ function RateSheetPriceOptionsSummary({ row }: { row: RateSheetEditorRow }): VNo
       <p class="cz-rate-sheet-tool__price-options-summary-title">Price Options</p>
       <ul class="cz-rate-sheet-tool__price-options-summary-list">
         <li class="cz-rate-sheet-tool__price-options-summary-row">
-          <span class="cz-rate-sheet-tool__price-options-summary-label">Default</span>
+          <span class="cz-rate-sheet-tool__price-options-summary-label">{defaultPriceLabel(row.defaultPriceLabel)}</span>
           <span class="cz-rate-sheet-tool__price-options-summary-value">{formatUnitPrice(row.unitPrice)}</span>
         </li>
         {row.priceOptions.map((option, index) => (

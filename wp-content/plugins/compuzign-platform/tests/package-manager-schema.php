@@ -365,6 +365,34 @@ $projectedOption = $priceOptionModel['rate_sheets'][0]['items'][0]['price_option
 assertSameValue('CZPRCIO22222', $projectedOption['platform_id'], 'a price option Platform ID is projected output-only, mirroring the row itself');
 assertSameValue(false, array_key_exists('cz_platform_id', $projectedOption), 'a price option\'s stored scalar is not exposed as a writable field');
 
+// ── The Default Price's own NAME: display configuration, never identity ──────
+// `default_price_label` names the price the row already has. It mints nothing,
+// is not a price option, and leaves unit_price/price_options untouched.
+assertSameValue('', $withPriceOption['rate_sheets'][0]['items'][0]['default_price_label'], 'a row that never named its Default Price stores a blank name, not a fabricated one');
+$defaultNamed = PMS::commitConfiguration(
+    $withPriceOption, [], [], $expandedPool, $faqPool, [[
+        'rate_sheet_id' => 'rs_infra', 'title' => 'Infrastructure', 'status' => 'active',
+        'groups' => [],
+        'items' => [[
+            'item_id' => 'rate-1', 'source_item_id' => PMS::deriveItemId('inclusion', 'inc-a'),
+            'unit_price' => 36, 'per' => 'Per VM', 'quantity' => 2,
+            'group_id' => null, 'sort_order' => 0,
+            'default_price_label' => '  Monthly  ',
+            'price_options' => [[
+                'option_id' => $mintedOptionId, 'label' => 'Annual', 'unit_price' => 300,
+            ]],
+        ]],
+    ]]
+);
+$namedRow = $defaultNamed['rate_sheets'][0]['items'][0];
+assertSameValue('Monthly', $namedRow['default_price_label'], "the row's own Default Price name is stored, sanitized and trimmed");
+assertSameValue(36.0, $namedRow['unit_price'], 'naming the Default Price never changes the price itself');
+assertSameValue(1, count($namedRow['price_options']), 'naming the Default Price never adds a price option');
+assertSameValue($mintedOptionId, $namedRow['price_options'][0]['option_id'], 'and never disturbs an existing price option identity');
+assertSameValue('rate-1', $namedRow['item_id'], "nor the row's own identity");
+$namedModel = PMS::buildReadModel(10, $defaultNamed, $expandedPool, $faqPool, 'active');
+assertSameValue('Monthly', $namedModel['rate_sheets'][0]['items'][0]['default_price_label'], 'the name is projected to consumers on the row itself, needing no new field or lookup');
+
 // ── Curated unit vocabulary ──────────────────────────────────────────────────
 // The unit list is data. A row may only carry a unit the vocabulary knows, so a
 // row can never introduce one by using it.

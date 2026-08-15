@@ -37,7 +37,15 @@ LOCKED row's Unit Price cell (`RateSheetRowReadCells`) stays read-only
 presentation — zero Price Options keeps the plain value unchanged, and
 one-or-more render a static `Price Options` list (Default plus each option,
 `RateSheetPriceOptionsSummary`) in the same cell, never the selectable
-chips/tabs. Native mutations retain their
+chips/tabs. The Default Price tab's own NAME is editable admin configuration
+(`default_price_label` on the row, and on a Bundle for its own price): the
+Default tab offers a name field beside the price it already has, blank
+inherits the built-in "Default Price" through `defaultPriceLabel()`
+(`rateSheetLabels.ts` — the one rule the tab strip, the locked-row summary,
+and the Tier's own price selector all read), and it rides the same row lock
+and full-manager save. It is display only: no `option_id`, no Platform ID, no
+`price_options[]` entry, and a Tier still selects that price by carrying no
+`price_option_id`. Native mutations retain their
 existing Package addresses. Tier Group and Tier use the shared supported-action
 footer with controller-supplied actions; no status label may invent an action.
 Tier Add-on remains the same occupant's boolean role and optional dormant

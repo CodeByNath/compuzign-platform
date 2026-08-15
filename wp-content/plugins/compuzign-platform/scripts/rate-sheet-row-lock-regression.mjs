@@ -27,6 +27,9 @@
 //     (Default Price is not Option 0 — it stays the row's own price);
 //     adding, editing, and Cancel-discarding a price option all ride the
 //     SAME row-lock Save/Cancel, never a second row, lock, or endpoint;
+//   - the Default Price tab's own NAME is admin display configuration
+//     (`default_price_label`): it renames the price the row already has,
+//     riding the same row Save, and creates no price option and no identity;
 //   - a LOCKED row's Unit Price cell is read-only presentation only: zero
 //     Price Options keeps the plain value unchanged, and one-or-more render
 //     a compact Default/Option list — never the edit mode's selectable
@@ -515,6 +518,57 @@ check(
   priceOptionTab(rowAOptions, 'Annual') != null && priceOptionTab(rowAOptions, 'Option 2') == null,
 );
 click(buttonIn(rowAOptions, 'Cancel'));
+await settle();
+
+// ── 7c) The Default Price tab's own NAME is admin display configuration for
+//    the price the row already has. Renaming it never creates a price
+//    option, never mints an identity, and never touches the price or the way
+//    a Tier selects it. ────────────────────────────────────────────────────
+console.log('\n7c) The Default Price tab is editable admin configuration — it names the price the row already has');
+click(buttonIn(rowByLabel('Row A'), 'Edit'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+const defaultLabelInput = rowAOptions?.querySelector('.cz-rate-sheet-tool__price-option-fields--default input[type="text"]');
+check('the Default Price tab offers its own name field beside the row\'s own price', defaultLabelInput != null);
+setInputValue(defaultLabelInput, 'Monthly');
+await settle();
+rowAOptions = rowByLabel('Row A');
+check(
+  'the tab takes the admin\'s own name in place of the built-in one',
+  priceOptionTab(rowAOptions, 'Monthly') != null && priceOptionTab(rowAOptions, 'Default Price') == null,
+);
+check('renaming leaves the price itself untouched', Number(priceInputIn(rowAOptions)?.value) === 10);
+check(
+  'and adds no price option — the row still has only the one it saved',
+  priceOptionTab(rowAOptions, 'Annual') != null && priceOptionTab(rowAOptions, 'Option 2') == null,
+);
+const savesBeforeDefaultLabel = saveCalls;
+click(buttonIn(rowAOptions, 'Save'));
+await settle(80);
+check('the rename persists through the same one full-manager save', saveCalls === savesBeforeDefaultLabel + 1);
+const renamedRowA = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
+check(
+  'the saved row carries the name as its own default_price_label, with unit_price and price_options untouched',
+  renamedRowA?.default_price_label === 'Monthly' && renamedRowA.unit_price === 10 && renamedRowA.price_options.length === 1,
+  JSON.stringify(renamedRowA),
+);
+rowAOptions = rowByLabel('Row A');
+check(
+  'the locked row\'s read-only summary names the default line the same way, never disagreeing with the tab',
+  priceOptionsSummaryRows(rowAOptions)[0]?.textContent.includes('Monthly'),
+  priceOptionsSummaryRows(rowAOptions)[0]?.textContent,
+);
+click(buttonIn(rowByLabel('Row A'), 'Edit'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+check('the name round-trips on reload', priceOptionTab(rowAOptions, 'Monthly') != null);
+setInputValue(rowAOptions?.querySelector('.cz-rate-sheet-tool__price-option-fields--default input[type="text"]'), '');
+await settle();
+check(
+  'clearing it restores the built-in "Default Price" name rather than an empty tab',
+  priceOptionTab(rowByLabel('Row A'), 'Default Price') != null,
+);
+click(buttonIn(rowByLabel('Row A'), 'Cancel'));
 await settle();
 
 // ── 8) Remove (locked) confirms, then persists, excluding the row ────────

@@ -433,6 +433,9 @@ final class PackageManagerSchema
             'group_id'       => null,
             'sort_order'     => (int) ($bundle['sort_order'] ?? 0),
             'price_options'  => is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [],
+            // A combination names its own default price exactly like any other
+            // priced row, so the row it presents upstream carries that name.
+            'default_price_label' => (string) ($bundle['default_price_label'] ?? ''),
             // The ingredients, for the "Includes:" presentation only — never a
             // second set of chargeable lines.
             'includes'       => $includes,
@@ -567,6 +570,12 @@ final class PackageManagerSchema
                 'group_id'      => $groupId,
                 'sort_order'    => (int) ($item['sort_order'] ?? 0),
                 'price_options' => self::sanitizePriceOptions($item['price_options'] ?? []),
+                // What this row's own `unit_price` is CALLED. Display
+                // configuration for the price already stored above — it mints
+                // no identity, is never a `price_options[]` entry, and never
+                // changes how a Tier selects that price (still the absence of
+                // a `price_option_id`). Blank means the built-in name.
+                'default_price_label' => sanitize_text_field((string) ($item['default_price_label'] ?? '')),
             ];
             if ($withLabel) {
                 $row['label'] = sanitize_text_field((string) ($item['label'] ?? ''));
@@ -641,6 +650,9 @@ final class PackageManagerSchema
                 'unit_price'    => max(0, (float) ($bundle['unit_price'] ?? 0)),
                 'per'           => $unit,
                 'price_options' => self::sanitizePriceOptions($bundle['price_options'] ?? []),
+                // The Bundle's own default price is named the same display-only
+                // way a row's is.
+                'default_price_label' => sanitize_text_field((string) ($bundle['default_price_label'] ?? '')),
                 'items'         => $items,
             ];
         }

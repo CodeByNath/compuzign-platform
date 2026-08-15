@@ -87,9 +87,11 @@ export function RateSheetBundleWorkspace({
           <RateSheetPriceOptionEditor
             ariaLabel={`Bundle price for ${bundle.title || 'this Bundle'}`}
             unitPrice={bundle.unitPrice}
+            defaultLabel={bundle.defaultPriceLabel}
             priceOptions={bundle.priceOptions}
             disabled={rowLocked}
             onUnitPrice={(next) => controller.setBundleUnitPrice(bundleKey, next)}
+            onDefaultLabel={(label) => controller.setBundleDefaultPriceLabel(bundleKey, label)}
             onAddOption={() => controller.addBundlePriceOption(bundleKey)}
             onRemoveOption={(optionKey) => controller.removeBundlePriceOption(bundleKey, optionKey)}
             onOptionLabel={(optionKey, label) => controller.setBundlePriceOptionLabel(bundleKey, optionKey, label)}

@@ -58,6 +58,10 @@ export interface RateSheetEditorRow {
   // content populates this row" (see RateSheetOption below); a price option
   // is an unrelated, additional concept and must not collide with it.
   priceOptions: RateSheetEditorPriceOption[];
+  // What this row calls its own `unitPrice` — admin display configuration for
+  // the price it ALREADY has, not a price option and not an identity. Blank
+  // inherits the built-in "Default Price" name (see `defaultPriceLabel`).
+  defaultPriceLabel: string;
   // BUNDLE ROWS ONLY — this row's own editable display name, overriding the
   // Service-resolved `optionLabel`. Undefined on every sheet row (a sheet row
   // has never had an editable label and still does not), blank on a Bundle row
@@ -115,6 +119,9 @@ export interface RateSheetEditorBundle {
   unitPrice:    number;
   per:          PackageRateSheetUnit;
   priceOptions: RateSheetEditorPriceOption[];
+  /** What the Bundle calls its own default price. Same display-only rule as a
+   *  row's — see `RateSheetEditorRow.defaultPriceLabel`. */
+  defaultPriceLabel: string;
   items:        RateSheetEditorRow[];
 }
 
@@ -186,6 +193,7 @@ function toEditorValue(
         id: option.option_id, localKey: option.option_id,
         platformId: option.platform_id, label: option.label, unitPrice: option.unit_price,
       })),
+      defaultPriceLabel: bundle.default_price_label ?? '',
       items:      toEditorRows(bundle.items, itemById, labelById, groupIds, true),
     }));
 
@@ -222,6 +230,7 @@ function toEditorRows(
           id: option.option_id, localKey: option.option_id,
           platformId: option.platform_id, label: option.label, unitPrice: option.unit_price,
         })),
+        defaultPriceLabel: item.default_price_label ?? '',
         ...(withLabel ? { label: (item as PackageRateSheetBundleItem).label ?? '' } : {}),
       };
     });
@@ -391,7 +400,7 @@ export function deleteEditorGroup(value: RateSheetEditorValue, groupId: string):
 export function patchRowIn(
   rows: readonly RateSheetEditorRow[],
   rowId: string,
-  patch: Partial<Pick<RateSheetEditorRow, 'unitPrice' | 'per' | 'quantity' | 'groupId' | 'priceOptions' | 'label'>>,
+  patch: Partial<Pick<RateSheetEditorRow, 'unitPrice' | 'per' | 'quantity' | 'groupId' | 'priceOptions' | 'label' | 'defaultPriceLabel'>>,
 ): RateSheetEditorRow[] {
   return rows.map((row) => (rowKey(row) === rowId ? { ...row, ...patch } : row));
 }
@@ -399,7 +408,7 @@ export function patchRowIn(
 export function patchEditorRow(
   value: RateSheetEditorValue,
   rowId: string,
-  patch: Partial<Pick<RateSheetEditorRow, 'unitPrice' | 'per' | 'quantity' | 'groupId' | 'priceOptions' | 'label'>>,
+  patch: Partial<Pick<RateSheetEditorRow, 'unitPrice' | 'per' | 'quantity' | 'groupId' | 'priceOptions' | 'label' | 'defaultPriceLabel'>>,
 ): RateSheetEditorValue {
   return { ...value, items: patchRowIn(value.items, rowId, patch) };
 }
@@ -441,6 +450,7 @@ export function addEditorRow(
     unitPrice: 0, per: DEFAULT_UNIT, quantity: 1, groupId: null, sourceAvailable: true,
     sourceServiceId: option.sourceServiceId, sourceServiceTitle: option.sourceServiceTitle,
     priceOptions: [],
+    defaultPriceLabel: '',
   };
   return { ...value, items: [...value.items, row] };
 }
@@ -494,6 +504,7 @@ export function addRowsIn(
       unitPrice: entry.unitPrice, per: entry.per, quantity: entry.quantity, groupId: entry.groupId, sourceAvailable: true,
       sourceServiceId: option.sourceServiceId, sourceServiceTitle: option.sourceServiceTitle,
       priceOptions: [],
+      defaultPriceLabel: '',
       ...(withLabel ? { label: entry.label ?? '' } : {}),
     });
   }
@@ -541,6 +552,7 @@ export function createEditorBundle(
     unitPrice: 0,
     per:       DEFAULT_UNIT,
     priceOptions: [],
+    defaultPriceLabel: '',
     items:    [],
   };
   return { value: { ...value, bundles: [...value.bundles, bundle] }, key: bundleKey(bundle) };
@@ -558,7 +570,7 @@ export function findEditorBundle(
 export function patchEditorBundle(
   value: RateSheetEditorValue,
   key: string,
-  patch: Partial<Pick<RateSheetEditorBundle, 'title' | 'status' | 'unitPrice' | 'per' | 'priceOptions'>>,
+  patch: Partial<Pick<RateSheetEditorBundle, 'title' | 'status' | 'unitPrice' | 'per' | 'priceOptions' | 'defaultPriceLabel'>>,
 ): RateSheetEditorValue {
   return {
     ...value,
@@ -777,6 +789,7 @@ function toStoredSheet(value: RateSheetEditorValue): PackageRateSheet {
       price_options: bundle.priceOptions.map((option) => ({
         option_id: option.id, label: option.label.trim(), unit_price: option.unitPrice,
       })),
+      default_price_label: bundle.defaultPriceLabel.trim(),
       items:      bundle.items.map((row, rowIndex) => ({
         ...toStoredRow(row, rowIndex),
         label: (row.label ?? '').trim(),
@@ -800,6 +813,9 @@ function toStoredRow(row: RateSheetEditorRow, index: number): PackageRateSheetIt
     price_options:  row.priceOptions.map((option) => ({
       option_id: option.id, label: option.label.trim(), unit_price: option.unitPrice,
     })),
+    // Naming the row's own price, not adding one: blank stores blank, which the
+    // reader shows as the built-in "Default Price".
+    default_price_label: row.defaultPriceLabel.trim(),
   };
 }
 

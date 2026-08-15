@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { defaultPriceLabel } from '../../rateSheetLabels';
 import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
 import type { InclusionItem } from '@/api/types/pools';
 
@@ -70,7 +71,7 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                 const value = event.currentTarget.value || null;
                 onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, price_option_id: value } : item));
               }}>
-              <option value="">Default Price · ${row.unit_price?.toFixed(2) ?? '—'}</option>
+              <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
               {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
             </select>
           )}

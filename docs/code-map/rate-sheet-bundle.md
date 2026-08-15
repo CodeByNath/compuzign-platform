@@ -80,7 +80,8 @@ One scope-aware controller and save engine — never a second editor — over a
 
 A Bundle's **own commercial price** is independent of what its rows sum to:
 Chef's Soup is $75 even if carrot + potato + chicken is $90. Same fields and
-Price Option shape as any priced row. Upstream, the Bundle **is** one row:
+Price Option shape as any priced row, `default_price_label`
+([Rate Sheet](rate-sheet.md)) included. Upstream, the Bundle **is** one row:
 
 ```text
 Service Inclusion → Rate Sheet → Rate Sheet Row

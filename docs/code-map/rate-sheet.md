@@ -10,17 +10,24 @@ against `(rate_sheet_id, item_id, option_id)` — never the row's own
 group deletion preserve it. New records bind at the existing Manager save
 boundary, guarded deletion tombstones the removed identity, and durable CLI
 selectors assign legacy records. Row removal tombstones only that row; sheet
-deletion orchestrates group, row, and sheet tombstones. Existing authoring and
-lifecycle remain unchanged.
+deletion orchestrates group, row, and sheet tombstones. Authoring and lifecycle
+are unchanged.
 
 ## Purpose and ownership
 
-Rate Sheets are Package Station supply/pricing configuration; Station Manager and Admin host presentation, owning no rules/data.
+Rate Sheets are Package Station supply/pricing configuration; Station Manager and Admin only host presentation.
 
-The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has a stable `rate_sheet_id`, title, status, groups, and explicit priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Totals are derived; Services and pools remain Service-owned.
+The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has a stable `rate_sheet_id`, title, status, groups, and explicit priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Totals derive; Services and pools stay Service-owned.
 
-A row's `per` uses the built-in plus curated unit vocabulary. Only curated
-units are stored, and unknown values fail closed.
+A row's `per` uses the built-in plus curated unit vocabulary; only curated units
+are stored, and unknown values fail closed.
+
+A row — and a Bundle, for its own price — may carry `default_price_label`: the
+display-only name of its existing `unit_price`, blank inheriting "Default Price"
+through `defaultPriceLabel()`
+([rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts)).
+No identity, no `price_options[]` entry; selection stays the absence of a
+`price_option_id`.
 
 ## Current implementation
 
@@ -33,32 +40,32 @@ units are stored, and unknown values fail closed.
 
 ### Rate Sheet authoring tool
 
-The Package-owned `rate-sheet` drawer mounts in Admin's generic shell and reuses the manager read/save contract, adding no endpoint or station. Edit uses `InlineEditorShell` for one save footer and dirty-cancel confirmation.
+The Package-owned `rate-sheet` drawer mounts in Admin's generic shell and reuses the manager read/save contract, adding no endpoint or station. Edit uses `InlineEditorShell`: one save footer, dirty-cancel confirmation.
 
-One collection controller and save engine serve distinct presentations. The legacy collection editor remains pool-only. A Settings row carries its already-loaded native key behind the visible `CZPRC`: View renders a compact summary without the row table or child identities; Edit renders the selected sheet's title/status, "+ Add Service", row table, and inline Group/Per dropdowns. `'new'` calls `createSheet()` once and mounts that same one-sheet editor. Curated Per rename updates every referencing row; built-in units stay immutable. Saves remain **partial upserts plus explicit `rate_sheet_deletions`**; omission never deletes.
+One collection controller and save engine serve distinct presentations; the legacy collection editor stays pool-only. A Settings row carries its already-loaded native key behind the visible `CZPRC`: View is a compact summary without the row table or child identities; Edit renders title/status, "+ Add Service", the row table, and inline Group/Per dropdowns. `'new'` calls `createSheet()` once into that same editor. Curated Per rename updates every referencing row; built-in units stay immutable. Saves remain **partial upserts plus explicit `rate_sheet_deletions`**; omission never deletes.
 
-"+ Add Service" (`RateSheetServiceImportPicker.tsx`) replaced "Add Source Service" + "Add Row" with one category/Service/inclusion browse that stages picks locally; Publish appends them as curated rows through `publishRows`, the same full-manager save every other mutation here uses.
+"+ Add Service" (`RateSheetServiceImportPicker.tsx`) browses category/Service/inclusion and stages picks locally; Publish appends them as curated rows through `publishRows` — the same full-manager save.
 
 - [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts) — pure read-model ⇄ editor ⇄ save-payload mapping; the backend mints blank ids. `addEditorRows` batch-appends staged rows.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts) — local-edit collection controller; Save batches through `savePackageStationManager`, Cancel reverts, `useHostService` supplies the host id, and the drawer's lock (`editingRowId`) governs Save/Remove/Delete.
 - [rateSheetParts.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/rateSheetParts.tsx) — the shared readable/editable group and grid presentation; mints nothing.
-- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) / [RateSheetServiceImportPicker.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetServiceImportPicker.tsx) — collection/focused presentation plus the "+ Add Service" engine; no endpoint, no minting. See [Drawer System](drawer-system.md).
+- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx) / [RateSheetServiceImportPicker.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetServiceImportPicker.tsx) — collection/focused presentation and the picker above; no endpoint, no minting. See [Drawer System](drawer-system.md).
 
-A sheet may additionally hold `bundles[]`, reusing this same controller, save
-engine, and grid through a scope seam: [Rate Sheet Bundle](rate-sheet-bundle.md).
+A sheet may also hold `bundles[]`, reusing this controller, save engine, and
+grid through a scope seam: [Rate Sheet Bundle](rate-sheet-bundle.md).
 
 ### Focused-Tier connection drawers
 
-The `tier-rate-sheet` and `tier-rate-sheet-group` keys scope this same tool to ONE focused Tier's connection, and have their own map: [Focused-Tier Rate Sheet Connections](tier-rate-sheet-connections.md).
+The `tier-rate-sheet` and `tier-rate-sheet-group` keys scope this same tool to ONE focused Tier's connection; own map: [Focused-Tier Rate Sheet Connections](tier-rate-sheet-connections.md).
 
 ## Backend and runtime flow
 
-- [PackageManagerSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageManagerSchema.php) owns shape: `sanitizeRateSheets` (read migration, no minting), `commitConfiguration` (partial upsert, explicit deletion/stale-drop, write-time minting), `buildReadModel`, and sheet-strict `projectTierRateSheet`. `PRIMARY_RATE_SHEET_ID`/`deriveRateItemId` centralise ids. `sanitizeRateSheetUnits` resolves the vocabulary **before** the sheets validated against it; an omitted `rate_sheet_units` key leaves the stored list alone, and a unit a surviving row still carries is kept even when the submitted list omits it.
+- [PackageManagerSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageManagerSchema.php) owns shape: `sanitizeRateSheets` (read migration, no minting), `commitConfiguration` (partial upsert, explicit deletion/stale-drop, write-time minting), `buildReadModel`, and sheet-strict `projectTierRateSheet`. `PRIMARY_RATE_SHEET_ID`/`deriveRateItemId` centralise ids. `sanitizeRateSheetUnits` resolves the vocabulary **before** the sheets validated against it; an omitted `rate_sheet_units` key leaves the stored list alone, and a unit a surviving row still carries survives an omitting submission.
 - [PackageStationSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageStationSchema.php) holds only `sanitizeSourceRelationships` and the pure `evaluateTierPricing`; it is **not** shape authority.
 - [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists the Package Station option; Cost Builder passes each Tier's `rate_sheet_id` into `projectTierRateSheet`.
 - [PricingBuilder.php](../../wp-content/plugins/compuzign-platform/src/Modules/CostBuilder/Services/PricingBuilder.php) consumes active Service and Package pricing for public Cost Builder projection.
 
-Tier selections resolve within their bound sheet and derive totals/readiness. Live provenance remains read-model data, never selection storage.
+Tier selections resolve within their bound sheet and derive totals/readiness. Live provenance stays read-model data, never selection storage.
 
 ## Related Code Maps
 

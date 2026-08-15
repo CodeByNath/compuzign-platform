@@ -348,6 +348,14 @@ export interface PackageRateSheetItem {
   group_id: string | null;
   sort_order: number;
   price_options: PackageRateSheetPriceOption[];
+  /**
+   * What this row's own `unit_price` is CALLED — admin display configuration
+   * only. Blank keeps the built-in "Default Price" name. It names nothing else:
+   * the Default Price is still selected by the absence of a `price_option_id`,
+   * carries no `option_id`/`platform_id` of its own, and is not a
+   * `price_options[]` entry.
+   */
+  default_price_label?: string;
 }
 
 export type PackageRateSheetStatus = 'active' | 'archived';
@@ -389,6 +397,9 @@ export interface PackageRateSheetBundle {
   unit_price: number;
   per: PackageRateSheetUnit;
   price_options: PackageRateSheetPriceOption[];
+  /** What the Bundle's own default price is called. See
+   *  `PackageRateSheetItem.default_price_label` — same display-only rule. */
+  default_price_label?: string;
   items: PackageRateSheetBundleItem[];
 }
 
@@ -702,6 +713,10 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   // can offer a Price Option selector without a second lookup. Empty for a
   // row with no options.
   price_options?: PackageRateSheetPriceOption[];
+  // What the row calls its Default Price, so the selector names it the way the
+  // Rate Sheet does. Display only — the selection itself is still the absence
+  // of a `price_option_id`.
+  default_price_label?: string;
 }
 
 export interface TierDrafts {

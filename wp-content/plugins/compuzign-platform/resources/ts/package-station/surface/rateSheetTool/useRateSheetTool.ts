@@ -139,6 +139,9 @@ export interface RateSheetToolController {
   // path as every other edit here.
   setBundleUnitPrice:   (key: string, unitPrice: number) => void;
   setBundlePer:         (key: string, per: PackageRateSheetUnit) => void;
+  /** What the Bundle's own default price is CALLED. Display configuration for
+   *  the price it already has — see `setRowDefaultPriceLabel`. */
+  setBundleDefaultPriceLabel: (key: string, label: string) => void;
   /** Adds a blank Price Option to the Bundle and returns its key. */
   addBundlePriceOption:       (key: string) => string;
   removeBundlePriceOption:    (key: string, optionKey: string) => void;
@@ -163,6 +166,11 @@ export interface RateSheetToolController {
    */
   publishRows:          (entries: readonly RateSheetRowEntry[]) => Promise<boolean>;
   setRowUnitPrice:      (rowId: string, unitPrice: number) => void;
+  /** What the row's own Default Price is CALLED — the admin's name for the
+   *  price the row already has. Blank restores the built-in "Default Price".
+   *  It creates no price option and changes no selection: a Tier still selects
+   *  this price by carrying no `price_option_id`. */
+  setRowDefaultPriceLabel: (rowId: string, label: string) => void;
   setRowPer:            (rowId: string, per: PackageRateSheetUnit) => void;
   /** A Bundle row's own display label. A sheet row carries none and never
    *  renders the cell — see `RateSheetEditorRow.label`. */
@@ -486,6 +494,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     setBundleStatus: (key, status) => editSelected((value) => patchEditorBundle(value, key, { status })),
     setBundleUnitPrice: (key, unitPrice) => editSelected((value) => patchEditorBundle(value, key, { unitPrice: Math.max(0, unitPrice) })),
     setBundlePer: (key, per) => editSelected((value) => patchEditorBundle(value, key, { per })),
+    setBundleDefaultPriceLabel: (key, label) => editSelected((value) => patchEditorBundle(value, key, { defaultPriceLabel: label })),
     addBundlePriceOption: (key) => {
       const option = newEditorPriceOption();
       editSelected((value) => {
@@ -555,6 +564,9 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       return persist(nextSheets, deletions, readModel.sources, units, true);
     },
     setRowUnitPrice: (rowId, unitPrice) => editRows((rows) => patchRowIn(rows, rowId, { unitPrice: Math.max(0, unitPrice) })),
+    // Naming the Default Price rides the exact same local-edit path repricing
+    // does — no option is created, no id is minted, nothing is re-addressed.
+    setRowDefaultPriceLabel: (rowId, label) => editRows((rows) => patchRowIn(rows, rowId, { defaultPriceLabel: label })),
     setRowPer: (rowId, per) => editRows((rows) => patchRowIn(rows, rowId, { per })),
     setRowQuantity: (rowId, quantity) => editRows((rows) => patchRowIn(rows, rowId, { quantity: Math.max(1, Math.trunc(quantity) || 1) })),
     setRowGroup: (rowId, groupId) => editRows((rows) => patchRowIn(rows, rowId, { groupId })),

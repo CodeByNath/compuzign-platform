@@ -30,7 +30,12 @@ reference. A Price Option is further-qualified by its own row —
 `rateSheetItem()` already use, with `option_id` minted write-path-only in
 `PackageManagerSchema::commitConfiguration` (never derived from its label);
 it has no dedicated `/admin/...` read route of its own yet, unlike Rate
-Sheet/Group/Item. A sheet may additionally hold `bundles[]` — Rate
+Sheet/Group/Item. A row (and a Bundle, for its own price) may also carry
+`default_price_label` — display-only naming of the `unit_price` it already
+has, sanitized and passed through by `sanitizeRateRows`/
+`sanitizeRateSheetBundles`/`bundleConsumableRow`. It is not a price option: no
+`option_id`, no Platform ID, no identity work of any kind, and selection is
+still the absence of a `price_option_id`. A sheet may additionally hold `bundles[]` — Rate
 Sheet-owned composition spaces holding COMPLETE Rate Sheet rows, each Bundle
 carrying `CZPRCB` against `(rate_sheet_id, bundle_id)`, each of its rows
 `CZPRCBI` against `(rate_sheet_id, bundle_id, item_id)`, and each of those

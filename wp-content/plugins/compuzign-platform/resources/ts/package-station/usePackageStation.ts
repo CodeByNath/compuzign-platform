@@ -247,6 +247,9 @@ export function usePackageStation(
         group_id: resolved && rateItem ? rateItem.group_id : null,
         line_total: unitPrice !== null ? unitPrice * selection.quantity : null,
         price_options: rateItem?.price_options,
+        // Display only — what the row calls the price this selection already
+        // uses when it carries no price_option_id.
+        default_price_label: rateItem?.default_price_label,
       };
     });
     dp.rate_sheet_selections = resolvedSelections;
