@@ -1,5 +1,5 @@
 import type { EntitySchema } from '@/drawer-kit/schema/types';
-import { tierSystemOverviewShell, tierRateSheetAccessShell } from '../bindings/tierSystem';
+import { tierSystemOverviewShell } from '../bindings/tierSystem';
 
 // The one Tier System manifest. Tier System registration is the pending/
 // new-record state of this SAME lifecycle, not a separate product workflow —
@@ -20,15 +20,13 @@ export const TIER_SYSTEM_ENTITY: EntitySchema = {
     statuses: ['draft', 'active', 'disabled', 'archived', 'trashed'],
   },
   shells: {
-    overview:            tierSystemOverviewShell,
-    'rate-sheet-access':  tierRateSheetAccessShell,
+    overview: tierSystemOverviewShell,
   },
   actions: {},
   placements: {
     drawer: {
       details: [
         { module: 'overview', mode: 'details' },
-        { module: 'rate-sheet-access', mode: 'details' },
       ],
       connections: [],
     },

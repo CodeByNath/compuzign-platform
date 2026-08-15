@@ -765,20 +765,20 @@ button.cz-station-status-pill {
   color: var(--station-status-inactive-fg);
 }
 
-/* Tier Overview's Customer Groups multi-select trigger + floating panel
-   (TierOverviewEditor.tsx). Domain-specific layout only — the trigger itself
+/* Tier Overview and Tier System Overview checkbox dropdown + floating panel.
+   Domain-specific layout only — the trigger itself
    reuses .cz-tf-control/.cz-tf-select and the options inside the panel are
    real AdminField checkboxes, so no control appearance is declared here.
    The panel positioning mirrors .cz-station-split__menu's own tokens. */
-.cz-tier-audience-groups {
+.cz-checkbox-dropdown {
   position: relative;
 }
 
-#tier-audience-groups-trigger {
+.cz-checkbox-dropdown .cz-tf-select {
   display: flex;
 }
 
-.cz-tier-audience-groups__panel {
+.cz-checkbox-dropdown__panel {
   position: absolute;
   top: calc(100% + var(--station-grid-gap));
   left: 0;

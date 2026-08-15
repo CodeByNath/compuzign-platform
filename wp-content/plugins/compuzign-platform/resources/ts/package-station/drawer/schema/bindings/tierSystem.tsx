@@ -8,17 +8,13 @@
 // Access is instance-level configuration and reads an honest "not available
 // yet" state before the Tier System has been published.
 
-import { tierSystemOverviewModule, tierRateSheetAccessModule } from '@/drawer-kit/utils/moduleNotifications';
+import { tierSystemOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { TextValue } from '@/drawer-kit/schema/elements/library';
 import type { PackageFamilyListItem } from '../../../types';
 import { TierSystemOverviewEditor } from '../../editors/TierSystemOverviewEditor';
 import type { TierSystemOverviewDraftFields } from '../../editors/TierSystemOverviewEditor';
-import { TierRateSheetAccessEditor } from '../../editors/TierRateSheetAccessEditor';
-import type {
-  TierRateSheetAccessDraft,
-  TierRateSheetAccessProjection,
-} from '../../../surface/tierInstance/tierRateSheetAccessModel';
+import type { PackageRateSheet } from '../../../types';
 
 const NOT_SET = 'Not set';
 
@@ -26,6 +22,7 @@ export interface TierSystemOverviewShellData {
   title:       string;
   description: string;
   familyLabel: string | null;
+  rateSheetLabel: string;
   /** Present only once the backend has minted it; never a placeholder id. */
   reference:   string | null;
   platformId:  string | null;
@@ -63,6 +60,10 @@ export const tierSystemOverviewShell: ShellSchema<TierSystemOverviewShellData> =
       }),
     },
     {
+      id: 'rate-sheets', element: 'text', label: 'Rate Sheets',
+      bind: (data): TextValue => ({ value: data.rateSheetLabel }),
+    },
+    {
       id: 'reference', element: 'text', label: 'Tier system ID',
       bind: (data): TextValue => ({
         value: data.reference ?? '',
@@ -85,59 +86,7 @@ export const tierSystemOverviewShell: ShellSchema<TierSystemOverviewShellData> =
         draft={session.draft as TierSystemOverviewDraftFields}
         onChange={(patch) => session.patch?.(patch)}
         selectable={(session.extras?.selectable ?? []) as PackageFamilyListItem[]}
-      />
-    ),
-  },
-};
-
-export interface TierRateSheetAccessShellData {
-  mode: string;
-  availability: string;
-  activeCount: number;
-  unresolvedCount: number;
-}
-
-const ACCESS_ACTIONS: Record<string, ShellActionSchema> = {
-  edit: { id: 'edit', label: 'Edit', intent: 'secondary' },
-};
-
-export const tierRateSheetAccessShell: ShellSchema<TierRateSheetAccessShellData> = {
-  archetype: 'overview',
-  dna: tierRateSheetAccessModule,
-  header: {
-    title: 'Rate Sheet Access',
-    subtitle: 'Rate Sheets this Tier system may make available to its Tier slots.',
-    icon: 'overview',
-    iconVariant: 'drawerModule__icon--overview',
-    scopeClass: 'drawerOverview tier',
-  },
-  content: [
-    {
-      id: 'mode', element: 'text', label: 'Access Mode',
-      bind: (data): TextValue => ({ value: data.mode }),
-    },
-    {
-      id: 'availability', element: 'text', label: 'Availability',
-      bind: (data): TextValue => ({ value: data.availability }),
-    },
-    {
-      id: 'active-count', element: 'text', label: 'Active Rate Sheets',
-      bind: (data): TextValue => ({ value: String(data.activeCount) }),
-    },
-    {
-      id: 'unresolved-count', element: 'text', label: 'Unresolved References',
-      when: (data) => data.unresolvedCount > 0,
-      bind: (data): TextValue => ({ value: String(data.unresolvedCount) }),
-    },
-  ],
-  footer: { actions: ['edit'] },
-  actions: ACCESS_ACTIONS,
-  editor: {
-    render: (session) => (
-      <TierRateSheetAccessEditor
-        draft={session.draft as TierRateSheetAccessDraft}
-        projection={session.extras?.projection as TierRateSheetAccessProjection}
-        onChange={(next) => session.replace(next)}
+        rateSheets={(session.extras?.rateSheets ?? []) as PackageRateSheet[]}
       />
     ),
   },

@@ -6,20 +6,33 @@
 // the fields the record itself carries.
 
 import type { PackageFamilyListItem } from '../../types';
+import type { PackageRateSheet } from '../../types';
+import { CheckboxDropdown } from './CheckboxDropdown';
 
 export interface TierSystemOverviewDraftFields {
   title:       string;
   description: string;
   familyId:    string | null;
+  allowedRateSheetIds: string[];
 }
 
 interface Props {
   draft:      TierSystemOverviewDraftFields;
   onChange:   (patch: Partial<TierSystemOverviewDraftFields>) => void;
   selectable: readonly PackageFamilyListItem[];
+  rateSheets: readonly PackageRateSheet[];
 }
 
-export function TierSystemOverviewEditor({ draft, onChange, selectable }: Props) {
+export function TierSystemOverviewEditor({ draft, onChange, selectable, rateSheets }: Props) {
+  const selected = new Set(draft.allowedRateSheetIds);
+  // The candidate pool is active sheets. Preserve any stored non-active id in
+  // the menu so an admin can explicitly remove it; never expose that raw id.
+  const candidates = rateSheets
+    .filter((sheet) => sheet.status === 'active' || selected.has(sheet.rate_sheet_id))
+    .map((sheet) => ({
+      value: sheet.rate_sheet_id,
+      label: `${sheet.title.trim() || 'Untitled Rate Sheet'}${sheet.status === 'active' ? '' : ' (unavailable)'}`,
+    }));
   return (
     <div class="cz-tf-form">
       <div class="cz-tf-field">
@@ -57,6 +70,14 @@ export function TierSystemOverviewEditor({ draft, onChange, selectable }: Props)
           separate assignment, not a field on the Tier system.
         </p>
       </div>
+      <CheckboxDropdown
+        id="tier-system-rate-sheets"
+        label="Rate Sheets"
+        options={candidates}
+        selected={draft.allowedRateSheetIds}
+        emptyLabel="No Rate Sheet selected"
+        onChange={(allowedRateSheetIds) => onChange({ allowedRateSheetIds })}
+      />
     </div>
   );
 }

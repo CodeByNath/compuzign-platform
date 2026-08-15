@@ -58,8 +58,8 @@ for (const host of [registrationHostSource, instanceSettingsHostSource]) {
   );
 }
 // Publish mints the instance inside this same mounted registration drawer, so
-// the pending host must carry the Rate Sheet inventory the Rate Sheet Access
-// module needs the moment that happens. It never re-mounts as the persisted
+// the pending host must carry the Rate Sheet inventory the Overview selector
+// needs the moment that happens. It never re-mounts as the persisted
 // host, so an inventory left to the persisted route alone is one this route
 // can never obtain.
 check(
@@ -72,7 +72,7 @@ check(
 // Fixed-slot occupant concerns (Basic/Standard/Premium/Enterprise/Ultimate)
 // never leak into the aggregate composition — only the whole-instance
 // allowed_rate_sheet_ids field, which belongs to this manifest's own Rate
-// Sheet Access module, is legitimate here.
+// Sheet selection field, is legitimate here.
 for (const forbidden of ['encodeTierSlotDrawerRecordId', 'saveTierFeatures', 'current_occupant', 'occupant_id']) {
   check(!tierSystemSource.includes(forbidden), `the Tier System composition performs no ${forbidden}`);
   check(!tierSystemController.includes(forbidden), `the Tier System controller performs no ${forbidden}`);
@@ -118,15 +118,14 @@ for (const [name, source] of [
     `${name} wears the drawer kit's mature composition`,
   );
 }
-// One manifest serves both states: a schema-placed overview module plus Rate
-// Sheet Access, with each module's own inline editor over it. Not a bespoke
-// form dropped into the drawer body, and not two separate manifests.
+// One manifest serves both states: the schema-placed Overview module owns the
+// Rate Sheet selector along with the other Tier System configuration fields.
 check(
   tierSystemSource.includes('EntityDrawer')
     && tierSystemSource.includes('TIER_SYSTEM_ENTITY')
     && tierSystemSource.includes("module: 'overview'")
-    && tierSystemSource.includes("'rate-sheet-access'"),
-  'the Tier System composition renders one manifest with placed overview and rate-sheet-access modules, not a bespoke form',
+    && !tierSystemSource.includes("'rate-sheet-access'"),
+  'the Tier System composition renders one Overview module, not a standalone Rate Sheet Access module',
 );
 check(
   !existsSync(resolve(root, 'resources/ts/package-station/drawer/schema/entities/tierRegistration.ts'))
@@ -180,18 +179,12 @@ function bodyBetween(source: string, startMarker: string, endMarker: string): st
   return start >= 0 && end > start ? source.slice(start, end) : '';
 }
 const saveOverviewBody = bodyBetween(tierSystemController, 'const saveOverviewDraft = useCallback', 'const cancelOverviewEdit');
-const saveRateSheetBody = bodyBetween(tierSystemController, 'const saveRateSheetDraft = useCallback', 'const cancelRateSheetEdit');
-for (const [name, body] of [
-  ['Overview', saveOverviewBody],
-  ['Rate Sheet Access', saveRateSheetBody],
-] as const) {
-  check(body.length > 0, `Inline Save for ${name} is defined where expected`);
-  check(
-    body.includes('setEditingModule(null)')
-      && !body.includes('createInstance') && !body.includes('updateInstance'),
-    `Inline Save on ${name} only closes the editor — no create or update call`,
-  );
-}
+check(saveOverviewBody.length > 0, 'Inline Save for Overview is defined where expected');
+check(
+  saveOverviewBody.includes('setEditingModule(null)')
+    && !saveOverviewBody.includes('createInstance') && !saveOverviewBody.includes('updateInstance'),
+  'Inline Save on Overview only closes the editor — no create or update call',
+);
 check(
   tierSystemController.includes('createInstance(') && tierSystemController.includes('const publish'),
   'createTierInstance is reachable only from the controller\'s publish() — the footer\'s authoritative write',

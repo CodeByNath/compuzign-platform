@@ -4,21 +4,21 @@
 
 ## Purpose and ownership
 
-Tier System registration is the **pending state** of the one Tier System lifecycle described in [Tiers](tiers.md), not a second Tier editor. `tier-register:[familyId]` resolves into the SAME `TierSystemContent` composition the persisted `tier-instance:{id}` route mounts, so Overview, Rate Sheet Access, footer, and identity transition are defined exactly once.
+Tier System registration is the **pending state** of the one Tier System lifecycle described in [Tiers](tiers.md), not a second Tier editor. `tier-register:[familyId]` resolves into the SAME `TierSystemContent` composition the persisted `tier-instance:{id}` route mounts, so Overview, footer, and identity transition are defined exactly once.
 
 A Tier system enters the pool with title, description, native ID, `CZTG`, and
-five empty slots. Registration fills no slot or Rate Sheet access.
+five empty slots. Its Overview owns explicit Rate Sheet selection through
+`allowed_rate_sheet_ids`; empty means no Rate Sheet selected.
 
 ## The address
 
 `tier-register:[familyId]` opens the `tier` drawer before any instance exists. Addressing no record, it is decoded before any identity is resolved and never falls through to the occupant fallback. Its optional segment carries only the Family the caller had in hand; an empty one means none was offered.
 
 Settings passes no Family; the unassigned workspace passes its current Family.
-Both hosts load Family choices AND the Rate Sheet inventory —
-`TierInstanceSettingsHost` through its instance-scoped `usePackageStation`,
-`TierRegistrationHost` through `useTierRateSheetInventory`, having no instance
-to read through. Publish makes this route persisted **in place**, so an
-inventory left to the settings host alone is one this route can never obtain.
+Both hosts load Family choices and Rate Sheet inventory —
+`TierInstanceSettingsHost` through `usePackageStation`, `TierRegistrationHost`
+through `useTierRateSheetInventory`. Publish persists this route **in place**,
+so it cannot rely on settings-only inventory.
 
 Each host mounts or refuses on its **collection read** alone. A rejected
 mutation reports inside the mounted composition, which still owns the retry and
@@ -44,15 +44,15 @@ reads its occupant-derived disabled storage fact as Pending presentation.
 - [TierRegistrationHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierRegistrationHost.tsx), [TierInstanceSettingsHost.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierSurface/TierInstanceSettingsHost.tsx) — the hosts above.
 - [useTierRateSheetInventory.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierRateSheetInventory.ts) reads that Manager-global inventory by host Service alone. Read only.
 - [useTierInstances.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/tierInstance/useTierInstances.ts) separates `loadError` (the collection read's failure, the only fatal one) from `error` (any failure, reported inline).
-- [TierSystemContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierSystemContent.tsx) opens readable either way: pending states what a system will be and carries its Pending pill; published, it reads back the stored record. Only Edit opens the editor.
-- [useTierSystemController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/useTierSystemController.ts) owns both modules' local drafts, the identity transition, Publish/Apply, guarded Delete, and assignment writes. Save commits a draft locally only. See [Lifecycle](lifecycle-system.md).
+- [TierSystemContent.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierSystemContent.tsx) opens readable either way: pending states what a system will be and carries its Pending pill; published, it reads back the stored record. Its one Overview editor owns title, description, Family, and Rate Sheet selection.
+- [useTierSystemController.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/useTierSystemController.ts) owns the Overview draft, identity transition, Publish/Apply, guarded Delete, and assignment writes. Save commits a draft locally only; Apply sends `allowed_rate_sheet_ids` with the Overview payload and skips Family mutation when unchanged. See [Lifecycle](lifecycle-system.md).
 - [TierSystemFooter.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/drawer/tier/TierSystemFooter.tsx) — Close+Publish pending, Close+Apply+guarded Delete persisted. Enable/Disable/Archive/Trash/Restore are withheld: `status` is derived, not settable.
 - [TierInstanceSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) stores `description`; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) mints the five-slot shell and owns the guarded permanent-delete endpoint.
 
 ## Invariants
 
 - One controller, one entity manifest, one footer model for both states.
-- One creation per publication. No slot is filled, no access granted, no second record minted.
+- One creation per publication. No slot is filled or second record minted.
 - A Family is linked through the assignment ledger, never written onto the instance; a smuggled `consumer_id` or `family_id` is dropped by the schema.
 - Only Families holding no Tier system are selectable. An absent description stores as empty.
 - The drawer continues in the same mounted composition after Publish — the pending identity is replaced by the returned `tier_instance_id` in local state, never by a routing change. No mutation rejection unmounts it, and a retry resumes the instance the prior attempt created rather than minting a second one.
