@@ -52,7 +52,6 @@ import type { RateSheetGroupId, RateSheetToolController } from '../../surface/ra
 import { bundleKey, bundleSuppliedContent, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
   RateSheetEditorBundle,
-  RateSheetEditorGroup,
   RateSheetEditorValue,
 } from '../../surface/rateSheetTool/rateSheetToolModel';
 import { RateSheetGridEditor } from './rateSheetParts';
@@ -62,7 +61,6 @@ import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
 const plural = (count: number, singular: string, pluralForm = `${singular}s`): string =>
   `${count} ${count === 1 ? singular : pluralForm}`;
 
-const money = (value: number): string => `$${value.toFixed(2)}`;
 
 // ── SECTION: drawer content ───────────────────────────────────────────────────
 
@@ -383,20 +381,36 @@ function RateSheetBundleSwitcher({
         </div>
       )}
 
-      {selectedBundle && <RateSheetBundleRead bundle={selectedBundle} groups={sheet.groups} onEdit={onEdit} />}
+      {selectedBundle && selectedBundleKey && (
+        <RateSheetBundleRead
+          bundle={selectedBundle}
+          onEdit={onEdit}
+          // The same removal the Bundle row's own Remove performs — one
+          // confirm, one full-manager save, through the one controller command.
+          onRemove={() => { void controller.removeRowImmediately(selectedBundleKey); }}
+        />
+      )}
     </div>
   );
 }
 
-/** The selected Bundle's readable module card — the same `ReadBlock` /
- *  `ModuleStatusPill` card the sheet's own Details module reads through, and
- *  the same one-row field set its inline editor edits. */
+/**
+ * The selected Bundle's readable module card — the same lean `ReadBlock` shape
+ * the sheet's own Details module reads through: what the record IS and how much
+ * it holds, never a field-by-field restatement of its row. A Bundle is a
+ * composition, not a single declaration, so its price, unit, quantity and group
+ * live where every other Rate Sheet row's do — in the row itself, inside the
+ * inline editor — not spelled out here.
+ *
+ * `Remove` rides the module's own action footer, the existing drawer-module
+ * action system. There is no removal button inside the editor.
+ */
 function RateSheetBundleRead({
-  bundle, groups, onEdit,
+  bundle, onEdit, onRemove,
 }: {
-  bundle: RateSheetEditorBundle;
-  groups: readonly RateSheetEditorGroup[];
-  onEdit: () => void;
+  bundle:   RateSheetEditorBundle;
+  onEdit:   () => void;
+  onRemove: () => void;
 }): VNode {
   const supplied = bundleSuppliedContent(bundle);
   return (
@@ -406,7 +420,10 @@ function RateSheetBundleRead({
       icon={<RateSheetIcon />}
       scopeClass="drawerOverview"
       status={bundle.status === 'archived' ? 'disabled' : 'active'}
-      actions={[{ id: 'edit', label: 'Edit', onSelect: onEdit }]}
+      actions={[
+        { id: 'edit', label: 'Edit', onSelect: onEdit },
+        { id: 'remove', label: 'Remove', onSelect: onRemove },
+      ]}
     >
       <div class="drawerModule__fields">
         <div class="drawerModule__field">
@@ -414,36 +431,14 @@ function RateSheetBundleRead({
           <p class="drawerModule__value">{bundle.title.trim() || 'Untitled Bundle'}</p>
         </div>
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Supplied content</p>
-          <p class="drawerModule__value">
-            {supplied.length > 0 ? supplied.join('; ') : 'Nothing compiled yet'}
-          </p>
-        </div>
-        <div class="drawerModule__field">
           <p class="drawerModule__label">Platform ID</p>
           <p class="drawerModule__value">{bundle.platformId || (bundle.id ? 'Not assigned' : 'Assigned after Save')}</p>
         </div>
         <div class="drawerModule__field">
-          <p class="drawerModule__label">Unit Price</p>
+          <p class="drawerModule__label">Supplied content</p>
           <p class="drawerModule__value">
-            {money(bundle.unitPrice)}
-            {bundle.priceOptions.length > 0
-              ? ` · ${plural(bundle.priceOptions.length, 'Price Option')}: ${bundle.priceOptions.map((option) => option.label.trim() || 'Untitled option').join(', ')}`
-              : ''}
-          </p>
-        </div>
-        <div class="drawerModule__field">
-          <p class="drawerModule__label">Per</p>
-          <p class="drawerModule__value">{bundle.per}</p>
-        </div>
-        <div class="drawerModule__field">
-          <p class="drawerModule__label">Qty</p>
-          <p class="drawerModule__value">{bundle.quantity}</p>
-        </div>
-        <div class="drawerModule__field">
-          <p class="drawerModule__label">Group</p>
-          <p class="drawerModule__value">
-            {groups.find((group) => group.id === bundle.groupId)?.label ?? 'Ungrouped'}
+            {supplied.length}
+            {supplied.length > 0 ? ` · ${supplied.join('; ')}` : ''}
           </p>
         </div>
       </div>

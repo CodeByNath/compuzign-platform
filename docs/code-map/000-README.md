@@ -29,6 +29,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Service Connections](service-connections.md)
 - [Rate Sheet](rate-sheet.md)
 - [Rate Sheet Bundle](rate-sheet-bundle.md)
+- [Rate Sheet Bundle Authoring](rate-sheet-bundle-authoring.md)
 - [Focused-Tier Rate Sheet Connections](tier-rate-sheet-connections.md)
 - [Tiers](tiers.md)
 - [Tier Occupant Lifecycle](tier-occupant-lifecycle-repair.md)

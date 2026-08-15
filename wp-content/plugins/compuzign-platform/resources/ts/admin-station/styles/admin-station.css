@@ -1323,6 +1323,22 @@ button.cz-station-status-pill {
   min-width: 0;
 }
 
+/* Scoped to the Service Station home's lower deck ONLY — its Details,
+   Connections (the Category list) and Settings lanes, every one of which mounts
+   inside `.cz-service-deck__panel`. Binding to that panel rather than to the
+   identity cell alone is deliberate: the cell class is Service-owned, but the
+   `cz-station-list__*` system it rides is SHARED, so an unscoped rule here
+   would be one selector away from reaching the Tier deck's own rows. One
+   container, one boundary, greppable in one place.
+
+   NOTE: `.cz-station-list__row` is `display: grid`, so this cell is a grid
+   item and CSS blockifies its `display` — `inline-flex` computes to `flex`,
+   which the base rule above already sets. Shrink-wrapping the cell inside its
+   track is `justify-self: start`, not this. */
+.cz-service-deck__panel .cz-station-list__cell.cz-service-deck__identity {
+  display: inline-flex;
+}
+
 .cz-service-deck__identity-icon {
   display: grid;
   place-items: center;
@@ -3303,22 +3319,32 @@ button.cz-station-status-pill {
   justify-content: flex-end;
 }
 
-/* The Bundle engine's Source column: the [Services] [Rate Sheets] toggle, in the
-   same chip grammar the columns below it already use. */
-.cz-rate-sheet-tool__import-source-toggle {
+/* The Rate Sheet source browse is two columns, not three — the caller's own
+   trigger already chose the source, so nothing here browses a catalogue the
+   admin did not ask for. */
+.cz-rate-sheet-tool__import-columns--pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .cz-rate-sheet-tool__import-columns--pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The running basket: full width BENEATH the browse columns, so the selection
+   has room to read instead of being squeezed into a third column beside two
+   scrolling lists. */
+.cz-rate-sheet-tool__import-basket {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--station-border);
 }
 
-/* A shorter chip list, so the Source column can stack two browse levels
-   (categories then services) without the column outgrowing its siblings. */
-.cz-rate-sheet-tool__import-chip-list--short {
-  max-height: 132px;
-}
-
-/* One origin heading plus its chips, inside the Available/Selected columns —
-   what keeps rows from several Services or Rate Sheets legible in one list. */
+/* One origin heading plus its chips — what keeps rows from several Rate Sheets
+   legible in one list. */
 .cz-rate-sheet-tool__import-group {
   display: flex;
   flex-direction: column;
@@ -3339,11 +3365,13 @@ button.cz-station-status-pill {
   gap: 6px;
 }
 
-/* A Bundle row's Supplied content cell: the read-only list of what the
-   combination compiles. Each component was declared on its own Rate Sheet, so
-   only the removal control is interactive here. */
-.cz-rate-sheet-tool__cell-supplied {
-  min-width: 220px;
+/* The Bundle editor's Supplied content block, beneath its one row: the
+   read-only list of what the combination compiles. Each entry was declared on
+   the Rate Sheet it came from, so only the removal control is interactive. */
+.cz-rate-sheet-tool__supplied {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .cz-rate-sheet-tool__supplied-list {

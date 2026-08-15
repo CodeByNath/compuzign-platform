@@ -274,7 +274,7 @@ export function RateSheetGridRead({
  * that default and never pass it.
  */
 export function RateSheetGridEditor({
-  rows, groups, units, commands, allowRemove = true, lockCommands,
+  rows, groups, units, commands, allowRemove = true, lockCommands, nameLabel = 'Supplied content',
 }: {
   rows:     readonly RateSheetEditorRow[];
   groups:   readonly RateSheetEditorGroup[];
@@ -282,13 +282,18 @@ export function RateSheetGridEditor({
   commands: RateSheetRowCommands;
   allowRemove?: boolean;
   lockCommands?: RateSheetRowLockCommands;
+  /** What the first column is CALLED. Additive and defaulted, so every existing
+   *  caller keeps `Supplied content` byte-for-byte; the Bundle editor names it
+   *  `Product Bundle`, because for that row the first cell is the combination's
+   *  own name. Presentation only — no cell, command or lock changes. */
+  nameLabel?: string;
 }): VNode {
   return (
     <div class="cz-rate-sheet-tool__grid-wrap">
       <table class="cz-rate-sheet-tool__grid">
         <thead>
           <tr>
-            <th scope="col">Supplied content</th>
+            <th scope="col">{nameLabel}</th>
             <th scope="col">Unit Price</th>
             <th scope="col">Per</th>
             <th scope="col">Qty</th>

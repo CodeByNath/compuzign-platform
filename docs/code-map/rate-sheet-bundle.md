@@ -47,39 +47,7 @@ yet, as with Price Option.
 
 ## Authoring
 
-One scope-aware controller and save engine — never a second editor — over a
-**drawer group screen**: `Details` (the sheet), `Options` (its Bundles), no Bin.
-
-- [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts)
-  — `RateSheetEditorBundle`, Bundle CRUD, `bundleSuppliedContent()`, and the row
-  transforms written once against a row list.
-- [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts)
-  — owns `groupTab`, `groupView`, `selectedBundleKey`; no refetch resets them.
-  The active group decides row scope (`scopedBundleKey`), so the one
-  `editRows`/`withScopedRows` seam reaches a Bundle only under `Options`.
-- [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx)
-  — `FocusedRateSheetGroups` over `DrawerGroupTabs`/`DrawerGroupAccordion`; the
-  view toggle and `+ Bundle` (`Options` only) ride the nav's `trailing` slot.
-  `RateSheetBundleSwitcher` is `Options`' content: `ChildChipStrip`, empty
-  state, the selected Bundle's readable card (`RateSheetBundleRead`, the same
-  field set the editor edits), whose Edit alone opens `InlineEditorShell`.
-- [RateSheetBundleWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleWorkspace.tsx)
-  — the Bundle inline editor: **ONE Rate Sheet row**, same grid shell as the
-  sheet's own — `| Product Bundle | Supplied content | Unit Price | Per | Qty |
-  Group |`. `Product Bundle` (the name) is the one cell an ordinary row lacks.
-  `Supplied content` is READ-ONLY: each component was declared on the Rate Sheet
-  it came from, so it is listed, never re-declared — removal stays available,
-  read-only being about a component's DEFINITION. The rest is the ordinary row
-  system. No per-component grid, no row lock; the editor's Save is the one
-  persistence path.
-- [RateSheetBundleImportPicker.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleImportPicker.tsx)
-  — the ONE import engine, 3 columns: **Source** (`Services` | `Rate Sheets`
-  toggle plus that source's browse tree — Category → Service, or the sheet
-  list), **Available rows** (grouped by origin), **Selected rows** (the basket
-  across BOTH sources). `Import` adds through `controller.publishRows`, the one
-  existing save. It replaced the Bundle's separate `+ Add Service` /
-  `Import from Rate Sheets` buttons and their staging table: an import produces
-  supplied CONTENT; the terms are the Bundle row's own. Composing copies.
+The admin surface is its own map: [Rate Sheet Bundle Authoring](rate-sheet-bundle-authoring.md).
 
 ## Bundle pricing and consumption
 

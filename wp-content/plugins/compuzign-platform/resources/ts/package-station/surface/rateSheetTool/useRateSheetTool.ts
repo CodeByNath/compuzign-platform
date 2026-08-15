@@ -25,6 +25,7 @@ import {
   addPriceOptionIn,
   addRowsIn,
   buildManagerSavePayload,
+  bundleAsEditorRow,
   bundleKey,
   connectSourceServices,
   connectedServiceIds,
@@ -122,6 +123,10 @@ export interface RateSheetToolController {
    *  Options lands back on the Bundle the admin left. */
   selectedBundleKey:    string | null;
   selectedBundle:       RateSheetEditorBundle | null;
+  /** The selected Bundle projected as the ONE Rate Sheet row it is, so the
+   *  shared `RateSheetGridEditor` and the shared row lock render it with no
+   *  second editor. Keyed exactly as `selectedBundleKey`. */
+  selectedBundleRow:    RateSheetEditorRow | null;
   /** The rows every row command below addresses: the selected Bundle's rows,
    *  or — with no Bundle selected — the sheet's own. */
   activeRows:           readonly RateSheetEditorRow[];
@@ -253,6 +258,12 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   // it instead of reverting it.
   const [editingRowId, setEditingRowId]             = useState<string | null>(null);
   const [editingRowSnapshot, setEditingRowSnapshot] = useState<RateSheetEditorRow | null>(null);
+  // The SAME lock, when the row it holds is a Bundle's own row rather than one
+  // of a sheet's. Only the Cancel-revert differs (a Bundle is patched through
+  // `patchEditorBundle`, not through a row list), so this is one extra
+  // snapshot, never a second lock: `editingRowId` still holds the one key, and
+  // a Bundle row and a sheet row can never be unlocked together.
+  const [editingBundleSnapshot, setEditingBundleSnapshot] = useState<RateSheetEditorBundle | null>(null);
 
   const [catalog, setCatalog]             = useState<ServiceSummary[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -416,6 +427,10 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     () => (selected === null ? null : findEditorBundle(selected, scopedBundleKey)),
     [selected, scopedBundleKey],
   );
+  const selectedBundleRow = useMemo(
+    () => (selectedBundle === null ? null : bundleAsEditorRow(selectedBundle)),
+    [selectedBundle],
+  );
   /** The rows currently in scope — the selected Bundle's, or the sheet's own. */
   const activeRows = useMemo<readonly RateSheetEditorRow[]>(
     () => selectedBundle?.items ?? selected?.items ?? [],
@@ -485,6 +500,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     bundles: selected?.bundles ?? [],
     selectedBundleKey: scopedBundleKey,
     selectedBundle,
+    selectedBundleRow,
     activeRows,
     bundleSources,
     selectBundle: (key) => setSelectedBundleKey(key),
@@ -637,16 +653,50 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       // one lock for the whole drawer, not one per scope — a Bundle row and a
       // sheet row can never be open together.
       if (editingRowId !== null) return;
+      // The Bundle's own row resolves first: under Options it is the row the
+      // grid renders, and its key is `selectedBundleKey`.
+      if (selectedBundle !== null && selectedBundleRow !== null && rowKey(selectedBundleRow) === rowId) {
+        setEditingRowId(rowId);
+        setEditingRowSnapshot(selectedBundleRow);
+        setEditingBundleSnapshot(selectedBundle);
+        setSaveError(null);
+        return;
+      }
       const row = activeRows.find((item) => rowKey(item) === rowId) ?? null;
       if (!row) return;
       setEditingRowId(rowId);
       setEditingRowSnapshot(row);
+      setEditingBundleSnapshot(null);
       setSaveError(null);
     },
     cancelRowEdit: () => {
       if (editingRowId === null) return;
       const targetId = editingRowId;
       const snapshot = editingRowSnapshot;
+      // A Bundle row reverts through the Bundle it projects. An unsaved Bundle
+      // is discarded outright, exactly as an unsaved sheet row is: it
+      // represents nothing committed.
+      if (editingBundleSnapshot !== null) {
+        const restore = editingBundleSnapshot;
+        editSelected((value) => (restore.id === ''
+          ? deleteEditorBundle(value, targetId)
+          : patchEditorBundle(value, targetId, {
+            title:             restore.title,
+            status:            restore.status,
+            unitPrice:         restore.unitPrice,
+            per:               restore.per,
+            quantity:          restore.quantity,
+            groupId:           restore.groupId,
+            priceOptions:      restore.priceOptions,
+            defaultPriceLabel: restore.defaultPriceLabel,
+          })));
+        if (restore.id === '') setSelectedBundleKey(null);
+        setEditingRowId(null);
+        setEditingRowSnapshot(null);
+        setEditingBundleSnapshot(null);
+        setSaveError(null);
+        return;
+      }
       if (snapshot && snapshot.id !== '') {
         // Existing row: restore its last-saved values. This is a local revert
         // only — no API call — matching every other Cancel in this drawer.
@@ -666,12 +716,18 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       }
       setEditingRowId(null);
       setEditingRowSnapshot(null);
+      setEditingBundleSnapshot(null);
       setSaveError(null);
     },
     saveActiveRow: async () => {
       if (editingRowId === null || readModel == null) return;
-      // Validate: the active row must still exist in the current draft.
-      const activeRow = activeRows.find((item) => rowKey(item) === editingRowId) ?? null;
+      // Validate: the active row must still exist in the current draft — the
+      // Bundle's own row counts, since that is what the grid renders under
+      // Options.
+      const bundleRowActive = selectedBundleRow !== null && rowKey(selectedBundleRow) === editingRowId;
+      const activeRow = bundleRowActive
+        ? selectedBundleRow
+        : activeRows.find((item) => rowKey(item) === editingRowId) ?? null;
       if (!activeRow) return;
       // Persist through the SAME full-manager save the footer uses — no
       // row-scoped endpoint. `preserveSelection` re-resolves the current
@@ -683,6 +739,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
         // ran inside `persist`); locking just means "no row is active".
         setEditingRowId(null);
         setEditingRowSnapshot(null);
+        setEditingBundleSnapshot(null);
       }
       // On failure `saveError` is already set by `persist`, and `sheets` was
       // left untouched, so the row stays editable with its draft intact.
@@ -691,6 +748,23 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       if (readModel == null || selectedKey == null) return;
       // Only one mutating row action at a time — the same lock Edit obeys.
       if (editingRowId !== null && editingRowId !== rowId) return;
+      // Removing the Bundle's own row removes the Bundle — it IS that row.
+      // Same confirm, same one full-manager save, same lock release; the
+      // Rate Sheet's own rows are untouched.
+      if (selectedBundleRow !== null && rowKey(selectedBundleRow) === rowId) {
+        if (!window.confirm('Remove this Bundle? This saves immediately and cannot be undone from here. The Rate Sheet’s own rows are not affected.')) return;
+        const nextSheets = sheets.map((sheet) => (sheet.key === selectedKey
+          ? { ...deleteEditorBundle(sheet, rowId), key: sheet.key }
+          : sheet));
+        const removed = await persist(nextSheets, deletions, readModel.sources, units, true);
+        if (removed) {
+          setSelectedBundleKey(null);
+          setEditingRowId(null);
+          setEditingRowSnapshot(null);
+          setEditingBundleSnapshot(null);
+        }
+        return;
+      }
       if (!window.confirm('Remove this row? This saves immediately and cannot be undone from here.')) return;
       // Compute the post-removal sheets locally rather than relying on
       // `removeRow` + the shared `sheets` state: that setState is async, so a
@@ -712,7 +786,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     hostServiceId, list, selected, selectedKey, selectedBundle, selectedBundleKey, scopedBundleKey,
     groupTab, groupView, activeRows, bundleSources,
     readModel, sheets, deletions, units, dirty, saving, saveError,
-    editingRowId, editingRowSnapshot,
+    editingRowId, editingRowSnapshot, editingBundleSnapshot, selectedBundleRow,
     catalog, catalogLoading, catalogError, loadCatalog,
     editSelected, editRows, withScopedRows, persist, applyReadModel,
   ]);

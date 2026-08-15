@@ -622,6 +622,46 @@ export function bundleSuppliedContent(bundle: RateSheetEditorBundle): string[] {
 }
 
 /**
+ * The Bundle AS the single Rate Sheet row it is — so the standalone drawer's
+ * own `RateSheetGridEditor`, its one-row-at-a-time Edit/Save/Cancel/Remove
+ * lock, and its Price Options tab strip render a Bundle with NO new editor,
+ * no second grid, and no bespoke cell.
+ *
+ * `label` carries the Bundle's own name, which is what makes the grid render
+ * its editable-name cell (`Product Bundle`); `optionLabel` carries the supplied
+ * content it compiles, which that same cell already shows beneath the name.
+ *
+ * The key is deliberately `bundleKey()`'s: `optionId` is the Bundle's session-
+ * local key, so `rowKey()` yields the stored `bundle_id` once saved and
+ * `new:<localKey>` before then — the exact address every Bundle command
+ * already takes, so the shared lock needs no second addressing scheme.
+ */
+export function bundleAsEditorRow(bundle: RateSheetEditorBundle): RateSheetEditorRow {
+  const supplied = bundleSuppliedContent(bundle);
+  return {
+    id:              bundle.id,
+    platformId:      bundle.platformId,
+    optionId:        bundle.localKey,
+    // Never blank: the shared cell renders this beneath the name AND builds
+    // every field's accessible name from it, so an empty combination would
+    // otherwise produce "Unit price for ".
+    optionLabel:     supplied.length > 0 ? supplied.join('; ') : 'No supplied content yet',
+    unitPrice:       bundle.unitPrice,
+    per:             bundle.per,
+    quantity:        bundle.quantity,
+    groupId:         bundle.groupId,
+    // A combination is not supplied by a Manager source, so nothing about it
+    // can go missing the way a sourced row can.
+    sourceAvailable: true,
+    sourceServiceId:    null,
+    sourceServiceTitle: null,
+    priceOptions:       bundle.priceOptions,
+    defaultPriceLabel:  bundle.defaultPriceLabel,
+    label:              bundle.title,
+  };
+}
+
+/**
  * What the Bundle engine browses: every Rate Sheet in the collection and the
  * rows it prices. Unlike the "+ Add Service" picker — which browses SERVICES
  * and their supplied content — this browses the Rate Sheets themselves, so a
