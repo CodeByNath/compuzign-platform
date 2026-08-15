@@ -286,6 +286,7 @@ check_bundle(
 check_bundle($savedBundle['items'][1]['label'] === '', 'a Bundle row that inherits its label stores a blank one, never a copied string');
 
 $mintedBundleId = (string) $savedBundle['bundle_id'];
+$compiledItemId = PackageManagerSchema::deriveBundleRowId($mintedBundleId);
 $bundleReference = PackagePlatformNativeReference::rateSheetBundle('rs_live', $mintedBundleId);
 $bundleRecord = $rsbOptions['cz_platform_identifier_v1_' . $savedBundle['platform_id']];
 check_bundle($bundleRecord['status'] === PlatformIdentifierStation::STATUS_BOUND, 'the Bundle registry record is bound, not merely reserved');
@@ -316,11 +317,23 @@ check_bundle(
 
 $reSubmit = $stripPlatformIds($savedSheet);
 $reSubmit['bundles'][0]['title'] = 'Digital Banking Website v2';
+$reSubmit['bundles'][0]['unit_price'] = 77;
+$reSubmit['bundles'][0]['quantity'] = 4;
 $response2 = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$reSubmit])));
-$savedBundle2 = $response2->get_data()['manager']['rate_sheets'][0]['bundles'][0];
+$savedSheet2 = $response2->get_data()['manager']['rate_sheets'][0];
+$savedBundle2 = $savedSheet2['bundles'][0];
 check_bundle($savedBundle2['bundle_id'] === $mintedBundleId, 're-saving a Bundle keeps its native id');
 check_bundle($savedBundle2['platform_id'] === $savedBundle['platform_id'], 'renaming a Bundle never re-mints its Platform ID');
 check_bundle($savedBundle2['items'][0]['platform_id'] === $savedBundle['items'][0]['platform_id'], "its rows' identities are equally stable");
+check_bundle($savedBundle2['items'][0]['price_options'][0]['platform_id'] === $savedBundle['items'][0]['price_options'][0]['platform_id'], "its rows' Price Option identities are equally stable");
+check_bundle(
+    count(array_filter($savedSheet2['items'], static fn(array $row): bool => ($row['item_id'] ?? '') === $compiledItemId)) === 1,
+    're-publish produces exactly one compiled Bundle row, never a saved-source duplicate'
+);
+check_bundle(
+    $compiledItemId === PackageManagerSchema::deriveBundleRowId($savedBundle2['bundle_id']),
+    'name, price, and quantity changes leave the compiled item_id unchanged'
+);
 
 $withoutBundle = $stripPlatformIds($response2->get_data()['manager']['rate_sheets'][0]);
 $withoutBundle['bundles'] = [];
@@ -394,6 +407,12 @@ check_bundle(in_array($soupRow, $offered, true), 'the Bundle is offered upstream
 check_bundle(!in_array($ingredient, $offered, true), 'its component rows are ingredients, not separately chargeable rows');
 check_bundle(count($offered) === 2, 'so one sheet row plus one Bundle row is all that is offered', json_encode($offered));
 check_bundle(str_starts_with($soupRow, 'rate_'), "the Bundle's row id is an ordinary Rate Sheet row id");
+$compiledSoup = array_values(array_filter(
+    $readModel['rate_sheets'][0]['items'],
+    static fn(array $row): bool => ($row['item_id'] ?? '') === $soupRow
+))[0];
+check_bundle(!array_key_exists('self_priced', $compiledSoup), 'the published row carries no Bundle-origin pricing switch');
+check_bundle($compiledSoup['source_item_id'] === '', 'the empty source_item_id remains only as the authoring round-trip guard');
 
 // The Bundle's own commercial price — deliberately NOT the sum of its rows.
 $soup = PackageManagerSchema::projectTierRateSheetWith(
@@ -419,6 +438,13 @@ $both = PackageManagerSchema::projectTierRateSheetWith($readModel, [
     ['item_id' => $soupRow, 'quantity' => 1],
 ], 'rs_tier');
 check_bundle($both['price'] === 175.0, 'selecting both charges the row plus the Bundle price, never the ingredients twice', $both['price']);
+
+$edition = PackageManagerSchema::projectEditionPrices($readModel, [[
+    'edition_id' => 'edition_bundle',
+    'rate_sheet_id' => 'rs_tier',
+    'rate_sheet_items' => [['item_id' => $soupRow, 'quantity' => 1]],
+]]);
+check_bundle($edition[0]['price'] === 75.0, 'Edition pricing consumes the same compiled row through the shared projector');
 
 // The Bundle's own Price Options behave like any row's.
 $soupAnnual = PackageManagerSchema::projectTierRateSheetWith(

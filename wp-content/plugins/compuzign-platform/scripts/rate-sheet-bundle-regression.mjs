@@ -636,12 +636,14 @@ await settle();
 // ── E) The Bundle's row is in `items`, and the Tool ignores it ───────────
 console.log("\nE) The Bundle's upstream row rides the ordinary items list");
 // The fixture backend now answers reads the way buildReadModel does: the
-// sheet's own rows plus one self-priced row per Bundle, all in `items`.
+// sheet's own rows plus one compiled row per Bundle, all in `items`.
 server.manager.rate_sheets[0].items = [
   ...server.manager.rate_sheets[0].items,
   {
     item_id: 'rate_bundle_offer', platform_id: 'CZPRCB22223', source_item_id: '',
-    self_priced: true, label: 'Digital Banking Website', unit_price: 75, per: 'Per item',
+    label: 'Digital Banking Website', resolved_label: 'Digital Banking Website',
+    connection_resolved: true, available: true, operational_state: 'connected_available', health_reasons: [],
+    unit_price: 75, per: 'Per item',
     quantity: 1, group_id: null, sort_order: 9, price_options: [], includes: [],
   },
 ];

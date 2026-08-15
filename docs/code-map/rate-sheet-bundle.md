@@ -66,20 +66,26 @@ Service Inclusion → Rate Sheet → Rate Sheet Row
 one row per active Bundle (`bundleConsumableRow()`) — id
 `deriveBundleRowId($bundleId)` in the ordinary `rate_` grammar, the Bundle's
 price, Price Options, quantity and group in the ordinary positions,
-`includes[]` for presentation only. `buildReadModel` puts it straight into the
-sheet's own **`items`**, so no consumer changes. The Tool cannot round-trip it:
-it carries no `source_item_id`, which `toEditorRows()`/`sanitizeRateRows()`
-already drop a row for.
+`includes[]` for presentation only, and the same resolved label, availability,
+operational state, and health facts carried by every offered row.
+`buildReadModel` resolves ordinary source-backed rows at this same compilation
+boundary and puts all offered rows straight into the sheet's own **`items`**.
+The Tool cannot round-trip the compiled Bundle row: it carries no
+`source_item_id`, which `toEditorRows()`/`sanitizeRateRows()` already drop a row
+for. That empty field is an authoring guard, not a consumer-resolution signal.
 
 Components are **ingredients, not separately chargeable rows**: absent from that
 offer, so selecting the Bundle charges $75 once, never its parts too.
 
-**No consumer learns that Bundles exist.** Tier storage and selection stay
-`{ item_id, quantity, price_option_id? }` — no Bundle-shaped storage, addressing,
-dedup, or pricing path. A Bundle row resolves through
-`projectTierRateSheetWith()` and the one `evaluateTierPricing` engine like any
-row; its one difference, `self_priced`, is read inside the Rate Sheet projector
-and means only that a combination stands behind it.
+**No consumer learns that Bundles exist.** Bundle is special during authoring;
+`consumableRateSheetRows()` plus read-model row resolution is the compilation
+boundary. After it, the published representation participates in the normal
+Rate Sheet row contract. Tier storage and selection stay
+`{ item_id, quantity, price_option_id? }` — no Bundle-shaped storage,
+addressing, dedup, or pricing path. `projectTierRateSheetWith()` consumes the
+compiled resolution/availability fields uniformly and sends every admitted row
+through the one `evaluateTierPricing` engine; it contains no Bundle-origin
+switch.
 
 A component's id is `deriveBundleRateItemId($bundleId, $sourceItemId)`, unique
 within its sheet. A stored id is never recomputed — only a Tool-curated blank

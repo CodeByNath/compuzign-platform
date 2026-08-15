@@ -330,12 +330,6 @@ export interface PackageRateSheetPriceOption {
 
 export interface PackageRateSheetItem {
   item_id: string;
-  /**
-   * Set only on the single row a Bundle offers upstream: it stands behind
-   * itself rather than behind supplied content. Read inside the Rate Sheet's
-   * own projection; consumers read this row like any other priced row.
-   */
-  self_priced?: boolean;
   /** A row's own display name, when it has one. */
   label?: string;
   /** Present on a Bundle's row — its ingredients, for presentation only. */

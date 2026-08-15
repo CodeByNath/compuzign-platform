@@ -397,11 +397,10 @@ final class PackageManagerSchema
     /**
      * One Bundle as the single priced row it presents upstream.
      *
-     * `self_priced` marks the one thing that differs from a row backed by
-     * supplied content: it draws its label and availability from itself rather
-     * than from a Manager source, because a combination is not itself a Service
-     * inclusion. Everything a consumer reads — id, price, unit, Price Options —
-     * is in the ordinary row positions.
+     * A Bundle row carries its own label and resolved operational facts because
+     * no Manager source stands behind the combination. The empty
+     * `source_item_id` remains solely an authoring guard: shared consumers read
+     * the same compiled row contract as they do for every other offered row.
      */
     private static function bundleConsumableRow(array $bundle, string $bundleId): array
     {
@@ -425,8 +424,14 @@ final class PackageManagerSchema
             'cz_platform_id' => (string) ($bundle['cz_platform_id'] ?? ($bundle['platform_id'] ?? '')),
             // No supplied content stands behind a combination.
             'source_item_id' => '',
-            'self_priced'    => true,
             'label'          => (string) ($bundle['title'] ?? ''),
+            'resolved_label' => (string) ($bundle['title'] ?? ''),
+            'source_type'    => null,
+            'source_id'      => null,
+            'connection_resolved' => true,
+            'available'      => true,
+            'operational_state' => 'connected_available',
+            'health_reasons' => [],
             'unit_price'     => (float) ($bundle['unit_price'] ?? 0),
             'per'            => (string) ($bundle['per'] ?? ''),
             // The Bundle's OWN quantity and group, in the ordinary row
@@ -1483,7 +1488,7 @@ final class PackageManagerSchema
             ),
             'items'             => $outItems,
             'rate_sheets'       => array_map(
-                static function (array $sheet): array {
+                static function (array $sheet) use ($outItems): array {
                     $sheet['platform_id'] = (string) ($sheet['cz_platform_id'] ?? '');
                     unset($sheet['cz_platform_id']);
                     $sheet['groups'] = array_map(static function (array $group): array {
@@ -1491,7 +1496,11 @@ final class PackageManagerSchema
                         unset($group['cz_platform_id']);
                         return $group;
                     }, is_array($sheet['groups'] ?? null) ? $sheet['groups'] : []);
-                    $projectRow = static function (array $item): array {
+                    $consumerSources = [];
+                    foreach ($outItems as $source) {
+                        $consumerSources[(string) ($source['item_id'] ?? '')] = $source;
+                    }
+                    $projectRow = static function (array $item) use ($consumerSources): array {
                         $item['platform_id'] = (string) ($item['cz_platform_id'] ?? '');
                         unset($item['cz_platform_id']);
                         $item['price_options'] = array_map(static function (array $option): array {
@@ -1499,6 +1508,17 @@ final class PackageManagerSchema
                             unset($option['cz_platform_id']);
                             return $option;
                         }, is_array($item['price_options'] ?? null) ? $item['price_options'] : []);
+                        $sourceItemId = (string) ($item['source_item_id'] ?? '');
+                        if ($sourceItemId !== '' && isset($consumerSources[$sourceItemId])) {
+                            $source = $consumerSources[$sourceItemId];
+                            $item['resolved_label'] = $source['decorated_label']
+                                ?: (($source['source_type'] ?? null) === 'faq'
+                                    ? (string) ($source['resolved']['question'] ?? '')
+                                    : (string) ($source['resolved']['label'] ?? ''));
+                            foreach (['source_type', 'source_id', 'connection_resolved', 'available', 'operational_state', 'health_reasons'] as $field) {
+                                $item[$field] = $source[$field] ?? null;
+                            }
+                        }
                         return $item;
                     };
                     // The rows this sheet offers: its own, plus one per active
@@ -1686,10 +1706,6 @@ final class PackageManagerSchema
         foreach ($rateSheetItemsList as $item) {
             $rateItems[$item['item_id']] = $item;
         }
-        $sources = [];
-        foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $item) {
-            $sources[$item['item_id']] = $item;
-        }
         $rows = [];
         foreach (is_array($selections) ? $selections : [] as $selection) {
             if (!is_array($selection)) { continue; }
@@ -1699,20 +1715,10 @@ final class PackageManagerSchema
             $rawOptionId = $selection['price_option_id'] ?? null;
             $priceOptionId = ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId);
             $rateItem = $rateItems[$itemId] ?? null;
-            $source = $rateItem ? ($sources[$rateItem['source_item_id']] ?? null) : null;
-            // A self-priced row stands behind itself: no Manager source backs a
-            // combination, so it resolves on its own existence and names itself.
-            $selfPriced = $rateItem !== null && !empty($rateItem['self_priced']);
-            $resolved = $rateItem !== null
-                && ($selfPriced || ($source !== null && !empty($source['connection_resolved'])));
+            $resolved = $rateItem !== null && !empty($rateItem['connection_resolved']);
             $label = '(unresolved Rate Sheet item)';
             if ($resolved) {
-                $label = $selfPriced
-                    ? (string) ($rateItem['label'] ?? '')
-                    : ($source['decorated_label']
-                        ?: (($source['source_type'] === 'faq')
-                            ? (string) ($source['resolved']['question'] ?? '')
-                            : (string) ($source['resolved']['label'] ?? '')));
+                $label = (string) ($rateItem['resolved_label'] ?? '');
                 // A row may carry its own name (Bundle-created rows do); blank
                 // inherits the resolved supplied-content label above.
                 $ownLabel = trim((string) ($rateItem['label'] ?? ''));
@@ -1736,19 +1742,19 @@ final class PackageManagerSchema
                     $unitPrice = null;
                 }
             }
-            $available = $resolved && ($selfPriced || !empty($source['available'])) && !$optionUnresolved;
+            $available = $resolved && !empty($rateItem['available']) && !$optionUnresolved;
             $lineTotal = $available && $unitPrice !== null ? $unitPrice * $quantity : null;
-            $healthReasons = $selfPriced ? [] : ($source['health_reasons'] ?? ['rate_sheet_item_unresolved']);
+            $healthReasons = is_array($rateItem['health_reasons'] ?? null)
+                ? $rateItem['health_reasons']
+                : ['rate_sheet_item_unresolved'];
             if ($optionUnresolved) { $healthReasons = array_values(array_unique([...$healthReasons, 'price_option_unresolved'])); }
             $rows[] = [
                 'item_id' => $itemId, 'quantity' => $quantity, 'resolved' => $resolved,
                 'price_option_id' => $priceOptionId,
-                'source_type' => $source['source_type'] ?? null,
-                'source_id' => $source['source_id'] ?? null,
+                'source_type' => $rateItem['source_type'] ?? null,
+                'source_id' => $rateItem['source_id'] ?? null,
                 'available' => $available,
-                'operational_state' => $selfPriced
-                    ? 'connected_available'
-                    : ($source['operational_state'] ?? 'source_missing'),
+                'operational_state' => $rateItem['operational_state'] ?? 'source_missing',
                 'health_reasons' => $healthReasons,
                 'label' => $label, 'unit_price' => $unitPrice,
                 'per' => $rateItem['per'] ?? null,
@@ -1763,16 +1769,14 @@ final class PackageManagerSchema
         foreach ($rows as $row) { $rowsByItemId[$row['item_id']] = $row; }
         $pricingItems = [];
         foreach ($rateSheetItemsList as $rateItem) {
-            $selfPricedItem = !empty($rateItem['self_priced']);
-            $source = $sources[$rateItem['source_item_id']] ?? null;
-            if (!$selfPricedItem && ($source === null || empty($source['connection_resolved']))) { continue; }
+            if (empty($rateItem['connection_resolved'])) { continue; }
             $row = $rowsByItemId[$rateItem['item_id']] ?? null;
             // A selected, resolving Price Option overrides the item's Default
             // Price fed to the shared pricing engine; an unresolved one makes
             // the item unavailable there too, so the total never silently
             // reverts to Default Price.
             $unitPriceForPricing = (float) $rateItem['unit_price'];
-            $availableForPricing = $selfPricedItem || !empty($source['available']);
+            $availableForPricing = !empty($rateItem['available']);
             if ($row !== null && $row['price_option_id'] !== null) {
                 if ($row['unit_price'] !== null) {
                     $unitPriceForPricing = $row['unit_price'];

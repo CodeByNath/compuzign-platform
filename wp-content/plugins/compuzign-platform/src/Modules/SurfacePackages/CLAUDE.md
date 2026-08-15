@@ -53,13 +53,16 @@ reads back on `1`/`null`, the defaults `bundleConsumableRow()` used to hardcode.
 Upstream it IS one Rate Sheet row: `consumableRateSheetRows()` offers the
 sheet's own rows plus one row per active Bundle (`deriveBundleRowId`, ordinary
 `rate_` grammar, `includes[]` for presentation only), placed by `buildReadModel`
-straight into the sheet's own `items` — the rows every consumer already reads,
-so there is no new field and no consumer changes. The Tool cannot round-trip it: it carries no
-`source_item_id`, which `toEditorRows()`/`sanitizeRateRows()` already drop. Component rows are ingredients, not separately chargeable
+straight into the sheet's own `items` after normal row-resolution facts have
+been compiled — the rows every consumer already reads. The Tool cannot
+round-trip it: it carries no `source_item_id`, which
+`toEditorRows()`/`sanitizeRateRows()` already drop; that empty field is solely
+an authoring guard, never a consumer semantic. Component rows are ingredients, not separately chargeable
 rows, so they are absent from that offer. NO consumer learns Bundles exist: Tier
 storage and selection stay `{ item_id, quantity, price_option_id }` with no
-Bundle-shaped storage, addressing, dedup, or pricing path — `PackageSchema` is
-untouched. Component-row identity uses `deriveBundleRateItemId` so it never
+Bundle-shaped storage, addressing, dedup, or pricing path; the shared projector
+reads compiled resolution/availability fields uniformly and contains no
+Bundle-origin switch — `PackageSchema` is untouched. Component-row identity uses `deriveBundleRateItemId` so it never
 collides with the sheet's own row for the same supplied content. See
 [Rate Sheet Bundle](../../../../../../docs/code-map/rate-sheet-bundle.md).
 Package adapters own
