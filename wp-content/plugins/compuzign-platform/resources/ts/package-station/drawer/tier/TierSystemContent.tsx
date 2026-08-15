@@ -131,7 +131,14 @@ export function TierSystemContent({
     // tail cannot invent a parent-instance activation note — unchanged from
     // the prior persisted-only composition.
     state: c.projection === null
-      ? { status: 'pending-dim', notes: [] }
+      ? {
+          status: 'pending-dim',
+          notes: [{
+            id:      'tier-rate-sheet-access.parent.publish',
+            message: 'Publish this Tier system before configuring Rate Sheet Access.',
+            type:    'info',
+          }],
+        }
       : evaluateModule(tierRateSheetAccessModule, {
           allowedActiveCount: c.projection.allowedActiveCount,
           activeCount:        c.projection.activeCount,
