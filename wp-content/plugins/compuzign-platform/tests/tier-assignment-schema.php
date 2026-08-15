@@ -108,6 +108,16 @@ check_tier_assignment($assigned === [[
 ]], 'assign creates the canonical derived row');
 check_tier_assignment($expectedId === Schema::deriveAssignmentId('package_family', 'pcg_a', 'ti_a'), 'derived id is deterministic');
 
+// Idempotent: re-asserting the exact pairing already stored is a no-op
+// success, not a conflict — a caller that redundantly re-points a consumer
+// at the instance it already names (no unassign first) must not fail for a
+// request that changes nothing. Any OTHER pairing sharing either half still
+// throws (below), so this must not weaken the real conflict guards.
+check_tier_assignment(
+    Schema::assign($assigned, 'package_family', 'pcg_a', 'ti_a', $registry, $instances) === $assigned,
+    'assigning the exact already-stored pairing again is idempotent, not consumer_already_assigned',
+);
+
 expect_assignment_error(fn() => Schema::assign([], 'service', 'pcg_a', 'ti_a', $registry, $instances), 'unknown_consumer_type');
 expect_assignment_error(fn() => Schema::assign([], 'package_family', 'pcg_missing', 'ti_a', $registry, $instances), 'unknown_consumer');
 expect_assignment_error(fn() => Schema::assign([], 'package_family', 'pcg_a', 'ti_missing', $registry, $instances), 'unknown_tier_instance');

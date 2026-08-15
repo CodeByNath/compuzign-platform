@@ -11,7 +11,7 @@ Package Station owns Tier instances and explicit Package Family usage relationsh
 
 [`TierInstanceSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierInstanceSchema.php) defines stable `ti_…` identity, title, status, Rate Sheet allow-list, popular configuration, five slots, and occupant bin, with no consumer, Family, Group, or assignment fields. [`PackageSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) retains occupant lifecycle and Promotion rules.
 
-[`TierAssignmentSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierAssignmentSchema.php) owns removable rows containing only `assignment_id`, `consumer_type`, `consumer_id`, and `tier_instance_id`. Consumers are exactly `package_family`; each peer appears once at most. `admin/package-station/tier-assignments` lists, creates, and deletes them. Assignment blocks permanent Family deletion; archive/trash leave it dormant.
+[`TierAssignmentSchema.php`](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/TierAssignmentSchema.php) owns removable rows containing only `assignment_id`, `consumer_type`, `consumer_id`, and `tier_instance_id`. Consumers are exactly `package_family`; each peer appears once at most. `admin/package-station/tier-assignments` lists, creates, and deletes them. Assignment blocks permanent Family deletion; archive/trash leave it dormant. `assign()` is idempotent for an already-stored pairing (2026-08-16): re-asserting it is a no-op, not `consumer_already_assigned`.
 
 ```text
 cz_package_station

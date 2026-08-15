@@ -139,6 +139,19 @@ check(
   tierSystemSource.includes('handlers: { edit:'),
   'the Overview module offers Edit, so it re-enters the same editor',
 );
+
+// Rate Sheet Access's own read card is draft-preferred, matching Overview
+// (whose draft state doubles as its display source) and the documented
+// Tier Edition pattern (draftPreferredEdition) — a just-Saved-but-not-yet-
+// Applied selection must display immediately, not the stale persisted
+// projection. This was the module's actual defect (2026-08-16): its read
+// card was built from c.projection alone, so Overview's own fields looked
+// like they "followed" Save while this sibling module silently didn't.
+check(
+  tierSystemSource.includes('c.rateSheetHasUnappliedChanges && c.rateSheetAccess !== null')
+    && tierSystemSource.includes('c.rateSheetAccess.allowedRateSheetIds'),
+  'the Rate Sheet Access read card prefers the in-editor draft while it has unapplied changes, never c.projection alone',
+);
 const tierSystemEditor = readFileSync(resolve(
   root,
   'resources/ts/package-station/drawer/editors/TierSystemOverviewEditor.tsx',
@@ -151,6 +164,90 @@ check(
 for (const chrome of ['InlineEditorShell', 'EntityActionFooter', 'cz-drawer-actions']) {
   check(!tierSystemEditor.includes(chrome), `the Tier System Overview editor owns no ${chrome} of its own`);
 }
+
+// Rate Sheet Access module (2026-08-16 rename/rebuild): "Included Rate
+// Sheets" everywhere it's user-visible — the module card, its editor's own
+// session title, and the header notification shown before Publish. A
+// hardcoded old-name string surviving in only one of these spots is exactly
+// the defect a prior pass shipped (the editor's own title stayed "Rate
+// Sheet Access" through a full copy pass).
+const tierSystemBindingsSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/schema/bindings/tierSystem.tsx',
+), 'utf8');
+check(
+  tierSystemBindingsSource.includes("title: 'Included Rate Sheets'")
+    && tierSystemBindingsSource.includes("subtitle: 'Manage rate sheet access.'"),
+  'the Rate Sheet Access module card header reads "Included Rate Sheets" / "Manage rate sheet access."',
+);
+check(
+  tierSystemSource.includes("title: 'Included Rate Sheets'"),
+  'the Rate Sheet Access inline editor carries the same session title as its module card, not the old "Rate Sheet Access" name',
+);
+const tierModuleRulesEarly = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/utils/moduleNotifications/tier.ts',
+), 'utf8');
+check(
+  tierModuleRulesEarly.includes("message: 'Edit and activate ratesheets'"),
+  'the unconfigured Rate Sheet Access notification reads the short imperative message, not the old two-sentence explanation',
+);
+// Body content is exactly Name (draft-preferred, checked above) and Selected
+// ratesheets — no Access Mode / Availability / Active / Unresolved restating
+// the same facts across four separate rows.
+for (const retired of ["label: 'Access Mode'", "label: 'Availability'", "label: 'Active Rate Sheets'", "label: 'Unresolved References'"]) {
+  check(!tierSystemBindingsSource.includes(retired), `the Rate Sheet Access module card carries no retired ${retired} field`);
+}
+check(
+  tierSystemBindingsSource.includes("label: 'Selected ratesheets'")
+    && tierSystemBindingsSource.includes("fallback: 'Not configured'"),
+  'the Rate Sheet Access module card is exactly Name (Not configured when empty) and Selected ratesheets',
+);
+
+// The editor is a MultiSelectField dropdown, not a bare checkbox-per-row list
+// with an explanatory paragraph above it — the module entry contract already
+// forbids explanation blocks; this is the same rule applied to an editor body.
+const tierRateSheetAccessEditorSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/editors/TierRateSheetAccessEditor.tsx',
+), 'utf8');
+check(
+  tierRateSheetAccessEditorSource.includes('MultiSelectField')
+    && !tierRateSheetAccessEditorSource.includes("type: 'checkbox'")
+    && !tierRateSheetAccessEditorSource.includes('cz-tf-hint'),
+  'the Rate Sheet Access editor is one MultiSelectField, not a hand-rolled checkbox list with explanatory text',
+);
+
+// MultiSelectField (drawer-kit/fields) is the ONE trigger+floating-panel
+// multiselect — extracted from Tier Overview's own Customer Groups picker
+// once Rate Sheet Access needed the identical shape. Both real consumers
+// must keep using the shared component rather than either one drifting back
+// to a hand-rolled duplicate, and the panel must genuinely measure itself
+// against the viewport rather than always opening downward.
+const multiSelectFieldSource = readFileSync(resolve(
+  root,
+  'resources/ts/drawer-kit/fields/MultiSelectField.tsx',
+), 'utf8');
+const drawerKitFieldsIndex = readFileSync(resolve(root, 'resources/ts/drawer-kit/fields/index.ts'), 'utf8');
+const tierOverviewEditorSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/editors/TierOverviewEditor.tsx',
+), 'utf8');
+check(
+  drawerKitFieldsIndex.includes('MultiSelectField'),
+  'MultiSelectField is exported from the one field system barrel, not a component consumers reach into directly',
+);
+check(
+  multiSelectFieldSource.includes('setOpenUp')
+    && multiSelectFieldSource.includes('spaceBelow')
+    && multiSelectFieldSource.includes('spaceAbove'),
+  'MultiSelectField measures the trigger against the viewport and can open upward, not just downward',
+);
+check(
+  tierOverviewEditorSource.includes('MultiSelectField')
+    && !tierOverviewEditorSource.includes('cz-tier-audience-groups'),
+  'Tier Overview\'s Customer Groups picker uses the shared MultiSelectField, not its own retired hand-rolled panel',
+);
 
 // Milestone 1 footer action set only: Close+Publish while pending, and
 // Close+Apply+guarded Delete once persisted. Aggregate status is currently
@@ -199,6 +296,25 @@ check(
 check(
   tierSystemController.includes('updateInstance(') && tierSystemController.includes('const apply'),
   'updateTierInstance is reachable only from the controller\'s apply() — the footer\'s authoritative write',
+);
+// `instance` reads createdInstance first once Publish has set it this
+// session, and never falls back to tool.instances again for the pending
+// host (TierRegistrationHost always passes instance={null}) — so apply()
+// must re-sync createdInstance from its own updateInstance response, or
+// every module read (Rate Sheet Access's pill included) stays frozen at
+// whatever Publish saw until a full page reload re-derives from a fresh
+// collection read (the actual 2026-08-16 defect).
+check(
+  /if \(createdInstance !== null\) setCreatedInstance\(saved\);/.test(tierSystemController),
+  'apply() re-syncs createdInstance with its own response, so a first-session Apply is never frozen at Publish-time data',
+);
+// apply()'s family-reassignment failure surfaces the real backend rejection
+// code (already captured in tool.error) instead of a fixed string, so a
+// recurrence of a DIFFERENT failure mode carries evidence instead of
+// requiring another blind diagnosis.
+check(
+  tierSystemController.includes('guardMessage(tool.error,'),
+  'a failed family reassignment during Apply shows the real backend rejection code, not only a generic message',
 );
 
 // Guarded permanent delete: the existing backend endpoint, not a
