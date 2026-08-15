@@ -1793,6 +1793,12 @@ button.cz-module-status-pill {
   white-space: pre-line;
 }
 
+/* Tier System's Included Rate Sheets row (tierSystem.tsx) — same rule for
+   its own "Name" field: one selected Rate Sheet per line. */
+.drawerOverview .drawerModule__field[data-field-id="name"] .drawerModule__value {
+  white-space: pre-line;
+}
+
 @media screen and (max-width: 767px) {
   .cz-tf-chip {
     width: 100%;

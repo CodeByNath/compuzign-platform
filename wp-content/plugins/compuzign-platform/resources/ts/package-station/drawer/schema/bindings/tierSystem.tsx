@@ -10,7 +10,7 @@
 
 import { tierSystemOverviewModule, tierRateSheetAccessModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
-import type { ItemCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
+import type { TextValue } from '@/drawer-kit/schema/elements/library';
 import type { PackageFamilyListItem } from '../../../types';
 import { TierSystemOverviewEditor } from '../../editors/TierSystemOverviewEditor';
 import type { TierSystemOverviewDraftFields } from '../../editors/TierSystemOverviewEditor';
@@ -111,10 +111,10 @@ export const tierRateSheetAccessShell: ShellSchema<TierRateSheetAccessShellData>
   },
   content: [
     {
-      id: 'name', element: 'item-collection',
-      bind: (data): ItemCollectionValue => ({
-        items: data.selectedNames.map((name, index) => ({ id: `${index}-${name}`, label: name })),
-        empty: { title: 'Edit and add ratesheet to this tier system.', copy: '' },
+      id: 'name', element: 'text', label: 'Name',
+      bind: (data): TextValue => ({
+        value: data.selectedNames.join('\n'),
+        fallback: 'Not configured',
       }),
     },
     {

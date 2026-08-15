@@ -224,13 +224,14 @@ check(
   'Tier Groups lists the parent Tier Group records through the shared projection, not a child access row',
 );
 // The whole loaded parent pool is the source, and every filter reads the
-// PARENT's lifecycle state — `draft` is the system's Pending, so it maps rather
-// than leaking the storage enum into the filter vocabulary.
+// same presentation status the row itself reports (tierGroupRowStatus) —
+// `draft` maps to Pending and so does an unmasked `disabled`, so the filter
+// vocabulary never disagrees with what the row's own pill just showed
+// (corrected 2026-08-16 alongside the row projection's own correction).
 check(
   settingsSource.includes('const pool = presentableInstances.filter((candidate) => {')
     && settingsSource.includes("if (tierGroupFilter === 'all') return true;")
-    && settingsSource.includes("if (tierGroupFilter === 'pending') return candidate.status === 'draft';")
-    && settingsSource.includes('return candidate.status === tierGroupFilter;'),
+    && settingsSource.includes('tierGroupRowStatus(candidate.status) === tierGroupFilter'),
   'Tier Groups filters the presentable parent Tier Group pool by the parent\'s own lifecycle state',
 );
 // ── The normal list is live records only ─────────────────────────────────────
@@ -463,12 +464,17 @@ check(
   'the Tier Group row reads the engine\'s cz_platform_id output-only and mints no identity',
 );
 // `draft` is the parent system's Pending; the bin states keep their own names
-// rather than being flattened into Disabled.
+// rather than being flattened into Disabled. A parent Tier Group has no
+// explicit Disable action of its own (its footer withholds Enable/Disable —
+// status is derived, not settable), so storage `disabled` is only ever the
+// derived "no occupant active yet" fallback, never a user's own mask — it
+// reads Pending too, corrected 2026-08-16 to match the Presentation Status
+// Contract (only an explicit Disable mask is Disabled).
 check(
   connectionNavigationSource.includes("export type TierGroupRowStatus = 'active' | 'pending' | 'disabled' | 'archived' | 'trashed'")
     && /draft:\s+'pending',/.test(connectionNavigationSource)
-    && /disabled:\s+'disabled',/.test(connectionNavigationSource),
-  'the Tier Group row maps the storage lifecycle onto the shared pill vocabulary',
+    && /disabled:\s+'pending',/.test(connectionNavigationSource),
+  'the Tier Group row maps the storage lifecycle onto the shared pill vocabulary, reading unmasked disabled as Pending',
 );
 
 // Rate Sheets lists standalone sheets through the shared connected-record row.

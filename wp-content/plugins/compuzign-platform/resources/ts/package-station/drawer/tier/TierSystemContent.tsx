@@ -183,7 +183,7 @@ export function TierSystemContent({
             // Any subset of the candidate pool, including empty, is a valid
             // draft now — nothing to reject beyond "no change to save".
             saveDisabled: !c.isDirty,
-            title: 'Rate Sheet Access',
+            title: 'Included Rate Sheets',
             extras: { projection: c.projection },
           },
         } : null}

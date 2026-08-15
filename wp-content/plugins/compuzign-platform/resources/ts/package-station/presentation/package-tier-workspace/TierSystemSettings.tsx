@@ -32,6 +32,7 @@ import {
   projectFamilyConnectionRows,
   projectRateSheetPoolRows,
   projectTierGroupConnectionRows,
+  tierGroupRowStatus,
 } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import { ConnectedStationsSummary, RateSheetPoolSummary, TierGroupPoolSummary } from './FocusedTierSettings';
@@ -184,8 +185,10 @@ export function TierSystemSettings({
     const pool = presentableInstances.filter((candidate) => {
       if (tierGroupFilter === 'all') return true;
       if (tierGroupFilter === 'focused') return candidate.tier_instance_id === focusedInstanceId;
-      if (tierGroupFilter === 'pending') return candidate.status === 'draft';
-      return candidate.status === tierGroupFilter;
+      // Filtered against the same presentation status the row itself reports
+      // (tierGroupRowStatus), never the raw storage enum — otherwise
+      // "Disabled" could match a candidate whose own row pill reads Pending.
+      return tierGroupRowStatus(candidate.status) === tierGroupFilter;
     });
     const ordered = focusedInstanceId
       ? [...pool].sort((a, b) => (

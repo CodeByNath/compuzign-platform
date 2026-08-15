@@ -168,7 +168,7 @@ export const tierRateSheetAccessModule: ModuleDefinition<{
   problems: ({ allowedActiveCount, unresolvedCount }) => [
     ...(allowedActiveCount === 0 ? [{
       id: 'tier-rate-sheet-access.none.configured',
-      message: 'No Rate Sheets are allowed yet. Choose which active Rate Sheets this Tier system may use.',
+      message: 'Edit and activate ratesheets',
       type: 'info' as const,
     }] : []),
     ...(unresolvedCount > 0 ? [{

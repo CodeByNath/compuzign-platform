@@ -172,16 +172,31 @@ export function projectFamilyConnectionRows(
   }];
 }
 
-// Storage lifecycle → the shared pill vocabulary. `draft` is the Tier system's
-// pending state, so it reports Pending; the two bin states keep their own
-// names rather than being flattened into Disabled.
+// Storage lifecycle → the shared pill vocabulary. `draft` is the Tier
+// system's pending state, so it reports Pending; the two bin states keep
+// their own names rather than being flattened into Disabled. A parent Tier
+// Group has no explicit Disable action of its own — its footer withholds
+// Enable/Disable entirely (see TierSystemFooter's "status is derived, not
+// settable"), so storage `disabled` here is only ever the derived fallback
+// `PackageSchema::deriveStationStatus` produces while no occupant is active
+// yet, never a user's own mask. It reports Pending, the same correction the
+// Overview module's own `resolveStatus` already applies for this identical
+// value (Presentation Status Contract: only an explicit Disable mask is
+// Disabled).
 const TIER_GROUP_ROW_STATUS: Record<TierInstanceStatus, TierGroupRowStatus> = {
   draft:    'pending',
   active:   'active',
-  disabled: 'disabled',
+  disabled: 'pending',
   archived: 'archived',
   trashed:  'trashed',
 };
+
+/** The one place raw storage status becomes the row's presentation status —
+ * shared by the row projection below and the Settings lane's own filter, so
+ * "Pending" never means something different to the list than to its filter. */
+export function tierGroupRowStatus(status: TierInstanceStatus): TierGroupRowStatus {
+  return TIER_GROUP_ROW_STATUS[status] ?? 'pending';
+}
 
 /**
  * One parent Tier Group / Tier System row.
@@ -209,7 +224,7 @@ export function projectTierGroupConnectionRows(
     kind:       'tier-group',
     name:       instance.title,
     reference:  instance.tier_instance_id,
-    status:     TIER_GROUP_ROW_STATUS[instance.status] ?? 'pending',
+    status:     tierGroupRowStatus(instance.status),
     platformId: instance.cz_platform_id,
     tierCount:  occupants.length - addonCount,
     addonCount,
