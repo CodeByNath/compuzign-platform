@@ -130,7 +130,7 @@ export function TierSystemContent({
           status: 'pending-dim',
           notes: [{
             id:      'tier-rate-sheet-access.parent.publish',
-            message: 'Publish this Tier system before configuring Rate Sheet Access.',
+            message: 'Publish this Tier system before configuring Included Rate Sheets.',
             type:    'info',
           }],
         }
