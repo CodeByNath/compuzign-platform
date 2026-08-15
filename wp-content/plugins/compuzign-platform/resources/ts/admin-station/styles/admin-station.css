@@ -3365,9 +3365,19 @@ button.cz-station-status-pill {
   gap: 6px;
 }
 
-/* The Bundle row's own supplied-content list, inside its name cell — the ONE
-   place a Bundle's compiled content appears. It is read-only apart from taking
-   an entry out, which only the unlocked row offers. */
+/* The grid's optional extra column, sitting between the name and the price.
+   The Bundle editor's `Supplied content` is its only user today: the ONE place
+   a Bundle's compiled content appears, read-only apart from taking an entry
+   out, which only the unlocked row offers. */
+.cz-rate-sheet-tool__cell-extra {
+  min-width: 200px;
+}
+
+.cz-rate-sheet-tool__supplied-empty {
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
 .cz-rate-sheet-tool__supplied-list {
   display: flex;
   flex-direction: column;

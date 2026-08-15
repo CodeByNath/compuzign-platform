@@ -101,11 +101,15 @@ Bundle, since a Bundle IS that row. There is NO Delete-Bundle button in the
 editor: whole-Bundle `Remove` is an action on the module card's own `ReadBlock`
 footer, the existing drawer-module action system. That card is deliberately lean
 — name, `CZPRCB`, and what it compiles — because a Bundle is a composition, not
-a single declaration, so its price/per/qty/group are not restated there. What the Bundle compiles renders in the ROW's own name cell through
-`RateSheetGridEditor`'s additive `nameDetail` slot (optional, defaulted to the
-existing `optionLabel` line, so every other caller is unchanged) — never a
-second block beneath the grid, because a Bundle is ONE row. Each entry is
-read-only except for removal, offered only while that row is the unlocked one. `RateSheetBundleImportPicker.tsx` is the import engine,
+a single declaration, so its price/per/qty/group are not restated there. `Product Bundle` carries the name and nothing else; what the Bundle
+compiles is its OWN column right after it, through `RateSheetGridEditor`'s
+additive `extraColumn` slot (optional — omitted, the grid keeps exactly the
+columns it always had, so every other caller is unchanged). Never a block
+beneath the grid, because a Bundle is ONE row. Entries are read-only except for
+removal, offered only while that row is the unlocked one. `bundleAsEditorRow`
+therefore leaves `optionLabel` blank, and the shared cells read every accessible
+name from `rowDisplayLabel(row)` — identical for a sheet row, which has no name
+of its own. `RateSheetBundleImportPicker.tsx` is the import engine,
 opened by the caller's own trigger and showing THAT source only: `+ Add Service`
 browses Category → Service → Inclusions (the sheet's own browse) and
 `+ Add Rate Sheet` browses Rate Sheet → its rows, with the basket a full-width

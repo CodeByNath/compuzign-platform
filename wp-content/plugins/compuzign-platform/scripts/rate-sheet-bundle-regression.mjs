@@ -442,8 +442,8 @@ check('the group renderers stay mounted beneath it, never unmounted', container.
 check('its own editor is mounted', bundleWorkspace() != null);
 check('it is ONE Rate Sheet row, not a grid of component rows', rowsIn().length === 1, rowsIn().length);
 check(
-  'whose columns are the Rate Sheet row columns, the first named for the Bundle',
-  gridHeaders().slice(0, 5).join('|') === 'Product Bundle|Unit Price|Per|Qty|Group',
+  'Product Bundle names the row, and Supplied content is its OWN column right after it',
+  gridHeaders().slice(0, 6).join('|') === 'Product Bundle|Supplied content|Unit Price|Per|Qty|Group',
   gridHeaders().join('|'),
 );
 check('it compiles nothing yet', suppliedItems().length === 0, suppliedItems().length);
@@ -552,7 +552,8 @@ check(
 );
 
 // Supplied content lives in the ROW's own cell — one place, no second block.
-check('the compiled content reads inside the row itself', rowsIn()[0]?.querySelector('.cz-rate-sheet-tool__supplied-list') != null);
+check('the compiled content reads in its own cell of that row', rowsIn()[0]?.querySelector('.cz-rate-sheet-tool__cell-extra .cz-rate-sheet-tool__supplied-list') != null);
+check('the name cell carries only the name, never the content', rowsIn()[0]?.querySelector('.cz-rate-sheet-tool__cell-name .cz-rate-sheet-tool__supplied-list') == null);
 check('and never in a second block beneath the grid', container.querySelector('.cz-rate-sheet-tool__supplied') == null);
 check('a LOCKED row offers no removal — it is read-only like any row', container.querySelector('.cz-rate-sheet-tool__supplied-remove') == null);
 

@@ -47,9 +47,6 @@ export function RateSheetBundleWorkspace({
   // The same rule the sheet's own editor keeps: only one row may be unlocked at
   // a time, so importing and removing stand down while the row is being edited.
   const rowLocked = controller.editingRowId !== null;
-  // Content may only be dropped while THIS row is the unlocked one — a locked
-  // row is read-only, exactly like any other Rate Sheet row.
-  const unlocked = controller.editingRowId === bundleKey;
 
   const openSource = (source: BundleImportSource) =>
     setImportSource((current) => (current === source ? null : source));
@@ -124,26 +121,35 @@ export function RateSheetBundleWorkspace({
           commands={commands}
           lockCommands={controller}
           nameLabel="Product Bundle"
-          nameDetail={() => (
-            <ul class="cz-rate-sheet-tool__supplied-list">
-              {bundle.items.map((component, index) => (
-                <li key={rowKey(component)} class="cz-rate-sheet-tool__supplied-item">
-                  <span>{suppliedContent[index]}</span>
-                  {unlocked && (
-                    <button
-                      type="button"
-                      class="cz-rate-sheet-tool__supplied-remove"
-                      aria-label={`Remove ${suppliedContent[index]} from this Bundle`}
-                      title="Remove from this Bundle"
-                      onClick={() => controller.removeRow(rowKey(component))}
-                    >
-                      ×
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+          extraColumn={{
+            label: 'Supplied content',
+            // What this Bundle compiles — its own column, immediately after
+            // the name and before the price. Read-only apart from taking an
+            // entry out, which only the unlocked row offers, exactly as a
+            // locked Rate Sheet row shows no controls at all.
+            render: (_row, editing) => (bundle.items.length === 0 ? (
+              <span class="cz-rate-sheet-tool__supplied-empty">None yet</span>
+            ) : (
+              <ul class="cz-rate-sheet-tool__supplied-list">
+                {bundle.items.map((component, index) => (
+                  <li key={rowKey(component)} class="cz-rate-sheet-tool__supplied-item">
+                    <span>{suppliedContent[index]}</span>
+                    {editing && (
+                      <button
+                        type="button"
+                        class="cz-rate-sheet-tool__supplied-remove"
+                        aria-label={`Remove ${suppliedContent[index]} from this Bundle`}
+                        title="Remove from this Bundle"
+                        onClick={() => controller.removeRow(rowKey(component))}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )),
+          }}
         />
       )}
 

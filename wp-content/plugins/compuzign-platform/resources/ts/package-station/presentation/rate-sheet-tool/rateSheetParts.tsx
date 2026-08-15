@@ -274,7 +274,7 @@ export function RateSheetGridRead({
  * that default and never pass it.
  */
 export function RateSheetGridEditor({
-  rows, groups, units, commands, allowRemove = true, lockCommands, nameLabel = 'Supplied content', nameDetail,
+  rows, groups, units, commands, allowRemove = true, lockCommands, nameLabel = 'Supplied content', extraColumn,
 }: {
   rows:     readonly RateSheetEditorRow[];
   groups:   readonly RateSheetEditorGroup[];
@@ -282,12 +282,17 @@ export function RateSheetGridEditor({
   commands: RateSheetRowCommands;
   allowRemove?: boolean;
   lockCommands?: RateSheetRowLockCommands;
-  /** Replaces the supplied-content line inside the name cell. Additive and
-   *  optional: omitted, the cell renders `optionLabel` exactly as it always
-   *  has. The Bundle editor supplies the list of what its ONE row compiles,
-   *  each entry removable — so that list lives in the row, never in a second
-   *  block beneath the grid. */
-  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
+  /** ONE additional column, inserted immediately after the name column and
+   *  before Unit Price. Additive and optional: omitted, the grid has exactly
+   *  the columns it always had. The Bundle editor uses it for `Supplied
+   *  content` — what its one row compiles — which therefore never crowds the
+   *  name cell and never becomes a block beneath the grid. `render` is told
+   *  whether the row is the unlocked one, so a locked row can stay read-only
+   *  like every other locked row here. */
+  extraColumn?: {
+    label:  string;
+    render: (row: RateSheetEditorRow, editing: boolean) => ComponentChildren;
+  };
   /** What the first column is CALLED. Additive and defaulted, so every existing
    *  caller keeps `Supplied content` byte-for-byte; the Bundle editor names it
    *  `Product Bundle`, because for that row the first cell is the combination's
@@ -300,6 +305,7 @@ export function RateSheetGridEditor({
         <thead>
           <tr>
             <th scope="col">{nameLabel}</th>
+            {extraColumn && <th scope="col">{extraColumn.label}</th>}
             <th scope="col">Unit Price</th>
             <th scope="col">Per</th>
             <th scope="col">Qty</th>
@@ -317,7 +323,7 @@ export function RateSheetGridEditor({
               commands={commands}
               allowRemove={allowRemove}
               lockCommands={lockCommands}
-              nameDetail={nameDetail}
+              extraColumn={extraColumn}
             />
           ))}
         </tbody>
@@ -330,14 +336,14 @@ export function RateSheetGridEditor({
  *  or the active row of a locked grid. Extracted once so the locked editor
  *  never re-authors the same inputs the always-editable grid already has. */
 function RateSheetRowFieldCells({
-  row, groups, units, commands, disabled, showPriceOptions = false, nameDetail,
+  row, groups, units, commands, disabled, showPriceOptions = false, extraColumn,
 }: {
   row:      RateSheetEditorRow;
   groups:   readonly RateSheetEditorGroup[];
   units:    readonly PackageRateSheetUnit[];
   commands: RateSheetRowCommands;
   disabled: boolean;
-  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
+  extraColumn?: { label: string; render: (row: RateSheetEditorRow, editing: boolean) => ComponentChildren };
   // Standalone-drawer-only: the locked row lock's active-row branch opts in
   // so its Unit Price cell becomes the tabbed Default/Option editor.
   // Omitted (every other caller — the always-editable grid the focused-Tier
@@ -345,6 +351,10 @@ function RateSheetRowFieldCells({
   showPriceOptions?: boolean;
 }): VNode {
   const key = rowKey(row);
+  // Every field's accessible name comes from what the row DISPLAYS, so a row
+  // that names itself (a Bundle) reads by that name rather than by the supplied
+  // content behind it. Identical for a sheet row, which has no name of its own.
+  const rowName = rowDisplayLabel(row) || 'this row';
   return (
     <>
       <td class="cz-rate-sheet-tool__cell-name">
@@ -352,26 +362,26 @@ function RateSheetRowFieldCells({
           {row.label === undefined ? (
             <span>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</span>
           ) : (
-            // A Bundle row names itself. The supplied content it prices stays
-            // visible beneath, so the Rate Sheet association is never hidden by
-            // the rename.
-            <>
-              <input class="cz-tf-control cz-tf-input" type="text" value={row.label} disabled={disabled}
-                placeholder={row.optionLabel}
-                aria-label={`Name for ${row.optionLabel}`}
-                onInput={(event) => commands.setRowLabel(key, (event.currentTarget as HTMLInputElement).value)} />
-              {nameDetail ? nameDetail(row) : <small>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</small>}
-            </>
+            // A row that names itself shows only that name here. What stands
+            // behind it belongs in its own column, never crowded in beneath.
+            <input class="cz-tf-control cz-tf-input" type="text" value={row.label} disabled={disabled}
+              placeholder={row.optionLabel}
+              aria-label={`Name for ${rowName}`}
+              onInput={(event) => commands.setRowLabel(key, (event.currentTarget as HTMLInputElement).value)} />
+          )}
+          {row.label !== undefined && row.optionLabel !== '' && (
+            <small>{row.optionLabel}{disabled ? ' — Unavailable' : ''}</small>
           )}
           <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
         </div>
       </td>
+      {extraColumn && <td class="cz-rate-sheet-tool__cell-extra">{extraColumn.render(row, true)}</td>}
       <td>
         {showPriceOptions ? (
           <RateSheetUnitPriceOptionEditor row={row} commands={commands} disabled={disabled} />
         ) : (
           <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={row.unitPrice} disabled={disabled}
-            aria-label={`Unit price for ${row.optionLabel}`}
+            aria-label={`Unit price for ${rowName}`}
             onInput={(event) => commands.setRowUnitPrice(key, Number((event.currentTarget as HTMLInputElement).value))} />
         )}
       </td>
@@ -379,7 +389,7 @@ function RateSheetRowFieldCells({
         <InlineCreateSelect
           value={row.per}
           disabled={disabled}
-          ariaLabel={`Unit for ${row.optionLabel}`}
+          ariaLabel={`Unit for ${rowName}`}
           addLabel="+ Add new unit"
           editLabel="Edit Per values"
           editValues={units
@@ -395,14 +405,14 @@ function RateSheetRowFieldCells({
       </td>
       <td>
         <input class="cz-tf-control cz-tf-input" type="number" min="1" step="1" value={row.quantity} disabled={disabled}
-          aria-label={`Quantity for ${row.optionLabel}`}
+          aria-label={`Quantity for ${rowName}`}
           onInput={(event) => commands.setRowQuantity(key, Number((event.currentTarget as HTMLInputElement).value))} />
       </td>
       <td>
         <InlineCreateSelect
           value={row.groupId ?? ''}
           disabled={disabled}
-          ariaLabel={`Group for ${row.optionLabel}`}
+          ariaLabel={`Group for ${rowName}`}
           addLabel="+ Add new group"
           editLabel="Edit Group values"
           editValues={groups.map((group) => ({ value: group.id, label: group.label }))}
@@ -584,22 +594,23 @@ function RateSheetPriceOptionsSummary({ row }: { row: RateSheetEditorRow }): VNo
  *  before; only a row that actually has Price Options gains the compact
  *  summary in the same cell. */
 function RateSheetRowReadCells({
-  row, groups, nameDetail,
+  row, groups, extraColumn,
 }: {
   row:    RateSheetEditorRow;
   groups: readonly RateSheetEditorGroup[];
-  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
+  extraColumn?: { label: string; render: (row: RateSheetEditorRow, editing: boolean) => ComponentChildren };
 }): VNode {
-  const renamed = (row.label?.trim() ?? '') !== '';
+  const renamed = (row.label?.trim() ?? '') !== '' && row.optionLabel !== '';
   return (
     <>
       <td class="cz-rate-sheet-tool__cell-name">
         <div class="cz-rate-sheet-tool__cell-name-stack">
           <span>{rowDisplayLabel(row)}{row.sourceAvailable ? '' : ' — Unavailable'}</span>
-          {nameDetail ? nameDetail(row) : (renamed && <small>{row.optionLabel}</small>)}
+          {renamed && <small>{row.optionLabel}</small>}
           <small>{row.platformId || (row.id ? 'Platform ID not assigned' : 'Platform ID assigned after Save')}</small>
         </div>
       </td>
+      {extraColumn && <td class="cz-rate-sheet-tool__cell-extra">{extraColumn.render(row, false)}</td>}
       <td>{row.priceOptions.length > 0 ? <RateSheetPriceOptionsSummary row={row} /> : formatUnitPrice(row.unitPrice)}</td>
       <td>{row.per}</td>
       <td>{row.quantity}</td>
@@ -609,7 +620,7 @@ function RateSheetRowReadCells({
 }
 
 function RateSheetEditRow({
-  row, groups, units, commands, allowRemove, lockCommands, nameDetail,
+  row, groups, units, commands, allowRemove, lockCommands, extraColumn,
 }: {
   row:      RateSheetEditorRow;
   groups:   readonly RateSheetEditorGroup[];
@@ -617,7 +628,7 @@ function RateSheetEditRow({
   commands: RateSheetRowCommands;
   allowRemove: boolean;
   lockCommands?: RateSheetRowLockCommands;
-  nameDetail?: (row: RateSheetEditorRow) => ComponentChildren;
+  extraColumn?: { label: string; render: (row: RateSheetEditorRow, editing: boolean) => ComponentChildren };
 }): VNode {
   const key = rowKey(row);
   const disabled = !row.sourceAvailable;
@@ -635,7 +646,7 @@ function RateSheetEditRow({
       const busy = otherRowActive || lockCommands.saving;
       return (
         <tr>
-          <RateSheetRowReadCells row={row} groups={groups} nameDetail={nameDetail} />
+          <RateSheetRowReadCells row={row} groups={groups} extraColumn={extraColumn} />
           {allowRemove && (
             <td>
               <div style="display:flex;gap:var(--cz-space-2)">
@@ -660,7 +671,7 @@ function RateSheetEditRow({
     const isNewRow = row.id === '';
     return (
       <tr>
-        <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} showPriceOptions nameDetail={nameDetail} />
+        <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} showPriceOptions extraColumn={extraColumn} />
         {allowRemove && (
           <td>
             <div style="display:flex;gap:var(--cz-space-2)">
@@ -685,7 +696,7 @@ function RateSheetEditRow({
   // No lock offered: the original always-editable row, unchanged.
   return (
     <tr>
-      <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} nameDetail={nameDetail} />
+      <RateSheetRowFieldCells row={row} groups={groups} units={units} commands={commands} disabled={disabled} extraColumn={extraColumn} />
       {allowRemove && (
         <td>
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.optionLabel}`} onClick={() => commands.removeRow(key)}>Remove</button>

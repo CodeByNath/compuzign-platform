@@ -637,15 +637,15 @@ export function bundleSuppliedContent(bundle: RateSheetEditorBundle): string[] {
  * already takes, so the shared lock needs no second addressing scheme.
  */
 export function bundleAsEditorRow(bundle: RateSheetEditorBundle): RateSheetEditorRow {
-  const supplied = bundleSuppliedContent(bundle);
   return {
     id:              bundle.id,
     platformId:      bundle.platformId,
     optionId:        bundle.localKey,
-    // Never blank: the shared cell renders this beneath the name AND builds
-    // every field's accessible name from it, so an empty combination would
-    // otherwise produce "Unit price for ".
-    optionLabel:     supplied.length > 0 ? supplied.join('; ') : 'No supplied content yet',
+    // Deliberately blank: what this Bundle compiles is its OWN column in the
+    // editor, not a line crowded under the name. The shared cell skips the
+    // sub-line when it is empty, and reads every accessible name from the
+    // row's display name instead.
+    optionLabel:     '',
     unitPrice:       bundle.unitPrice,
     per:             bundle.per,
     quantity:        bundle.quantity,
