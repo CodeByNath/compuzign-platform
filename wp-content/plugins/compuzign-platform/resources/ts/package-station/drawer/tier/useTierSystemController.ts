@@ -288,6 +288,13 @@ export function useTierSystemController({
         setError(tool.error ?? 'Could not apply changes to the Tier system.');
         return;
       }
+      // `instance` reads `createdInstance` first once Publish has set it this
+      // session (see its derivation above) — `tool.instances` updating from
+      // `saved` alone would otherwise never reach this drawer's own state,
+      // leaving every module read (Rate Sheet Access's pill included) frozen
+      // at whatever Publish saw until a full reload re-derives from a fresh
+      // collection read.
+      if (createdInstance !== null) setCreatedInstance(saved);
       if (!(await pointAssignment(instance.tier_instance_id, overview.familyId, heldFamilyId))) {
         setError('The Tier system was saved, but its Package Family could not be changed.');
         return;
@@ -298,7 +305,7 @@ export function useTierSystemController({
     } finally {
       setSaving(false);
     }
-  }, [bridge, heldFamilyId, instance, overview, pointAssignment, rateSheetAccess, refetchRateSheets, tool]);
+  }, [bridge, createdInstance, heldFamilyId, instance, overview, pointAssignment, rateSheetAccess, refetchRateSheets, tool]);
 
   const requestDelete = useCallback(() => {
     setDeleteError(null);

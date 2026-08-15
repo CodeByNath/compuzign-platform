@@ -4,6 +4,8 @@
 export { AdminField } from './AdminField';
 export type { AdminFieldProps } from './AdminField';
 export { AdminFieldGroup } from './AdminFieldGroup';
+export { MultiSelectField } from './MultiSelectField';
+export type { MultiSelectFieldOption } from './MultiSelectField';
 export { fieldControlClass, fieldInputType } from './types';
 export type {
   AdminFieldType,

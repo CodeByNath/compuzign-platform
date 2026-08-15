@@ -765,32 +765,6 @@ button.cz-station-status-pill {
   color: var(--station-status-inactive-fg);
 }
 
-/* Tier Overview's Customer Groups multi-select trigger + floating panel
-   (TierOverviewEditor.tsx). Domain-specific layout only — the trigger itself
-   reuses .cz-tf-control/.cz-tf-select and the options inside the panel are
-   real AdminField checkboxes, so no control appearance is declared here.
-   The panel positioning mirrors .cz-station-split__menu's own tokens. */
-.cz-tier-audience-groups {
-  position: relative;
-}
-
-#tier-audience-groups-trigger {
-  display: flex;
-}
-
-.cz-tier-audience-groups__panel {
-  position: absolute;
-  top: calc(100% + var(--station-grid-gap));
-  left: 0;
-  right: 0;
-  z-index: var(--station-z-dropdown);
-  padding: var(--station-grid-gap);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-dropdown-radius);
-  background: var(--station-surface-elevated);
-  box-shadow: var(--station-shadow);
-}
-
 .cz-station-split__item--destructive:hover:not(:disabled) {
   background: var(--station-status-inactive-bg);
 }

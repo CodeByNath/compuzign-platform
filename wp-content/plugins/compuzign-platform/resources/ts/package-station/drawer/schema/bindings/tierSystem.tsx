@@ -10,7 +10,7 @@
 
 import { tierSystemOverviewModule, tierRateSheetAccessModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
-import type { TextValue } from '@/drawer-kit/schema/elements/library';
+import type { ItemCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 import type { PackageFamilyListItem } from '../../../types';
 import { TierSystemOverviewEditor } from '../../editors/TierSystemOverviewEditor';
 import type { TierSystemOverviewDraftFields } from '../../editors/TierSystemOverviewEditor';
@@ -91,10 +91,8 @@ export const tierSystemOverviewShell: ShellSchema<TierSystemOverviewShellData> =
 };
 
 export interface TierRateSheetAccessShellData {
-  mode: string;
-  availability: string;
-  activeCount: number;
-  unresolvedCount: number;
+  selectedNames: string[];
+  selectedCount: number;
 }
 
 const ACCESS_ACTIONS: Record<string, ShellActionSchema> = {
@@ -105,29 +103,23 @@ export const tierRateSheetAccessShell: ShellSchema<TierRateSheetAccessShellData>
   archetype: 'overview',
   dna: tierRateSheetAccessModule,
   header: {
-    title: 'Rate Sheet Access',
-    subtitle: 'Rate Sheets this Tier system may make available to its Tier slots.',
+    title: 'Included Rate Sheets',
+    subtitle: 'Manage rate sheet access.',
     icon: 'overview',
     iconVariant: 'drawerModule__icon--overview',
     scopeClass: 'drawerOverview tier',
   },
   content: [
     {
-      id: 'mode', element: 'text', label: 'Access Mode',
-      bind: (data): TextValue => ({ value: data.mode }),
+      id: 'name', element: 'item-collection',
+      bind: (data): ItemCollectionValue => ({
+        items: data.selectedNames.map((name, index) => ({ id: `${index}-${name}`, label: name })),
+        empty: { title: 'Edit and add ratesheet to this tier system.', copy: '' },
+      }),
     },
     {
-      id: 'availability', element: 'text', label: 'Availability',
-      bind: (data): TextValue => ({ value: data.availability }),
-    },
-    {
-      id: 'active-count', element: 'text', label: 'Active Rate Sheets',
-      bind: (data): TextValue => ({ value: String(data.activeCount) }),
-    },
-    {
-      id: 'unresolved-count', element: 'text', label: 'Unresolved References',
-      when: (data) => data.unresolvedCount > 0,
-      bind: (data): TextValue => ({ value: String(data.unresolvedCount) }),
+      id: 'selected-count', element: 'text', label: 'Selected ratesheets',
+      bind: (data): TextValue => ({ value: String(data.selectedCount) }),
     },
   ],
   footer: { actions: ['edit'] },

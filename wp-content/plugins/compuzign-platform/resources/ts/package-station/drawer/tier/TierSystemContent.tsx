@@ -114,15 +114,10 @@ export function TierSystemContent({
   };
 
   const accessData: TierRateSheetAccessShellData = c.projection === null
-    ? { mode: 'Unavailable', availability: 'Available once this Tier system is published.', activeCount: 0, unresolvedCount: 0 }
+    ? { selectedNames: [], selectedCount: 0 }
     : {
-        // There is only one mode now — explicit selection — so this row
-        // states whether anything has been configured yet rather than
-        // naming a mode that no longer exists.
-        mode:            c.projection.allowedActiveCount === 0 ? 'Not configured' : 'Explicit selection',
-        availability:    c.projection.summary,
-        activeCount:     c.projection.activeCount,
-        unresolvedCount: c.projection.unresolvedCount,
+        selectedNames: c.projection.rows.filter((row) => row.allowed).map((row) => row.title),
+        selectedCount: c.projection.allowedCount,
       };
   const accessBinding: ShellBinding<TierRateSheetAccessShellData> = {
     data: accessData,

@@ -1988,3 +1988,38 @@ button.cz-module-status-pill {
   border-color: var(--station-border);
   background: var(--station-nav-active-bg);
 }
+
+/* MultiSelectField (drawer-kit/fields) — trigger + floating checklist panel.
+   The trigger reuses .cz-tf-control/.cz-tf-select and the options inside the
+   panel are real AdminField checkboxes, so no control appearance is declared
+   here. Downward is the default open direction; --up is applied only once
+   the component has measured itself against the viewport. */
+.cz-admin-station .cz-multiselect {
+  position: relative;
+}
+
+.cz-admin-station .cz-multiselect__trigger {
+  display: flex;
+  align-items: center;
+  text-align: left;
+}
+
+.cz-admin-station .cz-multiselect__panel {
+  position: absolute;
+  top: calc(100% + var(--station-grid-gap));
+  left: 0;
+  right: 0;
+  z-index: var(--station-z-dropdown);
+  padding: var(--station-grid-gap);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-dropdown-radius);
+  background: var(--station-surface-elevated);
+  box-shadow: var(--station-shadow);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.cz-admin-station .cz-multiselect__panel--up {
+  top: auto;
+  bottom: calc(100% + var(--station-grid-gap));
+}
