@@ -367,6 +367,11 @@ export type PackageRateSheetStatus = 'active' | 'archived';
  */
 export interface PackageRateSheetBundleItem extends PackageRateSheetItem {
   label: string;
+  /** Exact existing Rate Sheet row wrapped by this membership. */
+  rate_sheet_id: string;
+  rate_sheet_item_id: string;
+  /** Output-only authoritative CZPRCI of that existing row. */
+  rate_sheet_item_platform_id?: string;
 }
 
 /**

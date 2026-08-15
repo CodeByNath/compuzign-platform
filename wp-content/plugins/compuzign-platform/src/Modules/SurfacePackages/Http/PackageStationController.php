@@ -1211,6 +1211,28 @@ class PackageStationController
                         }
                     }
                 }
+                // Memberships point to existing Rate Sheet Items. Refresh the
+                // stored CZPRCI after every row reservation has been applied,
+                // including cross-sheet references whose source sheet appeared
+                // later in this same request.
+                $rateItemPlatformIds = [];
+                foreach ($manager['rate_sheets'] as $identitySheet) {
+                    $identitySheetId = (string) ($identitySheet['rate_sheet_id'] ?? '');
+                    foreach ($identitySheet['items'] as $identityItem) {
+                        $rateItemPlatformIds[$identitySheetId . "\0" . (string) ($identityItem['item_id'] ?? '')]
+                            = (string) ($identityItem['cz_platform_id'] ?? '');
+                    }
+                }
+                foreach ($manager['rate_sheets'] as $membershipSheetIndex => $membershipSheet) {
+                    foreach ($membershipSheet['bundles'] ?? [] as $membershipBundleIndex => $membershipBundle) {
+                        foreach ($membershipBundle['items'] as $membershipIndex => $membership) {
+                            $reference = (string) ($membership['rate_sheet_id'] ?? '') . "\0"
+                                . (string) ($membership['rate_sheet_item_id'] ?? '');
+                            $manager['rate_sheets'][$membershipSheetIndex]['bundles'][$membershipBundleIndex]['items'][$membershipIndex]['rate_sheet_item_cz_platform_id']
+                                = $rateItemPlatformIds[$reference] ?? '';
+                        }
+                    }
+                }
             } catch (\Throwable) {
                 foreach ($identityAssignments as [, $reservation]) {
                     if (!isset($resumedPlatformIds[$reservation->platformId()])) $this->retireReservation($reservation);

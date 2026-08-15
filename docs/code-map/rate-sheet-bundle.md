@@ -14,7 +14,6 @@ Rate Sheet            CZPRC     rate_sheet_id
  ├─ Item              CZPRCI    (rate_sheet_id, item_id)
  │   └─ Price Option  CZPRCIO   (rate_sheet_id, item_id, option_id)
  └─ Bundle            CZPRCB    (rate_sheet_id, bundle_id)
-     ├─ Compiled Item  CZPRCI    (rate_sheet_id, deriveBundleRowId(bundle_id))
      ├─ Price Option  CZPRCBO   (rate_sheet_id, bundle_id, option_id)
      └─ Bundle Item   CZPRCBI   (rate_sheet_id, bundle_id, item_id)
          └─ Option    CZPRCBIO  (rate_sheet_id, bundle_id, item_id, option_id)
@@ -22,8 +21,7 @@ Rate Sheet            CZPRC     rate_sheet_id
 
 ## Storage
 
-`rate_sheets[].bundles[]` holds `bundle_id`, `cz_platform_id`,
-`compiled_item_cz_platform_id`, `title`, `status`
+`rate_sheets[].bundles[]` holds `bundle_id`, `cz_platform_id`, `title`, `status`
 (`active|archived`), `sort_order`, `items[]`, and its own complete Rate Sheet
 row field set —
 `unit_price`/`per`/`quantity`/`group_id`/`price_options[]`/`default_price_label`.
@@ -68,30 +66,20 @@ Service Inclusion → Rate Sheet → Rate Sheet Row
 one row per active Bundle (`bundleConsumableRow()`) — id
 `deriveBundleRowId($bundleId)` in the ordinary `rate_` grammar, the Bundle's
 price, Price Options, quantity and group in the ordinary positions,
-`includes[]` for presentation only, its own durable normal `CZPRCI`, and the same resolved label, availability,
-operational state, and health facts carried by every offered row.
-`buildReadModel` resolves ordinary source-backed rows at this same compilation
-boundary and puts all offered rows straight into the sheet's own **`items`**.
-The compiled `CZPRCI` binds through the existing Rate Sheet Item authority to
-`(rate_sheet_id, deriveBundleRowId(bundle_id))`; the Bundle stores that linkage,
-so name, price, quantity, option, component, and repeat-publish changes reuse it.
-Its published `bundle_platform_id` traces back to the producing `CZPRCB`.
-The Tool cannot round-trip the compiled Bundle row: it carries no
-`source_item_id`, which `toEditorRows()`/`sanitizeRateRows()` already drop a row
-for. That empty field is an authoring guard, not a consumer-resolution signal.
+`includes[]` for presentation only. `buildReadModel` puts it straight into the
+sheet's own **`items`**, so no consumer changes. The Tool cannot round-trip it:
+it carries no `source_item_id`, which `toEditorRows()`/`sanitizeRateRows()`
+already drop a row for.
 
 Components are **ingredients, not separately chargeable rows**: absent from that
 offer, so selecting the Bundle charges $75 once, never its parts too.
 
-**No consumer learns that Bundles exist.** Bundle is special during authoring;
-`consumableRateSheetRows()` plus read-model row resolution is the compilation
-boundary. After it, the published representation participates in the normal
-Rate Sheet row contract. Tier storage and selection stay
-`{ item_id, quantity, price_option_id? }` — no Bundle-shaped storage,
-addressing, dedup, or pricing path. `projectTierRateSheetWith()` consumes the
-compiled resolution/availability fields uniformly and sends every admitted row
-through the one `evaluateTierPricing` engine; it contains no Bundle-origin
-switch.
+**No consumer learns that Bundles exist.** Tier storage and selection stay
+`{ item_id, quantity, price_option_id? }` — no Bundle-shaped storage, addressing,
+dedup, or pricing path. A Bundle row resolves through
+`projectTierRateSheetWith()` and the one `evaluateTierPricing` engine like any
+row; its one difference, `self_priced`, is read inside the Rate Sheet projector
+and means only that a combination stands behind it.
 
 A component's id is `deriveBundleRateItemId($bundleId, $sourceItemId)`, unique
 within its sheet. A stored id is never recomputed — only a Tool-curated blank

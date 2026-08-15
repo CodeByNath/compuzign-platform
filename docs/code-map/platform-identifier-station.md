@@ -103,8 +103,6 @@ Tier/Add-on share one instance-qualified occupant reference; Tier Edition's
 reference is occupant- not slot-qualified — see
 [Tier Edition](tier-edition.md). Rate Sheet Group/Item/Option use
 `(rate_sheet_id, group_id)`/`(rate_sheet_id, item_id)`/
-`(rate_sheet_id, item_id, option_id)`. Bundle outputs use Item scope at
-`(rate_sheet_id, deriveBundleRowId(bundle_id))`; Bundle storage retains that
-`CZPRCI` beside `CZPRCB`. Bundle scopes qualify by `bundle_id`. Package adapters
-delegate registry work here. Tier
+`(rate_sheet_id, item_id, option_id)`; Bundle scopes qualify by `bundle_id`. Package adapters retain
+storage/projection ownership and delegate registry work here. Tier
 Promotion (`CZTP`) is deferred.
