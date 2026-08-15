@@ -765,6 +765,15 @@ button.cz-station-status-pill {
   color: var(--station-status-inactive-fg);
 }
 
+/* Tier System's Included Rate Sheets editor (TierRateSheetAccessEditor.tsx)
+   reserves room for its own single MultiSelectField so opening/closing the
+   panel for a short (2-3 item) candidate list doesn't resize the editor body
+   around it. Scoped to this one editor only — the shared .cz-ies/.cz-tf-form
+   editor shell stays untouched for every other module. */
+.cz-tier-rate-sheet-access-form {
+  min-height: 220px;
+}
+
 .cz-station-split__item--destructive:hover:not(:disabled) {
   background: var(--station-status-inactive-bg);
 }

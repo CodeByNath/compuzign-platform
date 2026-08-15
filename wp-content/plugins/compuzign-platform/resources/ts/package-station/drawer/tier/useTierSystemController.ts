@@ -296,7 +296,13 @@ export function useTierSystemController({
       // collection read.
       if (createdInstance !== null) setCreatedInstance(saved);
       if (!(await pointAssignment(instance.tier_instance_id, overview.familyId, heldFamilyId))) {
-        setError('The Tier system was saved, but its Package Family could not be changed.');
+        // pointAssignment's own failure (assignInstance/unassignInstance)
+        // already captures the backend's real rejection code in tool.error
+        // (e.g. consumer_already_assigned) — surfaced here instead of
+        // discarded, so a recurrence carries real evidence instead of a
+        // guess at the cause.
+        const reason = guardMessage(tool.error, 'an unspecified error');
+        setError(`The Tier system was saved, but its Package Family could not be changed (${reason}).`);
         return;
       }
       refetchRateSheets?.();

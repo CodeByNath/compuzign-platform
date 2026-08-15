@@ -113,12 +113,25 @@ export function TierSystemContent({
     handlers: { edit: c.openOverviewEditor },
   };
 
+  // Draft-preferred, matching Overview's own behaviour (its draft state
+  // doubles as its display source) and the documented pattern elsewhere
+  // (Tier Edition's draftPreferredEdition): a just-Saved-but-not-yet-Applied
+  // selection must display immediately, not the stale persisted projection.
+  // Every id the draft can name already has a title in projection.rows — the
+  // candidate pool is every active sheet regardless of allowed status, so a
+  // freshly selected-but-unapplied id still resolves here.
   const accessData: TierRateSheetAccessShellData = c.projection === null
     ? { selectedNames: [], selectedCount: 0 }
-    : {
-        selectedNames: c.projection.rows.filter((row) => row.allowed).map((row) => row.title),
-        selectedCount: c.projection.allowedCount,
-      };
+    : c.rateSheetHasUnappliedChanges && c.rateSheetAccess !== null
+      ? (() => {
+          const titleById = new Map(c.projection.rows.map((row) => [row.rateSheetId, row.title]));
+          const ids = c.rateSheetAccess.allowedRateSheetIds;
+          return { selectedNames: ids.map((id) => titleById.get(id) ?? id), selectedCount: ids.length };
+        })()
+      : {
+          selectedNames: c.projection.rows.filter((row) => row.allowed).map((row) => row.title),
+          selectedCount: c.projection.allowedCount,
+        };
   const accessBinding: ShellBinding<TierRateSheetAccessShellData> = {
     data: accessData,
     // Access has no enable/disable lifecycle of its own. A resolved policy is

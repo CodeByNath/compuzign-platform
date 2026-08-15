@@ -26,7 +26,7 @@ export function TierRateSheetAccessEditor({ draft, projection, onChange }: {
   }));
 
   return (
-    <div class="cz-tf-form">
+    <div class="cz-tf-form cz-tier-rate-sheet-access-form">
       <MultiSelectField
         id="tier-rate-sheet-access"
         label="Rate Sheets"

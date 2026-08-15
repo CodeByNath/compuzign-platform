@@ -107,7 +107,16 @@ final class TierAssignmentSchema
         if ($instanceId === '' || TierInstanceSchema::findInstance($instances, $instanceId) === null) {
             throw new \RuntimeException('unknown_tier_instance');
         }
-        if (self::findForConsumer($rows, $type, $id) !== null) {
+        $existingForConsumer = self::findForConsumer($rows, $type, $id);
+        if ($existingForConsumer !== null) {
+            // Idempotent: (re)pointing this exact consumer at the instance it
+            // already names is a no-op success, not a conflict — a caller
+            // that redundantly re-asserts an assignment already in this
+            // exact state (no unassign first) must not fail for a request
+            // that changes nothing.
+            if (($existingForConsumer['tier_instance_id'] ?? null) === $instanceId) {
+                return array_values($rows);
+            }
             throw new \RuntimeException('consumer_already_assigned');
         }
         if (self::findForInstance($rows, $instanceId) !== null) {
