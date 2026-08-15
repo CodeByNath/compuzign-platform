@@ -35,7 +35,20 @@ export interface TierInstancesToolState {
   selectedInstance: TierInstanceRecord | null;
   loading: boolean;
   saving: boolean;
+  /**
+   * The last failure of ANY kind — the collection read or a mutation. Read it
+   * as inline content beside the surface that raised it.
+   */
   error: string | null;
+  /**
+   * The COLLECTION READ's own failure, and nothing else. A host that cannot
+   * mount its composition without this data gates on this; a mutation
+   * rejection must never take that path, because unmounting the composition
+   * discards the drawer's local pending→persisted identity and turns a
+   * recoverable, retryable write into a raw endpoint string with no Tier
+   * System behind it.
+   */
+  loadError: string | null;
   /** Increments for Package-owned Open Tier tool hand-offs, even when identity is unchanged. */
   openRequestRevision: number;
   selectInstance: (instanceId: string) => void;
@@ -71,12 +84,14 @@ export function useTierInstances(): TierInstancesToolState {
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [openRequestRevision, setOpenRequestRevision] = useState(0);
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
     setError(null);
+    setLoadError(null);
     Promise.all([
       fetchTierInstances(),
       fetchTierAssignments(),
@@ -111,7 +126,9 @@ export function useTierInstances(): TierInstancesToolState {
       })
       .catch((cause) => {
         if (!active) return;
-        setError(cause instanceof Error ? cause.message : 'Unable to load Tier instances.');
+        const message = cause instanceof Error ? cause.message : 'Unable to load Tier instances.';
+        setError(message);
+        setLoadError(message);
         setInstances([]);
         setAssignments([]);
         setFamilies([]);
@@ -254,6 +271,7 @@ export function useTierInstances(): TierInstancesToolState {
     loading: !initialized,
     saving,
     error,
+    loadError,
     openRequestRevision,
     selectInstance: setSelectedInstanceId,
     createInstance,
@@ -264,7 +282,7 @@ export function useTierInstances(): TierInstancesToolState {
     refetch,
   }), [
     instances, assignments, families, rows, eligibleFamilies,
-    selectedInstanceId, selectedInstance, initialized, saving, error,
+    selectedInstanceId, selectedInstance, initialized, saving, error, loadError,
     openRequestRevision, createInstance, updateInstance, deleteInstance,
     assignInstance, unassignInstance, refetch,
   ]);

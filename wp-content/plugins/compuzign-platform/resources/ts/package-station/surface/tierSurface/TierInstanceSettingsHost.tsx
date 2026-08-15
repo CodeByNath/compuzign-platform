@@ -20,8 +20,10 @@ export function TierInstanceSettingsHost({ serviceId, instanceId, bridge }: {
   if (tool.loading || !pkg.detailLoaded) {
     return <div class="cz-station-drawer__state">Loading Tier system settings…</div>;
   }
-  if (tool.error) {
-    return <div class="cz-station-drawer__state" role="alert">{tool.error}</div>;
+  // The COLLECTION READ only — see TierRegistrationHost for why a rejected
+  // mutation must not unmount the composition that owns its retry.
+  if (tool.loadError) {
+    return <div class="cz-station-drawer__state" role="alert">{tool.loadError}</div>;
   }
   if (!pkg.service) {
     return <div class="cz-station-drawer__state" role="alert">Rate Sheet access is unavailable.</div>;

@@ -47,7 +47,27 @@ for (const host of [registrationHostSource, instanceSettingsHostSource]) {
     !/const \[.*useState/.test(host) && !host.includes('useEffect'),
     'the hosts stay thin data-loading adapters — no independent lifecycle logic of their own',
   );
+  // A host's fatal branch unmounts the composition, discarding the drawer's
+  // local pending→persisted identity. Only the COLLECTION READ may do that. A
+  // rejected mutation (a 422 from the assignment ledger, say) reports inside
+  // the mounted composition, which still owns the retry and the record Publish
+  // just created.
+  check(
+    host.includes('loadError') && !/\.error\b/.test(host.replace(/loadError/g, '')),
+    'a host mounts or refuses on the collection read alone — a mutation rejection never unmounts the composition',
+  );
 }
+// Publish mints the instance inside this same mounted registration drawer, so
+// the pending host must carry the Rate Sheet inventory the Rate Sheet Access
+// module needs the moment that happens. It never re-mounts as the persisted
+// host, so an inventory left to the persisted route alone is one this route
+// can never obtain.
+check(
+  registrationHostSource.includes('useTierRateSheetInventory')
+    && registrationHostSource.includes('rateSheets={')
+    && registrationHostSource.includes('refetchRateSheets={'),
+  'the pending host supplies the Rate Sheet inventory its own post-Publish state needs',
+);
 
 // Fixed-slot occupant concerns (Basic/Standard/Premium/Enterprise/Ultimate)
 // never leak into the aggregate composition — only the whole-instance
@@ -203,9 +223,18 @@ check(
     && !deleteInstanceBody.includes('setInstances('),
   'guarded delete returns its own dialog error and does not replace or refetch the still-mounted drawer record',
 );
+// Order is load-bearing, not cosmetic. AdminStationDrawerContext.close()
+// deliberately drops the originating wall's refetch handle, so notifying
+// AFTER closing refreshes nothing and the wall keeps offering a Tier Group
+// the endpoint already deleted — the stale binding that later opens a dead
+// tier_instance_id and reports "Package Station not found". Since
+// useTierInstances.deleteInstance deliberately does NOT refetch (it must not
+// pull the record out from under the still-mounted confirmation dialog),
+// this notification is the ONLY refresh the delete has.
 check(
-  tierSystemController.indexOf('bridge.close();') < tierSystemController.indexOf('bridge.onMutationComplete?.();', tierSystemController.indexOf('const confirmDelete')),
-  'successful Tier Group deletion closes its drawer before refreshing the opener',
+  tierSystemController.indexOf('bridge.onMutationComplete?.();', tierSystemController.indexOf('const confirmDelete'))
+    < tierSystemController.indexOf('bridge.close();', tierSystemController.indexOf('const confirmDelete')),
+  'successful Tier Group deletion refreshes its opener before the close that drops the refetch handle',
 );
 check(
   tierSystemController.indexOf('bridge.setCloseGuard(null);', tierSystemController.indexOf('const confirmDelete'))
@@ -255,6 +284,14 @@ const publishBody = publishStart >= 0 && publishEnd > publishStart
 check(
   publishBody.includes('setCreatedInstance(created)') && publishBody.includes('pointAssignment'),
   'publish() retains the created instance before attempting the optional Family assignment',
+);
+// …and a retry after that partial failure resumes THAT instance. Minting a
+// second one leaves an orphan Tier Group behind and makes the ledger reject
+// the retry outright with consumer_already_assigned, since the first attempt
+// already claimed the Family.
+check(
+  publishBody.includes('createdInstance\n        ?? await tool.createInstance('),
+  'publish() resumes the instance a prior attempt already created rather than minting a second one',
 );
 
 // The atomic-creation hook is gone. Family, Rate Sheet and group creation are

@@ -229,7 +229,14 @@ export function useTierSystemController({
     setSaving(true);
     setError(null);
     try {
-      const created = await tool.createInstance({ title, description: overview.description.trim() });
+      // A retry after a failed ledger write must never mint a SECOND Tier
+      // Group. The first attempt's instance is already persisted and is what
+      // this drawer now addresses; only the optional assignment failed. Same
+      // rule usePackageFamilyCapabilities' own `createdOrphan` already follows
+      // for the Family capability path — creating again is what produced both
+      // an orphan Tier Group and a `consumer_already_assigned` rejection.
+      const created = createdInstance
+        ?? await tool.createInstance({ title, description: overview.description.trim() });
       if (!created) {
         setError(tool.error ?? 'Could not publish the Tier system.');
         return;
@@ -249,7 +256,7 @@ export function useTierSystemController({
     } finally {
       setSaving(false);
     }
-  }, [bridge, overview, pointAssignment, tool]);
+  }, [bridge, createdInstance, overview, pointAssignment, tool]);
 
   const apply = useCallback(async () => {
     if (instance === null) return;
@@ -304,11 +311,18 @@ export function useTierSystemController({
         return;
       }
       setDeleteDialogOpen(false);
+      // Refresh the opener BEFORE closing, never after: the host drawer
+      // controller drops the originating wall's refetch handle inside its own
+      // close() (AdminStationDrawerContext — "a save that resolves after close
+      // then refreshes nothing"), so a notification sent afterwards reaches
+      // nothing at all and the wall keeps rendering the Tier Group that no
+      // longer exists. That stale binding is what later opens a deleted
+      // tier_instance_id and reports "Package Station not found".
+      bridge.onMutationComplete?.();
       // This terminal action was already confirmed by the delete dialog.
       // Bypass the draft close prompt after the record no longer exists.
       bridge.setCloseGuard(null);
       bridge.close();
-      bridge.onMutationComplete?.();
     } finally {
       setDeleting(false);
     }
