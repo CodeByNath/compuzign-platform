@@ -32,7 +32,7 @@ function ServiceConnectionRow({ row, onIntent }: {
 }): VNode {
   return (
     <li class="cz-station-list__row cz-station-list__row--service-connections">
-      <ServiceDeckRowIdentity icon={<PackagesIcon />} name={row.name} />
+      <ServiceDeckRowIdentity icon={<PackagesIcon />} name={row.name} compact />
       <div class="cz-station-list__cell cz-service-deck__field">
         <span class="cz-service-deck__field-label">Platform ID</span>
         {row.platformId || PLATFORM_ID_FALLBACK}

@@ -13,12 +13,21 @@ interface Props {
    *  record's identity in its own Platform ID column instead — the name then
    *  stands alone rather than over an empty line. */
   reference?: string;
+  /** The smaller icon plate a connected-record row reads with: the glyph marks
+   *  the row, it does not compete with the name. Mirrors the `compact` flag
+   *  `TierDeckRowIdentity` already carries for the same rows. */
+  compact?: boolean;
 }
 
-export function ServiceDeckRowIdentity({ icon, name, reference }: Props): VNode {
+export function ServiceDeckRowIdentity({ icon, name, reference, compact = false }: Props): VNode {
   return (
     <div class="cz-station-list__cell cz-service-deck__identity">
-      <span class="cz-service-deck__identity-icon" aria-hidden="true">{icon}</span>
+      <span
+        class={`cz-service-deck__identity-icon${compact ? ' cz-service-deck__identity-icon--compact' : ''}`}
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
       <div class="cz-service-deck__identity-copy">
         <strong class="cz-service-deck__identity-name">{name}</strong>
         {reference !== undefined && <small class="cz-service-deck__identity-ref">{reference}</small>}
