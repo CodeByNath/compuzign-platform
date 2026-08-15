@@ -527,6 +527,10 @@ class PackageStationController
         }
         $body = $request->get_json_params();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
+        $allowedRateSheetIds = TierInstanceSchema::sanitizeAllowedRateSheetIds(
+            is_array($body) ? ($body['allowed_rate_sheet_ids'] ?? []) : [],
+            $manager['rate_sheets']
+        );
         $reservation = null;
         if ($this->identityEnabled) {
             try {
@@ -541,9 +545,11 @@ class PackageStationController
             'title' => $title,
             'description' => sanitize_textarea_field((string) (is_array($body) ? ($body['description'] ?? '') : '')),
             'status' => 'disabled',
-            'allowed_rate_sheet_ids' => TierInstanceSchema::sanitizeAllowedRateSheetIds(
-                is_array($body) ? ($body['allowed_rate_sheet_ids'] ?? []) : [],
-                $manager['rate_sheets']
+            'allowed_rate_sheet_ids' => $allowedRateSheetIds,
+            'allowed_rate_sheet_groups' => TierInstanceSchema::sanitizeAllowedRateSheetGroups(
+                is_array($body) ? ($body['allowed_rate_sheet_groups'] ?? []) : [],
+                $manager['rate_sheets'],
+                $allowedRateSheetIds
             ),
             'popular_tier' => null,
             'popular_label' => '',
@@ -604,11 +610,18 @@ class PackageStationController
         if (array_key_exists('description', $body)) {
             $instance['description'] = sanitize_textarea_field((string) $body['description']);
         }
-        if (array_key_exists('allowed_rate_sheet_ids', $body)) {
+        if (array_key_exists('allowed_rate_sheet_ids', $body) || array_key_exists('allowed_rate_sheet_groups', $body)) {
             $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
-            $instance['allowed_rate_sheet_ids'] = TierInstanceSchema::sanitizeAllowedRateSheetIds(
-                $body['allowed_rate_sheet_ids'],
-                $manager['rate_sheets']
+            if (array_key_exists('allowed_rate_sheet_ids', $body)) {
+                $instance['allowed_rate_sheet_ids'] = TierInstanceSchema::sanitizeAllowedRateSheetIds(
+                    $body['allowed_rate_sheet_ids'],
+                    $manager['rate_sheets']
+                );
+            }
+            $instance['allowed_rate_sheet_groups'] = TierInstanceSchema::sanitizeAllowedRateSheetGroups(
+                $body['allowed_rate_sheet_groups'] ?? ($instance['allowed_rate_sheet_groups'] ?? []),
+                $manager['rate_sheets'],
+                $instance['allowed_rate_sheet_ids'] ?? []
             );
         }
         $station = TierInstanceSchema::withInstance($station, $instanceId, $instance);
@@ -825,6 +838,7 @@ class PackageStationController
         $responseStation = [
             'platform_status' => $instanceStatus,
             'allowed_rate_sheet_ids' => $instance['allowed_rate_sheet_ids'] ?? [],
+            'allowed_rate_sheet_groups' => $instance['allowed_rate_sheet_groups'] ?? [],
             'tiers'           => $tiers,
             'popular_tier'    => $instance['popular_tier'] ?? null,
             'popular_label'   => $instance['popular_label'] ?? '',
@@ -1464,6 +1478,7 @@ class PackageStationController
         $responseStation = [
             'platform_status' => TierInstanceSchema::deriveInstanceStatus($instance),
             'allowed_rate_sheet_ids' => $instance['allowed_rate_sheet_ids'] ?? [],
+            'allowed_rate_sheet_groups' => $instance['allowed_rate_sheet_groups'] ?? [],
             'tiers' => $tiers,
             'popular_tier' => $instance['popular_tier'] ?? null,
             'popular_label' => $instance['popular_label'] ?? '',

@@ -213,9 +213,11 @@ const tierRateSheetAccessEditorSource = readFileSync(resolve(
 ), 'utf8');
 check(
   tierRateSheetAccessEditorSource.includes('MultiSelectField')
+    && tierRateSheetAccessEditorSource.includes('children: row.groups.map')
+    && tierRateSheetAccessEditorSource.includes('allowedRateSheetGroups')
     && !tierRateSheetAccessEditorSource.includes("type: 'checkbox'")
     && !tierRateSheetAccessEditorSource.includes('cz-tf-hint'),
-  'the Rate Sheet Access editor is one MultiSelectField, not a hand-rolled checkbox list with explanatory text',
+  'the Rate Sheet Access editor gives the shared MultiSelectField exact nested Rate Sheet group choices, not a hand-rolled checkbox list',
 );
 
 // MultiSelectField (drawer-kit/fields) is the ONE trigger+floating-panel
@@ -242,6 +244,12 @@ check(
     && multiSelectFieldSource.includes('spaceBelow')
     && multiSelectFieldSource.includes('spaceAbove'),
   'MultiSelectField measures the trigger against the viewport and can open upward, not just downward',
+);
+check(
+  multiSelectFieldSource.includes('children?: MultiSelectFieldOption[]')
+    && multiSelectFieldSource.includes('parent ? [parent.value]')
+    && multiSelectFieldSource.includes('option.children ?? []'),
+  'MultiSelectField supports nested choices, selecting a child grants its parent, and clearing a parent clears its children',
 );
 check(
   tierOverviewEditorSource.includes('MultiSelectField')

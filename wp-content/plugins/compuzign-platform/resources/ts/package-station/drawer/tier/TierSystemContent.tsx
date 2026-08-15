@@ -28,7 +28,7 @@ import type {
   TierSystemOverviewShellData,
 } from '../schema/bindings/tierSystem';
 import type { TierSystemOverviewDraftFields } from '../editors/TierSystemOverviewEditor';
-import type { TierRateSheetAccessDraft } from '../../surface/tierInstance/tierRateSheetAccessModel';
+import { tierRateSheetGroupAccessKey, type TierRateSheetAccessDraft } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import type { PackageRateSheet, TierInstanceRecord } from '../../types';
 import type { TierInstancesToolState } from '../../surface/tierInstance/useTierInstances';
 import { useTierSystemController } from './useTierSystemController';
@@ -126,10 +126,17 @@ export function TierSystemContent({
       ? (() => {
           const titleById = new Map(c.projection.rows.map((row) => [row.rateSheetId, row.title]));
           const ids = c.rateSheetAccess.allowedRateSheetIds;
-          return { selectedNames: ids.map((id) => titleById.get(id) ?? id), selectedCount: ids.length };
+          const groupTitleByKey = new Map(c.projection.rows.flatMap((row) => row.groups)
+            .map((group) => [group.accessKey, group.title]));
+          const groupNames = c.rateSheetAccess.allowedRateSheetGroups.map((group) => (
+            `↳ ${titleById.get(group.rate_sheet_id) ?? group.rate_sheet_id}: ${groupTitleByKey.get(tierRateSheetGroupAccessKey(group.rate_sheet_id, group.group_id)) ?? group.group_id}`
+          ));
+          return { selectedNames: [...ids.map((id) => titleById.get(id) ?? id), ...groupNames], selectedCount: ids.length };
         })()
       : {
-          selectedNames: c.projection.rows.filter((row) => row.allowed).map((row) => row.title),
+          selectedNames: c.projection.rows.flatMap((row) => row.allowed
+            ? [row.title, ...row.groups.filter((group) => group.allowed).map((group) => `↳ ${row.title}: ${group.title}`)]
+            : []),
           selectedCount: c.projection.allowedCount,
         };
   const accessBinding: ShellBinding<TierRateSheetAccessShellData> = {
@@ -150,7 +157,7 @@ export function TierSystemContent({
       : evaluateModule(tierRateSheetAccessModule, {
           allowedActiveCount: c.projection.allowedActiveCount,
           activeCount:        c.projection.activeCount,
-          unresolvedCount:    c.projection.unresolvedCount,
+          unresolvedCount:    c.projection.unresolvedCount + c.projection.unresolvedGroupCount,
         }, { platformStatus: 'active', platformLabel: 'Tier system' }),
     hasDraft: c.rateSheetHasUnappliedChanges,
     // No `edit` handler pre-publish: the action renders (disabled) rather

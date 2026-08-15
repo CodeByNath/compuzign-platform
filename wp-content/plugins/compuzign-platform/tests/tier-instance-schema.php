@@ -64,6 +64,24 @@ $allowed = Schema::sanitizeAllowedRateSheetIds(
 );
 check_tier_instance($allowed === ['rs_b', 'rs_a'], 'allow-list drops unknown ids, dedupes, and preserves order');
 
+$allowedGroups = Schema::sanitizeAllowedRateSheetGroups(
+    [
+        ['rate_sheet_id' => 'rs_a', 'group_id' => 'group_a'],
+        ['rate_sheet_id' => 'rs_a', 'group_id' => 'group_a'],
+        ['rate_sheet_id' => 'rs_a', 'group_id' => 'unknown'],
+        ['rate_sheet_id' => 'rs_b', 'group_id' => 'group_b'],
+    ],
+    [
+        ['rate_sheet_id' => 'rs_a', 'groups' => [['group_id' => 'group_a']]],
+        ['rate_sheet_id' => 'rs_b', 'groups' => [['group_id' => 'group_b']]],
+    ],
+    ['rs_a']
+);
+check_tier_instance(
+    $allowedGroups === [['rate_sheet_id' => 'rs_a', 'group_id' => 'group_a']],
+    'nested access keeps exact known pairs, dedupes, and requires its allowed parent'
+);
+
 $active = $base;
 $active['tiers']['basic'] = [
     'current_occupant' => ['id' => 'occ_a', 'platform_status' => 'active'],

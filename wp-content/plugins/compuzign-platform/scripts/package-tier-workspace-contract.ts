@@ -36,6 +36,7 @@ import {
   tierRateSheetAccessDraft,
   tierRateSheetAccessIsDirty,
   tierRateSheetAccessPayload,
+  tierRateSheetGroupAccessPayload,
 } from '../resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel';
 import type {
   PackageRateSheet,
@@ -350,7 +351,10 @@ check(
 );
 
 const accessSheets: PackageRateSheet[] = [
-  { rate_sheet_id: 'rs_active', title: 'Active', status: 'active', groups: [], items: [] },
+  { rate_sheet_id: 'rs_active', title: 'Active', status: 'active', groups: [
+    { group_id: 'ga', label: 'Group A', sort_order: 0 },
+    { group_id: 'gb', label: 'Group B', sort_order: 1 },
+  ], items: [] },
   { rate_sheet_id: 'rs_second', title: 'Second', status: 'active', groups: [], items: [] },
   { rate_sheet_id: 'rs_archived', title: 'Archived', status: 'archived', groups: [], items: [] },
 ];
@@ -399,6 +403,7 @@ check(
 const limitedRecord = {
   ...kairosRecord,
   allowed_rate_sheet_ids: ['rs_active', 'rs_archived', 'rs_missing'],
+  allowed_rate_sheet_groups: [{ rate_sheet_id: 'rs_active', group_id: 'ga' }],
 };
 const limitedAccess = projectTierRateSheetAccess(limitedRecord, accessSheets);
 check(
@@ -421,11 +426,16 @@ check(
 const limitedDraft = tierRateSheetAccessDraft(limitedAccess);
 check(!tierRateSheetAccessIsDirty(limitedDraft, limitedRecord), 'an unchanged limited draft is not dirty');
 check(
-  tierRateSheetAccessPayload({ allowedRateSheetIds: [' rs_active ', 'rs_active'] }).join(',') === 'rs_active',
+  limitedAccess.rows.find((row) => row.rateSheetId === 'rs_active')?.groups.map((group) => `${group.groupId}:${group.allowed}`).join(',') === 'ga:true,gb:false'
+    && tierRateSheetGroupAccessPayload(limitedDraft)[0]?.group_id === 'ga',
+  'Rate Sheet groups project as nested exact child choices and round-trip through the access payload',
+);
+check(
+  tierRateSheetAccessPayload({ allowedRateSheetIds: [' rs_active ', 'rs_active'], allowedRateSheetGroups: [] }).join(',') === 'rs_active',
   'the save payload trims and de-duplicates the draft ids before backend validation',
 );
 check(
-  tierRateSheetAccessPayload({ allowedRateSheetIds: [] }).length === 0,
+  tierRateSheetAccessPayload({ allowedRateSheetIds: [], allowedRateSheetGroups: [] }).length === 0,
   'an explicitly empty draft saves as empty — deselecting everything is a valid, savable choice, never rejected',
 );
 
