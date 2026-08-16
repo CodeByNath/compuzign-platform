@@ -35,28 +35,21 @@ Sheet/Group/Item. A row (and a Bundle, for its own price) may also carry
 has, sanitized and passed through by `sanitizeRateRows`/
 `sanitizeRateSheetBundles`/`bundleConsumableRow`. It is not a price option: no
 `option_id`, no Platform ID, no identity work of any kind, and selection is
-still the absence of a `price_option_id`. A sheet may additionally hold
-`bundles[]` — Rate Sheet-owned composition spaces. Each Bundle definition
-carries `CZPRCB`; its one compiled peer row carries structural `CZPRCBI` plus
-ordinary commercial `CZPRCI`, and its commercial options carry ordinary
-`CZPRCIO`. Each included-row relationship carries `CZPRCBII` and preserves the
-exact referenced source row's `CZPRCI` (and source `CZPRCIO` where applicable).
-Legacy `CZPRCBO`/`CZPRCBIO` bindings exist only for migration/tombstoning and
-must never be minted by new writes. A Bundle stores no groups
+still the absence of a `price_option_id`. A sheet may additionally hold `bundles[]` — Rate
+Sheet-owned composition spaces holding COMPLETE Rate Sheet rows, each Bundle
+carrying `CZPRCB` against `(rate_sheet_id, bundle_id)`, each of its rows
+`CZPRCBI` against `(rate_sheet_id, bundle_id, item_id)`, and each of those
+rows' price options `CZPRCBIO` — separate records from the sheet's own row for
+the same supplied content, never references to it. A Bundle stores no groups
 and no unit vocabulary: its rows validate against the owning sheet's, and its
 `bundle_id` is minted write-path-only in `commitConfiguration` like a sheet id.
 A Bundle row additionally carries its own editable `label` (blank inherits the
 resolved supplied-content label). A Bundle carries the COMPLETE Rate Sheet row field set for consuming that
 combination together — `unit_price`/`per`/`quantity`/`group_id`/
-`price_options[]` (ordinary compiled-row `CZPRCIO`) — independent of what its component
+`price_options[]` (the latter `CZPRCBO`) — independent of what its component
 rows sum to. `quantity`/`group_id` are clamped and validated by the same rules
 `sanitizeRateRows` applies to a row's, and a Bundle stored before they existed
 reads back on `1`/`null`, the defaults `bundleConsumableRow()` used to hardcode.
-Deleting a referenced source row is explicit: the Tool confirms affected
-Bundles and removes their `CZPRCBII` relationships in the same Manager save;
-the backend rejects a dangling exact reference instead of silently changing a
-recipe. A non-empty remainder stays sellable; an empty Bundle stays stored but
-emits no compiled row.
 Upstream it IS one Rate Sheet row: `consumableRateSheetRows()` offers the
 sheet's own rows plus one row per active Bundle (`deriveBundleRowId`, ordinary
 `rate_` grammar, `includes[]` for presentation only), placed by `buildReadModel`

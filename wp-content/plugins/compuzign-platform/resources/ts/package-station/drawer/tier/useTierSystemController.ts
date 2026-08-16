@@ -32,7 +32,6 @@ import {
   tierRateSheetAccessDraft,
   tierRateSheetAccessIsDirty,
   tierRateSheetAccessPayload,
-  tierRateSheetBundleAccessPayload,
   type TierRateSheetAccessDraft,
   type TierRateSheetAccessProjection,
 } from '../../surface/tierInstance/tierRateSheetAccessModel';
@@ -282,10 +281,7 @@ export function useTierSystemController({
         title,
         description: overview.description.trim(),
         ...(rateSheetAccess !== null
-          ? {
-              allowed_rate_sheet_ids: tierRateSheetAccessPayload(rateSheetAccess),
-              allowed_rate_sheet_bundles: tierRateSheetBundleAccessPayload(rateSheetAccess),
-            }
+          ? { allowed_rate_sheet_ids: tierRateSheetAccessPayload(rateSheetAccess) }
           : {}),
       });
       if (!saved) {
@@ -360,8 +356,6 @@ export function useTierSystemController({
       || overview.familyId !== overviewOriginal.familyId)
     : editingModule === 'rate-sheet-access' && rateSheetAccess !== null && rateSheetOriginal !== null
       ? tierRateSheetAccessPayload(rateSheetAccess).join(',') !== tierRateSheetAccessPayload(rateSheetOriginal).join(',')
-        || JSON.stringify(tierRateSheetBundleAccessPayload(rateSheetAccess))
-          !== JSON.stringify(tierRateSheetBundleAccessPayload(rateSheetOriginal))
       : false;
 
   const footerMode: TierSystemFooterMode = editingModule !== null

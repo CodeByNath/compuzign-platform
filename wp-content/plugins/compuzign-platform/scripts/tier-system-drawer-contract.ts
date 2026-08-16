@@ -7,7 +7,6 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildOccupantRateSheetCatalogue, resolveOccupantInclusions } from '../resources/ts/package-station/tierRateSheetCatalogue';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Tier System drawer contract: ${message}`);
@@ -214,21 +213,9 @@ const tierRateSheetAccessEditorSource = readFileSync(resolve(
 ), 'utf8');
 check(
   tierRateSheetAccessEditorSource.includes('MultiSelectField')
-    && tierRateSheetAccessEditorSource.includes('children: row.bundles.map')
-    && tierRateSheetAccessEditorSource.includes('allowedRateSheetBundles')
     && !tierRateSheetAccessEditorSource.includes("type: 'checkbox'")
     && !tierRateSheetAccessEditorSource.includes('cz-tf-hint'),
-  'the Rate Sheet Access editor gives MultiSelectField direct Bundle children, not Rate Sheet rows or a hand-rolled list',
-);
-const tierRateSheetAccessModelSource = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel.ts',
-), 'utf8');
-check(
-  tierRateSheetAccessModelSource.includes('sheet?.bundles ?? []')
-    && !tierRateSheetAccessModelSource.includes('sheet.groups')
-    && !tierRateSheetAccessModelSource.includes('sheet.items'),
-  'Tier System Bundle candidates come directly from the matched Rate Sheet bundles[] collection, never row groups or items',
+  'the Rate Sheet Access editor is one MultiSelectField, not a hand-rolled checkbox list with explanatory text',
 );
 
 // MultiSelectField (drawer-kit/fields) is the ONE trigger+floating-panel
@@ -257,86 +244,10 @@ check(
   'MultiSelectField measures the trigger against the viewport and can open upward, not just downward',
 );
 check(
-  multiSelectFieldSource.includes('children?: MultiSelectFieldOption[]')
-    && multiSelectFieldSource.includes('parent ? [parent.value]')
-    && multiSelectFieldSource.includes('option.children ?? []'),
-  'MultiSelectField supports nested choices, child selection grants its Rate Sheet, and clearing a Rate Sheet clears its Bundles',
-);
-check(
   tierOverviewEditorSource.includes('MultiSelectField')
     && !tierOverviewEditorSource.includes('cz-tier-audience-groups'),
   'Tier Overview\'s Customer Groups picker uses the shared MultiSelectField, not its own retired hand-rolled panel',
 );
-const occupantDrawerContentSource = readFileSync(resolve(
-  root,
-  'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx',
-), 'utf8');
-check(
-  tierOverviewEditorSource.includes('label="Rate Sheets"')
-    && tierOverviewEditorSource.includes('children: sheet.bundles.map')
-    && tierOverviewEditorSource.includes('rate_sheet_ids: rateSheetIds')
-    && tierOverviewEditorSource.includes('rate_sheet_bundles: rateSheetBundles'),
-  'Tier Occupant Overview uses the shared hierarchical checkbox field for multiple Rate Sheets and their Bundles',
-);
-check(
-  occupantDrawerContentSource.includes('station.allowed_rate_sheet_ids')
-    && occupantDrawerContentSource.includes('station.allowed_rate_sheet_bundles')
-    && occupantDrawerContentSource.includes('occupantRateSheetOptions'),
-  'Tier Occupant Overview candidates are projected only from its Tier Group authorization response',
-);
-
-const compiledBundleRowId = 'rate_bundle_compiled';
-const occupantCatalogue = buildOccupantRateSheetCatalogue({
-  package_relationships: [
-    { item_id: 'source_normal', source_type: 'inclusion', source_id: 'inc_1', resolved: { label: 'Normal inclusion' } },
-    { item_id: 'source_bundle_inclusion', source_type: 'inclusion', source_id: 'inc_bundle', resolved: { label: 'Discovery' } },
-    { item_id: 'source_bundle_faq', source_type: 'faq', source_id: 'faq_bundle', resolved: { question: 'Question', answer: 'Answer' } },
-    { item_id: 'source_bundle_missing', source_type: 'inclusion', source_id: 'inc_missing', resolved: null, missing: true },
-  ],
-  rate_sheets: [{
-    rate_sheet_id: 'rs_selected', title: 'Selected', status: 'active', groups: [],
-    items: [
-      { item_id: 'rate_normal', source_item_id: 'source_normal', unit_price: 100, per: 'Per item', quantity: 1, group_id: null, sort_order: 0, price_options: [] },
-      { item_id: compiledBundleRowId, platform_id: 'CZPRCI23456', source_item_id: '', label: 'Website Launch Bundle', includes: [
-        { item_id: 'member_1', source_item_id: 'source_bundle_inclusion', label: 'Discovery', quantity: 1 },
-        { item_id: 'member_2', source_item_id: 'source_bundle_faq', label: 'Question', quantity: 1 },
-        { item_id: 'member_3', source_item_id: 'source_bundle_missing', label: 'Missing', quantity: 1 },
-        { item_id: 'member_4', source_item_id: 'source_unmatched', label: 'Unmatched', quantity: 1 },
-      ], unit_price: 4500, per: 'One time', quantity: 1, group_id: null, sort_order: 1, price_options: [] },
-      { item_id: 'rate_unauthorized_bundle', platform_id: 'CZPRCI23457', source_item_id: '', label: 'Other Bundle', includes: [], unit_price: 900, per: 'One time', quantity: 1, group_id: null, sort_order: 2, price_options: [] },
-    ],
-    bundles: [
-      { bundle_id: 'bundle_selected', compiled_item_platform_id: 'CZPRCI23456', title: 'Website Launch Bundle', status: 'active', sort_order: 0, unit_price: 4500, per: 'One time', price_options: [], items: [] },
-      { bundle_id: 'bundle_other', compiled_item_platform_id: 'CZPRCI23457', title: 'Other Bundle', status: 'active', sort_order: 1, unit_price: 900, per: 'One time', price_options: [], items: [] },
-    ],
-  }],
-} as any, ['rs_selected'], [{ rate_sheet_id: 'rs_selected', bundle_id: 'bundle_selected' }], null, []);
-const normalCatalogueRow = occupantCatalogue.find((row) => row.item_id === 'rate_normal');
-const bundleCatalogueRow = occupantCatalogue.find((row) => row.item_id === compiledBundleRowId);
-check(normalCatalogueRow?.resolved === true && normalCatalogueRow.source_id === 'inc_1', 'ordinary occupant rows retain source_item_id relationship resolution');
-check(bundleCatalogueRow?.resolved === true && bundleCatalogueRow.label === 'Website Launch Bundle', 'an exactly selected Bundle resolves through its existing compiled row metadata');
-check(bundleCatalogueRow?.includes?.[0]?.label === 'Discovery', 'the compiled Bundle row carries its existing includes[] presentation children');
-check(!occupantCatalogue.some((row) => row.item_id === 'rate_unauthorized_bundle'), 'an unselected Bundle from the same selected Rate Sheet is not exposed');
-check(new Set(occupantCatalogue.filter((row) => row.resolved).map((row) => row.item_id)).has(compiledBundleRowId), 'the existing active/stale valid-id set retains a selected compiled Bundle row');
-const resolvedBundleInclusions = resolveOccupantInclusions(occupantCatalogue, [
-  { item_id: 'source_normal', source_type: 'inclusion', source_id: 'inc_1', resolved: { label: 'Normal inclusion' } },
-  { item_id: 'source_bundle_inclusion', source_type: 'inclusion', source_id: 'inc_bundle', resolved: { label: 'Discovery' } },
-  { item_id: 'source_bundle_faq', source_type: 'faq', source_id: 'faq_bundle', resolved: { question: 'Question', answer: 'Answer' } },
-  { item_id: 'source_bundle_missing', source_type: 'inclusion', source_id: 'inc_missing', resolved: null, missing: true },
-] as any);
-check(resolvedBundleInclusions.some((item) => item.id === 'inc_bundle' && item.label === 'Discovery'), 'a selected Bundle expands its inclusion child through source_item_id into the Tier inclusion resolver');
-check(!resolvedBundleInclusions.some((item) => item.id === 'faq_bundle'), 'a Bundle child whose relationship is not an inclusion is excluded from Tier inclusions');
-check(!resolvedBundleInclusions.some((item) => item.id === 'inc_missing'), 'unresolved and unmatched Bundle children are excluded from Tier inclusions');
-const legacyCatalogue = buildOccupantRateSheetCatalogue(({
-  package_relationships: [{ item_id: 'source_legacy', source_type: 'inclusion', source_id: 'inc_legacy', resolved: { label: 'Legacy row' } }],
-  rate_sheets: [{
-    rate_sheet_id: 'rs_legacy', title: 'Legacy', status: 'active', groups: [], bundles: [],
-    items: [{ item_id: 'rate_legacy', source_item_id: 'source_legacy', unit_price: 1, per: 'Per item', quantity: 1, group_id: null, sort_order: 0, price_options: [] }],
-  }],
-}) as any, [], [], 'rs_legacy', []);
-check(legacyCatalogue.some((row) => row.item_id === 'rate_legacy' && row.resolved), 'an existing occupant normalized with empty multi-sheet access retains its established legacy normal-row flow');
-const poolInclusionsSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/editors/PoolInclusionsEditor.tsx'), 'utf8');
-check(poolInclusionsSource.includes('row.includes?.map') && poolInclusionsSource.includes('Included in ${row.label}'), 'Tier Inclusions renders Bundle includes[] beneath the commercial parent row');
 
 // Milestone 1 footer action set only: Close+Publish while pending, and
 // Close+Apply+guarded Delete once persisted. Aggregate status is currently

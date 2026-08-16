@@ -99,7 +99,11 @@ final class PackagePlatformIdentifierAdapters
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM_OPTION, 'option');
     }
 
-    /** A Bundle definition and the one peer Rate Sheet row it compiles. */
+    /**
+     * A Bundle and its own rows. Same factory, same Package-owned storage and
+     * enumeration callbacks — a Bundle is a sheet-owned composition space, not
+     * a second catalogue with an identity mechanism of its own.
+     */
     public function rateSheetBundle(): PackagePlatformIdentifierAdapter
     {
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE, 'bundle');
@@ -108,11 +112,6 @@ final class PackagePlatformIdentifierAdapters
     public function rateSheetBundleItem(): PackagePlatformIdentifierAdapter
     {
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM, 'bundle-item');
-    }
-
-    public function rateSheetBundleIncludedItem(): PackagePlatformIdentifierAdapter
-    {
-        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_INCLUDED_ITEM, 'bundle-included-item');
     }
 
     public function rateSheetBundleOption(): PackagePlatformIdentifierAdapter

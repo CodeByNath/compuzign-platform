@@ -9,30 +9,23 @@
 //     the same vocabulary and the same shared Tabs/Accordion renderers as the
 //     Tier drawer). Both groups open READABLE; "+ Bundle" lives in the drawer's
 //     own nav chrome beside the view toggle, gated on Options being active, and
-//     never on the chip strip. Options navigates its SAVED Bundles with the
-//     shared child chip strip and reads the selected one as a module card;
-//     only that card's Edit opens the inline editor.
-//   Phase 2 — "+ Bundle" itself creates NOTHING: it opens the Bundle's own
-//     authoring workspace with no record and no row, only the import engine.
-//     Opening and cancelling out again — with nothing ever imported — leaves
-//     no trace. The engine's own first Import is what mints the Bundle AND
-//     lands its first supplied content together, through the SAME one
-//     full-manager save every other mutation here uses — never an empty
-//     "None yet / $0" placeholder shown, or persisted, first.
-//   Phase 3 — once it exists, a Bundle IS one Rate Sheet row in the SHARED
-//     `RateSheetGridEditor`, under the SHARED one-row-at-a-time lock: it opens
-//     LOCKED with Edit/Save/Cancel/Remove(/Delete once saved), and the cells
-//     are the ordinary Unit Price (same Price Options tab strip), Per, Qty
-//     and Group. The first column is named `Product Bundle` because that cell
-//     is the combination's own name. No Delete-Bundle button lives in the
-//     editor; whole-Bundle Remove is an action on the module card's own
-//     footer.
-//   Phase 4 — TWO triggers feed the engine, one per source: "+ Add Service"
-//     (Category → Service → Inclusions) and "+ Add Rate Sheet" (Rate Sheet →
-//     its rows). The engine shows only the source it was opened for, and the
-//     basket is a full-width strip beneath the browse. Import lands the
-//     selection in the OPEN Bundle through the same one save; the source
-//     sheet is untouched.
+//     never on the chip strip. Options navigates its Bundles with the shared
+//     child chip strip and reads the selected one as a module card; only that
+//     card's Edit opens the inline editor, as a focused task that suppresses
+//     the group chrome without unmounting the group renderers.
+//   Phase 2 — the Bundle inline editor behind that Edit is ONE Rate Sheet row
+//     in the SHARED `RateSheetGridEditor`, under the SHARED one-row-at-a-time
+//     lock: it opens LOCKED with Edit/Remove, Edit unlocks Save/Cancel(/Delete
+//     once saved), and the cells are the ordinary Unit Price (same Price
+//     Options tab strip), Per, Qty and Group. The first column is named
+//     `Product Bundle` because that cell is the combination's own name. No
+//     Delete-Bundle button lives in the editor; whole-Bundle Remove is an
+//     action on the module card's own footer.
+//   Phase 3 — TWO triggers feed it, one per source: "+ Add Service" (Category →
+//     Service → Inclusions) and "+ Add Rate Sheet" (Rate Sheet → its rows).
+//     The engine shows only the source it was opened for, and the basket is a
+//     full-width strip beneath the browse. Import lands the selection in the
+//     OPEN Bundle through the same one save; the source sheet is untouched.
 //
 // Usage: npm run regression:rate-sheet-bundle
 //    or: node scripts/rate-sheet-bundle-regression.mjs
@@ -329,7 +322,7 @@ function gridHeaders() {
     .find((table) => table.closest('.cz-rate-sheet-tool__import') === null) ?? null;
   return [...(grid?.querySelectorAll('thead th') ?? [])].map((th) => th.textContent.trim());
 }
-/** The Bundle row's read-only Supplied content cell — one entry per membership. */
+/** The Bundle row's read-only Supplied content cell — one entry per component. */
 function suppliedItems() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__supplied-item')];
 }
@@ -390,13 +383,14 @@ async function remount() {
   await settle();
 }
 
-/** Options → "+ Bundle": opens straight into the new-Bundle authoring state —
- *  no record, no row, only the import engine — the whole authoring entry
- *  path, exactly as an admin walks it. */
+/** Options → "+ Bundle" → the new Bundle's card → Edit: the whole authoring
+ *  entry path, exactly as an admin walks it. */
 async function openNewBundleEditor() {
   selectGroup('Options');
   await settle();
   click(addBundleButton());
+  await settle();
+  click(cardEditButton('Bundle'));
   await settle();
 }
 
@@ -434,30 +428,55 @@ check('toggling back restores the tab bar with Options still active', activeGrou
 const savesBeforeCreate = saveCalls;
 click(addBundleButton());
 await settle();
-check('opening "+ Bundle" makes no API request — nothing exists yet to save', saveCalls === savesBeforeCreate);
-check(
-  '"+ Bundle" opens straight into its own inline editor — never a "None yet / $0" read card first',
-  editorShell() != null && moduleCard('Bundle') == null,
-);
-check('no chip renders for it either — nothing appears outside the open editor', chips().length === 0, chipLabels().join('|'));
+check('creating a Bundle makes no API request — it is local until Save', saveCalls === savesBeforeCreate);
+check('the new Bundle appears as a chip', chipLabels().includes('Bundle 1'), chipLabels().join('|'));
+check('the new Bundle is selected', activeChipLabel() === 'Bundle 1', activeChipLabel());
+check('it opens READABLE as a module card, not straight into an editor', moduleCard('Bundle') != null && editorShell() == null);
+check('a not-yet-saved Bundle reports that its Platform ID comes after Save', moduleCard('Bundle')?.textContent.includes('Assigned after Save'));
+
+click(cardEditButton('Bundle'));
+await settle();
+check('only Edit opens the inline editor', editorShell() != null);
 check('the editor is a focused task that suppresses the group chrome', detailRoot()?.className.includes('cz-req-detail--editing'), detailRoot()?.className);
 check('the group renderers stay mounted beneath it, never unmounted', container.querySelector('.cz-drawer-groups__tablist') != null);
 check('its own editor is mounted', bundleWorkspace() != null);
-check('no Bundle row exists yet either — nothing to author into until content is picked', rowsIn().length === 0, rowsIn().length);
-check('the import triggers are offered immediately, ready to compose it', anyButton('+ Add Service') != null && anyButton('+ Add Rate Sheet') != null);
-check('"+ Bundle" disables itself while already authoring one', addBundleButton()?.disabled === true);
+check('it is ONE Rate Sheet row, not a grid of component rows', rowsIn().length === 1, rowsIn().length);
+check(
+  'Product Bundle names the row, and Supplied content is its OWN column right after it',
+  gridHeaders().slice(0, 6).join('|') === 'Product Bundle|Supplied content|Unit Price|Per|Qty|Group',
+  gridHeaders().join('|'),
+);
+check('it compiles nothing yet', suppliedItems().length === 0, suppliedItems().length);
 
-// Cancelling before anything is ever imported creates nothing: the draft
-// never touched `sheet.bundles[]`, so there is nothing for Cancel to discard
-// beyond just leaving the authoring state.
-click(anyButton('Cancel'));
+// ── B) Phase 2 — the Bundle IS one Rate Sheet row, under the SAME row lock ──
+console.log('\nB) The Bundle row uses the shared grid and the shared row lock');
+const lockedRow = rowsIn()[0];
+check('it opens LOCKED, exactly like a sheet row', buttonIn(lockedRow, 'Edit') != null);
+check('a locked Bundle row offers Edit and Remove, nothing else', buttonIn(lockedRow, 'Remove') != null && buttonIn(lockedRow, 'Save') == null);
+check('a locked Bundle row shows no inputs at all', lockedRow.querySelector('input') == null && lockedRow.querySelector('select') == null);
+check('there is no Delete Bundle button in the editor', anyButton('Delete Bundle') == null);
+
+click(buttonIn(rowsIn()[0], 'Edit'));
 await settle();
-if (anyButton('Discard')) { click(anyButton('Discard')); await settle(); }
-check('cancelling before any import leaves no Bundle behind', moduleCard('Bundle') == null && chips().length === 0);
-check('and made no API request', saveCalls === savesBeforeCreate);
+const openRow = rowsIn()[0];
+check('Edit unlocks it into the SAME inline row editor', buttonIn(openRow, 'Save') != null && buttonIn(openRow, 'Cancel') != null);
+check('an unsaved Bundle row offers no Delete — Cancel is its only discard', buttonIn(openRow, 'Delete') == null);
+check('it carries the ordinary Price Options tab strip', openRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
+check('and the ordinary Per and Group dropdowns', openRow.querySelectorAll('select').length === 2, openRow.querySelectorAll('select').length);
 
-// ── B) Phase 2 — the engine's own first Import is what creates the Bundle ──
-console.log('\nB) The Bundle\'s own engine creates it — never an empty placeholder first');
+const nameInput = openRow.querySelector('input[type="text"]');
+setInputValue(nameInput, 'Digital Banking Website');
+await settle();
+check('the row\'s own name cell is the Product Bundle name', editorTitle() === 'Digital Banking Website', editorTitle());
+check('naming it makes no API request', saveCalls === savesBeforeCreate);
+
+// ── C) Phase 3 — "+ Add Service": that source's browse ONLY ──────────────
+console.log('\nC) "+ Add Service" browses Services only');
+click(buttonIn(rowsIn()[0], 'Cancel'));
+await settle();
+check('Cancel on an unsaved Bundle row discards the Bundle itself', moduleCard('Bundle') == null || bundleWorkspace() == null);
+
+await remount();
 await openNewBundleEditor();
 check('the editor offers a trigger per source, named for what it adds', anyButton('+ Add Service') != null && anyButton('+ Add Rate Sheet') != null);
 check('and never a column label used as an action', anyButton('+ Import supplied content') == null);
@@ -471,59 +490,36 @@ check('the basket is its own full-width strip, not a third column', container.qu
 
 click(importChip('Alpha Co'));
 await settle();
-check('an existing Rate Sheet row is offerable as an atomic Bundle membership', importChip('Website') != null);
-check('an Inclusion with no existing Rate Sheet row is not offered as a membership', importChip('Website Revamp') == null);
+check('a source already priced by the SHEET is still offerable inside a Bundle', importChip('Website') != null);
+click(importChip('Website Revamp'));
+await settle();
+check('picking one moves it into the basket', basketChip('Website Revamp') != null);
 click(importChip('Website'));
 await settle();
-check('picking the existing row moves it into the basket', basketChip('Website') != null);
-check('the basket contains one exact Rate Sheet-row membership', basketChips().length === 1, basketChips().length);
+check('several inclusions select together', basketChips().length === 2, basketChips().length);
 
 const savesBeforeImport = saveCalls;
 click(importActionButton('Import'));
 await settle(60);
-check(
-  'the first Import creates the Bundle AND lands its content together, through exactly one full-manager save',
-  saveCalls === savesBeforeImport + 1, saveCalls - savesBeforeImport,
-);
+check('Import persists through exactly one full-manager save', saveCalls === savesBeforeImport + 1, saveCalls - savesBeforeImport);
 
 const publishedSheet = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1');
 const publishedBundle = publishedSheet?.bundles?.[0];
 check('the save payload carries the Bundle under its owning sheet', publishedBundle != null);
 check('the Bundle is submitted with a blank id — the backend mints it', publishedBundle?.bundle_id === '', publishedBundle?.bundle_id);
-check('its membership landed in the BUNDLE, not in the sheet\'s own rows', (publishedBundle?.items ?? []).length === 1, (publishedBundle?.items ?? []).length);
-check('the membership retains the exact existing Rate Sheet row address', publishedBundle?.items?.[0]?.rate_sheet_id === 'rs_1' && publishedBundle?.items?.[0]?.rate_sheet_item_id === 'rate_website', JSON.stringify(publishedBundle?.items?.[0]));
+check('its components landed in the BUNDLE, not in the sheet\'s own rows', (publishedBundle?.items ?? []).length === 2, (publishedBundle?.items ?? []).length);
 check('the sheet\'s own rows are untouched by the Bundle import', (publishedSheet?.items ?? []).length === 1, (publishedSheet?.items ?? []).length);
-check('the Bundle now exists as exactly ONE compiled row', rowsIn().length === 1, rowsIn().length);
-check(
-  'Product Bundle names the row, and Supplied content is its OWN column right after it',
-  gridHeaders().slice(0, 6).join('|') === 'Product Bundle|Supplied content|Unit Price|Per|Qty|Group',
-  gridHeaders().join('|'),
-);
-check('the member reads in its Supplied content block — never "None yet"', suppliedLabels().length === 1, suppliedLabels().join('; '));
+check('the Bundle is still ONE row after importing two things', rowsIn().length === 1, rowsIn().length);
+check('both reads in its Supplied content block', suppliedLabels().length === 2, suppliedLabels().join('; '));
 check('a saved Bundle shows its minted Platform ID', rowsIn()[0]?.textContent.includes('CZPRCB'), rowsIn()[0]?.textContent.slice(0, 200));
 
-// ── C) Phase 3 — the Bundle IS one Rate Sheet row, under the SAME row lock ──
-console.log('\nC) The Bundle row uses the shared grid and the shared row lock');
-const lockedRow = rowsIn()[0];
-check('it opens LOCKED, exactly like a sheet row', buttonIn(lockedRow, 'Edit') != null);
-check('a locked Bundle row offers Edit and Remove, nothing else', buttonIn(lockedRow, 'Remove') != null && buttonIn(lockedRow, 'Save') == null);
-check('a locked Bundle row shows no inputs at all', lockedRow.querySelector('input') == null && lockedRow.querySelector('select') == null);
-check('there is no Delete Bundle button in the editor', anyButton('Delete Bundle') == null);
-
-// Editing a SAVED Bundle row: the full lock, Delete included — the Bundle
-// this engine just created is already a real, saved record.
+// Editing a SAVED Bundle row: the full lock, Delete included.
 click(buttonIn(rowsIn()[0], 'Edit'));
 await settle();
 const savedOpenRow = rowsIn()[0];
 check('a saved Bundle row offers Save, Cancel and Delete', buttonIn(savedOpenRow, 'Save') != null && buttonIn(savedOpenRow, 'Delete') != null);
-check('it carries the ordinary Price Options tab strip', savedOpenRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
-check('and the ordinary Per and Group dropdowns', savedOpenRow.querySelectorAll('select').length === 2, savedOpenRow.querySelectorAll('select').length);
-
-const nameInput = savedOpenRow.querySelector('input[type="text"]');
-setInputValue(nameInput, 'Foundation Bundle');
+setInputValue(savedOpenRow.querySelector('input[type="text"]'), 'Foundation Bundle');
 await settle();
-check('the row\'s own name cell is the Product Bundle name', editorTitle() === 'Foundation Bundle', editorTitle());
-check('naming it makes no API request on its own', saveCalls === savesBeforeImport + 1);
 const priceField = rowsIn()[0].querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]');
 setInputValue(priceField, 75);
 await settle();
@@ -549,7 +545,7 @@ check('the payload carries the Product Bundle name', savedBundle?.title === 'Fou
 check("the Bundle's own price", savedBundle?.unit_price === 75, savedBundle?.unit_price);
 check("the Bundle's own Price Option", (savedBundle?.price_options ?? []).length === 1 && savedBundle.price_options[0].label === 'Annual', JSON.stringify(savedBundle?.price_options));
 check("the Bundle's own quantity", savedBundle?.quantity === 3, savedBundle?.quantity);
-check('and its atomic membership', (savedBundle?.items ?? []).length === 1, (savedBundle?.items ?? []).length);
+check('and its compiled supplied content', (savedBundle?.items ?? []).length === 2, (savedBundle?.items ?? []).length);
 check(
   "the sheet's own row for the SAME supplied content kept its own price",
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.items?.[0]?.unit_price === 5,
@@ -561,26 +557,25 @@ check('the name cell carries only the name, never the content', rowsIn()[0]?.que
 check('and never in a second block beneath the grid', container.querySelector('.cz-rate-sheet-tool__supplied') == null);
 check('a LOCKED row offers no removal — it is read-only like any row', container.querySelector('.cz-rate-sheet-tool__supplied-remove') == null);
 
-// Direct membership editing remains available; backend PHP coverage separately
-// proves underlying normal-row deletion through the production save path.
+// Removing individual supplied content stays available on the unlocked row.
 click(buttonIn(rowsIn()[0], 'Edit'));
 await settle();
 const beforeRemove = suppliedLabels().length;
 check('the unlocked row offers removal per entry', container.querySelector('.cz-rate-sheet-tool__supplied-remove') != null);
 click(container.querySelector('.cz-rate-sheet-tool__supplied-remove'));
 await settle();
-check('a membership can still be removed from the combination', suppliedLabels().length === beforeRemove - 1, suppliedLabels().length);
+check('a component can still be removed from the combination', suppliedLabels().length === beforeRemove - 1, suppliedLabels().length);
 
 // Persist the removal through the row's own Save — the same one save — so the
 // row is locked again before the editor is left.
 const savesBeforeDrop = saveCalls;
 click(buttonIn(rowsIn().find((tr) => buttonIn(tr, 'Save') != null), 'Save'));
 await settle(60);
-check('removing a membership persists through the same one save', saveCalls === savesBeforeDrop + 1, saveCalls - savesBeforeDrop);
+check('removing a component persists through the same one save', saveCalls === savesBeforeDrop + 1, saveCalls - savesBeforeDrop);
 check('and the row locks again', buttonIn(rowsIn()[0], 'Edit') != null);
 check(
-  'the dropped membership is gone from the payload',
-  (lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.bundles?.[0]?.items ?? []).length === 0,
+  'the dropped component is gone from the payload',
+  (lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.bundles?.[0]?.items ?? []).length === 1,
 );
 
 click(anyButton('Cancel'));
@@ -625,7 +620,7 @@ check(
   (composedBundle?.items ?? []).some((row) => row.source_item_id === 'mgr_banking'),
 );
 check(
-  'the SOURCE Rate Sheet keeps its own row and price — membership references, never moves or copies it',
+  'the SOURCE Rate Sheet keeps its own row and its own price — composing copies, never moves',
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_2')?.items?.[0]?.unit_price === 40,
 );
 check('the Bundle is still ONE row after composing across sources', rowsIn().length === 1, rowsIn().length);
@@ -641,14 +636,12 @@ await settle();
 // ── E) The Bundle's row is in `items`, and the Tool ignores it ───────────
 console.log("\nE) The Bundle's upstream row rides the ordinary items list");
 // The fixture backend now answers reads the way buildReadModel does: the
-// sheet's own rows plus one compiled row per Bundle, all in `items`.
+// sheet's own rows plus one self-priced row per Bundle, all in `items`.
 server.manager.rate_sheets[0].items = [
   ...server.manager.rate_sheets[0].items,
   {
-    item_id: 'rate_bundle_offer', platform_id: 'CZPRCI22223', source_item_id: '',
-    label: 'Digital Banking Website', resolved_label: 'Digital Banking Website',
-    connection_resolved: true, available: true, operational_state: 'connected_available', health_reasons: [],
-    unit_price: 75, per: 'Per item',
+    item_id: 'rate_bundle_offer', platform_id: 'CZPRCB22223', source_item_id: '',
+    self_priced: true, label: 'Digital Banking Website', unit_price: 75, per: 'Per item',
     quantity: 1, group_id: null, sort_order: 9, price_options: [], includes: [],
   },
 ];

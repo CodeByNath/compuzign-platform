@@ -71,18 +71,13 @@ final class PackagePlatformNativeReference
     }
 
     /**
-     * The Bundle's one structural item identifies the compiled peer Rate Sheet
-     * row inside its owning Bundle. Its ordinary CZPRCI remains separate.
+     * A Bundle row is qualified by its own Bundle, not by the sheet alone: the
+     * same supplied content may be a row of the sheet AND a row of any number
+     * of its Bundles, and those are separate records with separate identities.
      */
     public static function rateSheetBundleItem(string $rateSheetId, string $bundleId, string $itemId): string
     {
         return self::composite('rate-sheet-bundle-item', [$rateSheetId, $bundleId, $itemId]);
-    }
-
-    /** One included-row relationship within the Bundle's compiled item. */
-    public static function rateSheetBundleIncludedItem(string $rateSheetId, string $bundleId, string $itemId): string
-    {
-        return self::composite('rate-sheet-bundle-included-item', [$rateSheetId, $bundleId, $itemId]);
     }
 
     /** The Bundle's OWN commercial Price Option — a child of the Bundle itself. */
@@ -91,7 +86,7 @@ final class PackagePlatformNativeReference
         return self::composite('rate-sheet-bundle-option', [$rateSheetId, $bundleId, $optionId]);
     }
 
-    /** Legacy Bundle-member option reference; new writes use ordinary CZPRCIO. */
+    /** A Bundle row's own alternative-price child — the CZPRCIO shape, one level deeper. */
     public static function rateSheetBundleItemOption(string $rateSheetId, string $bundleId, string $itemId, string $optionId): string
     {
         return self::composite('rate-sheet-bundle-item-option', [$rateSheetId, $bundleId, $itemId, $optionId]);

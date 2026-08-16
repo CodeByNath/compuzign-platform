@@ -30,30 +30,19 @@ import type { RateSheetRowCommands } from './rateSheetParts';
 import { RateSheetBundleImportPicker } from './RateSheetBundleImportPicker';
 import type { BundleImportSource } from './RateSheetBundleImportPicker';
 
-/** A throwaway shape for the import picker's own `usedMemberRefs` filtering
- *  while no real Bundle exists yet — never inserted into `sheet.bundles[]`,
- *  never read for anything but its (always empty) `items`. */
-const DRAFT_BUNDLE: RateSheetEditorBundle = {
-  id: '', localKey: 'draft', title: '', status: 'active',
-  unitPrice: 0, per: 'Per item', quantity: 1, groupId: null,
-  priceOptions: [], defaultPriceLabel: '', items: [],
-};
-
 export function RateSheetBundleWorkspace({
   controller, bundle, bundleKey, sheet,
 }: {
   controller: RateSheetToolController;
-  /** `null` while authoring a brand-new Bundle that does not exist yet — the
-   *  engine below is what creates it, on its first Import. */
-  bundle:     RateSheetEditorBundle | null;
-  bundleKey:  string | null;
+  bundle:     RateSheetEditorBundle;
+  bundleKey:  string;
   /** The owning sheet — a Bundle's Group dropdown works against the sheet's own
    *  groups, because a Bundle stores none of its own. */
   sheet:      RateSheetEditorValue;
 }): VNode {
   const [importSource, setImportSource] = useState<BundleImportSource | null>(null);
-  const bundleRow = bundle !== null ? controller.selectedBundleRow : null;
-  const suppliedContent = bundle !== null ? bundleSuppliedContent(bundle) : [];
+  const bundleRow = controller.selectedBundleRow;
+  const suppliedContent = bundleSuppliedContent(bundle);
 
   // The same rule the sheet's own editor keeps: only one row may be unlocked at
   // a time, so importing and removing stand down while the row is being edited.
@@ -64,9 +53,8 @@ export function RateSheetBundleWorkspace({
 
   // Every row command the shared grid reports, routed to the Bundle the row
   // projects. Vocabulary edits (units, groups) stay the controller's own —
-  // they belong to the Manager and the sheet, not to this row. Only built
-  // once a Bundle (and so a `bundleKey`) actually exists to address.
-  const commands: RateSheetRowCommands | null = bundleKey === null ? null : {
+  // they belong to the Manager and the sheet, not to this row.
+  const commands: RateSheetRowCommands = {
     setRowUnitPrice:         (_rowId, unitPrice) => controller.setBundleUnitPrice(bundleKey, unitPrice),
     setRowDefaultPriceLabel: (_rowId, label)     => controller.setBundleDefaultPriceLabel(bundleKey, label),
     setRowPer:               (_rowId, per)       => controller.setBundlePer(bundleKey, per),
@@ -86,32 +74,20 @@ export function RateSheetBundleWorkspace({
     setPriceOptionUnitPrice: (_rowId, optionKey, unitPrice) => controller.setBundlePriceOptionUnitPrice(bundleKey, optionKey, unitPrice),
   };
 
-  const onImport = bundle === null
-    ? controller.commitNewBundle
-    : controller.publishRows;
-
   return (
-    <div class="cz-rate-sheet-tool__bundle" aria-label={`Bundle ${bundle?.title ?? 'New Bundle'}`}>
-      {bundle !== null && bundleKey !== null && (
-        <div class="cz-rate-sheet-tool__focused-head">
-          <select
-            class="cz-tf-control cz-tf-select"
-            value={bundle.status}
-            disabled={rowLocked}
-            aria-label="Bundle status"
-            onChange={(event) => controller.setBundleStatus(bundleKey, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived')}
-          >
-            <option value="active">Active</option>
-            <option value="archived">Disabled</option>
-          </select>
-        </div>
-      )}
-
-      {bundle === null && (
-        <p class="cz-station-empty">
-          Pick supplied content below to create this Bundle — nothing is saved until then.
-        </p>
-      )}
+    <div class="cz-rate-sheet-tool__bundle" aria-label={`Bundle ${bundle.title}`}>
+      <div class="cz-rate-sheet-tool__focused-head">
+        <select
+          class="cz-tf-control cz-tf-select"
+          value={bundle.status}
+          disabled={rowLocked}
+          aria-label="Bundle status"
+          onChange={(event) => controller.setBundleStatus(bundleKey, (event.currentTarget as HTMLSelectElement).value as 'active' | 'archived')}
+        >
+          <option value="active">Active</option>
+          <option value="archived">Disabled</option>
+        </select>
+      </div>
 
       {/* Two triggers, one per source — the engine then shows THAT source's
           browse only, rather than stacking every catalogue into one panel. The
@@ -130,16 +106,14 @@ export function RateSheetBundleWorkspace({
       {importSource !== null && (
         <RateSheetBundleImportPicker
           controller={controller}
-          bundle={bundle ?? DRAFT_BUNDLE}
+          bundle={bundle}
           source={importSource}
-          onImport={onImport}
           onDone={() => setImportSource(null)}
         />
       )}
 
-      {/* The Bundle's own row, through the shared grid and the shared lock —
-          only once the Bundle actually exists. */}
-      {bundle !== null && bundleRow !== null && commands !== null && (
+      {/* The Bundle's own row, through the shared grid and the shared lock. */}
+      {bundleRow !== null && (
         <RateSheetGridEditor
           rows={[bundleRow]}
           groups={sheet.groups}

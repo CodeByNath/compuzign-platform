@@ -91,7 +91,6 @@ export function summarizeTierInstance(instance: TierInstanceRecord): TierInstanc
     description: instance.description,
     status: instance.status,
     allowed_rate_sheet_ids: [...instance.allowed_rate_sheet_ids],
-    allowed_rate_sheet_bundles: [...(instance.allowed_rate_sheet_bundles ?? [])],
     popular_tier: instance.popular_tier,
     popular_label: instance.popular_label,
     readiness: instance.status === 'active' ? 'ready' : 'not-ready',

@@ -91,7 +91,6 @@ $expected = [
     'package_rate_card_item_option' => 'CZPRCIO',
     'package_rate_card_bundle'      => 'CZPRCB',
     'package_rate_card_bundle_item' => 'CZPRCBI',
-    'package_rate_card_bundle_included_item' => 'CZPRCBII',
     'package_rate_card_bundle_item_option' => 'CZPRCBIO',
     'package_rate_card_bundle_option'      => 'CZPRCBO',
 ];
