@@ -134,7 +134,6 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
         draft={s.draft as TierOverviewEditDraft}
         onChange={(patch) => s.patch?.(patch)}
         rateSheets={(s.extras?.rateSheets ?? []) as RateSheetPickerOption[]}
-        hasSelections={!!s.extras?.hasSelections}
       />
     ),
   },

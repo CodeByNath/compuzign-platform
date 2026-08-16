@@ -109,6 +109,8 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
     // A pending sheet switch lives on the overview draft; otherwise the settled binding.
     rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
+    rate_sheet_ids:      ov?.rate_sheet_ids ?? slot.rate_sheet_ids,
+    rate_sheet_bundles:  ov?.rate_sheet_bundles ?? slot.rate_sheet_bundles,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
     // A pending is_addon change lives on the overview draft, same as label/

@@ -22,6 +22,8 @@ export interface BinnedOccupant {
   contact?:             boolean;
   billing_cycle?:       string | null;
   rate_sheet_id?:       string | null;
+  rate_sheet_ids?:      string[];
+  rate_sheet_bundles?:  TierRateSheetBundleAccess[];
   inclusions_override?: InclusionItem[];
   rate_sheet_items?: TierRateSheetSelection[];
   ideal_for?: string;
@@ -41,6 +43,7 @@ export interface OccupantBinEntry {
 export interface ServicePackageStationData {
   tier_instance_id?: string;
   allowed_rate_sheet_ids?: string[];
+  allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[];
   platform_status: string;
   tiers:           Record<string, SurfaceTierDetail>;
   popular_tier:    string | null;
@@ -561,6 +564,8 @@ export interface SurfaceTierDetail {
   // The Rate Sheet this occupant's selections resolve against. Null when the
   // occupant is unbound (no selections). Switching it clears the selections.
   rate_sheet_id: string | null;
+  rate_sheet_ids?: string[];
+  rate_sheet_bundles?: TierRateSheetBundleAccess[];
   inclusions_override: InclusionItem[];
   rate_sheet_items: TierRateSheetSelection[];
   rate_sheet_selections: TierResolvedRateSheetSelection[];
@@ -699,6 +704,8 @@ export interface TierOverviewDraft {
   // The occupant's bound Rate Sheet. Edited in the overview module so a switch
   // commits (and clears selections) before new rows are chosen.
   rate_sheet_id?: string | null;
+  rate_sheet_ids?: string[];
+  rate_sheet_bundles?: TierRateSheetBundleAccess[];
   // Selection mode — see SurfaceTierDetail.is_addon. Optional here only
   // because it rides the same generic draft payload shape; the editor always
   // supplies an explicit boolean.

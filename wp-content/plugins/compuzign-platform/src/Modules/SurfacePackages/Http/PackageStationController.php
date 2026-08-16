@@ -1617,6 +1617,23 @@ class PackageStationController
             if (array_key_exists('rate_sheet_id', $body)) {
                 $draftValue['rate_sheet_id'] = sanitize_text_field((string) ($body['rate_sheet_id'] ?? ''));
             }
+            if (array_key_exists('rate_sheet_ids', $body)) {
+                $authorizedIds = array_fill_keys($PS::sanitizeTierRateSheetIds($instance['allowed_rate_sheet_ids'] ?? []), true);
+                $draftValue['rate_sheet_ids'] = array_values(array_filter(
+                    $PS::sanitizeTierRateSheetIds($body['rate_sheet_ids']),
+                    static fn(string $id): bool => isset($authorizedIds[$id])
+                ));
+            }
+            if (array_key_exists('rate_sheet_bundles', $body)) {
+                $authorizedBundles = [];
+                foreach ($PS::sanitizeTierRateSheetBundles($instance['allowed_rate_sheet_bundles'] ?? []) as $entry) {
+                    $authorizedBundles[$entry['rate_sheet_id'] . "\0" . $entry['bundle_id']] = true;
+                }
+                $draftValue['rate_sheet_bundles'] = array_values(array_filter(
+                    $PS::sanitizeTierRateSheetBundles($body['rate_sheet_bundles']),
+                    static fn(array $entry): bool => isset($authorizedBundles[$entry['rate_sheet_id'] . "\0" . $entry['bundle_id']])
+                ));
+            }
         } elseif ($module === 'features') {
             $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs

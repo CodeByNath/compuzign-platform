@@ -266,6 +266,23 @@ check(
     && !tierOverviewEditorSource.includes('cz-tier-audience-groups'),
   'Tier Overview\'s Customer Groups picker uses the shared MultiSelectField, not its own retired hand-rolled panel',
 );
+const occupantDrawerContentSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx',
+), 'utf8');
+check(
+  tierOverviewEditorSource.includes('label="Rate Sheets"')
+    && tierOverviewEditorSource.includes('children: sheet.bundles.map')
+    && tierOverviewEditorSource.includes('rate_sheet_ids: rateSheetIds')
+    && tierOverviewEditorSource.includes('rate_sheet_bundles: rateSheetBundles'),
+  'Tier Occupant Overview uses the shared hierarchical checkbox field for multiple Rate Sheets and their Bundles',
+);
+check(
+  occupantDrawerContentSource.includes('station.allowed_rate_sheet_ids')
+    && occupantDrawerContentSource.includes('station.allowed_rate_sheet_bundles')
+    && occupantDrawerContentSource.includes('occupantRateSheetOptions'),
+  'Tier Occupant Overview candidates are projected only from its Tier Group authorization response',
+);
 
 // Milestone 1 footer action set only: Close+Publish while pending, and
 // Close+Apply+guarded Delete once persisted. Aggregate status is currently
