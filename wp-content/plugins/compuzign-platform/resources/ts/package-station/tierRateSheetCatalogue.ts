@@ -109,16 +109,20 @@ export function resolveOccupantInclusions(
     }
     for (const child of selection.includes ?? []) {
       const relationship = relationshipsById.get(child.source_item_id);
+      const projectedSourceId = child.source_type === 'inclusion' && child.connection_resolved
+        ? child.source_id ?? ''
+        : '';
       if (
-        !relationship
-        || relationship.source_type !== 'inclusion'
-        || relationship.missing
-        || relationship.resolved === null
-        || relationship.source_id === ''
+        projectedSourceId === ''
+        && (!relationship
+          || relationship.source_type !== 'inclusion'
+          || relationship.missing
+          || relationship.resolved === null
+          || relationship.source_id === '')
       ) continue;
       append({
-        id: relationship.source_id,
-        label: relationshipDisplayLabel(relationship),
+        id: projectedSourceId || relationship!.source_id,
+        label: child.resolved_label || (relationship ? relationshipDisplayLabel(relationship) : child.label),
       });
     }
   }

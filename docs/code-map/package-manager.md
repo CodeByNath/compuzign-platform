@@ -34,6 +34,8 @@ The retired Command Centre editor is not an alternative authority. Rate Sheet au
 ## Backend and persistence
 
 - [PackageManagerSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageManagerSchema.php) owns manager shape, sanitization, source reconciliation, read projection (each item's live supplying-Service provenance carries both a display facet — `source_service_title`/`source_categories` — and an identity facet, `source_service_platform_id`/`source_category_platform_ids`), and the `rate_sheets[]` collection (migration, partial-upsert commit with explicit deletions, per-Tier projection by `rate_sheet_id`).
+- Its `projectTierInclusions()` is the shared admin/public expansion rule for
+  directly selected inclusion rows and non-chargeable compiled Bundle children.
 - [PackageStationSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageStationSchema.php) holds only the two shared helpers `sanitizeSourceRelationships` and `evaluateTierPricing`. Its former unwired "active Package aggregate" (a divergent Rate Sheet/commercial shape) was retired; shape/persistence authority is PackageManagerSchema + PackageSchema + PackageRepository.
 - [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists the single `cz_package_station` option and resolves relationships.
 - [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns manager, Tier, bin, and popular-Tier routes.

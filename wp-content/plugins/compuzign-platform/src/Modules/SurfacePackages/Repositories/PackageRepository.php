@@ -1692,17 +1692,16 @@ class PackageRepository
             );
             $extracted['price'] = $rateProjection['price'];
             $resolvedInclusions = array_values(array_filter(
-                $rateProjection['selections'],
-                static fn(array $row): bool => $row['resolved']
-                    && ($row['source_type'] ?? null) === 'inclusion'
+                PackageManagerSchema::projectTierInclusions($rateProjection['selections']),
+                static fn(array $row): bool => !$row['missing']
             ));
             $extracted['inclusions_override'] = array_map(
-                static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'quantity' => $row['quantity']],
+                static fn(array $row): array => ['id' => $row['id'], 'label' => $row['label'], 'quantity' => $row['quantity']],
                 $resolvedInclusions
             );
             if ($includeSelectedInclusionProvenance) {
                 $selectedInclusionSourceIds[$tierId] = array_values(array_map(
-                    static fn(array $row): string => (string) ($row['source_id'] ?? ''),
+                    static fn(array $row): string => (string) $row['source_id'],
                     $resolvedInclusions
                 ));
             }

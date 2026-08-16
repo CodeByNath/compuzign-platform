@@ -13,11 +13,17 @@ selectors assign legacy records. Row removal tombstones only that row; sheet
 deletion orchestrates group, row, and sheet tombstones. Authoring and lifecycle
 are unchanged.
 
+A Bundle-referenced row cannot disappear implicitly: the Tool confirms the
+affected recipes and removes their relationships in the same save, while the
+backend rejects callers that omit that explicit recipe change.
+
 ## Purpose and ownership
 
 Rate Sheets are Package Station supply/pricing configuration; Station Manager and Admin only host presentation.
 
-The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_station`. Each sheet has a stable `rate_sheet_id`, title, status, groups, and explicit priced rows. A legacy singleton lifts to `rs_primary` on read; only the collection is written. Totals derive; Services and pools stay Service-owned.
+`package_manager.rate_sheets[]` holds sheets with stable `rate_sheet_id`, title,
+status, groups, and priced rows. A legacy singleton lifts to `rs_primary` on
+read; only the collection is written. Services and pools stay Service-owned.
 
 A row's `per` uses the built-in plus curated unit vocabulary; only curated units
 are stored, and unknown values fail closed.
@@ -42,7 +48,10 @@ No identity, no `price_options[]` entry; selection stays the absence of a
 
 The Package-owned `rate-sheet` drawer mounts in Admin's generic shell and reuses the manager read/save contract, adding no endpoint or station. Edit uses `InlineEditorShell`: one save footer, dirty-cancel confirmation.
 
-One collection controller and save engine serve distinct presentations; the legacy collection editor stays pool-only. A Settings row carries its already-loaded native key behind the visible `CZPRC`: View is a compact summary without the row table or child identities; Edit renders title/status, "+ Add Service", the row table, and inline Group/Per dropdowns. `'new'` calls `createSheet()` once into that same editor. Curated Per rename updates every referencing row; built-in units stay immutable. Saves remain **partial upserts plus explicit `rate_sheet_deletions`**; omission never deletes.
+One collection controller and save engine serve distinct presentations. A
+Settings row carries its native key behind visible `CZPRC`; View is a summary,
+while Edit renders title/status, import, row table, and Group/Per controls.
+Saves remain **partial upserts plus explicit `rate_sheet_deletions`**.
 
 "+ Add Service" (`RateSheetServiceImportPicker.tsx`) browses category/Service/inclusion and stages picks locally; Publish appends them as curated rows through `publishRows` — the same full-manager save.
 

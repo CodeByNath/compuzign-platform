@@ -1286,6 +1286,15 @@ final class PackageManagerSchema
                         }
                         $reference = $owningReference ?? (count($candidates) === 1 ? $candidates[0] : '');
                     }
+                    if ($hasExactReference && !isset($rowsByReference[$reference])) {
+                        $bundleTitle = trim((string) ($bundle['title'] ?? ''));
+                        throw new \InvalidArgumentException(sprintf(
+                            'Rate Sheet row %s/%s is still included by Bundle "%s". Remove or replace that Bundle inclusion before deleting the row.',
+                            $memberSheetId,
+                            $memberItemId,
+                            $bundleTitle !== '' ? $bundleTitle : '(untitled Bundle)'
+                        ));
+                    }
                     if ($reference === '' || !isset($rowsByReference[$reference])) { continue; }
                     if (isset($seenReferences[$reference])) { continue; }
                     $seenReferences[$reference] = true;
@@ -1602,6 +1611,22 @@ final class PackageManagerSchema
                                 $item[$field] = $source[$field] ?? null;
                             }
                         }
+                        if (is_array($item['includes'] ?? null)) {
+                            $item['includes'] = array_map(static function (array $child) use ($consumerSources): array {
+                                $child['platform_id'] = (string) ($child['cz_platform_id'] ?? '');
+                                unset($child['cz_platform_id']);
+                                $childSourceItemId = (string) ($child['source_item_id'] ?? '');
+                                if ($childSourceItemId !== '' && isset($consumerSources[$childSourceItemId])) {
+                                    $source = $consumerSources[$childSourceItemId];
+                                    $child['resolved_label'] = $source['decorated_label']
+                                        ?: (string) ($source['resolved']['label'] ?? '');
+                                    foreach (['source_type', 'source_id', 'connection_resolved', 'available', 'operational_state', 'health_reasons'] as $field) {
+                                        $child[$field] = $source[$field] ?? null;
+                                    }
+                                }
+                                return $child;
+                            }, $item['includes']);
+                        }
                         return $item;
                     };
                     // The rows this sheet offers: its own, plus one per active
@@ -1894,6 +1919,51 @@ final class PackageManagerSchema
             'valid_count' => count($availableRows),
             'pricing' => $pricing,
         ];
+    }
+
+    /**
+     * Resolve direct inclusion rows and the non-chargeable children carried by
+     * compiled Bundle rows through one backend projection rule.
+     *
+     * @return array<int, array{id:string,label:string,quantity:int,missing:bool,source_id:string}>
+     */
+    public static function projectTierInclusions(array $selections): array
+    {
+        $resolved = [];
+        $seen = [];
+        $append = static function (array $item) use (&$resolved, &$seen): void {
+            $id = (string) ($item['id'] ?? '');
+            if ($id === '' || isset($seen[$id])) return;
+            $seen[$id] = true;
+            $resolved[] = $item;
+        };
+
+        foreach ($selections as $selection) {
+            if (($selection['source_type'] ?? null) === 'inclusion') {
+                $append([
+                    'id' => (string) ($selection['item_id'] ?? ''),
+                    'label' => (string) ($selection['label'] ?? ''),
+                    'quantity' => max(1, (int) ($selection['quantity'] ?? 1)),
+                    'missing' => empty($selection['resolved']),
+                    'source_id' => (string) ($selection['source_id'] ?? ''),
+                ]);
+            }
+            foreach (is_array($selection['includes'] ?? null) ? $selection['includes'] : [] as $child) {
+                if (!is_array($child)
+                    || ($child['source_type'] ?? null) !== 'inclusion'
+                    || empty($child['connection_resolved'])
+                    || (string) ($child['source_id'] ?? '') === ''
+                ) continue;
+                $append([
+                    'id' => (string) $child['source_id'],
+                    'label' => (string) ($child['resolved_label'] ?? ($child['label'] ?? '')),
+                    'quantity' => max(1, (int) ($child['quantity'] ?? 1)),
+                    'missing' => false,
+                    'source_id' => (string) $child['source_id'],
+                ]);
+            }
+        }
+        return $resolved;
     }
 
     /**

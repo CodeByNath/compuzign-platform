@@ -80,12 +80,20 @@ already drop a row for.
 Components are **ingredients, not separately chargeable rows**: absent from that
 offer, so selecting the Bundle charges $75 once, never its parts too.
 
+Deleting a source row never silently rewrites a recipe. The backend rejects a
+still-referenced exact row; the Tool names affected Bundles and, after explicit
+confirmation, removes the row and those `CZPRCBII` relationships in the same
+Manager save. The Bundle keeps its identities and remains sellable with any
+remaining ingredients; empty Bundles remain stored but emit no commercial row.
+
 **No consumer learns that Bundles exist.** Tier storage and selection stay
 `{ item_id, quantity, price_option_id? }` — no Bundle-shaped storage, addressing,
 dedup, or pricing path. A Bundle row resolves through
 `projectTierRateSheetWith()` and the one `evaluateTierPricing` engine like any
-row; its one difference, `self_priced`, is read inside the Rate Sheet projector
-and means only that a combination stands behind it.
+row. Compiled `includes[]` retain `CZPRCBII`, referenced `CZPRCI`, and resolved
+source provenance. `projectTierInclusions()` supplies one backend rule for
+admin and public projections; the frontend consumes that provenance with an
+older-response fallback. Final Service inclusions deduplicate by Service item.
 
 A component's id is `deriveBundleRateItemId($bundleId, $sourceItemId)`, unique
 within its sheet. A stored id is never recomputed — only a Tool-curated blank

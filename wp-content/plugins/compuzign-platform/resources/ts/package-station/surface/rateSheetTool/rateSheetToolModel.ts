@@ -493,6 +493,39 @@ export function removeEditorRow(value: RateSheetEditorValue, rowId: string): Rat
   return { ...value, items: removeRowIn(value.items, rowId) };
 }
 
+/** Bundles whose compiled recipe still references one exact Rate Sheet row. */
+export function bundleDependenciesForRateSheetRow(
+  sheets: readonly RateSheetEditorValue[],
+  rateSheetId: string,
+  rowId: string,
+): { sheetTitle: string; bundleTitle: string }[] {
+  const dependencies: { sheetTitle: string; bundleTitle: string }[] = [];
+  for (const sheet of sheets) {
+    for (const bundle of sheet.bundles) {
+      if (bundle.items.some((item) => item.memberRateSheetId === rateSheetId && item.memberRateSheetItemId === rowId)) {
+        dependencies.push({ sheetTitle: sheet.title, bundleTitle: bundle.title });
+      }
+    }
+  }
+  return dependencies;
+}
+
+/** Apply an explicitly confirmed source-row removal across every recipe. */
+export function removeRateSheetRowAndBundleReferences<T extends RateSheetEditorValue>(
+  sheets: readonly T[],
+  rateSheetId: string,
+  rowId: string,
+): T[] {
+  return sheets.map((sheet) => ({
+    ...sheet,
+    items: sheet.id === rateSheetId ? removeRowIn(sheet.items, rowId) : sheet.items,
+    bundles: sheet.bundles.map((bundle) => ({
+      ...bundle,
+      items: bundle.items.filter((item) => !(item.memberRateSheetId === rateSheetId && item.memberRateSheetItemId === rowId)),
+    })),
+  }));
+}
+
 /**
  * Batch-add curated rows for many source options in one shot — the Service
  * Import picker's staging list is curated (unit price/per/quantity/group all

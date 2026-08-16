@@ -814,8 +814,8 @@ class PackageStationController
             $detail['price'] = $rateProjection['price'];
             $detail['contact'] = $effectiveContact;
             $detail['inclusions_override'] = array_map(
-                fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'missing' => !$row['resolved']],
-                array_values(array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'inclusion'))
+                static fn(array $row): array => ['id' => $row['id'], 'label' => $row['label'], 'missing' => $row['missing']],
+                $PMS::projectTierInclusions($rateProjection['selections'])
             );
             $detail['faq_refs'] = array_values(array_map(
                 fn(array $row): string => (string) $row['source_id'],

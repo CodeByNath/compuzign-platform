@@ -17,6 +17,7 @@ import {
   addEditorPriceOption,
   addEditorRow,
   buildManagerSavePayload,
+  bundleDependenciesForRateSheetRow,
   connectSourceServices,
   connectedServiceIds,
   createEditorGroup,
@@ -31,6 +32,7 @@ import {
   rateSheetRowsWithKeys,
   removeEditorPriceOption,
   removeEditorRow,
+  removeRateSheetRowAndBundleReferences,
   rowKey,
   summariseRateSheet,
   toRateSheetEditorList,
@@ -431,6 +433,30 @@ check(
 check(
   drawerSource.includes('controller.editingRowId !== null'),
   'the Rate Sheet drawer disables its own footer Save while a row is active, through its own saveDisabled prop — not a shared-shell change',
+);
+
+// ── Source-row removal is an explicit atomic recipe change ──────────────────
+const dependencySheets = [{
+  ...value,
+  bundles: [{
+    id: 'bundle_soup', localKey: 'bundle_soup', title: 'Soup', status: 'active' as const,
+    unitPrice: 75, per: 'Per item', quantity: 1, groupId: null, priceOptions: [], defaultPriceLabel: '',
+    items: [{ ...value.items[0], memberRateSheetId: value.id, memberRateSheetItemId: value.items[0].id, label: 'Carrot' }],
+  }],
+}];
+check(
+  bundleDependenciesForRateSheetRow(dependencySheets, value.id, value.items[0].id)[0]?.bundleTitle === 'Soup',
+  'source-row deletion discovers every Bundle recipe that still includes the exact row',
+);
+const withoutSource = removeRateSheetRowAndBundleReferences(dependencySheets, value.id, value.items[0].id);
+check(
+  withoutSource[0].items.length === 0 && withoutSource[0].bundles[0].items.length === 0,
+  'a confirmed deletion removes the source row and its Bundle inclusion in one draft save',
+);
+check(
+  controllerSource.includes('bundleDependenciesForRateSheetRow')
+    && controllerSource.includes('Continuing removes it from those Bundles in the same save'),
+  'the admin confirmation names the recipe consequence before the atomic removal',
 );
 
 console.log('Rate Sheet tool contract checks passed.');

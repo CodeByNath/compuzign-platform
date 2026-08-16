@@ -338,12 +338,29 @@ export interface PackageRateSheetPriceOption {
   unit_price: number;
 }
 
+export interface PackageRateSheetIncludedItem {
+    item_id: string;
+    /** CZPRCBII of this inclusion relationship. */
+    platform_id?: string;
+    source_item_id: string;
+    rate_sheet_id?: string;
+    rate_sheet_item_id?: string;
+    /** Referenced source row's CZPRCI. */
+    rate_sheet_item_platform_id?: string;
+    source_type?: string | null;
+    source_id?: string | null;
+    connection_resolved?: boolean;
+    resolved_label?: string;
+    label: string;
+    quantity: number;
+}
+
 export interface PackageRateSheetItem {
   item_id: string;
   /** A row's own display name, when it has one. */
   label?: string;
   /** Present on a Bundle's row — its ingredients, for presentation only. */
-  includes?: { item_id: string; source_item_id: string; label: string; quantity: number }[];
+  includes?: PackageRateSheetIncludedItem[];
   platform_id?: string;
   source_item_id: string;
   unit_price: number;
@@ -743,7 +760,7 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   // of a `price_option_id`.
   default_price_label?: string;
   /** Presentation-only ingredients of one compiled Bundle commercial row. */
-  includes?: { item_id: string; source_item_id: string; label: string; quantity: number }[];
+  includes?: PackageRateSheetIncludedItem[];
 }
 
 export interface TierDrafts {

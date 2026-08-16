@@ -402,6 +402,16 @@ $reSubmit['items'] = array_values(array_filter(
     $reSubmit['items'],
     static fn(array $row): bool => ($row['item_id'] ?? '') !== $rowBId
 ));
+$guardedResponse = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$reSubmit])));
+check_bundle(
+    ($guardedResponse->get_data()['success'] ?? null) === false
+        && str_contains((string) ($guardedResponse->get_data()['message'] ?? ''), 'still included by Bundle'),
+    'deleting a source row cannot silently change a Bundle recipe'
+);
+$reSubmit['bundles'][0]['items'] = array_values(array_filter(
+    $reSubmit['bundles'][0]['items'],
+    static fn(array $member): bool => ($member['rate_sheet_item_id'] ?? '') !== $rowBId
+));
 $memberAPlatformId = (string) $savedBundle['items'][0]['platform_id'];
 $memberBPlatformId = (string) $savedBundle['items'][1]['platform_id'];
 $bundleItemPlatformId = (string) $savedBundle['bundle_item_platform_id'];
@@ -434,6 +444,7 @@ check_bundle(
 
 $zeroSubmit = $stripPlatformIds($savedSheet2);
 $zeroSubmit['items'] = [];
+$zeroSubmit['bundles'][0]['items'] = [];
 $zeroResponse = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$zeroSubmit])));
 $zeroSheet = $zeroResponse->get_data()['manager']['rate_sheets'][0];
 $zeroBundle = $zeroSheet['bundles'][0];
@@ -538,6 +549,16 @@ check_bundle($soup['price'] === 75.0, "consuming the Bundle charges the Bundle's
 check_bundle($soup['selections'][0]['label'] === 'Digital Banking Website', 'the Bundle row names itself');
 check_bundle($soup['selections'][0]['available'] === true && $soup['selections'][0]['resolved'] === true, 'and resolves on its own, needing no supplied content behind it');
 check_bundle(count($soup['selections'][0]['includes']) === 2, 'carrying its ingredients for the Includes presentation');
+check_bundle(
+    ($soup['selections'][0]['includes'][0]['source_type'] ?? null) === 'inclusion'
+        && ($soup['selections'][0]['includes'][0]['source_id'] ?? null) === 'src-a',
+    'compiled children retain resolved inclusion provenance through the Tier projector'
+);
+$soupInclusions = PackageManagerSchema::projectTierInclusions($soup['selections']);
+check_bundle(
+    array_column($soupInclusions, 'id') === ['src-a', 'src-b'],
+    'the shared backend inclusion projection expands Bundle children without charging them'
+);
 check_bundle(!array_key_exists('bundle_id', $soup['selections'][0]), 'a resolved selection carries no Bundle-shaped field');
 check_bundle($soup['pricing']['unresolved'] === [] && $soup['pricing']['complete'] === true, 'the shared pricing engine reports it complete', json_encode($soup['pricing']['unresolved']));
 

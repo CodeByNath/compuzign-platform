@@ -52,6 +52,11 @@ combination together — `unit_price`/`per`/`quantity`/`group_id`/
 rows sum to. `quantity`/`group_id` are clamped and validated by the same rules
 `sanitizeRateRows` applies to a row's, and a Bundle stored before they existed
 reads back on `1`/`null`, the defaults `bundleConsumableRow()` used to hardcode.
+Deleting a referenced source row is explicit: the Tool confirms affected
+Bundles and removes their `CZPRCBII` relationships in the same Manager save;
+the backend rejects a dangling exact reference instead of silently changing a
+recipe. A non-empty remainder stays sellable; an empty Bundle stays stored but
+emits no compiled row.
 Upstream it IS one Rate Sheet row: `consumableRateSheetRows()` offers the
 sheet's own rows plus one row per active Bundle (`deriveBundleRowId`, ordinary
 `rate_` grammar, `includes[]` for presentation only), placed by `buildReadModel`

@@ -25,6 +25,7 @@ import {
   addPriceOptionIn,
   addRowsIn,
   buildManagerSavePayload,
+  bundleDependenciesForRateSheetRow,
   bundleAsEditorRow,
   bundleKey,
   connectSourceServices,
@@ -44,6 +45,7 @@ import {
   priceOptionKey,
   rateSheetOptions,
   removePriceOptionIn,
+  removeRateSheetRowAndBundleReferences,
   removeRowIn,
   renameEditorGroup,
   rowKey,
@@ -812,7 +814,14 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
         }
         return;
       }
-      if (!window.confirm('Remove this row? This saves immediately and cannot be undone from here.')) return;
+      const sourceSheet = sheets.find((candidate) => candidate.key === selectedKey) ?? null;
+      const dependencies = sourceSheet?.id
+        ? bundleDependenciesForRateSheetRow(sheets, sourceSheet.id, rowId)
+        : [];
+      const dependencyNotice = dependencies.length === 0
+        ? ''
+        : `\n\nThis row is included by ${dependencies.map((entry) => `“${entry.bundleTitle || '(untitled Bundle)'}”`).join(', ')}. Continuing removes it from those Bundles in the same save; each Bundle keeps its identity and remaining ingredients.`;
+      if (!window.confirm(`Remove this row? This saves immediately and cannot be undone from here.${dependencyNotice}`)) return;
       // Compute the post-removal sheets locally rather than relying on
       // `removeRow` + the shared `sheets` state: that setState is async, so a
       // `persist` call made right after it in the same handler would still
@@ -820,9 +829,11 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       // call resolves, so a failed remove never makes the row merely look
       // deleted — `applyReadModel` on success is what the grid actually
       // renders from.
-      const nextSheets = sheets.map((sheet) => (sheet.key === selectedKey
-        ? withScopedRows(sheet, (rows) => removeRowIn(rows, rowId))
-        : sheet));
+      const nextSheets = scopedBundleKey === null && sourceSheet?.id
+        ? removeRateSheetRowAndBundleReferences(sheets, sourceSheet.id, rowId)
+        : sheets.map((sheet) => (sheet.key === selectedKey
+          ? withScopedRows(sheet, (rows) => removeRowIn(rows, rowId))
+          : sheet));
       const ok = await persist(nextSheets, deletions, readModel.sources, units, true);
       if (ok && editingRowId === rowId) {
         setEditingRowId(null);
