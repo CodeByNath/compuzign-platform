@@ -294,7 +294,15 @@ function FocusedRateSheetGroups({
           type="button"
           class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
           disabled={controller.editingRowId !== null}
-          onClick={() => controller.createBundle()}
+          onClick={() => {
+            // createBundle() only adds the local draft; without also
+            // entering the sheet's own edit mode, Options would keep
+            // rendering the read view — the empty-card "Bundle N / None yet"
+            // shell this replaces — instead of opening straight into the
+            // Bundle's own workspace where it belongs.
+            controller.createBundle();
+            if (!editing) onEdit();
+          }}
         >
           + Bundle
         </button>

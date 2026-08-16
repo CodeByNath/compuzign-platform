@@ -383,14 +383,13 @@ async function remount() {
   await settle();
 }
 
-/** Options → "+ Bundle" → the new Bundle's card → Edit: the whole authoring
- *  entry path, exactly as an admin walks it. */
+/** Options → "+ Bundle": opens straight into the new Bundle's own workspace,
+ *  LOCKED like any Bundle row and ready to import — the whole authoring entry
+ *  path, exactly as an admin walks it. */
 async function openNewBundleEditor() {
   selectGroup('Options');
   await settle();
   click(addBundleButton());
-  await settle();
-  click(cardEditButton('Bundle'));
   await settle();
 }
 
@@ -429,14 +428,11 @@ const savesBeforeCreate = saveCalls;
 click(addBundleButton());
 await settle();
 check('creating a Bundle makes no API request — it is local until Save', saveCalls === savesBeforeCreate);
-check('the new Bundle appears as a chip', chipLabels().includes('Bundle 1'), chipLabels().join('|'));
-check('the new Bundle is selected', activeChipLabel() === 'Bundle 1', activeChipLabel());
-check('it opens READABLE as a module card, not straight into an editor', moduleCard('Bundle') != null && editorShell() == null);
-check('a not-yet-saved Bundle reports that its Platform ID comes after Save', moduleCard('Bundle')?.textContent.includes('Assigned after Save'));
-
-click(cardEditButton('Bundle'));
-await settle();
-check('only Edit opens the inline editor', editorShell() != null);
+check(
+  '"+ Bundle" opens straight into its own inline editor — never a "None yet / $0" read card first',
+  editorShell() != null && moduleCard('Bundle') == null,
+);
+check('no chip renders for it either — nothing appears outside the open editor', chips().length === 0, chipLabels().join('|'));
 check('the editor is a focused task that suppresses the group chrome', detailRoot()?.className.includes('cz-req-detail--editing'), detailRoot()?.className);
 check('the group renderers stay mounted beneath it, never unmounted', container.querySelector('.cz-drawer-groups__tablist') != null);
 check('its own editor is mounted', bundleWorkspace() != null);

@@ -505,7 +505,12 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     bundleSources,
     selectBundle: (key) => setSelectedBundleKey(key),
     createBundle: () => {
-      if (selected === null) return;
+      if (selected === null || editingRowId !== null) return;
+      // The draft lands straight in the SAME workspace a saved Bundle's own
+      // Edit reaches — LOCKED, with the import picker live — never a
+      // finished-looking read card an admin would have to Edit a second time
+      // just to reach. It stays local until the row's own Save (or an import,
+      // which saves through the same one path) actually persists it.
       const { value, key } = createEditorBundle(selected, '');
       editSelected(() => value);
       setSelectedBundleKey(key);
