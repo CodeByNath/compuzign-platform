@@ -844,6 +844,38 @@ check(
 );
 check('the selection reconciles onto the one remaining Bundle — Bundle A', chipLabels().length === 1 && moduleCard('Bundle') != null, chipLabels().join('|'));
 
+// ── H) Remove still works even when the Bundle's OWN row fails to resolve ──
+// A defensive regression: the read card's Remove must not silently no-op
+// when `findBundleRow()` comes back null for some reason (a stale or
+// inconsistent stored link) — it must address the Bundle by its OWN claimed
+// `itemId` directly, which `removeRowImmediately`'s Bundle-detection matches
+// by plain string equality, needing no successfully-resolved row object.
+console.log("\nH) Remove still deletes the Bundle record even when its own row doesn't resolve in items[]");
+await remount();
+// Seed a Bundle whose item_id names a row that does NOT exist in items[] —
+// an orphaned/inconsistent link `findBundleRow()` cannot resolve.
+server.manager.rate_sheets[0].bundles.push({
+  bundle_id: 'rsb_orphan', platform_id: 'CZPRCBORPHAN', status: 'active', sort_order: 1,
+  item_id: 'rate_missing_row', supplied_content: [],
+});
+render(null, container);
+render(h(Harness, { recordId: 'rs_1', mode: 'view' }), container);
+await settle();
+selectGroup('Options');
+await settle();
+check('the orphaned Bundle still shows a chip and a readable card', chipLabels().length === 1 && moduleCard('Bundle') != null, chipLabels().join('|'));
+
+const savesBeforeOrphanRemove = saveCalls;
+click(cardActionButton('Bundle', 'Remove'));
+await settle(60);
+check('Remove still persists through one full-manager save, even without a resolvable row', saveCalls === savesBeforeOrphanRemove + 1, saveCalls - savesBeforeOrphanRemove);
+check(
+  'the orphaned Bundle record is gone',
+  server.manager.rate_sheets[0].bundles.every((b) => b.bundle_id !== 'rsb_orphan'),
+  server.manager.rate_sheets[0].bundles.map((b) => b.bundle_id),
+);
+check("the sheet's own ordinary row is completely untouched", server.manager.rate_sheets[0].items.some((item) => item.item_id === 'rate_website'));
+
 console.log('');
 if (failures.length > 0) {
   console.error(`\n${failures.length} check(s) failed.`);

@@ -49,7 +49,7 @@ import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
 import { AppsIcon, MenuIcon, RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetGroupId, RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
-import { bundleKey, bundleSuppliedContent, findBundleRow, ordinaryRows, rowKey, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { bundleKey, bundleSuppliedContent, findBundleRow, ordinaryRows, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
   BundleSourceSheet,
   RateSheetEditorBundle,
@@ -401,10 +401,15 @@ function RateSheetBundleSwitcher({
           // The same removal the Bundle row's own Remove performs — one
           // confirm, one full-manager save, through the one controller command.
           // `removeRowImmediately` takes a ROW id (it detects Bundle ownership
-          // itself, by matching `bundle.itemId`) — never the Bundle's OWN key,
-          // which is a different id space entirely and would silently match no
-          // row at all.
-          onRemove={() => { if (selectedBundleRow) void controller.removeRowImmediately(rowKey(selectedBundleRow)); }}
+          // itself, by matching `bundle.itemId === rowId`) — never the Bundle's
+          // OWN key, which is a different id space entirely and would silently
+          // match no row at all. Uses the Bundle's own claimed `itemId`
+          // directly rather than `selectedBundleRow` (which requires that row
+          // to actually be found by scanning `items[]`): the match inside
+          // `removeRowImmediately` is a plain string comparison and needs
+          // nothing more, so Remove still works even where the row lookup
+          // itself comes back null.
+          onRemove={() => { if (selectedBundle.itemId !== '') void controller.removeRowImmediately(selectedBundle.itemId); }}
         />
       )}
     </div>
