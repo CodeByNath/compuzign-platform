@@ -9,24 +9,26 @@
 //     the same vocabulary and the same shared Tabs/Accordion renderers as the
 //     Tier drawer). Both groups open READABLE; "+ Bundle" lives in the drawer's
 //     own nav chrome beside the view toggle, gated on Options being active, and
-//     never on the chip strip. "+ Bundle" begins an authoring Bundle with NO
-//     row and NO chargeable identity yet — never a precreated placeholder row.
-//   Phase 2 — the Bundle's own FIRST Import mints the Bundle and its row
-//     TOGETHER: the row is a REAL member of the sheet's own `items[]` (the
-//     same list every ordinary row lives in), seeded once with the summed
-//     price of what was selected. From then on the Bundle inline editor is
-//     the Rate Sheet row editor: the SAME `RateSheetGridEditor`, under the
-//     SAME one-row-at-a-time lock, Edit/Save/Cancel/Remove(/Delete once
-//     saved), the same Price Options tab strip, Per/Qty/Group. The first
-//     column is `Product Bundle` because that cell is the row's own name; no
-//     Delete-Bundle button lives in the editor — whole-Bundle Remove is the
-//     module card's own action.
-//   Phase 3 — composing browses Rate Sheets → their own priced rows (never a
-//     raw Service inclusion, which has no row yet to reference), two columns,
-//     with the basket a full-width strip beneath. A LATER Import on an
-//     already-created Bundle only adds references — the row's price is never
-//     re-touched. Composing across multiple sheets accumulates into one
-//     basket; a source row is never copied, only referenced.
+//     never on the chip strip. "+ Bundle" opens the inline editor DIRECTLY —
+//     the import engine IS what shows — with NO intermediate chip, no card,
+//     and no precreated Bundle or row of any kind: nothing exists in
+//     `bundles`/`items` until the first Import actually succeeds.
+//   Phase 2 — that first Import mints the Bundle and its row TOGETHER: the
+//     row is a REAL member of the sheet's own `items[]` (the same list every
+//     ordinary row lives in), seeded once with the summed price of what was
+//     selected. From then on the Bundle inline editor is the Rate Sheet row
+//     editor: the SAME `RateSheetGridEditor`, under the SAME one-row-at-a-time
+//     lock, Edit/Save/Cancel/Remove(/Delete once saved), the same Price
+//     Options tab strip, Per/Qty/Group. The first column is `Product Bundle`
+//     because that cell is the row's own name; no Delete-Bundle button lives
+//     in the editor — whole-Bundle Remove is the module card's own action.
+//   Phase 3 — composing browses three SIMULTANEOUS columns (Rate Sheets |
+//     Rate Sheet Rows | Selected Rows): clicking a Rate Sheet replaces column
+//     2 with its own priced rows, never clearing column 3 — never a raw
+//     Service inclusion, which has no row yet to reference. A LATER Import on
+//     an already-created Bundle only adds references — the row's price is
+//     never re-touched. Composing across multiple sheets accumulates into one
+//     selection; a source row is never copied, only referenced.
 //
 // Usage: npm run regression:rate-sheet-bundle
 //    or: node scripts/rate-sheet-bundle-regression.mjs
@@ -108,6 +110,9 @@ function baseManager() {
 let server = { manager: baseManager() };
 let saveCalls = 0;
 let lastSavePayload = null;
+// Set true to make the NEXT save request fail, self-resetting — proves a
+// failed first Import leaves no local trace for a retry to duplicate.
+let forceSaveFailureOnce = false;
 
 function deepClone(value) { return JSON.parse(JSON.stringify(value)); }
 function jsonResponse(body) {
@@ -217,6 +222,10 @@ globalThis.fetch = (url, init = {}) => {
   }
   if (path.endsWith(`admin/services/${SERVICE_ID}/package-station/manager`) && method === 'POST') {
     saveCalls += 1;
+    if (forceSaveFailureOnce) {
+      forceSaveFailureOnce = false;
+      return jsonResponse({ success: false, message: 'Simulated save failure' });
+    }
     lastSavePayload = JSON.parse(init.body ?? '{}');
     applySave(lastSavePayload);
     return jsonResponse({ success: true, manager: server.manager });
@@ -337,19 +346,9 @@ function importColumnLabels() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__import-columns .cz-rate-sheet-tool__import-column-label')]
     .map((p) => p.textContent.trim());
 }
-function basketChips() {
-  return [...container.querySelectorAll('.cz-rate-sheet-tool__import-basket .cz-rate-sheet-tool__import-chip')];
-}
-function basketChip(labelSubstring) {
-  return basketChips().find((b) => b.textContent.includes(labelSubstring)) ?? null;
-}
 function cardActionButton(title, label) {
   return [...(moduleCard(title)?.querySelectorAll('.drawerModule__footer button') ?? [])]
     .find((b) => b.textContent.trim() === label) ?? null;
-}
-function importChip(labelSubstring) {
-  return [...container.querySelectorAll('.cz-rate-sheet-tool__import-columns .cz-rate-sheet-tool__import-chip')]
-    .find((b) => b.textContent.includes(labelSubstring)) ?? null;
 }
 function importActionButton(text) {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__import-actions button')].find((b) => b.textContent.trim().startsWith(text)) ?? null;
@@ -360,20 +359,9 @@ function importActionButton(text) {
 async function remount() {
   render(null, container);
   server = { manager: baseManager() };
-  saveCalls = 0; lastSavePayload = null; confirmReturnValue = true;
+  saveCalls = 0; lastSavePayload = null; confirmReturnValue = true; forceSaveFailureOnce = false;
   optionSeq = 0; bundleSeq = 0; platformSeq = 0;
   render(h(Harness, { recordId: 'rs_1', mode: 'view' }), container);
-  await settle();
-}
-
-/** Options → "+ Bundle" → the new Bundle's card → Edit: the whole authoring
- *  entry path, exactly as an admin walks it. */
-async function openNewBundleEditor() {
-  selectGroup('Options');
-  await settle();
-  click(addBundleButton());
-  await settle();
-  click(cardEditButton('Bundle'));
   await settle();
 }
 
@@ -411,52 +399,58 @@ check('toggling back restores the tab bar with Options still active', activeGrou
 const savesBeforeCreate = saveCalls;
 click(addBundleButton());
 await settle();
-check('creating a Bundle makes no API request — it is local until Save', saveCalls === savesBeforeCreate);
-check('the new Bundle appears as a chip — with no name yet, since it has no row', chipLabels().includes('Untitled Bundle'), chipLabels().join('|'));
-check('the new Bundle is selected', activeChipLabel() === 'Untitled Bundle', activeChipLabel());
-check('it opens READABLE as a module card, not straight into an editor', moduleCard('Bundle') != null && editorShell() == null);
-check('a not-yet-saved Bundle reports that its Platform ID comes after Save', moduleCard('Bundle')?.textContent.includes('Assigned after Save'));
-check('it compiles nothing yet — no row exists until the first Import', moduleCard('Bundle')?.textContent.includes('Supplied content') && moduleCard('Bundle')?.textContent.includes('0'));
-
-click(cardEditButton('Bundle'));
-await settle();
-check('only Edit opens the inline editor', editorShell() != null);
+check('"+ Bundle" opens the inline editor DIRECTLY — no intermediate chip or card click', editorShell() != null);
+check('creating a Bundle makes no API request — nothing is minted until the first Import succeeds', saveCalls === savesBeforeCreate);
+check('NO Bundle chip exists yet — never a precreated placeholder record', !chipLabels().includes('Untitled Bundle'), chipLabels().join('|'));
+check('and no Bundle module card either — there is nothing yet to read', moduleCard('Bundle') == null);
+check('the editor titles itself "New Bundle" while nothing exists to name it', editorTitle() === 'New Bundle', editorTitle());
 check('the editor is a focused task that suppresses the group chrome', detailRoot()?.className.includes('cz-req-detail--editing'), detailRoot()?.className);
 check('the group renderers stay mounted beneath it, never unmounted', container.querySelector('.cz-drawer-groups__tablist') != null);
-check('its own editor is mounted', bundleWorkspace() != null);
 check('NO row exists yet — nothing to edit until the first Import creates it', rowsIn().length === 0, rowsIn().length);
-check('the engine offers only "+ Add Rate Sheet" — never a raw Service inclusion', anyButton('+ Add Rate Sheet') != null && anyButton('+ Add Service') == null);
+check('the import engine is what shows — not the Bundle row workspace', bundleWorkspace() == null);
+check('there is no Close button while authoring — Cancel is the only way out', anyButton('Close') == null);
 
 // ── B) Phase 2 — the Bundle's own first Import mints Bundle + row together ──
 console.log('\nB) The first Import mints the Bundle and its row together');
-click(anyButton('+ Add Rate Sheet'));
-await settle();
-check('the Rate Sheet engine opens', container.querySelector('[aria-label="Add Rate Sheet content to this Bundle"]') != null);
-check('it browses Rate Sheets only, in two columns', importColumnLabels().join('|') === 'Browse by Rate Sheet|Browse by row', importColumnLabels().join('|'));
-const sheetChip = (label) => columnChips('Browse by Rate Sheet').find((b) => b.textContent.includes(label)) ?? null;
-const rowChip = (label) => columnChips('Browse by row').find((b) => b.textContent.includes(label)) ?? null;
+check('the Rate Sheet engine opens, aria-labelled for composing this Bundle', container.querySelector('[aria-label="Compose this Bundle from Rate Sheet rows"]') != null);
+check(
+  'it browses three SIMULTANEOUS columns — Rate Sheets, Rate Sheet Rows, and the accumulating Selected Rows',
+  importColumnLabels().length === 3
+    && importColumnLabels()[0] === 'Rate Sheets'
+    && importColumnLabels()[1] === 'Rate Sheet Rows'
+    && importColumnLabels()[2].startsWith('Selected Rows'),
+  importColumnLabels().join('|'),
+);
+const sheetChip = (label) => columnChips('Rate Sheets').find((b) => b.textContent.includes(label)) ?? null;
+const rowChip = (label) => columnChips('Rate Sheet Rows').find((b) => b.textContent.includes(label)) ?? null;
+const selectedChip = (label) => columnChips('Selected Rows').find((b) => b.textContent.includes(label)) ?? null;
 check('every Rate Sheet in the collection is offered', sheetChip('Websites') != null && sheetChip('Banking') != null);
+check('Rate Sheet Rows starts empty until a Rate Sheet is picked', columnChips('Rate Sheet Rows').length === 0);
 
 click(sheetChip('Websites'));
 await settle();
 check('picking a source Rate Sheet lists its own priced rows', rowChip('Website Design') != null);
 click(rowChip('Website Design'));
 await settle();
-check('it moves into the basket', basketChip('Website Design') != null);
+check('it moves into Selected Rows', selectedChip('Website Design') != null);
+check('and is no longer offered again in Rate Sheet Rows', rowChip('Website Design') == null);
 
-// Moving to ANOTHER sheet accumulates — the basket is not cleared.
+// Moving to ANOTHER sheet accumulates — Selected Rows is never cleared, so
+// one Bundle composes across as many sheets as picked.
 click(sheetChip('Banking'));
 await settle();
-check('picking a second Rate Sheet does not clear the basket', basketChip('Website Design') != null);
+check('picking a second Rate Sheet does not clear Selected Rows', selectedChip('Website Design') != null);
 check('the second sheet\'s own row is offered, showing the price it already carries', rowChip('Online Banking')?.textContent.includes('$40'), rowChip('Online Banking')?.textContent);
 click(rowChip('Online Banking'));
 await settle();
-check('composing across two Rate Sheets accumulates into ONE basket', basketChips().length === 2, basketChips().length);
+check('composing across two Rate Sheets accumulates into ONE Selected Rows list', columnChips('Selected Rows').length === 2, columnChips('Selected Rows').length);
 
 const savesBeforeImport = saveCalls;
 click(importActionButton('Import'));
 await settle(60);
 check('Import persists through exactly one full-manager save', saveCalls === savesBeforeImport + 1, saveCalls - savesBeforeImport);
+check('the editor session stays open — Import is not the footer\'s own Save', editorShell() != null && activeGroupTab() === 'Options');
+check('authoring ends and the SAME session now shows the minted Bundle\'s own row workspace', bundleWorkspace() != null);
 
 const publishedSheet = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1');
 const publishedBundle = publishedSheet?.bundles?.[0];
@@ -550,6 +544,7 @@ click(anyButton('Cancel'));
 await settle();
 if (anyButton('Discard')) { click(anyButton('Discard')); await settle(); }
 check('leaving the editor returns to the readable Options group', editorShell() == null && activeGroupTab() === 'Options', activeGroupTab());
+check('the now-real, saved Bundle reads its OWN row name as its chip', activeChipLabel() === 'Digital Banking Website', chipLabels().join('|'));
 check('the module card reads lean — no single-declaration price/per/qty/group', !moduleCard('Bundle')?.textContent.includes('Qty'), moduleCard('Bundle')?.textContent.slice(0, 300));
 check('it names the Bundle and what it compiles', moduleCard('Bundle')?.textContent.includes('Product Bundle') && moduleCard('Bundle')?.textContent.includes('Supplied content'));
 check('whole-Bundle Remove lives on the module action footer', cardActionButton('Bundle', 'Remove') != null);
@@ -558,14 +553,16 @@ check('whole-Bundle Remove lives on the module action footer', cardActionButton(
 console.log('\nD) A later Import composes further without re-touching the row\'s price');
 click(cardEditButton('Bundle'));
 await settle();
+check('an already-saved Bundle\'s workspace offers "+ Add Rate Sheet" as a TOGGLE — never a raw Service inclusion', anyButton('+ Add Rate Sheet') != null && anyButton('+ Add Service') == null);
 click(anyButton('+ Add Rate Sheet'));
 await settle();
-click(columnChips('Browse by Rate Sheet').find((b) => b.textContent.includes('Banking')));
+check('reopening the engine on an existing Bundle offers its own Close button', anyButton('Close') != null);
+click(columnChips('Rate Sheets').find((b) => b.textContent.includes('Banking')));
 await settle();
 check(
   'a reference already in this Bundle is never offered twice',
-  columnChips('Browse by row').length === 0,
-  columnChips('Browse by row').map((b) => b.textContent),
+  columnChips('Rate Sheet Rows').length === 0,
+  columnChips('Rate Sheet Rows').map((b) => b.textContent),
 );
 click(anyButton('Close'));
 await settle();
@@ -605,6 +602,41 @@ check(
   "and the Bundle row it never touched round-trips unchanged in the payload",
   (lastSavePayload?.rate_sheets ?? []).some((sheet) => (sheet.items ?? []).some((row) => row.item_id === 'rate_bundle_offer')),
   JSON.stringify((lastSavePayload?.rate_sheets ?? [])[0]?.items?.map((r) => r.item_id)),
+);
+
+// ── F) A failed first Import leaves nothing local to duplicate on retry ──
+console.log("\nF) A failed first Import leaves no local trace — a retry never duplicates the Bundle");
+await remount();
+selectGroup('Options');
+await settle();
+click(addBundleButton());
+await settle();
+click(sheetChip('Websites'));
+await settle();
+click(rowChip('Website Design'));
+await settle();
+
+forceSaveFailureOnce = true;
+const savesBeforeFailedImport = saveCalls;
+click(importActionButton('Import'));
+await settle(60);
+check('the failed attempt still made exactly one request', saveCalls === savesBeforeFailedImport + 1, saveCalls - savesBeforeFailedImport);
+check(
+  'the picker stays open on failure, with its own error shown',
+  container.querySelector('[aria-label="Compose this Bundle from Rate Sheet rows"]') != null && container.querySelector('.cz-admin-error-msg') != null,
+);
+check('nothing was minted server-side — the sheet still has no Bundle', server.manager.rate_sheets[0].bundles.length === 0, server.manager.rate_sheets[0].bundles.length);
+check('the picked row is still staged, ready to retry with no re-picking', selectedChip('Website Design') != null);
+
+const savesBeforeRetry = saveCalls;
+click(importActionButton('Import'));
+await settle(60);
+check('retrying succeeds through one more request', saveCalls === savesBeforeRetry + 1, saveCalls - savesBeforeRetry);
+check('exactly ONE Bundle exists — the failed attempt left no orphan to duplicate', server.manager.rate_sheets[0].bundles.length === 1, server.manager.rate_sheets[0].bundles.length);
+check(
+  'and exactly ONE Bundle-backed row exists alongside it',
+  server.manager.rate_sheets[0].items.filter((item) => (item.bundle_id ?? '') !== '').length === 1,
+  server.manager.rate_sheets[0].items.filter((item) => (item.bundle_id ?? '') !== '').length,
 );
 
 console.log('');

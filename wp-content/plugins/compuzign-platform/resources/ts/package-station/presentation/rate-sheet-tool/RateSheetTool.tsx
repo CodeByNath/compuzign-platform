@@ -57,6 +57,7 @@ import type {
   RateSheetEditorValue,
 } from '../../surface/rateSheetTool/rateSheetToolModel';
 import { RateSheetGridEditor } from './rateSheetParts';
+import { RateSheetBundleImportPicker } from './RateSheetBundleImportPicker';
 import { RateSheetBundleWorkspace } from './RateSheetBundleWorkspace';
 import { RateSheetServiceImportPicker } from './RateSheetServiceImportPicker';
 
@@ -296,7 +297,7 @@ function FocusedRateSheetGroups({
           type="button"
           class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
           disabled={controller.editingRowId !== null}
-          onClick={() => controller.createBundle()}
+          onClick={() => { controller.beginBundleAuthoring(); onEdit(); }}
         >
           + Bundle
         </button>
@@ -356,9 +357,11 @@ function RateSheetBundleSwitcher({
 
   if (editing) {
     return openEditor(
-      selectedBundle ? (selectedBundleRow?.label?.trim() || 'New Bundle') : 'Bundles',
+      controller.authoringBundle ? 'New Bundle' : selectedBundle ? (selectedBundleRow?.label?.trim() || 'New Bundle') : 'Bundles',
       <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
-        {selectedBundle && selectedBundleKey ? (
+        {controller.authoringBundle ? (
+          <RateSheetBundleImportPicker controller={controller} bundle={null} />
+        ) : selectedBundle && selectedBundleKey ? (
           <RateSheetBundleWorkspace
             controller={controller}
             bundle={selectedBundle}

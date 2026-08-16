@@ -32,7 +32,6 @@ import type { RateSheetToolController } from '../../surface/rateSheetTool/useRat
 import { RateSheetGridEditor } from './rateSheetParts';
 import type { RateSheetRowCommands } from './rateSheetParts';
 import { RateSheetBundleImportPicker } from './RateSheetBundleImportPicker';
-import type { BundleImportSource } from './RateSheetBundleImportPicker';
 
 export function RateSheetBundleWorkspace({
   controller, bundle, bundleKey, sheet,
@@ -44,16 +43,13 @@ export function RateSheetBundleWorkspace({
    *  groups, because a Bundle stores none of its own. */
   sheet:      RateSheetEditorValue;
 }): VNode {
-  const [importSource, setImportSource] = useState<BundleImportSource | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const bundleRow = controller.selectedBundleRow;
   const suppliedContent = bundleSuppliedContent(bundle, controller.bundleSources);
 
   // The same rule the sheet's own editor keeps: only one row may be unlocked at
   // a time, so importing and removing stand down while the row is being edited.
   const rowLocked = controller.editingRowId !== null;
-
-  const openSource = (source: BundleImportSource) =>
-    setImportSource((current) => (current === source ? null : source));
 
   const commands: RateSheetRowCommands = { ...controller, removeRow: () => controller.deleteBundle(bundleKey) };
 
@@ -77,17 +73,16 @@ export function RateSheetBundleWorkspace({
           no row yet for a Bundle to reference (see RateSheetBundleImportPicker). */}
       <div class="cz-rate-sheet-tool__toolbar">
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
-          onClick={() => openSource('rate-sheets')}>
-          {importSource === 'rate-sheets' ? 'Close' : '+ Add Rate Sheet'}
+          onClick={() => setImportOpen((open) => !open)}>
+          {importOpen ? 'Close' : '+ Add Rate Sheet'}
         </button>
       </div>
 
-      {importSource !== null && (
+      {importOpen && (
         <RateSheetBundleImportPicker
           controller={controller}
           bundle={bundle}
-          bundleKey={bundleKey}
-          onDone={() => setImportSource(null)}
+          onDone={() => setImportOpen(false)}
         />
       )}
 

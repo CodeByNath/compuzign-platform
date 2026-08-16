@@ -144,26 +144,31 @@ export interface RateSheetToolController {
    *  second, staler view of the collection. */
   bundleSources:        BundleSourceSheet[];
   selectBundle:         (key: string | null) => void;
-  /** Begins authoring a new Bundle in the selected sheet: a record with no
-   *  row and no supplied content yet. Its first Import (`importBundleContent`)
-   *  is what creates its row and mints both together. Local until then — no
-   *  chip-worthy record exists before that first Import. */
-  createBundle:         () => void;
+  /** True from "+ Bundle" until either its first Import succeeds or authoring
+   *  is abandoned (Cancel/`discard`). NO record exists in `bundles`/`items`
+   *  while this is true — never a precreated placeholder Bundle or row. The
+   *  Options group renders the import engine directly in this state, with no
+   *  card and no chip yet to show. */
+  authoringBundle:      boolean;
+  /** Begins authoring a new Bundle in the selected sheet: local UI state
+   *  only, mints nothing, adds nothing to `bundles`/`items`. */
+  beginBundleAuthoring: () => void;
   setBundleStatus:      (key: string, status: 'active' | 'archived') => void;
   /** Adds one live reference to what the Bundle compiles — never a copy. A
    *  row already referenced is ignored. */
   addBundleSuppliedContentRef:    (key: string, reference: { sourceRateSheetId: string; sourceItemId: string }) => void;
   removeBundleSuppliedContentRef: (key: string, reference: { sourceRateSheetId: string; sourceItemId: string }) => void;
   /**
-   * The Bundle's own first Import: creates its row (carrying `initialUnitPrice`
-   * — the seeded sum of what was selected — and every supplied-content
-   * reference) in ONE local update, then persists through the SAME
-   * full-manager save every other mutation here uses. A Bundle that already
-   * has a row (a later Import) instead just adds the references onto it,
-   * unchanged in price. Returns whether the save succeeded.
+   * An Import for the selected sheet's Bundle in scope. While `authoringBundle`
+   * is true (no Bundle exists yet), this is the Bundle's own FIRST Import: it
+   * mints the Bundle AND its row TOGETHER in one local update — the row
+   * seeded once from `initialUnitPrice` (the summed price of what was
+   * selected) — then persists through the SAME full-manager save every other
+   * mutation here uses, and clears `authoringBundle`. Otherwise it adds the
+   * references onto the ALREADY-SELECTED Bundle's existing row, unchanged in
+   * price. Returns whether the save succeeded.
    */
   importBundleContent: (
-    key: string,
     references: readonly { sourceRateSheetId: string; sourceItemId: string }[],
     initialUnitPrice: number,
   ) => Promise<boolean>;
@@ -244,13 +249,6 @@ function bundleOwningRow(value: RateSheetEditorValue, rowId: string): RateSheetE
   return value.bundles.find((bundle) => bundle.itemId === rowId) ?? null;
 }
 
-/** The one Bundle still mid-authoring (its row not yet created) in a sheet —
- *  there can only be one at a time, the same one-row-lock discipline that
- *  keeps everything else here to a single active record. */
-function bundleAwaitingItsRow(value: RateSheetEditorValue): RateSheetEditorBundle | null {
-  return value.bundles.find((bundle) => bundle.itemId === '') ?? null;
-}
-
 export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   const host = useHostService();
   const hostServiceId = host.service?.id ?? null;
@@ -265,6 +263,9 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   // Which child of the selected sheet is in focus: null is the sheet's own
   // rows (the only state before Bundles existed), a key is one of its Bundles.
   const [selectedBundleKey, setSelectedBundleKey] = useState<string | null>(null);
+  // True from "+ Bundle" until its first Import succeeds or authoring is
+  // abandoned. Local UI state only — no record exists anywhere until then.
+  const [authoringBundle, setAuthoringBundle] = useState(false);
   // The focused sheet's drawer groups. Details is the sheet itself, Options is
   // its Bundles; `groupView` picks which shared renderer draws the nav.
   const [groupTab, setGroupTab]     = useState<RateSheetGroupId>('details');
@@ -351,6 +352,15 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       sources: PackageManagerReadModel['sources'],
       nextUnits: PackageRateSheetUnit[],
       preserveSelection = false,
+      // Which Bundle to recover-by-position after save, when it differs from
+      // the CLOSURE's own `selectedBundleKey` — needed only for a Bundle's
+      // first Import, which selects its brand-new local key in the SAME
+      // synchronous handler that calls persist(); reading `selectedBundleKey`
+      // from this callback's own closure at that point would still see the
+      // pre-selection value, since the setState that changed it has not
+      // re-rendered yet. `undefined` (every other caller) keeps today's
+      // behaviour exactly.
+      recoverBundleKey: string | null | undefined = undefined,
     ): Promise<boolean> => {
       if (readModel == null || hostServiceId == null) return false;
       setSaving(true);
@@ -395,8 +405,9 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
         // is the same Bundle. A Bundle that no longer exists (deleted, or
         // dropped as entirely empty) clears the selection back to the sheet's
         // own rows rather than leaving a key addressing nothing.
-        if (selectedBundleKey !== null) {
-          const index = selectedBeforeSave?.bundles.findIndex((bundle) => bundleKey(bundle) === selectedBundleKey) ?? -1;
+        const targetBundleKey = recoverBundleKey === undefined ? selectedBundleKey : recoverBundleKey;
+        if (targetBundleKey !== null) {
+          const index = selectedBeforeSave?.bundles.findIndex((bundle) => bundleKey(bundle) === targetBundleKey) ?? -1;
           const savedSheet = resolvedSheetId === null
             ? undefined
             : response.manager.rate_sheets.find((sheet) => sheet.rate_sheet_id === resolvedSheetId);
@@ -505,47 +516,59 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     activeRows,
     bundleSources,
     selectBundle: (key) => setSelectedBundleKey(key),
-    createBundle: () => {
+    authoringBundle,
+    beginBundleAuthoring: () => {
       if (selected === null) return;
-      const { value, key } = createEditorBundle(selected);
-      editSelected(() => value);
-      setSelectedBundleKey(key);
+      setAuthoringBundle(true);
     },
     setBundleStatus: (key, status) => editSelected((value) => patchEditorBundle(value, key, { status })),
     addBundleSuppliedContentRef: (key, reference) => editSelected((value) => addBundleSuppliedContent(value, key, reference)),
     removeBundleSuppliedContentRef: (key, reference) => editSelected((value) => removeBundleSuppliedContent(value, key, reference)),
-    importBundleContent: async (key, references, initialUnitPrice) => {
-      if (selected === null) return false;
-      const bundle = findEditorBundle(selected, key);
+    importBundleContent: async (references, initialUnitPrice) => {
+      if (selected === null || readModel === null) return false;
+      if (authoringBundle) {
+        // The Bundle's first Import: mint the Bundle and its row TOGETHER,
+        // locally, only now — nothing is added to `bundles`/`items` before
+        // this point, so a failed attempt leaves no local trace to retry
+        // against (`sheets` state is left untouched until `persist` resolves,
+        // the same discipline `removeRowImmediately` keeps for its own
+        // atomic, immediately-persisted action). The row is seeded once from
+        // the summed price of what was selected, never recomputed again.
+        const { value: withBundle, key } = createEditorBundle(selected);
+        const withReferences = references.reduce<RateSheetEditorValue>(
+          (value, reference) => addBundleSuppliedContent(value, key, reference),
+          withBundle,
+        );
+        const withRow: RateSheetEditorValue = {
+          ...withReferences,
+          items: [...withReferences.items, {
+            id: '', optionId: '', optionLabel: '', platformId: undefined,
+            unitPrice: initialUnitPrice, per: withReferences.items[0]?.per ?? units[0] ?? 'Per item',
+            quantity: 1, groupId: null, sourceAvailable: true,
+            sourceServiceId: null, sourceServiceTitle: null,
+            priceOptions: [], defaultPriceLabel: '',
+            bundleId: NEW_BUNDLE_SENTINEL, label: '',
+          }],
+        };
+        const nextSheets = sheets.map((sheet) => (sheet.key === selected.key ? { ...withRow, key: selected.key } : sheet));
+        // `key` is this render's own local Bundle key, passed explicitly since
+        // `selectedBundleKey` was never set to it — reading the closure's own
+        // stale state inside `persist` would not see a selection that has not
+        // happened yet.
+        const ok = await persist(nextSheets, deletions, readModel.sources, units, true, key);
+        if (ok) setAuthoringBundle(false);
+        return ok;
+      }
+      // A later Import onto the already-selected Bundle: only adds
+      // references — the row, and its price, are untouched.
+      if (scopedBundleKey === null) return false;
+      const bundle = findEditorBundle(selected, scopedBundleKey);
       if (bundle === null) return false;
-      const hasRow = bundle.itemId !== '';
       const withReferences = references.reduce<RateSheetEditorValue>(
-        (value, reference) => addBundleSuppliedContent(value, key, reference),
+        (value, reference) => addBundleSuppliedContent(value, scopedBundleKey, reference),
         selected,
       );
-      // The Bundle's first Import mints its row together with the Bundle
-      // itself, atomically, in this same local update: a blank item_id row
-      // carrying the reserved sentinel, seeded with the summed source prices
-      // — never recomputed again after this moment. A LATER Import on an
-      // already-created Bundle only adds references; the row, and its price,
-      // are untouched.
-      const withRow: RateSheetEditorValue = hasRow ? withReferences : {
-        ...withReferences,
-        items: [...withReferences.items, {
-          id: '', optionId: '', optionLabel: '', platformId: undefined,
-          unitPrice: initialUnitPrice, per: withReferences.items[0]?.per ?? units[0] ?? 'Per item',
-          quantity: 1, groupId: null, sourceAvailable: true,
-          sourceServiceId: null, sourceServiceTitle: null,
-          priceOptions: [], defaultPriceLabel: '',
-          bundleId: NEW_BUNDLE_SENTINEL, label: '',
-        }],
-      };
-      const nextSheet: WorkingSheet = { ...withRow, key: selected.key };
-      const nextSheets = sheets.map((sheet) => (sheet.key === selected.key ? nextSheet : sheet));
-      setSheets(nextSheets);
-      setDirty(true);
-      setSaveError(null);
-      if (readModel === null) return false;
+      const nextSheets = sheets.map((sheet) => (sheet.key === selected.key ? { ...withReferences, key: selected.key } : sheet));
       return persist(nextSheets, deletions, readModel.sources, units, true);
     },
     deleteBundle: (key) => {
@@ -646,6 +669,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       if (readModel) applyReadModel(readModel);
       setSelectedKey(null);
       setSelectedBundleKey(null);
+      setAuthoringBundle(false);
       setEditingRowId(null);
       setEditingRowSnapshot(null);
     },
@@ -682,16 +706,11 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       } else {
         // Not-yet-saved row: it represents nothing persisted, so Cancel
         // discards it entirely rather than "restoring" it to a prior state
-        // that never existed server-side. A not-yet-saved Bundle row also
-        // means its Bundle was never completed — discard that too, exactly
-        // as an unsaved sheet row is discarded outright.
-        const owner = bundleAwaitingItsRow(selected);
-        if (owner !== null) {
-          editSelected((value) => deleteEditorBundle(value, bundleKey(owner)));
-          setSelectedBundleKey(null);
-        } else {
-          editRows((rows) => removeRowIn(rows, targetId));
-        }
+        // that never existed server-side. A Bundle's own row never reaches
+        // this branch not-yet-saved: it is minted together with its Bundle
+        // only at Import, atomically persisted in the same call — so by the
+        // time either is selectable here, both already have real ids.
+        editRows((rows) => removeRowIn(rows, targetId));
       }
       setEditingRowId(null);
       setEditingRowSnapshot(null);
@@ -756,7 +775,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
     },
   }), [
     hostServiceId, list, selected, selectedKey, selectedBundle, selectedBundleKey, scopedBundleKey,
-    groupTab, groupView, activeRows, bundleSources,
+    authoringBundle, groupTab, groupView, activeRows, bundleSources,
     readModel, sheets, deletions, units, dirty, saving, saveError,
     editingRowId, editingRowSnapshot, selectedBundleRow,
     catalog, catalogLoading, catalogError, loadCatalog,
