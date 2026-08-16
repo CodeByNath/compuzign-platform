@@ -190,6 +190,11 @@ export interface PackageFamilyDeleteResponse {
 
 export type TierInstanceStatus = 'draft' | 'active' | 'disabled' | 'archived' | 'trashed';
 
+export interface TierRateSheetBundleAccess {
+  rate_sheet_id: string;
+  bundle_id: string;
+}
+
 /** Package-owned Tier capability instance. Consumer use is a separate assignment. */
 export interface TierInstanceSummary {
   tier_instance_id:       string;
@@ -198,6 +203,7 @@ export interface TierInstanceSummary {
   description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
+  allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[];
   popular_tier:           string | null;
   popular_label:          string;
   readiness:              'ready' | 'not-ready';
@@ -213,6 +219,7 @@ export interface TierInstanceRecord {
   description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
+  allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[];
   popular_tier:           string | null;
   popular_label:          string;
   tiers: Record<string, {

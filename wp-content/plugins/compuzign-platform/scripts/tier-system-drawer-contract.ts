@@ -213,9 +213,21 @@ const tierRateSheetAccessEditorSource = readFileSync(resolve(
 ), 'utf8');
 check(
   tierRateSheetAccessEditorSource.includes('MultiSelectField')
+    && tierRateSheetAccessEditorSource.includes('children: row.bundles.map')
+    && tierRateSheetAccessEditorSource.includes('allowedRateSheetBundles')
     && !tierRateSheetAccessEditorSource.includes("type: 'checkbox'")
     && !tierRateSheetAccessEditorSource.includes('cz-tf-hint'),
-  'the Rate Sheet Access editor is one MultiSelectField, not a hand-rolled checkbox list with explanatory text',
+  'the Rate Sheet Access editor gives MultiSelectField direct Bundle children, not Rate Sheet rows or a hand-rolled list',
+);
+const tierRateSheetAccessModelSource = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel.ts',
+), 'utf8');
+check(
+  tierRateSheetAccessModelSource.includes('sheet?.bundles ?? []')
+    && !tierRateSheetAccessModelSource.includes('sheet.groups')
+    && !tierRateSheetAccessModelSource.includes('sheet.items'),
+  'Tier System Bundle candidates come directly from the matched Rate Sheet bundles[] collection, never row groups or items',
 );
 
 // MultiSelectField (drawer-kit/fields) is the ONE trigger+floating-panel
@@ -242,6 +254,12 @@ check(
     && multiSelectFieldSource.includes('spaceBelow')
     && multiSelectFieldSource.includes('spaceAbove'),
   'MultiSelectField measures the trigger against the viewport and can open upward, not just downward',
+);
+check(
+  multiSelectFieldSource.includes('children?: MultiSelectFieldOption[]')
+    && multiSelectFieldSource.includes('parent ? [parent.value]')
+    && multiSelectFieldSource.includes('option.children ?? []'),
+  'MultiSelectField supports nested choices, child selection grants its Rate Sheet, and clearing a Rate Sheet clears its Bundles',
 );
 check(
   tierOverviewEditorSource.includes('MultiSelectField')
