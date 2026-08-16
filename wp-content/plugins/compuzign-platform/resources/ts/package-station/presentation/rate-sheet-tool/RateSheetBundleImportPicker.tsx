@@ -57,11 +57,15 @@ function categoryKeyOf(category: ServiceCategory): string {
 }
 
 export function RateSheetBundleImportPicker({
-  controller, bundle, source, onDone,
+  controller, bundle, source, onImport, onDone,
 }: {
   controller: RateSheetToolController;
   bundle:     RateSheetEditorBundle;
   source:     BundleImportSource;
+  /** Where Import lands the selection — the OPEN Bundle's own `publishRows`
+   *  for an existing Bundle, or `commitNewBundle` when this engine is what
+   *  creates a not-yet-existing one. Either way, one save. */
+  onImport:   (entries: readonly RateSheetRowEntry[]) => Promise<boolean>;
   onDone:     () => void;
 }): VNode {
   const [categoryQuery, setCategoryQuery]   = useState('');
@@ -211,7 +215,7 @@ export function RateSheetBundleImportPicker({
 
   const handleImport = async () => {
     setImporting(true);
-    const ok = await controller.publishRows(selected.map((entry) => ({
+    const ok = await onImport(selected.map((entry) => ({
       optionId: entry.optionId, unitPrice: entry.unitPrice, per: entry.per,
       quantity: entry.quantity, groupId: entry.groupId, label: entry.label,
       memberRateSheetId: entry.memberRateSheetId,

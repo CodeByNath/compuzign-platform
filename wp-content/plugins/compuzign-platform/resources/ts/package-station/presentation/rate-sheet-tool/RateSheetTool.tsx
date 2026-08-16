@@ -293,14 +293,13 @@ function FocusedRateSheetGroups({
         <button
           type="button"
           class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-          disabled={controller.editingRowId !== null}
+          disabled={controller.editingRowId !== null || controller.creatingBundle}
           onClick={() => {
-            // createBundle() only adds the local draft; without also
-            // entering the sheet's own edit mode, Options would keep
-            // rendering the read view — the empty-card "Bundle N / None yet"
-            // shell this replaces — instead of opening straight into the
-            // Bundle's own workspace where it belongs.
-            controller.createBundle();
+            // beginCreateBundle() only flips a flag — no Bundle exists until
+            // its own import creates one. Without also entering the sheet's
+            // own edit mode, Options would keep rendering the read view
+            // instead of opening straight into the creation workspace.
+            controller.beginCreateBundle();
             if (!editing) onEdit();
           }}
         >
@@ -346,19 +345,31 @@ function RateSheetBundleSwitcher({
 
   // Options must never sit on a selection that names nothing — a fresh mount, a
   // Bundle just deleted, or a Bundle dropped by a save all land here. There is
-  // no sheet-level fallback inside Options: the sheet itself is Details.
+  // no sheet-level fallback inside Options: the sheet itself is Details. Never
+  // while authoring a brand-new one — that selection is deliberately empty
+  // until its own first Import creates it.
   useEffect(() => {
+    if (controller.creatingBundle) return;
     if (bundles.length === 0) return;
     if (bundles.some((bundle) => bundleKey(bundle) === selectedBundleKey)) return;
     controller.selectBundle(bundleKey(bundles[0]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bundles, selectedBundleKey]);
+  }, [bundles, selectedBundleKey, controller.creatingBundle]);
 
   if (editing) {
     return openEditor(
-      selectedBundle ? (selectedBundle.title.trim() || 'New Bundle') : 'Bundles',
+      controller.creatingBundle
+        ? 'New Bundle'
+        : selectedBundle ? (selectedBundle.title.trim() || 'New Bundle') : 'Bundles',
       <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
-        {selectedBundle && selectedBundleKey ? (
+        {controller.creatingBundle ? (
+          <RateSheetBundleWorkspace
+            controller={controller}
+            bundle={null}
+            bundleKey={null}
+            sheet={sheet}
+          />
+        ) : selectedBundle && selectedBundleKey ? (
           <RateSheetBundleWorkspace
             controller={controller}
             bundle={selectedBundle}

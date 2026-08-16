@@ -73,7 +73,12 @@ not another Tier, not a second Add-on system. See [Tier Edition](../../../../../
 none, and the selected Bundle's readable module card, whose Edit opens
 `RateSheetBundleWorkspace.tsx`. `+ Bundle` is NOT on that strip: it lives in
 the drawer nav's `trailing` slot beside the view toggle, gated on Options being
-the active group, the same place `+ Edition` lives in the Tier drawer. The
+the active group, the same place `+ Edition` lives in the Tier drawer. Clicking
+it (`beginCreateBundle`) mints nothing — it only opens `RateSheetBundleWorkspace`
+with `bundle={null}`, showing the import triggers and no row at all; the
+Bundle is created by its own first Import (`commitNewBundle`), never by the
+click itself, so there is never an empty "None yet / $0" placeholder shown or
+saved. The
 active group, the Tabs/Accordion view mode, and the selected Bundle all live in
 `useRateSheetTool`, not in the switcher, so a refetch/remount never resets them.
 A Bundle is a Rate Sheet-owned composition space, not a second Rate Sheet
@@ -93,11 +98,17 @@ Price Options tab strip, the same Per/Group dropdowns and quantity input. Its
 Bundle's own setter; `nameLabel="Product Bundle"` (additive on
 `RateSheetGridEditor`, defaulted to `Supplied content`, so every existing caller
 is unchanged) names the first column, because for that row the cell is the
-combination's own name. The ONE existing lock covers it — `beginRowEdit`
-resolves the Bundle row first, `cancelRowEdit` reverts through
-`patchEditorBundle` (discarding an unsaved Bundle outright), `saveActiveRow`
-persists through the same full-manager save, `removeRowImmediately` removes the
-Bundle, since a Bundle IS that row. There is NO Delete-Bundle button in the
+combination's own name. The ONE existing lock covers an EXISTING Bundle's own
+edits — `beginRowEdit` resolves the Bundle row first, `cancelRowEdit` reverts
+through `patchEditorBundle`, `saveActiveRow` persists through the same
+full-manager save, `removeRowImmediately` removes the Bundle, since a Bundle IS
+that row. A not-yet-existing Bundle never reaches this lock: `commitNewBundle`
+mints the Bundle and lands its first supplied content together, in one local
+update, then persists through the identical `persist()` call every other
+mutation here uses — the same combined create-and-populate shape
+`controller.publishRows` already gives an ordinary curated row, so a Bundle
+likewise never exists locally with empty content. There is NO Delete-Bundle
+button in the
 editor: whole-Bundle `Remove` is an action on the module card's own `ReadBlock`
 footer, the existing drawer-module action system. That card is deliberately lean
 — name, `CZPRCB`, and what it compiles — because a Bundle is a composition, not
