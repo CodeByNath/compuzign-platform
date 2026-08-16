@@ -56,8 +56,12 @@ separate records from the sheet's own row for the same supplied content, but
 never a COPY of it: the referenced row keeps its own `CZPRCI` untouched, and a
 Bundle may reference rows on OTHER sheets — composing across sheets is the
 point. A reference whose row no longer exists is silently absent from what
-the Bundle compiles (Phase 5's reconciliation) — the Bundle survives
-unchanged, nothing else is deleted. Upstream a Bundle-backed row IS just
+the Bundle compiles at read time, and pruned from `supplied_content[]` itself
+by `PackageManagerSchema::reconcileSuppliedContent()` — run once against the
+FINAL merged collection on every save, so a reference to a sheet the request
+never touched still resolves — tombstoning its own CZPRCBI as a plain
+consequence of the save's existing identity diff. Either way the Bundle
+survives unchanged, nothing else is deleted. Upstream a Bundle-backed row IS just
 another Rate Sheet row, physically persisted: since there is nothing left to
 SYNTHESIZE, `consumableRateSheetRows()` is a straight pass-through of the
 sheet's own `items[]`, filtering out only a row backed by an ARCHIVED Bundle

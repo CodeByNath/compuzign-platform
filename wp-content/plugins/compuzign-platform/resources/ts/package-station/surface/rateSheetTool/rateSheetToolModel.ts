@@ -670,9 +670,10 @@ export interface RateSheetResolvedSuppliedContent {
  * that still resolves against the given sheets, in stored order, paired with
  * its current display label. A reference whose source row no longer exists
  * is silently absent — never a placeholder — matching the backend's own read
- * projection (Phase 5's reconciliation). Deliberately NOT a bare label
- * array: an unresolvable reference would otherwise shift every later label
- * out of alignment with the reference it actually belongs to.
+ * projection (`PackageManagerSchema::reconcileSuppliedContent()` prunes it
+ * from storage too, on the next save that touches anything). Deliberately NOT
+ * a bare label array: an unresolvable reference would otherwise shift every
+ * later label out of alignment with the reference it actually belongs to.
  */
 export function bundleSuppliedContent(
   bundle: RateSheetEditorBundle,

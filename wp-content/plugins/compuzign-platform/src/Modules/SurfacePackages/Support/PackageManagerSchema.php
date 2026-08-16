@@ -573,8 +573,9 @@ final class PackageManagerSchema
      * the door here. A reference naming a row that no longer exists in that
      * sheet is NOT filtered here — at this point rows from other sheets in
      * the same submission are not yet known to have survived their own
-     * sanitisation — so that liveness check belongs to the write boundary and
-     * the read projection instead (Phase 5's reconciliation).
+     * sanitisation — so that liveness check belongs to the write boundary
+     * (`reconcileSuppliedContent()`, run once against the FINAL merged
+     * collection) and the read projection instead.
      *
      * @param  array<int, string> $rateSheetIds
      * @return array<int, array{source_rate_sheet_id:string,source_item_id:string,cz_platform_id:string}>
@@ -1108,7 +1109,12 @@ final class PackageManagerSchema
             if ($deleteId !== '') { unset($sheetsById[$deleteId]); }
         }
 
-        $rateSheets = array_values($sheetsById);
+        // Phase 5 — drop any Bundle's supplied-content reference whose source
+        // row is now gone from the FINAL collection (its own sheet deleted
+        // just above, or the row itself removed from a sheet — touched by
+        // this request or not). The dependency is one-way: this never
+        // touches the Bundle itself, its own row, or any other reference.
+        $rateSheets = self::reconcileSuppliedContent(array_values($sheetsById));
 
         // A curated unit a surviving row still carries is kept, even when the
         // submitted vocabulary omits it. Retiring a unit is a deliberate act on
@@ -1149,7 +1155,8 @@ final class PackageManagerSchema
      * source to resolve, and its own liveness is simply "does this record
      * still exist," unconditionally true here. Whether ITS supplied-content
      * REFERENCES still resolve against a live Rate Sheet row is a separate,
-     * later reconciliation (Phase 5) — not this one.
+     * later reconciliation — `reconcileSuppliedContent()`, run once against
+     * the FINAL merged collection, not per-sheet like this one.
      */
     private static function reconcileRateSheetRows(
         string $rateSheetId,
@@ -1177,6 +1184,47 @@ final class PackageManagerSchema
             'items'         => $items,
             'bundles'       => $core['bundles'] ?? [],
         ];
+    }
+
+    /**
+     * Live composition reconciliation: a Bundle's supplied-content reference
+     * survives only as long as the row it names does. Run against the FINAL
+     * merged collection (every sheet, deletions already applied) so a
+     * reference naming a row on a sheet this request never touched still
+     * resolves correctly — the source may be untouched, or it may be the one
+     * that just changed. A reference whose row is gone is silently dropped,
+     * never left dangling in storage and never a placeholder; the Bundle
+     * itself, its own row, and every OTHER reference are untouched — the
+     * dependency is one-way. The caller's own old-vs-new identity diff
+     * (PackageStationController::savePackageStationManager) tombstones the
+     * dropped reference's CZPRCBI as a plain consequence of it no longer
+     * appearing here, with no separate mechanism of its own.
+     */
+    private static function reconcileSuppliedContent(array $rateSheets): array
+    {
+        $liveRowKeys = [];
+        foreach ($rateSheets as $sheet) {
+            $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
+            foreach (is_array($sheet['items'] ?? null) ? $sheet['items'] : [] as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $liveRowKeys[$sheetId . "\0" . (string) ($item['item_id'] ?? '')] = true;
+            }
+        }
+        foreach ($rateSheets as &$sheet) {
+            foreach ($sheet['bundles'] as &$bundle) {
+                $bundle['supplied_content'] = array_values(array_filter(
+                    $bundle['supplied_content'],
+                    static fn(array $reference): bool => isset($liveRowKeys[
+                        (string) ($reference['source_rate_sheet_id'] ?? '') . "\0" . (string) ($reference['source_item_id'] ?? '')
+                    ])
+                ));
+            }
+            unset($bundle);
+        }
+        unset($sheet);
+        return $rateSheets;
     }
 
     // ── Deterministic provisional identity ──────────────────────────────────
@@ -1460,9 +1508,10 @@ final class PackageManagerSchema
      *
      * A reference naming a row that no longer resolves against that index is
      * silently absent from `includes[]` — never a placeholder, never
-     * "(missing source) — Unavailable" (Phase 5's reconciliation; this is
-     * where it surfaces for READS, mirroring how a stale Manager-sourced row
-     * is reconciled by reconcileItems() above rather than by a separate pass).
+     * "(missing source) — Unavailable", mirroring how a stale Manager-sourced
+     * row is reconciled by reconcileItems() above rather than by a separate
+     * pass. `reconcileSuppliedContent()` prunes the SAME dangling reference
+     * from storage at the write boundary; this is only the read-time mirror.
      *
      * @param  array<int, mixed> $outItems this same call's own already-resolved
      *         Manager items, for looking up a referenced row's label the exact

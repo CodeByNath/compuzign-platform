@@ -398,6 +398,107 @@ check_bundle(
     'the referenced Potato row, on the OTHER sheet, is equally unaffected'
 );
 
+// ── Live composition reconciliation: a dangling reference is silently
+//    dropped, never the Bundle itself. Self-contained fixture (its own fresh
+//    sheets), proven from a save that never even touches the Bundle's OWN
+//    sheet — the reconciliation runs against the FINAL merged collection,
+//    not per-submitted-sheet. ─────────────────────────────────────────────
+
+echo "\nRate Sheet Bundle — live composition reconciliation\n";
+
+$p5First = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([
+    ['rate_sheet_id' => 'rs_p5_bundle', 'title' => 'P5 Bundle Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [['source_item_id' => $itemA, 'unit_price' => 10, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null]], 'bundles' => []],
+    ['rate_sheet_id' => 'rs_p5_source', 'title' => 'P5 Source Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [['source_item_id' => $itemC, 'unit_price' => 8, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null]], 'bundles' => []],
+])));
+check_bundle(($p5First->get_data()['success'] ?? false) === true, 'Phase 5 fixture: two fresh sheets save');
+// Looked up BY ID, never by index — the manager carries every sheet this
+// whole file has accumulated by this point, in storage order, not just
+// these two.
+$p5FindSheet = static function (array $manager, string $id): ?array {
+    foreach ($manager['rate_sheets'] as $sheet) { if ($sheet['rate_sheet_id'] === $id) { return $sheet; } }
+    return null;
+};
+$p5BundleSheet0 = $p5FindSheet($p5First->get_data()['manager'], 'rs_p5_bundle');
+$p5SourceSheet0 = $p5FindSheet($p5First->get_data()['manager'], 'rs_p5_source');
+$p5OwnRowItemId = (string) $p5BundleSheet0['items'][0]['item_id'];
+$p5SourceRowItemId = (string) $p5SourceSheet0['items'][0]['item_id'];
+
+// A Bundle on rs_p5_bundle referencing ONE row on its own sheet AND ONE row
+// on rs_p5_source — minted together with its own row atomically, exactly as
+// the authoring surface's first Import does. A cross-sheet reference is only
+// VALID against sheet ids present in THIS submission (sanitizeSuppliedContent's
+// own allowlist), so rs_p5_source rides along here unchanged — it is the
+// LATER removal below that proves reconciliation needs no such thing.
+$p5BundleSheetWithRow = rsb_strip_platform_ids($p5BundleSheet0);
+$p5BundleSheetWithRow['items'][] = [
+    'item_id' => '', 'bundle_id' => 'new', 'label' => 'Bundle P5',
+    'unit_price' => 15, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null,
+    'price_options' => [],
+];
+$p5BundleSheetWithRow['bundles'][] = [
+    'bundle_id' => '', 'status' => 'active', 'sort_order' => 0,
+    'supplied_content' => [
+        ['source_rate_sheet_id' => 'rs_p5_bundle', 'source_item_id' => $p5OwnRowItemId],
+        ['source_rate_sheet_id' => 'rs_p5_source', 'source_item_id' => $p5SourceRowItemId],
+    ],
+];
+$p5Response = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([
+    $p5BundleSheetWithRow,
+    rsb_strip_platform_ids($p5SourceSheet0),
+])));
+check_bundle(($p5Response->get_data()['success'] ?? false) === true, 'Phase 5 fixture: a Bundle referencing a same-sheet row AND a cross-sheet row saves');
+$p5Sheet = $p5FindSheet($p5Response->get_data()['manager'], 'rs_p5_bundle');
+$p5Bundle = $p5Sheet['bundles'][0];
+check_bundle(count($p5Bundle['supplied_content']) === 2, 'Phase 5 fixture: the Bundle compiles both references before removal');
+$p5MintedBundleId = (string) $p5Bundle['bundle_id'];
+$p5BundleRowItemId = null;
+foreach ($p5Sheet['items'] as $candidate) { if (($candidate['bundle_id'] ?? '') !== '') { $p5BundleRowItemId = (string) $candidate['item_id']; } }
+$p5CrossSheetReferencePlatformId = null;
+foreach ($p5Bundle['supplied_content'] as $reference) {
+    if ($reference['source_rate_sheet_id'] === 'rs_p5_source') { $p5CrossSheetReferencePlatformId = (string) $reference['platform_id']; }
+}
+check_bundle($p5CrossSheetReferencePlatformId !== null, 'Phase 5 fixture: the cross-sheet reference carries a valid CZPRCBI before removal');
+
+// Remove the cross-sheet row from ITS OWN sheet — a request that submits
+// ONLY rs_p5_source. rs_p5_bundle (the Bundle's own sheet) is never part of
+// this payload at all.
+$p5SourceForRemoval = $p5FindSheet($p5Response->get_data()['manager'], 'rs_p5_source');
+$p5SourceWithoutRow = rsb_strip_platform_ids($p5SourceForRemoval);
+$p5SourceWithoutRow['items'] = [];
+$p5RemovalResponse = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$p5SourceWithoutRow])));
+check_bundle(($p5RemovalResponse->get_data()['success'] ?? false) === true, "removing the referenced row from ITS OWN sheet saves, with the Bundle's sheet absent from the request entirely");
+
+$p5BundleSheetAfter = $p5FindSheet($p5RemovalResponse->get_data()['manager'], 'rs_p5_bundle');
+check_bundle($p5BundleSheetAfter !== null, "the Bundle's sheet still reads back in the response even though this request never submitted it");
+$p5BundleAfter = $p5BundleSheetAfter['bundles'][0];
+check_bundle(
+    count($p5BundleAfter['supplied_content']) === 1,
+    'the dangling cross-sheet reference is silently pruned — the Bundle now compiles just the one still-live, same-sheet reference',
+    $p5BundleAfter['supplied_content']
+);
+check_bundle(
+    $p5BundleAfter['supplied_content'][0]['source_item_id'] === $p5OwnRowItemId,
+    'the SURVIVING reference is the still-live, same-sheet row, completely untouched'
+);
+check_bundle($p5BundleAfter['bundle_id'] === $p5MintedBundleId, 'the Bundle itself SURVIVES — never deleted just because one reference went dangling');
+check_bundle($p5BundleAfter['platform_id'] === $p5Bundle['platform_id'], "the Bundle's own CZPRCB is unchanged");
+$p5RowAfter = null;
+foreach ($p5BundleSheetAfter['items'] as $candidate) { if (($candidate['bundle_id'] ?? '') !== '') { $p5RowAfter = $candidate; } }
+check_bundle(
+    $p5RowAfter['item_id'] === $p5BundleRowItemId && (float) $p5RowAfter['unit_price'] === 15.0,
+    "the Bundle's own row is completely unaffected — identity and price both"
+);
+check_bundle(
+    $rsbOptions['cz_platform_identifier_v1_' . $p5CrossSheetReferencePlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED,
+    "the dangling reference's own CZPRCBI is tombstoned as a plain consequence of the diff — no separate cleanup mechanism"
+);
+check_bundle(
+    $rsbOptions['cz_platform_identifier_v1_' . $p5BundleAfter['supplied_content'][0]['platform_id']]['status'] === PlatformIdentifierStation::STATUS_BOUND,
+    "the SURVIVING reference's own CZPRCBI stays bound, completely unaffected"
+);
+
 // ── Tier consumption: a Bundle-backed row IS an ordinary Rate Sheet row ─────
 //
 // The Bundle distinction lives entirely inside Rate Sheet ownership. A Tier

@@ -6,8 +6,8 @@ A **Bundle** is a Rate Sheet-owned authoring record. Commercially it **IS** a
 real Rate Sheet row: every Bundle owns exactly one member of the owning
 sheet's own `items[]`, linked by `item_id`, carrying that row's own `CZPRCI`
 and, on its Price Options, `CZPRCIO` — the identical identity an ordinary
-Manager-sourced row gets, through the identical reservation loop, no
-special-casing. `CZPRCB` never replaces `CZPRCI`; the two are separate,
+Manager-sourced row gets, through the identical reservation loop.
+`CZPRCB` never replaces `CZPRCI`; the two are separate,
 coexisting identities linked by `item_id`. Not a second Rate Sheet — a Bundle
 stores no groups, no unit vocabulary, and none of
 `unit_price`/`per`/`quantity`/`group_id`/`price_options[]`/name; all live on
@@ -27,11 +27,10 @@ Rate Sheet            CZPRC     rate_sheet_id
 
 Supplied content is the Bundle's **live references** to the Rate Sheet rows
 it compiles — never copies. Each reference names
-`(source_rate_sheet_id, source_item_id)` and carries its own identity, the
-"Bundle-inclusion Platform ID" (`CZPRCBI`, a child of the Bundle). The
-referenced row keeps its own `CZPRCI` completely untouched. A Bundle may
-reference rows on sheets **other than its own** — composing across sheets is
-the point.
+`(source_rate_sheet_id, source_item_id)` and carries its own "Bundle-inclusion
+Platform ID" (`CZPRCBI`, a child of the Bundle). The referenced row keeps its
+own `CZPRCI` untouched. A Bundle may reference rows on sheets **other than its
+own** — composing across sheets is the point.
 
 ## Storage
 
@@ -47,15 +46,14 @@ matching `bundle_id` — `linkBundleRows()`, never trusted from input), and
 `supplied_content[]` (`{source_rate_sheet_id, source_item_id,
 cz_platform_id}`). `bundle_id` mints write-path-only; `sanitize()` never
 mints. A stored Bundle from the retired copy-based shape (no `item_id`/
-`supplied_content` — see History) reads back a blank `item_id`, and is
-dropped on the next save touching its sheet.
+`supplied_content` — History) reads back a blank `item_id`, dropped on the
+next save touching its sheet.
 
 ## Identity
 
 `PlatformIdentifierPolicy` carries `PACKAGE_RATE_CARD_BUNDLE` (`CZPRCB`) and
 reuses `PACKAGE_RATE_CARD_BUNDLE_ITEM` (`CZPRCBI`) for the supplied-content
-reference — the entity type Bundle rows always used, now addressing a
-reference instead of a copied row.
+reference (see History).
 `PackagePlatformNativeReference::rateSheetBundle()`/`rateSheetBundleInclusion()`
 supply the references through the same `rateSheetAdapter()` factory
 (`PackagePlatformIdentifierAdapters`) and `PackageRepository`
@@ -68,14 +66,13 @@ loop as just another item.
 ## Write path
 
 A Bundle the Tool just created arrives with a blank `bundle_id`; its ONE row
-carries the reserved sentinel `bundle_id: 'new'` instead (no id was derivable
-at sanitize time). `commitConfiguration` mints every blank-id Bundle, then
-resolves each `'new'`-sentinel row by **encounter order** against the
-newly-minted Bundles (Kth Bundle ↔ Kth sentinel row) — positional, so
-duplicating a sheet with several Bundles still resolves correctly. The row's
-`item_id`, once resolved, derives from `deriveBundleRowId($bundleId)`;
-`linkBundleRows()` then reconciles every Bundle's `item_id` from its row's
-`bundle_id`, on both read and write paths.
+carries the reserved sentinel `bundle_id: 'new'` instead. `commitConfiguration`
+mints every blank-id Bundle, then resolves each `'new'`-sentinel row by
+**encounter order** against the newly-minted Bundles (Kth Bundle ↔ Kth
+sentinel row) — positional, so duplicating a sheet with several Bundles still
+resolves correctly. The row's `item_id` then derives from
+`deriveBundleRowId($bundleId)`; `linkBundleRows()` reconciles every Bundle's
+`item_id` from its row's `bundle_id`, on both read and write paths.
 
 ## Bundle pricing and consumption
 
@@ -88,22 +85,26 @@ sheet's `items[]`, filtering out only a row backed by an **archived** Bundle
 projection). `self_priced`/`includes[]` are projected onto a Bundle-backed row
 at `buildReadModel()` time only, `includes[]` resolved **live** per read
 against a cross-sheet row index. A dangling reference (its source row gone) is
-silently absent from `includes[]`, never a placeholder — the Bundle SURVIVES
-with `item_id`/`CZPRCI`/`CZPRCB` unchanged and nothing else deleted. The
-dependency is one-way: a Bundle depends on the rows it references, never the
-reverse, and editing or removing a Bundle never mutates a referenced row.
+silently absent from `includes[]` at read time, and pruned from
+`supplied_content[]` at write time by `reconcileSuppliedContent()` — run once
+against the FINAL merged collection, so a reference to a sheet the request
+never touched still resolves. Never a placeholder — the Bundle SURVIVES
+unchanged, and the pruned reference's own CZPRCBI tombstones as a plain
+consequence of the save's existing identity diff. The dependency is one-way: a
+Bundle depends on the rows it references, never the reverse, and editing or
+removing a Bundle never mutates a referenced row.
 
 **No consumer learns that Bundles exist.** Tier storage/selection stay
-`{ item_id, quantity, price_option_id? }`. A Bundle-backed row resolves
-through `projectTierRateSheetWith()` and the one `evaluateTierPricing` engine
-like any row; `self_priced` is read only inside the Rate Sheet projector.
+`{ item_id, quantity, price_option_id? }`, resolving through
+`projectTierRateSheetWith()` and the one `evaluateTierPricing` engine like any
+row; `self_priced` is read only inside the Rate Sheet projector.
 
 ## History
 
 Before this correction a Bundle stored no `item_id`/`supplied_content`: its
 commercial fields lived on the Bundle record, its "rows" were independent
-copies ("two records, two identities" for the same content), and its upstream
-row was synthesized at every read rather than persisted.
+copies, and its upstream row was synthesized at every read rather than
+persisted.
 
 ## Validation
 
