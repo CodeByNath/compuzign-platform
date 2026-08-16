@@ -43,7 +43,7 @@ import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from '@/hooks/stationPrimitives';
 import { deriveTierOccupants, resolveTierOccupantSlot } from './tierOccupants';
 import type { TierOccupant } from './tierOccupants';
-import { buildOccupantRateSheetCatalogue } from './tierRateSheetCatalogue';
+import { buildOccupantRateSheetCatalogue, resolveOccupantInclusions } from './tierRateSheetCatalogue';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
 //
@@ -268,9 +268,10 @@ export function usePackageStation(
     dp.price = resolvedSelections.some((item) => item.resolved)
       ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
       : null;
-    dp.inclusions_override = resolvedSelections
-      .filter((item) => item.source_type === 'inclusion')
-      .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
+    dp.inclusions_override = resolveOccupantInclusions(
+      resolvedSelections,
+      detail?.service.package_relationships ?? [],
+    );
     dp.faq_refs = resolvedSelections
       .filter((item) => item.source_type === 'faq' && item.resolved && item.source_id)
       .map((item) => item.source_id as string);

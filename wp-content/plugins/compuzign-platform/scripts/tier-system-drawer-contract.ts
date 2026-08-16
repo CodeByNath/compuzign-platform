@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildOccupantRateSheetCatalogue } from '../resources/ts/package-station/tierRateSheetCatalogue';
+import { buildOccupantRateSheetCatalogue, resolveOccupantInclusions } from '../resources/ts/package-station/tierRateSheetCatalogue';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Tier System drawer contract: ${message}`);
@@ -287,12 +287,22 @@ check(
 
 const compiledBundleRowId = 'rate_bundle_compiled';
 const occupantCatalogue = buildOccupantRateSheetCatalogue({
-  package_relationships: [{ item_id: 'source_normal', source_type: 'inclusion', source_id: 'inc_1', resolved: { label: 'Normal inclusion' } }],
+  package_relationships: [
+    { item_id: 'source_normal', source_type: 'inclusion', source_id: 'inc_1', resolved: { label: 'Normal inclusion' } },
+    { item_id: 'source_bundle_inclusion', source_type: 'inclusion', source_id: 'inc_bundle', resolved: { label: 'Discovery' } },
+    { item_id: 'source_bundle_faq', source_type: 'faq', source_id: 'faq_bundle', resolved: { question: 'Question', answer: 'Answer' } },
+    { item_id: 'source_bundle_missing', source_type: 'inclusion', source_id: 'inc_missing', resolved: null, missing: true },
+  ],
   rate_sheets: [{
     rate_sheet_id: 'rs_selected', title: 'Selected', status: 'active', groups: [],
     items: [
       { item_id: 'rate_normal', source_item_id: 'source_normal', unit_price: 100, per: 'Per item', quantity: 1, group_id: null, sort_order: 0, price_options: [] },
-      { item_id: compiledBundleRowId, platform_id: 'CZPRCICOMPILED', source_item_id: '', label: 'Website Launch Bundle', includes: [{ item_id: 'member_1', label: 'Discovery', quantity: 1 }], unit_price: 4500, per: 'One time', quantity: 1, group_id: null, sort_order: 1, price_options: [] },
+      { item_id: compiledBundleRowId, platform_id: 'CZPRCICOMPILED', source_item_id: '', label: 'Website Launch Bundle', includes: [
+        { item_id: 'member_1', source_item_id: 'source_bundle_inclusion', label: 'Discovery', quantity: 1 },
+        { item_id: 'member_2', source_item_id: 'source_bundle_faq', label: 'Question', quantity: 1 },
+        { item_id: 'member_3', source_item_id: 'source_bundle_missing', label: 'Missing', quantity: 1 },
+        { item_id: 'member_4', source_item_id: 'source_unmatched', label: 'Unmatched', quantity: 1 },
+      ], unit_price: 4500, per: 'One time', quantity: 1, group_id: null, sort_order: 1, price_options: [] },
       { item_id: 'rate_unauthorized_bundle', platform_id: 'CZPRCIOTHER', source_item_id: '', label: 'Other Bundle', includes: [], unit_price: 900, per: 'One time', quantity: 1, group_id: null, sort_order: 2, price_options: [] },
     ],
     bundles: [
@@ -308,6 +318,15 @@ check(bundleCatalogueRow?.resolved === true && bundleCatalogueRow.label === 'Web
 check(bundleCatalogueRow?.includes?.[0]?.label === 'Discovery', 'the compiled Bundle row carries its existing includes[] presentation children');
 check(!occupantCatalogue.some((row) => row.item_id === 'rate_unauthorized_bundle'), 'an unselected Bundle from the same selected Rate Sheet is not exposed');
 check(new Set(occupantCatalogue.filter((row) => row.resolved).map((row) => row.item_id)).has(compiledBundleRowId), 'the existing active/stale valid-id set retains a selected compiled Bundle row');
+const resolvedBundleInclusions = resolveOccupantInclusions(occupantCatalogue, [
+  { item_id: 'source_normal', source_type: 'inclusion', source_id: 'inc_1', resolved: { label: 'Normal inclusion' } },
+  { item_id: 'source_bundle_inclusion', source_type: 'inclusion', source_id: 'inc_bundle', resolved: { label: 'Discovery' } },
+  { item_id: 'source_bundle_faq', source_type: 'faq', source_id: 'faq_bundle', resolved: { question: 'Question', answer: 'Answer' } },
+  { item_id: 'source_bundle_missing', source_type: 'inclusion', source_id: 'inc_missing', resolved: null, missing: true },
+] as any);
+check(resolvedBundleInclusions.some((item) => item.id === 'inc_bundle' && item.label === 'Discovery'), 'a selected Bundle expands its inclusion child through source_item_id into the Tier inclusion resolver');
+check(!resolvedBundleInclusions.some((item) => item.id === 'faq_bundle'), 'a Bundle child whose relationship is not an inclusion is excluded from Tier inclusions');
+check(!resolvedBundleInclusions.some((item) => item.id === 'inc_missing'), 'unresolved and unmatched Bundle children are excluded from Tier inclusions');
 const legacyCatalogue = buildOccupantRateSheetCatalogue(({
   package_relationships: [{ item_id: 'source_legacy', source_type: 'inclusion', source_id: 'inc_legacy', resolved: { label: 'Legacy row' } }],
   rate_sheets: [{

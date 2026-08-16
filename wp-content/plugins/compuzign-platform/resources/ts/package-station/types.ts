@@ -343,7 +343,7 @@ export interface PackageRateSheetItem {
   /** A row's own display name, when it has one. */
   label?: string;
   /** Present on a Bundle's row — its ingredients, for presentation only. */
-  includes?: { item_id: string; label: string; quantity: number }[];
+  includes?: { item_id: string; source_item_id: string; label: string; quantity: number }[];
   platform_id?: string;
   source_item_id: string;
   unit_price: number;
@@ -740,7 +740,7 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   // of a `price_option_id`.
   default_price_label?: string;
   /** Presentation-only ingredients of one compiled Bundle commercial row. */
-  includes?: { item_id: string; label: string; quantity: number }[];
+  includes?: { item_id: string; source_item_id: string; label: string; quantity: number }[];
 }
 
 export interface TierDrafts {

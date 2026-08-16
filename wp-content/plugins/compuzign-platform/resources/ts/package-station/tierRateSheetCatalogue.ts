@@ -5,6 +5,7 @@ import type {
   TierResolvedRateSheetSelection,
 } from './types';
 import { relationshipDisplayLabel } from './rateSheetLabels';
+import type { InclusionItem } from '@/api/types/pools';
 
 /**
  * Resolve the occupant's selected Rate Sheet access. Ordinary rows retain the
@@ -81,4 +82,45 @@ export function buildOccupantRateSheetCatalogue(
     if (!catalogue.some((item) => item.item_id === selected.item_id)) catalogue.push(selected);
   }
   return catalogue;
+}
+
+/**
+ * Resolve the Tier's inclusion list while leaving commercial selection and
+ * pricing on the Rate Sheet row. Normal rows keep their established mapping;
+ * a selected compiled Bundle contributes only inclusion-type children through
+ * each child's existing source_item_id relationship.
+ */
+export function resolveOccupantInclusions(
+  selections: TierResolvedRateSheetSelection[],
+  relationships: PackageManagerItem[],
+): InclusionItem[] {
+  const relationshipsById = new Map(relationships.map((item) => [item.item_id, item]));
+  const resolved: InclusionItem[] = [];
+  const seen = new Set<string>();
+  const append = (item: InclusionItem) => {
+    if (seen.has(item.id)) return;
+    seen.add(item.id);
+    resolved.push(item);
+  };
+
+  for (const selection of selections) {
+    if (selection.source_type === 'inclusion') {
+      append({ id: selection.item_id, label: selection.label, missing: !selection.resolved });
+    }
+    for (const child of selection.includes ?? []) {
+      const relationship = relationshipsById.get(child.source_item_id);
+      if (
+        !relationship
+        || relationship.source_type !== 'inclusion'
+        || relationship.missing
+        || relationship.resolved === null
+        || relationship.source_id === ''
+      ) continue;
+      append({
+        id: relationship.source_id,
+        label: relationshipDisplayLabel(relationship),
+      });
+    }
+  }
+  return resolved;
 }
