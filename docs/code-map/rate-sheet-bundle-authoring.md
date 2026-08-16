@@ -8,50 +8,70 @@ One scope-aware controller and save engine — never a second editor — over a
 **drawer group screen**: `Details` (the sheet), `Options` (its Bundles), no Bin.
 
 - [rateSheetToolModel.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/rateSheetToolModel.ts)
-  — `RateSheetEditorBundle`, Bundle CRUD, `bundleSuppliedContent()`, and
-  `bundleAsEditorRow()` — the Bundle projected as the ONE `RateSheetEditorRow`
-  it is, keyed exactly as `bundleKey()`, which is what lets the shared grid and
-  the shared lock render it with no second editor.
+  — `RateSheetEditorBundle` (`id`/`localKey`/`platformId`/`status`/`itemId`/
+  `suppliedContent[]` — no commercial fields), `RateSheetEditorRow`'s additive
+  `bundleId`, Bundle CRUD, `findBundleRow()` (looks up a Bundle's row by
+  `itemId` in the sheet's own flat `items[]` — never synthesizes one),
+  `ordinaryRows()` (the Details grid's view: every row with no `bundleId`),
+  and `bundleSuppliedContent()` (resolves each live reference to its current
+  label, silently omitting one that no longer resolves). A Bundle-backed row
+  lives in the SAME `items[]` list as every ordinary row — no second,
+  Bundle-scoped list to keep in sync, which lets the shared grid and lock
+  render it with no second editor.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts)
   — owns `groupTab`, `groupView`, `selectedBundleKey`; no refetch resets them.
-  The active group decides row scope (`scopedBundleKey`), so the one
-  `editRows`/`withScopedRows` seam reaches a Bundle only under `Options`.
-  `selectedBundleRow` is that projection, and the ONE existing row lock covers
-  it: `beginRowEdit` resolves it first, `cancelRowEdit` reverts it through
-  `patchEditorBundle` (discarding an unsaved Bundle outright, as an unsaved row
-  is discarded), `saveActiveRow` persists it through the same full-manager save,
-  and `removeRowImmediately` removes the Bundle — a Bundle IS that row. One
-  lock, one save; a Bundle row and a sheet row can never be open together.
+  `activeRows` is the active GROUP's own view (Details: `ordinaryRows`;
+  Options: the selected Bundle's one row), but every row COMMAND addresses the
+  sheet's ONE flat `items[]` directly, unconditionally — a row's own key
+  already says which one, so no scope-routed dual list remains. `createBundle`
+  begins authoring with **no row and no chargeable identity yet** — never a
+  precreated placeholder row; `importBundleContent` is the Bundle's own first
+  Import, minting the Bundle and its row TOGETHER (the row seeded once from
+  the summed price of what was selected) through the same full-manager save; a
+  LATER Import only adds references, never re-touching the row's price.
+  `beginRowEdit`/`cancelRowEdit`/`saveActiveRow`/`removeRowImmediately` need
+  one Bundle-specific branch: removing a Bundle-backed row removes its owning
+  Bundle too (a Bundle IS that row) — otherwise identical to an ordinary row's
+  lock.
 - [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx)
   — `FocusedRateSheetGroups` over `DrawerGroupTabs`/`DrawerGroupAccordion`; the
   view toggle and `+ Bundle` (`Options` only) ride the nav's `trailing` slot.
-  `RateSheetBundleSwitcher` is `Options`' content: `ChildChipStrip`, empty
-  state, and the selected Bundle's readable card (`RateSheetBundleRead`), whose
-  Edit alone opens `InlineEditorShell`. That card is LEAN — name, `CZPRCB`, and
-  what it compiles. A Bundle is a composition, not a single declaration, so its
-  price/per/qty/group are not restated there; they live in the row. `Remove`
-  rides the card's own `ReadBlock` action footer — the existing drawer-module
-  action system, never a button inside the editor.
+  `RateSheetBundleSwitcher` is `Options`' content: `ChildChipStrip` (each
+  chip's label is its Bundle's linked row's `label`, or "Untitled Bundle" for
+  one still mid-authoring), empty state, and the selected Bundle's readable
+  card (`RateSheetBundleRead`), whose Edit opens `InlineEditorShell`. That
+  card is LEAN — the linked row's name, `CZPRCB`, and what it compiles;
+  price/per/qty/group live in the row. `Remove` rides the card's own
+  `ReadBlock` action footer.
 - [RateSheetBundleWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleWorkspace.tsx)
   — the Bundle inline editor IS the Rate Sheet row editor: the SAME
-  `RateSheetGridEditor` over `[selectedBundleRow]` with `lockCommands={controller}`,
-  so it opens LOCKED and unlocks through the SAME Edit/Save/Cancel/Remove
-  (Delete once saved) lock, with the same Price Options tab strip, Per/Group
-  dropdowns and quantity input. `commands` is a thin adapter routing each row
-  command to the Bundle's own setter; `nameLabel="Product Bundle"` (additive,
-  defaulted) names the first column, since for this row that cell is the
-  combination's name. Structure mirrors `RateSheetSheetEditor` — head, toolbar,
-  picker, grid — plus the read-only Supplied content block beneath, whose only
-  control is per-entry removal.
+  `RateSheetGridEditor` over `[controller.selectedBundleRow]` (via
+  `findBundleRow`, `null` for a Bundle still mid-authoring) with
+  `lockCommands={controller}`, opening LOCKED and unlocking through the SAME
+  Edit/Save/Cancel/Remove (Delete once saved) lock, Price Options tab strip,
+  Per/Group dropdowns and quantity input. `commands` is the controller's own
+  generic row commands, with one override (`removeRow` → `deleteBundle`, in
+  practice unreachable since the grid is always locked and Remove goes through
+  `lockCommands` instead); `nameLabel="Product Bundle"` names the first
+  column. Structure mirrors `RateSheetSheetEditor`, plus a read-only Supplied
+  content column whose only control is per-reference removal
+  (`removeBundleSuppliedContentRef` — drops only this Bundle's own membership,
+  never the referenced row).
 - [RateSheetBundleImportPicker.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleImportPicker.tsx)
-  — the import engine, opened by the caller's own trigger and showing THAT
-  source only: `+ Add Service` browses Category → Service → Inclusions (3
-  columns, the sheet's own browse), `+ Add Rate Sheet` browses Rate Sheet → its
-  rows (2 columns). The basket is a full-width strip beneath, not a third
-  column. `Import` adds through `controller.publishRows`, the one existing save.
-  An import produces supplied CONTENT; the terms are the Bundle row's own.
-  Composing copies.
+  — the import engine. Composing needs a LIVE REFERENCE to an existing row, so
+  this browses Rate Sheets → their own priced rows only, two columns (a
+  not-yet-saved sheet is excluded — no stable id yet to reference), with the
+  accumulating basket a full-width strip beneath. No raw-Service-inclusion
+  browse here any longer: an inclusion never priced as a row has none to
+  reference (the sheet's own top-level "+ Add Service" for ordinary rows is
+  unrelated). `Import` calls `importBundleContent`; a source row already
+  referenced is never offered twice; moving sheets does not clear the basket,
+  so one Bundle composes across several.
 
+**Pending further revision.** The picker above is Phase 2/3's interim shape —
+a toggled single-source panel inside an already-open Bundle workspace. The
+target is three simultaneous columns (`Rate Sheets | Rate Sheet Rows |
+Selected Rows`); this map updates again once that lands.
 
 ## Validation
 

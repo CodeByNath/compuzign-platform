@@ -1018,9 +1018,7 @@ class PackageStationController
             $oldItems = [];
             $oldOptions = [];
             $oldBundles = [];
-            $oldBundleOwnOptions = [];
-            $oldBundleItems = [];
-            $oldBundleOptions = [];
+            $oldSuppliedContent = [];
             foreach ($storedManager['rate_sheets'] as $sheet) {
                 $sheetId = (string) ($sheet['rate_sheet_id'] ?? '');
                 if ($sheetId === '') continue;
@@ -1032,6 +1030,10 @@ class PackageStationController
                 foreach ($sheet['items'] as $item) {
                     $itemId = (string) ($item['item_id'] ?? '');
                     if ($itemId === '') continue;
+                    // A Bundle's own row is just another member of `items` —
+                    // it carries the same `item_id`/`CZPRCI` identity through
+                    // this SAME loop, with no special-casing, exactly like
+                    // any other row's Price Options right below it.
                     $oldItems[$sheetId . "\0" . $itemId] = $item;
                     foreach (is_array($item['price_options'] ?? null) ? $item['price_options'] : [] as $option) {
                         $optionId = (string) ($option['option_id'] ?? '');
@@ -1042,18 +1044,11 @@ class PackageStationController
                     $bundleId = (string) ($bundle['bundle_id'] ?? '');
                     if ($bundleId === '') continue;
                     $oldBundles[$sheetId . "\0" . $bundleId] = $bundle;
-                    foreach (is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [] as $bundleOwnOption) {
-                        $bundleOwnOptionId = (string) ($bundleOwnOption['option_id'] ?? '');
-                        if ($bundleOwnOptionId !== '') $oldBundleOwnOptions[$sheetId . "\0" . $bundleId . "\0" . $bundleOwnOptionId] = $bundleOwnOption;
-                    }
-                    foreach (is_array($bundle['items'] ?? null) ? $bundle['items'] : [] as $bundleItem) {
-                        $bundleItemId = (string) ($bundleItem['item_id'] ?? '');
-                        if ($bundleItemId === '') continue;
-                        $oldBundleItems[$sheetId . "\0" . $bundleId . "\0" . $bundleItemId] = $bundleItem;
-                        foreach (is_array($bundleItem['price_options'] ?? null) ? $bundleItem['price_options'] : [] as $bundleOption) {
-                            $bundleOptionId = (string) ($bundleOption['option_id'] ?? '');
-                            if ($bundleOptionId !== '') $oldBundleOptions[$sheetId . "\0" . $bundleId . "\0" . $bundleItemId . "\0" . $bundleOptionId] = $bundleOption;
-                        }
+                    foreach (is_array($bundle['supplied_content'] ?? null) ? $bundle['supplied_content'] : [] as $reference) {
+                        $sourceRateSheetId = (string) ($reference['source_rate_sheet_id'] ?? '');
+                        $sourceItemId      = (string) ($reference['source_item_id'] ?? '');
+                        if ($sourceRateSheetId === '' || $sourceItemId === '') continue;
+                        $oldSuppliedContent[$sheetId . "\0" . $bundleId . "\0" . $sourceRateSheetId . "\0" . $sourceItemId] = $reference;
                     }
                 }
             }
@@ -1154,42 +1149,23 @@ class PackageStationController
                         if ($bundlePlatformId !== null) {
                             $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['cz_platform_id'] = $bundlePlatformId;
                         }
-                        // The Bundle's OWN commercial Price Options — children of
-                        // the Bundle (CZPRCB), not of any of its rows.
-                        foreach ($bundle['price_options'] ?? [] as $bundleOwnOptionIndex => $bundleOwnOption) {
-                            $bundleOwnOptionId = (string) $bundleOwnOption['option_id'];
-                            $bundleOwnOptionPlatformId = $resolveIdentity(
-                                $this->identityAdapters->rateSheetBundleOption(),
-                                !isset($oldBundleOwnOptions[$sheetId . "\0" . $bundleId . "\0" . $bundleOwnOptionId]),
-                                (string) ($bundleOwnOption['cz_platform_id'] ?? ''),
-                                PackagePlatformNativeReference::rateSheetBundleOption($sheetId, $bundleId, $bundleOwnOptionId)
+                        // No separate reservation for the Bundle's own row or
+                        // its Price Options — that row already carries its own
+                        // `item_id`/CZPRCI through the ordinary items loop
+                        // above, because it is just another Rate Sheet row.
+                        // Only the Bundle's live REFERENCES to what it
+                        // compiles get their own identity here.
+                        foreach ($bundle['supplied_content'] ?? [] as $referenceIndex => $reference) {
+                            $sourceRateSheetId = (string) $reference['source_rate_sheet_id'];
+                            $sourceItemId      = (string) $reference['source_item_id'];
+                            $referencePlatformId = $resolveIdentity(
+                                $this->identityAdapters->rateSheetBundleInclusion(),
+                                !isset($oldSuppliedContent[$sheetId . "\0" . $bundleId . "\0" . $sourceRateSheetId . "\0" . $sourceItemId]),
+                                (string) ($reference['cz_platform_id'] ?? ''),
+                                PackagePlatformNativeReference::rateSheetBundleInclusion($sheetId, $bundleId, $sourceRateSheetId, $sourceItemId)
                             );
-                            if ($bundleOwnOptionPlatformId !== null) {
-                                $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['price_options'][$bundleOwnOptionIndex]['cz_platform_id'] = $bundleOwnOptionPlatformId;
-                            }
-                        }
-                        foreach ($bundle['items'] as $bundleItemIndex => $bundleItem) {
-                            $bundleItemId = (string) $bundleItem['item_id'];
-                            $bundleItemPlatformId = $resolveIdentity(
-                                $this->identityAdapters->rateSheetBundleItem(),
-                                !isset($oldBundleItems[$sheetId . "\0" . $bundleId . "\0" . $bundleItemId]),
-                                (string) ($bundleItem['cz_platform_id'] ?? ''),
-                                PackagePlatformNativeReference::rateSheetBundleItem($sheetId, $bundleId, $bundleItemId)
-                            );
-                            if ($bundleItemPlatformId !== null) {
-                                $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['items'][$bundleItemIndex]['cz_platform_id'] = $bundleItemPlatformId;
-                            }
-                            foreach ($bundleItem['price_options'] ?? [] as $bundleOptionIndex => $bundleOption) {
-                                $bundleOptionId = (string) $bundleOption['option_id'];
-                                $bundleOptionPlatformId = $resolveIdentity(
-                                    $this->identityAdapters->rateSheetBundleItemOption(),
-                                    !isset($oldBundleOptions[$sheetId . "\0" . $bundleId . "\0" . $bundleItemId . "\0" . $bundleOptionId]),
-                                    (string) ($bundleOption['cz_platform_id'] ?? ''),
-                                    PackagePlatformNativeReference::rateSheetBundleItemOption($sheetId, $bundleId, $bundleItemId, $bundleOptionId)
-                                );
-                                if ($bundleOptionPlatformId !== null) {
-                                    $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['items'][$bundleItemIndex]['price_options'][$bundleOptionIndex]['cz_platform_id'] = $bundleOptionPlatformId;
-                                }
+                            if ($referencePlatformId !== null) {
+                                $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['supplied_content'][$referenceIndex]['cz_platform_id'] = $referencePlatformId;
                             }
                         }
                     }
@@ -1225,37 +1201,21 @@ class PackageStationController
                 $identityDeletions[] = [$this->identityAdapters->rateSheet(), PackagePlatformNativeReference::rateSheet($sheetId)];
             }
             // Removing a Bundle tombstones only that Bundle's own identities —
-            // the sheet's own rows are untouched, exactly as removing a sheet
-            // row never touches a sibling's.
+            // its backing row is tombstoned by the ordinary items diff above
+            // (it is just another row), and every OTHER sheet row is
+            // untouched, exactly as removing one row never touches a sibling's.
             $newBundleKeys = [];
-            $newBundleOwnOptionKeys = [];
-            $newBundleItemKeys = [];
-            $newBundleOptionKeys = [];
+            $newSuppliedContentKeys = [];
             foreach ($manager['rate_sheets'] as $sheet) foreach ($sheet['bundles'] ?? [] as $bundle) {
                 $bundleKey = (string) $sheet['rate_sheet_id'] . "\0" . (string) $bundle['bundle_id'];
                 $newBundleKeys[$bundleKey] = true;
-                foreach ($bundle['price_options'] ?? [] as $bundleOwnOption) {
-                    $newBundleOwnOptionKeys[$bundleKey . "\0" . (string) $bundleOwnOption['option_id']] = true;
-                }
-                foreach ($bundle['items'] as $bundleItem) {
-                    $bundleItemKey = $bundleKey . "\0" . (string) $bundleItem['item_id'];
-                    $newBundleItemKeys[$bundleItemKey] = true;
-                    foreach ($bundleItem['price_options'] ?? [] as $bundleOption) {
-                        $newBundleOptionKeys[$bundleItemKey . "\0" . (string) $bundleOption['option_id']] = true;
-                    }
+                foreach ($bundle['supplied_content'] ?? [] as $reference) {
+                    $newSuppliedContentKeys[$bundleKey . "\0" . (string) $reference['source_rate_sheet_id'] . "\0" . (string) $reference['source_item_id']] = true;
                 }
             }
-            foreach ($oldBundleOwnOptions as $key => $bundleOwnOption) if (!isset($newBundleOwnOptionKeys[$key]) && (string) ($bundleOwnOption['cz_platform_id'] ?? '') !== '') {
-                [$sheetId, $bundleId, $optionId] = explode("\0", $key, 3);
-                $identityDeletions[] = [$this->identityAdapters->rateSheetBundleOption(), PackagePlatformNativeReference::rateSheetBundleOption($sheetId, $bundleId, $optionId)];
-            }
-            foreach ($oldBundleOptions as $key => $bundleOption) if (!isset($newBundleOptionKeys[$key]) && (string) ($bundleOption['cz_platform_id'] ?? '') !== '') {
-                [$sheetId, $bundleId, $itemId, $optionId] = explode("\0", $key, 4);
-                $identityDeletions[] = [$this->identityAdapters->rateSheetBundleItemOption(), PackagePlatformNativeReference::rateSheetBundleItemOption($sheetId, $bundleId, $itemId, $optionId)];
-            }
-            foreach ($oldBundleItems as $key => $bundleItem) if (!isset($newBundleItemKeys[$key]) && (string) ($bundleItem['cz_platform_id'] ?? '') !== '') {
-                [$sheetId, $bundleId, $itemId] = explode("\0", $key, 3);
-                $identityDeletions[] = [$this->identityAdapters->rateSheetBundleItem(), PackagePlatformNativeReference::rateSheetBundleItem($sheetId, $bundleId, $itemId)];
+            foreach ($oldSuppliedContent as $key => $reference) if (!isset($newSuppliedContentKeys[$key]) && (string) ($reference['cz_platform_id'] ?? '') !== '') {
+                [$sheetId, $bundleId, $sourceRateSheetId, $sourceItemId] = explode("\0", $key, 4);
+                $identityDeletions[] = [$this->identityAdapters->rateSheetBundleInclusion(), PackagePlatformNativeReference::rateSheetBundleInclusion($sheetId, $bundleId, $sourceRateSheetId, $sourceItemId)];
             }
             foreach ($oldBundles as $key => $bundle) if (!isset($newBundleKeys[$key]) && (string) ($bundle['cz_platform_id'] ?? '') !== '') {
                 [$sheetId, $bundleId] = explode("\0", $key, 2);

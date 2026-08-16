@@ -991,7 +991,7 @@ class PackageRepository
     public function rateSheetAssignmentPage(?string $cursor, int $limit, string $scope): array
     {
         if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Rate Sheet assignment limit must be between 1 and 500.');
-        if (!in_array($scope, ['sheet', 'group', 'item', 'option', 'bundle', 'bundle-price-option', 'bundle-item', 'bundle-option'], true)) throw new \InvalidArgumentException('Rate Sheet assignment scope is not one of the supported Rate Sheet scopes.');
+        if (!in_array($scope, ['sheet', 'group', 'item', 'option', 'bundle', 'bundle-inclusion'], true)) throw new \InvalidArgumentException('Rate Sheet assignment scope is not one of the supported Rate Sheet scopes.');
         $station = $this->loadStation();
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         $references = [];
@@ -1022,23 +1022,11 @@ class PackageRepository
                     $references[] = PackagePlatformNativeReference::rateSheetBundle($sheetId, $bundleId);
                     continue;
                 }
-                if ($scope === 'bundle-price-option') {
-                    foreach ($bundle['price_options'] ?? [] as $option) {
-                        $optionId = (string) ($option['option_id'] ?? '');
-                        if ($optionId !== '') $references[] = PackagePlatformNativeReference::rateSheetBundleOption($sheetId, $bundleId, $optionId);
-                    }
-                    continue;
-                }
-                foreach ($bundle['items'] ?? [] as $item) {
-                    $itemId = (string) ($item['item_id'] ?? '');
-                    if ($itemId === '') continue;
-                    if ($scope === 'bundle-item') {
-                        $references[] = PackagePlatformNativeReference::rateSheetBundleItem($sheetId, $bundleId, $itemId);
-                        continue;
-                    }
-                    foreach ($item['price_options'] ?? [] as $option) {
-                        $optionId = (string) ($option['option_id'] ?? '');
-                        if ($optionId !== '') $references[] = PackagePlatformNativeReference::rateSheetBundleItemOption($sheetId, $bundleId, $itemId, $optionId);
+                foreach ($bundle['supplied_content'] ?? [] as $reference) {
+                    $sourceRateSheetId = (string) ($reference['source_rate_sheet_id'] ?? '');
+                    $sourceItemId      = (string) ($reference['source_item_id'] ?? '');
+                    if ($sourceRateSheetId !== '' && $sourceItemId !== '') {
+                        $references[] = PackagePlatformNativeReference::rateSheetBundleInclusion($sheetId, $bundleId, $sourceRateSheetId, $sourceItemId);
                     }
                 }
             }
@@ -1054,22 +1042,20 @@ class PackageRepository
         return $this->locateRateSheetIdentity($nativeReference, $scope);
     }
 
-    /** @return array{rate_sheet_id:string,group_id?:string,bundle_id?:string,item_id?:string,option_id?:string,record:array}|null */
+    /** @return array{rate_sheet_id:string,group_id?:string,bundle_id?:string,item_id?:string,option_id?:string,source_rate_sheet_id?:string,source_item_id?:string,record:array}|null */
     private function locateRateSheetIdentity(string $nativeReference, string $scope): ?array
     {
-        if (!in_array($scope, ['sheet', 'group', 'item', 'option', 'bundle', 'bundle-price-option', 'bundle-item', 'bundle-option'], true)) return null;
+        if (!in_array($scope, ['sheet', 'group', 'item', 'option', 'bundle', 'bundle-inclusion'], true)) return null;
         $context = match ($scope) {
             'sheet'  => 'rate-sheet',
             'group'  => 'rate-sheet-group',
             'item'   => 'rate-sheet-item',
             'option' => 'rate-sheet-item-option',
             'bundle' => 'rate-sheet-bundle',
-            'bundle-price-option' => 'rate-sheet-bundle-option',
-            'bundle-item'   => 'rate-sheet-bundle-item',
-            'bundle-option' => 'rate-sheet-bundle-item-option',
+            'bundle-inclusion' => 'rate-sheet-bundle-inclusion',
         };
         $segments = match ($scope) {
-            'sheet' => 1, 'group', 'item', 'bundle' => 2, 'option', 'bundle-item', 'bundle-price-option' => 3, 'bundle-option' => 4,
+            'sheet' => 1, 'group', 'item', 'bundle' => 2, 'option' => 3, 'bundle-inclusion' => 4,
         };
         $parts = PackagePlatformNativeReference::parse($nativeReference, $context, $segments);
         if ($parts === null) return null;
@@ -1096,31 +1082,18 @@ class PackageRepository
                 }
             }
         }
-        if (!in_array($scope, ['bundle', 'bundle-price-option', 'bundle-item', 'bundle-option'], true)) return null;
+        if (!in_array($scope, ['bundle', 'bundle-inclusion'], true)) return null;
         foreach ($sheet['bundles'] ?? [] as $bundle) {
             if ((string) ($bundle['bundle_id'] ?? '') !== $parts[1]) continue;
             if ($scope === 'bundle') {
                 return ['rate_sheet_id' => $parts[0], 'bundle_id' => $parts[1], 'record' => $bundle];
             }
-            if ($scope === 'bundle-price-option') {
-                foreach ($bundle['price_options'] ?? [] as $option) {
-                    if ((string) ($option['option_id'] ?? '') === $parts[2]) {
-                        return ['rate_sheet_id' => $parts[0], 'bundle_id' => $parts[1], 'option_id' => $parts[2], 'record' => $option];
-                    }
-                }
-            }
-            foreach ($bundle['items'] ?? [] as $item) {
-                if ((string) ($item['item_id'] ?? '') !== $parts[2]) continue;
-                if ($scope === 'bundle-item') {
-                    return ['rate_sheet_id' => $parts[0], 'bundle_id' => $parts[1], 'item_id' => $parts[2], 'record' => $item];
-                }
-                foreach ($item['price_options'] ?? [] as $option) {
-                    if ((string) ($option['option_id'] ?? '') === $parts[3]) {
-                        return [
-                            'rate_sheet_id' => $parts[0], 'bundle_id' => $parts[1],
-                            'item_id' => $parts[2], 'option_id' => $parts[3], 'record' => $option,
-                        ];
-                    }
+            foreach ($bundle['supplied_content'] ?? [] as $reference) {
+                if ((string) ($reference['source_rate_sheet_id'] ?? '') === $parts[2] && (string) ($reference['source_item_id'] ?? '') === $parts[3]) {
+                    return [
+                        'rate_sheet_id' => $parts[0], 'bundle_id' => $parts[1],
+                        'source_rate_sheet_id' => $parts[2], 'source_item_id' => $parts[3], 'record' => $reference,
+                    ];
                 }
             }
         }

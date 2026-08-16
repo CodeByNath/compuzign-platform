@@ -7,11 +7,15 @@
 // quantity input. It mounts no second grid, invents no cell, and opens LOCKED —
 // exactly like Details.
 //
-// `commands` is a thin adapter: every row command the grid reports is the
-// Bundle's own setter, because the row the grid renders IS the Bundle
-// (`controller.selectedBundleRow`). The row's editable-name cell is therefore
-// the `Product Bundle` name, and the supplied content it compiles reads
-// beneath it — both already part of the shared cell, neither new.
+// `commands` is the controller's own generic row commands, unchanged — a
+// Bundle's row is a real member of the sheet's `items[]`, addressed by its own
+// `rowId` like any other row, so there is no second "Bundle setter" for any
+// commercial field. The one override is `removeRow`, routed to `deleteBundle`
+// so a Bundle is removed as the single record it is (its row included) rather
+// than leaving a dangling Bundle with no row — in practice unreachable here
+// (the grid is always locked, so Remove goes through `lockCommands`'s own
+// `removeRowImmediately`, which carries the identical rule), kept correct
+// regardless for the same reason the interface still requires it.
 //
 // Whole-Bundle removal is NOT a button in here: the row's own Remove/Delete
 // removes it (a Bundle is that row), and the module card's action footer
@@ -22,7 +26,7 @@
 
 import { useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import { bundleSuppliedContent, rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { bundleSuppliedContent } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetEditorBundle, RateSheetEditorValue } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 import { RateSheetGridEditor } from './rateSheetParts';
@@ -42,7 +46,7 @@ export function RateSheetBundleWorkspace({
 }): VNode {
   const [importSource, setImportSource] = useState<BundleImportSource | null>(null);
   const bundleRow = controller.selectedBundleRow;
-  const suppliedContent = bundleSuppliedContent(bundle);
+  const suppliedContent = bundleSuppliedContent(bundle, controller.bundleSources);
 
   // The same rule the sheet's own editor keeps: only one row may be unlocked at
   // a time, so importing and removing stand down while the row is being edited.
@@ -51,31 +55,10 @@ export function RateSheetBundleWorkspace({
   const openSource = (source: BundleImportSource) =>
     setImportSource((current) => (current === source ? null : source));
 
-  // Every row command the shared grid reports, routed to the Bundle the row
-  // projects. Vocabulary edits (units, groups) stay the controller's own —
-  // they belong to the Manager and the sheet, not to this row.
-  const commands: RateSheetRowCommands = {
-    setRowUnitPrice:         (_rowId, unitPrice) => controller.setBundleUnitPrice(bundleKey, unitPrice),
-    setRowDefaultPriceLabel: (_rowId, label)     => controller.setBundleDefaultPriceLabel(bundleKey, label),
-    setRowPer:               (_rowId, per)       => controller.setBundlePer(bundleKey, per),
-    setRowQuantity:          (_rowId, quantity)  => controller.setBundleQuantity(bundleKey, quantity),
-    setRowGroup:             (_rowId, groupId)   => controller.setBundleGroup(bundleKey, groupId),
-    // The row's own editable name IS the Product Bundle name.
-    setRowLabel:             (_rowId, title)     => controller.setBundleTitle(bundleKey, title),
-    removeRow:               ()                  => controller.deleteBundle(bundleKey),
-    createGroup:             controller.createGroup,
-    createUnit:              controller.createUnit,
-    renameUnit:              controller.renameUnit,
-    renameGroup:             controller.renameGroup,
-    deleteGroup:             controller.deleteGroup,
-    addPriceOption:          ()                            => controller.addBundlePriceOption(bundleKey),
-    removePriceOption:       (_rowId, optionKey)           => controller.removeBundlePriceOption(bundleKey, optionKey),
-    setPriceOptionLabel:     (_rowId, optionKey, label)    => controller.setBundlePriceOptionLabel(bundleKey, optionKey, label),
-    setPriceOptionUnitPrice: (_rowId, optionKey, unitPrice) => controller.setBundlePriceOptionUnitPrice(bundleKey, optionKey, unitPrice),
-  };
+  const commands: RateSheetRowCommands = { ...controller, removeRow: () => controller.deleteBundle(bundleKey) };
 
   return (
-    <div class="cz-rate-sheet-tool__bundle" aria-label={`Bundle ${bundle.title}`}>
+    <div class="cz-rate-sheet-tool__bundle" aria-label={`Bundle ${bundleRow?.label ?? ''}`}>
       <div class="cz-rate-sheet-tool__focused-head">
         <select
           class="cz-tf-control cz-tf-select"
@@ -89,14 +72,10 @@ export function RateSheetBundleWorkspace({
         </select>
       </div>
 
-      {/* Two triggers, one per source — the engine then shows THAT source's
-          browse only, rather than stacking every catalogue into one panel. The
-          Service trigger reads exactly as the sheet's own does. */}
+      {/* Composing needs a live reference to an EXISTING Rate Sheet row, so
+          this is the only source — never a raw Service inclusion, which has
+          no row yet for a Bundle to reference (see RateSheetBundleImportPicker). */}
       <div class="cz-rate-sheet-tool__toolbar">
-        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
-          onClick={() => openSource('services')}>
-          {importSource === 'services' ? 'Close' : '+ Add Service'}
-        </button>
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={rowLocked}
           onClick={() => openSource('rate-sheets')}>
           {importSource === 'rate-sheets' ? 'Close' : '+ Add Rate Sheet'}
@@ -107,7 +86,7 @@ export function RateSheetBundleWorkspace({
         <RateSheetBundleImportPicker
           controller={controller}
           bundle={bundle}
-          source={importSource}
+          bundleKey={bundleKey}
           onDone={() => setImportSource(null)}
         />
       )}
@@ -124,23 +103,23 @@ export function RateSheetBundleWorkspace({
           extraColumn={{
             label: 'Supplied content',
             // What this Bundle compiles — its own column, immediately after
-            // the name and before the price. Read-only apart from taking an
-            // entry out, which only the unlocked row offers, exactly as a
+            // the name and before the price. Read-only apart from taking a
+            // reference out, which only the unlocked row offers, exactly as a
             // locked Rate Sheet row shows no controls at all.
-            render: (_row, editing) => (bundle.items.length === 0 ? (
+            render: (_row, editing) => (suppliedContent.length === 0 ? (
               <span class="cz-rate-sheet-tool__supplied-empty">None yet</span>
             ) : (
               <ul class="cz-rate-sheet-tool__supplied-list">
-                {bundle.items.map((component, index) => (
-                  <li key={rowKey(component)} class="cz-rate-sheet-tool__supplied-item">
-                    <span>{suppliedContent[index]}</span>
+                {suppliedContent.map(({ reference, label }) => (
+                  <li key={`${reference.sourceRateSheetId} ${reference.sourceItemId}`} class="cz-rate-sheet-tool__supplied-item">
+                    <span>{label}</span>
                     {editing && (
                       <button
                         type="button"
                         class="cz-rate-sheet-tool__supplied-remove"
-                        aria-label={`Remove ${suppliedContent[index]} from this Bundle`}
+                        aria-label={`Remove ${label} from this Bundle`}
                         title="Remove from this Bundle"
-                        onClick={() => controller.removeRow(rowKey(component))}
+                        onClick={() => controller.removeBundleSuppliedContentRef(bundleKey, reference)}
                       >
                         ×
                       </button>

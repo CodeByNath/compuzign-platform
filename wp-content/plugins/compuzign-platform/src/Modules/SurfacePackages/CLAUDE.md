@@ -30,37 +30,44 @@ reference. A Price Option is further-qualified by its own row —
 `rateSheetItem()` already use, with `option_id` minted write-path-only in
 `PackageManagerSchema::commitConfiguration` (never derived from its label);
 it has no dedicated `/admin/...` read route of its own yet, unlike Rate
-Sheet/Group/Item. A row (and a Bundle, for its own price) may also carry
+Sheet/Group/Item. A row may also carry
 `default_price_label` — display-only naming of the `unit_price` it already
-has, sanitized and passed through by `sanitizeRateRows`/
-`sanitizeRateSheetBundles`/`bundleConsumableRow`. It is not a price option: no
+has, sanitized and passed through by `sanitizeRateRows`. It is not a price option: no
 `option_id`, no Platform ID, no identity work of any kind, and selection is
 still the absence of a `price_option_id`. A sheet may additionally hold `bundles[]` — Rate
-Sheet-owned composition spaces holding COMPLETE Rate Sheet rows, each Bundle
-carrying `CZPRCB` against `(rate_sheet_id, bundle_id)`, each of its rows
-`CZPRCBI` against `(rate_sheet_id, bundle_id, item_id)`, and each of those
-rows' price options `CZPRCBIO` — separate records from the sheet's own row for
-the same supplied content, never references to it. A Bundle stores no groups
-and no unit vocabulary: its rows validate against the owning sheet's, and its
-`bundle_id` is minted write-path-only in `commitConfiguration` like a sheet id.
-A Bundle row additionally carries its own editable `label` (blank inherits the
-resolved supplied-content label). A Bundle carries the COMPLETE Rate Sheet row field set for consuming that
-combination together — `unit_price`/`per`/`quantity`/`group_id`/
-`price_options[]` (the latter `CZPRCBO`) — independent of what its component
-rows sum to. `quantity`/`group_id` are clamped and validated by the same rules
-`sanitizeRateRows` applies to a row's, and a Bundle stored before they existed
-reads back on `1`/`null`, the defaults `bundleConsumableRow()` used to hardcode.
-Upstream it IS one Rate Sheet row: `consumableRateSheetRows()` offers the
-sheet's own rows plus one row per active Bundle (`deriveBundleRowId`, ordinary
-`rate_` grammar, `includes[]` for presentation only), placed by `buildReadModel`
-straight into the sheet's own `items` — the rows every consumer already reads,
-so there is no new field and no consumer changes. The Tool cannot round-trip it: it carries no
-`source_item_id`, which `toEditorRows()`/`sanitizeRateRows()` already drop. Component rows are ingredients, not separately chargeable
-rows, so they are absent from that offer. NO consumer learns Bundles exist: Tier
-storage and selection stay `{ item_id, quantity, price_option_id }` with no
-Bundle-shaped storage, addressing, dedup, or pricing path — `PackageSchema` is
-untouched. Component-row identity uses `deriveBundleRateItemId` so it never
-collides with the sheet's own row for the same supplied content. See
+Sheet-owned authoring records, each carrying `CZPRCB` against
+`(rate_sheet_id, bundle_id)`. Commercially a Bundle IS a real Rate Sheet row:
+`bundle_id` is minted write-path-only in `commitConfiguration` like a sheet
+id, and the Bundle's `item_id` links to the ordinary member of that SAME
+sheet's own `items[]` (found by `linkBundleRows()` — reconciled from whichever
+row carries a matching `bundle_id`, never trusted from input) that carries
+its `unit_price`/`per`/`quantity`/`group_id`/`price_options[]`/name (that
+row's own `label` — the Bundle Name; blank inherits nothing, a combination
+names itself) — the SAME `CZPRCI`/`CZPRCIO` identity any ordinary row gets,
+through the SAME reservation loop, with no special-casing. `CZPRCB` never
+replaces `CZPRCI`; the two are separate, coexisting identities. A Bundle
+stores no groups, no unit vocabulary, and none of those commercial fields
+itself. Supplied content is the Bundle's LIVE REFERENCES to the exact Rate
+Sheet rows it compiles — `supplied_content[]`, each entry naming
+`(source_rate_sheet_id, source_item_id)` and carrying its own "Bundle-
+inclusion Platform ID" (`CZPRCBI`, reusing the same entity type a Bundle row
+always used, now addressing the reference rather than a copied row) —
+separate records from the sheet's own row for the same supplied content, but
+never a COPY of it: the referenced row keeps its own `CZPRCI` untouched, and a
+Bundle may reference rows on OTHER sheets — composing across sheets is the
+point. A reference whose row no longer exists is silently absent from what
+the Bundle compiles (Phase 5's reconciliation) — the Bundle survives
+unchanged, nothing else is deleted. Upstream a Bundle-backed row IS just
+another Rate Sheet row, physically persisted: since there is nothing left to
+SYNTHESIZE, `consumableRateSheetRows()` is a straight pass-through of the
+sheet's own `items[]`, filtering out only a row backed by an ARCHIVED Bundle
+(mirroring an archived sheet offering nothing — the one capability preserved
+from the retired projection). `self_priced` and `includes[]` (presentation
+only, live-resolved per read against a cross-sheet row index) are projected
+onto a Bundle-backed row by `buildReadModel()` alone. NO consumer learns
+Bundles exist: Tier storage and selection stay `{ item_id, quantity,
+price_option_id }` with no Bundle-shaped storage, addressing, dedup, or
+pricing path — `PackageSchema` is untouched. See
 [Rate Sheet Bundle](../../../../../../docs/code-map/rate-sheet-bundle.md).
 Package adapters own
 storage/enumeration/projection callbacks and delegate registry work to the

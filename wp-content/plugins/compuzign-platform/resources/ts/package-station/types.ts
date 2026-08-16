@@ -331,17 +331,31 @@ export interface PackageRateSheetPriceOption {
 export interface PackageRateSheetItem {
   item_id: string;
   /**
-   * Set only on the single row a Bundle offers upstream: it stands behind
-   * itself rather than behind supplied content. Read inside the Rate Sheet's
-   * own projection; consumers read this row like any other priced row.
+   * Set only on a row that a Bundle backs (see `PackageRateSheetBundle.item_id`):
+   * it stands behind itself rather than behind Manager-supplied content.
+   * Read inside the Rate Sheet's own projection; consumers read this row like
+   * any other priced row.
    */
   self_priced?: boolean;
-  /** A row's own display name, when it has one. */
+  /** A row's own display name, when it has one — the Bundle Name, for a
+   *  Bundle-backed row. Blank on an ordinary row, which has never had one. */
   label?: string;
-  /** Present on a Bundle's row — its ingredients, for presentation only. */
-  includes?: { item_id: string; label: string; quantity: number }[];
+  /** Present on a Bundle-backed row — its live-resolved supplied content, for
+   *  presentation only. A reference whose source row no longer exists is
+   *  silently absent rather than a placeholder. */
+  includes?: { item_id: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
   platform_id?: string;
+  /**
+   * The Manager item this row prices, for an ORDINARY row. Blank for a
+   * Bundle-backed row, which has no single supplying source — see `bundle_id`.
+   */
   source_item_id: string;
+  /**
+   * Set only on the ONE row that IS a Bundle's commercial row — the native
+   * id of the Bundle it backs. Blank for every ordinary row. A row can never
+   * carry both this and a non-empty `source_item_id`.
+   */
+  bundle_id?: string;
   unit_price: number;
   per: PackageRateSheetUnit;
   quantity: number;
@@ -361,53 +375,38 @@ export interface PackageRateSheetItem {
 export type PackageRateSheetStatus = 'active' | 'archived';
 
 /**
- * One row of a Rate Sheet Bundle — a COMPLETE Rate Sheet row (same source
- * identity, unit vocabulary, quantity, group, and `price_options[]` children),
- * carrying its own `CZPRCBI` rather than the sheet row's `CZPRCI`, because
- * `(rate_sheet_id, bundle_id, item_id)` is a different record from
- * `(rate_sheet_id, item_id)` even when both price the same supplied content.
- *
- * `label` is the one addition: this row's own editable display name. Empty
- * inherits the resolved supplied-content label — the same inherit-when-empty
- * rule a Tier Edition's own `inclusions_override` uses.
+ * A Bundle's live reference to one exact Rate Sheet row it compiles — never a
+ * copy of it. `source_item_id` is that row's own `item_id`; the row may live
+ * on a sheet other than the one that owns this Bundle, which is why
+ * `source_rate_sheet_id` is a separate segment, not folded into one string.
+ * `platform_id` (`CZPRCBI`, the "Bundle-inclusion Platform ID") identifies
+ * this REFERENCE, a child of the Bundle — never the referenced row, which
+ * keeps its own `CZPRCI` untouched.
  */
-export interface PackageRateSheetBundleItem extends PackageRateSheetItem {
-  label: string;
+export interface PackageRateSheetBundleReference {
+  source_rate_sheet_id: string;
+  source_item_id: string;
+  platform_id?: string;
 }
 
 /**
- * A Rate Sheet Bundle — an admin-composed grouping of complete Rate Sheet rows
- * that a Tier can select as ONE commercial item. Owned by the Rate Sheet it
- * lives in; it stores no groups and no unit vocabulary of its own, because its
- * rows validate against the owning sheet's. `platform_id` (`CZPRCB`) is
- * output-only; native `bundle_id` remains the mutation identity.
+ * A Rate Sheet Bundle — an admin-composed authoring record. Commercially it
+ * IS a real Rate Sheet row: `item_id` links to the ordinary member of this
+ * sheet's own `items[]` that carries this Bundle's price, per, quantity,
+ * group, Price Options, and Bundle Name (that row's own `label`). The Bundle
+ * stores none of those itself — `platform_id` (`CZPRCB`) never replaces that
+ * row's own `CZPRCI`; the two are separate, coexisting identities linked by
+ * `item_id`. `supplied_content` is this Bundle's live references to the
+ * exact Rate Sheet rows it compiles, which may span multiple sheets.
  */
 export interface PackageRateSheetBundle {
   bundle_id: string;
   platform_id?: string;
-  title: string;
   status: PackageRateSheetStatus;
   sort_order: number;
-  /**
-   * The Bundle's OWN commercial price for consuming this combination together
-   * — deliberately independent of what its component rows sum to. Same fields
-   * and same Price Option shape as any priced row, because that is exactly
-   * what the Bundle becomes upstream.
-   */
-  unit_price: number;
-  per: PackageRateSheetUnit;
-  /**
-   * The Bundle's own quantity and group, validated by the same rules a row's
-   * are — the Bundle IS the single row it presents upstream, so it carries the
-   * complete row field set. Absent on a sheet stored before they existed.
-   */
-  quantity?: number;
-  group_id?: string | null;
-  price_options: PackageRateSheetPriceOption[];
-  /** What the Bundle's own default price is called. See
-   *  `PackageRateSheetItem.default_price_label` — same display-only rule. */
-  default_price_label?: string;
-  items: PackageRateSheetBundleItem[];
+  /** Blank only for a Bundle whose row has not been created yet. */
+  item_id: string;
+  supplied_content: PackageRateSheetBundleReference[];
 }
 
 export interface PackageRateSheet {

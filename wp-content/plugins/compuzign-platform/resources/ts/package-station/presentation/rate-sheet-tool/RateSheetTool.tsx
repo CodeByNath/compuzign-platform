@@ -49,9 +49,11 @@ import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
 import { AppsIcon, MenuIcon, RateSheetIcon } from '@/admin-station/shell/icons';
 import { useRateSheetTool } from '../../surface/rateSheetTool/useRateSheetTool';
 import type { RateSheetGroupId, RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
-import { bundleKey, bundleSuppliedContent, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
+import { bundleKey, bundleSuppliedContent, findBundleRow, ordinaryRows, summariseRateSheet } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
+  BundleSourceSheet,
   RateSheetEditorBundle,
+  RateSheetEditorRow,
   RateSheetEditorValue,
 } from '../../surface/rateSheetTool/rateSheetToolModel';
 import { RateSheetGridEditor } from './rateSheetParts';
@@ -334,7 +336,7 @@ function RateSheetBundleSwitcher({
   onEdit:     () => void;
   openEditor: (title: string, body: VNode) => VNode;
 }): VNode {
-  const { bundles, selectedBundle, selectedBundleKey } = controller;
+  const { bundles, selectedBundle, selectedBundleKey, selectedBundleRow } = controller;
 
   // Options must never sit on a selection that names nothing — a fresh mount, a
   // Bundle just deleted, or a Bundle dropped by a save all land here. There is
@@ -346,9 +348,15 @@ function RateSheetBundleSwitcher({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bundles, selectedBundleKey]);
 
+  // A Bundle's display name is its own linked row's label — the Bundle Name —
+  // never restated on the Bundle record itself. A Bundle mid-authoring, with
+  // no row yet, has none to show.
+  const bundleLabel = (bundle: RateSheetEditorBundle): string =>
+    findBundleRow(bundle, sheet)?.label?.trim() || 'Untitled Bundle';
+
   if (editing) {
     return openEditor(
-      selectedBundle ? (selectedBundle.title.trim() || 'New Bundle') : 'Bundles',
+      selectedBundle ? (selectedBundleRow?.label?.trim() || 'New Bundle') : 'Bundles',
       <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
         {selectedBundle && selectedBundleKey ? (
           <RateSheetBundleWorkspace
@@ -369,7 +377,7 @@ function RateSheetBundleSwitcher({
   return (
     <div class="cz-shell-section">
       <ChildChipStrip
-        chips={bundles.map((bundle) => ({ id: bundleKey(bundle), label: bundle.title.trim() || 'Untitled Bundle' }))}
+        chips={bundles.map((bundle) => ({ id: bundleKey(bundle), label: bundleLabel(bundle) }))}
         activeId={selectedBundleKey}
         ariaLabel="Bundles"
         onSelect={(id) => controller.selectBundle(id)}
@@ -384,6 +392,8 @@ function RateSheetBundleSwitcher({
       {selectedBundle && selectedBundleKey && (
         <RateSheetBundleRead
           bundle={selectedBundle}
+          row={selectedBundleRow}
+          sources={controller.bundleSources}
           onEdit={onEdit}
           // The same removal the Bundle row's own Remove performs — one
           // confirm, one full-manager save, through the one controller command.
@@ -406,13 +416,15 @@ function RateSheetBundleSwitcher({
  * action system. There is no removal button inside the editor.
  */
 function RateSheetBundleRead({
-  bundle, onEdit, onRemove,
+  bundle, row, sources, onEdit, onRemove,
 }: {
   bundle:   RateSheetEditorBundle;
+  row:      RateSheetEditorRow | null;
+  sources:  readonly BundleSourceSheet[];
   onEdit:   () => void;
   onRemove: () => void;
 }): VNode {
-  const supplied = bundleSuppliedContent(bundle);
+  const supplied = bundleSuppliedContent(bundle, sources);
   return (
     <ReadBlock
       title="Bundle"
@@ -428,7 +440,7 @@ function RateSheetBundleRead({
       <div class="drawerModule__fields">
         <div class="drawerModule__field">
           <p class="drawerModule__label">Product Bundle</p>
-          <p class="drawerModule__value">{bundle.title.trim() || 'Untitled Bundle'}</p>
+          <p class="drawerModule__value">{row?.label?.trim() || 'Untitled Bundle'}</p>
         </div>
         <div class="drawerModule__field">
           <p class="drawerModule__label">Platform ID</p>
@@ -438,7 +450,7 @@ function RateSheetBundleRead({
           <p class="drawerModule__label">Supplied content</p>
           <p class="drawerModule__value">
             {supplied.length}
-            {supplied.length > 0 ? ` · ${supplied.join('; ')}` : ''}
+            {supplied.length > 0 ? ` · ${supplied.map((entry) => entry.label).join('; ')}` : ''}
           </p>
         </div>
       </div>
@@ -549,7 +561,9 @@ function FocusedRateSheetRead({
           <p class="drawerModule__label">Bundles</p>
           <p class="drawerModule__value">
             {value.bundles.length}
-            {value.bundles.length > 0 ? ` · ${value.bundles.map((bundle) => bundle.title.trim() || 'Untitled Bundle').join(', ')}` : ''}
+            {value.bundles.length > 0
+              ? ` · ${value.bundles.map((bundle) => findBundleRow(bundle, value)?.label?.trim() || 'Untitled Bundle').join(', ')}`
+              : ''}
           </p>
         </div>
         <div class="drawerModule__field">
@@ -677,10 +691,10 @@ function RateSheetSheetEditor({ controller, value, indented }: {
         <RateSheetServiceImportPicker controller={controller} value={value} onDone={() => setAddOpen(false)} />
       )}
 
-      {value.items.length === 0 ? (
+      {ordinaryRows(value).length === 0 ? (
         <p class="cz-station-empty">No priced rows yet. Use + Add Service to price a connected source's supplied content.</p>
       ) : (
-        <RateSheetGridEditor rows={value.items} groups={value.groups} units={controller.units} commands={controller} lockCommands={controller} />
+        <RateSheetGridEditor rows={ordinaryRows(value)} groups={value.groups} units={controller.units} commands={controller} lockCommands={controller} />
       )}
     </div>
   );

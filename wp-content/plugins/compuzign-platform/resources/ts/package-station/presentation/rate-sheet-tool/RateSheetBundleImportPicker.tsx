@@ -1,92 +1,64 @@
 // Rate Sheet tool — the Bundle import engine.
 //
-// The CALLER chooses the source, through its own trigger — "+ Add Service" or
-// "+ Add Rate Sheet" — and this engine then shows THAT source's browse only.
-// It never stacks both catalogues, a source switch and a basket into one panel:
+// Composing a Bundle means referencing EXISTING Rate Sheet rows — never a raw
+// Service inclusion, which (until it is itself priced as a row somewhere) has
+// no Rate Sheet row for a Bundle to hold a live reference to. So this engine
+// browses Rate Sheets → their own priced rows only, two columns:
 //
-//   source = 'services'      Category → Service → Inclusions   (3 columns, the
-//                            same browse "+ Add Service" uses on the sheet's
-//                            own rows)
-//   source = 'rate-sheets'   Rate Sheet → its priced rows      (2 columns)
+//   Browse by Rate Sheet   every sheet in the collection
+//   Browse by row          the picked sheet's own priced rows
 //
 // The running basket is a full-width strip BELOW those columns, so it has room
-// to read and the browse keeps its own.
+// to read and the browse keeps its own. Moving to another Rate Sheet does not
+// clear the basket — it accumulates across sheets, which is what lets one
+// Bundle compose from several.
 //
-// `Import` appends every selected entry to the open Bundle through
-// `controller.publishRows` — the scope-aware command that lands them in the
-// OPEN Bundle and saves once through the same full-manager save every other
-// mutation in this tool uses. No second endpoint, no second save path.
+// `Import` calls `controller.importBundleContent`: the Bundle's OWN first
+// Import mints its row together with the Bundle itself, seeded once from the
+// sum of what was selected; a LATER Import on an already-created Bundle only
+// adds references, never re-touching the row's price. One local update, one
+// full-manager save either way — no second endpoint, no second save path.
 //
-// There is deliberately no staging/pricing table: what an import produces is
-// supplied CONTENT, and the price, unit, quantity and group belong to the
-// Bundle's own row, edited in the shared row editor. A component's own
-// definition was declared on the Rate Sheet it came from.
-//
-// The Services branch keeps the connect-on-select behaviour "+ Add Service"
-// has always had (`controller.connectServices`): the Rate Sheet read model only
-// resolves a Service's inclusions once that Service is a connected source.
+// There is deliberately no staging/pricing table here: what an import
+// produces is supplied CONTENT — live references — and the price, unit,
+// quantity and group belong to the Bundle's own row, edited in the shared row
+// editor. A referenced row's own definition stays exactly where it was
+// declared, on the Rate Sheet it came from; composing never touches it.
 
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { ServiceSummary } from '@/service-station';
 import { bundleSourceRowRef, rowDisplayLabel } from '../../surface/rateSheetTool/rateSheetToolModel';
-import type { RateSheetEditorBundle, RateSheetRowEntry } from '../../surface/rateSheetTool/rateSheetToolModel';
+import type { RateSheetEditorBundle } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type { RateSheetToolController } from '../../surface/rateSheetTool/useRateSheetTool';
 import { formatUnitPrice } from './rateSheetParts';
 
-/** Which catalogue this engine is browsing. The caller's trigger decides it. */
-export type BundleImportSource = 'services' | 'rate-sheets';
+/** Reserved for a future additional source. Only Rate Sheets today — see the
+ *  file header for why a raw Service inclusion cannot be composed directly. */
+export type BundleImportSource = 'rate-sheets';
 
-/**
- * One chosen supplied content, whichever source it came from. It carries the
- * values the component record is created with — a Rate Sheet row contributes
- * what it was already worth, a Service inclusion has nothing priced yet — but
- * none of them are editable here: the Bundle's own row carries the terms.
- */
-interface SelectedEntry extends RateSheetRowEntry {
-  ref:    string;
-  label:  string;
-  origin: string;
-}
-
-interface CategoryEntry { key: string; name: string; }
-
-type ServiceCategory = ServiceSummary['categories'][number];
-
-function categoryKeyOf(category: ServiceCategory): string {
-  return category.slug || (category.id != null ? String(category.id) : category.name);
+/** One row picked to add to the Bundle's supplied content. */
+interface SelectedEntry {
+  ref:               string;
+  sourceRateSheetId: string;
+  sourceItemId:      string;
+  label:             string;
+  origin:            string;
+  unitPrice:         number;
 }
 
 export function RateSheetBundleImportPicker({
-  controller, bundle, source, onDone,
+  controller, bundle, bundleKey, onDone,
 }: {
   controller: RateSheetToolController;
   bundle:     RateSheetEditorBundle;
-  source:     BundleImportSource;
+  bundleKey:  string;
   onDone:     () => void;
 }): VNode {
-  const [categoryQuery, setCategoryQuery]   = useState('');
-  const [serviceQuery, setServiceQuery]     = useState('');
   const [sheetQuery, setSheetQuery]         = useState('');
   const [rowQuery, setRowQuery]             = useState('');
-  const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<Set<string>>(new Set());
-  const [selectedServiceIds, setSelectedServiceIds]     = useState<Set<number>>(new Set());
-  const [selectedSheetKeys, setSelectedSheetKeys]       = useState<Set<string>>(new Set());
-  const [connectingIds, setConnectingIds]   = useState<Set<number>>(new Set());
+  const [selectedSheetKeys, setSelectedSheetKeys] = useState<Set<string>>(new Set());
   const [selected, setSelected]             = useState<SelectedEntry[]>([]);
   const [importing, setImporting]           = useState(false);
-
-  const browsingServices = source === 'services';
-
-  useEffect(() => { if (browsingServices) controller.loadCatalog(); }, [browsingServices]);
-
-  // A source this Bundle already compiles is never offered again — the same
-  // one-row-per-source discipline the sheet's own rows keep, checked here so
-  // the engine never shows a choice Import would silently drop.
-  const usedOptionIds = useMemo(() => new Set([
-    ...bundle.items.map((row) => row.optionId),
-    ...selected.map((entry) => entry.optionId),
-  ]), [bundle.items, selected]);
 
   const toggleIn = <T,>(current: Set<T>, value: T): Set<T> => {
     const next = new Set(current);
@@ -97,66 +69,22 @@ export function RateSheetBundleImportPicker({
   const matchesRow = (label: string) =>
     rowQuery.trim() === '' || label.toLowerCase().includes(rowQuery.trim().toLowerCase());
 
-  // ── Services browse ───────────────────────────────────────────────────────
+  // A row this Bundle already references is never offered again — the same
+  // one-reference-per-row discipline the sheet's own rows keep for their
+  // Manager sources, checked here so the engine never shows a choice Import
+  // would silently drop.
+  const usedRowKeys = useMemo(() => new Set([
+    ...bundle.suppliedContent.map((reference) => `${reference.sourceRateSheetId} ${reference.sourceItemId}`),
+    ...selected.map((entry) => entry.ref),
+  ]), [bundle.suppliedContent, selected]);
 
-  const categoryEntries = useMemo<CategoryEntry[]>(() => {
-    const map = new Map<string, CategoryEntry>();
-    for (const service of controller.catalog) {
-      for (const category of service.categories) {
-        const key = categoryKeyOf(category);
-        if (!map.has(key)) map.set(key, { key, name: category.name });
-      }
-    }
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [controller.catalog]);
-
-  const filteredCategories = categoryEntries.filter((category) =>
-    category.name.toLowerCase().includes(categoryQuery.trim().toLowerCase()));
-
-  const filteredServices = useMemo(() => controller.catalog.filter((service) => {
-    if (selectedCategoryKeys.size > 0) {
-      const ownKeys = service.categories.map(categoryKeyOf);
-      if (!ownKeys.some((key) => selectedCategoryKeys.has(key))) return false;
-    }
-    if (serviceQuery.trim() !== '' && !service.title.toLowerCase().includes(serviceQuery.trim().toLowerCase())) return false;
-    return true;
-  }), [controller.catalog, selectedCategoryKeys, serviceQuery]);
-
-  const availableInclusions = useMemo<SelectedEntry[]>(() => controller.options
-    .filter((option) => option.sourceServiceId != null
-      && selectedServiceIds.has(option.sourceServiceId)
-      && !usedOptionIds.has(option.id)
-      && matchesRow(option.label))
-    .map((option) => ({
-      ref:       `service ${option.id}`,
-      optionId:  option.id,
-      label:     option.label,
-      origin:    option.sourceServiceTitle ?? 'Service',
-      // A Service inclusion has never been priced — the combination it joins
-      // is what carries a price.
-      unitPrice: 0,
-      per:       'Per item',
-      quantity:  1,
-      groupId:   null,
-    })),
-  [controller.options, selectedServiceIds, usedOptionIds, rowQuery]);
-
-  const toggleService = async (service: ServiceSummary) => {
-    const wasSelected = selectedServiceIds.has(service.id);
-    setSelectedServiceIds((current) => toggleIn(current, service.id));
-    if (!wasSelected && !controller.connectedServiceIds.includes(service.id)) {
-      setConnectingIds((current) => new Set(current).add(service.id));
-      await controller.connectServices([service.id]);
-      setConnectingIds((current) => { const next = new Set(current); next.delete(service.id); return next; });
-    }
-  };
-
-  // ── Rate Sheets browse ────────────────────────────────────────────────────
-
+  // Composing needs a STABLE reference, so only an already-saved sheet (a real
+  // rate_sheet_id) is offered — a not-yet-saved sheet has none yet, and the
+  // backend would silently drop a reference naming a blank one.
   const filteredSheets = useMemo(() => {
     const query = sheetQuery.trim().toLowerCase();
     return controller.bundleSources.filter((sheet) =>
-      query === '' || (sheet.title || 'Untitled Rate Sheet').toLowerCase().includes(query));
+      sheet.id !== '' && (query === '' || (sheet.title || 'Untitled Rate Sheet').toLowerCase().includes(query)));
   }, [controller.bundleSources, sheetQuery]);
 
   /** The picked sheets' rows, grouped by the sheet they belong to. */
@@ -166,30 +94,26 @@ export function RateSheetBundleImportPicker({
       key:   sheet.key,
       title: sheet.title || 'Untitled Rate Sheet',
       entries: sheet.rows
-        .filter((row) => !usedOptionIds.has(row.optionId) && matchesRow(rowDisplayLabel(row)))
+        .filter((row) => !usedRowKeys.has(bundleSourceRowRef(sheet.id, row)) && matchesRow(rowDisplayLabel(row)))
         .map((row): SelectedEntry => ({
-          ref:       bundleSourceRowRef(sheet.key, row),
-          optionId:  row.optionId,
-          label:     rowDisplayLabel(row),
-          origin:    sheet.title || 'Untitled Rate Sheet',
-          // What the source row was already worth, kept as this component's
-          // own record. The source sheet's row is never touched.
+          ref:               bundleSourceRowRef(sheet.id, row),
+          sourceRateSheetId: sheet.id,
+          sourceItemId:      row.id,
+          label:             rowDisplayLabel(row),
+          origin:            sheet.title || 'Untitled Rate Sheet',
+          // What the source row is currently worth — read once here only to
+          // seed the Bundle's OWN price on its first Import (see
+          // `handleImport`). The source row itself is never touched, and this
+          // value is never written back to it or re-read after this moment.
           unitPrice: row.unitPrice,
-          per:       row.per,
-          quantity:  row.quantity,
-          // A source row's group belongs to ITS sheet, so a component starts
-          // ungrouped; the Bundle's own row carries the group that matters.
-          groupId:   null,
         })),
     })),
-  [controller.bundleSources, selectedSheetKeys, usedOptionIds, rowQuery]);
+  [controller.bundleSources, selectedSheetKeys, usedRowKeys, rowQuery]);
 
   // ── Basket ────────────────────────────────────────────────────────────────
 
   const chooseEntry = (entry: SelectedEntry) =>
-    setSelected((current) => (current.some((chosen) => chosen.optionId === entry.optionId)
-      ? current
-      : [...current, entry]));
+    setSelected((current) => (current.some((chosen) => chosen.ref === entry.ref) ? current : [...current, entry]));
 
   const dropEntry = (ref: string) =>
     setSelected((current) => current.filter((entry) => entry.ref !== ref));
@@ -204,153 +128,84 @@ export function RateSheetBundleImportPicker({
 
   const handleImport = async () => {
     setImporting(true);
-    const ok = await controller.publishRows(selected.map((entry) => ({
-      optionId: entry.optionId, unitPrice: entry.unitPrice, per: entry.per,
-      quantity: entry.quantity, groupId: entry.groupId, label: entry.label,
-    })));
+    const initialUnitPrice = selected.reduce((sum, entry) => sum + entry.unitPrice, 0);
+    const ok = await controller.importBundleContent(
+      bundleKey,
+      selected.map((entry) => ({ sourceRateSheetId: entry.sourceRateSheetId, sourceItemId: entry.sourceItemId })),
+      initialUnitPrice,
+    );
     setImporting(false);
     if (ok) { setSelected([]); onDone(); }
   };
 
   const busy = importing || controller.saving;
 
-  const entryChip = (entry: SelectedEntry, note?: string) => (
-    <button type="button" key={entry.ref}
-      class="cz-rate-sheet-tool__import-chip"
-      onClick={() => chooseEntry(entry)}>
-      {entry.label}
-      {note !== undefined && <span class="cz-rate-sheet-tool__import-chip-note"> · {note}</span>}
-    </button>
-  );
-
   return (
-    <div
-      class="cz-rate-sheet-tool__import"
-      aria-label={browsingServices ? 'Add Service to this Bundle' : 'Add Rate Sheet content to this Bundle'}
-    >
+    <div class="cz-rate-sheet-tool__import" aria-label="Add Rate Sheet content to this Bundle">
       <div class="cz-rate-sheet-tool__import-head">
-        <strong>{browsingServices ? 'Add Service' : 'Add Rate Sheet'}</strong>
+        <strong>Add Rate Sheet content</strong>
         <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={requestClose}>Close</button>
       </div>
 
-      {browsingServices ? (
-        <div class="cz-rate-sheet-tool__import-columns">
-          <div class="cz-rate-sheet-tool__import-column">
-            <input class="cz-tf-control cz-tf-input" type="search" placeholder="Search categories" value={categoryQuery}
-              aria-label="Search categories" onInput={(event) => setCategoryQuery((event.currentTarget as HTMLInputElement).value)} />
-            <p class="cz-rate-sheet-tool__import-column-label">Browse by category</p>
-            <div class="cz-rate-sheet-tool__import-chip-list">
-              {filteredCategories.length === 0 ? (
-                <p class="cz-rate-sheet-tool__picker-note">No categories found.</p>
-              ) : filteredCategories.map((category) => {
-                const active = selectedCategoryKeys.has(category.key);
-                return (
-                  <button type="button" key={category.key}
-                    class={`cz-rate-sheet-tool__import-chip${active ? ' cz-rate-sheet-tool__import-chip--active' : ''}`}
-                    aria-pressed={active}
-                    onClick={() => setSelectedCategoryKeys((current) => toggleIn(current, category.key))}>
-                    {category.name}
-                    {active && <span aria-hidden="true"> ×</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div class="cz-rate-sheet-tool__import-column">
-            <input class="cz-tf-control cz-tf-input" type="search" placeholder="Search services" value={serviceQuery}
-              aria-label="Search services" onInput={(event) => setServiceQuery((event.currentTarget as HTMLInputElement).value)} />
-            <p class="cz-rate-sheet-tool__import-column-label">Browse by service</p>
-            <div class="cz-rate-sheet-tool__import-chip-list">
-              {controller.catalogLoading && <p class="cz-station-empty" aria-busy="true">Loading Services…</p>}
-              {controller.catalogError && <p class="cz-admin-error-msg" role="alert">{controller.catalogError}</p>}
-              {!controller.catalogLoading && !controller.catalogError && filteredServices.length === 0 && (
-                <p class="cz-rate-sheet-tool__picker-note">No Services found.</p>
-              )}
-              {filteredServices.map((service) => {
-                const active = selectedServiceIds.has(service.id);
-                const connecting = connectingIds.has(service.id);
-                return (
-                  <button type="button" key={service.id}
-                    class={`cz-rate-sheet-tool__import-chip${active ? ' cz-rate-sheet-tool__import-chip--active' : ''}`}
-                    aria-pressed={active} disabled={connecting || controller.saving}
-                    onClick={() => { void toggleService(service); }}>
-                    {service.title}
-                    {active && <span aria-hidden="true"> ×</span>}
-                    {connecting && <span class="cz-rate-sheet-tool__import-chip-note"> · connecting…</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div class="cz-rate-sheet-tool__import-column">
-            <input class="cz-tf-control cz-tf-input" type="search" placeholder="Search inclusions" value={rowQuery}
-              aria-label="Search inclusions" onInput={(event) => setRowQuery((event.currentTarget as HTMLInputElement).value)} />
-            <p class="cz-rate-sheet-tool__import-column-label">Browse by inclusions</p>
-            <div class="cz-rate-sheet-tool__import-chip-list">
-              {selectedServiceIds.size === 0 ? (
-                <p class="cz-rate-sheet-tool__picker-note">Select a Service to see its inclusions.</p>
-              ) : availableInclusions.length === 0 ? (
-                <p class="cz-rate-sheet-tool__picker-note">No further inclusions available from the selected Service(s).</p>
-              ) : availableInclusions.map((entry) => entryChip(entry))}
-            </div>
+      <div class="cz-rate-sheet-tool__import-columns cz-rate-sheet-tool__import-columns--pair">
+        <div class="cz-rate-sheet-tool__import-column">
+          <input class="cz-tf-control cz-tf-input" type="search" placeholder="Search Rate Sheets" value={sheetQuery}
+            aria-label="Search Rate Sheets" onInput={(event) => setSheetQuery((event.currentTarget as HTMLInputElement).value)} />
+          <p class="cz-rate-sheet-tool__import-column-label">Browse by Rate Sheet</p>
+          <div class="cz-rate-sheet-tool__import-chip-list">
+            {filteredSheets.length === 0 ? (
+              <p class="cz-rate-sheet-tool__picker-note">No Rate Sheets found.</p>
+            ) : filteredSheets.map((sheet) => {
+              const active = selectedSheetKeys.has(sheet.key);
+              return (
+                <button type="button" key={sheet.key}
+                  class={`cz-rate-sheet-tool__import-chip${active ? ' cz-rate-sheet-tool__import-chip--active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => setSelectedSheetKeys((current) => toggleIn(current, sheet.key))}>
+                  {sheet.title || 'Untitled Rate Sheet'}{sheet.status === 'archived' ? ' · Disabled' : ''}
+                  {active && <span aria-hidden="true"> ×</span>}
+                </button>
+              );
+            })}
           </div>
         </div>
-      ) : (
-        <div class="cz-rate-sheet-tool__import-columns cz-rate-sheet-tool__import-columns--pair">
-          <div class="cz-rate-sheet-tool__import-column">
-            <input class="cz-tf-control cz-tf-input" type="search" placeholder="Search Rate Sheets" value={sheetQuery}
-              aria-label="Search Rate Sheets" onInput={(event) => setSheetQuery((event.currentTarget as HTMLInputElement).value)} />
-            <p class="cz-rate-sheet-tool__import-column-label">Browse by Rate Sheet</p>
-            <div class="cz-rate-sheet-tool__import-chip-list">
-              {filteredSheets.length === 0 ? (
-                <p class="cz-rate-sheet-tool__picker-note">No Rate Sheets found.</p>
-              ) : filteredSheets.map((sheet) => {
-                const active = selectedSheetKeys.has(sheet.key);
-                return (
-                  <button type="button" key={sheet.key}
-                    class={`cz-rate-sheet-tool__import-chip${active ? ' cz-rate-sheet-tool__import-chip--active' : ''}`}
-                    aria-pressed={active}
-                    onClick={() => setSelectedSheetKeys((current) => toggleIn(current, sheet.key))}>
-                    {sheet.title || 'Untitled Rate Sheet'}{sheet.status === 'archived' ? ' · Disabled' : ''}
-                    {active && <span aria-hidden="true"> ×</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
-          <div class="cz-rate-sheet-tool__import-column">
-            <input class="cz-tf-control cz-tf-input" type="search" placeholder="Search rows" value={rowQuery}
-              aria-label="Search rows" onInput={(event) => setRowQuery((event.currentTarget as HTMLInputElement).value)} />
-            <p class="cz-rate-sheet-tool__import-column-label">Browse by row</p>
-            <div class="cz-rate-sheet-tool__import-chip-list">
-              {availableSheetRows.length === 0 ? (
-                <p class="cz-rate-sheet-tool__picker-note">Select a Rate Sheet to see its rows.</p>
-              ) : availableSheetRows.map((group) => (
-                <div key={group.key} class="cz-rate-sheet-tool__import-group">
-                  <p class="cz-rate-sheet-tool__import-group-title">{group.title}</p>
-                  {group.entries.length === 0 ? (
-                    <p class="cz-rate-sheet-tool__picker-note">Every row here is already in this Bundle.</p>
-                  ) : (
-                    <div class="cz-rate-sheet-tool__import-group-chips">
-                      {group.entries.map((entry) => entryChip(entry, formatUnitPrice(entry.unitPrice)))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+        <div class="cz-rate-sheet-tool__import-column">
+          <input class="cz-tf-control cz-tf-input" type="search" placeholder="Search rows" value={rowQuery}
+            aria-label="Search rows" onInput={(event) => setRowQuery((event.currentTarget as HTMLInputElement).value)} />
+          <p class="cz-rate-sheet-tool__import-column-label">Browse by row</p>
+          <div class="cz-rate-sheet-tool__import-chip-list">
+            {availableSheetRows.length === 0 ? (
+              <p class="cz-rate-sheet-tool__picker-note">Select a Rate Sheet to see its rows.</p>
+            ) : availableSheetRows.map((group) => (
+              <div key={group.key} class="cz-rate-sheet-tool__import-group">
+                <p class="cz-rate-sheet-tool__import-group-title">{group.title}</p>
+                {group.entries.length === 0 ? (
+                  <p class="cz-rate-sheet-tool__picker-note">Every row here is already in this Bundle.</p>
+                ) : (
+                  <div class="cz-rate-sheet-tool__import-group-chips">
+                    {group.entries.map((entry) => (
+                      <button type="button" key={entry.ref}
+                        class="cz-rate-sheet-tool__import-chip"
+                        onClick={() => chooseEntry(entry)}>
+                        {entry.label}
+                        <span class="cz-rate-sheet-tool__import-chip-note"> · {formatUnitPrice(entry.unitPrice)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
       {/* The basket, full width beneath the browse — its own room to read. */}
       <div class="cz-rate-sheet-tool__import-basket">
         <p class="cz-rate-sheet-tool__import-column-label">Selected ({selected.length})</p>
         {selected.length === 0 ? (
           <p class="cz-rate-sheet-tool__picker-note">
-            Nothing selected yet. Pick supplied content above.
+            Nothing selected yet. Pick Rate Sheet rows above.
           </p>
         ) : (
           <div class="cz-rate-sheet-tool__import-group-chips">

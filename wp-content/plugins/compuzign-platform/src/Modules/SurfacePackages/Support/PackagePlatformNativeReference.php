@@ -71,25 +71,20 @@ final class PackagePlatformNativeReference
     }
 
     /**
-     * A Bundle row is qualified by its own Bundle, not by the sheet alone: the
-     * same supplied content may be a row of the sheet AND a row of any number
-     * of its Bundles, and those are separate records with separate identities.
+     * A Bundle's live reference to one supplied Rate Sheet row — the
+     * "Bundle-inclusion Platform ID." Qualified by the referenced row's own
+     * sheet AND item id as two separate segments (never one joined string),
+     * because a Bundle may reference rows on sheets other than its own. This
+     * identifies the REFERENCE itself, a child of the Bundle — the referenced
+     * row keeps its own `CZPRCI` completely untouched.
      */
-    public static function rateSheetBundleItem(string $rateSheetId, string $bundleId, string $itemId): string
-    {
-        return self::composite('rate-sheet-bundle-item', [$rateSheetId, $bundleId, $itemId]);
-    }
-
-    /** The Bundle's OWN commercial Price Option — a child of the Bundle itself. */
-    public static function rateSheetBundleOption(string $rateSheetId, string $bundleId, string $optionId): string
-    {
-        return self::composite('rate-sheet-bundle-option', [$rateSheetId, $bundleId, $optionId]);
-    }
-
-    /** A Bundle row's own alternative-price child — the CZPRCIO shape, one level deeper. */
-    public static function rateSheetBundleItemOption(string $rateSheetId, string $bundleId, string $itemId, string $optionId): string
-    {
-        return self::composite('rate-sheet-bundle-item-option', [$rateSheetId, $bundleId, $itemId, $optionId]);
+    public static function rateSheetBundleInclusion(
+        string $rateSheetId,
+        string $bundleId,
+        string $sourceRateSheetId,
+        string $sourceItemId
+    ): string {
+        return self::composite('rate-sheet-bundle-inclusion', [$rateSheetId, $bundleId, $sourceRateSheetId, $sourceItemId]);
     }
 
     /** @return list<string>|null */

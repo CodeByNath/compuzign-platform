@@ -100,28 +100,25 @@ final class PackagePlatformIdentifierAdapters
     }
 
     /**
-     * A Bundle and its own rows. Same factory, same Package-owned storage and
-     * enumeration callbacks — a Bundle is a sheet-owned composition space, not
-     * a second catalogue with an identity mechanism of its own.
+     * A Bundle and its live references to compiled Rate Sheet rows. Same
+     * factory, same Package-owned storage and enumeration callbacks — a
+     * Bundle is a sheet-owned composition space, not a second catalogue with
+     * an identity mechanism of its own.
      */
     public function rateSheetBundle(): PackagePlatformIdentifierAdapter
     {
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE, 'bundle');
     }
 
-    public function rateSheetBundleItem(): PackagePlatformIdentifierAdapter
+    /**
+     * A Bundle's live reference to one supplied Rate Sheet row — see
+     * PackagePlatformNativeReference::rateSheetBundleInclusion(). Same
+     * `CZPRCBI` entity type Bundle rows always used; what it addresses is now
+     * the reference itself, not a copied row.
+     */
+    public function rateSheetBundleInclusion(): PackagePlatformIdentifierAdapter
     {
-        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM, 'bundle-item');
-    }
-
-    public function rateSheetBundleOption(): PackagePlatformIdentifierAdapter
-    {
-        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_OPTION, 'bundle-price-option');
-    }
-
-    public function rateSheetBundleItemOption(): PackagePlatformIdentifierAdapter
-    {
-        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION, 'bundle-option');
+        return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM, 'bundle-inclusion');
     }
 
     private function rateSheetAdapter(string $entityType, string $scope): PackagePlatformIdentifierAdapter
