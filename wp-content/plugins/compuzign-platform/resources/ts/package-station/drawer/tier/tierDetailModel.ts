@@ -96,19 +96,27 @@ export function buildRateSheetCatalogue(
   const relationshipLabels = new Map(svc.package_relationships.map((item) => [item.item_id, relationshipDisplayLabel(item)]));
   const relationshipsById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
   const boundSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === rateSheetId) ?? null;
-  const catalogue: TierResolvedRateSheetSelection[] = (boundSheet?.items ?? []).map((item) => ({
-    item_id: item.item_id,
-    source_type: relationshipsById.get(item.source_item_id)?.source_type ?? null,
-    source_id: relationshipsById.get(item.source_item_id)?.source_id ?? null,
-    quantity: 1,
-    resolved: relationshipLabels.has(item.source_item_id),
-    label: relationshipLabels.get(item.source_item_id) ?? '(unresolved Rate Sheet item)',
-    unit_price: item.unit_price,
-    per: item.per,
-    group_id: item.group_id,
-    line_total: item.unit_price,
-    price_options: item.price_options,
-  }));
+  const catalogue: TierResolvedRateSheetSelection[] = (boundSheet?.items ?? []).map((item) => {
+    // A Bundle-backed row has no Manager `source_item_id` to resolve against
+    // — it stands behind itself (see `PackageRateSheetItem.bundle_id`), so
+    // "resolved" and its own display name come from the row directly, the
+    // same "Untitled Bundle" fallback the Rate Sheet tool itself uses, never
+    // from the Manager relationship lookup an ordinary row needs.
+    const bundleBacked = (item.bundle_id ?? '') !== '';
+    return {
+      item_id: item.item_id,
+      source_type: relationshipsById.get(item.source_item_id)?.source_type ?? null,
+      source_id: relationshipsById.get(item.source_item_id)?.source_id ?? null,
+      quantity: 1,
+      resolved: bundleBacked || relationshipLabels.has(item.source_item_id),
+      label: bundleBacked ? (item.label?.trim() || 'Untitled Bundle') : (relationshipLabels.get(item.source_item_id) ?? '(unresolved Rate Sheet item)'),
+      unit_price: item.unit_price,
+      per: item.per,
+      group_id: item.group_id,
+      line_total: item.unit_price,
+      price_options: item.price_options,
+    };
+  });
   for (const selected of existingSelections) {
     if (!catalogue.some((item) => item.item_id === selected.item_id)) catalogue.push(selected);
   }
