@@ -398,18 +398,12 @@ function RateSheetBundleSwitcher({
           row={selectedBundleRow}
           sources={controller.bundleSources}
           onEdit={onEdit}
-          // The same removal the Bundle row's own Remove performs — one
-          // confirm, one full-manager save, through the one controller command.
-          // `removeRowImmediately` takes a ROW id (it detects Bundle ownership
-          // itself, by matching `bundle.itemId === rowId`) — never the Bundle's
-          // OWN key, which is a different id space entirely and would silently
-          // match no row at all. Uses the Bundle's own claimed `itemId`
-          // directly rather than `selectedBundleRow` (which requires that row
-          // to actually be found by scanning `items[]`): the match inside
-          // `removeRowImmediately` is a plain string comparison and needs
-          // nothing more, so Remove still works even where the row lookup
-          // itself comes back null.
-          onRemove={() => { if (selectedBundle.itemId !== '') void controller.removeRowImmediately(selectedBundle.itemId); }}
+          // The same immediate confirm-then-save lifecycle the Bundle row's
+          // own Remove/Delete uses, addressed by the Bundle's OWN key
+          // directly — never inferred from a row id (which a Bundle whose
+          // own `itemId` is blank, not merely unresolved, would have none
+          // of at all).
+          onRemove={() => { void controller.removeBundleImmediately(selectedBundleKey); }}
         />
       )}
     </div>

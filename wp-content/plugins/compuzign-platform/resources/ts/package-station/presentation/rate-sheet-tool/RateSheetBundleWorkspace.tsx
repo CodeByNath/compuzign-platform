@@ -128,22 +128,21 @@ export function RateSheetBundleWorkspace({
       ) : (
         // A stale/inconsistent link — this Bundle's own claimed row cannot be
         // found in the sheet's items[] (never possible for one minted through
-        // the current architecture, but reachable on data predating it). Just
-        // like the read card's own Remove, this addresses the Bundle by its
-        // OWN claimed itemId directly — removeRowImmediately's Bundle
-        // detection matches by that string alone, needing no resolved row.
+        // the current architecture, but reachable on data predating it), or
+        // this Bundle was never linked to a row at all (a blank itemId, not
+        // merely one that fails to resolve). Either way, addressed by the
+        // Bundle's OWN key directly — never a row id, which a blank-itemId
+        // Bundle has none of.
         <div class="cz-station-empty">
           <p>This Bundle's own linked Rate Sheet row could not be found. It can only be removed.</p>
-          {bundle.itemId !== '' && (
-            <button
-              type="button"
-              class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
-              disabled={rowLocked}
-              onClick={() => { void controller.removeRowImmediately(bundle.itemId); }}
-            >
-              Remove Bundle
-            </button>
-          )}
+          <button
+            type="button"
+            class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
+            disabled={rowLocked}
+            onClick={() => { void controller.removeBundleImmediately(bundleKey); }}
+          >
+            Remove Bundle
+          </button>
         </div>
       )}
 

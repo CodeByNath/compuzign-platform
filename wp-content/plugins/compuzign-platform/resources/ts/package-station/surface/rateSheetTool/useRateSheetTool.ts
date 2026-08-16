@@ -173,6 +173,18 @@ export interface RateSheetToolController {
     initialUnitPrice: number,
   ) => Promise<boolean>;
   deleteBundle:         (key: string) => void;
+  /**
+   * Deletes a Bundle immediately — one confirm, one full-manager save, the
+   * same lifecycle `removeRowImmediately` gives any row's own Remove/Delete.
+   * Addressed by the Bundle's OWN key directly, never inferred from a row
+   * id: `removeRowImmediately` detects Bundle ownership by matching a row id
+   * against `bundle.itemId`, which only works when that row id is known and
+   * genuinely belongs to the Bundle — a Bundle whose own `itemId` is blank
+   * (never linked to a row at all, not just a row that no longer resolves)
+   * has no row id to detect it by. This command needs none: it already knows
+   * exactly which Bundle to remove.
+   */
+  removeBundleImmediately: (key: string) => Promise<void>;
   // Selected-sheet edits.
   setTitle:             (title: string) => void;
   /** Creates a group in the selected sheet. Returns its stored id for the row that asked. */
@@ -598,6 +610,22 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
       // The workspace the deleted Bundle owned is gone, so focus returns to the
       // sheet's own rows rather than to a key that now addresses nothing.
       setSelectedBundleKey((current) => (current === key ? null : current));
+    },
+    removeBundleImmediately: async (key) => {
+      if (readModel == null || selectedKey == null || selected === null) return;
+      // Only one mutating row/Bundle action at a time — the same lock every
+      // row's own Remove/Delete obeys.
+      if (editingRowId !== null) return;
+      if (!window.confirm('Remove this Bundle? This saves immediately and cannot be undone from here. The Rate Sheet’s own rows are not affected.')) return;
+      const nextSheets = sheets.map((sheet) => (sheet.key === selectedKey
+        ? { ...deleteEditorBundle(sheet, key), key: sheet.key }
+        : sheet));
+      const removed = await persist(nextSheets, deletions, readModel.sources, units, true);
+      if (removed) {
+        setSelectedBundleKey((current) => (current === key ? null : current));
+        setEditingRowId(null);
+        setEditingRowSnapshot(null);
+      }
     },
     setTitle: (title) => editSelected((value) => ({ ...value, title })),
     // The group belongs to the selected sheet, so its id is minted from that

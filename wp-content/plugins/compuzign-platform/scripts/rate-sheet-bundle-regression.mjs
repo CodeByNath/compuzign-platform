@@ -847,9 +847,8 @@ check('the selection reconciles onto the one remaining Bundle — Bundle A', chi
 // ── H) Remove still works even when the Bundle's OWN row fails to resolve ──
 // A defensive regression: the read card's Remove must not silently no-op
 // when `findBundleRow()` comes back null for some reason (a stale or
-// inconsistent stored link) — it must address the Bundle by its OWN claimed
-// `itemId` directly, which `removeRowImmediately`'s Bundle-detection matches
-// by plain string equality, needing no successfully-resolved row object.
+// inconsistent stored link) — `removeBundleImmediately` addresses the Bundle
+// by its OWN key directly, never inferred from a row id.
 console.log("\nH) Remove still deletes the Bundle record even when its own row doesn't resolve in items[]");
 await remount();
 // Seed a Bundle whose item_id names a row that does NOT exist in items[] —
@@ -879,7 +878,7 @@ check("the sheet's own ordinary row is completely untouched", server.manager.rat
 // ── I) The workspace's OWN blank-row fallback offers the same Remove ──────
 // The editor itself must never be a dead end: opening Edit on an orphaned
 // Bundle renders no grid at all (no row to bind), so a "Remove Bundle"
-// action belongs right there too — the same removeRowImmediately(itemId)
+// action belongs right there too — the same removeBundleImmediately(key)
 // path, needing no resolved row.
 console.log("\nI) The Bundle editor's own blank-row fallback still offers Remove");
 await remount();
@@ -914,6 +913,62 @@ check("the sheet's own ordinary row is completely untouched", server.manager.rat
 check(
   'the editor session stays open, now showing the empty-Bundles message rather than a stale selection',
   editorShell() != null && editorShell()?.querySelector('.cz-station-empty')?.textContent.includes('no Bundles left to edit'),
+);
+
+// ── J) Remove works for a Bundle NEVER linked to a row — a blank itemId ──
+// The actual reported case: not merely a link pointing at a row that no
+// longer exists, but a Bundle whose own itemId was always blank — data from
+// before this Bundle's row/Bundle pair was ever minted atomically. Both the
+// read card and the workspace's own fallback must still delete it, since
+// `removeBundleImmediately` is addressed by the Bundle's OWN key and never
+// depends on itemId at all.
+console.log('\nJ) Remove works for a Bundle that was never linked to a row at all (blank itemId)');
+await remount();
+server.manager.rate_sheets[0].bundles.push({
+  bundle_id: 'rsb_neverlinked', platform_id: 'CZPRCBNEVERLINKED', status: 'active', sort_order: 1,
+  item_id: '', supplied_content: [],
+});
+render(null, container);
+render(h(Harness, { recordId: 'rs_1', mode: 'view' }), container);
+await settle();
+selectGroup('Options');
+await settle();
+check('the never-linked Bundle still shows a chip and a readable card', chipLabels().length === 1 && moduleCard('Bundle') != null, chipLabels().join('|'));
+
+const savesBeforeNeverLinkedRemove = saveCalls;
+click(cardActionButton('Bundle', 'Remove'));
+await settle(60);
+check('the read card\'s Remove persists through one full-manager save, with no itemId at all to key off', saveCalls === savesBeforeNeverLinkedRemove + 1, saveCalls - savesBeforeNeverLinkedRemove);
+check(
+  'the never-linked Bundle record is gone',
+  server.manager.rate_sheets[0].bundles.every((b) => b.bundle_id !== 'rsb_neverlinked'),
+  server.manager.rate_sheets[0].bundles.map((b) => b.bundle_id),
+);
+check("the sheet's own ordinary row is completely untouched", server.manager.rate_sheets[0].items.some((item) => item.item_id === 'rate_website'));
+
+// Same case again, but through the workspace's own fallback Remove Bundle
+// button — proving BOTH surfaces work with no itemId whatsoever.
+await remount();
+server.manager.rate_sheets[0].bundles.push({
+  bundle_id: 'rsb_neverlinked2', platform_id: 'CZPRCBNEVERLINKED2', status: 'active', sort_order: 1,
+  item_id: '', supplied_content: [],
+});
+render(null, container);
+render(h(Harness, { recordId: 'rs_1', mode: 'view' }), container);
+await settle();
+selectGroup('Options');
+await settle();
+click(cardEditButton('Bundle'));
+await settle();
+check('the workspace fallback still offers Remove Bundle with no itemId at all', anyButton('Remove Bundle') != null);
+const savesBeforeNeverLinkedWorkspaceRemove = saveCalls;
+click(anyButton('Remove Bundle'));
+await settle(60);
+check('the workspace\'s own Remove persists through one full-manager save', saveCalls === savesBeforeNeverLinkedWorkspaceRemove + 1, saveCalls - savesBeforeNeverLinkedWorkspaceRemove);
+check(
+  'the never-linked Bundle record is gone',
+  server.manager.rate_sheets[0].bundles.every((b) => b.bundle_id !== 'rsb_neverlinked2'),
+  server.manager.rate_sheets[0].bundles.map((b) => b.bundle_id),
 );
 
 console.log('');
