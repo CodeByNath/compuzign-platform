@@ -35,37 +35,27 @@ export interface RateSheetPickerOption {
   id:     string;
   title:  string;
   status: 'active' | 'archived';
-  bundles: { id: string; title: string; status: 'active' | 'archived' }[];
 }
 
 interface Props {
   draft:         TierOverviewEditDraft;
   onChange:      (patch: Partial<TierOverviewEditDraft>) => void;
   rateSheets?:   RateSheetPickerOption[];
+  hasSelections?: boolean;
 }
 
-export function TierOverviewEditor({ draft, onChange, rateSheets = [] }: Props) {
-  const rateSheetOptions = rateSheets.map((sheet) => ({
+export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelections = false }: Props) {
+  // Switching the bound sheet clears this Tier's row selections (enforced at
+  // settle). Confirm first so the change is never silent.
+  const changeRateSheet = (next: string | null) => {
+    if (next === (draft.rate_sheet_id ?? null)) return;
+    if (hasSelections && !window.confirm('Switching Rate Sheet clears this tier\'s selected rows. Continue?')) return;
+    onChange({ rate_sheet_id: next });
+  };
+  const rateSheetOptions: AdminFieldOption[] = rateSheets.map((sheet) => ({
     value: sheet.id,
     label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
-    children: sheet.bundles.map((bundle) => ({
-      value: `bundle:${encodeURIComponent(sheet.id)}:${encodeURIComponent(bundle.id)}`,
-      label: `${bundle.title || '(untitled Bundle)'}${bundle.status === 'archived' ? ' (archived)' : ''}`,
-    })),
   }));
-  const availableRateSheetIds = new Set(rateSheets.map((sheet) => sheet.id));
-  const availableBundleKeys = new Set(rateSheets.flatMap((sheet) => sheet.bundles.map((bundle) => (
-    `bundle:${encodeURIComponent(sheet.id)}:${encodeURIComponent(bundle.id)}`
-  ))));
-  const selectedRateSheetIds = (draft.rate_sheet_ids ?? (draft.rate_sheet_id ? [draft.rate_sheet_id] : []))
-    .filter((id) => availableRateSheetIds.has(id));
-  const selectedRateSheetBundles = (draft.rate_sheet_bundles ?? []).filter((entry) => (
-    availableBundleKeys.has(`bundle:${encodeURIComponent(entry.rate_sheet_id)}:${encodeURIComponent(entry.bundle_id)}`)
-  ));
-  const selectedRateSheetAccess = [
-    ...selectedRateSheetIds,
-    ...selectedRateSheetBundles.map((entry) => `bundle:${encodeURIComponent(entry.rate_sheet_id)}:${encodeURIComponent(entry.bundle_id)}`),
-  ];
   const isAddon: boolean = draft.is_addon ?? false;
   // An occupant belongs to its Tier Group, not one customer audience. Unset
   // defaults to every group.
@@ -73,21 +63,16 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [] }: Props) 
 
   return (
     <div class="cz-tf-form">
-      <MultiSelectField
-        id="tier-rate-sheets"
-        label="Rate Sheets"
-        options={rateSheetOptions}
-        selected={selectedRateSheetAccess}
-        emptyLabel="None selected"
-        noOptionsMessage="This Tier Group has not authorized any Rate Sheets."
-        onChange={(next) => {
-          const selected = new Set(next);
-          const rateSheetIds = rateSheets.filter((sheet) => selected.has(sheet.id)).map((sheet) => sheet.id);
-          const rateSheetBundles = rateSheets.flatMap((sheet) => sheet.bundles
-            .filter((bundle) => selected.has(`bundle:${encodeURIComponent(sheet.id)}:${encodeURIComponent(bundle.id)}`))
-            .map((bundle) => ({ rate_sheet_id: sheet.id, bundle_id: bundle.id })));
-          onChange({ rate_sheet_ids: rateSheetIds, rate_sheet_bundles: rateSheetBundles });
+      <AdminField
+        def={{
+          id: 'tier-rate-sheet',
+          type: 'select',
+          label: 'Rate Sheet',
+          unsetLabel: 'Not bound',
+          options: rateSheetOptions,
         }}
+        value={draft.rate_sheet_id ?? ''}
+        onChange={(next: string) => changeRateSheet(next || null)}
       />
 
       {/* An explicit override, not a Rate Sheet resolution outcome — checking

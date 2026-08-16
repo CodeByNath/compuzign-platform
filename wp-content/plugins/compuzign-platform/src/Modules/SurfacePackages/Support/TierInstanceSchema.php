@@ -67,7 +67,6 @@ final class TierInstanceSchema
                 'title'                  => 'Primary Tier Set',
                 'status'                 => $station['platform_status'] ?? 'disabled',
                 'allowed_rate_sheet_ids' => [],
-                'allowed_rate_sheet_bundles' => [],
                 'popular_tier'           => $station['popular_tier'] ?? null,
                 'popular_label'          => $station['popular_label'] ?? '',
                 'tiers'                  => $legacyTiers,
@@ -154,9 +153,6 @@ final class TierInstanceSchema
             'description'            => sanitize_textarea_field((string) ($instance['description'] ?? '')),
             'status'                 => $status,
             'allowed_rate_sheet_ids' => self::sanitizeIdList($instance['allowed_rate_sheet_ids'] ?? []),
-            'allowed_rate_sheet_bundles' => self::sanitizeRateSheetBundleAccessList(
-                $instance['allowed_rate_sheet_bundles'] ?? []
-            ),
             'popular_tier'           => $popularTier,
             'popular_label'          => sanitize_text_field((string) ($instance['popular_label'] ?? '')),
             'tiers'                  => $tiers,
@@ -343,36 +339,6 @@ final class TierInstanceSchema
         ));
     }
 
-    /**
-     * Keep exact Bundle access only when the Bundle is a direct child of the
-     * named allowed Rate Sheet. Never inspect groups, items, or compiled rows.
-     *
-     * @param string[] $allowedRateSheetIds
-     * @return array<int, array{rate_sheet_id:string,bundle_id:string}>
-     */
-    public static function sanitizeAllowedRateSheetBundles(
-        mixed $bundles,
-        array $rateSheets,
-        array $allowedRateSheetIds
-    ): array {
-        $allowedParents = array_fill_keys(self::sanitizeIdList($allowedRateSheetIds), true);
-        $known = [];
-        foreach ($rateSheets as $rateSheet) {
-            if (!is_array($rateSheet)) { continue; }
-            $rateSheetId = sanitize_text_field((string) ($rateSheet['rate_sheet_id'] ?? ''));
-            if ($rateSheetId === '' || !isset($allowedParents[$rateSheetId])) { continue; }
-            foreach (is_array($rateSheet['bundles'] ?? null) ? $rateSheet['bundles'] : [] as $bundle) {
-                if (!is_array($bundle)) { continue; }
-                $bundleId = sanitize_text_field((string) ($bundle['bundle_id'] ?? ''));
-                if ($bundleId !== '') { $known[$rateSheetId . "\0" . $bundleId] = true; }
-            }
-        }
-        return array_values(array_filter(
-            self::sanitizeRateSheetBundleAccessList($bundles),
-            static fn(array $entry): bool => isset($known[$entry['rate_sheet_id'] . "\0" . $entry['bundle_id']])
-        ));
-    }
-
     public static function deriveInstanceStatus(array $instance): string
     {
         return PackageSchema::deriveStationStatus([
@@ -408,24 +374,6 @@ final class TierInstanceSchema
             }
             $seen[$id] = true;
             $out[] = $id;
-        }
-        return $out;
-    }
-
-    /** @return array<int, array{rate_sheet_id:string,bundle_id:string}> */
-    private static function sanitizeRateSheetBundleAccessList(mixed $bundles): array
-    {
-        if (!is_array($bundles)) { return []; }
-        $out = [];
-        $seen = [];
-        foreach ($bundles as $raw) {
-            if (!is_array($raw)) { continue; }
-            $rateSheetId = sanitize_text_field((string) ($raw['rate_sheet_id'] ?? ''));
-            $bundleId = sanitize_text_field((string) ($raw['bundle_id'] ?? ''));
-            $key = $rateSheetId . "\0" . $bundleId;
-            if ($rateSheetId === '' || $bundleId === '' || isset($seen[$key])) { continue; }
-            $seen[$key] = true;
-            $out[] = ['rate_sheet_id' => $rateSheetId, 'bundle_id' => $bundleId];
         }
         return $out;
     }

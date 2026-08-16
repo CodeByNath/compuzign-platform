@@ -17,10 +17,10 @@
 // OPEN Bundle and saves once through the same full-manager save every other
 // mutation in this tool uses. No second endpoint, no second save path.
 //
-// There is deliberately no staging/pricing table: an import creates a Bundle
-// membership around an existing Rate Sheet row. The Bundle's commercial price,
-// unit, quantity and group belong to its own compiled row; the referenced row's
-// identity and definition remain authoritative on its Rate Sheet.
+// There is deliberately no staging/pricing table: what an import produces is
+// supplied CONTENT, and the price, unit, quantity and group belong to the
+// Bundle's own row, edited in the shared row editor. A component's own
+// definition was declared on the Rate Sheet it came from.
 //
 // The Services branch keeps the connect-on-select behaviour "+ Add Service"
 // has always had (`controller.connectServices`): the Rate Sheet read model only
@@ -38,9 +38,10 @@ import { formatUnitPrice } from './rateSheetParts';
 export type BundleImportSource = 'services' | 'rate-sheets';
 
 /**
- * One chosen existing Rate Sheet row, whichever browse path found it. The
- * exact sheet/item address becomes the membership target; none of the source
- * row's identity is recreated or replaced here.
+ * One chosen supplied content, whichever source it came from. It carries the
+ * values the component record is created with — a Rate Sheet row contributes
+ * what it was already worth, a Service inclusion has nothing priced yet — but
+ * none of them are editable here: the Bundle's own row carries the terms.
  */
 interface SelectedEntry extends RateSheetRowEntry {
   ref:    string;
@@ -79,11 +80,12 @@ export function RateSheetBundleImportPicker({
 
   useEffect(() => { if (browsingServices) controller.loadCatalog(); }, [browsingServices]);
 
-  // An exact Rate Sheet row already wrapped by this Bundle is never offered
-  // again. Other rows remain distinct even when they share a Manager source.
-  const usedMemberRefs = useMemo(() => new Set([
-    ...bundle.items.map((row) => `${row.memberRateSheetId ?? ''}\0${row.memberRateSheetItemId ?? ''}`),
-    ...selected.map((entry) => entry.ref),
+  // A source this Bundle already compiles is never offered again — the same
+  // one-row-per-source discipline the sheet's own rows keep, checked here so
+  // the engine never shows a choice Import would silently drop.
+  const usedOptionIds = useMemo(() => new Set([
+    ...bundle.items.map((row) => row.optionId),
+    ...selected.map((entry) => entry.optionId),
   ]), [bundle.items, selected]);
 
   const toggleIn = <T,>(current: Set<T>, value: T): Set<T> => {
@@ -120,27 +122,24 @@ export function RateSheetBundleImportPicker({
     return true;
   }), [controller.catalog, selectedCategoryKeys, serviceQuery]);
 
-  const availableInclusions = useMemo<SelectedEntry[]>(() => controller.bundleSources.flatMap((sheet) =>
-    sheet.rows
-      .filter((row) => row.id !== ''
-        && row.sourceServiceId != null
-        && selectedServiceIds.has(row.sourceServiceId)
-        && !usedMemberRefs.has(bundleSourceRowRef(sheet.id, row))
-        && matchesRow(rowDisplayLabel(row)))
-      .map((row) => ({
-        ref:       bundleSourceRowRef(sheet.id, row),
-        optionId:  row.optionId,
-        label:     rowDisplayLabel(row),
-        origin:    sheet.title || 'Untitled Rate Sheet',
-        unitPrice: row.unitPrice,
-        per:       row.per,
-        quantity:  row.quantity,
-        groupId:   null,
-        memberRateSheetId: sheet.id,
-        memberRateSheetItemId: row.id,
-        memberRateSheetItemPlatformId: row.platformId,
-      })),
-  ), [controller.bundleSources, selectedServiceIds, usedMemberRefs, rowQuery]);
+  const availableInclusions = useMemo<SelectedEntry[]>(() => controller.options
+    .filter((option) => option.sourceServiceId != null
+      && selectedServiceIds.has(option.sourceServiceId)
+      && !usedOptionIds.has(option.id)
+      && matchesRow(option.label))
+    .map((option) => ({
+      ref:       `service ${option.id}`,
+      optionId:  option.id,
+      label:     option.label,
+      origin:    option.sourceServiceTitle ?? 'Service',
+      // A Service inclusion has never been priced — the combination it joins
+      // is what carries a price.
+      unitPrice: 0,
+      per:       'Per item',
+      quantity:  1,
+      groupId:   null,
+    })),
+  [controller.options, selectedServiceIds, usedOptionIds, rowQuery]);
 
   const toggleService = async (service: ServiceSummary) => {
     const wasSelected = selectedServiceIds.has(service.id);
@@ -167,34 +166,28 @@ export function RateSheetBundleImportPicker({
       key:   sheet.key,
       title: sheet.title || 'Untitled Rate Sheet',
       entries: sheet.rows
-        .filter((row) => row.id !== ''
-          && !usedMemberRefs.has(bundleSourceRowRef(sheet.id, row))
-          && matchesRow(rowDisplayLabel(row)))
+        .filter((row) => !usedOptionIds.has(row.optionId) && matchesRow(rowDisplayLabel(row)))
         .map((row): SelectedEntry => ({
-          ref:       bundleSourceRowRef(sheet.id, row),
+          ref:       bundleSourceRowRef(sheet.key, row),
           optionId:  row.optionId,
           label:     rowDisplayLabel(row),
           origin:    sheet.title || 'Untitled Rate Sheet',
-          // The referenced row remains authoritative and is never touched.
-          // These existing fields preserve the membership's established
-          // authoring shape while its exact row address carries identity.
+          // What the source row was already worth, kept as this component's
+          // own record. The source sheet's row is never touched.
           unitPrice: row.unitPrice,
           per:       row.per,
           quantity:  row.quantity,
-          // A source row's group belongs to ITS sheet, so the membership starts
-          // ungrouped; the Bundle's own row carries the commercial group.
+          // A source row's group belongs to ITS sheet, so a component starts
+          // ungrouped; the Bundle's own row carries the group that matters.
           groupId:   null,
-          memberRateSheetId: sheet.id,
-          memberRateSheetItemId: row.id,
-          memberRateSheetItemPlatformId: row.platformId,
         })),
     })),
-  [controller.bundleSources, selectedSheetKeys, usedMemberRefs, rowQuery]);
+  [controller.bundleSources, selectedSheetKeys, usedOptionIds, rowQuery]);
 
   // ── Basket ────────────────────────────────────────────────────────────────
 
   const chooseEntry = (entry: SelectedEntry) =>
-    setSelected((current) => (current.some((chosen) => chosen.ref === entry.ref)
+    setSelected((current) => (current.some((chosen) => chosen.optionId === entry.optionId)
       ? current
       : [...current, entry]));
 
@@ -214,9 +207,6 @@ export function RateSheetBundleImportPicker({
     const ok = await controller.publishRows(selected.map((entry) => ({
       optionId: entry.optionId, unitPrice: entry.unitPrice, per: entry.per,
       quantity: entry.quantity, groupId: entry.groupId, label: entry.label,
-      memberRateSheetId: entry.memberRateSheetId,
-      memberRateSheetItemId: entry.memberRateSheetItemId,
-      memberRateSheetItemPlatformId: entry.memberRateSheetItemPlatformId,
     })));
     setImporting(false);
     if (ok) { setSelected([]); onDone(); }

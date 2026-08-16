@@ -62,15 +62,13 @@ export interface RateSheetEditorRow {
   // the price it ALREADY has, not a price option and not an identity. Blank
   // inherits the built-in "Default Price" name (see `defaultPriceLabel`).
   defaultPriceLabel: string;
-  // BUNDLE AUTHORING ONLY — an optional display-name override on a membership,
-  // and the Bundle title when the Bundle itself is projected through the shared
-  // row editor. Undefined on ordinary sheet rows.
+  // BUNDLE ROWS ONLY — this row's own editable display name, overriding the
+  // Service-resolved `optionLabel`. Undefined on every sheet row (a sheet row
+  // has never had an editable label and still does not), blank on a Bundle row
+  // that inherits. Optional rather than a separate row type precisely so a
+  // Bundle row IS a Rate Sheet row: the same grid, lock editor, and Price
+  // Option tab strip render it with no branch.
   label?: string;
-  // BUNDLE MEMBERSHIPS ONLY — the exact existing Rate Sheet row wrapped by
-  // this membership. Its own CZPRCI remains authoritative and unchanged.
-  memberRateSheetId?: string;
-  memberRateSheetItemId?: string;
-  memberRateSheetItemPlatformId?: string;
 }
 
 /** What a row displays: a Bundle row's own label when set, otherwise the
@@ -99,8 +97,8 @@ export interface RateSheetEditorPriceOption {
 }
 
 /**
- * One Bundle of the selected sheet — a composition space holding memberships
- * around existing Rate Sheet rows. A blank `id` marks a not-yet-persisted Bundle (the backend mints
+ * One Bundle of the selected sheet — a composition space holding complete Rate
+ * Sheet rows. A blank `id` marks a not-yet-persisted Bundle (the backend mints
  * it, exactly like a sheet's own id); `platformId` is the output-only `CZPRCB`.
  * It deliberately holds no groups and no units of its own: its rows use the
  * owning sheet's, which is what keeps a Bundle row a full Rate Sheet row rather
@@ -186,8 +184,8 @@ function toEditorValue(
   const groupIds = new Set(groups.map((group) => group.id));
 
   const items = toEditorRows(sheet.items, itemById, labelById, groupIds);
-  // Bundle memberships retain the established row-shaped authoring fields, but
-  // additionally carry the exact source Rate Sheet-row identity they wrap.
+  // A Bundle's rows project through the SAME row mapper as the sheet's own —
+  // one projection, so a Bundle row can never quietly become a lesser row.
   const bundles = (sheet.bundles ?? [])
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -215,8 +213,8 @@ function toEditorValue(
   return { id: sheet.rate_sheet_id, platformId: sheet.platform_id, title: sheet.title, status: sheet.status, groups, items, bundles };
 }
 
-/** Stored priced rows → editor rows, in stored order. `withLabel` projects a
- *  Bundle membership and its exact referenced Rate Sheet-row address. */
+/** Stored priced rows → editor rows, in stored order. `withLabel` carries a
+ *  Bundle row's own display-label override; a sheet row never has one. */
 function toEditorRows(
   rawItems: readonly PackageRateSheetItem[],
   itemById: Map<string, PackageManagerItem>,
@@ -247,11 +245,6 @@ function toEditorRows(
         })),
         defaultPriceLabel: item.default_price_label ?? '',
         ...(withLabel ? { label: (item as PackageRateSheetBundleItem).label ?? '' } : {}),
-        ...(withLabel ? {
-          memberRateSheetId: (item as PackageRateSheetBundleItem).rate_sheet_id,
-          memberRateSheetItemId: (item as PackageRateSheetBundleItem).rate_sheet_item_id,
-          memberRateSheetItemPlatformId: (item as PackageRateSheetBundleItem).rate_sheet_item_platform_id,
-        } : {}),
       };
     });
 }
@@ -420,9 +413,10 @@ export function deleteEditorGroup(value: RateSheetEditorValue, groupId: string):
 
 /**
  * Every row mutation below is written ONCE, against a plain row list, and then
- * applied by the caller to whichever authoring list is in scope: the sheet's
- * own `items[]`, or one Bundle's memberships. The latter still retain their
- * exact source-row address; these transforms never mutate that source row.
+ * applied by the caller to whichever list is in scope: the sheet's own
+ * `items[]`, or one Bundle's `items[]`. That is what makes a Bundle row a full
+ * Rate Sheet row rather than a lookalike — there is no second implementation of
+ * repricing, regrouping, quantity, or Price Options for it to drift from.
  */
 export function patchRowIn(
   rows: readonly RateSheetEditorRow[],
@@ -441,9 +435,9 @@ export function patchEditorRow(
 }
 
 /**
- * Apply an authoring transform to ONE Bundle's memberships. The referenced
- * Rate Sheet rows, the owning sheet's rows, and every other Bundle remain
- * unchanged.
+ * Apply a row transform to ONE Bundle's rows. The sheet's own rows, and every
+ * other Bundle's, are left exactly as they were — a Bundle row is a separate
+ * record, never a reference to a shared one.
  */
 export function mapEditorBundleRows(
   value: RateSheetEditorValue,
@@ -507,11 +501,8 @@ export interface RateSheetRowEntry {
   per:       PackageRateSheetUnit;
   quantity:  number;
   groupId:   string | null;
-  /** Bundle memberships only — their display-label override. */
+  /** Bundle rows only — the row's own display label. See `RateSheetEditorRow.label`. */
   label?:    string;
-  memberRateSheetId?: string;
-  memberRateSheetItemId?: string;
-  memberRateSheetItemPlatformId?: string;
 }
 
 export function addRowsIn(
@@ -521,22 +512,13 @@ export function addRowsIn(
   withLabel = false,
 ): RateSheetEditorRow[] {
   const optionById = new Map(options.map((option) => [option.id, option]));
-  const membershipKey = (value: {
-    optionId: string;
-    memberRateSheetId?: string;
-    memberRateSheetItemId?: string;
-  }): string => withLabel
-    ? `${value.memberRateSheetId ?? ''}\0${value.memberRateSheetItemId ?? ''}`
-    : value.optionId;
-  const existing = new Set(rows.map(membershipKey));
+  const existing = new Set(rows.map((row) => row.optionId));
   const added: RateSheetEditorRow[] = [];
   for (const entry of entries) {
-    const entryKey = membershipKey(entry);
-    if (existing.has(entryKey)) continue;
-    if (withLabel && (!entry.memberRateSheetId || !entry.memberRateSheetItemId)) continue;
+    if (existing.has(entry.optionId)) continue;
     const option = optionById.get(entry.optionId);
     if (!option) continue;
-    existing.add(entryKey);
+    existing.add(entry.optionId);
     added.push({
       id: '', optionId: option.id, optionLabel: option.label,
       platformId: undefined,
@@ -545,11 +527,6 @@ export function addRowsIn(
       priceOptions: [],
       defaultPriceLabel: '',
       ...(withLabel ? { label: entry.label ?? '' } : {}),
-      ...(withLabel ? {
-        memberRateSheetId: entry.memberRateSheetId,
-        memberRateSheetItemId: entry.memberRateSheetItemId,
-        memberRateSheetItemPlatformId: entry.memberRateSheetItemPlatformId,
-      } : {}),
     });
   }
   return added.length === 0 ? [...rows] : [...rows, ...added];
@@ -565,8 +542,7 @@ export function addEditorRows(
 }
 
 // ── Bundles (pure) ────────────────────────────────────────────────────────────
-// A sheet's own Bundles: composition spaces holding memberships around exact
-// existing Rate Sheet rows.
+// A sheet's own Bundles: composition spaces holding complete Rate Sheet rows.
 // Everything here is a transform of the SELECTED sheet's editor value — a
 // Bundle never escapes the sheet that owns it, and none of this mints an id.
 
@@ -625,18 +601,21 @@ export function patchEditorBundle(
   };
 }
 
-/** Remove a Bundle and its memberships. Referenced Rate Sheet rows are untouched. */
+/** Remove a Bundle and every row it holds. The sheet's own rows are untouched:
+ *  a Bundle row is a separate record, never a reference to a sheet row. */
 export function deleteEditorBundle(value: RateSheetEditorValue, key: string): RateSheetEditorValue {
   return { ...value, bundles: value.bundles.filter((bundle) => bundleKey(bundle) !== key) };
 }
 
 /**
  * What a Bundle's single row shows in its Supplied content cell: the display
- * label of every membership it compiles, in stored order.
+ * label of every component it compiles, in stored order.
  *
- * Each membership keeps its `CZPRCBI` while pointing at the exact original
- * row/CZPRCI. The authoring UI does not re-declare or replace that source-row
- * identity, which is why the cell is read-only.
+ * This is the read side of "a Bundle is one Rate Sheet row". Each component
+ * keeps its own stored record and identity (`CZPRCBI`) exactly as before — what
+ * the authoring UI no longer does is re-declare that component's definition,
+ * because it was already declared on the Rate Sheet the component came from.
+ * That is why the cell is read-only.
  */
 export function bundleSuppliedContent(bundle: RateSheetEditorBundle): string[] {
   return bundle.items.map(rowDisplayLabel);
@@ -691,7 +670,7 @@ export function bundleAsEditorRow(bundle: RateSheetEditorBundle): RateSheetEdito
  * The rows handed over are the editor's own rows, so what the engine shows is
  * exactly what the sheet holds, including unsaved edits. Composing FROM the
  * sheet currently being edited is deliberately allowed: the resulting Bundle
- * membership references that exact persisted row either way.
+ * row is a separate record either way.
  */
 export interface BundleSourceSheet {
   key:    string;
@@ -701,7 +680,7 @@ export interface BundleSourceSheet {
   rows:   readonly RateSheetEditorRow[];
 }
 
-/** One persisted row of one source sheet, addressed across the collection. */
+/** One row of one source sheet, addressed across the whole collection. */
 export function bundleSourceRowRef(sheetKey: string, row: RateSheetEditorRow): string {
   return `${sheetKey} ${rowKey(row)}`;
 }
@@ -893,16 +872,14 @@ function toStoredSheet(value: RateSheetEditorValue): PackageRateSheet {
       items:      bundle.items.map((row, rowIndex) => ({
         ...toStoredRow(row, rowIndex),
         label: (row.label ?? '').trim(),
-        rate_sheet_id: row.memberRateSheetId ?? '',
-        rate_sheet_item_id: row.memberRateSheetItemId ?? '',
       })),
     })),
   };
 }
 
 /** One editor row → its stored shape. Ids preserved; a blank id is left for
- *  the backend to mint/derive. Bundle memberships add their exact referenced
- *  row address in `toStoredSheet()`. */
+ *  the backend to mint/derive. Shared by the sheet's own rows and its
+ *  Bundles' rows — a Bundle row stores the same fields, plus its `label`. */
 function toStoredRow(row: RateSheetEditorRow, index: number): PackageRateSheetItem {
   return {
     item_id:        row.id,

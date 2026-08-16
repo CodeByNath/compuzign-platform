@@ -16,7 +16,6 @@ import type {
   TierFaqsShellData,
 } from '../schema/bindings/tier';
 import { relationshipDisplayLabel } from '../../rateSheetLabels';
-import { buildOccupantRateSheetCatalogue } from '../../tierRateSheetCatalogue';
 import { TIER_LABELS } from '../../vocabulary';
 
 // Whether a shell holds SETTLED content (an occupant). Client-side heuristic over
@@ -128,13 +127,8 @@ export function buildTierDetail(
   if (!view) return null;
   const detail = view.detail;
 
-  const rateSheetCatalogue = buildOccupantRateSheetCatalogue(
-    svc,
-    detail.rate_sheet_ids,
-    detail.rate_sheet_bundles,
-    detail.rate_sheet_id,
-    detail.rate_sheet_selections,
-  );
+  // The selectable rows are those of the sheet this Tier is bound to.
+  const rateSheetCatalogue = buildRateSheetCatalogue(svc, detail.rate_sheet_id, detail.rate_sheet_selections);
   const isPopular = pkg.popularTier === editingTierId;
   const tierBusy = pkg.saving ? 'discard-draft' : null;
 

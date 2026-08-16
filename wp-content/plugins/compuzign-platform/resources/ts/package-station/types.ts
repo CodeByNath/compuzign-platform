@@ -22,8 +22,6 @@ export interface BinnedOccupant {
   contact?:             boolean;
   billing_cycle?:       string | null;
   rate_sheet_id?:       string | null;
-  rate_sheet_ids?:      string[];
-  rate_sheet_bundles?:  TierRateSheetBundleAccess[];
   inclusions_override?: InclusionItem[];
   rate_sheet_items?: TierRateSheetSelection[];
   ideal_for?: string;
@@ -43,7 +41,6 @@ export interface OccupantBinEntry {
 export interface ServicePackageStationData {
   tier_instance_id?: string;
   allowed_rate_sheet_ids?: string[];
-  allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[];
   platform_status: string;
   tiers:           Record<string, SurfaceTierDetail>;
   popular_tier:    string | null;
@@ -193,11 +190,6 @@ export interface PackageFamilyDeleteResponse {
 
 export type TierInstanceStatus = 'draft' | 'active' | 'disabled' | 'archived' | 'trashed';
 
-export interface TierRateSheetBundleAccess {
-  rate_sheet_id: string;
-  bundle_id: string;
-}
-
 /** Package-owned Tier capability instance. Consumer use is a separate assignment. */
 export interface TierInstanceSummary {
   tier_instance_id:       string;
@@ -206,7 +198,6 @@ export interface TierInstanceSummary {
   description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
-  allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[];
   popular_tier:           string | null;
   popular_label:          string;
   readiness:              'ready' | 'not-ready';
@@ -222,7 +213,6 @@ export interface TierInstanceRecord {
   description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
-  allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[];
   popular_tier:           string | null;
   popular_label:          string;
   tiers: Record<string, {
@@ -340,10 +330,16 @@ export interface PackageRateSheetPriceOption {
 
 export interface PackageRateSheetItem {
   item_id: string;
+  /**
+   * Set only on the single row a Bundle offers upstream: it stands behind
+   * itself rather than behind supplied content. Read inside the Rate Sheet's
+   * own projection; consumers read this row like any other priced row.
+   */
+  self_priced?: boolean;
   /** A row's own display name, when it has one. */
   label?: string;
   /** Present on a Bundle's row — its ingredients, for presentation only. */
-  includes?: { item_id: string; source_item_id: string; label: string; quantity: number }[];
+  includes?: { item_id: string; label: string; quantity: number }[];
   platform_id?: string;
   source_item_id: string;
   unit_price: number;
@@ -377,11 +373,6 @@ export type PackageRateSheetStatus = 'active' | 'archived';
  */
 export interface PackageRateSheetBundleItem extends PackageRateSheetItem {
   label: string;
-  /** Exact existing Rate Sheet row wrapped by this membership. */
-  rate_sheet_id: string;
-  rate_sheet_item_id: string;
-  /** Output-only authoritative CZPRCI of that existing row. */
-  rate_sheet_item_platform_id?: string;
 }
 
 /**
@@ -394,8 +385,6 @@ export interface PackageRateSheetBundleItem extends PackageRateSheetItem {
 export interface PackageRateSheetBundle {
   bundle_id: string;
   platform_id?: string;
-  /** Output-only CZPRCI of the normal Rate Sheet row compiled from this Bundle. */
-  compiled_item_platform_id?: string;
   title: string;
   status: PackageRateSheetStatus;
   sort_order: number;
@@ -564,8 +553,6 @@ export interface SurfaceTierDetail {
   // The Rate Sheet this occupant's selections resolve against. Null when the
   // occupant is unbound (no selections). Switching it clears the selections.
   rate_sheet_id: string | null;
-  rate_sheet_ids?: string[];
-  rate_sheet_bundles?: TierRateSheetBundleAccess[];
   inclusions_override: InclusionItem[];
   rate_sheet_items: TierRateSheetSelection[];
   rate_sheet_selections: TierResolvedRateSheetSelection[];
@@ -704,8 +691,6 @@ export interface TierOverviewDraft {
   // The occupant's bound Rate Sheet. Edited in the overview module so a switch
   // commits (and clears selections) before new rows are chosen.
   rate_sheet_id?: string | null;
-  rate_sheet_ids?: string[];
-  rate_sheet_bundles?: TierRateSheetBundleAccess[];
   // Selection mode — see SurfaceTierDetail.is_addon. Optional here only
   // because it rides the same generic draft payload shape; the editor always
   // supplies an explicit boolean.
@@ -739,8 +724,6 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   // Rate Sheet does. Display only — the selection itself is still the absence
   // of a `price_option_id`.
   default_price_label?: string;
-  /** Presentation-only ingredients of one compiled Bundle commercial row. */
-  includes?: { item_id: string; source_item_id: string; label: string; quantity: number }[];
 }
 
 export interface TierDrafts {
