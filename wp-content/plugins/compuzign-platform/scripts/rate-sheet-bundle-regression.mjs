@@ -876,6 +876,46 @@ check(
 );
 check("the sheet's own ordinary row is completely untouched", server.manager.rate_sheets[0].items.some((item) => item.item_id === 'rate_website'));
 
+// ── I) The workspace's OWN blank-row fallback offers the same Remove ──────
+// The editor itself must never be a dead end: opening Edit on an orphaned
+// Bundle renders no grid at all (no row to bind), so a "Remove Bundle"
+// action belongs right there too — the same removeRowImmediately(itemId)
+// path, needing no resolved row.
+console.log("\nI) The Bundle editor's own blank-row fallback still offers Remove");
+await remount();
+server.manager.rate_sheets[0].bundles.push({
+  bundle_id: 'rsb_orphan2', platform_id: 'CZPRCBORPHAN2', status: 'active', sort_order: 1,
+  item_id: 'rate_missing_row_2', supplied_content: [],
+});
+render(null, container);
+render(h(Harness, { recordId: 'rs_1', mode: 'view' }), container);
+await settle();
+selectGroup('Options');
+await settle();
+click(cardEditButton('Bundle'));
+await settle();
+check('the editor opens on the orphaned Bundle', bundleWorkspace() != null);
+check('no row grid renders — there is nothing to bind to', rowsIn().length === 0);
+check(
+  'the workspace itself offers a Remove Bundle action instead of staying a dead end',
+  anyButton('Remove Bundle') != null,
+);
+
+const savesBeforeWorkspaceRemove = saveCalls;
+click(anyButton('Remove Bundle'));
+await settle(60);
+check('it persists through one full-manager save', saveCalls === savesBeforeWorkspaceRemove + 1, saveCalls - savesBeforeWorkspaceRemove);
+check(
+  'the orphaned Bundle record is gone',
+  server.manager.rate_sheets[0].bundles.every((b) => b.bundle_id !== 'rsb_orphan2'),
+  server.manager.rate_sheets[0].bundles.map((b) => b.bundle_id),
+);
+check("the sheet's own ordinary row is completely untouched", server.manager.rate_sheets[0].items.some((item) => item.item_id === 'rate_website'));
+check(
+  'the editor session stays open, now showing the empty-Bundles message rather than a stale selection',
+  editorShell() != null && editorShell()?.querySelector('.cz-station-empty')?.textContent.includes('no Bundles left to edit'),
+);
+
 console.log('');
 if (failures.length > 0) {
   console.error(`\n${failures.length} check(s) failed.`);

@@ -87,7 +87,7 @@ export function RateSheetBundleWorkspace({
       )}
 
       {/* The Bundle's own row, through the shared grid and the shared lock. */}
-      {bundleRow !== null && (
+      {bundleRow !== null ? (
         <RateSheetGridEditor
           rows={[bundleRow]}
           groups={sheet.groups}
@@ -125,6 +125,26 @@ export function RateSheetBundleWorkspace({
             )),
           }}
         />
+      ) : (
+        // A stale/inconsistent link — this Bundle's own claimed row cannot be
+        // found in the sheet's items[] (never possible for one minted through
+        // the current architecture, but reachable on data predating it). Just
+        // like the read card's own Remove, this addresses the Bundle by its
+        // OWN claimed itemId directly — removeRowImmediately's Bundle
+        // detection matches by that string alone, needing no resolved row.
+        <div class="cz-station-empty">
+          <p>This Bundle's own linked Rate Sheet row could not be found. It can only be removed.</p>
+          {bundle.itemId !== '' && (
+            <button
+              type="button"
+              class="cz-admin-btn cz-admin-btn--danger cz-admin-btn--sm"
+              disabled={rowLocked}
+              onClick={() => { void controller.removeRowImmediately(bundle.itemId); }}
+            >
+              Remove Bundle
+            </button>
+          )}
+        </div>
       )}
 
     </div>
