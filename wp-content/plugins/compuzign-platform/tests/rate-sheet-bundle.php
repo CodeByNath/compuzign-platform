@@ -497,10 +497,11 @@ $readModel = PackageManagerSchema::buildReadModel(
             ],
             'bundles' => [[
                 'bundle_id' => 'rsb_tier', 'title' => 'Digital Banking Website', 'status' => 'active', 'sort_order' => 0,
-                // Chef's Soup: its own commercial price, deliberately NOT the
+                // The compiled offer has its own commercial price, deliberately
+                // NOT the
                 // sum of its ingredients (80 + 30×2 = 140).
                 'unit_price' => 75, 'per' => 'Per item',
-                'price_options' => [['option_id' => 'opt_soup_annual', 'label' => 'Annual', 'unit_price' => 750]],
+                'price_options' => [['option_id' => 'opt_bundle_annual', 'label' => 'Annual', 'unit_price' => 750]],
                 'items' => [
                     // The SAME supplied content as the sheet's own row above, at
                     // this Bundle's own price — a different record, same item_id.
@@ -521,75 +522,75 @@ $readModel = PackageManagerSchema::buildReadModel(
     [],
     'active'
 );
-$carrot    = PackageManagerSchema::deriveRateItemId($itemA);
-$potato    = PackageManagerSchema::deriveRateItemId($itemB);
-$soupRow   = PackageManagerSchema::deriveBundleRowId('rsb_tier');
-$ingredient = PackageManagerSchema::deriveBundleRateItemId('rsb_tier', 'rs_tier:' . $carrot);
+$rowA      = PackageManagerSchema::deriveRateItemId($itemA);
+$rowB      = PackageManagerSchema::deriveRateItemId($itemB);
+$compiledBundleRowId = PackageManagerSchema::deriveBundleRowId('rsb_tier');
+$ingredient = PackageManagerSchema::deriveBundleRateItemId('rsb_tier', 'rs_tier:' . $rowA);
 $offered   = array_column($readModel['rate_sheets'][0]['items'], 'item_id');
 
-check_bundle(in_array($carrot, $offered, true), "the sheet's own row stays individually sellable");
-check_bundle(in_array($potato, $offered, true), 'a second normal CZPRCI row is offered beside it');
+check_bundle(in_array($rowA, $offered, true), "the sheet's own row stays individually sellable");
+check_bundle(in_array($rowB, $offered, true), 'a second normal CZPRCI row is offered beside it');
 check_bundle(!array_key_exists('consumable_items', $readModel['rate_sheets'][0]), 'the Bundle needs no new read-model field — it is in the rows every consumer already reads');
-check_bundle(in_array($soupRow, $offered, true), 'the Bundle is offered upstream as ONE priced row');
+check_bundle(in_array($compiledBundleRowId, $offered, true), 'the Bundle is offered upstream as ONE priced row');
 check_bundle(!in_array($ingredient, $offered, true), 'its membership identities are not separately chargeable rows');
 check_bundle(count($offered) === 3, 'two normal rows plus one compiled Bundle row share the owning sheet items[]', json_encode($offered));
-check_bundle(str_starts_with($soupRow, 'rate_'), "the Bundle's row id is an ordinary Rate Sheet row id");
-$compiledSoup = array_values(array_filter(
+check_bundle(str_starts_with($compiledBundleRowId, 'rate_'), "the Bundle's row id is an ordinary Rate Sheet row id");
+$compiledBundleRow = array_values(array_filter(
     $readModel['rate_sheets'][0]['items'],
-    static fn(array $row): bool => ($row['item_id'] ?? '') === $soupRow
+    static fn(array $row): bool => ($row['item_id'] ?? '') === $compiledBundleRowId
 ))[0];
-check_bundle(!array_key_exists('self_priced', $compiledSoup), 'the published row carries no Bundle-origin pricing switch');
-check_bundle($compiledSoup['source_item_id'] === '', 'the empty source_item_id remains only as the authoring round-trip guard');
+check_bundle(!array_key_exists('self_priced', $compiledBundleRow), 'the published row carries no Bundle-origin pricing switch');
+check_bundle($compiledBundleRow['source_item_id'] === '', 'the empty source_item_id remains only as the authoring round-trip guard');
 
 // The Bundle's own commercial price — deliberately NOT the sum of its rows.
-$soup = PackageManagerSchema::projectTierRateSheetWith(
-    $readModel, [['item_id' => $soupRow, 'quantity' => 1]], 'rs_tier'
+$bundleProjection = PackageManagerSchema::projectTierRateSheetWith(
+    $readModel, [['item_id' => $compiledBundleRowId, 'quantity' => 1]], 'rs_tier'
 );
-check_bundle($soup['price'] === 75.0, "consuming the Bundle charges the Bundle's own price, not the sum of its rows", $soup['price']);
-check_bundle($soup['selections'][0]['label'] === 'Digital Banking Website', 'the Bundle row names itself');
-check_bundle($soup['selections'][0]['available'] === true && $soup['selections'][0]['resolved'] === true, 'and resolves on its own, needing no supplied content behind it');
-check_bundle(count($soup['selections'][0]['includes']) === 2, 'carrying its ingredients for the Includes presentation');
+check_bundle($bundleProjection['price'] === 75.0, "consuming the Bundle charges the Bundle's own price, not the sum of its rows", $bundleProjection['price']);
+check_bundle($bundleProjection['selections'][0]['label'] === 'Digital Banking Website', 'the Bundle row names itself');
+check_bundle($bundleProjection['selections'][0]['available'] === true && $bundleProjection['selections'][0]['resolved'] === true, 'and resolves on its own, needing no supplied content behind it');
+check_bundle(count($bundleProjection['selections'][0]['includes']) === 2, 'carrying its ingredients for the Includes presentation');
 check_bundle(
-    ($soup['selections'][0]['includes'][0]['source_type'] ?? null) === 'inclusion'
-        && ($soup['selections'][0]['includes'][0]['source_id'] ?? null) === 'src-a',
+    ($bundleProjection['selections'][0]['includes'][0]['source_type'] ?? null) === 'inclusion'
+        && ($bundleProjection['selections'][0]['includes'][0]['source_id'] ?? null) === 'src-a',
     'compiled children retain resolved inclusion provenance through the Tier projector'
 );
-$soupInclusions = PackageManagerSchema::projectTierInclusions($soup['selections']);
+$bundleInclusions = PackageManagerSchema::projectTierInclusions($bundleProjection['selections']);
 check_bundle(
-    array_column($soupInclusions, 'id') === ['src-a', 'src-b'],
+    array_column($bundleInclusions, 'id') === ['src-a', 'src-b'],
     'the shared backend inclusion projection expands Bundle children without charging them'
 );
-check_bundle(!array_key_exists('bundle_id', $soup['selections'][0]), 'a resolved selection carries no Bundle-shaped field');
-check_bundle($soup['pricing']['unresolved'] === [] && $soup['pricing']['complete'] === true, 'the shared pricing engine reports it complete', json_encode($soup['pricing']['unresolved']));
+check_bundle(!array_key_exists('bundle_id', $bundleProjection['selections'][0]), 'a resolved selection carries no Bundle-shaped field');
+check_bundle($bundleProjection['pricing']['unresolved'] === [] && $bundleProjection['pricing']['complete'] === true, 'the shared pricing engine reports it complete', json_encode($bundleProjection['pricing']['unresolved']));
 
 // An ordinary row is completely unaffected by any of it.
 $plain = PackageManagerSchema::projectTierRateSheetWith(
-    $readModel, [['item_id' => $carrot, 'quantity' => 1]], 'rs_tier'
+    $readModel, [['item_id' => $rowA, 'quantity' => 1]], 'rs_tier'
 );
 check_bundle($plain['price'] === 100.0, "the sheet's own row prices exactly as before");
 check_bundle($plain['selections'][0]['label'] === 'Website', 'carrying its supplied content label');
 
 // Both, together: one commercial item plus one ordinary row.
 $both = PackageManagerSchema::projectTierRateSheetWith($readModel, [
-    ['item_id' => $carrot, 'quantity' => 1],
-    ['item_id' => $soupRow, 'quantity' => 1],
+    ['item_id' => $rowA, 'quantity' => 1],
+    ['item_id' => $compiledBundleRowId, 'quantity' => 1],
 ], 'rs_tier');
 check_bundle($both['price'] === 175.0, 'selecting both charges the row plus the Bundle price, never the ingredients twice', $both['price']);
 
 $edition = PackageManagerSchema::projectEditionPrices($readModel, [[
     'edition_id' => 'edition_bundle',
     'rate_sheet_id' => 'rs_tier',
-    'rate_sheet_items' => [['item_id' => $soupRow, 'quantity' => 1]],
+    'rate_sheet_items' => [['item_id' => $compiledBundleRowId, 'quantity' => 1]],
 ]]);
 check_bundle($edition[0]['price'] === 75.0, 'Edition pricing consumes the same compiled row through the shared projector');
 
 // The Bundle's own Price Options behave like any row's.
-$soupAnnual = PackageManagerSchema::projectTierRateSheetWith(
-    $readModel, [['item_id' => $soupRow, 'quantity' => 1, 'price_option_id' => 'opt_soup_annual']], 'rs_tier'
+$bundleAnnual = PackageManagerSchema::projectTierRateSheetWith(
+    $readModel, [['item_id' => $compiledBundleRowId, 'quantity' => 1, 'price_option_id' => 'opt_bundle_annual']], 'rs_tier'
 );
-check_bundle($soupAnnual['price'] === 750.0, "the Bundle's own Price Option prices it");
+check_bundle($bundleAnnual['price'] === 750.0, "the Bundle's own Price Option prices it");
 $foreign = PackageManagerSchema::projectTierRateSheetWith(
-    $readModel, [['item_id' => $soupRow, 'quantity' => 1, 'price_option_id' => 'opt_sheet']], 'rs_tier'
+    $readModel, [['item_id' => $compiledBundleRowId, 'quantity' => 1, 'price_option_id' => 'opt_sheet']], 'rs_tier'
 );
 check_bundle($foreign['selections'][0]['unit_price'] === null, "another row's Price Option does not resolve against it");
 
@@ -598,20 +599,20 @@ $archivedModel = PackageManagerSchema::buildReadModel(701, PackageManagerSchema:
     'items' => $sourceItems,
     'rate_sheets' => [[
         'rate_sheet_id' => 'rs_arch', 'title' => 'Archived', 'status' => 'active', 'groups' => [], 'items' => [],
-        'bundles' => [['bundle_id' => 'rsb_arch', 'title' => 'Retired Soup', 'status' => 'archived', 'unit_price' => 75, 'per' => 'Per item', 'items' => []]],
+        'bundles' => [['bundle_id' => 'rsb_arch', 'title' => 'Retired Bundle', 'status' => 'archived', 'unit_price' => 75, 'per' => 'Per item', 'items' => []]],
     ]],
 ]), [['id' => 'src-a', 'label' => 'Website']], [], 'active');
 check_bundle($archivedModel['rate_sheets'][0]['items'] === [], 'an archived Bundle offers nothing, mirroring an archived sheet');
 
 // Tier selection storage is untouched by any of this.
 $stored = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::sanitizeTierRateSheetSelections([
-    ['item_id' => $carrot, 'quantity' => 2],
-    ['item_id' => $soupRow, 'quantity' => 1, 'price_option_id' => 'opt_soup_annual'],
+    ['item_id' => $rowA, 'quantity' => 2],
+    ['item_id' => $compiledBundleRowId, 'quantity' => 1, 'price_option_id' => 'opt_bundle_annual'],
 ]);
 check_bundle(
     $stored === [
-        ['item_id' => $carrot, 'quantity' => 2, 'price_option_id' => null],
-        ['item_id' => $soupRow, 'quantity' => 1, 'price_option_id' => 'opt_soup_annual'],
+        ['item_id' => $rowA, 'quantity' => 2, 'price_option_id' => null],
+        ['item_id' => $compiledBundleRowId, 'quantity' => 1, 'price_option_id' => 'opt_bundle_annual'],
     ],
     'stored Tier selections keep the pre-Bundle shape exactly: { item_id, quantity, price_option_id }',
     json_encode($stored)

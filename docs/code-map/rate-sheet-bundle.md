@@ -58,7 +58,7 @@ The admin surface is its own map: [Rate Sheet Bundle Authoring](rate-sheet-bundl
 ## Bundle pricing and consumption
 
 A Bundle's **own commercial price** is independent of what its components sum
-to: Chef's Soup is $75 even if carrot + potato + chicken is $90. Upstream, the
+to: a compiled offer may be $75 even when its component rows total $90. Upstream, the
 Bundle **is** one row:
 
 ```text
