@@ -758,6 +758,92 @@ check(
   server.manager.rate_sheets[0].items.filter((item) => (item.bundle_id ?? '') !== '').length,
 );
 
+// ── G) The read card's own Remove deletes by the Bundle's REAL linked row ──
+// Regression for a specific identity-mismatch bug: RateSheetBundleRead's
+// Remove used to pass the Bundle's OWN key (a `rsb_…`/`new:…` id) straight
+// into `removeRowImmediately`, which accepts a Rate Sheet ROW id and detects
+// Bundle ownership itself by matching `bundle.itemId === rowId`. Since a
+// Bundle's own key is never equal to any row's key, that comparison always
+// missed — Remove silently fell through to the ordinary-row branch, which
+// then matched no row either, so the confirmed "Remove" was a no-op.
+console.log("\nG) The read card's own Remove identifies the exact linked row — never falls through to ordinary-row deletion");
+await remount();
+selectGroup('Options');
+await settle();
+
+// Bundle A — Website Design, on this same sheet.
+click(addBundleButton());
+await settle();
+click(sheetChip('Websites'));
+await settle();
+click(rowChip('Website Design'));
+await settle();
+click(importActionButton('Import'));
+await settle(60);
+click(buttonIn(rowsIn()[0], 'Cancel')); // lock the freshly opened row
+await settle();
+click(anyButton('Cancel')); // leave the Bundle's own editor session
+await settle();
+if (anyButton('Discard')) { click(anyButton('Discard')); await settle(); }
+
+// Bundle B — Online Banking, referencing the OTHER sheet's row — proves
+// Remove never touches a sibling Bundle.
+click(addBundleButton());
+await settle();
+click(sheetChip('Banking'));
+await settle();
+click(rowChip('Online Banking'));
+await settle();
+click(importActionButton('Import'));
+await settle(60);
+click(buttonIn(rowsIn()[0], 'Cancel'));
+await settle();
+click(anyButton('Cancel'));
+await settle();
+if (anyButton('Discard')) { click(anyButton('Discard')); await settle(); }
+
+check('both Bundles exist, back on the readable Options group', chipLabels().length === 2, chipLabels().join('|'));
+check('back on the readable card — not the inline editor', editorShell() == null);
+
+// Explicitly select Bundle B (the second chip, by creation order) so Remove
+// is proven against a SPECIFIC, deliberately chosen Bundle rather than
+// whichever the switcher happened to auto-select.
+click(chips()[1]);
+await settle();
+
+const bundleAEntry = server.manager.rate_sheets[0].bundles[0];
+const bundleBEntry = server.manager.rate_sheets[0].bundles[1];
+const websiteRowBefore = server.manager.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_website');
+const bankingRowBefore = server.manager.rate_sheets[1].items.find((item) => item.source_item_id === 'mgr_banking');
+check('Bundle B is the one now selected on the read card', moduleCard('Bundle') != null);
+
+const savesBeforeCardRemove = saveCalls;
+click(cardActionButton('Bundle', 'Remove'));
+await settle(60);
+check('the read card\'s own Remove persists through exactly one full-manager save', saveCalls === savesBeforeCardRemove + 1, saveCalls - savesBeforeCardRemove);
+
+const remainingBundles = server.manager.rate_sheets[0].bundles;
+check(
+  'exactly Bundle B is deleted — Bundle A survives, completely untouched',
+  remainingBundles.length === 1 && remainingBundles[0].bundle_id === bundleAEntry.bundle_id,
+  remainingBundles.map((b) => b.bundle_id),
+);
+check(
+  "Bundle B's own linked row is gone from items[] — the SAME delete a row's own Remove performs",
+  server.manager.rate_sheets[0].items.every((item) => item.item_id !== bundleBEntry.item_id),
+  server.manager.rate_sheets[0].items.map((item) => item.item_id),
+);
+check("Bundle A's own row is untouched — deleting B never falls through onto it", server.manager.rate_sheets[0].items.some((item) => item.item_id === bundleAEntry.item_id));
+check(
+  "the sheet's own ordinary Website Design row is untouched",
+  server.manager.rate_sheets[0].items.find((item) => item.item_id === websiteRowBefore.item_id)?.unit_price === websiteRowBefore.unit_price,
+);
+check(
+  "the OTHER sheet's own ordinary Online Banking row is untouched",
+  server.manager.rate_sheets[1].items.find((item) => item.item_id === bankingRowBefore.item_id)?.unit_price === bankingRowBefore.unit_price,
+);
+check('the selection reconciles onto the one remaining Bundle — Bundle A', chipLabels().length === 1 && moduleCard('Bundle') != null, chipLabels().join('|'));
+
 console.log('');
 if (failures.length > 0) {
   console.error(`\n${failures.length} check(s) failed.`);
