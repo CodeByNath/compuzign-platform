@@ -739,6 +739,8 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   // Rate Sheet does. Display only — the selection itself is still the absence
   // of a `price_option_id`.
   default_price_label?: string;
+  /** Presentation-only ingredients of one compiled Bundle commercial row. */
+  includes?: { item_id: string; label: string; quantity: number }[];
 }
 
 export interface TierDrafts {
