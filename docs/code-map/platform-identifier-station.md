@@ -98,7 +98,11 @@ pages and Package-owned immutable scalar callbacks.
 Package identity covers Tier Group (`CZTG`), Tier (`CZT`), Tier Add-on
 (`CZTA`), Tier Edition (`CZTE`), Rate Sheet (`CZPRC`), Rate Sheet Group
 (`CZPRCG`), Rate Sheet Item (`CZPRCI`), Price Option (`CZPRCIO`), and
-[Rate Sheet Bundle](rate-sheet-bundle.md)'s `CZPRCB`/`CZPRCBI`/`CZPRCBIO`.
+[Rate Sheet Bundle](rate-sheet-bundle.md)'s Bundle definition `CZPRCB`, compiled
+Bundle Item `CZPRCBI`, and included-row relationship `CZPRCBII`. Bundle
+commercial rows retain ordinary `CZPRCI`/`CZPRCIO`. The older
+`CZPRCBO`/`CZPRCBIO` entity types remain policy-readable only so persisted
+bindings can be migrated and tombstoned; new writes must not mint them.
 Tier/Add-on share one instance-qualified occupant reference; Tier Edition's
 reference is occupant- not slot-qualified — see
 [Tier Edition](tier-edition.md). Rate Sheet Group/Item/Option use

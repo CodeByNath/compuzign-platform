@@ -27,6 +27,9 @@ final class PlatformIdentifierPolicy
     public const PACKAGE_RATE_CARD_ITEM_OPTION = 'package_rate_card_item_option';
     public const PACKAGE_RATE_CARD_BUNDLE      = 'package_rate_card_bundle';
     public const PACKAGE_RATE_CARD_BUNDLE_ITEM = 'package_rate_card_bundle_item';
+    public const PACKAGE_RATE_CARD_BUNDLE_INCLUDED_ITEM = 'package_rate_card_bundle_included_item';
+    // Legacy-only identities retained so existing bindings can be reconciled
+    // and tombstoned. New Bundle writes use ordinary CZPRCIO options.
     public const PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION = 'package_rate_card_bundle_item_option';
     public const PACKAGE_RATE_CARD_BUNDLE_OPTION      = 'package_rate_card_bundle_option';
 
@@ -47,13 +50,17 @@ final class PlatformIdentifierPolicy
         self::PACKAGE_RATE_CARD_GROUP  => 'CZPRCG',
         self::PACKAGE_RATE_CARD_ITEM   => 'CZPRCI',
         self::PACKAGE_RATE_CARD_ITEM_OPTION => 'CZPRCIO',
-        // A Rate Sheet Bundle and its own rows. Unambiguous against the four
+        // A Rate Sheet Bundle, its compiled peer row, and included-row
+        // relationships. Unambiguous against the Rate Sheet prefixes
         // prefixes above without any startsWith reasoning: the suffix alphabet
         // excludes I/L/O/U and every suffix is exactly SUFFIX_LENGTH long, so
         // `CZPRCBI…` can never be read as CZPRCB + suffix, `CZPRCBIO…` never as
         // CZPRCBI + suffix, and none of them as CZPRC/CZPRCI + suffix.
         self::PACKAGE_RATE_CARD_BUNDLE      => 'CZPRCB',
         self::PACKAGE_RATE_CARD_BUNDLE_ITEM => 'CZPRCBI',
+        self::PACKAGE_RATE_CARD_BUNDLE_INCLUDED_ITEM => 'CZPRCBII',
+        // Legacy-only Bundle option identities. Keep policy-readable until all
+        // stored bindings have been migrated and tombstoned.
         self::PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION => 'CZPRCBIO',
         // The Bundle's OWN commercial Price Option — a child of the Bundle
         // (CZPRCB), not of one of its rows. 'O' is outside the suffix alphabet,

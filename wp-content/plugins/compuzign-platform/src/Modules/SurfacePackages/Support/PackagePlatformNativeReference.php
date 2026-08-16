@@ -80,6 +80,12 @@ final class PackagePlatformNativeReference
         return self::composite('rate-sheet-bundle-item', [$rateSheetId, $bundleId, $itemId]);
     }
 
+    /** One included-row relationship within the Bundle's compiled item. */
+    public static function rateSheetBundleIncludedItem(string $rateSheetId, string $bundleId, string $itemId): string
+    {
+        return self::composite('rate-sheet-bundle-included-item', [$rateSheetId, $bundleId, $itemId]);
+    }
+
     /** The Bundle's OWN commercial Price Option — a child of the Bundle itself. */
     public static function rateSheetBundleOption(string $rateSheetId, string $bundleId, string $optionId): string
     {

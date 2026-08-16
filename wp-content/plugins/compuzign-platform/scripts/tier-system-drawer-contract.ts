@@ -297,17 +297,17 @@ const occupantCatalogue = buildOccupantRateSheetCatalogue({
     rate_sheet_id: 'rs_selected', title: 'Selected', status: 'active', groups: [],
     items: [
       { item_id: 'rate_normal', source_item_id: 'source_normal', unit_price: 100, per: 'Per item', quantity: 1, group_id: null, sort_order: 0, price_options: [] },
-      { item_id: compiledBundleRowId, platform_id: 'CZPRCICOMPILED', source_item_id: '', label: 'Website Launch Bundle', includes: [
+      { item_id: compiledBundleRowId, platform_id: 'CZPRCI23456', source_item_id: '', label: 'Website Launch Bundle', includes: [
         { item_id: 'member_1', source_item_id: 'source_bundle_inclusion', label: 'Discovery', quantity: 1 },
         { item_id: 'member_2', source_item_id: 'source_bundle_faq', label: 'Question', quantity: 1 },
         { item_id: 'member_3', source_item_id: 'source_bundle_missing', label: 'Missing', quantity: 1 },
         { item_id: 'member_4', source_item_id: 'source_unmatched', label: 'Unmatched', quantity: 1 },
       ], unit_price: 4500, per: 'One time', quantity: 1, group_id: null, sort_order: 1, price_options: [] },
-      { item_id: 'rate_unauthorized_bundle', platform_id: 'CZPRCIOTHER', source_item_id: '', label: 'Other Bundle', includes: [], unit_price: 900, per: 'One time', quantity: 1, group_id: null, sort_order: 2, price_options: [] },
+      { item_id: 'rate_unauthorized_bundle', platform_id: 'CZPRCI23457', source_item_id: '', label: 'Other Bundle', includes: [], unit_price: 900, per: 'One time', quantity: 1, group_id: null, sort_order: 2, price_options: [] },
     ],
     bundles: [
-      { bundle_id: 'bundle_selected', compiled_item_platform_id: 'CZPRCICOMPILED', title: 'Website Launch Bundle', status: 'active', sort_order: 0, unit_price: 4500, per: 'One time', price_options: [], items: [] },
-      { bundle_id: 'bundle_other', compiled_item_platform_id: 'CZPRCIOTHER', title: 'Other Bundle', status: 'active', sort_order: 1, unit_price: 900, per: 'One time', price_options: [], items: [] },
+      { bundle_id: 'bundle_selected', compiled_item_platform_id: 'CZPRCI23456', title: 'Website Launch Bundle', status: 'active', sort_order: 0, unit_price: 4500, per: 'One time', price_options: [], items: [] },
+      { bundle_id: 'bundle_other', compiled_item_platform_id: 'CZPRCI23457', title: 'Other Bundle', status: 'active', sort_order: 1, unit_price: 900, per: 'One time', price_options: [], items: [] },
     ],
   }],
 } as any, ['rs_selected'], [{ rate_sheet_id: 'rs_selected', bundle_id: 'bundle_selected' }], null, []);
