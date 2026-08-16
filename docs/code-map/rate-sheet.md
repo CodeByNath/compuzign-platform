@@ -22,7 +22,7 @@ The sibling collection is `package_manager.rate_sheets[]` inside `cz_package_sta
 A row's `per` uses the built-in plus curated unit vocabulary; only curated units
 are stored, and unknown values fail closed.
 
-A row — and a Bundle, for its own price — may carry `default_price_label`: the
+A row — including the peer row compiled by a Bundle — may carry `default_price_label`: the
 display-only name of its existing `unit_price`, blank inheriting "Default Price"
 through `defaultPriceLabel()`
 ([rateSheetLabels.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/rateSheetLabels.ts)).

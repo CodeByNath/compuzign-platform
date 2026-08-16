@@ -925,6 +925,16 @@ class PackageRepository
                         }
                     }
                 }
+                if (isset($located['bundle_id'])) {
+                    foreach ($sheet['bundles'] ?? [] as $bundleIndex => $bundle) {
+                        if ((string) ($bundle['bundle_id'] ?? '') !== $located['bundle_id']) continue;
+                        foreach ($bundle['price_options'] ?? [] as $optionIndex => $option) {
+                            if ((string) ($option['option_id'] ?? '') === $located['option_id']) {
+                                $manager['rate_sheets'][$sheetIndex]['bundles'][$bundleIndex]['price_options'][$optionIndex]['cz_platform_id'] = $platformId;
+                            }
+                        }
+                    }
+                }
             } else {
                 foreach ($sheet['bundles'] ?? [] as $bundleIndex => $bundle) {
                     if ((string) ($bundle['bundle_id'] ?? '') !== $located['bundle_id']) continue;
@@ -986,6 +996,11 @@ class PackageRepository
                     if (($option['cz_platform_id'] ?? '') === $platformId) return true;
                 }
             }
+            if ($scope === 'option') foreach ($sheet['bundles'] ?? [] as $bundle) {
+                foreach ($bundle['price_options'] ?? [] as $option) {
+                    if (($option['cz_platform_id'] ?? '') === $platformId) return true;
+                }
+            }
             foreach ($sheet['bundles'] ?? [] as $bundle) {
                 if ($scope === 'bundle' && ($bundle['cz_platform_id'] ?? '') === $platformId) return true;
                 if ($scope === 'bundle-price-option') foreach ($bundle['price_options'] ?? [] as $option) {
@@ -1031,12 +1046,23 @@ class PackageRepository
                     if ($bundleId !== '') $references[] = PackagePlatformNativeReference::rateSheetItem($sheetId, PackageManagerSchema::deriveBundleRowId($bundleId));
                 }
             }
-            elseif ($scope === 'option') foreach ($sheet['items'] as $item) {
-                $itemId = (string) ($item['item_id'] ?? '');
-                if ($itemId === '') continue;
-                foreach ($item['price_options'] ?? [] as $option) {
-                    $optionId = (string) ($option['option_id'] ?? '');
-                    if ($optionId !== '') $references[] = PackagePlatformNativeReference::rateSheetItemOption($sheetId, $itemId, $optionId);
+            elseif ($scope === 'option') {
+                foreach ($sheet['items'] as $item) {
+                    $itemId = (string) ($item['item_id'] ?? '');
+                    if ($itemId === '') continue;
+                    foreach ($item['price_options'] ?? [] as $option) {
+                        $optionId = (string) ($option['option_id'] ?? '');
+                        if ($optionId !== '') $references[] = PackagePlatformNativeReference::rateSheetItemOption($sheetId, $itemId, $optionId);
+                    }
+                }
+                foreach ($sheet['bundles'] ?? [] as $bundle) {
+                    $bundleId = (string) ($bundle['bundle_id'] ?? '');
+                    if ($bundleId === '') continue;
+                    $compiledItemId = PackageManagerSchema::deriveBundleRowId($bundleId);
+                    foreach ($bundle['price_options'] ?? [] as $option) {
+                        $optionId = (string) ($option['option_id'] ?? '');
+                        if ($optionId !== '') $references[] = PackagePlatformNativeReference::rateSheetItemOption($sheetId, $compiledItemId, $optionId);
+                    }
                 }
             }
             else foreach ($sheet['bundles'] ?? [] as $bundle) {
@@ -1140,6 +1166,18 @@ class PackageRepository
             foreach ($item['price_options'] ?? [] as $option) {
                 if ((string) ($option['option_id'] ?? '') === $parts[2]) {
                     return ['rate_sheet_id' => $parts[0], 'item_id' => $parts[1], 'option_id' => $parts[2], 'record' => $option];
+                }
+            }
+        }
+        if ($scope === 'option') foreach ($sheet['bundles'] ?? [] as $bundle) {
+            $bundleId = (string) ($bundle['bundle_id'] ?? '');
+            if ($bundleId === '' || PackageManagerSchema::deriveBundleRowId($bundleId) !== $parts[1]) continue;
+            foreach ($bundle['price_options'] ?? [] as $option) {
+                if ((string) ($option['option_id'] ?? '') === $parts[2]) {
+                    return [
+                        'rate_sheet_id' => $parts[0], 'bundle_id' => $bundleId,
+                        'item_id' => $parts[1], 'option_id' => $parts[2], 'record' => $option,
+                    ];
                 }
             }
         }

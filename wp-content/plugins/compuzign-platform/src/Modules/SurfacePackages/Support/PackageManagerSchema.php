@@ -18,6 +18,8 @@
 
 namespace CompuZign\Platform\Modules\SurfacePackages\Support;
 
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
+
 /**
  * PackageManagerSchema — Package Station Manager, Phase A/B.
  *
@@ -299,7 +301,7 @@ final class PackageManagerSchema
      * Stable native id for one Bundle membership. The second input is the
      * referenced Rate Sheet-row address for new memberships; legacy callers
      * may still supply their former Manager source key. Stored ids are never
-     * recomputed, so existing CZPRCBI bindings remain intact during adoption.
+     * recomputed, so existing CZPRCBII bindings remain intact during adoption.
      */
     public static function deriveBundleRateItemId(string $bundleId, string $sourceItemId): string
     {
@@ -498,7 +500,7 @@ final class PackageManagerSchema
      * same semantic responsibility: a sheet's own `items[]` and a Bundle's own
      * `items[]`. With `$withLabel`, the same field sanitizer serves a Bundle
      * membership while retaining the exact referenced Rate Sheet-row address.
-     * Its `item_id`/CZPRCBI identify membership, never replace the referenced
+     * Its `item_id`/CZPRCBII identify membership, never replace the referenced
      * row's own `(rate_sheet_id, item_id)`/CZPRCI.
      *
      * `$bundleScopeId` selects the membership-id derivation. The compiled
@@ -590,7 +592,7 @@ final class PackageManagerSchema
     }
 
     /**
-     * A sheet's Bundles — compositions whose `CZPRCBI` memberships wrap exact
+     * A sheet's Bundles — compositions whose `CZPRCBII` memberships wrap exact
      * existing Rate Sheet rows without replacing their CZPRCI identities.
      *
      * A Bundle is NOT a second Rate Sheet: it stores no groups and no unit
@@ -656,6 +658,7 @@ final class PackageManagerSchema
             $out[] = [
                 'bundle_id'     => $bundleId,
                 'cz_platform_id'=> sanitize_text_field((string) ($bundle['cz_platform_id'] ?? '')),
+                'bundle_item_cz_platform_id' => sanitize_text_field((string) ($bundle['bundle_item_cz_platform_id'] ?? '')),
                 'compiled_item_cz_platform_id' => sanitize_text_field((string) ($bundle['compiled_item_cz_platform_id'] ?? '')),
                 'title'         => $title,
                 'status'        => self::sanitizeRateSheetStatus($bundle['status'] ?? null),
@@ -1099,15 +1102,16 @@ final class PackageManagerSchema
             // carry forward on their own native keys. None replaces or borrows
             // the referenced Rate Sheet row's CZPRCI.
             $existingBundles = [];
+            $existingBundleItems = [];
             $existingCompiledBundleItems = [];
             $existingBundleOwnOptions = [];
-            $existingBundleItems = [];
-            $existingBundleOptions = [];
+            $existingBundleIncludedItems = [];
             foreach (is_array($existingSheet['bundles'] ?? null) ? $existingSheet['bundles'] : [] as $bundle) {
                 if (!is_array($bundle)) { continue; }
                 $existingBundleId = (string) ($bundle['bundle_id'] ?? '');
                 if ($existingBundleId === '') { continue; }
                 $existingBundles[$existingBundleId] = (string) ($bundle['cz_platform_id'] ?? '');
+                $existingBundleItems[$existingBundleId] = (string) ($bundle['bundle_item_cz_platform_id'] ?? '');
                 $existingCompiledBundleItems[$existingBundleId] = (string) ($bundle['compiled_item_cz_platform_id'] ?? '');
                 foreach (is_array($bundle['price_options'] ?? null) ? $bundle['price_options'] : [] as $bundleOwnOption) {
                     if (!is_array($bundleOwnOption)) { continue; }
@@ -1116,28 +1120,33 @@ final class PackageManagerSchema
                 foreach (is_array($bundle['items'] ?? null) ? $bundle['items'] : [] as $bundleItem) {
                     if (!is_array($bundleItem)) { continue; }
                     $existingBundleItemId = (string) ($bundleItem['item_id'] ?? '');
-                    $existingBundleItems[$existingBundleId . "\0" . $existingBundleItemId] = (string) ($bundleItem['cz_platform_id'] ?? '');
-                    foreach (is_array($bundleItem['price_options'] ?? null) ? $bundleItem['price_options'] : [] as $bundleOption) {
-                        if (!is_array($bundleOption)) { continue; }
-                        $existingBundleOptions[$existingBundleId . "\0" . $existingBundleItemId . "\0" . (string) ($bundleOption['option_id'] ?? '')] = (string) ($bundleOption['cz_platform_id'] ?? '');
-                    }
+                    $existingBundleIncludedItems[$existingBundleId . "\0" . $existingBundleItemId] = (string) ($bundleItem['cz_platform_id'] ?? '');
                 }
             }
             foreach ($reconciled['bundles'] as &$bundle) {
                 $bundleKey = (string) $bundle['bundle_id'];
                 $bundle['cz_platform_id'] = $existingBundles[$bundleKey] ?? '';
+                $storedBundleItemId = $existingBundleItems[$bundleKey] ?? '';
+                $bundle['bundle_item_cz_platform_id'] = PlatformIdentifierPolicy::validate(
+                    PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM,
+                    $storedBundleItemId
+                ) ? $storedBundleItemId : '';
                 $bundle['compiled_item_cz_platform_id'] = $existingCompiledBundleItems[$bundleKey] ?? '';
                 foreach ($bundle['price_options'] as &$bundleOwnOption) {
-                    $bundleOwnOption['cz_platform_id'] = $existingBundleOwnOptions[$bundleKey . "\0" . (string) $bundleOwnOption['option_id']] ?? '';
+                    $storedOptionId = $existingBundleOwnOptions[$bundleKey . "\0" . (string) $bundleOwnOption['option_id']] ?? '';
+                    $bundleOwnOption['cz_platform_id'] = PlatformIdentifierPolicy::validate(
+                        PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM_OPTION,
+                        $storedOptionId
+                    ) ? $storedOptionId : '';
                 }
                 unset($bundleOwnOption);
                 foreach ($bundle['items'] as &$bundleItem) {
                     $bundleItemKey = $bundleKey . "\0" . (string) $bundleItem['item_id'];
-                    $bundleItem['cz_platform_id'] = $existingBundleItems[$bundleItemKey] ?? '';
-                    foreach ($bundleItem['price_options'] as &$bundleOption) {
-                        $bundleOption['cz_platform_id'] = $existingBundleOptions[$bundleItemKey . "\0" . (string) $bundleOption['option_id']] ?? '';
-                    }
-                    unset($bundleOption);
+                    $storedIncludedId = $existingBundleIncludedItems[$bundleItemKey] ?? '';
+                    $bundleItem['cz_platform_id'] = PlatformIdentifierPolicy::validate(
+                        PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_INCLUDED_ITEM,
+                        $storedIncludedId
+                    ) ? $storedIncludedId : '';
                 }
                 unset($bundleItem);
             }
@@ -1228,7 +1237,7 @@ final class PackageManagerSchema
 
     /**
      * Resolve every Bundle membership against an existing atomic Rate Sheet
-     * row. Existing membership ids/CZPRCBI values are preserved; only dangling
+     * row. Existing membership ids/CZPRCBII values are preserved; only dangling
      * relationships fall away. Legacy copied components are adopted when their
      * Manager source identifies one unambiguous row (preferring the owning
      * sheet), so the next real save establishes the exact native reference.
@@ -1286,6 +1295,14 @@ final class PackageManagerSchema
                     $member['rate_sheet_item_id'] = $memberItemId;
                     $member['rate_sheet_item_cz_platform_id'] = (string) ($sourceRow['cz_platform_id'] ?? '');
                     $member['source_item_id'] = (string) ($sourceRow['source_item_id'] ?? '');
+                    $sourceOptions = [];
+                    foreach (is_array($sourceRow['price_options'] ?? null) ? $sourceRow['price_options'] : [] as $sourceOption) {
+                        $sourceOptions[(string) ($sourceOption['option_id'] ?? '')] = (string) ($sourceOption['cz_platform_id'] ?? '');
+                    }
+                    foreach ($member['price_options'] ?? [] as &$memberOption) {
+                        $memberOption['cz_platform_id'] = $sourceOptions[(string) ($memberOption['option_id'] ?? '')] ?? '';
+                    }
+                    unset($memberOption);
                     $members[] = $member;
                 }
                 $bundle['items'] = array_values($members);
@@ -1596,6 +1613,8 @@ final class PackageManagerSchema
                     $sheet['bundles'] = array_map(static function (array $bundle) use ($projectRow): array {
                         $bundle['platform_id'] = (string) ($bundle['cz_platform_id'] ?? '');
                         unset($bundle['cz_platform_id']);
+                        $bundle['bundle_item_platform_id'] = (string) ($bundle['bundle_item_cz_platform_id'] ?? '');
+                        unset($bundle['bundle_item_cz_platform_id']);
                         $bundle['compiled_item_platform_id'] = (string) ($bundle['compiled_item_cz_platform_id'] ?? '');
                         unset($bundle['compiled_item_cz_platform_id']);
                         $bundle['price_options'] = array_map(static function (array $option): array {

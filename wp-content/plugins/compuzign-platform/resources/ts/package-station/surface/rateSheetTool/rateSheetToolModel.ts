@@ -111,6 +111,8 @@ export interface RateSheetEditorBundle {
   /** Session-stable address for a not-yet-saved Bundle. See `bundleKey()`. */
   localKey:    string;
   platformId?: string;
+  /** Output-only CZPRCBI structural identity of the compiled Bundle item. */
+  bundleItemPlatformId?: string;
   title:       string;
   status:      PackageRateSheetStatus;
   /**
@@ -195,6 +197,7 @@ function toEditorValue(
       id:         bundle.bundle_id,
       localKey:   bundle.bundle_id,
       platformId: bundle.platform_id,
+      bundleItemPlatformId: bundle.bundle_item_platform_id,
       title:      bundle.title,
       status:     bundle.status,
       unitPrice:  bundle.unit_price,
@@ -819,6 +822,7 @@ export function duplicateEditorSheet(source: RateSheetEditorValue): RateSheetEdi
       id:         '',
       localKey:   `local_${Date.now()}_${NEW_BUNDLE_SEQ++}`,
       platformId: undefined,
+      bundleItemPlatformId: undefined,
       priceOptions: bundle.priceOptions.map((option) => ({ ...option, platformId: undefined })),
       items: bundle.items.map((row) => ({
         ...row,

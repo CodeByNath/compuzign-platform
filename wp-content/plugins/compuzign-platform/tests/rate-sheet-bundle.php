@@ -5,9 +5,9 @@ declare(strict_types=1);
 /*
  * Rate Sheet Bundle contract.
  *
- * A Bundle is a Rate Sheet-owned composition space: it keeps `CZPRCB`, while
- * each `CZPRCBI` membership wraps an exact existing Rate Sheet row/CZPRCI. The
- * Bundle compiles to one separate, durable normal Rate Sheet Item/CZPRCI.
+ * A Bundle is a Rate Sheet-owned composition space: it keeps `CZPRCB`, its
+ * compiled Bundle Item keeps `CZPRCBI` plus ordinary `CZPRCI`, and each
+ * `CZPRCBII` inclusion wraps an exact existing Rate Sheet row/CZPRCI.
  *
  * This locks the storage shape, write-path mint, identity lifecycle, atomic
  * source-row reconciliation, and normal compiled-row publication contract.
@@ -169,7 +169,7 @@ $bundle = $sanitised['rate_sheets'][0]['bundles'][0];
 check_bundle(count($sanitised['rate_sheets'][0]['bundles']) === 1, 'a sheet keeps its Bundles through sanitize');
 check_bundle($bundle['title'] === 'Digital Banking Website' && $bundle['status'] === 'active', 'a Bundle keeps its own title and status');
 check_bundle($bundle['items'][0]['item_id'] === PackageManagerSchema::deriveBundleRateItemId('rsb_1', 'rs_1:' . PackageManagerSchema::deriveRateItemId($itemA)), 'a Bundle membership derives its own stable native id from the exact referenced row');
-check_bundle($bundle['items'][0]['item_id'] !== PackageManagerSchema::deriveRateItemId($itemA), 'CZPRCBI membership identity never replaces or collides with the referenced CZPRCI row identity');
+check_bundle($bundle['items'][0]['item_id'] !== PackageManagerSchema::deriveRateItemId($itemA), 'included membership identity never replaces or collides with the referenced CZPRCI row identity');
 check_bundle($bundle['items'][0]['rate_sheet_id'] === 'rs_1' && $bundle['items'][0]['rate_sheet_item_id'] === PackageManagerSchema::deriveRateItemId($itemA), 'sanitize preserves the exact Rate Sheet-row membership address');
 check_bundle($bundle['items'][0]['label'] === 'Website', 'a Bundle membership keeps its editable display override');
 check_bundle($bundle['items'][0]['quantity'] === 2 && $bundle['items'][0]['per'] === 'Per item', 'a Bundle membership keeps its established authoring fields');
@@ -308,16 +308,20 @@ check_bundle($savedCompiledRow['platform_id'] !== $savedBundle['platform_id'], '
 check_bundle($savedBundle['compiled_item_platform_id'] === $savedCompiledRow['platform_id'], 'the Bundle persists the compiled-row CZPRCI linkage');
 check_bundle($savedCompiledRow['unit_price'] === 75.0, 'the compiled CZPRCI carries the Bundle configured price');
 check_bundle(
-    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_OPTION, (string) $savedBundle['price_options'][0]['platform_id']),
-    'the Bundle keeps its own CZPRCBO Price Option identity'
+    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM_OPTION, (string) $savedBundle['price_options'][0]['platform_id']),
+    'the compiled Bundle row uses ordinary CZPRCIO Price Option identity'
 );
 check_bundle(
-    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM, (string) $savedBundle['items'][0]['platform_id']),
-    'each Bundle membership carries a valid CZPRCBI'
+    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM, (string) $savedBundle['bundle_item_platform_id']),
+    'the compiled Bundle Item carries a valid CZPRCBI'
 );
 check_bundle(
-    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION, (string) $savedBundle['items'][0]['price_options'][0]['platform_id']),
-    'a Bundle membership Price Option carries a valid CZPRCBIO'
+    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_INCLUDED_ITEM, (string) $savedBundle['items'][0]['platform_id']),
+    'each included relationship carries a valid CZPRCBII'
+);
+check_bundle(
+    (string) ($savedBundle['items'][0]['price_options'][0]['platform_id'] ?? '') === '',
+    'an unmatched included-row option never receives an independent Bundle option identity'
 );
 check_bundle(
     PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, (string) $savedSheet['items'][0]['platform_id']),
@@ -360,9 +364,14 @@ check_bundle(
     'normal Rate Sheet Item enumeration includes the compiled row native reference'
 );
 check_bundle(
+    $rsbOptions['cz_platform_identifier_v1_' . $savedBundle['bundle_item_platform_id']]['native_reference']
+        === PackagePlatformNativeReference::rateSheetBundleItem('rs_live', $mintedBundleId, $compiledItemId),
+    'the Bundle Item CZPRCBI is bound to the compiled peer row'
+);
+check_bundle(
     $rsbOptions['cz_platform_identifier_v1_' . $savedBundle['items'][0]['platform_id']]['native_reference']
-        === PackagePlatformNativeReference::rateSheetBundleItem('rs_live', $mintedBundleId, (string) $savedBundle['items'][0]['item_id']),
-    'a Bundle membership is bound to (rate_sheet_id, bundle_id, item_id)'
+        === PackagePlatformNativeReference::rateSheetBundleIncludedItem('rs_live', $mintedBundleId, (string) $savedBundle['items'][0]['item_id']),
+    'an included relationship is bound to (rate_sheet_id, bundle_id, item_id)'
 );
 
 // ── Source-row removal reconciles memberships atomically ────────────────────
@@ -395,6 +404,8 @@ $reSubmit['items'] = array_values(array_filter(
 ));
 $memberAPlatformId = (string) $savedBundle['items'][0]['platform_id'];
 $memberBPlatformId = (string) $savedBundle['items'][1]['platform_id'];
+$bundleItemPlatformId = (string) $savedBundle['bundle_item_platform_id'];
+$bundleOptionPlatformId = (string) $savedBundle['price_options'][0]['platform_id'];
 $rowAPlatformId = (string) $savedSheet['items'][0]['platform_id'];
 $rowBPlatformId = (string) $savedSheet['items'][1]['platform_id'];
 $response2 = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$reSubmit])));
@@ -403,15 +414,15 @@ $savedBundle2 = $savedSheet2['bundles'][0];
 check_bundle($savedBundle2['bundle_id'] === $mintedBundleId, 're-saving a Bundle keeps its native id');
 check_bundle($savedBundle2['platform_id'] === $savedBundle['platform_id'], 'renaming a Bundle never re-mints its Platform ID');
 check_bundle($savedBundle2['compiled_item_platform_id'] === $savedBundle['compiled_item_platform_id'], 'republishing keeps the compiled CZPRCI');
-check_bundle($savedBundle2['price_options'][0]['platform_id'] === $savedBundle['price_options'][0]['platform_id'], 'Bundle Price Option changes keep the existing CZPRCBO');
+check_bundle($savedBundle2['price_options'][0]['platform_id'] === $savedBundle['price_options'][0]['platform_id'], 'Bundle Price Option changes keep the existing compiled-row CZPRCIO');
 check_bundle(count($savedBundle2['items']) === 1, 'removing normal row B removes its Bundle membership through reconciliation');
 check_bundle($savedBundle2['items'][0]['rate_sheet_id'] === 'rs_live', 'deleted exact membership B never retargets to another sheet row sharing its Manager source');
-check_bundle($savedBundle2['items'][0]['platform_id'] === $savedBundle['items'][0]['platform_id'], 'remaining CZPRCBI membership identity is stable');
+check_bundle($savedBundle2['bundle_item_platform_id'] === $savedBundle['bundle_item_platform_id'], 'compiled Bundle Item CZPRCBI is stable');
+check_bundle($savedBundle2['items'][0]['platform_id'] === $savedBundle['items'][0]['platform_id'], 'remaining CZPRCBII inclusion identity is stable');
 check_bundle($savedBundle2['items'][0]['rate_sheet_item_platform_id'] === $rowAPlatformId, 'remaining membership A still points to unchanged CZPRCI-A');
-check_bundle($savedBundle2['items'][0]['price_options'][0]['platform_id'] === $savedBundle['items'][0]['price_options'][0]['platform_id'], 'remaining CZPRCBIO membership Price Option identity is stable');
-check_bundle($rsbOptions['cz_platform_identifier_v1_' . $memberBPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'removed row B tombstones membership CZPRCBI-B');
+check_bundle($rsbOptions['cz_platform_identifier_v1_' . $memberBPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'removed row B tombstones inclusion CZPRCBII-B');
 check_bundle($rsbOptions['cz_platform_identifier_v1_' . $rowBPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'normal source row CZPRCI-B follows its existing removal lifecycle');
-check_bundle($rsbOptions['cz_platform_identifier_v1_' . $memberAPlatformId]['status'] === PlatformIdentifierStation::STATUS_BOUND, 'membership CZPRCBI-A remains bound');
+check_bundle($rsbOptions['cz_platform_identifier_v1_' . $memberAPlatformId]['status'] === PlatformIdentifierStation::STATUS_BOUND, 'inclusion CZPRCBII-A remains bound');
 check_bundle(
     count(array_filter($savedSheet2['items'], static fn(array $row): bool => ($row['item_id'] ?? '') === $compiledItemId)) === 1,
     're-publish produces exactly one compiled Bundle row, never a saved-source duplicate'
@@ -430,10 +441,11 @@ check_bundle($zeroBundle['items'] === [], 'removing normal row A leaves the dura
 check_bundle($zeroSheet['items'] === [], 'a zero-member Bundle exposes no compiled purchasable row');
 check_bundle($zeroBundle['platform_id'] === $savedBundle['platform_id'], 'zero-member state preserves the Bundle CZPRCB');
 check_bundle($zeroBundle['compiled_item_platform_id'] === $savedBundle['compiled_item_platform_id'], 'zero-member state preserves the compiled CZPRCI linkage');
-check_bundle($rsbOptions['cz_platform_identifier_v1_' . $memberAPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'removing row A tombstones its membership CZPRCBI-A');
+check_bundle($rsbOptions['cz_platform_identifier_v1_' . $memberAPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'removing row A tombstones its inclusion CZPRCBII-A');
 check_bundle($rsbOptions['cz_platform_identifier_v1_' . $rowAPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'normal source row CZPRCI-A follows its existing removal lifecycle');
 check_bundle($rsbOptions['cz_platform_identifier_v1_' . $savedBundle['platform_id']]['status'] === PlatformIdentifierStation::STATUS_BOUND, 'zero-member Bundle identity remains bound');
 check_bundle($rsbOptions['cz_platform_identifier_v1_' . $savedCompiledRow['platform_id']]['status'] === PlatformIdentifierStation::STATUS_BOUND, 'zero-member compiled identity remains bound for reuse');
+check_bundle($rsbOptions['cz_platform_identifier_v1_' . $bundleItemPlatformId]['status'] === PlatformIdentifierStation::STATUS_BOUND, 'zero-member Bundle Item identity remains bound for reuse');
 
 $withoutBundle = $stripPlatformIds($zeroSheet);
 $withoutBundle['bundles'] = [];
@@ -448,6 +460,8 @@ check_bundle(
     $rsbOptions['cz_platform_identifier_v1_' . $savedCompiledRow['platform_id']]['status'] === PlatformIdentifierStation::STATUS_DELETED,
     "the removed Bundle's compiled CZPRCI is tombstoned with its published row"
 );
+check_bundle($rsbOptions['cz_platform_identifier_v1_' . $bundleItemPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'the removed Bundle tombstones its CZPRCBI');
+check_bundle($rsbOptions['cz_platform_identifier_v1_' . $bundleOptionPlatformId]['status'] === PlatformIdentifierStation::STATUS_DELETED, 'the removed Bundle tombstones its compiled-row CZPRCIO');
 
 // ── Tier consumption: a Bundle-created row IS an ordinary Rate Sheet row ─────
 //

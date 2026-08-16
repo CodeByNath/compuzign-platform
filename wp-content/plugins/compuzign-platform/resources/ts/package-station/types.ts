@@ -367,7 +367,8 @@ export type PackageRateSheetStatus = 'active' | 'archived';
 /**
  * One row of a Rate Sheet Bundle — a COMPLETE Rate Sheet row (same source
  * identity, unit vocabulary, quantity, group, and `price_options[]` children),
- * carrying its own `CZPRCBI` rather than the sheet row's `CZPRCI`, because
+ * carrying its own inclusion relationship `CZPRCBII` in addition to the
+ * referenced sheet row's `CZPRCI`, because
  * `(rate_sheet_id, bundle_id, item_id)` is a different record from
  * `(rate_sheet_id, item_id)` even when both price the same supplied content.
  *
@@ -394,6 +395,8 @@ export interface PackageRateSheetBundleItem extends PackageRateSheetItem {
 export interface PackageRateSheetBundle {
   bundle_id: string;
   platform_id?: string;
+  /** Output-only CZPRCBI of the Bundle's one compiled peer Rate Sheet item. */
+  bundle_item_platform_id?: string;
   /** Output-only CZPRCI of the normal Rate Sheet row compiled from this Bundle. */
   compiled_item_platform_id?: string;
   title: string;

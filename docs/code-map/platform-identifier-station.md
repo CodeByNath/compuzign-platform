@@ -53,7 +53,7 @@ Forward options are `cz_platform_identifier_v1_{platformId}`. Reverse options
 are `cz_platform_identifier_native_v1_{entityType}_{typed-reference-hash}`.
 Every option is non-autoloaded. Records carry version, Platform ID, entity type,
 native reference, `reserved|bound|retired|deleted` status, and timestamps.
-Reservations and tombstones are never deleted or reused.
+Reservations and tombstones are never reused.
 
 The shared scalar entity key is `cz_platform_id`, though each owning domain
 controls its own persistence. `int|string` native references support both
@@ -61,25 +61,21 @@ WordPress-native and owner-defined stored identities.
 
 ## Current integration status
 
-`Core\Plugin` constructs one Station. Phase 2 injects it through `ServiceModule`;
-Service owns `cz_platform_id` post meta and `CZS` integration. Phase 3 injects
-the same instance through `AdminModule`; Category owns atomic
+`Core\Plugin` constructs one Station and injects it through `ServiceModule` and
+`AdminModule`. Service owns `CZS` post meta; Category owns atomic
 `cz_platform_id` term-meta claims, both `CZC` creation paths, projection,
 immutable request rejection, and guarded hard deletion. Phase 3A adds
 authenticated reads at `GET /admin/services/{platformId}` and
 `/admin/categories/{platformId}`. Each resolves here, rejects
 non-bound/conflicting/wrong-entity bindings, then calls its owner's projection
-by native numeric ID. The drawer schema carries optional `platformIdOf`; native
-`idOf` is unchanged.
+by native numeric ID. Native `idOf` remains unchanged.
 
 Phase 3B registers
 `wp compuzign platform-identifiers assign <service|category>` when WP-CLI is
 active. `--limit` defaults to 100, capped at 500; `--cursor` defaults to zero.
-Each invocation returns JSON with processed/assigned/preserved/conflict counts,
-completion, and the next cursor.
+It returns bounded progress and the next cursor.
 
-During the final temporary Package entity rollout, Admin refresh reads
-independent v3 progress and runs zero-write preflights for each Package entity.
+During Package rollout, Admin refresh runs zero-write preflights per entity.
 Assignment processes 100-record Package-owned string-cursor batches through
 `assignExistingBatch()`, guarded by a 45-second atomic lock. Invalid, duplicate,
 or conflicting bindings stop assignment; valid IDs are preserved. Completion

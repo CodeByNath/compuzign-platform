@@ -9,24 +9,27 @@ vocabulary, and each component is its own record, so the same supplied content
 priced on a sheet row and inside a Bundle is **two records, two identities**.
 
 ```text
-Rate Sheet            CZPRC     rate_sheet_id
- ├─ Group             CZPRCG    (rate_sheet_id, group_id)
- ├─ Item              CZPRCI    (rate_sheet_id, item_id)
- │   └─ Price Option  CZPRCIO   (rate_sheet_id, item_id, option_id)
- └─ Bundle            CZPRCB    (rate_sheet_id, bundle_id)
-     ├─ Price Option  CZPRCBO   (rate_sheet_id, bundle_id, option_id)
-     └─ Bundle Item   CZPRCBI   (rate_sheet_id, bundle_id, item_id)
-         └─ Option    CZPRCBIO  (rate_sheet_id, bundle_id, item_id, option_id)
+Rate Sheet                    CZPRC     rate_sheet_id
+ ├─ Group                     CZPRCG    (rate_sheet_id, group_id)
+ ├─ Item                      CZPRCI    (rate_sheet_id, item_id)
+ │   └─ Price Option          CZPRCIO   (rate_sheet_id, item_id, option_id)
+ └─ Bundle definition         CZPRCB    (rate_sheet_id, bundle_id)
+     └─ compiled Bundle Item  CZPRCBI + CZPRCI
+         ├─ Price Option      CZPRCIO
+         └─ Included Item     CZPRCBII  (rate_sheet_id, bundle_id, item_id)
+             └─ references the source row's existing CZPRCI/CZPRCIO
 ```
 
 ## Storage
 
-`rate_sheets[].bundles[]` holds `bundle_id`, `cz_platform_id`, `title`, `status`
+`rate_sheets[].bundles[]` holds `bundle_id`, `cz_platform_id`,
+`bundle_item_cz_platform_id`, `compiled_item_cz_platform_id`, `title`, `status`
 (`active|archived`), `sort_order`, `items[]`, and its own complete Rate Sheet
 row field set —
 `unit_price`/`per`/`quantity`/`group_id`/`price_options[]`/`default_price_label`.
-A component carries that same shape plus its own `label` (blank inherits the
-resolved supplied-content label). Everywhere `per`/`group_id` validate and
+A component carries that same authoring shape plus its own `label` (blank
+inherits the resolved supplied-content label), `CZPRCBII`, and the exact source
+row address/`CZPRCI`. Everywhere `per`/`group_id` validate and
 `quantity` clamps against the **owning sheet's** vocabulary and groups, by
 `sanitizeRateRows`' rules; a Bundle stored before it carried `quantity`/
 `group_id` reads back on `1`/`null`, the defaults `bundleConsumableRow()` used
@@ -35,15 +38,18 @@ to hardcode. `bundle_id` is minted write-path-only (`commitConfiguration`);
 
 ## Identity
 
-`PlatformIdentifierPolicy` carries the four prefixes above
+`PlatformIdentifierPolicy` carries the prefixes above
 ([Platform Identifier Station](platform-identifier-station.md)).
 `PackagePlatformNativeReference::rateSheetBundle*()` supplies the references;
 `PackagePlatformIdentifierAdapters` adds the scopes to the same
 `rateSheetAdapter()` factory, and `PackageRepository`'s
 locate/claim/exists/assignment-page carry them.
 `PackageStationController::savePackageStationManager` reserves, binds, and
-tombstones them in the sheet's own old-vs-new diff. No `/admin/...` read route
-yet, as with Price Option.
+tombstones them in the sheet's own old-vs-new diff. The compiled commercial
+row and its options use the ordinary Rate Sheet Item adapters and references.
+Legacy `CZPRCBO`/`CZPRCBIO` bindings remain readable only for migration and
+tombstoning; new writes never mint them. No `/admin/...` read route yet, as
+with Price Option.
 
 ## Authoring
 
