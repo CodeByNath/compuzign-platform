@@ -53,6 +53,7 @@ const rateSheets: PackageRateSheet[] = [{
     {
       item_id: 'rate_bundle_named', source_item_id: '', bundle_id: 'rsb_1', label: 'Starter Pack',
       unit_price: 50, per: 'Per item', quantity: 1, group_id: null, sort_order: 1, price_options: [],
+      includes: [{ item_id: 'rate_website', source_rate_sheet_id: 'rs_1', source_item_id: 'rate_website', label: 'Website Design', quantity: 1 }],
     },
     // A Bundle-backed row, unnamed — the Bundle Name defaults blank.
     {
@@ -75,6 +76,8 @@ check(ordinary?.label === 'Website Design', 'the ordinary row still reads its Ma
 const named = catalogue.find((row) => row.item_id === 'rate_bundle_named');
 check(named?.resolved === true, 'a Bundle-backed row resolves — it stands behind itself, with no Manager source to look up');
 check(named?.label === 'Starter Pack', "a named Bundle-backed row shows its OWN row label (the Bundle Name), not a Manager relationship lookup");
+check(named?.bundle_id === 'rsb_1', "the row's own bundle_id is carried through — the inclusion editor needs it to know a selection is Bundle-backed at all");
+check(named?.includes?.length === 1 && named.includes[0].label === 'Website Design', "the row's own live-resolved supplied content (includes[]) is carried through unchanged, so the inclusion editor can show it read-only without a second lookup");
 
 const unnamed = catalogue.find((row) => row.item_id === 'rate_bundle_unnamed');
 check(unnamed?.resolved === true, 'an UNNAMED Bundle-backed row still resolves');

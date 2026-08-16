@@ -229,17 +229,15 @@ export function usePackageStation(
       // unresolved here even though the picker correctly offered it.
       const bundleBacked = !!rateItem && (rateItem.bundle_id ?? '') !== '';
       const resolved = bundleBacked || (!!rateItem && !!source && !source.missing);
-      // A Bundle's own name, plus what it compiles — baked straight into the
-      // SAME single label string every plain Feature already carries, never a
-      // second field on the item-collection element (a shared, governed
-      // primitive with other consumers). Any reader of this label — the read
-      // card here, or a downstream Package/pricing preview — shows the
-      // Bundle's supplied content automatically, with no wiring of its own.
-      const bundleSuppliedLabels = bundleBacked
-        ? (rateItem?.includes ?? []).map((entry) => entry.label.trim()).filter((entry) => entry !== '')
-        : [];
+      // A Bundle-backed selection reads its OWN row label (the Bundle Name),
+      // the same "Untitled Bundle" fallback the Rate Sheet tool and
+      // buildRateSheetCatalogue() already use — same single label string
+      // every plain Feature carries, so the read card's chip looks identical
+      // to any other Feature's. Its supplied content is shown separately, in
+      // the inclusion editor's own read-only sub-list (see
+      // PoolInclusionsEditor.tsx), not baked into this label.
       const label = bundleBacked
-        ? (rateItem?.label?.trim() || 'Untitled Bundle') + (bundleSuppliedLabels.length > 0 ? ` — includes: ${bundleSuppliedLabels.join(', ')}` : '')
+        ? (rateItem?.label?.trim() || 'Untitled Bundle')
         : resolved && source
           ? relationshipDisplayLabel(source)
           : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
@@ -268,6 +266,8 @@ export function usePackageStation(
         // Display only — what the row calls the price this selection already
         // uses when it carries no price_option_id.
         default_price_label: rateItem?.default_price_label,
+        bundle_id: rateItem?.bundle_id,
+        includes: rateItem?.includes,
       };
     });
     dp.rate_sheet_selections = resolvedSelections;

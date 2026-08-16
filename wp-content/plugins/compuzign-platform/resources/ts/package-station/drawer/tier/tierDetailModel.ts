@@ -115,6 +115,8 @@ export function buildRateSheetCatalogue(
       group_id: item.group_id,
       line_total: item.unit_price,
       price_options: item.price_options,
+      bundle_id: item.bundle_id,
+      includes: item.includes,
     };
   });
   for (const selected of existingSelections) {

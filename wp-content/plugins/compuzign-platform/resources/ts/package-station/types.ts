@@ -723,6 +723,11 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   // Rate Sheet does. Display only — the selection itself is still the absence
   // of a `price_option_id`.
   default_price_label?: string;
+  // Set only when this row IS a Bundle's commercial row — lets the inclusion
+  // editor show the Bundle's own supplied content read-only, right under its
+  // price option/qty/price line, without a second lookup.
+  bundle_id?: string;
+  includes?: { item_id: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
 }
 
 export interface TierDrafts {

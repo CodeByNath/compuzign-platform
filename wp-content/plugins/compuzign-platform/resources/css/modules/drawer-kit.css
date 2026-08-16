@@ -478,6 +478,35 @@
   flex: 1;
 }
 
+.cz-ie-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* A Bundle-backed row's own supplied content — read-only, nested under its
+   entry in the inclusion editor. */
+.cz-ie-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: var(--cz-space-6);
+  list-style: disc;
+}
+
+.cz-ie-sub-item {
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
+.cz-ie-sub-empty {
+  margin: 0;
+  padding-left: var(--cz-space-6);
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
 .cz-ie-faq-item {
   border: 1px solid var(--station-border);
   border-radius: var(--cz-radius-md);

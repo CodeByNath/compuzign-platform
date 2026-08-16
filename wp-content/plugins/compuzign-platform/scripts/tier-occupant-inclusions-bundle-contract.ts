@@ -13,6 +13,13 @@
 // filtered on `source_type === 'inclusion'`, which a Bundle-backed selection
 // (no Manager source at all) can never satisfy.
 //
+// A later revision moved the Bundle's own supplied content OUT of this
+// label (it briefly read "Bundle Name — includes: X, Y, Z") and into the
+// inclusion editor's own read-only sub-list instead (PoolInclusionsEditor.tsx)
+// — so the read card's chip is a bare Bundle name, rendering identically to
+// any other Feature chip; the "1 vs 6 boxes" visual mismatch this caused is
+// what prompted the move.
+//
 // Source-scanning, the same technique rate-sheet-price-option-selection-
 // contract.ts uses for this file's own sibling model — `tierView()` is
 // defined inline inside a hook, not a standalone exported pure function, so
@@ -27,6 +34,7 @@ function check(condition: unknown, message: string): asserts condition {
 
 const root = resolve(import.meta.dirname, '..');
 const usePackageStation = readFileSync(resolve(root, 'resources/ts/package-station/usePackageStation.ts'), 'utf8');
+const poolInclusionsEditor = readFileSync(resolve(root, 'resources/ts/package-station/drawer/editors/PoolInclusionsEditor.tsx'), 'utf8');
 
 check(
   /const bundleBacked = !!rateItem && \(rateItem\.bundle_id \?\? ''\) !== '';/.test(usePackageStation),
@@ -45,12 +53,21 @@ check(
   'inclusions_override\'s own filter recognizes a Bundle-backed selection directly (by its row\'s bundle_id) rather than only ones with source_type === \'inclusion\', which a Bundle-backed row (no Manager source at all) can never carry',
 );
 check(
-  usePackageStation.includes('rateItem?.includes ?? []'),
-  'a Bundle-backed selection\'s label draws from the row\'s own live-resolved `includes[]` (its supplied content), not just its bare name',
+  !usePackageStation.includes('bundleSuppliedLabels'),
+  'the Bundle\'s supplied content is no longer squished into this label string — it moved to the inclusion editor\'s own read-only sub-list, so the read card\'s chip stays a bare Bundle name like any other Feature',
 );
 check(
-  usePackageStation.includes('` — includes: ${bundleSuppliedLabels.join(\', \')}`'),
-  'the Bundle\'s supplied content is baked straight into the SAME single label string every plain Feature already carries — never a second field on the shared item-collection element — so any reader of that label (the read card, or a downstream Package/pricing preview) shows it with no extra wiring',
+  /includes: rateItem\?\.includes,/.test(usePackageStation),
+  'resolvedSelections carries the row\'s own live-resolved includes[] through unchanged, so buildRateSheetCatalogue()\'s existingSelections fallback (a stored selection whose row fell out of the bound sheet) still has it available for the inclusion editor\'s sub-list',
+);
+
+check(
+  /const suppliedContent = \(row\.bundle_id \?\? ''\) !== '' \? \(row\.includes \?\? \[\]\) : null;/.test(poolInclusionsEditor),
+  'PoolInclusionsEditor renders a Bundle-backed row\'s own supplied content read-only, gated on the row\'s bundle_id — never for an ordinary row',
+);
+check(
+  poolInclusionsEditor.includes('cz-ie-sub-list'),
+  'the supplied-content sub-list renders directly under the selected Bundle row\'s own price option/qty/price/remove line — shared by both the Tier occupant\'s own inclusions editor and every Tier Edition\'s inclusions editor, since both call this same component',
 );
 
 console.log('Tier occupant inclusions Bundle contract: PASS');
