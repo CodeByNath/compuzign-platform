@@ -134,26 +134,55 @@ function mintPlatformId(prefix) {
   return `${prefix}2222${SUFFIX_ALPHABET[platformSeq % SUFFIX_ALPHABET.length]}`;
 }
 
-function storeRow(item, platformPrefix) {
+// The Tool NEVER sends `platform_id` back for an existing record (it is
+// output-only everywhere in this codebase — see toStoredRow/toStoredSheet),
+// so a stored identity can only be found by looking it up against the PRIOR
+// server state, keyed by the entity's own STABLE address — exactly the real
+// backend's own reserve-or-reuse-by-address discipline
+// (PackagePlatformIdentifierAdapters), never trust-from-payload. Minting
+// happens only when no prior identity exists at that address.
+function storeRow(item, rateSheetId, platformPrefix, priorPlatformIds) {
+  const itemId = item.item_id !== '' ? item.item_id : mintItemId(item.source_item_id);
   return {
     ...item,
-    item_id: item.item_id !== '' ? item.item_id : mintItemId(item.source_item_id),
-    platform_id: item.platform_id ?? mintPlatformId(platformPrefix),
-    price_options: (item.price_options ?? []).map((option) => ({
-      ...option,
-      option_id: option.option_id !== '' ? option.option_id : mintOptionId(),
-      platform_id: option.platform_id ?? mintPlatformId('CZPRCIO'),
-    })),
+    item_id: itemId,
+    platform_id: priorPlatformIds.row.get(`${rateSheetId} ${itemId}`) ?? mintPlatformId(platformPrefix),
+    price_options: (item.price_options ?? []).map((option) => {
+      const optionId = option.option_id !== '' ? option.option_id : mintOptionId();
+      return {
+        ...option,
+        option_id: optionId,
+        platform_id: priorPlatformIds.option.get(`${rateSheetId} ${itemId} ${optionId}`) ?? mintPlatformId('CZPRCIO'),
+      };
+    }),
   };
 }
 
 function applySave(payload) {
-  const manager = deepClone(server.manager);
+  const priorManager = server.manager;
+  const manager = deepClone(priorManager);
   manager.sources = payload.sources;
   // The Manager item pool (mgr_website/mgr_banking) is fixture-fixed, not
   // derived from connected Services here — this harness no longer exercises
   // Service connection at all, since composing a Bundle never does.
   manager.groups = payload.groups;
+
+  const priorPlatformIds = { row: new Map(), option: new Map(), bundle: new Map(), suppliedContent: new Map() };
+  for (const sheet of priorManager.rate_sheets) {
+    for (const item of sheet.items ?? []) {
+      priorPlatformIds.row.set(`${sheet.rate_sheet_id} ${item.item_id}`, item.platform_id);
+      for (const option of item.price_options ?? []) {
+        priorPlatformIds.option.set(`${sheet.rate_sheet_id} ${item.item_id} ${option.option_id}`, option.platform_id);
+      }
+    }
+    for (const bundle of sheet.bundles ?? []) {
+      priorPlatformIds.bundle.set(`${sheet.rate_sheet_id} ${bundle.bundle_id}`, bundle.platform_id);
+      for (const ref of bundle.supplied_content ?? []) {
+        priorPlatformIds.suppliedContent.set(`${sheet.rate_sheet_id} ${bundle.bundle_id} ${ref.source_rate_sheet_id} ${ref.source_item_id}`, ref.platform_id);
+      }
+    }
+  }
+
   for (const submitted of payload.rate_sheets) {
     const id = submitted.rate_sheet_id !== '' ? submitted.rate_sheet_id : 'rs_minted';
     // Mint every Bundle with a blank id, then resolve the shared `'new'`
@@ -172,18 +201,18 @@ function applySave(payload) {
         const bundleId = newlyMintedBundleIds[nextNewBundleIndex];
         nextNewBundleIndex += 1;
         const itemId = item.item_id !== '' ? item.item_id : mintBundleRowId(bundleId);
-        return storeRow({ ...item, bundle_id: bundleId, item_id: itemId }, 'CZPRCI');
+        return storeRow({ ...item, bundle_id: bundleId, item_id: itemId }, id, 'CZPRCI', priorPlatformIds);
       }
-      return storeRow(item, 'CZPRCI');
+      return storeRow(item, id, 'CZPRCI', priorPlatformIds);
     });
     const itemIdByBundleId = new Map(items.filter((item) => item.bundle_id).map((item) => [item.bundle_id, item.item_id]));
     const storedBundles = bundles.map((bundle) => ({
       ...bundle,
-      platform_id: bundle.platform_id ?? mintPlatformId('CZPRCB'),
+      platform_id: priorPlatformIds.bundle.get(`${id} ${bundle.bundle_id}`) ?? mintPlatformId('CZPRCB'),
       item_id: itemIdByBundleId.get(bundle.bundle_id) ?? '',
       supplied_content: (bundle.supplied_content ?? []).map((reference) => ({
         ...reference,
-        platform_id: reference.platform_id ?? mintPlatformId('CZPRCBI'),
+        platform_id: priorPlatformIds.suppliedContent.get(`${id} ${bundle.bundle_id} ${reference.source_rate_sheet_id} ${reference.source_item_id}`) ?? mintPlatformId('CZPRCBI'),
       })),
     }));
     const stored = { ...submitted, rate_sheet_id: id, items, bundles: storedBundles };
@@ -342,6 +371,12 @@ function buttonIn(row, label) {
 function anyButton(label) {
   return [...container.querySelectorAll('button')].find((b) => b.textContent.trim() === label) ?? null;
 }
+// The SAME Default/Option tab strip every ordinary row's Unit Price cell
+// uses (scripts/rate-sheet-row-lock-regression.mjs) — proving a Bundle row's
+// own Price Options ride the identical shared engine, never a second one.
+function priceOptionTab(row, text) { return row ? [...row.querySelectorAll('.cz-rate-sheet-tool__price-options-tab')].find((b) => b.textContent.trim() === text) ?? null : null; }
+function priceOptionLabelInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="text"]') ?? null; }
+function priceOptionPriceInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]') ?? null; }
 function importColumnLabels() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__import-columns .cz-rate-sheet-tool__import-column-label')]
     .map((p) => p.textContent.trim());
@@ -491,6 +526,12 @@ check('a SAVED Bundle row offers Delete too — it is a normal saved row', butto
 check('it carries the ordinary Price Options tab strip', openRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
 check('and the ordinary Per and Group dropdowns', openRow.querySelectorAll('select').length === 2, openRow.querySelectorAll('select').length);
 
+// Phase 4 — Bundle Name/reprice/Price-Option-add together must not remint
+// ANY of the Bundle's own identities. Captured fresh, right before the edit,
+// against the CURRENT stored truth (not the earlier Section B capture).
+const beforeEditBundle = server.manager.rate_sheets[0].bundles[0];
+const beforeEditRow = server.manager.rate_sheets[0].items.find((item) => (item.bundle_id ?? '') !== '');
+
 const nameInput = openRow.querySelector('input[type="text"]');
 setInputValue(nameInput, 'Digital Banking Website');
 await settle();
@@ -499,6 +540,19 @@ const priceField = rowsIn()[0].querySelector('.cz-rate-sheet-tool__price-option-
 setInputValue(priceField, 75);
 await settle();
 check('naming and repricing it makes no API request until Save', saveCalls === savesBeforeImport + 1);
+
+// A Bundle row's own Price Option rides the IDENTICAL Default/+ tab engine
+// row-lock-regression.mjs already proves for an ordinary row — no second
+// pricing engine, no Bundle-specific option UI.
+click(priceOptionTab(rowsIn()[0], '+'));
+await settle();
+check('adding a Price Option on a Bundle row shows the SAME "Option 1" tab an ordinary row gets', priceOptionTab(rowsIn()[0], 'Option 1') != null);
+setInputValue(priceOptionLabelInput(rowsIn()[0]), 'Combo');
+setInputValue(priceOptionPriceInput(rowsIn()[0]), 90);
+await settle();
+click(priceOptionTab(rowsIn()[0], 'Default Price'));
+await settle();
+check('switching back to Default Price shows the row\'s own reprice, untouched by the option just added', Number(rowsIn()[0]?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]')?.value) === 75);
 
 const savesBeforeRowSave = saveCalls;
 click(buttonIn(rowsIn().find((tr) => buttonIn(tr, 'Save') != null), 'Save'));
@@ -509,6 +563,23 @@ check('and locks the row again', buttonIn(rowsIn()[0], 'Edit') != null);
 const savedBundleRow = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.items?.find((item) => (item.bundle_id ?? '') !== '');
 check('the payload carries the Product Bundle name on the ROW', savedBundleRow?.label === 'Digital Banking Website', savedBundleRow?.label);
 check("the row's own reprice — independent of what its supplied content sums to", savedBundleRow?.unit_price === 75, savedBundleRow?.unit_price);
+check(
+  'the payload carries the new Price Option (label/price), normal and unmarked, alongside the Default reprice',
+  savedBundleRow?.price_options?.length === 1 && savedBundleRow.price_options[0].label === 'Combo' && savedBundleRow.price_options[0].unit_price === 90,
+  JSON.stringify(savedBundleRow?.price_options),
+);
+
+const afterEditBundle = server.manager.rate_sheets[0].bundles[0];
+const afterEditRow = server.manager.rate_sheets[0].items.find((item) => (item.bundle_id ?? '') !== '');
+check('renaming, repricing, AND adding a Price Option together never remint bundle_id', afterEditBundle.bundle_id === beforeEditBundle.bundle_id);
+check('...nor CZPRCB', afterEditBundle.platform_id === beforeEditBundle.platform_id);
+check('...nor the row\'s own item_id', afterEditRow.item_id === beforeEditRow.item_id);
+check('...nor its CZPRCI', afterEditRow.platform_id === beforeEditRow.platform_id);
+check(
+  'the new Price Option mints its OWN CZPRCIO — distinct from the row\'s CZPRCI and the Bundle\'s CZPRCB',
+  /^CZPRCIO/.test(afterEditRow.price_options?.[0]?.platform_id ?? '') && afterEditRow.price_options[0].platform_id !== afterEditRow.platform_id,
+  afterEditRow.price_options?.[0]?.platform_id,
+);
 check(
   "the referenced Website row kept its own unchanged price",
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.items?.find((item) => item.source_item_id === 'mgr_website')?.unit_price === 10,
