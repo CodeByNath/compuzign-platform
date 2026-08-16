@@ -349,18 +349,23 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   const td = c.tierDetail;
   if (!td) return null;
   const { detail, rateSheetCatalogue } = td;
+  const authorizedRateSheetIds = new Set(station.allowed_rate_sheet_ids ?? []);
+  const authorizedBundleKeys = new Set((station.allowed_rate_sheet_bundles ?? []).map((entry) => (
+    `${entry.rate_sheet_id}\u0000${entry.bundle_id}`
+  )));
+  const occupantRateSheetOptions = svc.rate_sheets
+    .filter((sheet) => authorizedRateSheetIds.has(sheet.rate_sheet_id))
+    .map((sheet) => ({
+      id: sheet.rate_sheet_id,
+      title: sheet.title,
+      status: sheet.status,
+      bundles: (sheet.bundles ?? [])
+        .filter((bundle) => authorizedBundleKeys.has(`${sheet.rate_sheet_id}\u0000${bundle.bundle_id}`))
+        .map((bundle) => ({ id: bundle.bundle_id, title: bundle.title, status: bundle.status })),
+    }));
 
   let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
-    // Selectable sheets: active ones plus the current binding (even if archived,
-    // so it still displays). Switching clears the Tier's selections at settle.
-    const boundId = detail.rate_sheet_id;
-    const rateSheetOptions = selectableRateSheets(
-      svc.rate_sheets,
-      station.allowed_rate_sheet_ids ?? [],
-      boundId,
-    )
-      .map((sheet) => ({ id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status }));
     editing = {
       module: 'overview',
       session: {
@@ -372,7 +377,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
-        extras: { rateSheets: rateSheetOptions, hasSelections: detail.rate_sheet_items.length > 0 },
+        extras: { rateSheets: occupantRateSheetOptions },
       },
     };
   } else if (c.editingSection === 'tier-inclusions' && c.featuresDraft) {

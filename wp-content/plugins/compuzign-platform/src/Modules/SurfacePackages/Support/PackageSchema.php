@@ -64,6 +64,36 @@ class PackageSchema
         return $out;
     }
 
+    /** @return string[] */
+    public static function sanitizeTierRateSheetIds(mixed $ids): array
+    {
+        if (!is_array($ids)) { return []; }
+        $out = [];
+        foreach ($ids as $raw) {
+            $id = is_scalar($raw) ? sanitize_text_field((string) $raw) : '';
+            if ($id !== '' && !in_array($id, $out, true)) { $out[] = $id; }
+        }
+        return $out;
+    }
+
+    /** @return array<int, array{rate_sheet_id:string,bundle_id:string}> */
+    public static function sanitizeTierRateSheetBundles(mixed $bundles): array
+    {
+        if (!is_array($bundles)) { return []; }
+        $out = [];
+        $seen = [];
+        foreach ($bundles as $raw) {
+            if (!is_array($raw)) { continue; }
+            $rateSheetId = sanitize_text_field((string) ($raw['rate_sheet_id'] ?? ''));
+            $bundleId = sanitize_text_field((string) ($raw['bundle_id'] ?? ''));
+            $key = $rateSheetId . "\0" . $bundleId;
+            if ($rateSheetId === '' || $bundleId === '' || isset($seen[$key])) { continue; }
+            $seen[$key] = true;
+            $out[] = ['rate_sheet_id' => $rateSheetId, 'bundle_id' => $bundleId];
+        }
+        return $out;
+    }
+
     /**
      * Sanitize the multi-select audience_groups. An explicitly-empty array is
      * a valid, preserved administrator choice — callers apply the "missing
@@ -879,6 +909,8 @@ class PackageSchema
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
                 'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
+                'rate_sheet_ids'      => self::sanitizeTierRateSheetIds($occ['rate_sheet_ids'] ?? []),
+                'rate_sheet_bundles'  => self::sanitizeTierRateSheetBundles($occ['rate_sheet_bundles'] ?? []),
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
@@ -920,6 +952,8 @@ class PackageSchema
             'billing_cycle'       => $tier['billing_cycle'] ?? null,
             'inclusions_override' => $tier['inclusions_override'] ?? [],
             'rate_sheet_id'       => self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []),
+            'rate_sheet_ids'      => self::sanitizeTierRateSheetIds($tier['rate_sheet_ids'] ?? []),
+            'rate_sheet_bundles'  => self::sanitizeTierRateSheetBundles($tier['rate_sheet_bundles'] ?? []),
             'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($tier['rate_sheet_items'] ?? []),
             'features'            => $tier['features'] ?? [],
             'faq_refs'            => $tier['faq_refs'] ?? [],
@@ -1163,6 +1197,8 @@ class PackageSchema
                 'contact'             => $data['contact'] ?? false,
                 'billing_cycle'       => $data['billing_cycle'] ?? null,
                 'rate_sheet_id'       => $rateSheetId,
+                'rate_sheet_ids'      => self::sanitizeTierRateSheetIds($data['rate_sheet_ids'] ?? ($tierSlot['current_occupant']['rate_sheet_ids'] ?? [])),
+                'rate_sheet_bundles'  => self::sanitizeTierRateSheetBundles($data['rate_sheet_bundles'] ?? ($tierSlot['current_occupant']['rate_sheet_bundles'] ?? [])),
                 'inclusions_override' => $data['inclusions_override'] ?? [],
                 'rate_sheet_items'    => $selections,
                 'features'            => $data['features'] ?? [],
@@ -1828,7 +1864,8 @@ class PackageSchema
             'label' => '', 'ideal_for' => '',
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
-            'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
+            'billing_cycle' => null, 'rate_sheet_id' => null, 'rate_sheet_ids' => [], 'rate_sheet_bundles' => [],
+            'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
             'tier_editions' => [], 'tier_edition_bin' => [],
         ];
@@ -2381,6 +2418,8 @@ class PackageSchema
             'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
             'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
             'rate_sheet_id'       => $draftRateSheetId,
+            'rate_sheet_ids'      => self::sanitizeTierRateSheetIds($ov['rate_sheet_ids'] ?? ($occ['rate_sheet_ids'] ?? [])),
+            'rate_sheet_bundles'  => self::sanitizeTierRateSheetBundles($ov['rate_sheet_bundles'] ?? ($occ['rate_sheet_bundles'] ?? [])),
             'inclusions_override' => [],
             'rate_sheet_items'    => $selections,
             'features'            => $occ['features'] ?? [],

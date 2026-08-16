@@ -43,7 +43,7 @@ import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from '@/hooks/stationPrimitives';
 import { deriveTierOccupants, resolveTierOccupantSlot } from './tierOccupants';
 import type { TierOccupant } from './tierOccupants';
-import { relationshipDisplayLabel } from './rateSheetLabels';
+import { buildOccupantRateSheetCatalogue, resolveOccupantInclusions } from './tierRateSheetCatalogue';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
 //
@@ -109,6 +109,8 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
     // A pending sheet switch lives on the overview draft; otherwise the settled binding.
     rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
+    rate_sheet_ids:      ov?.rate_sheet_ids ?? slot.rate_sheet_ids,
+    rate_sheet_bundles:  ov?.rate_sheet_bundles ?? slot.rate_sheet_bundles,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
     // A pending is_addon change lives on the overview draft, same as label/
@@ -213,17 +215,19 @@ export function usePackageStation(
     if (!slot) return null;
 
     const dp = draftPreferredDetail(slot);
-    // Row identity is (rate_sheet_id, item_id): resolve within the sheet this Tier
-    // is bound to, never a bare scan across sheets.
-    const rateSheet = (detail?.service.rate_sheets ?? []).find((s) => s.rate_sheet_id === dp.rate_sheet_id) ?? null;
-    const sourceById = new Map((detail?.service.package_relationships ?? []).map((item) => [item.item_id, item]));
-    const rateById = new Map((rateSheet?.items ?? []).map((item) => [item.item_id, item]));
+    const catalogue = buildOccupantRateSheetCatalogue(
+      detail?.service ?? { rate_sheets: [], package_relationships: [] },
+      dp.rate_sheet_ids,
+      dp.rate_sheet_bundles,
+      dp.rate_sheet_id,
+      [],
+    );
+    const catalogueById = new Map(catalogue.map((item) => [item.item_id, item]));
     const resolvedSelections = dp.rate_sheet_items.map((selection) => {
-      const rateItem = rateById.get(selection.item_id);
-      const source = rateItem ? sourceById.get(rateItem.source_item_id) : undefined;
-      const resolved = !!rateItem && !!source && !source.missing;
-      const label = resolved && source
-        ? relationshipDisplayLabel(source)
+      const rateItem = catalogueById.get(selection.item_id);
+      const resolved = !!rateItem?.resolved;
+      const label = resolved
+        ? rateItem.label
         : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
       // Effective unit price mirrors PackageManagerSchema::projectTierRateSheetWith:
       // Default Price unless price_option_id resolves against this row's own
@@ -240,8 +244,8 @@ export function usePackageStation(
       return {
         ...selection, resolved, label,
         price_option_id: priceOptionId,
-        source_type: source?.source_type ?? null,
-        source_id: source?.source_id ?? null,
+        source_type: rateItem?.source_type ?? null,
+        source_id: rateItem?.source_id ?? null,
         unit_price: unitPrice,
         per: resolved && rateItem ? rateItem.per : null,
         group_id: resolved && rateItem ? rateItem.group_id : null,
@@ -250,6 +254,7 @@ export function usePackageStation(
         // Display only — what the row calls the price this selection already
         // uses when it carries no price_option_id.
         default_price_label: rateItem?.default_price_label,
+        includes: rateItem?.includes,
       };
     });
     dp.rate_sheet_selections = resolvedSelections;
@@ -263,9 +268,10 @@ export function usePackageStation(
     dp.price = resolvedSelections.some((item) => item.resolved)
       ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
       : null;
-    dp.inclusions_override = resolvedSelections
-      .filter((item) => item.source_type === 'inclusion')
-      .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
+    dp.inclusions_override = resolveOccupantInclusions(
+      resolvedSelections,
+      detail?.service.package_relationships ?? [],
+    );
     dp.faq_refs = resolvedSelections
       .filter((item) => item.source_type === 'faq' && item.resolved && item.source_id)
       .map((item) => item.source_id as string);

@@ -64,6 +64,24 @@ $allowed = Schema::sanitizeAllowedRateSheetIds(
 );
 check_tier_instance($allowed === ['rs_b', 'rs_a'], 'allow-list drops unknown ids, dedupes, and preserves order');
 
+$allowedBundles = Schema::sanitizeAllowedRateSheetBundles(
+    [
+        ['rate_sheet_id' => 'rs_a', 'bundle_id' => 'bundle_a'],
+        ['rate_sheet_id' => 'rs_a', 'bundle_id' => 'bundle_a'],
+        ['rate_sheet_id' => 'rs_a', 'bundle_id' => 'unknown'],
+        ['rate_sheet_id' => 'rs_b', 'bundle_id' => 'bundle_b'],
+    ],
+    [
+        ['rate_sheet_id' => 'rs_a', 'bundles' => [['bundle_id' => 'bundle_a']]],
+        ['rate_sheet_id' => 'rs_b', 'bundles' => [['bundle_id' => 'bundle_b']]],
+    ],
+    ['rs_a']
+);
+check_tier_instance(
+    $allowedBundles === [['rate_sheet_id' => 'rs_a', 'bundle_id' => 'bundle_a']],
+    'Bundle access keeps exact direct-child pairs, dedupes, and requires its allowed Rate Sheet'
+);
+
 $active = $base;
 $active['tiers']['basic'] = [
     'current_occupant' => ['id' => 'occ_a', 'platform_status' => 'active'],

@@ -87,7 +87,9 @@ function mutation_instance(string $id, string $occupantId, string $label): array
     $slot['current_occupant']['id'] = $occupantId;
     return [
         'tier_instance_id' => $id, 'title' => strtoupper($id), 'status' => 'active',
-        'allowed_rate_sheet_ids' => [], 'popular_tier' => null, 'popular_label' => '',
+        'allowed_rate_sheet_ids' => ['rs_primary', 'rs_other'],
+        'allowed_rate_sheet_bundles' => [['rate_sheet_id' => 'rs_primary', 'bundle_id' => 'bundle_allowed']],
+        'popular_tier' => null, 'popular_label' => '',
         'tiers' => [...TierInstanceSchema::emptyTierMap(), 'basic' => $slot],
         'occupant_bin' => [],
     ];
@@ -134,20 +136,36 @@ check_tier_mutation(instance_from_option('ti_b')['tiers']['basic']['current_occu
 $beforeBDrafts = serialize(instance_from_option('ti_b')['tiers']['basic']['drafts']);
 mutation_controller()->savePackageStationTierModule(new WP_REST_Request(
     ['id' => 77, 'instance' => 'ti_primary', 'tier' => 'basic', 'module' => 'overview'],
-    ['label' => 'Draft A', 'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rs_primary']
+    ['label' => 'Draft A', 'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rs_primary',
+        'rate_sheet_ids' => ['rs_other', 'rs_forbidden'],
+        'rate_sheet_bundles' => [
+            ['rate_sheet_id' => 'rs_primary', 'bundle_id' => 'bundle_allowed'],
+            ['rate_sheet_id' => 'rs_primary', 'bundle_id' => 'bundle_forbidden'],
+        ]]
 ));
 check_tier_mutation(serialize(instance_from_option('ti_b')['tiers']['basic']['drafts']) === $beforeBDrafts, 'draft in A leaves B drafts untouched');
+$overviewDraft = instance_from_option('ti_primary')['tiers']['basic']['drafts']['overview'];
+check_tier_mutation($overviewDraft['rate_sheet_ids'] === ['rs_other'], 'occupant Overview keeps only Tier Group-authorized Rate Sheets');
+check_tier_mutation(
+    $overviewDraft['rate_sheet_bundles'] === [['rate_sheet_id' => 'rs_primary', 'bundle_id' => 'bundle_allowed']],
+    'occupant Overview keeps only Tier Group-authorized direct Bundles'
+);
 mutation_controller()->revertPackageStationTierModule(new WP_REST_Request([
     'id' => 77, 'instance' => 'ti_primary', 'tier' => 'basic', 'module' => 'overview',
 ]));
 mutation_controller()->savePackageStationTierModule(new WP_REST_Request(
     ['id' => 77, 'instance' => 'ti_primary', 'tier' => 'basic', 'module' => 'overview'],
-    ['label' => 'Settled A', 'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rs_primary']
+    ['label' => 'Settled A', 'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rs_primary',
+        'rate_sheet_ids' => ['rs_primary', 'rs_other'],
+        'rate_sheet_bundles' => [['rate_sheet_id' => 'rs_primary', 'bundle_id' => 'bundle_allowed']]]
 ));
 mutation_controller()->settlePackageStationTier(new WP_REST_Request([
     'id' => 77, 'instance' => 'ti_primary', 'tier' => 'basic',
 ]));
 check_tier_mutation(serialize(instance_from_option('ti_b')['tiers']['basic']['drafts']) === $beforeBDrafts, 'settle in A leaves B drafts untouched');
+$settledAccess = instance_from_option('ti_primary')['tiers']['basic']['current_occupant'];
+check_tier_mutation($settledAccess['rate_sheet_ids'] === ['rs_primary', 'rs_other'], 'settle persists the occupant Rate Sheet source order');
+check_tier_mutation($settledAccess['rate_sheet_bundles'][0]['bundle_id'] === 'bundle_allowed', 'settle persists exact occupant Bundle source identity');
 
 // Popular and enabled state are instance-local.
 $beforeB = serialize(instance_from_option('ti_b'));

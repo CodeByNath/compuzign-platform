@@ -65,6 +65,13 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
         const effectiveUnitPrice = optionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
         return <div key={selection.item_id} class="cz-ie-row">
           <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`)}</div>
+          {(row.includes?.length ?? 0) > 0 && (
+            <ul aria-label={`Included in ${row.label}`}>
+              {row.includes?.map((item) => (
+                <li key={item.item_id}>{item.label}{item.quantity > 1 ? ` × ${item.quantity}` : ''}</li>
+              ))}
+            </ul>
+          )}
           {priceOptions.length > 0 && (
             <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
               onChange={(event) => {

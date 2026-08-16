@@ -36,6 +36,7 @@ import {
   tierRateSheetAccessDraft,
   tierRateSheetAccessIsDirty,
   tierRateSheetAccessPayload,
+  tierRateSheetBundleAccessPayload,
 } from '../resources/ts/package-station/surface/tierInstance/tierRateSheetAccessModel';
 import type {
   PackageRateSheet,
@@ -350,7 +351,10 @@ check(
 );
 
 const accessSheets: PackageRateSheet[] = [
-  { rate_sheet_id: 'rs_active', title: 'Active', status: 'active', groups: [], items: [] },
+  { rate_sheet_id: 'rs_active', platform_id: 'CZPRCACTIVE', title: 'Active', status: 'active', groups: [], items: [], bundles: [{
+    bundle_id: 'bundle_foundation', platform_id: 'CZPRCBFOUND', title: 'Foundation Bundle', status: 'active', sort_order: 0,
+    unit_price: 100, per: 'month', quantity: 1, group_id: null, price_options: [], items: [],
+  }] },
   { rate_sheet_id: 'rs_second', title: 'Second', status: 'active', groups: [], items: [] },
   { rate_sheet_id: 'rs_archived', title: 'Archived', status: 'archived', groups: [], items: [] },
 ];
@@ -399,6 +403,7 @@ check(
 const limitedRecord = {
   ...kairosRecord,
   allowed_rate_sheet_ids: ['rs_active', 'rs_archived', 'rs_missing'],
+  allowed_rate_sheet_bundles: [{ rate_sheet_id: 'rs_active', bundle_id: 'bundle_foundation' }],
 };
 const limitedAccess = projectTierRateSheetAccess(limitedRecord, accessSheets);
 check(
@@ -421,11 +426,17 @@ check(
 const limitedDraft = tierRateSheetAccessDraft(limitedAccess);
 check(!tierRateSheetAccessIsDirty(limitedDraft, limitedRecord), 'an unchanged limited draft is not dirty');
 check(
-  tierRateSheetAccessPayload({ allowedRateSheetIds: [' rs_active ', 'rs_active'] }).join(',') === 'rs_active',
+  limitedAccess.rows.find((row) => row.platformId === 'CZPRCACTIVE')?.bundles[0]?.platformId === 'CZPRCBFOUND'
+    && limitedAccess.rows.find((row) => row.rateSheetId === 'rs_active')?.bundles[0]?.title === 'Foundation Bundle'
+    && tierRateSheetBundleAccessPayload(limitedDraft)[0]?.bundle_id === 'bundle_foundation',
+  'access resolves the Rate Sheet then reads its direct bundles[] children and round-trips the exact pair',
+);
+check(
+  tierRateSheetAccessPayload({ allowedRateSheetIds: [' rs_active ', 'rs_active'], allowedRateSheetBundles: [] }).join(',') === 'rs_active',
   'the save payload trims and de-duplicates the draft ids before backend validation',
 );
 check(
-  tierRateSheetAccessPayload({ allowedRateSheetIds: [] }).length === 0,
+  tierRateSheetAccessPayload({ allowedRateSheetIds: [], allowedRateSheetBundles: [] }).length === 0,
   'an explicitly empty draft saves as empty — deselecting everything is a valid, savable choice, never rejected',
 );
 

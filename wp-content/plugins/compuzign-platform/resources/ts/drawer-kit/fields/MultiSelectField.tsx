@@ -17,6 +17,7 @@ import { AdminField } from './AdminField';
 export interface MultiSelectFieldOption {
   value: string;
   label: string;
+  children?: MultiSelectFieldOption[];
 }
 
 interface Props {
@@ -63,10 +64,13 @@ export function MultiSelectField({
     setOpenUp(panel.offsetHeight > spaceBelow && spaceAbove > spaceBelow);
   }, [open]);
 
-  const toggle = (value: string, checked: boolean) => {
-    onChange(checked
-      ? (selected.includes(value) ? selected : [...selected, value])
-      : selected.filter((v) => v !== value));
+  const toggle = (option: MultiSelectFieldOption, checked: boolean, parent?: MultiSelectFieldOption) => {
+    if (checked) {
+      onChange([...new Set([...selected, ...(parent ? [parent.value] : []), option.value])]);
+      return;
+    }
+    const removed = new Set([option.value, ...(option.children ?? []).map((child) => child.value)]);
+    onChange(selected.filter((value) => !removed.has(value)));
   };
   const summary = selected.length === 0
     ? emptyLabel
@@ -99,12 +103,25 @@ export function MultiSelectField({
             {options.length === 0
               ? <p class="cz-tf-hint">{noOptionsMessage}</p>
               : options.map((option) => (
-                <AdminField
-                  key={option.value}
-                  def={{ id: `${id}-${option.value}`, type: 'checkbox', label: option.label }}
-                  value={selected.includes(option.value)}
-                  onChange={(checked: boolean) => toggle(option.value, checked)}
-                />
+                <div class="cz-multiselect__option" key={option.value}>
+                  <AdminField
+                    def={{ id: `${id}-${option.value}`, type: 'checkbox', label: option.label }}
+                    value={selected.includes(option.value)}
+                    onChange={(checked: boolean) => toggle(option, checked)}
+                  />
+                  {(option.children?.length ?? 0) > 0 && (
+                    <div class="cz-multiselect__children">
+                      {option.children?.map((child) => (
+                        <AdminField
+                          key={child.value}
+                          def={{ id: `${id}-${child.value}`, type: 'checkbox', label: child.label }}
+                          value={selected.includes(child.value)}
+                          onChange={(checked: boolean) => toggle(child, checked, option)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
           </div>
         )}

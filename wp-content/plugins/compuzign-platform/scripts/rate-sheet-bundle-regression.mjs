@@ -322,7 +322,7 @@ function gridHeaders() {
     .find((table) => table.closest('.cz-rate-sheet-tool__import') === null) ?? null;
   return [...(grid?.querySelectorAll('thead th') ?? [])].map((th) => th.textContent.trim());
 }
-/** The Bundle row's read-only Supplied content cell — one entry per component. */
+/** The Bundle row's read-only Supplied content cell — one entry per membership. */
 function suppliedItems() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__supplied-item')];
 }
@@ -440,7 +440,7 @@ check('only Edit opens the inline editor', editorShell() != null);
 check('the editor is a focused task that suppresses the group chrome', detailRoot()?.className.includes('cz-req-detail--editing'), detailRoot()?.className);
 check('the group renderers stay mounted beneath it, never unmounted', container.querySelector('.cz-drawer-groups__tablist') != null);
 check('its own editor is mounted', bundleWorkspace() != null);
-check('it is ONE Rate Sheet row, not a grid of component rows', rowsIn().length === 1, rowsIn().length);
+check('it is ONE Rate Sheet row, not a grid of membership rows', rowsIn().length === 1, rowsIn().length);
 check(
   'Product Bundle names the row, and Supplied content is its OWN column right after it',
   gridHeaders().slice(0, 6).join('|') === 'Product Bundle|Supplied content|Unit Price|Per|Qty|Group',
@@ -490,13 +490,12 @@ check('the basket is its own full-width strip, not a third column', container.qu
 
 click(importChip('Alpha Co'));
 await settle();
-check('a source already priced by the SHEET is still offerable inside a Bundle', importChip('Website') != null);
-click(importChip('Website Revamp'));
-await settle();
-check('picking one moves it into the basket', basketChip('Website Revamp') != null);
+check('an existing Rate Sheet row is offerable as an atomic Bundle membership', importChip('Website') != null);
+check('an Inclusion with no existing Rate Sheet row is not offered as a membership', importChip('Website Revamp') == null);
 click(importChip('Website'));
 await settle();
-check('several inclusions select together', basketChips().length === 2, basketChips().length);
+check('picking the existing row moves it into the basket', basketChip('Website') != null);
+check('the basket contains one exact Rate Sheet-row membership', basketChips().length === 1, basketChips().length);
 
 const savesBeforeImport = saveCalls;
 click(importActionButton('Import'));
@@ -507,10 +506,11 @@ const publishedSheet = lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_
 const publishedBundle = publishedSheet?.bundles?.[0];
 check('the save payload carries the Bundle under its owning sheet', publishedBundle != null);
 check('the Bundle is submitted with a blank id — the backend mints it', publishedBundle?.bundle_id === '', publishedBundle?.bundle_id);
-check('its components landed in the BUNDLE, not in the sheet\'s own rows', (publishedBundle?.items ?? []).length === 2, (publishedBundle?.items ?? []).length);
+check('its membership landed in the BUNDLE, not in the sheet\'s own rows', (publishedBundle?.items ?? []).length === 1, (publishedBundle?.items ?? []).length);
+check('the membership retains the exact existing Rate Sheet row address', publishedBundle?.items?.[0]?.rate_sheet_id === 'rs_1' && publishedBundle?.items?.[0]?.rate_sheet_item_id === 'rate_website', JSON.stringify(publishedBundle?.items?.[0]));
 check('the sheet\'s own rows are untouched by the Bundle import', (publishedSheet?.items ?? []).length === 1, (publishedSheet?.items ?? []).length);
-check('the Bundle is still ONE row after importing two things', rowsIn().length === 1, rowsIn().length);
-check('both reads in its Supplied content block', suppliedLabels().length === 2, suppliedLabels().join('; '));
+check('the Bundle is still ONE compiled row after adding membership', rowsIn().length === 1, rowsIn().length);
+check('the member reads in its Supplied content block', suppliedLabels().length === 1, suppliedLabels().join('; '));
 check('a saved Bundle shows its minted Platform ID', rowsIn()[0]?.textContent.includes('CZPRCB'), rowsIn()[0]?.textContent.slice(0, 200));
 
 // Editing a SAVED Bundle row: the full lock, Delete included.
@@ -545,7 +545,7 @@ check('the payload carries the Product Bundle name', savedBundle?.title === 'Fou
 check("the Bundle's own price", savedBundle?.unit_price === 75, savedBundle?.unit_price);
 check("the Bundle's own Price Option", (savedBundle?.price_options ?? []).length === 1 && savedBundle.price_options[0].label === 'Annual', JSON.stringify(savedBundle?.price_options));
 check("the Bundle's own quantity", savedBundle?.quantity === 3, savedBundle?.quantity);
-check('and its compiled supplied content', (savedBundle?.items ?? []).length === 2, (savedBundle?.items ?? []).length);
+check('and its atomic membership', (savedBundle?.items ?? []).length === 1, (savedBundle?.items ?? []).length);
 check(
   "the sheet's own row for the SAME supplied content kept its own price",
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.items?.[0]?.unit_price === 5,
@@ -557,25 +557,26 @@ check('the name cell carries only the name, never the content', rowsIn()[0]?.que
 check('and never in a second block beneath the grid', container.querySelector('.cz-rate-sheet-tool__supplied') == null);
 check('a LOCKED row offers no removal — it is read-only like any row', container.querySelector('.cz-rate-sheet-tool__supplied-remove') == null);
 
-// Removing individual supplied content stays available on the unlocked row.
+// Direct membership editing remains available; backend PHP coverage separately
+// proves underlying normal-row deletion through the production save path.
 click(buttonIn(rowsIn()[0], 'Edit'));
 await settle();
 const beforeRemove = suppliedLabels().length;
 check('the unlocked row offers removal per entry', container.querySelector('.cz-rate-sheet-tool__supplied-remove') != null);
 click(container.querySelector('.cz-rate-sheet-tool__supplied-remove'));
 await settle();
-check('a component can still be removed from the combination', suppliedLabels().length === beforeRemove - 1, suppliedLabels().length);
+check('a membership can still be removed from the combination', suppliedLabels().length === beforeRemove - 1, suppliedLabels().length);
 
 // Persist the removal through the row's own Save — the same one save — so the
 // row is locked again before the editor is left.
 const savesBeforeDrop = saveCalls;
 click(buttonIn(rowsIn().find((tr) => buttonIn(tr, 'Save') != null), 'Save'));
 await settle(60);
-check('removing a component persists through the same one save', saveCalls === savesBeforeDrop + 1, saveCalls - savesBeforeDrop);
+check('removing a membership persists through the same one save', saveCalls === savesBeforeDrop + 1, saveCalls - savesBeforeDrop);
 check('and the row locks again', buttonIn(rowsIn()[0], 'Edit') != null);
 check(
-  'the dropped component is gone from the payload',
-  (lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.bundles?.[0]?.items ?? []).length === 1,
+  'the dropped membership is gone from the payload',
+  (lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_1')?.bundles?.[0]?.items ?? []).length === 0,
 );
 
 click(anyButton('Cancel'));
@@ -620,7 +621,7 @@ check(
   (composedBundle?.items ?? []).some((row) => row.source_item_id === 'mgr_banking'),
 );
 check(
-  'the SOURCE Rate Sheet keeps its own row and its own price — composing copies, never moves',
+  'the SOURCE Rate Sheet keeps its own row and price — membership references, never moves or copies it',
   lastSavePayload?.rate_sheets?.find((sheet) => sheet.rate_sheet_id === 'rs_2')?.items?.[0]?.unit_price === 40,
 );
 check('the Bundle is still ONE row after composing across sources', rowsIn().length === 1, rowsIn().length);
@@ -636,12 +637,14 @@ await settle();
 // ── E) The Bundle's row is in `items`, and the Tool ignores it ───────────
 console.log("\nE) The Bundle's upstream row rides the ordinary items list");
 // The fixture backend now answers reads the way buildReadModel does: the
-// sheet's own rows plus one self-priced row per Bundle, all in `items`.
+// sheet's own rows plus one compiled row per Bundle, all in `items`.
 server.manager.rate_sheets[0].items = [
   ...server.manager.rate_sheets[0].items,
   {
-    item_id: 'rate_bundle_offer', platform_id: 'CZPRCB22223', source_item_id: '',
-    self_priced: true, label: 'Digital Banking Website', unit_price: 75, per: 'Per item',
+    item_id: 'rate_bundle_offer', platform_id: 'CZPRCI22223', source_item_id: '',
+    label: 'Digital Banking Website', resolved_label: 'Digital Banking Website',
+    connection_resolved: true, available: true, operational_state: 'connected_available', health_reasons: [],
+    unit_price: 75, per: 'Per item',
     quantity: 1, group_id: null, sort_order: 9, price_options: [], includes: [],
   },
 ];

@@ -27,6 +27,7 @@ import type {
   TierEditionOverviewDraft,
   TierEditionResponse,
   TierEditionBinResponse,
+  TierRateSheetBundleAccess,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -48,13 +49,14 @@ export function createTierInstance(payload: {
   title: string;
   description?: string;
   allowed_rate_sheet_ids?: string[];
+  allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[];
 }): Promise<TierInstanceMutationResponse> {
   return apiClient.post<TierInstanceMutationResponse>('admin/package-station/tier-instances', payload);
 }
 
 export function updateTierInstance(
   instanceId: string,
-  payload: { title?: string; description?: string; allowed_rate_sheet_ids?: string[] },
+  payload: { title?: string; description?: string; allowed_rate_sheet_ids?: string[]; allowed_rate_sheet_bundles?: TierRateSheetBundleAccess[] },
 ): Promise<TierInstanceMutationResponse> {
   return apiClient.patch<TierInstanceMutationResponse>(
     `admin/package-station/tier-instances/${instanceId}`,
