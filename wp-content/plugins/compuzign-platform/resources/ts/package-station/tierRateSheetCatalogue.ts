@@ -23,7 +23,11 @@ export function buildOccupantRateSheetCatalogue(
   const relationshipsById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
   const selectedBundles = rateSheetBundles ?? [];
   const selectedBundleKeys = new Set(selectedBundles.map((entry) => `${entry.rate_sheet_id}\u0000${entry.bundle_id}`));
-  const selectedSheetIds = new Set(rateSheetIds !== undefined
+  // Existing occupants are normalized with rate_sheet_ids: [] even though
+  // their established binding still lives in rate_sheet_id. An empty array
+  // must therefore retain that legacy binding; otherwise every existing
+  // occupant loses its normal Rate Sheet catalogue on read.
+  const selectedSheetIds = new Set((rateSheetIds?.length ?? 0) > 0
     ? rateSheetIds
     : (legacyRateSheetId ? [legacyRateSheetId] : []));
   for (const entry of selectedBundles) selectedSheetIds.add(entry.rate_sheet_id);
