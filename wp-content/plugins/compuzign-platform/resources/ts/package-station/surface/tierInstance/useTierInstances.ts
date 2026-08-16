@@ -13,7 +13,6 @@ import type {
   PackageFamilyListItem,
   TierAssignment,
   TierInstanceRecord,
-  TierRateSheetGroupAccess,
 } from '../../types';
 import { eligibleConsumers, tierInstanceRows } from './tierInstanceModel';
 
@@ -59,12 +58,7 @@ export interface TierInstancesToolState {
   ) => Promise<TierInstanceRecord | null>;
   updateInstance: (
     instanceId: string,
-    payload: {
-      title?: string;
-      description?: string;
-      allowed_rate_sheet_ids?: string[];
-      allowed_rate_sheet_groups?: TierRateSheetGroupAccess[];
-    },
+    payload: { title?: string; description?: string; allowed_rate_sheet_ids?: string[] },
   ) => Promise<TierInstanceRecord | null>;
   assignInstance: (instanceId: string, familyId: string) => Promise<boolean>;
   unassignInstance: (instanceId: string) => Promise<boolean>;
@@ -188,12 +182,7 @@ export function useTierInstances(): TierInstancesToolState {
 
   const updateInstance = useCallback(async (
     instanceId: string,
-    payload: {
-      title?: string;
-      description?: string;
-      allowed_rate_sheet_ids?: string[];
-      allowed_rate_sheet_groups?: TierRateSheetGroupAccess[];
-    },
+    payload: { title?: string; description?: string; allowed_rate_sheet_ids?: string[] },
   ): Promise<TierInstanceRecord | null> => {
     setSaving(true);
     setError(null);

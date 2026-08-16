@@ -190,12 +190,6 @@ export interface PackageFamilyDeleteResponse {
 
 export type TierInstanceStatus = 'draft' | 'active' | 'disabled' | 'archived' | 'trashed';
 
-/** One exact Rate Sheet group selected by a Tier System. */
-export interface TierRateSheetGroupAccess {
-  rate_sheet_id: string;
-  group_id: string;
-}
-
 /** Package-owned Tier capability instance. Consumer use is a separate assignment. */
 export interface TierInstanceSummary {
   tier_instance_id:       string;
@@ -204,8 +198,6 @@ export interface TierInstanceSummary {
   description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
-  /** Optional for records cached before nested Rate Sheet access existed. */
-  allowed_rate_sheet_groups?: TierRateSheetGroupAccess[];
   popular_tier:           string | null;
   popular_label:          string;
   readiness:              'ready' | 'not-ready';
@@ -221,8 +213,6 @@ export interface TierInstanceRecord {
   description:            string;
   status:                 TierInstanceStatus;
   allowed_rate_sheet_ids: string[];
-  /** Exact child access under the allowed parent Rate Sheets. */
-  allowed_rate_sheet_groups?: TierRateSheetGroupAccess[];
   popular_tier:           string | null;
   popular_label:          string;
   tiers: Record<string, {

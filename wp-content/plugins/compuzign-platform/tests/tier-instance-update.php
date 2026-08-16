@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // Milestone 1's footer Apply sends title, description, and
-// allowed_rate_sheet_ids and exact child-group access together in ONE PATCH — bundling what the Overview
+// allowed_rate_sheet_ids together in ONE PATCH — bundling what the Overview
 // and Rate Sheet Access modules each locally committed rather than issuing
 // two separate authoritative writes. Nothing else in this suite exercises
 // PackageStationController::updateTierInstance() with a combined payload.
@@ -73,7 +73,7 @@ function update_instance(string $id): array
 {
     return [
         'tier_instance_id' => $id, 'title' => 'Original', 'description' => 'Original description',
-        'status' => 'disabled', 'allowed_rate_sheet_ids' => [], 'allowed_rate_sheet_groups' => [], 'popular_tier' => null, 'popular_label' => '',
+        'status' => 'disabled', 'allowed_rate_sheet_ids' => [], 'popular_tier' => null, 'popular_label' => '',
         'tiers' => TierInstanceSchema::emptyTierMap(), 'occupant_bin' => [],
     ];
 }
@@ -84,8 +84,8 @@ function update_station(array $instance): array
         'platform_status' => 'disabled', 'tier_instances' => [$instance], 'tier_assignments' => [],
         'promotions' => [],
         'package_manager' => PackageManagerSchema::sanitize(['rate_sheets' => [
-            ['rate_sheet_id' => 'rs_a', 'title' => 'A', 'status' => 'active', 'groups' => [['group_id' => 'ga', 'label' => 'Group A']], 'items' => []],
-            ['rate_sheet_id' => 'rs_b', 'title' => 'B', 'status' => 'active', 'groups' => [['group_id' => 'gb', 'label' => 'Group B']], 'items' => []],
+            ['rate_sheet_id' => 'rs_a', 'title' => 'A', 'status' => 'active', 'groups' => [], 'items' => []],
+            ['rate_sheet_id' => 'rs_b', 'title' => 'B', 'status' => 'active', 'groups' => [], 'items' => []],
         ]]),
         'legacy_host_service_id' => 0,
     ];
@@ -107,15 +107,13 @@ function instance_from_option(string $id): array
 $tierUpdateOption = update_station(update_instance('ti_apply'));
 $response = controller()->updateTierInstance(new WP_REST_Request(
     ['instance' => 'ti_apply'],
-    ['title' => 'Renamed', 'description' => 'New description', 'allowed_rate_sheet_ids' => ['rs_a', 'rs_b'],
-        'allowed_rate_sheet_groups' => [['rate_sheet_id' => 'rs_a', 'group_id' => 'ga']]],
+    ['title' => 'Renamed', 'description' => 'New description', 'allowed_rate_sheet_ids' => ['rs_a', 'rs_b']],
 ));
 check_tier_update($response->get_status() === 200, 'a combined update succeeds');
 $saved = $response->get_data()['tier_instance'];
 check_tier_update($saved['title'] === 'Renamed', 'title lands from the combined payload');
 check_tier_update($saved['description'] === 'New description', 'description lands from the combined payload');
 check_tier_update($saved['allowed_rate_sheet_ids'] === ['rs_a', 'rs_b'], 'allowed_rate_sheet_ids lands from the combined payload');
-check_tier_update($saved['allowed_rate_sheet_groups'] === [['rate_sheet_id' => 'rs_a', 'group_id' => 'ga']], 'exact child group access lands from the combined payload');
 check_tier_update(instance_from_option('ti_apply')['title'] === 'Renamed', 'the combined update persists to storage');
 
 // A field the caller omits is left exactly as stored — Apply always sends all
@@ -129,30 +127,6 @@ $partial = instance_from_option('ti_partial');
 check_tier_update($partial['title'] === 'Only title changes', 'an omitted-sibling update still applies the given field');
 check_tier_update($partial['description'] === 'Original description', 'description is untouched when the payload omits it');
 check_tier_update($partial['allowed_rate_sheet_ids'] === [], 'allowed_rate_sheet_ids is untouched when the payload omits it');
-check_tier_update($partial['allowed_rate_sheet_groups'] === [], 'child group access is untouched when the payload omits it');
-
-// Child selection is exact, must resolve inside its named parent, and is
-// reconciled automatically when the parent grant is removed.
-$tierUpdateOption = update_station(update_instance('ti_groups'));
-controller()->updateTierInstance(new WP_REST_Request(
-    ['instance' => 'ti_groups'],
-    ['allowed_rate_sheet_ids' => ['rs_a'], 'allowed_rate_sheet_groups' => [
-        ['rate_sheet_id' => 'rs_a', 'group_id' => 'ga'],
-        ['rate_sheet_id' => 'rs_a', 'group_id' => 'missing'],
-        ['rate_sheet_id' => 'rs_b', 'group_id' => 'gb'],
-    ]],
-));
-check_tier_update(
-    instance_from_option('ti_groups')['allowed_rate_sheet_groups'] === [['rate_sheet_id' => 'rs_a', 'group_id' => 'ga']],
-    'group access keeps only a known exact pair whose parent is allowed',
-);
-controller()->updateTierInstance(new WP_REST_Request(
-    ['instance' => 'ti_groups'], ['allowed_rate_sheet_ids' => []],
-));
-check_tier_update(
-    instance_from_option('ti_groups')['allowed_rate_sheet_groups'] === [],
-    'removing parent access also removes its child group access',
-);
 
 // An unresolved Rate Sheet id in the payload is dropped, not stored blind.
 $tierUpdateOption = update_station(update_instance('ti_unknown_sheet'));

@@ -12,7 +12,6 @@ import type {
   TierRateSheetAccessDraft,
   TierRateSheetAccessProjection,
 } from '../../surface/tierInstance/tierRateSheetAccessModel';
-import { tierRateSheetGroupAccessKey } from '../../surface/tierInstance/tierRateSheetAccessModel';
 
 export function TierRateSheetAccessEditor({ draft, projection, onChange }: {
   draft: TierRateSheetAccessDraft;
@@ -24,15 +23,7 @@ export function TierRateSheetAccessEditor({ draft, projection, onChange }: {
     label: row.status === 'active'
       ? row.title
       : `${row.title} (${row.status === 'archived' ? 'Archived' : 'Unresolved'})`,
-    children: row.groups.map((group) => ({
-      value: group.accessKey,
-      label: group.resolved ? group.title : `${group.title} (${group.groupId})`,
-    })),
   }));
-  const selected = [
-    ...draft.allowedRateSheetIds,
-    ...draft.allowedRateSheetGroups.map((group) => tierRateSheetGroupAccessKey(group.rate_sheet_id, group.group_id)),
-  ];
 
   return (
     <div class="cz-tf-form cz-tier-rate-sheet-access-form">
@@ -40,16 +31,8 @@ export function TierRateSheetAccessEditor({ draft, projection, onChange }: {
         id="tier-rate-sheet-access"
         label="Rate Sheets"
         options={options}
-        selected={selected}
-        onChange={(next) => {
-          const selectedKeys = new Set(next);
-          onChange({
-            allowedRateSheetIds: projection.rows.filter((row) => selectedKeys.has(row.rateSheetId)).map((row) => row.rateSheetId),
-            allowedRateSheetGroups: projection.rows.flatMap((row) => row.groups)
-              .filter((group) => selectedKeys.has(group.accessKey))
-              .map((group) => ({ rate_sheet_id: group.rateSheetId, group_id: group.groupId })),
-          });
-        }}
+        selected={draft.allowedRateSheetIds}
+        onChange={(next) => onChange({ allowedRateSheetIds: next })}
         noOptionsMessage="No Rate Sheets exist yet to allow."
       />
     </div>

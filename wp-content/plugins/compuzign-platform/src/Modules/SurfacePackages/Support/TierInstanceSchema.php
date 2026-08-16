@@ -67,7 +67,6 @@ final class TierInstanceSchema
                 'title'                  => 'Primary Tier Set',
                 'status'                 => $station['platform_status'] ?? 'disabled',
                 'allowed_rate_sheet_ids' => [],
-                'allowed_rate_sheet_groups' => [],
                 'popular_tier'           => $station['popular_tier'] ?? null,
                 'popular_label'          => $station['popular_label'] ?? '',
                 'tiers'                  => $legacyTiers,
@@ -154,9 +153,6 @@ final class TierInstanceSchema
             'description'            => sanitize_textarea_field((string) ($instance['description'] ?? '')),
             'status'                 => $status,
             'allowed_rate_sheet_ids' => self::sanitizeIdList($instance['allowed_rate_sheet_ids'] ?? []),
-            'allowed_rate_sheet_groups' => self::sanitizeRateSheetGroupAccessList(
-                $instance['allowed_rate_sheet_groups'] ?? []
-            ),
             'popular_tier'           => $popularTier,
             'popular_label'          => sanitize_text_field((string) ($instance['popular_label'] ?? '')),
             'tiers'                  => $tiers,
@@ -343,37 +339,6 @@ final class TierInstanceSchema
         ));
     }
 
-    /**
-     * Keep exact child access only when both its parent Rate Sheet and group
-     * still exist, and the same instance explicitly allows that parent.
-     *
-     * @param string[] $allowedRateSheetIds
-     * @return array<int, array{rate_sheet_id:string,group_id:string}>
-     */
-    public static function sanitizeAllowedRateSheetGroups(
-        mixed $groups,
-        array $rateSheets,
-        array $allowedRateSheetIds
-    ): array {
-        $allowedParents = array_fill_keys(self::sanitizeIdList($allowedRateSheetIds), true);
-        $known = [];
-        foreach ($rateSheets as $rateSheet) {
-            if (!is_array($rateSheet)) { continue; }
-            $rateSheetId = sanitize_text_field((string) ($rateSheet['rate_sheet_id'] ?? ''));
-            if ($rateSheetId === '' || !isset($allowedParents[$rateSheetId])) { continue; }
-            foreach (is_array($rateSheet['groups'] ?? null) ? $rateSheet['groups'] : [] as $group) {
-                if (!is_array($group)) { continue; }
-                $groupId = sanitize_text_field((string) ($group['group_id'] ?? ''));
-                if ($groupId !== '') { $known[$rateSheetId . "\0" . $groupId] = true; }
-            }
-        }
-
-        return array_values(array_filter(
-            self::sanitizeRateSheetGroupAccessList($groups),
-            static fn(array $group): bool => isset($known[$group['rate_sheet_id'] . "\0" . $group['group_id']])
-        ));
-    }
-
     public static function deriveInstanceStatus(array $instance): string
     {
         return PackageSchema::deriveStationStatus([
@@ -409,24 +374,6 @@ final class TierInstanceSchema
             }
             $seen[$id] = true;
             $out[] = $id;
-        }
-        return $out;
-    }
-
-    /** @return array<int, array{rate_sheet_id:string,group_id:string}> */
-    private static function sanitizeRateSheetGroupAccessList(mixed $groups): array
-    {
-        if (!is_array($groups)) { return []; }
-        $out = [];
-        $seen = [];
-        foreach ($groups as $raw) {
-            if (!is_array($raw)) { continue; }
-            $rateSheetId = sanitize_text_field((string) ($raw['rate_sheet_id'] ?? ''));
-            $groupId = sanitize_text_field((string) ($raw['group_id'] ?? ''));
-            $key = $rateSheetId . "\0" . $groupId;
-            if ($rateSheetId === '' || $groupId === '' || isset($seen[$key])) { continue; }
-            $seen[$key] = true;
-            $out[] = ['rate_sheet_id' => $rateSheetId, 'group_id' => $groupId];
         }
         return $out;
     }

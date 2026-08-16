@@ -2029,9 +2029,3 @@ button.cz-module-status-pill {
   top: auto;
   bottom: calc(100% + var(--station-grid-gap));
 }
-
-.cz-admin-station .cz-multiselect__children {
-  margin: calc(var(--station-grid-gap) * 0.25) 0 var(--station-grid-gap) var(--station-grid-gap);
-  padding-left: var(--station-grid-gap);
-  border-left: 1px solid var(--station-border);
-}
