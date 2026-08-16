@@ -221,10 +221,28 @@ export function usePackageStation(
     const resolvedSelections = dp.rate_sheet_items.map((selection) => {
       const rateItem = rateById.get(selection.item_id);
       const source = rateItem ? sourceById.get(rateItem.source_item_id) : undefined;
-      const resolved = !!rateItem && !!source && !source.missing;
-      const label = resolved && source
-        ? relationshipDisplayLabel(source)
-        : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
+      // A Bundle-backed row stands behind itself (see PackageRateSheetItem's
+      // `bundle_id`) — it has no Manager source to resolve against, so it
+      // resolves on its own presence instead, the same rule
+      // `buildRateSheetCatalogue()` already uses for the picker's own
+      // candidate list. Without this, a Bundle-only selection resolves as
+      // unresolved here even though the picker correctly offered it.
+      const bundleBacked = !!rateItem && (rateItem.bundle_id ?? '') !== '';
+      const resolved = bundleBacked || (!!rateItem && !!source && !source.missing);
+      // A Bundle's own name, plus what it compiles — baked straight into the
+      // SAME single label string every plain Feature already carries, never a
+      // second field on the item-collection element (a shared, governed
+      // primitive with other consumers). Any reader of this label — the read
+      // card here, or a downstream Package/pricing preview — shows the
+      // Bundle's supplied content automatically, with no wiring of its own.
+      const bundleSuppliedLabels = bundleBacked
+        ? (rateItem?.includes ?? []).map((entry) => entry.label.trim()).filter((entry) => entry !== '')
+        : [];
+      const label = bundleBacked
+        ? (rateItem?.label?.trim() || 'Untitled Bundle') + (bundleSuppliedLabels.length > 0 ? ` — includes: ${bundleSuppliedLabels.join(', ')}` : '')
+        : resolved && source
+          ? relationshipDisplayLabel(source)
+          : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
       // Effective unit price mirrors PackageManagerSchema::projectTierRateSheetWith:
       // Default Price unless price_option_id resolves against this row's own
       // price_options[]; a present-but-unresolved id never falls back to
@@ -263,8 +281,12 @@ export function usePackageStation(
     dp.price = resolvedSelections.some((item) => item.resolved)
       ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
       : null;
+    // A Bundle-backed selection carries no `source_type` at all (it has no
+    // Manager source, inclusion or otherwise) — it must still count as one of
+    // this occupant's own Features, not be silently dropped by a filter that
+    // only recognizes the Manager-sourced kind.
     dp.inclusions_override = resolvedSelections
-      .filter((item) => item.source_type === 'inclusion')
+      .filter((item) => item.source_type === 'inclusion' || (rateById.get(item.item_id)?.bundle_id ?? '') !== '')
       .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
     dp.faq_refs = resolvedSelections
       .filter((item) => item.source_type === 'faq' && item.resolved && item.source_id)
