@@ -499,6 +499,142 @@ check_bundle(
     "the SURVIVING reference's own CZPRCBI stays bound, completely unaffected"
 );
 
+// ── Bundle edit lifecycle: ADD (a later Import) and REMOVE (one reference,
+//    not the whole Bundle) never affect a source row's own identity or
+//    price. Rename/reprice are proven above (Stability); whole-Bundle
+//    deletion is proven above (Removal). Self-contained fixture. ──────────
+
+echo "\nRate Sheet Bundle — edit lifecycle\n";
+
+$p6First = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([
+    ['rate_sheet_id' => 'rs_p6_bundle', 'title' => 'P6 Bundle Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [['source_item_id' => $itemA, 'unit_price' => 10, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null]], 'bundles' => []],
+    ['rate_sheet_id' => 'rs_p6_other', 'title' => 'P6 Other Sheet', 'status' => 'active', 'groups' => [],
+        'items' => [['source_item_id' => $itemB, 'unit_price' => 6, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null]], 'bundles' => []],
+])));
+check_bundle(($p6First->get_data()['success'] ?? false) === true, 'Phase 6 fixture: two fresh sheets save');
+$p6FindSheet = static function (array $manager, string $id): ?array {
+    foreach ($manager['rate_sheets'] as $sheet) { if ($sheet['rate_sheet_id'] === $id) { return $sheet; } }
+    return null;
+};
+$p6FindRow = static function (array $sheet, string $itemId): ?array {
+    foreach ($sheet['items'] as $item) { if ($item['item_id'] === $itemId) { return $item; } }
+    return null;
+};
+$p6FindBundleRow = static function (array $sheet): ?array {
+    foreach ($sheet['items'] as $item) { if (($item['bundle_id'] ?? '') !== '') { return $item; } }
+    return null;
+};
+$p6BundleSheet0 = $p6FindSheet($p6First->get_data()['manager'], 'rs_p6_bundle');
+$p6OtherSheet0 = $p6FindSheet($p6First->get_data()['manager'], 'rs_p6_other');
+$p6CarrotItemId = (string) $p6BundleSheet0['items'][0]['item_id'];
+$p6NoodlesItemId = (string) $p6OtherSheet0['items'][0]['item_id'];
+
+// First Import: the Bundle (Stew) composes ONLY Carrot, same-sheet.
+$p6WithBundle = rsb_strip_platform_ids($p6BundleSheet0);
+$p6WithBundle['items'][] = [
+    'item_id' => '', 'bundle_id' => 'new', 'label' => 'Stew',
+    'unit_price' => 20, 'per' => 'Per item', 'quantity' => 1, 'group_id' => null, 'price_options' => [],
+];
+$p6WithBundle['bundles'][] = [
+    'bundle_id' => '', 'status' => 'active', 'sort_order' => 0,
+    'supplied_content' => [['source_rate_sheet_id' => 'rs_p6_bundle', 'source_item_id' => $p6CarrotItemId]],
+];
+$p6Response1 = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$p6WithBundle])));
+check_bundle(($p6Response1->get_data()['success'] ?? false) === true, 'Phase 6 fixture: the Bundle composes just Carrot at first');
+$p6Sheet1 = $p6FindSheet($p6Response1->get_data()['manager'], 'rs_p6_bundle');
+$p6Bundle1 = $p6Sheet1['bundles'][0];
+$p6MintedBundleId = (string) $p6Bundle1['bundle_id'];
+$p6BundlePlatformId = (string) $p6Bundle1['platform_id'];
+$p6Row1 = $p6FindBundleRow($p6Sheet1);
+$p6RowItemId = (string) $p6Row1['item_id'];
+$p6RowPlatformId = (string) $p6Row1['platform_id'];
+check_bundle(count($p6Bundle1['supplied_content']) === 1, 'Phase 6 fixture: exactly one reference before the add');
+
+// ── ADD: a LATER Import adds Noodles from another sheet — proves an
+//    already-composed reference and the Bundle's own row/price/identity are
+//    untouched by composing further, and Noodles' own row is never copied.
+$p6WithNoodles = rsb_strip_platform_ids($p6Sheet1);
+$p6WithNoodles['bundles'][0]['supplied_content'][] = ['source_rate_sheet_id' => 'rs_p6_other', 'source_item_id' => $p6NoodlesItemId];
+$p6AddResponse = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([
+    $p6WithNoodles,
+    rsb_strip_platform_ids($p6OtherSheet0),
+])));
+check_bundle(($p6AddResponse->get_data()['success'] ?? false) === true, 'adding Noodles through a LATER Import saves');
+$p6SheetAfterAdd = $p6FindSheet($p6AddResponse->get_data()['manager'], 'rs_p6_bundle');
+$p6BundleAfterAdd = $p6SheetAfterAdd['bundles'][0];
+check_bundle(count($p6BundleAfterAdd['supplied_content']) === 2, 'the Bundle now compiles Carrot AND Noodles');
+check_bundle($p6BundleAfterAdd['bundle_id'] === $p6MintedBundleId, "adding a reference never remints the Bundle's own id");
+check_bundle($p6BundleAfterAdd['platform_id'] === $p6BundlePlatformId, 'adding a reference never remints CZPRCB');
+$p6RowAfterAdd = $p6FindBundleRow($p6SheetAfterAdd);
+check_bundle(
+    $p6RowAfterAdd['item_id'] === $p6RowItemId && $p6RowAfterAdd['platform_id'] === $p6RowPlatformId,
+    "adding a reference never remints the Bundle's own row identity"
+);
+check_bundle((float) $p6RowAfterAdd['unit_price'] === 20.0, "adding Noodles never re-touches the Bundle's own price — still \$20, not recomputed from its ingredients");
+$p6CarrotRefAfter = null; $p6NoodlesRefAfter = null;
+foreach ($p6BundleAfterAdd['supplied_content'] as $reference) {
+    if ($reference['source_item_id'] === $p6CarrotItemId) { $p6CarrotRefAfter = $reference; }
+    if ($reference['source_item_id'] === $p6NoodlesItemId) { $p6NoodlesRefAfter = $reference; }
+}
+check_bundle($p6CarrotRefAfter['platform_id'] === $p6Bundle1['supplied_content'][0]['platform_id'], "the ALREADY-composed Carrot reference keeps its own CZPRCBI, untouched by the add");
+check_bundle(
+    PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_BUNDLE_ITEM, (string) $p6NoodlesRefAfter['platform_id']),
+    "the NEW Noodles reference mints its own, fresh CZPRCBI"
+);
+check_bundle($p6NoodlesRefAfter['platform_id'] !== $p6CarrotRefAfter['platform_id'], 'the two references carry two DIFFERENT identities, never shared');
+$p6CarrotRowAfterAdd = $p6FindRow($p6SheetAfterAdd, $p6CarrotItemId);
+check_bundle(
+    (float) $p6CarrotRowAfterAdd['unit_price'] === 10.0,
+    "Carrot's own row is untouched by being referenced — same row, same price"
+);
+$p6NoodlesRowAfterAdd = $p6FindRow($p6FindSheet($p6AddResponse->get_data()['manager'], 'rs_p6_other'), $p6NoodlesItemId);
+check_bundle(
+    (float) $p6NoodlesRowAfterAdd['unit_price'] === 6.0,
+    "Noodles' own row on its OWN sheet is completely unmodified by being referenced — no copy, same row, same price"
+);
+
+// ── REMOVE: dropping ONE reference (not the whole Bundle) leaves the OTHER
+//    reference, the Bundle, its row, and BOTH source rows completely
+//    untouched.
+$p6WithoutNoodles = rsb_strip_platform_ids($p6SheetAfterAdd);
+$p6WithoutNoodles['bundles'][0]['supplied_content'] = array_values(array_filter(
+    $p6WithoutNoodles['bundles'][0]['supplied_content'],
+    static fn(array $reference): bool => $reference['source_item_id'] !== $p6NoodlesItemId
+));
+$p6RemoveResponse = rsb_controller()->savePackageStationManager(new WP_REST_Request(['id' => 701], rsb_body([$p6WithoutNoodles])));
+check_bundle(($p6RemoveResponse->get_data()['success'] ?? false) === true, 'removing ONE reference (Noodles), leaving the Bundle otherwise intact, saves');
+$p6SheetAfterRemove = $p6FindSheet($p6RemoveResponse->get_data()['manager'], 'rs_p6_bundle');
+$p6BundleAfterRemove = $p6SheetAfterRemove['bundles'][0];
+check_bundle(count($p6BundleAfterRemove['supplied_content']) === 1, 'exactly one reference remains — Carrot');
+check_bundle($p6BundleAfterRemove['supplied_content'][0]['source_item_id'] === $p6CarrotItemId, 'the SURVIVING reference is Carrot, completely untouched');
+check_bundle(
+    $p6BundleAfterRemove['supplied_content'][0]['platform_id'] === $p6CarrotRefAfter['platform_id'],
+    "Carrot's own reference keeps its CZPRCBI across the removal of a SIBLING reference"
+);
+check_bundle(
+    $p6BundleAfterRemove['bundle_id'] === $p6MintedBundleId && $p6BundleAfterRemove['platform_id'] === $p6BundlePlatformId,
+    'the Bundle itself survives, identity unchanged, from removing just one reference'
+);
+$p6RowAfterRemove = $p6FindBundleRow($p6SheetAfterRemove);
+check_bundle(
+    $p6RowAfterRemove['item_id'] === $p6RowItemId && $p6RowAfterRemove['platform_id'] === $p6RowPlatformId && (float) $p6RowAfterRemove['unit_price'] === 20.0,
+    "the Bundle's own row is untouched — identity and price both"
+);
+check_bundle(
+    $rsbOptions['cz_platform_identifier_v1_' . $p6NoodlesRefAfter['platform_id']]['status'] === PlatformIdentifierStation::STATUS_DELETED,
+    'removing the Noodles reference tombstones its OWN CZPRCBI'
+);
+check_bundle(
+    $rsbOptions['cz_platform_identifier_v1_' . $p6BundleAfterRemove['supplied_content'][0]['platform_id']]['status'] === PlatformIdentifierStation::STATUS_BOUND,
+    "the SURVIVING Carrot reference's CZPRCBI stays bound"
+);
+$p6NoodlesRowAfterRemove = $p6FindRow($p6FindSheet($p6RemoveResponse->get_data()['manager'], 'rs_p6_other'), $p6NoodlesItemId);
+check_bundle(
+    (float) $p6NoodlesRowAfterRemove['unit_price'] === 6.0,
+    "Noodles' own row survives completely untouched — removing a REFERENCE never touches the referenced row, wherever it lives"
+);
+
 // ── Tier consumption: a Bundle-backed row IS an ordinary Rate Sheet row ─────
 //
 // The Bundle distinction lives entirely inside Rate Sheet ownership. A Tier

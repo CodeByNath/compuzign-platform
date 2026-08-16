@@ -635,6 +635,38 @@ check(
   columnChips('Rate Sheet Rows').length === 0,
   columnChips('Rate Sheet Rows').map((b) => b.textContent),
 );
+
+// Website Design was DROPPED from this Bundle back in section C — it is
+// offered again, and completing a real second Import here proves the
+// guarantee end to end, not just that the picker's own dedup works.
+click(columnChips('Rate Sheets').find((b) => b.textContent.includes('Websites')));
+await settle();
+check('a reference dropped earlier is offered again', columnChips('Rate Sheet Rows').some((b) => b.textContent.includes('Website Design')));
+click(columnChips('Rate Sheet Rows').find((b) => b.textContent.includes('Website Design')));
+await settle();
+
+const bundleRowBefore = server.manager.rate_sheets[0].items.find((item) => (item.bundle_id ?? '') !== '');
+const suppliedBeforeLaterImport = suppliedLabels().length;
+const savesBeforeLaterImport = saveCalls;
+click(importActionButton('Import'));
+await settle(60);
+check('the later Import persists through exactly one more full-manager save', saveCalls === savesBeforeLaterImport + 1, saveCalls - savesBeforeLaterImport);
+check('composing further accumulates — Website Design is back, alongside the still-referenced Banking row', suppliedLabels().length === suppliedBeforeLaterImport + 1, suppliedLabels().join('; '));
+
+const laterImportSheet = server.manager.rate_sheets[0];
+const laterImportBundle = laterImportSheet.bundles[0];
+const bundleRowAfter = laterImportSheet.items.find((item) => (item.bundle_id ?? '') !== '');
+check('the payload/stored Bundle now carries BOTH references again', laterImportBundle.supplied_content.length === 2, laterImportBundle.supplied_content);
+check('the Bundle\'s own CZPRCB is unchanged by composing further', laterImportBundle.platform_id === storedBundlePlatformId);
+check(
+  'the Bundle\'s own row identity AND price are unchanged by composing further — never re-touched by a later Import',
+  bundleRowAfter.item_id === bundleRowBefore.item_id && bundleRowAfter.platform_id === bundleRowBefore.platform_id && bundleRowAfter.unit_price === bundleRowBefore.unit_price,
+);
+check(
+  'Website Design\'s own row, back on ITS OWN sheet (the Bundle\'s own sheet — a same-sheet reference), is untouched by being re-referenced',
+  laterImportSheet.items.find((item) => item.source_item_id === 'mgr_website')?.unit_price === 10,
+);
+
 click(anyButton('Close'));
 await settle();
 
