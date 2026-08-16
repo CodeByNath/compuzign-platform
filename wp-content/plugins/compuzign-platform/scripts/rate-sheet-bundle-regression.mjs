@@ -510,18 +510,34 @@ check(
   gridHeaders().join('|'),
 );
 
-// ── C) The Bundle row uses the shared grid and the shared row lock ───────
-console.log('\nC) The Bundle row uses the shared grid and the shared row lock');
+// ── C) The freshly created row opens EDITING immediately, then the shared lock ──
+console.log('\nC) The Bundle\'s row opens for editing immediately, then rides the shared lock');
+const freshlyCreatedRow = rowsIn()[0];
+check(
+  'the row does NOT land locked — Import binds the row editor to it directly, never a summary-only card',
+  buttonIn(freshlyCreatedRow, 'Edit') == null,
+  freshlyCreatedRow.textContent.slice(0, 160),
+);
+check('it opens straight into the SAME inline row editor\'s Save/Cancel', buttonIn(freshlyCreatedRow, 'Save') != null && buttonIn(freshlyCreatedRow, 'Cancel') != null);
+check('a SAVED Bundle row offers Delete too — it is a normal saved row, never a blank draft', buttonIn(freshlyCreatedRow, 'Delete') != null);
+check('it carries the ordinary Price Options tab strip', freshlyCreatedRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
+check('and the ordinary Per and Group dropdowns', freshlyCreatedRow.querySelectorAll('select').length === 2, freshlyCreatedRow.querySelectorAll('select').length);
+check('there is no Delete Bundle button in the editor', anyButton('Delete Bundle') == null);
+
+// Cancelling this initial edit reverts to the SAME locked, read-only state a
+// sheet row's own Cancel leaves — and Edit reopens it bound to the SAME
+// persisted row, never a blank "New Bundle" draft.
+click(buttonIn(freshlyCreatedRow, 'Cancel'));
+await settle();
 const lockedRow = rowsIn()[0];
-check('it opens LOCKED, exactly like a sheet row', buttonIn(lockedRow, 'Edit') != null);
+check('Cancel locks it — the same read-only state a sheet row\'s Cancel leaves', buttonIn(lockedRow, 'Edit') != null);
 check('a locked Bundle row offers Edit and Remove, nothing else', buttonIn(lockedRow, 'Remove') != null && buttonIn(lockedRow, 'Save') == null);
 check('a locked Bundle row shows no inputs at all', lockedRow.querySelector('input') == null && lockedRow.querySelector('select') == null);
-check('there is no Delete Bundle button in the editor', anyButton('Delete Bundle') == null);
 
 click(buttonIn(rowsIn()[0], 'Edit'));
 await settle();
 const openRow = rowsIn()[0];
-check('Edit unlocks it into the SAME inline row editor', buttonIn(openRow, 'Save') != null && buttonIn(openRow, 'Cancel') != null);
+check('Edit unlocks it into the SAME inline row editor, bound to the SAME persisted row', buttonIn(openRow, 'Save') != null && buttonIn(openRow, 'Cancel') != null);
 check('a SAVED Bundle row offers Delete too — it is a normal saved row', buttonIn(openRow, 'Delete') != null);
 check('it carries the ordinary Price Options tab strip', openRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
 check('and the ordinary Per and Group dropdowns', openRow.querySelectorAll('select').length === 2, openRow.querySelectorAll('select').length);

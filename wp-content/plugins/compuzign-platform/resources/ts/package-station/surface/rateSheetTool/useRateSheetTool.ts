@@ -290,14 +290,19 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError]   = useState<string | null>(null);
 
-  const applyReadModel = useCallback((next: PackageManagerReadModel) => {
+  // Returns the freshly computed editor sheets — `persist()`'s own bundle-row
+  // recovery needs them synchronously, before the state update they came from
+  // has actually re-rendered anything.
+  const applyReadModel = useCallback((next: PackageManagerReadModel): WorkingSheet[] => {
+    const nextSheets = withKeys(toRateSheetEditorList(next));
     setReadModel(next);
-    setSheets(withKeys(toRateSheetEditorList(next)));
+    setSheets(nextSheets);
     // The backend sends the whole vocabulary, built-ins first. An older response
     // without the key falls back to the built-ins rather than to nothing.
     setUnits(next.rate_sheet_units?.length ? [...next.rate_sheet_units] : [...BUILT_IN_RATE_SHEET_UNITS]);
     setDeletions([]);
     setDirty(false);
+    return nextSheets;
   }, []);
 
   useEffect(() => {
@@ -375,7 +380,7 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
           ? nextSheets.find((sheet) => sheet.key === selectedKey) ?? null
           : null;
         const existingIds = new Set(readModel.rate_sheets.map((sheet) => sheet.rate_sheet_id));
-        applyReadModel(response.manager);
+        const freshSheets = applyReadModel(response.manager);
         // The stored sheet the selection lands on, or null when the selection
         // did not survive — also what the Bundle selection is recovered against.
         let resolvedSheetId: string | null = null;
@@ -413,6 +418,23 @@ export function useRateSheetTool(): SurfaceCollection<RateSheetToolController> {
             : response.manager.rate_sheets.find((sheet) => sheet.rate_sheet_id === resolvedSheetId);
           const savedBundleId = index === -1 ? undefined : savedSheet?.bundles?.[index]?.bundle_id;
           setSelectedBundleKey(savedBundleId ?? null);
+          // A first Import's own recovery additionally opens the Bundle's
+          // freshly minted row for editing immediately, against the FRESH
+          // post-save editor sheets (`sheets` state has not re-rendered yet).
+          // `recoverBundleKey` is only ever passed by importBundleContent's
+          // own creation branch, so this never fires for a later Import or an
+          // ordinary existing-Bundle Edit — both of which correctly want the
+          // row to stay locked, since "+ Add Rate Sheet" is disabled while a
+          // row is unlocked.
+          if (recoverBundleKey !== undefined && savedBundleId !== undefined) {
+            const freshSheet = freshSheets.find((sheet) => sheet.id === resolvedSheetId);
+            const freshBundle = freshSheet ? findEditorBundle(freshSheet, savedBundleId) : null;
+            const freshRow = freshBundle && freshSheet ? findBundleRow(freshBundle, freshSheet) : null;
+            if (freshRow) {
+              setEditingRowId(rowKey(freshRow));
+              setEditingRowSnapshot(freshRow);
+            }
+          }
         }
         return true;
       } catch (err) {

@@ -357,7 +357,7 @@ function RateSheetBundleSwitcher({
 
   if (editing) {
     return openEditor(
-      controller.authoringBundle ? 'New Bundle' : selectedBundle ? (selectedBundleRow?.label?.trim() || 'New Bundle') : 'Bundles',
+      controller.authoringBundle ? 'New Bundle' : selectedBundle ? (selectedBundleRow?.label?.trim() || 'Untitled Bundle') : 'Bundles',
       <div class="cz-rate-sheet-tool__editor cz-rate-sheet-tool__editor--focused">
         {controller.authoringBundle ? (
           <RateSheetBundleImportPicker controller={controller} bundle={null} />
