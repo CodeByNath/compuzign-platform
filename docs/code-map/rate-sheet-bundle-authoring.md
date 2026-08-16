@@ -15,28 +15,27 @@ One scope-aware controller and save engine — never a second editor — over a
   view: every row with no `bundleId`), and `bundleSuppliedContent()` (resolves
   each live reference to its current label, silently omitting one that no
   longer resolves). A Bundle-backed row lives in the SAME `items[]` list as
-  every ordinary row — no second, Bundle-scoped list to keep in sync, so the
-  shared grid and lock render it with no second editor.
+  every ordinary row — one list, one editor.
 - [useRateSheetTool.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/surface/rateSheetTool/useRateSheetTool.ts)
   — owns `groupTab`, `groupView`, `selectedBundleKey`, and `authoringBundle`;
   no refetch resets them. `activeRows` is the active GROUP's own view
   (Details: `ordinaryRows`; Options: the selected Bundle's one row), but every
-  row COMMAND addresses the sheet's ONE flat `items[]` directly,
-  unconditionally. `beginBundleAuthoring` sets `authoringBundle` true: local UI
-  state only, **mints nothing, adds nothing** to `bundles`/`items` — never a
-  precreated placeholder row. `importBundleContent` branches on it: while
-  authoring, it is the Bundle's own first Import, minting the Bundle and its
-  row TOGETHER only now (seeded once from the summed price of what was
+  row COMMAND addresses the sheet's ONE flat `items[]` directly.
+  `beginBundleAuthoring` sets `authoringBundle` true: local state only, mints
+  nothing — never a precreated placeholder row. `importBundleContent` branches
+  on it: while authoring, it is the Bundle's own first Import, minting the
+  Bundle and its row together (seeded once from the summed price of what was
   selected) through the same full-manager save, clearing `authoringBundle`
-  only once that save SUCCEEDS — a failed attempt touches no local state, so a
-  retry mints exactly once, never a duplicate (`persist()`'s optional
-  `recoverBundleKey` carries the new local key through, past its own stale
-  closure). A LATER Import onto an EXISTING Bundle only adds references,
-  never re-touching the row's price. `beginRowEdit`/`cancelRowEdit`/
-  `saveActiveRow` need no Bundle-specific branch — reachable only once a row
-  already has a real id. Only `removeRowImmediately` special-cases it:
-  removing a Bundle-backed row removes its owning Bundle too (a Bundle IS
-  that row).
+  only on success — a failed attempt touches no local state, so a retry mints
+  exactly once (`recoverBundleKey` recovers the saved Bundle by position past
+  `persist()`'s own stale closure), then opens its freshly minted row for
+  editing immediately against the fresh post-save sheets — the workspace
+  stays open, never locked. A LATER Import only adds references, never
+  re-touching the row's price. `beginRowEdit`/`cancelRowEdit`/`saveActiveRow`
+  carry no Bundle-specific code. `removeRowImmediately`, given a real row id,
+  still removes a Bundle-backed row's owning Bundle too (a Bundle IS that
+  row); `removeBundleImmediately(key)`, addressed by the Bundle's own key
+  instead, deletes one whose row can't be resolved.
 - [RateSheetTool.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetTool.tsx)
   — `FocusedRateSheetGroups` over `DrawerGroupTabs`/`DrawerGroupAccordion`; the
   view toggle and `+ Bundle` (`Options` only) ride the nav's `trailing` slot.
@@ -48,9 +47,10 @@ One scope-aware controller and save engine — never a second editor — over a
   an empty message. Read mode: `ChildChipStrip` (every chip already names a
   fully-saved Bundle's linked row — no mid-authoring case to render), empty
   state, and the selected Bundle's LEAN readable card (`RateSheetBundleRead`)
-  — the linked row's name, `CZPRCB`, and what it compiles; price/per/qty/group
-  live in the row — whose Edit opens `InlineEditorShell` and whose `Remove`
-  rides its own `ReadBlock` footer.
+  — the linked row's name (`Untitled Bundle` once real, never the
+  authoring-only `New Bundle`), `CZPRCB`, and what it compiles; price/per/
+  qty/group live in the row — Edit opens `InlineEditorShell`, Remove calls
+  `removeBundleImmediately` by the Bundle's own key.
 - [RateSheetBundleWorkspace.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleWorkspace.tsx)
   — the ALREADY-CREATED Bundle's own inline editor, never rendered while
   authoring. It IS the Rate Sheet row editor: the SAME `RateSheetGridEditor`
@@ -59,23 +59,25 @@ One scope-aware controller and save engine — never a second editor — over a
   tab strip, Per/Group dropdowns and quantity input. `commands` overrides only
   `removeRow` → `deleteBundle` (unreachable in practice — Remove always goes
   through `lockCommands`); `nameLabel="Product Bundle"` names the first
-  column. A local toggle opens `RateSheetBundleImportPicker` (`bundle={bundle}`,
+  column. When `selectedBundleRow` is null (a stale link, or a Bundle never
+  linked at all), the grid is replaced by an explanation and its own
+  `Remove Bundle` button, also calling `removeBundleImmediately` — never a
+  dead end. A local toggle opens `RateSheetBundleImportPicker` (`bundle={bundle}`,
   rendering its own Close) for a LATER Import, plus a read-only Supplied
   content column whose only control is per-reference removal
   (`removeBundleSuppliedContentRef` — drops only this Bundle's own membership,
   never the referenced row).
 - [RateSheetBundleImportPicker.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/rate-sheet-tool/RateSheetBundleImportPicker.tsx)
   — the import engine, THREE SIMULTANEOUS columns: Rate Sheets (every saved
-  sheet) | Rate Sheet Rows (the CLICKED sheet's own priced rows, replaced per
-  click) | Selected Rows (the accumulating basket, never cleared by a sheet
-  click — how one Bundle composes across several sheets in one Import). No
-  raw-Service-inclusion browse. `bundle: null` addresses the Bundle's own
+  sheet) | Rate Sheet Rows (the CLICKED sheet's own priced rows) | Selected
+  Rows (an accumulating basket across sheet clicks, letting one Bundle
+  compose across several). No raw-Service-inclusion browse. `bundle: null`
+  addresses the Bundle's own
   first Import — nothing exists yet, so `onDone` is omitted (Cancel is the
   only way out) and `Import` mints the Bundle and its row together on success.
   `bundle` non-null is a LATER Import, rendering its own Close and only adding
   references. Either way a source row already referenced is never offered
-  twice, and the row's price is set once, at the first Import, from the SUM of
-  what was selected.
+  twice.
 
 ## Validation
 
