@@ -877,6 +877,11 @@ class PackageSchema
                 'price'               => isset($occ['price']) && $occ['price'] !== null ? (float) $occ['price'] : null,
                 'contact'             => (bool) ($occ['contact'] ?? false),
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
+                // Same permanent-Default concern as price/contact/billing_cycle
+                // above — the occupant's own commitment, independent of any
+                // Edition's own minimum_term_value/unit. See docs/code-map/tier-edition.md.
+                'minimum_term_value'  => isset($occ['minimum_term_value']) && $occ['minimum_term_value'] !== null ? (float) $occ['minimum_term_value'] : null,
+                'minimum_term_unit'   => $occ['minimum_term_unit'] ?? null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
                 'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
@@ -918,6 +923,10 @@ class PackageSchema
             'price'               => isset($tier['price']) && $tier['price'] !== null ? (float) $tier['price'] : null,
             'contact'             => (bool) ($tier['contact'] ?? false),
             'billing_cycle'       => $tier['billing_cycle'] ?? null,
+            // Phase 1 flat slots predate this capability entirely — nothing to
+            // carry forward at this layer.
+            'minimum_term_value'  => null,
+            'minimum_term_unit'   => null,
             'inclusions_override' => $tier['inclusions_override'] ?? [],
             'rate_sheet_id'       => self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []),
             'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($tier['rate_sheet_items'] ?? []),
@@ -1140,6 +1149,18 @@ class PackageSchema
             ? []
             : self::sanitizeTierRateSheetSelections($data['rate_sheet_items'] ?? []);
 
+        // Structured minimum commitment — the occupant's own permanent Default
+        // declaration carries the same shape/sanitize rule as an Edition's own
+        // minimum_term_value/unit (sanitizeTierEdition()): empty/null stays
+        // null, anything else coerces to float. Kept local rather than shared
+        // with sanitizeTierEdition() — the same small-vocabulary-duplication
+        // precedent BILLING_CYCLES/MINIMUM_TERM_UNITS already use on the
+        // frontend, not a new decision.
+        $minTermValue = null;
+        if (isset($data['minimum_term_value']) && $data['minimum_term_value'] !== null && $data['minimum_term_value'] !== '') {
+            $minTermValue = (float) $data['minimum_term_value'];
+        }
+
         return [
             'current_occupant' => [
                 'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
@@ -1162,6 +1183,13 @@ class PackageSchema
                 'price'               => $data['price'] ?? null,
                 'contact'             => $data['contact'] ?? false,
                 'billing_cycle'       => $data['billing_cycle'] ?? null,
+                // Same permanent-Default concern as price/contact/billing_cycle
+                // above — an occupant-owned scalar, not an Edition-only one. See
+                // docs/code-map/tier-edition.md.
+                'minimum_term_value'  => $minTermValue,
+                'minimum_term_unit'   => (isset($data['minimum_term_unit']) && $data['minimum_term_unit'] !== '')
+                    ? sanitize_text_field((string) $data['minimum_term_unit'])
+                    : null,
                 'rate_sheet_id'       => $rateSheetId,
                 'inclusions_override' => $data['inclusions_override'] ?? [],
                 'rate_sheet_items'    => $selections,
@@ -1828,7 +1856,8 @@ class PackageSchema
             'label' => '', 'ideal_for' => '',
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
-            'billing_cycle' => null, 'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
+            'billing_cycle' => null, 'minimum_term_value' => null, 'minimum_term_unit' => null,
+            'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
             'tier_editions' => [], 'tier_edition_bin' => [],
         ];
@@ -2380,6 +2409,11 @@ class PackageSchema
             'price'               => null,
             'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
             'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
+            // Draft-preferred like every other Overview scalar above; an
+            // edited-but-unsettled commitment change wins, otherwise the
+            // settled occupant's existing value carries forward untouched.
+            'minimum_term_value'  => array_key_exists('minimum_term_value', $ov) ? $ov['minimum_term_value'] : ($occ['minimum_term_value'] ?? null),
+            'minimum_term_unit'   => array_key_exists('minimum_term_unit', $ov)  ? $ov['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null),
             'rate_sheet_id'       => $draftRateSheetId,
             'inclusions_override' => [],
             'rate_sheet_items'    => $selections,

@@ -1515,6 +1515,23 @@ class PackageStationController
             if (array_key_exists('rate_sheet_id', $body)) {
                 $draftValue['rate_sheet_id'] = sanitize_text_field((string) ($body['rate_sheet_id'] ?? ''));
             }
+            // Structured minimum commitment — the occupant's own permanent
+            // Default declaration, same shape/sanitize rule as an Edition's
+            // own minimum_term_value/unit. Travels through Overview exactly
+            // like audience_groups/rate_sheet_id above: an omitted key
+            // preserves the settled occupant's existing value at settle time
+            // (PackageSchema::settleTierSlot) rather than resetting it for an
+            // older/partial client payload; an explicit null clears it.
+            if (array_key_exists('minimum_term_value', $body)) {
+                $draftValue['minimum_term_value'] = ($body['minimum_term_value'] !== null && $body['minimum_term_value'] !== '')
+                    ? (float) $body['minimum_term_value']
+                    : null;
+            }
+            if (array_key_exists('minimum_term_unit', $body)) {
+                $draftValue['minimum_term_unit'] = ($body['minimum_term_unit'] !== null && $body['minimum_term_unit'] !== '')
+                    ? sanitize_text_field((string) $body['minimum_term_unit'])
+                    : null;
+            }
         } elseif ($module === 'features') {
             $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs
