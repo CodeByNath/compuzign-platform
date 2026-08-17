@@ -81,6 +81,26 @@ function TierInclusionCheckIcon() {
   );
 }
 
+// Bundle-parent marker — reuses the same "package" glyph (Heroicons cube)
+// already used for Bundles/Packages elsewhere in the admin UI (e.g.
+// admin-station/shell/icons.tsx PackagesIcon), inlined locally rather than
+// imported since customer-facing components don't cross into admin-only
+// trees. Takes the quantity column's place on a Bundle parent row.
+function TierBundleIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      class="cz-cost-builder__tier-feature-bundle-icon"
+    >
+      <path d="M12.378 1.602a.75.75 0 00-.756 0L3.366 6.39a.75.75 0 000 1.298l8.256 4.768a.75.75 0 00.756 0l8.256-4.768a.75.75 0 000-1.298L12.378 1.602zM3 9.46v7.788a.75.75 0 00.378.65l8.25 4.764V13.41L3 9.46zm9.75 13.452l8.25-4.764a.75.75 0 00.378-.65V9.46l-8.628 4.984v8.468z" />
+    </svg>
+  );
+}
+
 interface PricingTiersProps {
   tiers: Tier[];
   pricing: { tiers: Partial<Record<TierId, PricingTierData>> };
@@ -283,20 +303,34 @@ export function TierCard({
         {inclusionItems.length > 0 && (
           <ul class="cz-cost-builder__tier-features">
             {inclusionItems.flatMap((item, i) => [
-              <li key={item.id || i}>
-                <TierInclusionCheckIcon />
-                <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
-                {/* Always rendered (even empty) so every row keeps the same
-                    3 grid children — a row with no quantity would otherwise
-                    push the next row's icon into this column. */}
-                <span class="cz-cost-builder__tier-feature-qty">{item.quantity ?? ''}</span>
-              </li>,
-              /* Bundle children: display-only rows nested under their parent.
-                 Never priced, selected, or merged into the top-level list. */
+              /* A Bundle-backed row (bundle_id present) reads as a section
+                 header for its own includes[] below it: no checkmark, no
+                 quantity — a package glyph marks it instead, in the same
+                 column the quantity would otherwise occupy. Still the same
+                 alignment as every other row, just not a checkable one. */
+              item.bundle_id ? (
+                <li key={item.id || i}>
+                  <span class="cz-cost-builder__tier-feature-icon-spacer" aria-hidden="true" />
+                  <span class="cz-cost-builder__tier-feature-label cz-cost-builder__tier-feature-label--bundle">{item.label}</span>
+                  <TierBundleIcon />
+                </li>
+              ) : (
+                <li key={item.id || i}>
+                  <TierInclusionCheckIcon />
+                  <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
+                  {/* Always rendered (even empty) so every row keeps the same
+                      3 grid children — a row with no quantity would otherwise
+                      push the next row's icon into this column. */}
+                  <span class="cz-cost-builder__tier-feature-qty">{item.quantity ?? ''}</span>
+                </li>
+              ),
+              /* Bundle supplied content: display-only rows immediately below
+                 their parent, at the SAME alignment as ordinary inclusions —
+                 never priced, selected, or merged into the top-level list. */
               ...(item.includes ?? []).map((child, ci) => (
                 <li key={child.id || `${item.id}-${ci}`}>
                   <TierInclusionCheckIcon />
-                  <span class="cz-cost-builder__tier-feature-label cz-cost-builder__tier-feature-label--nested">{child.label}</span>
+                  <span class="cz-cost-builder__tier-feature-label">{child.label}</span>
                   <span class="cz-cost-builder__tier-feature-qty">{child.quantity ?? ''}</span>
                 </li>
               )),

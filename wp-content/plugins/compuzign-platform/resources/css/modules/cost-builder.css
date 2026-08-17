@@ -1444,11 +1444,26 @@
   min-width: 0;
 }
 
-/* Bundle child rows: same 3-column grid as every other inclusion row
-   (li is `display: contents`), indented via the label only so the icon
-   and quantity columns stay aligned with the rest of the list. */
-.cz-cost-builder__tier-feature-label--nested {
-  padding-left: var(--cz-space-3);
+/* Bundle parent row: reads as a section header for its supplied-content
+   rows below, at the same alignment as every other inclusion — no
+   indentation. */
+.cz-cost-builder__tier-feature-label--bundle {
+  font-weight: 600;
+  color: var(--cz-color-text);
+}
+
+/* Occupies the icon column so the Bundle parent's label still lands in
+   the shared label column, same as a checkmark row would. */
+.cz-cost-builder__tier-feature-icon-spacer {
+  display: block;
+}
+
+/* Bundle marker: takes the quantity column's place on the Bundle parent
+   row — the existing "package" glyph used elsewhere for Bundles/Packages,
+   reused here as a local inline SVG (TierBundleIcon in PricingTiers.tsx). */
+.cz-cost-builder__tier-feature-bundle-icon {
+  justify-self: end;
+  color: var(--cz-color-accent);
 }
 
 /* Quantity: the resolved Rate Sheet selection's own raw value, right-aligned
