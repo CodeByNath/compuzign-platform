@@ -472,6 +472,8 @@
   display: flex;
   align-items: center;
   gap: var(--cz-space-2);
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 
 .cz-ie-row .cz-tf-input {
