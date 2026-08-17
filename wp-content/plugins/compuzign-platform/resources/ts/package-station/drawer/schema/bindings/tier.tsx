@@ -47,6 +47,10 @@ export interface TierOverviewShellData {
   contact:      boolean;
   price:        number | null;
   billingCycle: string | null;
+  // The occupant's own permanent Default commitment — same concern as a
+  // Tier Edition's own minimum_term_value/unit. See docs/code-map/tier-edition.md.
+  minimumTermValue: number | null;
+  minimumTermUnit:  string | null;
   isAddon:      boolean;         // occupant-level selection mode — see Tier Add-on Selection code map
   popular:      boolean;         // station-level presentation flag
   platformId:   string;
@@ -102,6 +106,13 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     {
       id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
       bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
+    },
+    {
+      // Mirrors Tier Edition's own 'minimum-term' row (bindings/tierEdition.tsx).
+      id: 'minimum-term', element: 'text', label: 'Minimum commitment',
+      bind: (d): TextValue => ({
+        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
+      }),
     },
     {
       id: 'popular', element: 'text', label: 'Popular',

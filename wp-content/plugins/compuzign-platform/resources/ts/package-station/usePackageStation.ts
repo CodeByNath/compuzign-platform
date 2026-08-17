@@ -107,6 +107,11 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     price:               ov ? ov.price         : slot.price,
     contact:             ov ? ov.contact       : slot.contact,
     billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
+    // A pending commitment change lives on the overview draft, same as
+    // billing_cycle — an omitted key (older/partial draft) keeps the
+    // settled occupant's existing value rather than reading as cleared.
+    minimum_term_value:  ov && ov.minimum_term_value !== undefined ? ov.minimum_term_value : slot.minimum_term_value,
+    minimum_term_unit:   ov && ov.minimum_term_unit  !== undefined ? ov.minimum_term_unit  : slot.minimum_term_unit,
     // A pending sheet switch lives on the overview draft; otherwise the settled binding.
     rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,

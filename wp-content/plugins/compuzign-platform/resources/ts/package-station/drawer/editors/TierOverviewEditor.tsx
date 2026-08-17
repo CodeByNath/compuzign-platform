@@ -15,6 +15,14 @@ const AUDIENCE_GROUPS: AdminFieldOption[] = [
   { value: 'enterprise', label: 'Enterprise' },
 ];
 
+// Same vocabulary as Tier Edition's own commitment unit (TierEditionOverviewFields.tsx)
+// — duplicated locally rather than shared, the same precedent BILLING_CYCLES
+// above already sets between the two editors.
+const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
+  { value: 'month', label: 'Month(s)' },
+  { value: 'year', label: 'Year(s)' },
+];
+
 // Tier Overview module editor (extracted from ServiceTierStep in S3a — the
 // tier shells became bindings of the archetype shells and the editor is now
 // referenced by the tier binding's editor schema).
@@ -102,6 +110,18 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         }}
         value={draft.billing_cycle}
         onChange={(billing_cycle: string) => onChange({ billing_cycle })}
+      />
+
+      <AdminField
+        def={{ id: 'tier-min-term-value', type: 'text', label: 'Minimum commitment' }}
+        value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''}
+        onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })}
+      />
+
+      <AdminField
+        def={{ id: 'tier-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }}
+        value={draft.minimum_term_unit ?? ''}
+        onChange={(v: string) => onChange({ minimum_term_unit: v || null })}
       />
 
       <AdminField

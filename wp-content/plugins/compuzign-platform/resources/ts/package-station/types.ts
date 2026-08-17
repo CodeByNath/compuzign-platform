@@ -549,6 +549,11 @@ export interface SurfaceTierDetail {
   price: number | null;
   contact: boolean;
   billing_cycle: string | null;
+  // The occupant's own permanent Default commitment — same concern, same
+  // field shape as a Tier Edition's own minimum_term_value/unit. Null for
+  // every occupant that has never configured one. See docs/code-map/tier-edition.md.
+  minimum_term_value: number | null;
+  minimum_term_unit: string | null;
   // The Rate Sheet this occupant's selections resolve against. Null when the
   // occupant is unbound (no selections). Switching it clears the selections.
   rate_sheet_id: string | null;
@@ -687,6 +692,12 @@ export interface TierOverviewDraft {
   price: number | null;
   contact: boolean;
   billing_cycle: string;
+  // The occupant's own permanent Default commitment — see
+  // SurfaceTierDetail.minimum_term_value/minimum_term_unit. Optional like
+  // rate_sheet_id below: an omitted key preserves the settled occupant's
+  // existing value rather than resetting it (PackageSchema::settleTierSlot).
+  minimum_term_value?: number | null;
+  minimum_term_unit?: string | null;
   // The occupant's bound Rate Sheet. Edited in the overview module so a switch
   // commits (and clears selections) before new rows are chosen.
   rate_sheet_id?: string | null;

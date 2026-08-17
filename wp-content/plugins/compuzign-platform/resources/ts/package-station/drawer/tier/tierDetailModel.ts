@@ -151,6 +151,8 @@ export function buildTierDetail(
       contact:      detail.contact,
       price:        detail.price,
       billingCycle: detail.billing_cycle,
+      minimumTermValue: detail.minimum_term_value,
+      minimumTermUnit:  detail.minimum_term_unit,
       isAddon:      detail.is_addon,
       popular:      isPopular,
       platformId:   detail.platform_id,

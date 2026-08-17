@@ -42,6 +42,8 @@ export function useTierModuleEditing({
         price:         d.price,
         contact:       d.contact,
         billing_cycle: d.billing_cycle ?? 'monthly',
+        minimum_term_value: d.minimum_term_value,
+        minimum_term_unit:  d.minimum_term_unit,
         rate_sheet_id: d.rate_sheet_id,
         is_addon:      d.is_addon,
         popular:       pkg.popularTier === editingTierId,
@@ -82,6 +84,8 @@ export function useTierModuleEditing({
           price:         null,
           contact:       overviewDraft.contact,
           billing_cycle: overviewDraft.billing_cycle,
+          minimum_term_value: overviewDraft.minimum_term_value,
+          minimum_term_unit:  overviewDraft.minimum_term_unit,
           rate_sheet_id: overviewDraft.rate_sheet_id,
           is_addon:      overviewDraft.is_addon,
         });
