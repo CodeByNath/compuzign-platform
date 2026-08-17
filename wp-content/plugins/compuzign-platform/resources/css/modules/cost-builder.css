@@ -1445,17 +1445,14 @@
 }
 
 /* Bundle parent row: reads as a section header for its supplied-content
-   rows below, at the same alignment as every other inclusion — no
-   indentation. */
+   rows below. Spans the icon + label columns so the name sits flush at
+   the row's left edge rather than offset to where a checkmark would
+   leave it — still the same row grid as every other inclusion, just
+   without an icon column of its own. */
 .cz-cost-builder__tier-feature-label--bundle {
+  grid-column: 1 / span 2;
   font-weight: 600;
   color: var(--cz-color-text);
-}
-
-/* Occupies the icon column so the Bundle parent's label still lands in
-   the shared label column, same as a checkmark row would. */
-.cz-cost-builder__tier-feature-icon-spacer {
-  display: block;
 }
 
 /* Bundle marker: takes the quantity column's place on the Bundle parent

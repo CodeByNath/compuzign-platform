@@ -310,7 +310,9 @@ export function TierCard({
                  alignment as every other row, just not a checkable one. */
               item.bundle_id ? (
                 <li key={item.id || i}>
-                  <span class="cz-cost-builder__tier-feature-icon-spacer" aria-hidden="true" />
+                  {/* Spans the icon + label columns so the Bundle name sits
+                      flush at the row's left edge, like a section header,
+                      rather than offset to where a checkmark would leave it. */}
                   <span class="cz-cost-builder__tier-feature-label cz-cost-builder__tier-feature-label--bundle">{item.label}</span>
                   <TierBundleIcon />
                 </li>
