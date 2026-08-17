@@ -323,7 +323,6 @@
 .cz-cost-builder__tier-labels {
   display: flex;
   justify-content: flex-end;
-  min-height: 1px;
 }
 
 /* 3. Tier Overview — name/title today; "Ideal For" content lands here too
@@ -464,17 +463,17 @@
   transition: border-color var(--cz-transition-fast), background var(--cz-transition-fast), color var(--cz-transition-fast);
 }
 
-/* Choose Plan (Package Builder only) leads the pair, so it carries the
-   accent fill the selected Add to Quote state already uses. */
+/* Choose Plan (Package Builder only) leads the pair with an accent
+   outline by default, filling solid on hover. */
 .cz-cost-builder__tier-choose {
-  background: var(--cz-color-accent);
   border-color: var(--cz-color-accent);
-  color: #000;
+  color: var(--cz-color-accent);
 }
 
 .cz-cost-builder__tier-choose:hover {
-  background: transparent;
-  color: var(--cz-color-accent);
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
 }
 
 /* Once this Tier is selected — the same state that makes its Add to Quote
