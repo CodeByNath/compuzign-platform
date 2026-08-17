@@ -1074,11 +1074,15 @@ class PackageSchema
                 // the occupant's own Default when there is no genuine
                 // alternate choice.
                 'edition_options'     => self::publicTierEditionOptions($occ),
-                // The occupant itself has no minimum-commitment concept —
-                // only an Edition does. A Tier with no Editions (or whose
-                // customer hasn't switched to one) simply carries none.
-                'minimum_term_value'  => null,
-                'minimum_term_unit'   => null,
+                // The occupant's own permanent Default commitment — same
+                // field, same public-projection treatment as price/
+                // billing_cycle/contact above. Null for every occupant that
+                // has never configured one, exactly like before this field
+                // existed. An Edition's own minimum_term_value/unit remains
+                // scoped to its own edition_options[] entry and never blends
+                // in here — same rule already applied to price/billing_cycle.
+                'minimum_term_value'  => $occ['minimum_term_value'] ?? null,
+                'minimum_term_unit'   => $occ['minimum_term_unit'] ?? null,
             ];
         }
 
