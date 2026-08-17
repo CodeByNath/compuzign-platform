@@ -3398,7 +3398,7 @@
 
 .cz-package-builder__customer-tab[aria-selected="true"] {
   background: var(--cz-color-accent);
-  color: #000;
+  color: var(--cz-color-surface);
 }
 
 .cz-package-builder__inclusions {
