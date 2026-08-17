@@ -19,6 +19,12 @@ export interface ServiceInclusion {
   // Resolved Rate Sheet selection quantity. Present on occupant-sourced
   // inclusions; absent on plain text-feature-derived ones.
   quantity?: number;
+  // Present when this inclusion is a Bundle parent row — the Bundle's own
+  // Rate Sheet identity, paired with `includes` below.
+  bundle_id?: string;
+  // Bundle child rows, display-only: never separately priced, never
+  // selectable, never flattened into the top-level inclusion list.
+  includes?: ServiceInclusion[];
 }
 
 export interface ServiceFaq {

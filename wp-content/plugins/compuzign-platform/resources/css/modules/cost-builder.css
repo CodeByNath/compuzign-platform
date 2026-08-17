@@ -1444,6 +1444,13 @@
   min-width: 0;
 }
 
+/* Bundle child rows: same 3-column grid as every other inclusion row
+   (li is `display: contents`), indented via the label only so the icon
+   and quantity columns stay aligned with the rest of the list. */
+.cz-cost-builder__tier-feature-label--nested {
+  padding-left: var(--cz-space-3);
+}
+
 /* Quantity: the resolved Rate Sheet selection's own raw value, right-aligned
    and visually secondary to the label. Renders only when the inclusion
    carries one — no prefix, unit, or other generated text. */

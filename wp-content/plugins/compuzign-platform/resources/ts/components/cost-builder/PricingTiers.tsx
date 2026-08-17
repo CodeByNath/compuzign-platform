@@ -282,7 +282,7 @@ export function TierCard({
       <div class="cz-cost-builder__tier-inclusions">
         {inclusionItems.length > 0 && (
           <ul class="cz-cost-builder__tier-features">
-            {inclusionItems.map((item, i) => (
+            {inclusionItems.flatMap((item, i) => [
               <li key={item.id || i}>
                 <TierInclusionCheckIcon />
                 <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
@@ -290,8 +290,17 @@ export function TierCard({
                     3 grid children — a row with no quantity would otherwise
                     push the next row's icon into this column. */}
                 <span class="cz-cost-builder__tier-feature-qty">{item.quantity ?? ''}</span>
-              </li>
-            ))}
+              </li>,
+              /* Bundle children: display-only rows nested under their parent.
+                 Never priced, selected, or merged into the top-level list. */
+              ...(item.includes ?? []).map((child, ci) => (
+                <li key={child.id || `${item.id}-${ci}`}>
+                  <TierInclusionCheckIcon />
+                  <span class="cz-cost-builder__tier-feature-label cz-cost-builder__tier-feature-label--nested">{child.label}</span>
+                  <span class="cz-cost-builder__tier-feature-qty">{child.quantity ?? ''}</span>
+                </li>
+              )),
+            ])}
           </ul>
         )}
       </div>
