@@ -342,7 +342,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--cz-color-muted);
+  color: var(--cz-color-text);
 }
 
 /* "Ideal For" — the occupant's own short description of who the Tier suits.
