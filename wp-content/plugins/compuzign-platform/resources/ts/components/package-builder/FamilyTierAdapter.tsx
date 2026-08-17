@@ -295,6 +295,7 @@ export function FamilyTierAdapter({
         onSelect={select}
         onToggleAddon={toggleAddon}
         onChoosePlan={setFocusedTierId}
+        isEnterpriseView={customerGroup === 'enterprise'}
       />
     </>
   );

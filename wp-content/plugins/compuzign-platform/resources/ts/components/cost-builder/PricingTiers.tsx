@@ -125,6 +125,11 @@ interface PricingTiersProps {
   // has been narrowed to that one Tier. Cost Builder passes nothing and keeps
   // the stacked arrangement.
   recommendationsAside?: boolean;
+  // Package Builder only. True while the customer's browsing the Enterprise
+  // group tab — every card in that tab is an Enterprise-audience Tier, so
+  // its Choose Plan renders with the same filled emphasis as the Popular
+  // card. Cost Builder passes nothing.
+  isEnterpriseView?: boolean;
 }
 
 // One Tier/add-on card. Shared by both strips below — and by the Package
@@ -143,6 +148,7 @@ export function TierCard({
   onClick,
   onChoosePlan,
   hideOverview = false,
+  isEnterpriseView = false,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -158,6 +164,8 @@ export function TierCard({
   // Focused view only: the Tier name and Ideal For are presented on its left
   // column instead, so the card must not repeat them.
   hideOverview?: boolean;
+  // See PricingTiersProps.isEnterpriseView.
+  isEnterpriseView?: boolean;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -276,7 +284,7 @@ export function TierCard({
         {onChoosePlan && (
           <button
             type="button"
-            class="cz-cost-builder__tier-choose"
+            class={`cz-cost-builder__tier-choose${(isPopular || isEnterpriseView) ? ' cz-cost-builder__tier-choose--filled' : ''}`}
             onClick={() => onChoosePlan()}
           >
             Choose Plan
@@ -362,9 +370,8 @@ export function PricingTiers({
   onToggleAddon,
   onChoosePlan,
   recommendationsAside = false,
+  isEnterpriseView = false,
 }: PricingTiersProps) {
-  // DEBUG — remove after diagnosis
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const addonScrollRef = useRef<HTMLDivElement>(null);
 
@@ -478,6 +485,7 @@ export function PricingTiers({
               addedLabel="✓ Selected"
               onClick={(effective) => onSelect(tier.id, effective)}
               onChoosePlan={onChoosePlan && (() => onChoosePlan(tier.id))}
+              isEnterpriseView={isEnterpriseView}
             />
           ))}
           {recommendationsShell}

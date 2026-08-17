@@ -476,6 +476,22 @@
   color: #000;
 }
 
+/* Popular card, and every card while browsing the Enterprise group tab
+   (TierCard's isPopular / isEnterpriseView) — Choose Plan carries the
+   filled emphasis by default instead of only on hover, outlining on
+   hover instead. Lower specificity than the --selected override below,
+   so an active card's own state still wins over this. */
+.cz-cost-builder__tier-choose--filled {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-cost-builder__tier-choose--filled:hover {
+  background: transparent;
+  color: var(--cz-color-accent);
+}
+
 /* Once this Tier is selected — the same state that makes its Add to Quote
    read "Selected" — Choose Plan steps back and swaps the pair above: it takes
    the outline treatment it previously showed only on hover, and fills on
