@@ -1459,15 +1459,16 @@
    row — the existing "package" glyph used elsewhere for Bundles/Packages,
    reused here as a local inline SVG (TierBundleIcon in PricingTiers.tsx). */
 .cz-cost-builder__tier-feature-bundle-icon {
-  justify-self: end;
+  justify-self: center;
   color: var(--cz-color-accent);
 }
 
-/* Quantity: the resolved Rate Sheet selection's own raw value, right-aligned
-   and visually secondary to the label. Renders only when the inclusion
-   carries one — no prefix, unit, or other generated text. */
+/* Quantity: the resolved Rate Sheet selection's own raw value, centered
+   under the Bundle icon above it and visually secondary to the label.
+   Renders only when the inclusion carries one — no prefix, unit, or
+   other generated text. */
 .cz-cost-builder__tier-feature-qty {
-  justify-self: end;
+  justify-self: center;
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted);
 }
