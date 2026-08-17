@@ -3,7 +3,8 @@
 ## Purpose and ownership
 
 A Tier occupant's own existing declaration — Rate Sheet binding, selected
-rows, price, billing cycle, inclusions, FAQs — is the **permanent Default**,
+rows, price, billing cycle, minimum commitment (`minimum_term_value`/
+`minimum_term_unit`), inclusions, FAQs — is the **permanent Default**,
 uses the occupant's own `CZT`, and never becomes a `tier_editions[]` row. A
 Tier Edition exists only when an administrator registers an **additional**,
 alternate commercial declaration for that same occupant — e.g. Monthly vs

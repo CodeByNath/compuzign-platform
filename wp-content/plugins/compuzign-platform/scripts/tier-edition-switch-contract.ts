@@ -63,6 +63,28 @@ check(
 const backToDefault = resolveEffectiveTierDisplay(tierWithEditions, 'monthly', null);
 check(backToDefault.price === 49 && backToDefault.selectedEdition === null, 'selecting null always resolves back to the occupant\'s own Default, even after a prior switch');
 
+// ── The occupant's own Default commitment (Phase A-D parity) — resolves
+//    exactly like price/billing_cycle: the occupant's own value before any
+//    switch, that ONE Edition's own (different) value after switching to it,
+//    and back to the occupant's own on switching back. ─────────────────────
+
+const tierWithOwnCommitment: PricingTierData = {
+  price: 49, billing_cycle: 'monthly', inclusions: [], features: [], is_addon: false,
+  minimum_term_value: 6, minimum_term_unit: 'month',
+  edition_options: [
+    { id: 'edt_annual', label: 'Annual', price: 490, contact: false, billing_cycle: 'annually', minimum_term_value: 12, minimum_term_unit: 'month', inclusions_override: [] },
+  ],
+};
+const defaultCommitment = resolveEffectiveTierDisplay(tierWithOwnCommitment, 'monthly', null);
+check(defaultCommitment.minimumTermValue === 6, 'the occupant\'s own configured commitment resolves before any switch, the same as its price/billing_cycle');
+check(defaultCommitment.minimumTermUnit === 'month', 'the occupant\'s own commitment unit resolves before any switch');
+
+const editionCommitment = resolveEffectiveTierDisplay(tierWithOwnCommitment, 'monthly', 'edt_annual');
+check(editionCommitment.minimumTermValue === 12, 'switching to the Edition shows ITS OWN commitment (12 months), never the occupant\'s (6 months)');
+
+const backToDefaultCommitment = resolveEffectiveTierDisplay(tierWithOwnCommitment, 'monthly', null);
+check(backToDefaultCommitment.minimumTermValue === 6, 'switching back to Default always resolves the occupant\'s own commitment again, never stuck on the Edition\'s');
+
 // ── The minimal real case: Default + exactly one additional Edition ─────────
 // This is "Editions = 2" under the corrected model — the switch must already
 // offer a real choice here, not require a second Edition before it appears.
@@ -131,6 +153,18 @@ check(
 check(
   pricingTiers.includes('setSelectedEditionId(null)'),
   'the Default button can always be switched back to — selecting it clears any prior Edition switch rather than only being the unreachable initial state',
+);
+
+// ── Source scan: the commitment note renders from the already-resolved
+//    effective values, not only when an Edition is selected (regression
+//    guard for the Default-commitment display fix). ─────────────────────────
+check(
+  pricingTiers.includes('minimumTermValue != null') && pricingTiers.includes('Minimum {minimumTermValue} {minimumTermUnit'),
+  'the commitment note renders from the resolved effective minimumTermValue/minimumTermUnit',
+);
+check(
+  !pricingTiers.includes('selectedEdition && (selectedEdition.minimum_term_value != null)') && !pricingTiers.includes('selectedEdition.minimum_term_value != null'),
+  'the commitment note no longer requires a selected Edition — the occupant\'s own Default commitment must render too',
 );
 
 // ── Source scan: the switch actually reaches the cart (Phase 8), closing

@@ -107,6 +107,36 @@ check_default_resolution($activeOption['billing_cycle'] === 'annually', 'the opt
 check_default_resolution(!array_key_exists('edition_platform_id', $activeOption), 'CZTE never leaks into the public option');
 check_default_resolution(!array_key_exists('is_default', $activeOption), 'there is no "default" concept among Edition options — every Edition is an alternate to the occupant\'s own permanent Default');
 
+// ── Structured minimum commitment: the occupant's own value is now also
+//    part of the permanent Default, independent of any Edition's own value
+//    in either direction — the same top-level-vs-option-scoped rule already
+//    proven above for price/billing_cycle. ─────────────────────────────────
+
+$occupantWithOwnCommitment = $plainOccupant;
+$occupantWithOwnCommitment['current_occupant']['minimum_term_value'] = 6.0;
+$occupantWithOwnCommitment['current_occupant']['minimum_term_unit']  = 'month';
+$occupantWithOwnCommitment['current_occupant']['tier_editions'] = $editionsActive; // Edition's own commitment is still unset
+
+$noEditionCommitmentProjection = Schema::extractTierForCostBuilder($occupantWithOwnCommitment);
+check_default_resolution($noEditionCommitmentProjection['minimum_term_value'] === 6.0, 'the occupant\'s own minimum_term_value projects at the top level regardless of the Edition existing');
+check_default_resolution($noEditionCommitmentProjection['minimum_term_unit'] === 'month', 'the occupant\'s own minimum_term_unit projects at the top level regardless of the Edition existing');
+check_default_resolution($noEditionCommitmentProjection['edition_options'][0]['minimum_term_value'] === null, 'the Edition\'s own unset commitment is never backfilled from the occupant\'s value');
+
+$editionsWithOwnCommitment = Schema::replaceTierEdition($editionsActive, [
+    ...Schema::findTierEdition($editionsActive, $editionAId),
+    'minimum_term_value' => 12.0, 'minimum_term_unit' => 'month',
+]);
+$occupantWithBothCommitments = $occupantWithOwnCommitment;
+$occupantWithBothCommitments['current_occupant']['tier_editions'] = $editionsWithOwnCommitment;
+
+$bothCommitmentsProjection = Schema::extractTierForCostBuilder($occupantWithBothCommitments);
+check_default_resolution($bothCommitmentsProjection['minimum_term_value'] === 6.0, 'the occupant\'s own commitment (6 months) is never displaced by the Edition\'s own (12 months) at the top level');
+check_default_resolution($bothCommitmentsProjection['edition_options'][0]['minimum_term_value'] === 12.0, 'the Edition\'s own commitment surfaces only inside its own edition_options[] entry');
+check_default_resolution($bothCommitmentsProjection['edition_options'][0]['minimum_term_unit'] === 'month', 'the Edition\'s own commitment unit surfaces only inside its own edition_options[] entry');
+
+$commitmentFreeProjection = Schema::extractTierForCostBuilder($plainOccupant);
+check_default_resolution($commitmentFreeProjection['minimum_term_value'] === null, 'an occupant that has never configured a commitment still projects null, byte-identical to before this capability existed');
+
 // ── Declaration fields (inclusions/faq_refs): the top-level projection is
 //    always the occupant's own; the inherit-when-empty rule applies only
 //    inside one edition_options[] entry, never to the top level. ──────────

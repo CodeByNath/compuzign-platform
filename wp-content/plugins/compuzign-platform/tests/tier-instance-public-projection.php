@@ -379,6 +379,13 @@ $kairosEditions = PackageSchema::applyTierEditionStatus(
 );
 $kairosEditions[0]['edition_platform_id'] = 'CZTE-KAIROS01';
 $instances[0]['tiers']['basic']['current_occupant']['tier_editions'] = $kairosEditions;
+// Structured minimum commitment (Phase A/B) — the occupant's own permanent
+// Default declaration, independent of its Edition's own (which is left
+// unset here) — proves the value reaches both public builders end-to-end,
+// not merely the pure extractTierForCostBuilder() unit already covered by
+// tier-edition-default-resolution.php.
+$instances[0]['tiers']['basic']['current_occupant']['minimum_term_value'] = 6.0;
+$instances[0]['tiers']['basic']['current_occupant']['minimum_term_unit']  = 'month';
 $assignments = [
     [
         'assignment_id' => TierAssignmentSchema::deriveAssignmentId('package_family', 'pcg_kairos', 'ti_kairos'),
@@ -436,6 +443,10 @@ check_public_projection(count($publicMap[101]['tiers']['basic']['edition_options
 check_public_projection($publicMap[101]['tiers']['basic']['edition_options'][0]['price'] === 60.0, 'the Edition\'s OWN rate_sheet_items (quantity 3 of the shared row, priced from its own selected Price Option at 20/unit) project a live price through the same authoritative boundary — no longer a raw/null stored scalar, and never the row\'s Default Price when a Price Option is selected');
 check_public_projection($publicMap[101]['tiers']['basic']['price'] === 11.0, 'the occupant\'s own Default-Price selection of the SAME shared row is unaffected by its Edition choosing a different Price Option — one shared boundary, two independent selections');
 check_public_projection($publicMap[102]['tiers']['basic']['price'] === 22.0, 'APTOS resolves the shared row id inside rs_aptos');
+check_public_projection($publicMap[101]['tiers']['basic']['minimum_term_value'] === 6.0, 'KAIROS basic occupant\'s own configured commitment reaches the public Service-routed projection');
+check_public_projection($publicMap[101]['tiers']['basic']['minimum_term_unit'] === 'month', 'KAIROS basic occupant\'s own commitment unit reaches the public Service-routed projection');
+check_public_projection($publicMap[101]['tiers']['basic']['edition_options'][0]['minimum_term_value'] === null, 'the Active Edition\'s own unset commitment stays null, never backfilled from the occupant\'s value, through the full repository projection');
+check_public_projection($publicMap[102]['tiers']['basic']['minimum_term_value'] === null, 'an occupant that never configured a commitment still projects null publicly');
 check_public_projection(!array_key_exists('rate_sheet_id', $publicMap[101]['tiers']['basic']), 'the public Default tier never exposes its internal Rate Sheet binding, even though the projector reads it to price live');
 check_public_projection(!array_key_exists('rate_sheet_items', $publicMap[101]['tiers']['basic']), 'the public Default tier never exposes its internal Rate Sheet rows, even though the projector reads them to price live');
 check_public_projection($publicMap[101]['popular_label'] === 'KAIROS Tier Set popular', 'KAIROS popular configuration comes from its instance');
@@ -455,6 +466,8 @@ foreach ($familyResponse['families'] as $family) $familyById[$family['family_id'
 check_public_projection($familyById['pcg_kairos']['tier_instance_id'] === 'ti_kairos', 'KAIROS resolves its Tier Instance directly from the Family assignment');
 check_public_projection($familyById['pcg_aptos']['tier_instance_id'] === 'ti_aptos', 'APTOS resolves its own assigned Tier Instance');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['price'] === 11.0, 'Family projection preserves the existing Rate Sheet total');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['minimum_term_value'] === 6.0, 'Family projection (the direct-assignment customer read) also carries the occupant\'s own configured commitment');
+check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['minimum_term_unit'] === 'month', 'Family projection also carries the occupant\'s own commitment unit');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['tier_occupant_id'] !== '', 'Family projection carries the real native occupant identity');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['standard']['is_addon'] === true, 'Family projection preserves the compiled add-on occupant');
 check_public_projection($familyById['pcg_kairos']['pricing']['tiers']['basic']['audience_groups'] === ['personal_business'], 'Family projection preserves the parent occupant audience groups');

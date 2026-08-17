@@ -109,9 +109,9 @@ export interface PricingTierData {
   // permanent Default declaration — this array exists only so the customer
   // can switch IN PLACE to one of the Tier's additional Edition declarations.
   edition_options?: PricingEditionOption[];
-  // The occupant's own Default declaration has no minimum-commitment concept
-  // — only an Edition does — so this is null unless/until the customer
-  // switches to one.
+  // The occupant's own permanent Default declaration's minimum commitment —
+  // same concern as an Edition's own minimum_term_value/unit above. Null for
+  // every Tier that has never configured one, exactly like price/billing_cycle.
   minimum_term_value?: number | null;
   minimum_term_unit?: string | null;
 }
