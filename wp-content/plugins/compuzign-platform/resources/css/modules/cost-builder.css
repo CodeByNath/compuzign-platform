@@ -149,14 +149,19 @@
   text-align: center;
 }
 
-/* Service card: padding scales fluidly; min-width: 0 allows grid column to shrink it */
+/* Service card: min-width: 0 allows grid column to shrink it. Flat — no
+   border/background/shadow of its own — scoped here rather than stripped
+   from the shared .cz-card base, which the homepage's own cards (.cz-card
+   .cz-service-card) still rely on for that treatment. */
 .cz-cost-builder__card {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-4);
-  padding: clamp(var(--cz-space-4), 2vw, var(--cz-space-6));
   transition: box-shadow var(--cz-transition-fast), border-color var(--cz-transition-fast);
   min-width: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .cz-cost-builder__card--selected {
@@ -638,7 +643,6 @@
   padding: 0;
   max-height: 340px;
   overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .cz-quote-summary__item {
