@@ -179,7 +179,7 @@ export function TierCard({
   const editionOptions = data?.edition_options ?? [];
   const [selectedEditionId, setSelectedEditionId] = useState<string | null>(null);
   const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
-  const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, selectedEdition } = effective;
+  const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
 
   const suffix = formatCycleLabel(effectiveBillingCycle);
 
@@ -270,9 +270,9 @@ export function TierCard({
             <span class="cz-cost-builder__tier-cycle">{suffix}</span>
           )}
         </div>
-        {selectedEdition && (selectedEdition.minimum_term_value != null) && (
+        {minimumTermValue != null && (
           <p class="cz-cost-builder__tier-commitment">
-            Minimum {selectedEdition.minimum_term_value} {selectedEdition.minimum_term_unit ?? ''}
+            Minimum {minimumTermValue} {minimumTermUnit ?? ''}
           </p>
         )}
       </div>
