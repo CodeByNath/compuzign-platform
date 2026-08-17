@@ -407,25 +407,27 @@ export function PricingTiers({
     <div class="cz-cost-builder__addons">
       <h5 class="cz-cost-builder__addons-heading">Optional add-ons</h5>
       <div class="cz-cost-builder__tiers-wrap">
-        <button
-          type="button"
-          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
-          onClick={() => scroll(addonScrollRef, -1)}
-          aria-label="Scroll add-ons left"
-        >
-          ‹
-        </button>
+        <div class="cz-cost-builder__tiers-nav-row">
+          <button
+            type="button"
+            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
+            onClick={() => scroll(addonScrollRef, -1)}
+            aria-label="Scroll add-ons left"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
+            onClick={() => scroll(addonScrollRef, 1)}
+            aria-label="Scroll add-ons right"
+          >
+            ›
+          </button>
+        </div>
         <div class="cz-cost-builder__tiers" ref={addonScrollRef}>
           {addonTiers.map(renderAddonTierCard)}
         </div>
-        <button
-          type="button"
-          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
-          onClick={() => scroll(addonScrollRef, 1)}
-          aria-label="Scroll add-ons right"
-        >
-          ›
-        </button>
       </div>
     </div>
   ) : null;
@@ -464,14 +466,24 @@ export function PricingTiers({
   return (
     <div class="cz-cost-builder__tier-area">
       <div class="cz-cost-builder__tiers-wrap">
-        <button
-          type="button"
-          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
-          onClick={() => scroll(scrollRef, -1)}
-          aria-label="Scroll tiers left"
-        >
-          ‹
-        </button>
+        <div class="cz-cost-builder__tiers-nav-row">
+          <button
+            type="button"
+            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
+            onClick={() => scroll(scrollRef, -1)}
+            aria-label="Scroll tiers left"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
+            onClick={() => scroll(scrollRef, 1)}
+            aria-label="Scroll tiers right"
+          >
+            ›
+          </button>
+        </div>
         <div class="cz-cost-builder__tiers" ref={scrollRef}>
           {normalTiers.map((tier) => (
             <TierCard
@@ -490,14 +502,6 @@ export function PricingTiers({
           ))}
           {recommendationsShell}
         </div>
-        <button
-          type="button"
-          class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
-          onClick={() => scroll(scrollRef, 1)}
-          aria-label="Scroll tiers right"
-        >
-          ›
-        </button>
       </div>
 
       {!recommendationsAside && populatedRecommendations}

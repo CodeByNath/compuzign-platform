@@ -198,13 +198,29 @@
   font-size: var(--cz-font-size-sm);
 }
 
-/* Tier strip wrapper — holds carousel nav buttons + scroll track */
+/* Tier strip wrapper — stacks the compact nav row above the scroll track. */
 .cz-cost-builder__tiers-wrap {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: var(--cz-space-2);
   margin-top: var(--cz-space-4);
   min-width: 0;
+}
+
+/* Compact nav row — top-right of the wrapper, above the track, so the
+   chevrons never overlap the first/last card. Same visibility rule as the
+   buttons it holds (see .cz-cost-builder__tiers-nav below and the Sidebar
+   Breakpoint Fix further down): hidden when every card already fits. */
+.cz-cost-builder__tiers-nav-row {
+  display: none;
+  justify-content: flex-end;
+  gap: var(--cz-space-2);
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .cz-cost-builder__tiers-nav-row {
+    display: flex;
+  }
 }
 
 /* Tier strip: always horizontal above 767px — scrolls if constrained, sidebar does not control this.
@@ -212,10 +228,9 @@
    .cz-cost-builder__tier below) let every card's equivalent section land on the same
    row and reach the same height across the whole strip, with no per-card fixed height. */
 .cz-cost-builder__tiers {
-  flex: 1;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(180px, 1fr);
+  grid-auto-columns: minmax(320px, 1fr);
   grid-template-rows: repeat(8, auto);
   align-items: stretch;
   gap: var(--cz-space-3);
@@ -238,11 +253,11 @@
   }
 }
 
-/* Carousel nav buttons — hidden at ≤767px (cards stack) and ≥1024px (full width visible) */
+/* Carousel nav buttons — shape only; the wrapping nav row above controls
+   when they're shown, so a hidden row hides both regardless of this. */
 .cz-cost-builder__tiers-nav {
-  display: none;
+  display: flex;
   flex-shrink: 0;
-  align-self: center;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -262,18 +277,12 @@
   color: var(--cz-color-accent);
 }
 
-@media (min-width: 768px) and (max-width: 1023px) {
-  .cz-cost-builder__tiers-nav {
-    display: flex;
-  }
-}
-
 /* One TierCard = one grid column, subgridding the strip's 8 row tracks so its
    8 fixed sections (Product Badge, Tier Labels, Tier Overview, Price, Action,
    Notes, Tier Inclusions, Tier Card Footer — in that order, each a direct
    child below) share row height with the same section on every other card. */
 .cz-cost-builder__tier {
-  min-width: 180px;
+  min-width: 0;
   display: grid;
   grid-template-rows: subgrid;
   grid-row: 1 / span 8;
@@ -1435,9 +1444,9 @@
 /* ─── Tier Carousel Nav — Sidebar Breakpoint Fix ─── */
 
 /* At 1024px+ the main column narrows when the quote sidebar is active.
-   4 tiers at min-width 180px may not fit, so reveal the scroll arrows. */
+   4 tiers at min-width 320px may not fit, so reveal the nav row. */
 @media (min-width: 1024px) {
-  .cz-cost-builder--has-quote .cz-cost-builder__tiers-nav {
+  .cz-cost-builder--has-quote .cz-cost-builder__tiers-nav-row {
     display: flex;
   }
 }
