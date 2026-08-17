@@ -1567,13 +1567,52 @@ class PackageRepository
                 (bool) ($extracted['contact'] ?? false)
             );
             $extracted['price'] = $rateProjection['price'];
+            // A Bundle-backed selection carries no source_type at all (no
+            // Manager source stands behind a combination — see self_priced),
+            // so the Manager-sourced-only filter below must also recognize it.
+            // projectTierRateSheetWith()'s own selections deliberately carry
+            // no Bundle-shaped field (tests/rate-sheet-bundle.php locks this),
+            // so bundle_id is looked up here instead, straight from the same
+            // sheet the projector already resolved against, by the row's own
+            // item_id — never trusted from input, never added to the
+            // projector's own output.
+            $rateSheetForTier = PackageManagerSchema::findRateSheet(
+                is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
+                $extracted['rate_sheet_id'] ?? null
+            );
+            $bundleIdByItemId = [];
+            foreach (is_array($rateSheetForTier['items'] ?? null) ? $rateSheetForTier['items'] : [] as $sheetRow) {
+                $rowBundleId = (string) ($sheetRow['bundle_id'] ?? '');
+                if ($rowBundleId !== '') {
+                    $bundleIdByItemId[(string) ($sheetRow['item_id'] ?? '')] = $rowBundleId;
+                }
+            }
             $resolvedInclusions = array_values(array_filter(
                 $rateProjection['selections'],
                 static fn(array $row): bool => $row['resolved']
-                    && ($row['source_type'] ?? null) === 'inclusion'
+                    && (($row['source_type'] ?? null) === 'inclusion' || isset($bundleIdByItemId[$row['item_id']]))
             ));
             $extracted['inclusions_override'] = array_map(
-                static fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'quantity' => $row['quantity']],
+                static function (array $row) use ($bundleIdByItemId): array {
+                    $entry = ['id' => $row['item_id'], 'label' => $row['label'], 'quantity' => $row['quantity']];
+                    $bundleId = $bundleIdByItemId[$row['item_id']] ?? null;
+                    if ($bundleId !== null) {
+                        $entry['bundle_id'] = $bundleId;
+                        // Read-only display children — what this Bundle
+                        // compiles — never separately chargeable or selectable
+                        // lines of their own, mirroring PoolInclusionsEditor's
+                        // admin-side sub-list.
+                        $entry['includes'] = array_map(
+                            static fn(array $include): array => [
+                                'id'       => (string) ($include['item_id'] ?? ''),
+                                'label'    => (string) ($include['label'] ?? ''),
+                                'quantity' => (int) ($include['quantity'] ?? 1),
+                            ],
+                            is_array($row['includes'] ?? null) ? $row['includes'] : []
+                        );
+                    }
+                    return $entry;
+                },
                 $resolvedInclusions
             );
             if ($includeSelectedInclusionProvenance) {
