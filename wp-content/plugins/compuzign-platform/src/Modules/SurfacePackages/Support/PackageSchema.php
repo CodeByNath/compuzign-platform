@@ -1228,6 +1228,19 @@ class PackageSchema
                 'inclusions_override' => !empty($edition['inclusions_override'])
                     ? $edition['inclusions_override']
                     : ($occ['inclusions_override'] ?? []),
+                // An Edition's own multi-cycle schedule, independent of the
+                // occupant's (never inherited — same rule as price/
+                // billing_cycle/commitment above; see
+                // sanitizeTierEdition()). Raw here: PackageRepository's own
+                // projection re-prices each leg through projectCommercialLegs()
+                // the same way it re-prices `price` above, since this
+                // extraction has no Rate Sheet read model to resolve against.
+                'active_billing_cycles' => is_array($edition['active_billing_cycles'] ?? null)
+                    ? array_values($edition['active_billing_cycles'])
+                    : [],
+                'commercial_legs'     => is_array($edition['commercial_legs'] ?? null)
+                    ? $edition['commercial_legs']
+                    : [],
             ];
         }
         return $out;
@@ -1253,7 +1266,15 @@ class PackageSchema
                 'billing_cycle'       => $occ['billing_cycle'] ?? null,
                 'inclusions_override' => is_array($occ['inclusions_override'] ?? null) ? $occ['inclusions_override'] : [],
                 'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
-                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
+                // The occupant's own legs, passed through so a row's own
+                // leg_assignments survive this extraction — otherwise every
+                // commercial leg below would resolve against a selection
+                // list with no leg_assignments at all, exactly like
+                // upsertOccupant()'s own save-path call already does.
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections(
+                    $occ['rate_sheet_items'] ?? [],
+                    is_array($occ['commercial_legs'] ?? null) ? $occ['commercial_legs'] : []
+                ),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => is_array($occ['faq_refs'] ?? null) ? $occ['faq_refs'] : [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
@@ -1272,6 +1293,20 @@ class PackageSchema
                 // in here — same rule already applied to price/billing_cycle.
                 'minimum_term_value'  => $occ['minimum_term_value'] ?? null,
                 'minimum_term_unit'   => $occ['minimum_term_unit'] ?? null,
+                // The occupant's own multi-cycle schedule (Phase 3 — public
+                // projection). Raw here, same reason as edition_options'
+                // commercial_legs above: PackageRepository::
+                // projectTierInstanceForCostBuilder() re-prices each leg
+                // through PackageManagerSchema::projectCommercialLegs() once
+                // it has the Rate Sheet read model this extraction does not.
+                // Empty for every occupant that has never used this
+                // capability — Simple Mode is unaffected.
+                'active_billing_cycles' => is_array($occ['active_billing_cycles'] ?? null)
+                    ? array_values($occ['active_billing_cycles'])
+                    : [],
+                'commercial_legs'     => is_array($occ['commercial_legs'] ?? null)
+                    ? $occ['commercial_legs']
+                    : [],
             ];
         }
 

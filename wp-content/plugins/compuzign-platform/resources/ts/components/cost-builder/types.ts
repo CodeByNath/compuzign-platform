@@ -58,13 +58,16 @@ export interface FamilyTierQuoteItem {
   isAddon: boolean;
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
-  // Plan duration in months chosen in the focused Choose Plan view, captured
-  // at the moment of selection so it travels with the line. Null for a direct
-  // card selection (no duration was ever shown) and for add-on lines. Distinct
-  // from minimumTermValue above, which is the Edition's own commitment —
-  // nothing derives price, term, or Edition meaning from this yet. Optional
+  // The commercial leg (billing-cycle segment) chosen in the focused Choose
+  // Plan view's left column, captured at the moment of selection — audit
+  // trail only, the same role tierEditionPlatformId plays above: price/
+  // billingCycle/features already reflect this leg (via the effective value
+  // resolveEffectiveTierDisplay produced at that click), so nothing else
+  // derives from it. Null for a direct card selection (no leg control was
+  // ever shown), for add-on lines, and for a declaration with no schedule.
+  // Plain local id, never a Platform ID — commercial legs have none. Optional
   // because carts persisted before this field existed simply omit it.
-  planDurationMonths?: number | null;
+  commercialLegId?: string | null;
 }
 
 export type CartItem = QuoteItem | FamilyTierQuoteItem;

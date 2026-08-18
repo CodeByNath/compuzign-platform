@@ -1,7 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import type { PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
+import type { PricingCommercialLeg, PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItemTierId } from './types';
 
 export interface EffectiveTierDisplay {
@@ -15,6 +15,12 @@ export interface EffectiveTierDisplay {
   selectedEdition: PricingEditionOption | null;
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
+  // Whichever declaration is currently showing (Default or selectedEdition)
+  // owns these — a leg never crosses from one declaration to the other, the
+  // same rule price/billing_cycle/inclusions above already follow.
+  activeBillingCycles: string[];
+  commercialLegs: PricingCommercialLeg[];
+  selectedLeg: PricingCommercialLeg | null;
 }
 
 /**
@@ -30,32 +36,58 @@ export interface EffectiveTierDisplay {
  * Switching to a non-null id overlays that ONE Edition's own declaration in
  * place; it can never change which Tier is selected, and switching back to
  * Default is always available, never a one-way trip.
+ *
+ * `selectedLegId` (Phase 3) is a second, independent switch scoped to
+ * whichever declaration `selectedEditionId` already resolved: it selects one
+ * of THAT declaration's own commercialLegs, never blending across Default
+ * and an Edition. Omitted (or naming no leg on the current declaration) it
+ * simply falls through to that declaration's own price/cycle/inclusions
+ * exactly as before this capability existed — every existing caller that
+ * never passes a 4th argument behaves identically.
  */
 export function resolveEffectiveTierDisplay(
   data: PricingTierData | undefined,
   billingCycle: string,
   selectedEditionId: string | null,
+  selectedLegId: string | null = null,
 ): EffectiveTierDisplay {
   const editionOptions = data?.edition_options ?? [];
   const selectedEdition = editionOptions.find((e) => e.id === selectedEditionId) ?? null;
 
-  const price = selectedEdition ? selectedEdition.price : (data?.price ?? null);
-  const effectiveCycle = selectedEdition
-    ? (selectedEdition.billing_cycle ?? billingCycle)
-    : (data?.billing_cycle || billingCycle);
-  const inclusions = selectedEdition && selectedEdition.inclusions_override.length > 0
-    ? selectedEdition.inclusions_override
-    : data?.inclusions;
+  const activeBillingCycles = selectedEdition
+    ? (selectedEdition.active_billing_cycles ?? [])
+    : (data?.active_billing_cycles ?? []);
+  const commercialLegs = selectedEdition
+    ? (selectedEdition.commercial_legs ?? [])
+    : (data?.commercial_legs ?? []);
+  const selectedLeg = commercialLegs.find((leg) => leg.id === selectedLegId) ?? null;
+
+  const price = selectedLeg ? selectedLeg.price : selectedEdition ? selectedEdition.price : (data?.price ?? null);
+  const effectiveCycle = selectedLeg
+    ? selectedLeg.billing_cycle
+    : selectedEdition ? (selectedEdition.billing_cycle ?? billingCycle) : (data?.billing_cycle || billingCycle);
+  const inclusions = selectedLeg
+    ? selectedLeg.inclusions
+    : selectedEdition && selectedEdition.inclusions_override.length > 0
+      ? selectedEdition.inclusions_override
+      : data?.inclusions;
   const inclusionLabels = inclusions?.length
     ? inclusions.map((inc) => inc.label)
     : (data?.features ?? []);
   const inclusionItems = inclusions?.length
     ? inclusions
     : (data?.features ?? []).map((label): ServiceInclusion => ({ id: label, label }));
+  // A leg carries no commitment of its own — start_month/end_month are
+  // bounds WITHIN the declaration's own commitment, never a replacement for
+  // it — so minimumTermValue/Unit stay owned by the declaration regardless
+  // of which leg (if any) is selected.
   const minimumTermValue = selectedEdition ? selectedEdition.minimum_term_value : (data?.minimum_term_value ?? null);
   const minimumTermUnit  = selectedEdition ? selectedEdition.minimum_term_unit  : (data?.minimum_term_unit  ?? null);
 
-  return { price, billingCycle: effectiveCycle, inclusionLabels, inclusionItems, selectedEdition, minimumTermValue, minimumTermUnit };
+  return {
+    price, billingCycle: effectiveCycle, inclusionLabels, inclusionItems, selectedEdition,
+    minimumTermValue, minimumTermUnit, activeBillingCycles, commercialLegs, selectedLeg,
+  };
 }
 
 // Inline check glyph for Tier Inclusions rows — follows this codebase's
@@ -149,6 +181,9 @@ export function TierCard({
   onChoosePlan,
   hideOverview = false,
   isEnterpriseView = false,
+  selectedEditionId: controlledEditionId,
+  onEditionChange,
+  selectedLegId = null,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -166,6 +201,18 @@ export function TierCard({
   hideOverview?: boolean;
   // See PricingTiersProps.isEnterpriseView.
   isEnterpriseView?: boolean;
+  // Focused Choose Plan view only (Phase 3): lets the left column read and
+  // drive which declaration (Default/Edition) this card shows, so its own
+  // leg dropdown can scope to the SAME one. Omitted everywhere else — every
+  // other caller keeps the card's own fully-internal Edition-switch state,
+  // completely unchanged.
+  selectedEditionId?: string | null;
+  onEditionChange?: (editionId: string | null) => void;
+  // Focused Choose Plan view only (Phase 3): which of the currently-showing
+  // declaration's own commercialLegs to resolve price/cycle/inclusions from.
+  // Always null elsewhere (the default), which is exactly today's behavior —
+  // no other caller has any UI that could ever set it.
+  selectedLegId?: string | null;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -176,9 +223,16 @@ export function TierCard({
   // Quote/Selected exactly once for this card; switching only changes which
   // declaration is currently shown — and, via `effective` passed to onClick
   // below, which one is captured into the quote when that click happens.
+  //
+  // Optionally controlled: every existing caller omits selectedEditionId/
+  // onEditionChange and gets this card's own internal state, unchanged. Only
+  // the focused Choose Plan view passes both, lifting this switch so its own
+  // left-column leg dropdown can read which declaration is showing.
   const editionOptions = data?.edition_options ?? [];
-  const [selectedEditionId, setSelectedEditionId] = useState<string | null>(null);
-  const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
+  const [internalEditionId, setInternalEditionId] = useState<string | null>(null);
+  const selectedEditionId = controlledEditionId !== undefined ? controlledEditionId : internalEditionId;
+  const setSelectedEditionId = onEditionChange ?? setInternalEditionId;
+  const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId, selectedLegId);
   const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
 
   const suffix = formatCycleLabel(effectiveBillingCycle);

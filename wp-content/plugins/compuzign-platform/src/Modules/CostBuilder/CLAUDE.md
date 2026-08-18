@@ -9,6 +9,10 @@ Global policy is defined by [AGENTS.md](../../../../../../AGENTS.md).
 - `Services/PricingBuilder.php` — public catalogue, Package, Promotion, Bundle, and FAQ projection.
 - `Http/PackageBuilderController.php` / `Services/PackageFamilyPricingBuilder.php`
   — narrow direct Family-assignment customer read; never resolve through a Service.
+  `PackageFamilyPricingBuilder` explicitly whitelists every field it emits
+  (no key spread), including each occupant's/Edition's own
+  `active_billing_cycles`/`commercial_legs` — see [Tier Commercial Schedule
+  — Public Projection](../../../../../../docs/code-map/tier-commercial-schedule-public.md).
 - `Services/CatalogImporter.php` — validated catalogue import.
 - `Repositories/ServiceRepository.php` — Service catalogue queries/projection inputs.
 - `Support/MetaSchema.php` / `PriceParser.php` — pricing shape and parsing.
@@ -22,8 +26,8 @@ consumer; Tier Instance is the Tier-system container; occupants are plans or
 add-ons; Editions are occupant children. Native IDs may support backend logic,
 but existing Platform IDs travel alongside as printed commercial identifiers.
 
-Read [Cost Builder](../../../../../../docs/code-map/cost-builder.md), [Rate Sheet](../../../../../../docs/code-map/rate-sheet.md), [Tiers](../../../../../../docs/code-map/tiers.md), [Tier Add-on Selection](../../../../../../docs/code-map/tier-addon.md), and [Tier Edition](../../../../../../docs/code-map/tier-edition.md).
+Read [Cost Builder](../../../../../../docs/code-map/cost-builder.md), [Rate Sheet](../../../../../../docs/code-map/rate-sheet.md), [Tiers](../../../../../../docs/code-map/tiers.md), [Tier Add-on Selection](../../../../../../docs/code-map/tier-addon.md), [Tier Edition](../../../../../../docs/code-map/tier-edition.md), and [Tier Commercial Schedule — Public Projection](../../../../../../docs/code-map/tier-commercial-schedule-public.md).
 
 ## Validation
 
-From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-edition-public-projection.php`, `npm run contract:cost-builder-isolation`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-edition-public-projection.php`, `php tests/tier-commercial-schedule-public-projection.php`, `npm run contract:cost-builder-isolation`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npm run contract:package-builder-customer-tabs`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.

@@ -38,6 +38,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Tier Add-on Selection](tier-addon.md)
 - [Tier Edition](tier-edition.md)
 - [Tier Commercial Schedule](tier-commercial-schedule.md)
+- [Tier Commercial Schedule — Public Projection](tier-commercial-schedule-public.md)
 - [Promotions](promotions.md)
 - [Categories](categories.md)
 - [Service Category Groups](category-groups.md)
