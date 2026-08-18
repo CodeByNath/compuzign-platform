@@ -28,3 +28,23 @@ export function defaultPriceLabel(label: string | null | undefined): string {
   const own = label?.trim() ?? '';
   return own !== '' ? own : DEFAULT_PRICE_LABEL;
 }
+
+// Same Title Case vocabulary as TierOverviewEditor's own BILLING_CYCLES —
+// duplicated locally rather than shared, the same small-vocabulary precedent
+// that editor's own comment already sets against TierEditionOverviewFields.
+const COMMERCIAL_LEG_CYCLE_LABELS: Record<string, string> = {
+  monthly: 'Monthly',
+  annually: 'Annually',
+  'one-time': 'One-time',
+};
+
+/**
+ * A commercial leg's own short display badge — cycle name plus its inclusive
+ * month range — shared by the Commercial Schedule editor and Included
+ * Features' own per-leg Price Option rows so the two never name the same leg
+ * differently.
+ */
+export function commercialLegLabel(leg: { billing_cycle: string; start_month: number; end_month: number }): string {
+  const cycle = COMMERCIAL_LEG_CYCLE_LABELS[leg.billing_cycle] ?? leg.billing_cycle;
+  return `${cycle} · Mo ${leg.start_month}–${leg.end_month}`;
+}

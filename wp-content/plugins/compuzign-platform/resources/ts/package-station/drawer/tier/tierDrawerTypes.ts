@@ -31,7 +31,7 @@ export interface TierDrawerContentProps {
 }
 
 // Which individual-tier module is being edited (null = every module readable).
-export type TierEditingSection = 'tier-overview' | 'tier-inclusions' | 'tier-faqs' | null;
+export type TierEditingSection = 'tier-overview' | 'tier-inclusions' | 'tier-faqs' | 'tier-commercial-schedule' | null;
 
 // The individual-tier screen's four presentation groups (drawer refinement
 // blueprint, Phase 3). This screen composes its shells directly through

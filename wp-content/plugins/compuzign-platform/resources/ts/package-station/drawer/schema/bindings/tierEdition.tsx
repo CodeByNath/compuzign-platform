@@ -29,6 +29,7 @@ export interface TierEditionOverviewShellData {
   billingCycle:      string | null;
   minimumTermValue:  number | null;
   minimumTermUnit:   string | null;
+  activeBillingCycles: string[];
   editionPlatformId: string;
 }
 
@@ -75,6 +76,12 @@ export const tierEditionOverviewShell: ShellSchema<TierEditionOverviewShellData>
       bind: (d): TextValue => ({
         value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
       }),
+    },
+    {
+      // Empty reads exactly like an Edition that has never used this
+      // capability — Simple Mode, no different from before it existed.
+      id: 'active-billing-cycles', element: 'text', label: 'Active Billing Cycles',
+      bind: (d): TextValue => ({ value: d.activeBillingCycles.length > 0 ? d.activeBillingCycles.join(', ') : '—' }),
     },
     {
       id: 'edition-platform-id', element: 'text', label: 'Edition Platform ID',

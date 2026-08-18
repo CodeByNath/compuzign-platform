@@ -37,57 +37,11 @@ Overview under Details carries one small derived read field, "Editions" —
 separately. Creation happens through "+ Edition" (see Admin editing);
 Overview collects no title/price/lifecycle action.
 
-## Commercial schedule (Phase 0 schema, Phase 1 resolution)
+## Commercial schedule
 
-Both the occupant and each Edition may additionally carry `active_billing_cycles`
-(a reusable cadence pool, e.g. `['one-time', 'annually']`, drawn from the same
-`PackageSchema::BILLING_CYCLES` vocabulary as the legacy scalar `billing_cycle`)
-and `commercial_legs` (each `{id, billing_cycle, start_month, end_month}` —
-1-based inclusive months, `billing_cycle` must be one of the record's own
-`active_billing_cycles`, `end_month` bounded by the record's own
-`minimum_term_value`/`unit` converted to months). Absent/empty on every
-record that has never used this capability — **Simple Mode** — whose legacy
-`billing_cycle`/`price_option_id` stay fully authoritative and whose
-`rate_sheet_items[]` rows omit the `leg_assignments` key entirely (not `[]`):
-the exact pre-existing `{item_id, quantity, price_option_id}` shape survives
-byte-for-byte, asserted by `tests/rate-sheet-bundle.php` and others. Legs are
-never inherited between occupant and Edition — each stays its own
-independent declaration, the same rule already applied to price/billing_cycle/
-commitment. An inclusion attaches to one or more legs via `leg_assignments`
-on its own `TierRateSheetSelection` row (`{leg_id, price_option_id}` pairs)
-— one inclusion identity, never duplicated — resolved through
-`PackageSchema::sanitizeTierRateSheetSelections()`'s optional `$legs`
-parameter; a `leg_id`/`price_option_id` not resolving is dropped, never
-fabricated. Two assignments on one inclusion naming the same `billing_cycle`
-with overlapping months are a double-charge shape and the later one is
-dropped; different cycles overlapping (e.g. a one-time setup fee alongside a
-monthly service) is normal and never rejected. `commercial_legs`/
-`active_billing_cycles` are re-validated against the record's own commitment
-on every read/write — shortening the commitment silently drops whatever leg
-no longer fits, with no separate cascade step. Legs carry plain local ids
-(`PackageSchema::mintCommercialLegId()`, `leg_` + random) — no Platform ID
-family, the same posture an inclusion row or a Rate Sheet Price Option's
-`option_id` already uses. `commercial_schedule` is a fourth `TIER_MODULES`
-entry for the occupant (own draft/settle, alongside `active_billing_cycles`
-staying part of the `overview` module draft); an Edition carries both in its
-one consolidated `overview` module, same as its other fields. See
-`tests/tier-commercial-schedule.php` for the full storage/settle contract.
-
-`PackageManagerSchema::projectCommercialLegs($readModel, $legs, $selections,
-$rateSheetId, $contact)` resolves each leg to its own aggregate price: for a
-given leg, a synthetic `{item_id, quantity, price_option_id}` row is built
-per inclusion whose own `leg_assignments` name that leg (using THAT
-assignment's own `price_option_id`, never the selection's top-level one),
-then handed to `projectTierRateSheetWith()` **unchanged** — the exact
-authority `projectEditionPrices()` already shares, called once per leg
-instead of once per Edition. No new pricing calculation; a leg with nothing
-assigned to it still appears in the result, priced null like any other empty
-selection set. `$legs` empty (Simple Mode) returns `[]` — a true no-op.
-This function exists and is directly tested
-(`tests/tier-commercial-legs-projection.php`) but is not yet wired into
-`PackageSchema::extractTierForCostBuilder()` or
-`PackageRepository::projectTierInstanceForCostBuilder()`; public/Cost-Builder
-projection of a resolved commercial schedule is a later phase.
+Both may carry an optional multi-cycle commercial schedule, absent/empty
+and inert until used. See
+[Tier Commercial Schedule](tier-commercial-schedule.md).
 
 ## Identity
 
@@ -148,19 +102,18 @@ Edition-scoped state including `tier_edition_bin[]`. The Included-Features
 module is titled **Default Tier Inclusions**.
 `TierEditionDeclarationSwitcher.tsx` is the Options group's content, gated
 on a real occupant: a `[Edition 2] [Edition 3]` child-chip strip
-(`ChildChipStrip`) with a fixed trailing Bin icon opening the Bin as its own
-focused task (`TierEditionBinFocusedView.tsx`, `FocusedTaskShell`), replacing the strip
-and cards. Default is never a row; "+ Edition" lives in Options navigation.
+(`ChildChipStrip`) with a trailing Bin icon opening as its own focused task
+(`TierEditionBinFocusedView.tsx`, `FocusedTaskShell`), replacing the strip
+and cards. Default is never a row; "+ Edition" lives in Options nav.
 
-The footer's "Move Edition to Bin" command composes the Trashed transition
-and relocation in one persistence operation. Permanent Delete lives only in
-`TierEditionBinList.tsx` for trashed rows.
+"Move Edition to Bin" composes the Trashed transition and relocation in one
+operation. Permanent Delete lives only in `TierEditionBinList.tsx`.
 
 The two module cards share `TierEditionEditor.tsx`, one draft, and draft-only
 Save/Cancel; Publish settles. Every read/re-edit resolves through
-`useTierEditions.editionView()`, mirroring `usePackageStation.tierView()`: a
-pending draft wins over settled fields, so a just-Saved Edition displays
-immediately. Selection state lives in `useTierDrawerController.ts`.
+`useTierEditions.editionView()`, mirroring `usePackageStation.tierView()`
+for immediate just-Saved display. Selection state lives in
+`useTierDrawerController.ts`.
 
 `TierDrawerFooter` carries two independent splits: LEFT
 (`buildTierLifecycleMenu` — Disable/Enable/Archive/Restore, Move to Bin
@@ -181,4 +134,4 @@ only its own menu (`menuOnly`).
 
 ## Related Code Maps
 
-[Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Rate Sheet](rate-sheet.md), [Platform Identifier Station](platform-identifier-station.md), [Cost Builder](cost-builder.md), and [Quote Builder](quote-builder.md).
+[Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Tier Commercial Schedule](tier-commercial-schedule.md), [Rate Sheet](rate-sheet.md), [Platform Identifier Station](platform-identifier-station.md), [Cost Builder](cost-builder.md), and [Quote Builder](quote-builder.md).

@@ -27,7 +27,7 @@ import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { TiersIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
-import type { TierRateSheetSelection } from '../../types';
+import type { CommercialLeg, TierRateSheetSelection } from '../../types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
 import { useTierDrawerController } from './useTierDrawerController';
@@ -388,7 +388,34 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
-        extras: { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved) },
+        extras: {
+          pool: [], onCreate: async () => null,
+          rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved),
+          // Multi-Cycle Mode only — the settled record's own legs (not the
+          // Commercial Schedule module's own pending draft, if any: Features
+          // and Commercial Schedule save independently, and a leg add/remove
+          // there only takes effect for assignment here once it settles).
+          commercialLegs: detail.commercial_legs,
+        },
+      },
+    };
+  } else if (c.editingSection === 'tier-commercial-schedule' && c.commercialScheduleDraft) {
+    editing = {
+      module: 'commercial_schedule',
+      session: {
+        draft: c.commercialScheduleDraft,
+        replace: (next) => c.setCommercialScheduleDraft(next as CommercialLeg[]),
+        onSave: c.saveSection,
+        onCancel: c.cancelSection,
+        saving: c.pkg.saving,
+        saveErr: c.saveErr,
+        isDirty: true,
+        extras: {
+          activeBillingCycles: detail.active_billing_cycles,
+          commitmentMonths: detail.minimum_term_value != null
+            ? (detail.minimum_term_unit === 'year' ? detail.minimum_term_value * 12 : detail.minimum_term_value)
+            : null,
+        },
       },
     };
   } else if (c.editingSection === 'tier-faqs' && c.faqsDraft) {
@@ -470,6 +497,16 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               binding={td.featuresBinding}
               panelOpen={c.openTierPanel === 'features'}
               onTogglePanel={togglePanel('features')}
+              editing={editing}
+            />
+          )}
+          {(!editing || editing.module === 'commercial_schedule') && (
+            <PlacedShell
+              entity={TIER_ENTITY}
+              slot={{ module: 'commercial_schedule', mode: 'details' }}
+              binding={td.commercialScheduleBinding}
+              panelOpen={c.openTierPanel === 'commercial_schedule'}
+              onTogglePanel={togglePanel('commercial_schedule')}
               editing={editing}
             />
           )}

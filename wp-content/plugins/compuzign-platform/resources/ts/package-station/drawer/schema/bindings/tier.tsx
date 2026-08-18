@@ -7,18 +7,21 @@
 // state arrives at render time through ShellBinding, assembled by
 // ServiceTierStep from usePackageStation's evaluateModule results.
 
-import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../../types';
+import type { CommercialLeg, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../../types';
 import type { InclusionItem } from '@/api/types/pools';
 import {
   tierOverviewModule,
   tierFeaturesModule,
   tierFaqsModule,
+  tierCommercialScheduleModule,
 } from '@/drawer-kit/utils/moduleNotifications';
+import { commercialLegLabel } from '../../../rateSheetLabels';
 import { TierOverviewEditor } from '../../editors/TierOverviewEditor';
 import type { TierOverviewEditDraft, RateSheetPickerOption } from '../../editors/TierOverviewEditor';
 import { PoolInclusionsEditor } from '../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
+import { CommercialScheduleEditor } from '../../editors/CommercialScheduleEditor';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
@@ -51,6 +54,9 @@ export interface TierOverviewShellData {
   // Tier Edition's own minimum_term_value/unit. See docs/code-map/tier-edition.md.
   minimumTermValue: number | null;
   minimumTermUnit:  string | null;
+  // The reusable cadence pool Commercial Schedule's own legs may draw from —
+  // see SurfaceTierDetail.active_billing_cycles.
+  activeBillingCycles: string[];
   isAddon:      boolean;         // occupant-level selection mode — see Tier Add-on Selection code map
   popular:      boolean;         // station-level presentation flag
   platformId:   string;
@@ -113,6 +119,12 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({
         value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
       }),
+    },
+    {
+      // Empty reads exactly like a Tier that has never used this
+      // capability — Simple Mode, no different from before it existed.
+      id: 'active-billing-cycles', element: 'text', label: 'Active Billing Cycles',
+      bind: (d): TextValue => ({ value: d.activeBillingCycles.length > 0 ? d.activeBillingCycles.join(', ') : '—' }),
     },
     {
       id: 'popular', element: 'text', label: 'Popular',
@@ -195,6 +207,53 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
         pool={(s.extras?.pool ?? []) as InclusionItem[]}
         onCreate={s.extras?.onCreate as (label: string) => Promise<InclusionItem | null>}
         rateSheetCatalogue={s.extras?.rateSheetCatalogue as TierResolvedRateSheetSelection[] | undefined}
+        commercialLegs={s.extras?.commercialLegs as CommercialLeg[] | undefined}
+      />
+    ),
+  },
+};
+
+// ── Commercial Schedule (Phase 2) ─────────────────────────────────────────────
+//
+// A Tier/Edition's own scheduled application of its active_billing_cycles
+// (declared in Overview above) across bounded commitment-month ranges. Empty
+// for every Tier that has never used this capability — Simple Mode, exactly
+// as before this module existed. Included Features above is the assignment
+// surface: it attaches an existing inclusion to one or more of these SAME
+// legs and selects a Rate Sheet Price Option per leg, never a second
+// inclusions system. See docs/code-map/tier-edition.md.
+
+export interface TierCommercialScheduleShellData {
+  legs: CommercialLeg[];
+}
+
+export const tierCommercialScheduleShell: ShellSchema<TierCommercialScheduleShellData> = {
+  archetype: 'child',
+  dna:       tierCommercialScheduleModule,
+  header: {
+    title:       'Commercial Schedule',
+    subtitle:    'Optional — schedule more than one billing cycle across this tier’s commitment.',
+    icon:        'features',
+    iconVariant: 'drawerModule__icon--features',
+    count:       (d) => d.legs.length,
+  },
+  content: [
+    {
+      id: 'legs', element: 'text',
+      bind: (d): TextValue => ({
+        value: d.legs.length > 0 ? d.legs.map((leg) => commercialLegLabel(leg)).join('\n') : 'Simple Mode — one billing cycle (see Tier Overview).',
+      }),
+    },
+  ],
+  footer:  DETAILS_FOOTER,
+  actions: DETAILS_ACTIONS,
+  editor: {
+    render: (s) => (
+      <CommercialScheduleEditor
+        draft={s.draft as CommercialLeg[]}
+        onChange={(next) => s.replace(next)}
+        activeBillingCycles={(s.extras?.activeBillingCycles ?? []) as string[]}
+        commitmentMonths={(s.extras?.commitmentMonths ?? null) as number | null}
       />
     ),
   },

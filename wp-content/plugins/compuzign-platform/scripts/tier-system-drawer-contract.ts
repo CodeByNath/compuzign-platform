@@ -461,16 +461,16 @@ const tierBindingsSource = readFileSync(resolve(
 // Overview's own "+ Edition" footer action was relocated off this shell
 // entirely (drawer refinement blueprint, UI refinement Phase 2) — it now
 // lives solely in Options' own selector row (TierEditionDeclarationSwitcher),
-// the single place that creates one. Overview, Features, and FAQs all use
-// the plain shared DETAILS_FOOTER/DETAILS_ACTIONS now — no Overview-specific
-// superset remains.
+// the single place that creates one. Overview, Features, Commercial Schedule
+// (Phase 2 — commercial-leg authoring), and FAQs all use the plain shared
+// DETAILS_FOOTER/DETAILS_ACTIONS now — no Overview-specific superset remains.
 check(
-  (tierBindingsSource.match(/footer:\s+DETAILS_FOOTER/g) ?? []).length === 3
+  (tierBindingsSource.match(/footer:\s+DETAILS_FOOTER/g) ?? []).length === 4
     && !tierBindingsSource.includes('OVERVIEW_FOOTER')
     && !tierBindingsSource.includes('OVERVIEW_ACTIONS')
     && !tierBindingsSource.includes("id: 'add-edition'")
     && tierBindingsSource.includes("edit: { id: 'edit', label: 'Edit', intent: 'secondary' }"),
-  'all three Tier modules offer the same Edit action into their own inline editor, through the one shared DETAILS_FOOTER/DETAILS_ACTIONS — Overview carries no second, Edition-creating action of its own anymore',
+  'all four Tier modules offer the same Edit action into their own inline editor, through the one shared DETAILS_FOOTER/DETAILS_ACTIONS — Overview carries no second, Edition-creating action of its own anymore',
 );
 const tierModuleRules = readFileSync(resolve(
   root,

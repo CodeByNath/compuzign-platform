@@ -29,6 +29,7 @@ import type {
   OccupantBinEntry,
   TierModuleKey,
   TierRateSheetSelection,
+  CommercialLeg,
 } from './types';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
@@ -38,6 +39,7 @@ import {
   tierOverviewModule,
   tierFeaturesModule,
   tierFaqsModule,
+  tierCommercialScheduleModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from '@/hooks/stationPrimitives';
@@ -58,9 +60,9 @@ import { relationshipDisplayLabel } from './rateSheetLabels';
 // P4: landed unused. No component consumes it yet; ServiceTierStep still uses useApi.
 // Nothing here changes runtime behaviour.
 
-const EMPTY_DRAFTS: TierDrafts = { overview: null, features: null, faqs: null };
+const EMPTY_DRAFTS: TierDrafts = { overview: null, features: null, faqs: null, commercial_schedule: null };
 const NOT_CONFIGURED: Record<string, string> = {
-  overview: 'not-configured', features: 'not-configured', faqs: 'not-configured',
+  overview: 'not-configured', features: 'not-configured', faqs: 'not-configured', commercial_schedule: 'not-configured',
 };
 
 // A tier slot with its lifecycle layer guaranteed present (the P3 response always
@@ -81,6 +83,10 @@ function normTier(t: SurfaceTierDetail): PackageStationTier {
     ideal_for: t.ideal_for ?? '',
     rate_sheet_items: t.rate_sheet_items ?? [],
     rate_sheet_selections: t.rate_sheet_selections ?? [],
+    // A response/fixture predating this capability carries neither key —
+    // Simple Mode, the same as every occupant that has never used it.
+    active_billing_cycles: t.active_billing_cycles ?? [],
+    commercial_legs:       t.commercial_legs ?? [],
     drafts:        t.drafts        ?? { ...EMPTY_DRAFTS },
     module_status: t.module_status ?? { ...NOT_CONFIGURED },
   };
@@ -112,6 +118,13 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     // settled occupant's existing value rather than reading as cleared.
     minimum_term_value:  ov && ov.minimum_term_value !== undefined ? ov.minimum_term_value : slot.minimum_term_value,
     minimum_term_unit:   ov && ov.minimum_term_unit  !== undefined ? ov.minimum_term_unit  : slot.minimum_term_unit,
+    // Same draft-preferred rule as billing_cycle/commitment above — the
+    // reusable cadence pool lives on the Overview draft, alongside them.
+    active_billing_cycles: ov && ov.active_billing_cycles !== undefined ? ov.active_billing_cycles : slot.active_billing_cycles,
+    // The legs themselves are the Commercial Schedule module's OWN draft —
+    // a separate module from Overview, same rule rate_sheet_items/faq_refs
+    // below already follow for Features/FAQs.
+    commercial_legs:     slot.drafts.commercial_schedule?.commercial_legs ?? slot.commercial_legs,
     // A pending sheet switch lives on the overview draft; otherwise the settled binding.
     rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
@@ -136,6 +149,7 @@ export interface PackageStationTierView {
     overview: ModuleState;
     features: ModuleState;
     faqs:     ModuleState;
+    commercial_schedule: ModuleState;
   };
 }
 
@@ -156,6 +170,7 @@ export interface PackageStation {
   saveTierOverview: (tierId: string, draft: TierOverviewDraft) => Promise<TierLifecycleResponse | null>;
   saveTierFeatures: (tierId: string, refs: TierRateSheetSelection[]) => Promise<TierLifecycleResponse | null>;
   saveTierFaqs:     (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
+  saveTierCommercialSchedule: (tierId: string, legs: CommercialLeg[]) => Promise<TierLifecycleResponse | null>;
   // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
   revertTierModule: (tierId: string, module: TierModuleKey) => Promise<TierLifecycleResponse | null>;
   // Commit the whole tier.
@@ -350,13 +365,26 @@ export function usePackageStation(
             platformLabel:    'Tier',
           },
         ),
+        commercial_schedule: evaluateModule(
+          tierCommercialScheduleModule,
+          { count: dp.commercial_legs.length },
+          {
+            platformStatus:   occupantPlatformStatus,
+            moduleTransition: slot.module_status.commercial_schedule,
+            hasDraft:         slot.drafts.commercial_schedule !== null,
+            disabled:         occupantDisabled,
+            parentReady:      overviewComplete,
+            parentLabel:      'Tier Overview',
+            platformLabel:    'Tier',
+          },
+        ),
       },
     };
   }, [detail, platformStatus]);
 
   // Persist-through patch: patch the tier slot's draft + module_status in place from
   // the endpoint response, so derived values recompute without a refetch.
-  const patchModule = useCallback((tierId: string, module: 'overview' | 'features' | 'faqs', res: TierLifecycleResponse) => {
+  const patchModule = useCallback((tierId: string, module: 'overview' | 'features' | 'faqs' | 'commercial_schedule', res: TierLifecycleResponse) => {
     setDetail(prev => {
       if (!prev) return prev;
       const tiers = patchTierModuleDraft(prev.station.tiers, tierId, module, res.drafts[module], res.module_status);
@@ -411,6 +439,16 @@ export function usePackageStation(
     try {
       const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'faqs', { faq_refs: refs });
       if (res.success) { patchModule(tierId, 'faqs', res); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, tierInstanceId, onRefresh, patchModule]);
+
+  const saveTierCommercialSchedule = useCallback(async (tierId: string, legs: CommercialLeg[]) => {
+    if (tierInstanceId === null) return null;
+    setSaving(true);
+    try {
+      const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'commercial_schedule', { commercial_legs: legs });
+      if (res.success) { patchModule(tierId, 'commercial_schedule', res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, tierInstanceId, onRefresh, patchModule]);
@@ -621,6 +659,7 @@ export function usePackageStation(
     saveTierOverview,
     saveTierFeatures,
     saveTierFaqs,
+    saveTierCommercialSchedule,
     revertTierModule,
     settleTier,
     setPopularTier,
