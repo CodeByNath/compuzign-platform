@@ -49,7 +49,19 @@ check_tier_occupant(
     'exposed occupant id is the stable stored identity'
 );
 check_tier_occupant($detail['label'] === 'Starter Cloud Updated', 'overview draft wins during flat migration');
-check_tier_occupant($detail['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null]], 'untouched Rate Sheet selections survive flat migration');
+// This settle carries a real billing_cycle ('monthly') and no legs yet, so
+// Tier Pricing Rules' legacy synthesis fires (see
+// PackageSchema::synthesizeFirstCommercialLeg()) — the selection keeps its
+// own item_id/quantity/price_option_id exactly, plus a backfilled
+// leg_assignments entry pointing at the one synthesized leg.
+check_tier_occupant(count($detail['commercial_legs']) === 1, 'flat migration with a real billing_cycle synthesizes exactly one Commercial Leg');
+check_tier_occupant(
+    $detail['rate_sheet_items'] === [[
+        'item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null,
+        'leg_assignments' => [['leg_id' => $detail['commercial_legs'][0]['id'], 'price_option_id' => null, 'quantity' => 2]],
+    ]],
+    'untouched Rate Sheet selections survive flat migration, backfilled onto the synthesized leg',
+);
 check_tier_occupant(array_unique(array_values($settled['module_status'])) === ['settled'], 'publish settles every module exactly once');
 
 // Refinement 4 — the occupant stores its bound Rate Sheet, and switching sheets

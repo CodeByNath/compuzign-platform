@@ -282,6 +282,83 @@ class PackageSchema
         return $out;
     }
 
+    // A fixed, non-random id — never mintCommercialLegId() — so repeated
+    // synthesis (e.g. on every read, before this is ever actually settled)
+    // produces the SAME leg every time rather than a new one per call. Safe
+    // from collision with a real minted id (always `leg_` + 8 hex chars):
+    // this is deliberately longer and human-readable.
+    private const LEGACY_SYNTHESIZED_LEG_ID = 'leg_legacy_default';
+
+    /**
+     * Bridge a legacy zero-leg record into the mandatory-leg model by
+     * deriving its first Commercial Leg from EXISTING billing_cycle +
+     * commitment state, backfilling leg_assignments onto its existing Rate
+     * Sheet selections so pricing resolves through the same leg-assignment
+     * path a multi-leg record already uses (preserving the same resolved
+     * total — see PackageManagerSchema::projectCommercialLegs()).
+     *
+     * Fires ONLY when $billingCycle is a real, usable cadence. A record with
+     * Rate Sheet selections but no billing_cycle is deliberately left alone
+     * (returned unchanged, same as a genuinely fresh record) — Rate Sheet
+     * rows carry price/quantity, never Payment Category/Billing Cycle, and
+     * are never used to fabricate commercial meaning that was never stored.
+     * See docs/code-map/tier-pricing-rules-plan.md.
+     *
+     * Called from the read path (normaliseTierSlot()) and the settle path
+     * (settleTierSlot(), sanitizeTierEdition()) alike — never itself required
+     * to run (PackageSchema stays permissive; a record this can't derive a
+     * leg for simply keeps commercial_legs: [], exactly as it does today).
+     * Reused verbatim by the Phase 5 batch migration tool so a record
+     * migrated in bulk resolves to the exact same leg/backfill a settle
+     * would have produced for it.
+     *
+     * @return array{commercial_legs: array, rate_sheet_items: array}
+     */
+    public static function synthesizeFirstCommercialLeg(?string $billingCycle, ?float $commitmentMonths, array $rateSheetItems): array
+    {
+        $unchanged = ['commercial_legs' => [], 'rate_sheet_items' => $rateSheetItems];
+        if (!is_string($billingCycle) || $billingCycle === '') {
+            return $unchanged;
+        }
+        if ($billingCycle === 'one-time') {
+            $category = 'one-time';
+            $cycle    = 'upfront';
+        } elseif ($billingCycle === 'monthly') {
+            $category = 'recurring';
+            $cycle    = 'monthly';
+        } elseif ($billingCycle === 'annually') {
+            $category = 'recurring';
+            $cycle    = 'yearly';
+        } else {
+            // An unrecognised legacy billing_cycle value carries no usable
+            // cadence to derive from — same as no billing_cycle at all.
+            return $unchanged;
+        }
+        $leg = [
+            'id'               => self::LEGACY_SYNTHESIZED_LEG_ID,
+            'payment_category' => $category,
+            'billing_cycle'    => $cycle,
+            'start_month'      => 1,
+            'end_month'        => $commitmentMonths !== null ? (int) $commitmentMonths : null,
+        ];
+        $backfilled = array_map(function ($item) {
+            if (!is_array($item)) {
+                return $item;
+            }
+            // An item that already carries a real assignment predates this
+            // synthesis or was already migrated — never overwritten.
+            if (empty($item['leg_assignments'])) {
+                $item['leg_assignments'] = [[
+                    'leg_id'          => self::LEGACY_SYNTHESIZED_LEG_ID,
+                    'price_option_id' => $item['price_option_id'] ?? null,
+                    'quantity'        => $item['quantity'] ?? 1,
+                ]];
+            }
+            return $item;
+        }, $rateSheetItems);
+        return ['commercial_legs' => [$leg], 'rate_sheet_items' => $backfilled];
+    }
+
     /**
      * Sanitize the multi-select audience_groups. An explicitly-empty array is
      * a valid, preserved administrator choice — callers apply the "missing
@@ -1087,13 +1164,21 @@ class PackageSchema
             $editionBin = self::ensureTierEditionBin($occ)['tier_edition_bin'];
             $activeBillingCycles = self::sanitizeActiveBillingCycles($occ['active_billing_cycles'] ?? []);
             $commitmentEnabled = (bool) ($occ['commitment_enabled'] ?? false);
-            $commercialLegs = self::sanitizeCommercialLegs(
-                $occ['commercial_legs'] ?? [],
-                $commitmentEnabled ? self::commitmentMonths(
-                    isset($occ['minimum_term_value']) && $occ['minimum_term_value'] !== null ? (float) $occ['minimum_term_value'] : null,
-                    $occ['minimum_term_unit'] ?? null
-                ) : null
-            );
+            $commitmentMonths = $commitmentEnabled ? self::commitmentMonths(
+                isset($occ['minimum_term_value']) && $occ['minimum_term_value'] !== null ? (float) $occ['minimum_term_value'] : null,
+                $occ['minimum_term_unit'] ?? null
+            ) : null;
+            $commercialLegs = self::sanitizeCommercialLegs($occ['commercial_legs'] ?? [], $commitmentMonths);
+            // Bridge a legacy zero-leg record into the mandatory-leg model —
+            // read-time only here (never persisted by a plain GET); the same
+            // derivation also runs at settle time below, which is what
+            // actually persists it. See synthesizeFirstCommercialLeg().
+            $rateSheetItemsSource = is_array($occ['rate_sheet_items'] ?? null) ? $occ['rate_sheet_items'] : [];
+            if ($commercialLegs === []) {
+                $synthesized = self::synthesizeFirstCommercialLeg($occ['billing_cycle'] ?? null, $commitmentMonths, $rateSheetItemsSource);
+                $commercialLegs = $synthesized['commercial_legs'];
+                $rateSheetItemsSource = $synthesized['rate_sheet_items'];
+            }
             return [
                 'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
                 'platform_id'          => (string) ($occ['cz_platform_id'] ?? ''),
@@ -1122,7 +1207,7 @@ class PackageSchema
                 'commercial_legs'       => $commercialLegs,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
                 'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
-                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? [], $commercialLegs),
+                'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($rateSheetItemsSource, $commercialLegs),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
@@ -1625,10 +1710,22 @@ class PackageSchema
         // the parent occupant's (never inherited, same rule as price/
         // billing_cycle/commitment above). See docs/code-map/tier-edition.md.
         $activeBillingCycles = self::sanitizeActiveBillingCycles($edition['active_billing_cycles'] ?? []);
-        $commercialLegs = self::sanitizeCommercialLegs(
-            $edition['commercial_legs'] ?? [],
-            $commitmentEnabled ? self::commitmentMonths($minTermValue, $minTermUnit) : null
-        );
+        $editionCommitmentMonths = $commitmentEnabled ? self::commitmentMonths($minTermValue, $minTermUnit) : null;
+        $commercialLegs = self::sanitizeCommercialLegs($edition['commercial_legs'] ?? [], $editionCommitmentMonths);
+        $editionRateSheetItemsSource = is_array($edition['rate_sheet_items'] ?? null) ? $edition['rate_sheet_items'] : [];
+        // Bridge a legacy zero-leg Edition into the mandatory-leg model — see
+        // synthesizeFirstCommercialLeg(). This function is both the read
+        // projection and the settle-time sanitizer for an Edition, so this
+        // single call site covers both the same way the occupant's separate
+        // normaliseTierSlot()/settleTierSlot() call sites do together.
+        if ($commercialLegs === []) {
+            $editionBillingCycle = (isset($edition['billing_cycle']) && $edition['billing_cycle'] !== '')
+                ? sanitize_text_field((string) $edition['billing_cycle'])
+                : null;
+            $synthesized = self::synthesizeFirstCommercialLeg($editionBillingCycle, $editionCommitmentMonths, $editionRateSheetItemsSource);
+            $commercialLegs = $synthesized['commercial_legs'];
+            $editionRateSheetItemsSource = $synthesized['rate_sheet_items'];
+        }
 
         return [
             'id'                       => $id,
@@ -1649,7 +1746,7 @@ class PackageSchema
             'drafts'                   => is_array($edition['drafts'] ?? null) ? $edition['drafts'] : [],
 
             'rate_sheet_id'            => self::normaliseRateSheetId($edition['rate_sheet_id'] ?? null),
-            'rate_sheet_items'         => self::sanitizeTierRateSheetSelections($edition['rate_sheet_items'] ?? [], $commercialLegs),
+            'rate_sheet_items'         => self::sanitizeTierRateSheetSelections($editionRateSheetItemsSource, $commercialLegs),
             'price'                    => $price,
             'contact'                  => (bool) ($edition['contact'] ?? false),
             'billing_cycle'            => (isset($edition['billing_cycle']) && $edition['billing_cycle'] !== '')
@@ -2820,19 +2917,36 @@ class PackageSchema
         // Features/FAQs below — a module with no draft keeps its settled value.
         // Independent of commitment_enabled except for the bound it passes —
         // see sanitizeCommercialLegs().
+        $commitmentMonths = $commitmentEnabled ? self::commitmentMonths(
+            is_numeric($minTermValue) ? (float) $minTermValue : null,
+            is_string($minTermUnit) ? $minTermUnit : null
+        ) : null;
         $commercialLegs = self::sanitizeCommercialLegs(
             array_key_exists('commercial_legs', $cs) ? $cs['commercial_legs'] : ($occ['commercial_legs'] ?? []),
-            $commitmentEnabled ? self::commitmentMonths(
-                is_numeric($minTermValue) ? (float) $minTermValue : null,
-                is_string($minTermUnit) ? $minTermUnit : null
-            ) : null
+            $commitmentMonths
         );
+
+        $rawSelectionsSource = is_array($drafts['features'] ?? null) ? $drafts['features'] : ($occ['rate_sheet_items'] ?? []);
+        // Bridge a legacy zero-leg record into the mandatory-leg model — this
+        // is the derivation that actually persists (normaliseTierSlot()'s own
+        // call is read-time-only display, never itself a write). Harmless
+        // when $switchingSheet is also true: $selections below still
+        // unconditionally clears to [] in that case, so a leg synthesized
+        // with a since-discarded backfill is still a correct leg, just with
+        // nothing (yet) assigned to it. See synthesizeFirstCommercialLeg().
+        if ($commercialLegs === []) {
+            $synthesized = self::synthesizeFirstCommercialLeg(
+                $ov['billing_cycle'] ?? ($occ['billing_cycle'] ?? null),
+                $commitmentMonths,
+                is_array($rawSelectionsSource) ? $rawSelectionsSource : []
+            );
+            $commercialLegs = $synthesized['commercial_legs'];
+            $rawSelectionsSource = $synthesized['rate_sheet_items'];
+        }
 
         $selections = $switchingSheet
             ? []
-            : (is_array($drafts['features'] ?? null)
-                ? self::sanitizeTierRateSheetSelections($drafts['features'], $commercialLegs)
-                : self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? [], $commercialLegs));
+            : self::sanitizeTierRateSheetSelections($rawSelectionsSource, $commercialLegs);
 
         $tierData = [
             'label'               => $ov['label']         ?? ($occ['label']         ?? ''),

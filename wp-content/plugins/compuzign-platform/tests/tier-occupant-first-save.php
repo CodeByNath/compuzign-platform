@@ -10,6 +10,13 @@ declare(strict_types=1);
 // unaffected — PackageSchema::ensurePendingOccupant is a no-op once an
 // occupant already exists.
 
+if (!function_exists('sanitize_text_field')) {
+    function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
+}
+if (!function_exists('sanitize_textarea_field')) {
+    function sanitize_textarea_field(mixed $value): string { return trim(strip_tags((string) $value)); }
+}
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema as Schema;

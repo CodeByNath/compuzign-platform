@@ -108,7 +108,24 @@ check_edition($full['edition_platform_id'] === 'CZTE2A7KZ', 'an existing edition
 check_edition($full['price'] === 199.0, 'a numeric-string price coerces to float');
 check_edition($full['minimum_term_value'] === 12.0, 'minimum_term_value coerces to float');
 check_edition($full['minimum_term_unit'] === 'months', 'minimum_term_unit round-trips');
-check_edition($full['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null]], 'rate_sheet_items is sanitised through the existing sanitizeTierRateSheetSelections contract');
+// billing_cycle 'annually' + no legs + no commitment_enabled fires Tier
+// Pricing Rules' legacy synthesis (PackageSchema::synthesizeFirstCommercialLeg())
+// with an Indefinite (null) end_month — commitment_enabled defaults false
+// here regardless of the stored minimum_term_value, so no bound applies.
+check_edition(
+    count($full['commercial_legs']) === 1
+        && $full['commercial_legs'][0]['payment_category'] === 'recurring'
+        && $full['commercial_legs'][0]['billing_cycle'] === 'yearly'
+        && $full['commercial_legs'][0]['end_month'] === null,
+    'an Edition with a real billing_cycle and no legs synthesizes exactly one Indefinite Commercial Leg',
+);
+check_edition(
+    $full['rate_sheet_items'] === [[
+        'item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null,
+        'leg_assignments' => [['leg_id' => $full['commercial_legs'][0]['id'], 'price_option_id' => null, 'quantity' => 2]],
+    ]],
+    'rate_sheet_items is sanitised through the existing sanitizeTierRateSheetSelections contract, backfilled onto the synthesized leg',
+);
 check_edition(count($full['inclusions_override']) === 1, 'a non-empty inclusions_override is preserved as this Edition\'s explicit override');
 
 // ── sanitizeTierEditions: collection-level safety ────────────────────────────

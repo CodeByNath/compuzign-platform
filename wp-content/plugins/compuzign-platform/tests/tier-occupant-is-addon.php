@@ -118,7 +118,18 @@ check_is_addon($settled['current_occupant']['is_addon'] === true, 'settle commit
 check_is_addon($settled['current_occupant']['id'] === $originalOccupantId, 'settle preserves the stable occupant id');
 check_is_addon($settled['current_occupant']['platform_status'] === 'active', 'settle does not alter platform_status');
 check_is_addon($settled['current_occupant']['rate_sheet_id'] === 'rs_a', 'settle does not clear the bound Rate Sheet when only is_addon changes');
-check_is_addon($settled['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 3, 'price_option_id' => null]], 'settle preserves existing Rate Sheet selections when only is_addon changes');
+// billing_cycle 'monthly' + no legs yet fires Tier Pricing Rules' legacy
+// synthesis (PackageSchema::synthesizeFirstCommercialLeg()) on this settle —
+// the selection's own item_id/quantity/price_option_id survive exactly,
+// backfilled with a leg_assignments entry for the one synthesized leg.
+check_is_addon(count($settled['current_occupant']['commercial_legs']) === 1, 'settle synthesizes exactly one Commercial Leg from the existing billing_cycle');
+check_is_addon(
+    $settled['current_occupant']['rate_sheet_items'] === [[
+        'item_id' => 'rate-vm', 'quantity' => 3, 'price_option_id' => null,
+        'leg_assignments' => [['leg_id' => $settled['current_occupant']['commercial_legs'][0]['id'], 'price_option_id' => null, 'quantity' => 3]],
+    ]],
+    'settle preserves existing Rate Sheet selections when only is_addon changes, backfilled onto the synthesized leg',
+);
 check_is_addon(array_unique(array_values($settled['module_status'])) === ['settled'], 'settle marks every module settled exactly once');
 
 // A settle with NO overview draft at all must keep the previously settled
