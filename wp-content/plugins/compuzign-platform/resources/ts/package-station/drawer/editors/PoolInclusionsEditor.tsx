@@ -81,23 +81,31 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
         // what it compiles (that's the Rate Sheet tool's job).
         const suppliedContent = (row.bundle_id ?? '') !== '' ? (row.includes ?? []) : null;
         const legAssignments = selection.leg_assignments ?? [];
-        return <div key={selection.item_id} class="cz-ie-entry">
-          <div class="cz-ie-row">
-            <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (!commercialLegs?.length && (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`))}</div>
-            {!commercialLegs?.length && priceOptions.length > 0 && (
-              <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
-                onChange={(event) => {
-                  const value = event.currentTarget.value || null;
-                  onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, price_option_id: value } : item));
-                }}>
-                <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
-                {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
-              </select>
-            )}
-            <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
-              onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-            {!commercialLegs?.length && <span>{effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>}
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>✕</button>
+        // Each inclusion reads as one visually bounded unit — the same
+        // subtle bordered-block treatment the FAQ editor's own repeater rows
+        // already use (.cz-ie-faq-item/__header), reused here rather than a
+        // second surface treatment (name + qty + remove in the header row,
+        // leg assignments below, exactly what a coherent inclusion needs and
+        // nothing more — no heavy nested cards).
+        return <div key={selection.item_id} class="cz-ie-faq-item">
+          <div class="cz-ie-faq-item__header">
+            <span class="cz-tf-label" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (!commercialLegs?.length && (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`))}</span>
+            <div class="cz-ie-row">
+              {!commercialLegs?.length && priceOptions.length > 0 && (
+                <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value || null;
+                    onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, price_option_id: value } : item));
+                  }}>
+                  <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
+                  {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
+                </select>
+              )}
+              <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
+                onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
+              {!commercialLegs?.length && <span class="cz-tf-label">{effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>}
+              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.label}`} onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>✕</button>
+            </div>
           </div>
           {!!commercialLegs?.length && (() => {
             const legsById = new Map(commercialLegs.map((leg) => [leg.id, leg]));
@@ -105,7 +113,9 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
             const setAssignments = (next: LegAssignment[]) =>
               onChange(selections.map((item, itemIndex) => (itemIndex === index ? { ...item, leg_assignments: next } : item)));
             return (
-              <div class="cz-ie-leg-assignments">
+              <div class="cz-tf-field">
+                <span class="cz-tf-label">Leg assignments</span>
+                <div class="cz-ie-leg-assignments">
                 {legAssignments.map((assignment) => {
                   const leg = legsById.get(assignment.leg_id);
                   if (!leg) return null;
@@ -155,10 +165,11 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                       setAssignments([...legAssignments, { leg_id: legId, price_option_id: null, quantity: 1 }]);
                       event.currentTarget.value = '';
                     }}>
-                    <option value="">+ Add Leg…</option>
+                    <option value="">+ Add assignment…</option>
                     {availableLegs.map((leg) => <option value={leg.id} key={leg.id}>{commercialLegLabel(leg)}</option>)}
                   </select>
                 )}
+                </div>
               </div>
             );
           })()}

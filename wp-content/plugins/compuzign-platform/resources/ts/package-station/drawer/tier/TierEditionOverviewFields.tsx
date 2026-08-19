@@ -37,11 +37,14 @@ export function TierEditionOverviewSection({ draft, onChange }: Pick<Props, 'dra
     <div class="cz-tf-form">
       <AdminField def={{ id: 'edt-title', type: 'text', label: 'Title' }} value={draft.title} onChange={(title: string) => onChange({ title })} />
       <AdminField def={{ id: 'edt-description', type: 'textarea', label: 'Admin description (optional)', rows: 2 }} value={draft.admin_description} onChange={(admin_description: string) => onChange({ admin_description })} />
-      {/* An explicit override, not a Rate Sheet resolution outcome — checking
+      {/* Contact-mode and its derived read-only Price sit together, same
+          grouped rhythm as the occupant's own TierOverviewEditor — checking
           it always reports Contact Us for this Edition, regardless of what
           its own bound sheet's selected rows would otherwise total. */}
-      <AdminField def={{ id: 'edt-contact', type: 'checkbox', label: 'Mark as Contact Us' }} value={draft.contact} onChange={(contact: boolean) => onChange({ contact })} />
-      <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value={draft.contact ? 'Contact Us' : 'Derived from Rate Sheet selections'} onChange={() => undefined} />
+      <div class="cz-tf-field-group">
+        <AdminField def={{ id: 'edt-contact', type: 'checkbox', label: 'Mark as Contact Us' }} value={draft.contact} onChange={(contact: boolean) => onChange({ contact })} />
+        <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value={draft.contact ? 'Contact Us' : 'Derived from Rate Sheet selections'} onChange={() => undefined} />
+      </div>
     </div>
   );
 }
@@ -69,17 +72,21 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
     <div class="cz-tf-form">
       <AdminField def={{ id: 'edt-rate-sheet', type: 'select', label: 'Rate Sheet', unsetLabel: 'Inherit the Tier’s own binding', options: rateSheetOptions }} value={draft.rate_sheet_id ?? ''} onChange={(v: string) => changeRateSheet(v || null)} />
 
-      {/* Independent of Commercial Legs below — gates only Commitment Unit/
-          Minimum Commitment. Legs are never nested under, disabled by, or
-          cleared because this is No. */}
-      <AdminField def={{ id: 'edt-commitment-enabled', type: 'checkbox', label: 'Tier Commitment' }} value={draft.commitment_enabled} onChange={(commitment_enabled: boolean) => onChange({ commitment_enabled })} />
+      {/* Tier Commitment and the two fields it conditionally reveals read as
+          one grouped block, same rhythm as the occupant's own
+          TierPricingRulesEditor — independent of Commercial Legs below,
+          which gates only Commitment Unit/Minimum Commitment. Legs are never
+          nested under, disabled by, or cleared because this is No. */}
+      <div class="cz-tf-field-group">
+        <AdminField def={{ id: 'edt-commitment-enabled', type: 'checkbox', label: 'Tier Commitment' }} value={draft.commitment_enabled} onChange={(commitment_enabled: boolean) => onChange({ commitment_enabled })} />
 
-      {draft.commitment_enabled && (
-        <>
-          <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
-          <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
-        </>
-      )}
+        {draft.commitment_enabled && (
+          <>
+            <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
+            <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
+          </>
+        )}
+      </div>
 
       <CommercialScheduleEditor
         draft={draft.commercial_legs}

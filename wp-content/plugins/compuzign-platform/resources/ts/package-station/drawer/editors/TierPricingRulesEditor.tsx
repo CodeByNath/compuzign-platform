@@ -58,29 +58,33 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
         onChange={(next: string) => changeRateSheet(next || null)}
       />
 
-      {/* Independent of Commercial Legs below — gates only Commitment Unit/
-          Minimum Commitment. Legs are never nested under, disabled by, or
-          cleared because this is No. */}
-      <AdminField
-        def={{ id: 'tier-commitment-enabled', type: 'checkbox', label: 'Tier Commitment' }}
-        value={draft.commitment_enabled}
-        onChange={(commitment_enabled: boolean) => onChange({ commitment_enabled })}
-      />
+      {/* Tier Commitment and the two fields it conditionally reveals read as
+          one grouped block (.cz-tf-field-group) — Independent of Commercial
+          Legs below, which gates only Commitment Unit/Minimum Commitment.
+          Legs are never nested under, disabled by, or cleared because this
+          is No. */}
+      <div class="cz-tf-field-group">
+        <AdminField
+          def={{ id: 'tier-commitment-enabled', type: 'checkbox', label: 'Tier Commitment' }}
+          value={draft.commitment_enabled}
+          onChange={(commitment_enabled: boolean) => onChange({ commitment_enabled })}
+        />
 
-      {draft.commitment_enabled && (
-        <>
-          <AdminField
-            def={{ id: 'tier-min-term-value', type: 'text', label: 'Minimum commitment' }}
-            value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''}
-            onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })}
-          />
-          <AdminField
-            def={{ id: 'tier-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }}
-            value={draft.minimum_term_unit ?? ''}
-            onChange={(v: string) => onChange({ minimum_term_unit: v || null })}
-          />
-        </>
-      )}
+        {draft.commitment_enabled && (
+          <>
+            <AdminField
+              def={{ id: 'tier-min-term-value', type: 'text', label: 'Minimum commitment' }}
+              value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''}
+              onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })}
+            />
+            <AdminField
+              def={{ id: 'tier-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }}
+              value={draft.minimum_term_unit ?? ''}
+              onChange={(v: string) => onChange({ minimum_term_unit: v || null })}
+            />
+          </>
+        )}
+      </div>
 
       <CommercialScheduleEditor
         draft={draft.commercial_legs}

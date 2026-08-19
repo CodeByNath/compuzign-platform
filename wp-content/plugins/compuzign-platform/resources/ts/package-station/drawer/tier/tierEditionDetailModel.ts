@@ -14,7 +14,7 @@ import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { TierEditionOverviewShellData, TierEditionPricingRulesShellData, TierEditionInclusionsShellData } from '../schema/bindings/tierEdition';
 import { evaluateModule, tierEditionOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
-import { buildRateSheetCatalogue } from './tierDetailModel';
+import { buildRateSheetCatalogue, buildInclusionsReadRows } from './tierDetailModel';
 import { tierEditionDisabledMasked } from './tierEditionModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
 
@@ -76,6 +76,7 @@ export function buildTierEditionDetail(
   const pricingRulesBinding: ShellBinding<TierEditionPricingRulesShellData> = {
     data: {
       rateSheetId:       edition.rate_sheet_id,
+      rateSheetTitle:    svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === edition.rate_sheet_id)?.title ?? null,
       minimumTermValue:  edition.minimum_term_value,
       minimumTermUnit:   edition.minimum_term_unit,
       commitmentEnabled: edition.commitment_enabled,
@@ -108,9 +109,16 @@ export function buildTierEditionDetail(
   const items = resolvedSelections
     .filter((item) => item.resolved && item.source_type === 'inclusion')
     .map((item) => ({ id: item.item_id, label: item.label }));
+  // The read-view row summary resolves the SAME ids as `items` above (this
+  // Edition's own selected inclusion rows) against the full catalogue.
+  const inclusionItemIds = new Set(items.map((item) => item.id));
+  const inclusionSelections = edition.rate_sheet_items.filter((item) => inclusionItemIds.has(item.item_id));
 
   const inclusionsBinding: ShellBinding<TierEditionInclusionsShellData> = {
-    data: { items },
+    data: {
+      items,
+      rows: buildInclusionsReadRows(inclusionSelections, catalogue, edition.commercial_legs),
+    },
     state: moduleState,
     hasDraft,
     handlers: {
