@@ -84,9 +84,9 @@ $manager = [
 $readModel = PMS::buildReadModel(10, $manager, $incPool, [], 'active');
 
 $legs = PackageSchema::sanitizeCommercialLegs([
-    ['id' => 'leg_a', 'billing_cycle' => 'one-time', 'start_month' => 1, 'end_month' => 24],
-    ['id' => 'leg_b', 'billing_cycle' => 'annually', 'start_month' => 25, 'end_month' => 48],
-], ['one-time', 'annually'], 48.0);
+    ['id' => 'leg_a', 'payment_category' => 'one-time', 'billing_cycle' => 'upfront', 'start_month' => 1, 'end_month' => 24],
+    ['id' => 'leg_b', 'payment_category' => 'recurring', 'billing_cycle' => 'yearly', 'start_month' => 25, 'end_month' => 48],
+], 48.0);
 
 // Foundation Bundle -> Leg A (Upfront) and Leg B (Annual); Managed Hosting -> Leg B only.
 $selections = [
@@ -117,7 +117,7 @@ assertSameValueLegs(2, count($resolved), 'both declared legs are resolved, one e
 $legAResult = $resolved[0];
 $legBResult = $resolved[1];
 assertSameValueLegs('leg_a', $legAResult['id'], 'leg A round-trips its own id');
-assertSameValueLegs('one-time', $legAResult['billing_cycle'], 'leg A round-trips its own billing_cycle');
+assertSameValueLegs('upfront', $legAResult['billing_cycle'], 'leg A round-trips its own billing_cycle');
 assertSameValueLegs(1, $legAResult['start_month'], 'leg A round-trips its own start_month');
 assertSameValueLegs(24, $legAResult['end_month'], 'leg A round-trips its own end_month');
 

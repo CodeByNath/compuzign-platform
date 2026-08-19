@@ -159,11 +159,11 @@ $manager = [
 ];
 
 $occupantLegs = [
-    ['id' => 'leg_monthly', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => 12],
-    ['id' => 'leg_annual', 'billing_cycle' => 'annually', 'start_month' => 1, 'end_month' => 12],
+    ['id' => 'leg_monthly', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => 12],
+    ['id' => 'leg_annual', 'payment_category' => 'recurring', 'billing_cycle' => 'yearly', 'start_month' => 1, 'end_month' => 12],
 ];
 $editionLegs = [
-    ['id' => 'leg_setup', 'billing_cycle' => 'one-time', 'start_month' => 1, 'end_month' => 1],
+    ['id' => 'leg_setup', 'payment_category' => 'one-time', 'billing_cycle' => 'upfront', 'start_month' => 1, 'end_month' => 1],
 ];
 
 $tiers = TierInstanceSchema::emptyTierMap();
