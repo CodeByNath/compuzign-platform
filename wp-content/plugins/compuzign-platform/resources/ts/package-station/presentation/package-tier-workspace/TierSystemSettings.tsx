@@ -37,7 +37,6 @@ import {
 import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import { ConnectedStationsSummary, RateSheetPoolSummary, TierGroupPoolSummary } from './FocusedTierSettings';
 import { TierAccordionSection } from './TierAccordionSection';
-import { CommercialLegsMigrationLauncher } from './CommercialLegsMigrationLauncher';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
 type SettingsGroupId = 'family-groups' | 'tier-groups' | 'rate-sheets';
@@ -389,7 +388,6 @@ export function TierSystemSettings({
           </TierAccordionSection>
         ))}
       </div>
-      <CommercialLegsMigrationLauncher />
       {tool.error && <p class="cz-station-empty" role="alert">{tool.error}</p>}
       {settingsError && <p class="cz-station-empty" role="alert">{settingsError}</p>}
     </div>

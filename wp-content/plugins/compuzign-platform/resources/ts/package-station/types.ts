@@ -286,21 +286,6 @@ export interface TierAssignmentDeleteResponse extends TierAssignmentsResponse {
   deleted: string;
 }
 
-// Commercial Legs Migration popup (Package Tier Workspace → Settings). Both
-// preview and apply report the same stats shape — see
-// CommercialLegsMigration::summarize() (PHP).
-export interface CommercialLegsMigrationStats {
-  occupants_migrated: number;
-  occupants_skipped:  number;
-  editions_migrated:  number;
-  editions_skipped:   number;
-}
-
-export interface CommercialLegsMigrationResponse {
-  success: boolean;
-  stats:   CommercialLegsMigrationStats;
-}
-
 export interface PackageManagerProjectionInclusion {
   id:    string;
   label: string;

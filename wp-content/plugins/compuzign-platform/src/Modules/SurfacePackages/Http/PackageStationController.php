@@ -7,7 +7,6 @@ use CompuZign\Platform\Modules\Service\Support\ServicePools;
 use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageStationSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema;
-use CompuZign\Platform\Modules\SurfacePackages\Support\CommercialLegsMigration;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference;
@@ -46,7 +45,6 @@ use CompuZign\Platform\Modules\SurfacePackages\PlatformIdentifier\PackagePlatfor
  * File index (stable section markers below):
  * - ROUTE_REGISTRATION — Package global and Service-navigation REST contracts.
  * - ASSIGNMENT_LEDGER — create/list/remove peer relationships.
- * - COMMERCIAL_LEGS_MIGRATION — Commercial Legs Migration popup preview/apply.
  * - TIER_INSTANCE_COLLECTION — independent instance CRUD and deletion guards.
  * - PACKAGE_READ_AND_MANAGER — selected-instance read plus Manager configuration.
  * - TIER_MUTATIONS — selected-instance slot lifecycle and popular state.
@@ -113,20 +111,6 @@ class PackageStationController
             'callback'            => [$this, 'deleteTierAssignment'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => ['assignment' => ['required' => true, 'type' => 'string']],
-        ]);
-
-        // Commercial Legs Migration popup (Package Tier Workspace Settings) —
-        // preview never writes, apply persists through the same
-        // PackageRepository::saveStation() every other mutation uses.
-        register_rest_route('compuzign/v1', '/admin/package-station/commercial-legs-migration/preview', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'previewCommercialLegsMigration'],
-            'permission_callback' => [$this, 'requireAdmin'],
-        ]);
-        register_rest_route('compuzign/v1', '/admin/package-station/commercial-legs-migration/apply', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'applyCommercialLegsMigration'],
-            'permission_callback' => [$this, 'requireAdmin'],
         ]);
 
         register_rest_route('compuzign/v1', '/admin/package-station/tier-instances', [
@@ -442,36 +426,6 @@ class PackageStationController
         $manager = PackageManagerSchema::sanitize($station['package_manager'] ?? []);
         $instances = is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [];
         return [$station, $manager, $instances];
-    }
-
-    // ===================================================================
-    // SECTION: COMMERCIAL_LEGS_MIGRATION
-    // ===================================================================
-    // Backs the Commercial Legs Migration popup (Package Tier Workspace →
-    // Settings). Both routes share CommercialLegsMigration's walk/decision
-    // with tools/migrate-commercial-legs.php (the CLI dry-run/apply tool) —
-    // neither reimplements it, so the popup and the CLI can never disagree.
-
-    public function previewCommercialLegsMigration(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $station = $this->packages()->loadStation();
-        $plan = is_array($station) ? CommercialLegsMigration::plan($station) : [];
-        return rest_ensure_response(['success' => true, 'stats' => CommercialLegsMigration::summarize($plan)]);
-    }
-
-    public function applyCommercialLegsMigration(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $station = $this->packages()->loadStation();
-        if (!is_array($station)) {
-            return rest_ensure_response(['success' => true, 'stats' => CommercialLegsMigration::summarize([])]);
-        }
-        $plan = CommercialLegsMigration::plan($station);
-        $stats = CommercialLegsMigration::summarize($plan);
-        if (($stats['occupants_migrated'] + $stats['editions_migrated']) > 0) {
-            $station = CommercialLegsMigration::applyPlan($station, $plan);
-            $this->packages()->saveStation($station);
-        }
-        return rest_ensure_response(['success' => true, 'stats' => $stats]);
     }
 
     // ===================================================================
