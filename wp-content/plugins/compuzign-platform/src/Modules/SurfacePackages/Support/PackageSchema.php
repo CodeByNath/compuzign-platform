@@ -1934,9 +1934,28 @@ class PackageSchema
             ? self::normaliseRateSheetId($draft['rate_sheet_id'])
             : $existingRateSheetId;
         $switched = $existingRateSheetId !== null && $draftRateSheetId !== $existingRateSheetId;
+
+        // Resolved ahead of $selections below so its own leg_assignments can
+        // be validated (and preserved) against the SAME legs this settle is
+        // about to commit — sanitizeTierEdition() re-derives this identical
+        // value moments later purely from the fields already assigned onto
+        // $edition below, but by then a leg-less sanitize here would already
+        // have stripped every leg_assignment beyond recovery.
+        $draftCommitmentEnabled = array_key_exists('commitment_enabled', $draft) ? (bool) $draft['commitment_enabled'] : (bool) $edition['commitment_enabled'];
+        $draftMinTermValue = array_key_exists('minimum_term_value', $draft) ? $draft['minimum_term_value'] : $edition['minimum_term_value'];
+        $draftMinTermUnit = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
+        $draftCommitmentMonths = $draftCommitmentEnabled ? self::commitmentMonths(
+            isset($draftMinTermValue) && $draftMinTermValue !== null ? (float) $draftMinTermValue : null,
+            $draftMinTermUnit
+        ) : null;
+        $draftCommercialLegs = self::sanitizeCommercialLegs(
+            array_key_exists('commercial_legs', $draft) ? $draft['commercial_legs'] : $edition['commercial_legs'],
+            $draftCommitmentMonths
+        );
+
         $selections = $switched
             ? []
-            : self::sanitizeTierRateSheetSelections($draft['rate_sheet_items'] ?? ($edition['rate_sheet_items'] ?? []));
+            : self::sanitizeTierRateSheetSelections($draft['rate_sheet_items'] ?? ($edition['rate_sheet_items'] ?? []), $draftCommercialLegs);
 
         $edition['title']               = $draft['title'] ?? $edition['title'];
         $edition['admin_description']   = $draft['admin_description'] ?? $edition['admin_description'];
@@ -1944,9 +1963,9 @@ class PackageSchema
         $edition['rate_sheet_items']    = $selections;
         $edition['billing_cycle']       = $draft['billing_cycle'] ?? $edition['billing_cycle'];
         $edition['contact']             = $draft['contact'] ?? $edition['contact'];
-        $edition['minimum_term_value']  = array_key_exists('minimum_term_value', $draft) ? $draft['minimum_term_value'] : $edition['minimum_term_value'];
-        $edition['minimum_term_unit']   = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
-        $edition['commitment_enabled']  = array_key_exists('commitment_enabled', $draft) ? $draft['commitment_enabled'] : $edition['commitment_enabled'];
+        $edition['minimum_term_value']  = $draftMinTermValue;
+        $edition['minimum_term_unit']   = $draftMinTermUnit;
+        $edition['commitment_enabled']  = $draftCommitmentEnabled;
         $edition['active_billing_cycles'] = array_key_exists('active_billing_cycles', $draft) ? $draft['active_billing_cycles'] : $edition['active_billing_cycles'];
         $edition['commercial_legs']       = array_key_exists('commercial_legs', $draft) ? $draft['commercial_legs'] : $edition['commercial_legs'];
         $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];

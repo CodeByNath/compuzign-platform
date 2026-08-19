@@ -824,7 +824,7 @@ class PackageStationController
                 is_array($detail['inclusions_override'] ?? null) ? $detail['inclusions_override'] : []
             );
             if (is_array($detail['drafts']['features'] ?? null)) {
-                $detail['drafts']['features'] = $PS::sanitizeTierRateSheetSelections($detail['drafts']['features']);
+                $detail['drafts']['features'] = $PS::sanitizeTierRateSheetSelections($detail['drafts']['features'], $detail['commercial_legs'] ?? []);
             }
             $effectiveSelections = is_array($detail['drafts']['features'] ?? null)
                 ? $detail['drafts']['features']
@@ -843,7 +843,7 @@ class PackageStationController
                 $effectiveContact
             );
             $detail['rate_sheet_selections'] = $rateProjection['selections'];
-            $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections);
+            $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections, $detail['commercial_legs'] ?? []);
             $detail['price'] = $rateProjection['price'];
             $detail['contact'] = $effectiveContact;
             $detail['inclusions_override'] = array_map(

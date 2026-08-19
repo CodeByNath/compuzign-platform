@@ -213,4 +213,44 @@ $smuggleAttempt = Schema::upsertOccupant($storedWithEditions, [
 ], true);
 check_edition(count($smuggleAttempt['current_occupant']['tier_editions']) === 2, 'tier_editions in the Overview save body is ignored, not written');
 
+// ── settleTierEditionOverview: leg_assignments survive Publish ──────────────
+// Bug fix regression: the settle path's own rate_sheet_items sanitize used to
+// omit the Edition's own draft-preferred commercial_legs, so
+// sanitizeTierRateSheetSelections() silently dropped every leg_assignments
+// entry at Publish time — not just a display gap, permanent data loss on the
+// settled record, since sanitizeTierEdition()'s own later re-sanitize pass
+// can only re-validate what survived this first one, never recover what it
+// already stripped. See also the parallel occupant-side fix already correct
+// in settleTierSlot() (2953-2975 above pass $commercialLegs through).
+
+$editionWithLegDraft = Schema::sanitizeTierEdition([
+    'id' => 'edt_leg', 'title' => 'Draft pending', 'platform_status' => 'active',
+    'commercial_legs' => [
+        ['id' => 'leg_x', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => null],
+    ],
+    'commitment_enabled' => false,
+    'rate_sheet_items' => [],
+    'drafts' => ['overview' => [
+        'title' => 'Draft pending',
+        'rate_sheet_id' => 'rs_test',
+        'commercial_legs' => [
+            ['id' => 'leg_x', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => null],
+        ],
+        'commitment_enabled' => false,
+        'rate_sheet_items' => [
+            ['item_id' => 'rate-vm', 'quantity' => 1, 'leg_assignments' => [
+                ['leg_id' => 'leg_x', 'price_option_id' => null, 'quantity' => 1],
+            ]],
+        ],
+    ]],
+]);
+$settledEdition = Schema::settleTierEditionOverview([$editionWithLegDraft], 'edt_leg')[0];
+check_edition(
+    $settledEdition['rate_sheet_items'] === [[
+        'item_id' => 'rate-vm', 'quantity' => 1, 'price_option_id' => null,
+        'leg_assignments' => [['leg_id' => 'leg_x', 'price_option_id' => null, 'quantity' => 1]],
+    ]],
+    'settling an Edition\'s Overview draft preserves each selection\'s own leg_assignments instead of silently dropping them',
+);
+
 echo "Tier Edition schema contract: PASS\n";
