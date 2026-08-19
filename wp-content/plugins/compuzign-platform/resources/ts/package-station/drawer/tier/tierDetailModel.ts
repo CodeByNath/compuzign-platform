@@ -151,10 +151,6 @@ export function buildTierDetail(
       tierName:     TIER_LABELS[editingTierId],
       contact:      detail.contact,
       price:        detail.price,
-      billingCycle: detail.billing_cycle,
-      minimumTermValue: detail.minimum_term_value,
-      minimumTermUnit:  detail.minimum_term_unit,
-      activeBillingCycles: detail.active_billing_cycles,
       isAddon:      detail.is_addon,
       popular:      isPopular,
       platformId:   detail.platform_id,
@@ -187,7 +183,13 @@ export function buildTierDetail(
     busy: tierBusy,
   };
   const commercialScheduleBinding: ShellBinding<TierCommercialScheduleShellData> = {
-    data:     { legs: detail.commercial_legs },
+    data: {
+      rateSheetId:       detail.rate_sheet_id,
+      minimumTermValue:  detail.minimum_term_value,
+      minimumTermUnit:   detail.minimum_term_unit,
+      commitmentEnabled: detail.commitment_enabled,
+      legs:              detail.commercial_legs,
+    },
     state:    view.modules.commercial_schedule,
     hasDraft: view.drafts.commercial_schedule !== null,
     handlers: { edit: () => onEditSection('tier-commercial-schedule'), 'discard-draft': () => onRevertModule('commercial_schedule') },

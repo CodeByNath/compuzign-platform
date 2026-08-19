@@ -124,7 +124,7 @@ export function TierEditionDeclarationSwitcher({
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
-  const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
+  const [openPanel, setOpenPanel] = useState<TierEditionEditorTab | null>(null);
 
   // Mirrors editingTab on every change (covers open via Edit, close via
   // Save/Cancel/Back). A SEPARATE cleanup-only effect below guarantees a
@@ -192,7 +192,7 @@ export function TierEditionDeclarationSwitcher({
     },
   } : null;
 
-  const togglePanel = (module: 'overview' | 'inclusions') => () =>
+  const togglePanel = (module: TierEditionEditorTab) => () =>
     setOpenPanel((p) => (p === module ? null : module));
 
   const toggleBin = () => onBinActiveChange(true);
@@ -266,6 +266,13 @@ export function TierEditionDeclarationSwitcher({
               binding={detail.overviewBinding}
               panelOpen={openPanel === 'overview'}
               onTogglePanel={togglePanel('overview')}
+            />
+            <PlacedShell
+              entity={TIER_EDITION_ENTITY}
+              slot={{ module: 'pricing-rules', mode: 'details' }}
+              binding={detail.pricingRulesBinding}
+              panelOpen={openPanel === 'pricing-rules'}
+              onTogglePanel={togglePanel('pricing-rules')}
             />
             <PlacedShell
               entity={TIER_EDITION_ENTITY}

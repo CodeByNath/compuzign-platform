@@ -27,8 +27,9 @@ import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { TiersIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
-import type { CommercialLeg, TierRateSheetSelection } from '../../types';
+import type { TierRateSheetSelection } from '../../types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
+import type { TierPricingRulesEditDraft } from '../editors/TierPricingRulesEditor';
 import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
 import { useTierDrawerController } from './useTierDrawerController';
 import { TierDrawerFooter } from './TierDrawerFooter';
@@ -352,15 +353,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
 
   let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
-    // Selectable sheets: active ones plus the current binding (even if archived,
-    // so it still displays). Switching clears the Tier's selections at settle.
-    const boundId = detail.rate_sheet_id;
-    const rateSheetOptions = selectableRateSheets(
-      svc.rate_sheets,
-      station.allowed_rate_sheet_ids ?? [],
-      boundId,
-    )
-      .map((sheet) => ({ id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status }));
     editing = {
       module: 'overview',
       session: {
@@ -372,7 +364,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
-        extras: { rateSheets: rateSheetOptions, hasSelections: detail.rate_sheet_items.length > 0 },
       },
     };
   } else if (c.editingSection === 'tier-inclusions' && c.featuresDraft) {
@@ -400,22 +391,29 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
       },
     };
   } else if (c.editingSection === 'tier-commercial-schedule' && c.commercialScheduleDraft) {
+    // Selectable sheets: active ones plus the current binding (even if archived,
+    // so it still displays). Switching clears the Tier's selections at settle.
+    // Rate Sheet binding moved here from Overview — see
+    // docs/code-map/tier-pricing-rules-plan.md.
+    const boundId = detail.rate_sheet_id;
+    const rateSheetOptions = selectableRateSheets(
+      svc.rate_sheets,
+      station.allowed_rate_sheet_ids ?? [],
+      boundId,
+    )
+      .map((sheet) => ({ id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status }));
     editing = {
       module: 'commercial_schedule',
       session: {
         draft: c.commercialScheduleDraft,
-        replace: (next) => c.setCommercialScheduleDraft(next as CommercialLeg[]),
+        patch: (patch) => c.setCommercialScheduleDraft((current) => current ? { ...current, ...(patch as Partial<TierPricingRulesEditDraft>) } : current),
+        replace: (next) => c.setCommercialScheduleDraft(next as TierPricingRulesEditDraft),
         onSave: c.saveSection,
         onCancel: c.cancelSection,
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
-        extras: {
-          activeBillingCycles: detail.active_billing_cycles,
-          commitmentMonths: detail.minimum_term_value != null
-            ? (detail.minimum_term_unit === 'year' ? detail.minimum_term_value * 12 : detail.minimum_term_value)
-            : null,
-        },
+        extras: { rateSheets: rateSheetOptions, hasSelections: detail.rate_sheet_items.length > 0 },
       },
     };
   } else if (c.editingSection === 'tier-faqs' && c.faqsDraft) {

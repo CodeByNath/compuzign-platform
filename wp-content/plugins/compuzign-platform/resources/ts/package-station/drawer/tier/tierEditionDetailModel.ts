@@ -11,14 +11,15 @@
 
 import type { PackageManagerItem, PackageRateSheet, TierEdition } from '../../types';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
-import type { TierEditionOverviewShellData, TierEditionInclusionsShellData } from '../schema/bindings/tierEdition';
+import type { TierEditionOverviewShellData, TierEditionPricingRulesShellData, TierEditionInclusionsShellData } from '../schema/bindings/tierEdition';
 import { evaluateModule, tierEditionOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { buildRateSheetCatalogue } from './tierDetailModel';
 import { tierEditionDisabledMasked } from './tierEditionModel';
+import type { TierEditionEditorTab } from './TierEditionEditor';
 
 export interface TierEditionDetailHandlers {
-  onEdit:         (initialTab: 'overview' | 'inclusions') => void;
+  onEdit:         (initialTab: TierEditionEditorTab) => void;
   onDiscardDraft: () => void;
 }
 
@@ -62,10 +63,6 @@ export function buildTierEditionDetail(
       adminDescription:  edition.admin_description,
       price:             edition.price,
       contact:           edition.contact,
-      billingCycle:      edition.billing_cycle,
-      minimumTermValue:  edition.minimum_term_value,
-      minimumTermUnit:   edition.minimum_term_unit,
-      activeBillingCycles: edition.active_billing_cycles,
       editionPlatformId: edition.edition_platform_id,
     },
     state:    moduleState,
@@ -73,6 +70,21 @@ export function buildTierEditionDetail(
     handlers: {
       edit:             () => onEdit('overview'),
       'discard-draft':  () => onDiscardDraft(),
+    },
+  };
+
+  const pricingRulesBinding: ShellBinding<TierEditionPricingRulesShellData> = {
+    data: {
+      rateSheetId:       edition.rate_sheet_id,
+      minimumTermValue:  edition.minimum_term_value,
+      minimumTermUnit:   edition.minimum_term_unit,
+      commitmentEnabled: edition.commitment_enabled,
+      legs:              edition.commercial_legs,
+    },
+    state: moduleState,
+    hasDraft,
+    handlers: {
+      edit: () => onEdit('pricing-rules'),
     },
   };
 
@@ -106,5 +118,5 @@ export function buildTierEditionDetail(
     },
   };
 
-  return { overviewBinding, inclusionsBinding };
+  return { overviewBinding, pricingRulesBinding, inclusionsBinding };
 }

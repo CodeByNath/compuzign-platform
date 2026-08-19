@@ -8,9 +8,10 @@
 // lifecycle and bin-travel actions report through the same channel.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { CommercialLeg, TierRateSheetSelection } from '../../types';
+import type { TierRateSheetSelection } from '../../types';
 import type { PackageStation } from '../../usePackageStation';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
+import type { TierPricingRulesEditDraft } from '../editors/TierPricingRulesEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
 
 export interface TierModuleEditingArgs {
@@ -28,7 +29,7 @@ export function useTierModuleEditing({
   const [overviewDraft, setOverviewDraft] = useState<TierOverviewEditDraft | null>(null);
   const [featuresDraft, setFeaturesDraft] = useState<TierRateSheetSelection[] | null>(null);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
-  const [commercialScheduleDraft, setCommercialScheduleDraft] = useState<CommercialLeg[] | null>(null);
+  const [commercialScheduleDraft, setCommercialScheduleDraft] = useState<TierPricingRulesEditDraft | null>(null);
 
   const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs' | 'tier-commercial-schedule') => {
     if (!editingTierId) return;
@@ -42,11 +43,6 @@ export function useTierModuleEditing({
         audience_groups: d.audience_groups,
         price:         d.price,
         contact:       d.contact,
-        billing_cycle: d.billing_cycle ?? 'monthly',
-        minimum_term_value: d.minimum_term_value,
-        minimum_term_unit:  d.minimum_term_unit,
-        active_billing_cycles: d.active_billing_cycles,
-        rate_sheet_id: d.rate_sheet_id,
         is_addon:      d.is_addon,
         popular:       pkg.popularTier === editingTierId,
         popular_label: pkg.popularTier === editingTierId ? pkg.popularLabel : '',
@@ -54,7 +50,16 @@ export function useTierModuleEditing({
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));
     } else if (section === 'tier-commercial-schedule') {
-      setCommercialScheduleDraft(d.commercial_legs.map((leg) => ({ ...leg })));
+      // Tier Pricing Rules — Rate Sheet binding, Commitment, and the
+      // mandatory Commercial Legs, all one draft. See
+      // docs/code-map/tier-pricing-rules-plan.md.
+      setCommercialScheduleDraft({
+        rate_sheet_id:       d.rate_sheet_id,
+        minimum_term_value:  d.minimum_term_value,
+        minimum_term_unit:   d.minimum_term_unit,
+        commitment_enabled:  d.commitment_enabled,
+        commercial_legs:     d.commercial_legs.map((leg) => ({ ...leg })),
+      });
     } else {
       setFaqsDraft([...d.faq_refs]);
     }
@@ -87,11 +92,6 @@ export function useTierModuleEditing({
           audience_groups: overviewDraft.audience_groups,
           price:         null,
           contact:       overviewDraft.contact,
-          billing_cycle: overviewDraft.billing_cycle,
-          minimum_term_value: overviewDraft.minimum_term_value,
-          minimum_term_unit:  overviewDraft.minimum_term_unit,
-          active_billing_cycles: overviewDraft.active_billing_cycles,
-          rate_sheet_id: overviewDraft.rate_sheet_id,
           is_addon:      overviewDraft.is_addon,
         });
         ok = !!r?.success;
@@ -106,7 +106,7 @@ export function useTierModuleEditing({
         const r = await pkg.saveTierFeatures(editingTierId, featuresDraft);
         ok = !!r?.success;
       } else if (editingSection === 'tier-commercial-schedule' && commercialScheduleDraft) {
-        const r = await pkg.saveTierCommercialSchedule(editingTierId, commercialScheduleDraft);
+        const r = await pkg.saveTierPricingRules(editingTierId, commercialScheduleDraft);
         ok = !!r?.success;
       } else if (editingSection === 'tier-faqs' && faqsDraft) {
         const r = await pkg.saveTierFaqs(editingTierId, faqsDraft);

@@ -350,16 +350,23 @@ check_commercial_schedule(
 $drafted = Schema::ensureTierLifecycle($bare);
 $drafted['drafts']['overview'] = [
     'label' => 'Professional', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'annually', 'minimum_term_value' => 48, 'minimum_term_unit' => 'month',
+    'billing_cycle' => 'annually',
+];
+// rate_sheet_id/minimum_term_value/minimum_term_unit/commitment_enabled/
+// active_billing_cycles are owned by the Commercial Schedule module's own
+// draft (Tier Pricing Rules), not Overview — see
+// docs/code-map/tier-pricing-rules-plan.md.
+$drafted['drafts']['commercial_schedule'] = [
+    'minimum_term_value' => 48, 'minimum_term_unit' => 'month',
     'commitment_enabled' => true,
     'active_billing_cycles' => ['one-time', 'annually'],
 ];
 $settled = Schema::settleTierSlot($drafted);
 check_commercial_schedule(
     $settled['current_occupant']['active_billing_cycles'] === ['one-time', 'annually'],
-    'Overview settle commits the draft-preferred active_billing_cycles set',
+    'Commercial Schedule module settle commits the draft-preferred active_billing_cycles set',
 );
-check_commercial_schedule($settled['current_occupant']['commitment_enabled'] === true, 'Overview settle commits the draft-preferred commitment_enabled flag');
+check_commercial_schedule($settled['current_occupant']['commitment_enabled'] === true, 'Commercial Schedule module settle commits the draft-preferred commitment_enabled flag');
 
 // ── Commercial Schedule module settle: its own module, own draft-preferred merge ─
 
@@ -419,9 +426,8 @@ $withLegs = Schema::settleTierSlot($longCommitment);
 check_commercial_schedule(count($withLegs['current_occupant']['commercial_legs']) === 2, 'setup: both legs settled under the original 48-month commitment');
 
 $shortened = Schema::ensureTierLifecycle($withLegs);
-$shortened['drafts']['overview'] = [
-    'label' => 'Professional', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'annually', 'minimum_term_value' => 24, 'minimum_term_unit' => 'month',
+$shortened['drafts']['commercial_schedule'] = [
+    'minimum_term_value' => 24, 'minimum_term_unit' => 'month',
     'commitment_enabled' => true,
     'active_billing_cycles' => ['one-time', 'annually'],
 ];
@@ -441,10 +447,11 @@ check_commercial_schedule(
 $staleCommitment = Schema::ensureTierLifecycle($bare);
 $staleCommitment['drafts']['overview'] = [
     'label' => 'Starter', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'monthly', 'minimum_term_value' => 6, 'minimum_term_unit' => 'month',
-    'commitment_enabled' => false,
+    'billing_cycle' => 'monthly',
 ];
 $staleCommitment['drafts']['commercial_schedule'] = [
+    'minimum_term_value' => 6, 'minimum_term_unit' => 'month',
+    'commitment_enabled' => false,
     'commercial_legs' => [
         ['id' => 'leg_indef', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1],
         ['id' => 'leg_over',  'payment_category' => 'recurring', 'billing_cycle' => 'yearly',   'start_month' => 2, 'end_month' => 200],
@@ -471,11 +478,12 @@ check_commercial_schedule(
 $pendingLegsSlot = Schema::ensureTierLifecycle($bare);
 $pendingLegsSlot['drafts']['overview'] = [
     'label' => 'Starter', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'monthly', 'minimum_term_value' => 12, 'minimum_term_unit' => 'month',
-    'commitment_enabled' => true,
-    'active_billing_cycles' => ['monthly'],
+    'billing_cycle' => 'monthly',
 ];
 $pendingLegsSlot['drafts']['commercial_schedule'] = [
+    'minimum_term_value' => 12, 'minimum_term_unit' => 'month',
+    'commitment_enabled' => true,
+    'active_billing_cycles' => ['monthly'],
     'commercial_legs' => [['id' => 'leg_pending', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => 12]],
 ];
 $pendingLegs = Schema::draftPreferredCommercialLegs($pendingLegsSlot);
@@ -509,16 +517,15 @@ check_commercial_schedule(
 );
 
 $committedSlot = Schema::ensureTierLifecycle($bare);
-$committedSlot['drafts']['overview'] = [
-    'label' => 'Starter', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'monthly', 'minimum_term_value' => 6, 'minimum_term_unit' => 'month',
+$committedSlot['drafts']['commercial_schedule'] = [
+    'minimum_term_value' => 6, 'minimum_term_unit' => 'month',
     'commitment_enabled' => true,
 ];
 check_commercial_schedule(
     Schema::sanitizeCommercialLegsForSlot($committedSlot, [
         ['id' => 'leg_over', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => 12],
     ]) === [],
-    'once Overview\'s own pending draft enables a 6-month commitment, a leg extending to month 12 is dropped immediately at draft-save time — Overview may be saved first, in either order',
+    'once the slot\'s own pending Commercial Schedule draft enables a 6-month commitment, a leg extending to month 12 is dropped immediately at draft-save time',
 );
 check_commercial_schedule(
     Schema::sanitizeCommercialLegsForSlot($committedSlot, [

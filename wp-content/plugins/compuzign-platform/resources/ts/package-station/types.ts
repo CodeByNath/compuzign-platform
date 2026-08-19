@@ -554,10 +554,14 @@ export interface SurfaceTierDetail {
   // every occupant that has never configured one. See docs/code-map/tier-edition.md.
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
-  // Multi-cycle commercial schedule (Phase 2). Empty for every occupant that
-  // has never used this capability — Simple Mode's own billing_cycle/
-  // rate_sheet_items[].price_option_id above stay fully authoritative and
-  // untouched. See docs/code-map/tier-edition.md.
+  // Independent of commercial_legs below — gates only Commitment Unit/
+  // Minimum Commitment (Tier Pricing Rules). Commercial Legs are never
+  // nested under, disabled by, or cleared because this is false. See
+  // docs/code-map/tier-pricing-rules-plan.md.
+  commitment_enabled: boolean;
+  // Multi-cycle commercial schedule. Always has at least one leg once
+  // configured — Simple Mode is retired; billing_cycle above stays legacy
+  // read/back-compat only. See docs/code-map/tier-pricing-rules-plan.md.
   active_billing_cycles: string[];
   commercial_legs: CommercialLeg[];
   // The Rate Sheet this occupant's selections resolve against. Null when the
@@ -627,10 +631,12 @@ export interface TierEdition {
   billing_cycle: string | null;
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
+  // Independent of commercial_legs below — see SurfaceTierDetail.commitment_enabled.
+  commitment_enabled: boolean;
   // Additive only, an Edition's own — never inherited from the parent
   // occupant, the same independent-not-inherited rule price/billing_cycle/
-  // commitment above already follow. Empty for every Edition that has never
-  // used this capability. See docs/code-map/tier-edition.md.
+  // commitment above already follow. Always has at least one leg once
+  // configured — Simple Mode is retired. See docs/code-map/tier-pricing-rules-plan.md.
   active_billing_cycles: string[];
   commercial_legs: CommercialLeg[];
   // Empty means inherit the parent occupant's own inclusions_override/
@@ -652,6 +658,7 @@ export interface TierEditionOverviewDraft {
   contact: boolean;
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
+  commitment_enabled: boolean;
   active_billing_cycles: string[];
   commercial_legs: CommercialLeg[];
   inclusions_override: InclusionItem[];
@@ -698,6 +705,11 @@ export interface TierEditionResponse {
 // Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response
 // carried by the package station. `overview` holds tier-owned scalars; `features`
 // and `faqs` hold references into the service pool (anchor/consumer model).
+// Rate Sheet binding, Commitment, and Commercial Legs all moved to
+// TierCommercialScheduleDraft (Tier Pricing Rules) — see
+// docs/code-map/tier-pricing-rules-plan.md. billing_cycle is retired from
+// every editing surface entirely (kept server-side only for legacy
+// synthesis/back-compat).
 export interface TierOverviewDraft {
   label: string;
   ideal_for: string;
@@ -705,20 +717,6 @@ export interface TierOverviewDraft {
   audience_groups?: ('personal_business' | 'enterprise')[];
   price: number | null;
   contact: boolean;
-  billing_cycle: string;
-  // The occupant's own permanent Default commitment — see
-  // SurfaceTierDetail.minimum_term_value/minimum_term_unit. Optional like
-  // rate_sheet_id below: an omitted key preserves the settled occupant's
-  // existing value rather than resetting it (PackageSchema::settleTierSlot).
-  minimum_term_value?: number | null;
-  minimum_term_unit?: string | null;
-  // The reusable cadence pool a Commercial Schedule leg may draw from — see
-  // SurfaceTierDetail.active_billing_cycles. Optional like minimum_term_value
-  // above: an omitted key preserves the settled occupant's existing value.
-  active_billing_cycles?: string[];
-  // The occupant's bound Rate Sheet. Edited in the overview module so a switch
-  // commits (and clears selections) before new rows are chosen.
-  rate_sheet_id?: string | null;
   // Selection mode — see SurfaceTierDetail.is_addon. Optional here only
   // because it rides the same generic draft payload shape; the editor always
   // supplies an explicit boolean.
@@ -733,27 +731,38 @@ export interface TierRateSheetSelection {
   // against the bound sheet is left as-is — never silently coerced back to
   // Default Price. See docs/code-map/rate-sheet.md.
   price_option_id?: string | null;
-  // Multi-Cycle Mode only (this Tier/Edition's own commercial_legs is
-  // non-empty) — one Price Option choice per commercial leg this inclusion
-  // participates in. Absent entirely for a Simple Mode selection (never [])
-  // — the same not-fabricated shape PackageSchema::sanitizeTierRateSheetSelections()
-  // returns. See docs/code-map/tier-edition.md.
+  // One Price Option (+ quantity) choice per Commercial Leg this inclusion
+  // participates in — every Tier/Edition has at least one leg (Tier Pricing
+  // Rules retires Simple Mode), so this is the ONE pricing path, never a
+  // special single-leg case. Absent only for a not-yet-migrated legacy
+  // selection PackageSchema hasn't synthesized onto yet — the same
+  // not-fabricated shape PackageSchema::sanitizeTierRateSheetSelections()
+  // returns. See docs/code-map/tier-pricing-rules-plan.md.
   leg_assignments?: LegAssignment[];
 }
 
 export interface LegAssignment {
   leg_id: string;
   price_option_id: string | null;
+  // Independent of the selection's own top-level quantity above — a
+  // different leg may need a different quantity of the same inclusion.
+  // Defaults to 1 server-side when omitted.
+  quantity: number;
 }
 
-// A Tier/Edition's own scheduled application of one of its active_billing_cycles
-// across an inclusive, 1-based month range bounded by its own commitment
-// (minimum_term_value/unit). See docs/code-map/tier-edition.md.
+// A Tier/Edition's own scheduled application of one Payment Category +
+// Commercial Leg Billing Cycle across an inclusive, 1-based month range.
+// Every Tier/Edition has at least one — Commercial Legs are the sole
+// pricing-schedule mechanism (Simple Mode retired). Independent of any
+// commitment: end_month is null (Indefinite) whenever commitment_enabled is
+// false, or bounded by minimum_term_value/unit when it's true. See
+// docs/code-map/tier-pricing-rules-plan.md.
 export interface CommercialLeg {
   id: string;
+  payment_category: string;
   billing_cycle: string;
   start_month: number;
-  end_month: number;
+  end_month: number | null;
 }
 
 export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
@@ -780,7 +789,20 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   includes?: { item_id: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
 }
 
+// Tier Pricing Rules — Rate Sheet binding, Commitment, and the mandatory
+// Commercial Legs themselves, all one module's draft (moved off Overview so
+// the two can still be authored/saved independently, in either order). See
+// docs/code-map/tier-pricing-rules-plan.md.
 export interface TierCommercialScheduleDraft {
+  rate_sheet_id?: string | null;
+  minimum_term_value?: number | null;
+  minimum_term_unit?: string | null;
+  // Independent of commercial_legs below — gates only Commitment Unit/
+  // Minimum Commitment. Commercial Legs are never nested under, disabled by,
+  // or cleared because this is false.
+  commitment_enabled?: boolean;
+  // Legacy back-compat field only now — no longer authored through any UI.
+  active_billing_cycles?: string[];
   commercial_legs: CommercialLeg[];
 }
 

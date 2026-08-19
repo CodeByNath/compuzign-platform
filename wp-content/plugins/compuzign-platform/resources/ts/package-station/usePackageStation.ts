@@ -29,7 +29,7 @@ import type {
   OccupantBinEntry,
   TierModuleKey,
   TierRateSheetSelection,
-  CommercialLeg,
+  TierCommercialScheduleDraft,
 } from './types';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
@@ -105,6 +105,10 @@ function normDetail(res: ServicePackageStationResponse): NormDetail {
 // can exercise the real merge the drawer renders from, without mounting a hook.
 export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
   const ov = slot.drafts.overview;
+  // Tier Pricing Rules — Rate Sheet binding, Commitment, and the Commercial
+  // Legs themselves all live on the Commercial Schedule module's OWN draft,
+  // not Overview's — see docs/code-map/tier-pricing-rules-plan.md.
+  const cs = slot.drafts.commercial_schedule;
   return {
     ...slot,
     label:               ov ? ov.label         : slot.label,
@@ -112,26 +116,25 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     audience_groups:     ov?.audience_groups ?? slot.audience_groups,
     price:               ov ? ov.price         : slot.price,
     contact:             ov ? ov.contact       : slot.contact,
-    billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
-    // A pending commitment change lives on the overview draft, same as
-    // billing_cycle — an omitted key (older/partial draft) keeps the
-    // settled occupant's existing value rather than reading as cleared.
-    minimum_term_value:  ov && ov.minimum_term_value !== undefined ? ov.minimum_term_value : slot.minimum_term_value,
-    minimum_term_unit:   ov && ov.minimum_term_unit  !== undefined ? ov.minimum_term_unit  : slot.minimum_term_unit,
-    // Same draft-preferred rule as billing_cycle/commitment above — the
-    // reusable cadence pool lives on the Overview draft, alongside them.
-    active_billing_cycles: ov && ov.active_billing_cycles !== undefined ? ov.active_billing_cycles : slot.active_billing_cycles,
-    // The legs themselves are the Commercial Schedule module's OWN draft —
-    // a separate module from Overview, same rule rate_sheet_items/faq_refs
-    // below already follow for Features/FAQs.
-    commercial_legs:     slot.drafts.commercial_schedule?.commercial_legs ?? slot.commercial_legs,
-    // A pending sheet switch lives on the overview draft; otherwise the settled binding.
-    rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
+    // A pending commitment change lives on the Commercial Schedule draft,
+    // same as rate_sheet_id/active_billing_cycles below — an omitted key
+    // (older/partial draft) keeps the settled occupant's existing value
+    // rather than reading as cleared.
+    minimum_term_value:  cs && cs.minimum_term_value !== undefined ? cs.minimum_term_value : slot.minimum_term_value,
+    minimum_term_unit:   cs && cs.minimum_term_unit  !== undefined ? cs.minimum_term_unit  : slot.minimum_term_unit,
+    commitment_enabled:  cs && cs.commitment_enabled !== undefined ? cs.commitment_enabled : slot.commitment_enabled,
+    // Legacy back-compat field only now — same draft-preferred rule as
+    // above, just no longer authored through any UI.
+    active_billing_cycles: cs && cs.active_billing_cycles !== undefined ? cs.active_billing_cycles : slot.active_billing_cycles,
+    // The legs themselves are the SAME Commercial Schedule module draft.
+    commercial_legs:     cs?.commercial_legs ?? slot.commercial_legs,
+    // A pending sheet switch lives on the Commercial Schedule draft now too.
+    rate_sheet_id:       cs && cs.rate_sheet_id !== undefined ? cs.rate_sheet_id : slot.rate_sheet_id,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
-    // A pending is_addon change lives on the overview draft, same as label/
-    // billing_cycle; a draft that omits it (or no draft at all) keeps the
-    // settled occupant's value.
+    // A pending is_addon change lives on the overview draft, same as label
+    // above; a draft that omits it (or no draft at all) keeps the settled
+    // occupant's value.
     is_addon:            ov && ov.is_addon !== undefined ? ov.is_addon : slot.is_addon,
   };
 }
@@ -170,7 +173,9 @@ export interface PackageStation {
   saveTierOverview: (tierId: string, draft: TierOverviewDraft) => Promise<TierLifecycleResponse | null>;
   saveTierFeatures: (tierId: string, refs: TierRateSheetSelection[]) => Promise<TierLifecycleResponse | null>;
   saveTierFaqs:     (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
-  saveTierCommercialSchedule: (tierId: string, legs: CommercialLeg[]) => Promise<TierLifecycleResponse | null>;
+  // Tier Pricing Rules — Rate Sheet binding, Commitment, and the mandatory
+  // Commercial Legs, all one module save. See docs/code-map/tier-pricing-rules-plan.md.
+  saveTierPricingRules: (tierId: string, draft: TierCommercialScheduleDraft) => Promise<TierLifecycleResponse | null>;
   // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
   revertTierModule: (tierId: string, module: TierModuleKey) => Promise<TierLifecycleResponse | null>;
   // Commit the whole tier.
@@ -443,11 +448,11 @@ export function usePackageStation(
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, tierInstanceId, onRefresh, patchModule]);
 
-  const saveTierCommercialSchedule = useCallback(async (tierId: string, legs: CommercialLeg[]) => {
+  const saveTierPricingRules = useCallback(async (tierId: string, draft: TierCommercialScheduleDraft) => {
     if (tierInstanceId === null) return null;
     setSaving(true);
     try {
-      const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'commercial_schedule', { commercial_legs: legs });
+      const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'commercial_schedule', draft);
       if (res.success) { patchModule(tierId, 'commercial_schedule', res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
@@ -659,7 +664,7 @@ export function usePackageStation(
     saveTierOverview,
     saveTierFeatures,
     saveTierFaqs,
-    saveTierCommercialSchedule,
+    saveTierPricingRules,
     revertTierModule,
     settleTier,
     setPopularTier,

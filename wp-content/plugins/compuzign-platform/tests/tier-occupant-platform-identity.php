@@ -154,9 +154,22 @@ function topi_instance(): array
 
 function topi_overview_save(string $tier = 'basic', array $overrides = []): WP_REST_Response
 {
+    // Rate Sheet binding and billing_cycle/rate_sheet_id are no longer
+    // authored through 'overview' at all (see
+    // docs/code-map/tier-pricing-rules-plan.md) — this helper's callers all
+    // go on to Publish, which now requires a first Commercial Leg, so it
+    // saves one here too via the 'commercial_schedule' module, matching the
+    // real authoring flow. Not itself under test in this file (that's
+    // tier-commercial-schedule.php's job) — just what makes Publish reachable.
+    topi_new_controller()->savePackageStationTierModule(new WP_REST_Request(
+        ['id' => 909, 'instance' => 'ti_primary', 'tier' => $tier, 'module' => 'commercial_schedule'],
+        ['rate_sheet_id' => 'rs_primary', 'commercial_legs' => [
+            ['id' => 'leg_setup', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1],
+        ]],
+    ));
     return topi_new_controller()->savePackageStationTierModule(new WP_REST_Request(
         ['id' => 909, 'instance' => 'ti_primary', 'tier' => $tier, 'module' => 'overview'],
-        [...['label' => 'Starter Cloud', 'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rs_primary'], ...$overrides],
+        [...['label' => 'Starter Cloud'], ...$overrides],
     ));
 }
 

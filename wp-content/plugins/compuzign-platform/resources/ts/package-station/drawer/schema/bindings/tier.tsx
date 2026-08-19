@@ -17,11 +17,12 @@ import {
 } from '@/drawer-kit/utils/moduleNotifications';
 import { commercialLegLabel } from '../../../rateSheetLabels';
 import { TierOverviewEditor } from '../../editors/TierOverviewEditor';
-import type { TierOverviewEditDraft, RateSheetPickerOption } from '../../editors/TierOverviewEditor';
+import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
 import { PoolInclusionsEditor } from '../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
-import { CommercialScheduleEditor } from '../../editors/CommercialScheduleEditor';
+import { TierPricingRulesEditor } from '../../editors/TierPricingRulesEditor';
+import type { TierPricingRulesEditDraft, RateSheetPickerOption } from '../../editors/TierPricingRulesEditor';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
@@ -49,14 +50,6 @@ export interface TierOverviewShellData {
   tierName:     string;          // canonical tier name (Basic/Standard/…) — label fallback
   contact:      boolean;
   price:        number | null;
-  billingCycle: string | null;
-  // The occupant's own permanent Default commitment — same concern as a
-  // Tier Edition's own minimum_term_value/unit. See docs/code-map/tier-edition.md.
-  minimumTermValue: number | null;
-  minimumTermUnit:  string | null;
-  // The reusable cadence pool Commercial Schedule's own legs may draw from —
-  // see SurfaceTierDetail.active_billing_cycles.
-  activeBillingCycles: string[];
   isAddon:      boolean;         // occupant-level selection mode — see Tier Add-on Selection code map
   popular:      boolean;         // station-level presentation flag
   platformId:   string;
@@ -110,23 +103,6 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.idealFor || '—' }),
     },
     {
-      id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
-      bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
-    },
-    {
-      // Mirrors Tier Edition's own 'minimum-term' row (bindings/tierEdition.tsx).
-      id: 'minimum-term', element: 'text', label: 'Minimum commitment',
-      bind: (d): TextValue => ({
-        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
-      }),
-    },
-    {
-      // Empty reads exactly like a Tier that has never used this
-      // capability — Simple Mode, no different from before it existed.
-      id: 'active-billing-cycles', element: 'text', label: 'Active Billing Cycles',
-      bind: (d): TextValue => ({ value: d.activeBillingCycles.length > 0 ? d.activeBillingCycles.join(', ') : '—' }),
-    },
-    {
       id: 'popular', element: 'text', label: 'Popular',
       bind: (d): TextValue => ({ value: d.popular ? 'Yes' : 'No' }),
     },
@@ -156,8 +132,6 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       <TierOverviewEditor
         draft={s.draft as TierOverviewEditDraft}
         onChange={(patch) => s.patch?.(patch)}
-        rateSheets={(s.extras?.rateSheets ?? []) as RateSheetPickerOption[]}
-        hasSelections={!!s.extras?.hasSelections}
       />
     ),
   },
@@ -213,17 +187,23 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   },
 };
 
-// ── Commercial Schedule (Phase 2) ─────────────────────────────────────────────
+// ── Tier Pricing Rules ─────────────────────────────────────────────────────────
 //
-// A Tier/Edition's own scheduled application of its active_billing_cycles
-// (declared in Overview above) across bounded commitment-month ranges. Empty
-// for every Tier that has never used this capability — Simple Mode, exactly
-// as before this module existed. Included Features above is the assignment
-// surface: it attaches an existing inclusion to one or more of these SAME
-// legs and selects a Rate Sheet Price Option per leg, never a second
-// inclusions system. See docs/code-map/tier-edition.md.
+// Rate Sheet binding, Commitment (independent of Legs), and the mandatory
+// Commercial Legs themselves — Commercial Legs are the sole pricing-schedule
+// mechanism, Simple Mode is retired. Module key/shell name stay
+// `commercial_schedule`/`tierCommercialScheduleShell` internally — only the
+// visible card title and its fields changed from the earlier Commercial
+// Schedule module. Included Features above is the assignment surface: it
+// attaches an existing inclusion to one or more of these SAME legs and
+// selects a Rate Sheet Price Option (+ quantity) per leg, never a second
+// inclusions system. See docs/code-map/tier-pricing-rules-plan.md.
 
 export interface TierCommercialScheduleShellData {
+  rateSheetId:        string | null;
+  minimumTermValue:   number | null;
+  minimumTermUnit:    string | null;
+  commitmentEnabled:  boolean;
   legs: CommercialLeg[];
 }
 
@@ -231,17 +211,25 @@ export const tierCommercialScheduleShell: ShellSchema<TierCommercialScheduleShel
   archetype: 'child',
   dna:       tierCommercialScheduleModule,
   header: {
-    title:       'Commercial Schedule',
-    subtitle:    'Optional — schedule more than one billing cycle across this tier’s commitment.',
+    title:       'Tier Pricing Rules',
+    subtitle:    'Rate Sheet, Commitment, and the Commercial Legs that price this tier.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
     count:       (d) => d.legs.length,
   },
   content: [
     {
-      id: 'legs', element: 'text',
+      id: 'commitment', element: 'text', label: 'Tier Commitment',
       bind: (d): TextValue => ({
-        value: d.legs.length > 0 ? d.legs.map((leg) => commercialLegLabel(leg)).join('\n') : 'Simple Mode — one billing cycle (see Tier Overview).',
+        value: d.commitmentEnabled
+          ? (d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : 'Yes')
+          : 'No',
+      }),
+    },
+    {
+      id: 'legs', element: 'text', label: 'Commercial Legs',
+      bind: (d): TextValue => ({
+        value: d.legs.length > 0 ? d.legs.map((leg) => commercialLegLabel(leg)).join('\n') : 'Not yet configured.',
       }),
     },
   ],
@@ -249,11 +237,11 @@ export const tierCommercialScheduleShell: ShellSchema<TierCommercialScheduleShel
   actions: DETAILS_ACTIONS,
   editor: {
     render: (s) => (
-      <CommercialScheduleEditor
-        draft={s.draft as CommercialLeg[]}
-        onChange={(next) => s.replace(next)}
-        activeBillingCycles={(s.extras?.activeBillingCycles ?? []) as string[]}
-        commitmentMonths={(s.extras?.commitmentMonths ?? null) as number | null}
+      <TierPricingRulesEditor
+        draft={s.draft as TierPricingRulesEditDraft}
+        onChange={(patch) => s.patch?.(patch)}
+        rateSheets={(s.extras?.rateSheets ?? []) as RateSheetPickerOption[]}
+        hasSelections={!!s.extras?.hasSelections}
       />
     ),
   },
