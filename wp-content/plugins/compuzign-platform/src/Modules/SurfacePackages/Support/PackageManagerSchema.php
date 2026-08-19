@@ -1958,21 +1958,33 @@ final class PackageManagerSchema
                     if (!is_array($assignment) || (string) ($assignment['leg_id'] ?? '') !== $legId) { continue; }
                     $legSelections[] = [
                         'item_id'         => $selection['item_id'] ?? '',
-                        'quantity'        => $selection['quantity'] ?? 1,
+                        // The assignment's OWN quantity — independent of the
+                        // selection's top-level quantity, which governs the
+                        // Default declaration's own total, a separate
+                        // concern. sanitizeLegAssignments() already defaults
+                        // this to 1 for any properly-sanitized assignment;
+                        // the ?? 1 here is defense-in-depth only, never a
+                        // fallback to the selection's own different quantity.
+                        'quantity'        => $assignment['quantity'] ?? 1,
                         'price_option_id' => $assignment['price_option_id'] ?? null,
                     ];
                     break; // sanitizeLegAssignments() already dedupes one selection's assignments by leg_id.
                 }
             }
             $projection = self::projectTierRateSheetWith($readModel, $legSelections, $rateSheetId, $contact);
+            $endMonth = $leg['end_month'] ?? null;
             return [
-                'id'            => $legId,
-                'billing_cycle' => (string) ($leg['billing_cycle'] ?? ''),
-                'start_month'   => (int) ($leg['start_month'] ?? 0),
-                'end_month'     => (int) ($leg['end_month'] ?? 0),
-                'price'         => $projection['price'],
-                'valid_count'   => $projection['valid_count'],
-                'selections'    => $projection['selections'],
+                'id'               => $legId,
+                'payment_category' => (string) ($leg['payment_category'] ?? ''),
+                'billing_cycle'    => (string) ($leg['billing_cycle'] ?? ''),
+                'start_month'      => (int) ($leg['start_month'] ?? 0),
+                // Indefinite (no commitment bounding this leg) stays null —
+                // never coerced to 0, which would misrepresent it as ending
+                // before it starts.
+                'end_month'        => $endMonth === null ? null : (int) $endMonth,
+                'price'            => $projection['price'],
+                'valid_count'      => $projection['valid_count'],
+                'selections'       => $projection['selections'],
             ];
         }, $legs);
     }

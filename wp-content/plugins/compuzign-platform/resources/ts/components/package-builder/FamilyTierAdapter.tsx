@@ -13,6 +13,11 @@ const LEG_CYCLE_LABELS: Record<string, string> = { monthly: 'Monthly', annually:
 
 const legLabel = (leg: PricingCommercialLeg): string => {
   const cycle = LEG_CYCLE_LABELS[leg.billing_cycle] ?? capitalize(leg.billing_cycle);
+  // Null end_month is Indefinite (no commitment bounds this leg) — never
+  // interpolated as the literal string "null".
+  if (leg.end_month === null) {
+    return `${cycle} · Month ${leg.start_month}–Indefinite`;
+  }
   return leg.start_month === leg.end_month
     ? `${cycle} · Month ${leg.start_month}`
     : `${cycle} · Months ${leg.start_month}–${leg.end_month}`;

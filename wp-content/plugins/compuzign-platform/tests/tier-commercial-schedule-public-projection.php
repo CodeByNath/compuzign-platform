@@ -177,8 +177,12 @@ $tiers['basic'] = [
         'commercial_legs' => $occupantLegs,
         'rate_sheet_id' => 'rs_occupant',
         'rate_sheet_items' => [
-            ['item_id' => 'rate-monthly-feature', 'quantity' => 1, 'leg_assignments' => [['leg_id' => 'leg_monthly', 'price_option_id' => null]]],
-            ['item_id' => 'rate-annual-setup', 'quantity' => 2, 'leg_assignments' => [['leg_id' => 'leg_annual', 'price_option_id' => null]]],
+            ['item_id' => 'rate-monthly-feature', 'quantity' => 1, 'leg_assignments' => [['leg_id' => 'leg_monthly', 'price_option_id' => null, 'quantity' => 1]]],
+            // Per-leg quantity is its own independent field, not inherited
+            // from the selection's top-level quantity (which stays 2 here
+            // only for the Default declaration's own total, asserted
+            // separately below) — the assignment states its OWN 2 explicitly.
+            ['item_id' => 'rate-annual-setup', 'quantity' => 2, 'leg_assignments' => [['leg_id' => 'leg_annual', 'price_option_id' => null, 'quantity' => 2]]],
         ],
         'inclusions_override' => [], 'features' => [], 'faq_refs' => [],
         'platform_status' => 'active', 'is_addon' => false,

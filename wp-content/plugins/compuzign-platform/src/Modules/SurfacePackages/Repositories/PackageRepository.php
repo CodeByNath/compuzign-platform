@@ -1749,12 +1749,15 @@ class PackageRepository
                         && (($row['source_type'] ?? null) === 'inclusion' || isset($bundleIdByItemId[$row['item_id']]))
                 ));
                 return [
-                    'id'            => $leg['id'],
-                    'billing_cycle' => $leg['billing_cycle'],
-                    'start_month'   => $leg['start_month'],
-                    'end_month'     => $leg['end_month'],
-                    'price'         => $leg['price'],
-                    'inclusions'    => $this->publicInclusionsFromSelections($resolvedInclusions, $bundleIdByItemId),
+                    'id'               => $leg['id'],
+                    'payment_category' => $leg['payment_category'],
+                    'billing_cycle'    => $leg['billing_cycle'],
+                    'start_month'      => $leg['start_month'],
+                    // Indefinite (no commitment bounding this leg) passes
+                    // through as null — see projectCommercialLegs().
+                    'end_month'        => $leg['end_month'],
+                    'price'            => $leg['price'],
+                    'inclusions'       => $this->publicInclusionsFromSelections($resolvedInclusions, $bundleIdByItemId),
                 ];
             },
             PackageManagerSchema::projectCommercialLegs($readModel, $legs, $selections, $rateSheetId, $contact)
