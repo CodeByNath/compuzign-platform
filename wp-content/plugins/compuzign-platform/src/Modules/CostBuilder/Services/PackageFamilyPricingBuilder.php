@@ -48,14 +48,6 @@ final class PackageFamilyPricingBuilder
                     'edition_options'   => is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : [],
                     'minimum_term_value' => $tier['minimum_term_value'] ?? null,
                     'minimum_term_unit'  => $tier['minimum_term_unit'] ?? null,
-                    // Additive only — empty for every occupant that has never
-                    // used this capability. Each edition_options entry above
-                    // carries its own commercial_legs already (an Edition's
-                    // schedule is independent of the occupant's).
-                    'active_billing_cycles' => is_array($tier['active_billing_cycles'] ?? null)
-                        ? array_values(array_map('strval', $tier['active_billing_cycles']))
-                        : [],
-                    'commercial_legs'   => is_array($tier['commercial_legs'] ?? null) ? $tier['commercial_legs'] : [],
                 ];
             }
             return [

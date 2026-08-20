@@ -55,8 +55,9 @@ handed to `projectTierRateSheetWith()` **unchanged** — the same authority
 `projectEditionPrices()` shares, once per leg instead of once per Edition.
 No new pricing calculation; an unassigned leg still appears, priced null.
 `$legs` empty (Simple Mode) returns `[]`. Tested directly
-(`tests/tier-commercial-legs-projection.php`); see Phase 3 below for its
-public wiring.
+(`tests/tier-commercial-legs-projection.php`) but not yet wired into
+`extractTierForCostBuilder()`/`projectTierInstanceForCostBuilder()` —
+public/Cost-Builder projection is a later phase.
 
 ## Admin authoring (Phase 2)
 
@@ -86,15 +87,7 @@ endpoint — no new route, and Edition needed no new module key, only new
 fields on its one draft. See `scripts/tier-commercial-schedule-contract.ts`
 for the full wiring contract.
 
-## Public projection and Package Builder
-
-The occupant's and each Edition's own schedule additionally reaches the
-public Cost Builder/Package Builder response, and the Package Builder
-focused Choose Plan view lets a customer select a leg. See [Tier Commercial
-Schedule — Public Projection](tier-commercial-schedule-public.md).
-
 ## Related Code Maps
 
-[Tier Edition](tier-edition.md), [Tier Commercial Schedule — Public
-Projection](tier-commercial-schedule-public.md), [Rate Sheet](rate-sheet.md),
-and [Platform Identifier Station](platform-identifier-station.md).
+[Tier Edition](tier-edition.md), [Rate Sheet](rate-sheet.md), and
+[Platform Identifier Station](platform-identifier-station.md).

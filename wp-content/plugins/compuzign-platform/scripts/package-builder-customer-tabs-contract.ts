@@ -40,18 +40,10 @@ const groupFilter = adapter.slice(
   adapter.indexOf('export function filterTiersByCustomerGroup'),
   adapter.indexOf('export function FamilyTierAdapter'),
 );
-// Scoped to the tabs' own markup, not the whole file — the focused Choose
-// Plan view (a separate section entirely) legitimately owns a real
-// commercial-cycle <select> of its own (Phase 3); this check's job is only
-// to keep that concern out of the customer-group segmented control.
-const customerTabsMarkup = adapter.slice(
-  adapter.indexOf('cz-package-builder__customer-tabs'),
-  adapter.indexOf('Add-ons stay out of the comparison view'),
-);
 check(adapter.includes('role="tablist"') && adapter.includes('role="tab"'), 'the control uses tab semantics');
 check(adapter.includes('aria-selected={customerGroup === group.value}'), 'the active tab exposes selection state');
 check(groupFilter.includes('audience_groups') && !groupFilter.match(/month|term|billing|edition/i), 'the filter reads only occupant customer grouping');
-check(!customerTabsMarkup.includes('<select') && !customerTabsMarkup.includes('activeTerm'), 'the tab UI introduces no month or term selector');
+check(!adapter.includes('<select') && !adapter.includes('activeTerm'), 'the tab UI introduces no month or term selector');
 check(!app.includes('Available tiers / plans'), 'the redundant Tier card heading is absent');
 check(styles.includes('.cz-package-builder__customer-tabs') && styles.includes('max-width: fit-content'), 'the segmented control sizes to its content');
 

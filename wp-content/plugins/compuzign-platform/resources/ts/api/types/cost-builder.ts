@@ -81,27 +81,6 @@ export interface PricingEditionOption {
   minimum_term_unit: string | null;
   inclusions_override: ServiceInclusion[];
   edition_platform_id?: string;
-  // This Edition's own multi-cycle schedule (Phase 3), independent of the
-  // occupant's — see PricingTierData.active_billing_cycles/commercial_legs
-  // below. Absent/empty for every Edition that has never used this
-  // capability.
-  active_billing_cycles?: string[];
-  commercial_legs?: PricingCommercialLeg[];
-}
-
-// One resolved, priced segment of a Tier occupant's or Edition's own
-// multi-cycle commercial schedule — start_month/end_month are 1-based
-// inclusive months within that record's own minimum_term_value/unit
-// commitment, never a commitment of their own. price/inclusions are already
-// live-resolved through the same Rate Sheet the record's own top-level
-// price/inclusions come from — never a second pricing source.
-export interface PricingCommercialLeg {
-  id: string;
-  billing_cycle: string;
-  start_month: number;
-  end_month: number;
-  price: number | null;
-  inclusions: ServiceInclusion[];
 }
 
 export interface PricingTierData {
@@ -135,14 +114,6 @@ export interface PricingTierData {
   // every Tier that has never configured one, exactly like price/billing_cycle.
   minimum_term_value?: number | null;
   minimum_term_unit?: string | null;
-  // The occupant's own multi-cycle schedule (Phase 3), independent of any
-  // Edition's own (see PricingEditionOption above — never inherited either
-  // way). Absent/empty for every occupant that has never used this
-  // capability; price/billing_cycle/inclusions above stay fully
-  // authoritative for that occupant, exactly as before this capability
-  // existed.
-  active_billing_cycles?: string[];
-  commercial_legs?: PricingCommercialLeg[];
 }
 
 export interface ServicePricing {

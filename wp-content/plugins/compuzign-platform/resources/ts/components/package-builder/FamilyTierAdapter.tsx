@@ -1,22 +1,20 @@
-import { useEffect, useState } from 'preact/hooks';
-import { PricingTiers, TierCard, resolveEffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
+import { useState } from 'preact/hooks';
+import { PricingTiers, TierCard } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
-import { capitalize, formatCycleLabel, formatPrice } from '@/utils/format';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
-import type { PackageBuilderFamily, PricingCommercialLeg, Tier, TierId } from '@/api/types/cost-builder';
+import type { PackageBuilderFamily, Tier, TierId } from '@/api/types/cost-builder';
 
-// Same small fixed vocabulary PackageSchema::BILLING_CYCLES owns server-side
-// — mirrored locally rather than imported, since this component stays out
-// of the admin-only package-station tree (see TierBundleIcon in
-// PricingTiers.tsx for the same precedent).
-const LEG_CYCLE_LABELS: Record<string, string> = { monthly: 'Monthly', annually: 'Annually', 'one-time': 'One-time' };
+// Focused-plan durations. Presentation only: the selection prints the plan
+// line below the dropdown and nothing else. It deliberately does not touch
+// price, billing cycle, Editions, or the quote — those stay owned by the
+// Tier's own declaration exactly as before.
+const PLAN_DURATIONS = [1, 12, 24] as const;
+type PlanDuration = (typeof PLAN_DURATIONS)[number];
 
-const legLabel = (leg: PricingCommercialLeg): string => {
-  const cycle = LEG_CYCLE_LABELS[leg.billing_cycle] ?? capitalize(leg.billing_cycle);
-  return leg.start_month === leg.end_month
-    ? `${cycle} · Month ${leg.start_month}`
-    : `${cycle} · Months ${leg.start_month}–${leg.end_month}`;
-};
+const durationLabel = (months: PlanDuration): string =>
+  `${months} ${months === 1 ? 'month' : 'months'}`;
+
+const planLine = (months: PlanDuration): string => `${durationLabel(months)} plan`;
 
 interface FamilyTierAdapterProps {
   family: PackageBuilderFamily;
@@ -66,26 +64,8 @@ export function FamilyTierAdapter({
   // presents the one Tier beside its plan details; it changes nothing about
   // which Tier is selected in the quote.
   const [focusedTierId, setFocusedTierId] = useState<TierId | null>(null);
-  // Which declaration (Default/Edition) and which of ITS OWN commercial legs
-  // the left column currently shows — lifted here (not left inside TierCard)
-  // specifically so the left column can read them too and stay in sync with
-  // whatever the card's own Edition switch is doing. Reset whenever a
-  // different Tier is focused, and the leg resets whenever the declaration
-  // changes under it — a leg id from one declaration is never carried into
-  // another's, the same independence its own billing cycle/price already has.
-  const [focusedEditionId, setFocusedEditionId] = useState<string | null>(null);
-  const [focusedLegId, setFocusedLegId] = useState<string | null>(null);
+  const [planDuration, setPlanDuration] = useState<PlanDuration>(1);
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
-
-  useEffect(() => {
-    setFocusedEditionId(null);
-    setFocusedLegId(null);
-  }, [focusedTierId]);
-
-  const changeFocusedEdition = (editionId: string | null) => {
-    setFocusedEditionId(editionId);
-    setFocusedLegId(null);
-  };
 
   // Add-ons come from this Family's one Tier System, where compatibility is
   // implicit — there is no per-Tier compatibility ledger, so "does this Tier
@@ -110,7 +90,7 @@ export function FamilyTierAdapter({
     tierId: TierId,
     effective: EffectiveTierDisplay,
     isAddon: boolean,
-    commercialLegId: string | null = null,
+    planDurationMonths: number | null = null,
   ): FamilyTierQuoteItem => {
     const tier = tiers.find((candidate) => candidate.id === tierId);
     const tierData = family.pricing.tiers[tierId];
@@ -132,24 +112,23 @@ export function FamilyTierAdapter({
       isAddon,
       minimumTermValue: effective.minimumTermValue,
       minimumTermUnit: effective.minimumTermUnit,
-      commercialLegId,
+      planDurationMonths,
     };
   };
 
   /**
    * The one Add to Quote action, reached from either entry point: a Tier
    * card's own button, or the focused Choose Plan view (which supplies the
-   * leg its own left column collected). It always performs today's quote
-   * action, then isolates the Tier and reveals Add-ons when the Tier System
-   * offers any — with none there is nothing to choose, so it stays exactly
-   * as it was.
+   * duration it collected). It always performs today's quote action, then
+   * isolates the Tier and reveals Add-ons when the Tier System offers any —
+   * with none there is nothing to choose, so it stays exactly as it was.
    */
   const commitSelection = (
     tierId: TierId,
     effective: EffectiveTierDisplay,
-    commercialLegId: string | null,
+    planDurationMonths: number | null,
   ) => {
-    onAdd(itemFor(tierId, effective, false, commercialLegId));
+    onAdd(itemFor(tierId, effective, false, planDurationMonths));
     setFocusedTierId(null);
     setStagedTierId(addonTiers.length > 0 ? tierId : null);
   };
@@ -178,17 +157,13 @@ export function FamilyTierAdapter({
   // Choose Plan is withheld because this is already that Tier's focused view.
   if (focusedTier) {
     const focusedData = family.pricing.tiers[focusedTier.id];
-    // Resolved once here so the left column's own leg dropdown and the right
-    // column's card (via the controlled props below) always agree on which
-    // declaration and which leg are showing — the same resolver both the
-    // card and every other Tier card in this file already call.
-    const focusedEffective = resolveEffectiveTierDisplay(focusedData, '', focusedEditionId, focusedLegId);
     return (
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. It only clears this local
               focused-Tier state, restoring the card comparison — no
-              navigation, routing, or persisted builder state. */}
+              navigation, routing, or persisted builder state. The chosen
+              duration simply stays in state, since nothing unmounts. */}
           <button
             type="button"
             class="cz-package-builder__focused-back"
@@ -202,39 +177,26 @@ export function FamilyTierAdapter({
           {focusedData?.ideal_for && (
             <p class="cz-package-builder__focused-ideal-for">{focusedData.ideal_for}</p>
           )}
-          {/* Only when the currently-showing declaration (Default, or
-              whichever Edition the card's own switch selected) actually has
-              its own commercial legs — absent for every Simple Mode Tier,
-              which is most of them, exactly like the card's own Edition
-              switch already only appears when edition_options exist. */}
-          {focusedEffective.commercialLegs.length > 0 && (
-            <label class="cz-package-builder__focused-field">
-              <span class="cz-package-builder__focused-field-label">Billing cycle</span>
-              <select
-                class="cz-package-builder__plan-select"
-                value={focusedLegId ?? ''}
-                onChange={(event) => {
-                  const next = (event.target as HTMLSelectElement).value;
-                  setFocusedLegId(next === '' ? null : next);
-                }}
-              >
-                <option value="">Full schedule</option>
-                {focusedEffective.commercialLegs.map((leg) => (
-                  <option key={leg.id} value={leg.id}>{legLabel(leg)}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          {focusedEffective.selectedLeg && (
-            <p class="cz-package-builder__focused-plan-line">
-              {formatPrice(focusedEffective.selectedLeg.price)}
-              {formatCycleLabel(focusedEffective.selectedLeg.billing_cycle) && ` ${formatCycleLabel(focusedEffective.selectedLeg.billing_cycle)}`}
-            </p>
-          )}
+          <label class="cz-package-builder__focused-field">
+            <span class="cz-package-builder__focused-field-label">Plan duration</span>
+            <select
+              class="cz-package-builder__plan-select"
+              value={String(planDuration)}
+              onChange={(event) => {
+                const next = Number((event.target as HTMLSelectElement).value) as PlanDuration;
+                setPlanDuration(next);
+              }}
+            >
+              {PLAN_DURATIONS.map((months) => (
+                <option key={months} value={String(months)}>{durationLabel(months)}</option>
+              ))}
+            </select>
+          </label>
+          <p class="cz-package-builder__focused-plan-line">{planLine(planDuration)}</p>
           {/* Reserved: the rest of the left column is intentionally empty for
               now. Future focused-plan content (term comparison, commitment
               detail, plan-specific messaging) belongs here, beneath the
-              controls above, without disturbing the card on the right. */}
+              duration control, without disturbing the card on the right. */}
           <div class="cz-package-builder__focused-reserved" />
         </div>
         <div class="cz-package-builder__focused-card">
@@ -249,25 +211,18 @@ export function FamilyTierAdapter({
               isActive={focusedTier.id === selectedTierId}
               billingCycle=""
               addedLabel="✓ Selected"
-              // Lifted (controlled) here — not the card's own internal state
-              // — so the left column's leg dropdown above can read which
-              // declaration the card's own Edition switch is currently
-              // showing, and scope its own options to that SAME declaration.
-              selectedEditionId={focusedEditionId}
-              onEditionChange={changeFocusedEdition}
-              selectedLegId={focusedLegId}
               // Same single selection action as a card's own button — it just
-              // hands over the leg this view's own dropdown collected. Add to
-              // Quote leaves the focused presentation and lands in the
-              // selected-Tier view; removing an already-selected Tier is not
-              // that action, so it stays here.
+              // hands over the duration this view collected. Add to Quote
+              // leaves the focused presentation and lands in the selected-Tier
+              // view; removing an already-selected Tier is not that action, so
+              // it stays here.
               onClick={(effective) => {
                 if (selectedTierId === focusedTier.id) {
                   onRemovePrimary();
                   setStagedTierId(null);
                   return;
                 }
-                commitSelection(focusedTier.id, effective, focusedLegId);
+                commitSelection(focusedTier.id, effective, planDuration);
               }}
               hideOverview
             />

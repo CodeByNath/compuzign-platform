@@ -1576,32 +1576,51 @@ class PackageRepository
             // sheet the projector already resolved against, by the row's own
             // item_id — never trusted from input, never added to the
             // projector's own output.
-            $bundleIdByItemId = $this->bundleIdIndexForRateSheet($readModel, $extracted['rate_sheet_id'] ?? null);
+            $rateSheetForTier = PackageManagerSchema::findRateSheet(
+                is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
+                $extracted['rate_sheet_id'] ?? null
+            );
+            $bundleIdByItemId = [];
+            foreach (is_array($rateSheetForTier['items'] ?? null) ? $rateSheetForTier['items'] : [] as $sheetRow) {
+                $rowBundleId = (string) ($sheetRow['bundle_id'] ?? '');
+                if ($rowBundleId !== '') {
+                    $bundleIdByItemId[(string) ($sheetRow['item_id'] ?? '')] = $rowBundleId;
+                }
+            }
             $resolvedInclusions = array_values(array_filter(
                 $rateProjection['selections'],
                 static fn(array $row): bool => $row['resolved']
                     && (($row['source_type'] ?? null) === 'inclusion' || isset($bundleIdByItemId[$row['item_id']]))
             ));
-            $extracted['inclusions_override'] = $this->publicInclusionsFromSelections($resolvedInclusions, $bundleIdByItemId);
+            $extracted['inclusions_override'] = array_map(
+                static function (array $row) use ($bundleIdByItemId): array {
+                    $entry = ['id' => $row['item_id'], 'label' => $row['label'], 'quantity' => $row['quantity']];
+                    $bundleId = $bundleIdByItemId[$row['item_id']] ?? null;
+                    if ($bundleId !== null) {
+                        $entry['bundle_id'] = $bundleId;
+                        // Read-only display children — what this Bundle
+                        // compiles — never separately chargeable or selectable
+                        // lines of their own, mirroring PoolInclusionsEditor's
+                        // admin-side sub-list.
+                        $entry['includes'] = array_map(
+                            static fn(array $include): array => [
+                                'id'       => (string) ($include['item_id'] ?? ''),
+                                'label'    => (string) ($include['label'] ?? ''),
+                                'quantity' => (int) ($include['quantity'] ?? 1),
+                            ],
+                            is_array($row['includes'] ?? null) ? $row['includes'] : []
+                        );
+                    }
+                    return $entry;
+                },
+                $resolvedInclusions
+            );
             if ($includeSelectedInclusionProvenance) {
                 $selectedInclusionSourceIds[$tierId] = array_values(array_map(
                     static fn(array $row): string => (string) ($row['source_id'] ?? ''),
                     $resolvedInclusions
                 ));
             }
-            // The occupant's own commercial legs (Phase 3 — public
-            // projection), resolved through the SAME rate_sheet_items/
-            // rate_sheet_id/contact already used for its own price above —
-            // never a second pricing calculation. Empty for every occupant
-            // that has never used this capability (Simple Mode), the same
-            // additive-only rule edition_options already follows.
-            $extracted['commercial_legs'] = $this->publicCommercialLegs(
-                $readModel,
-                is_array($extracted['commercial_legs'] ?? null) ? $extracted['commercial_legs'] : [],
-                $extracted['rate_sheet_items'] ?? [],
-                $extracted['rate_sheet_id'] ?? null,
-                (bool) ($extracted['contact'] ?? false)
-            );
             // Each public edition_option row prices from its own Edition's
             // rate_sheet_id/rate_sheet_items — the occupant's own selection
             // above is different — through this same authoritative projector.
@@ -1610,29 +1629,12 @@ class PackageRepository
                     ? ($instance['tiers'][$tierId]['current_occupant'] ?? null)
                     : null;
                 $rawEditions = is_array($occupant) ? PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) : [];
-                $rawEditionsById = [];
-                foreach ($rawEditions as $rawEdition) {
-                    $rawEditionsById[(string) ($rawEdition['id'] ?? '')] = $rawEdition;
-                }
                 $editionPriceById = [];
                 foreach (PackageManagerSchema::projectEditionPrices($readModel, $rawEditions) as $priced) {
                     $editionPriceById[$priced['id']] = $priced['price'];
                 }
                 $extracted['edition_options'] = array_map(
-                    function (array $option) use ($readModel, $editionPriceById, $rawEditionsById): array {
-                        $rawEdition = $rawEditionsById[$option['id']] ?? [];
-                        // An Edition's own legs resolve against ITS OWN Rate
-                        // Sheet binding — which may differ from the occupant's
-                        // — never the occupant's rate_sheet_items above.
-                        $legs = $this->publicCommercialLegs(
-                            $readModel,
-                            is_array($rawEdition['commercial_legs'] ?? null) ? $rawEdition['commercial_legs'] : [],
-                            $rawEdition['rate_sheet_items'] ?? [],
-                            $rawEdition['rate_sheet_id'] ?? null,
-                            (bool) ($rawEdition['contact'] ?? false)
-                        );
-                        return [...$option, 'price' => $editionPriceById[$option['id']] ?? $option['price'], 'commercial_legs' => $legs];
-                    },
+                    static fn(array $option): array => [...$option, 'price' => $editionPriceById[$option['id']] ?? $option['price']],
                     $extracted['edition_options']
                 );
             }
@@ -1653,112 +1655,6 @@ class PackageRepository
             $projected['_selected_inclusion_source_ids'] = $selectedInclusionSourceIds;
         }
         return $projected;
-    }
-
-    /**
-     * item_id -> bundle_id index for one Rate Sheet, used to recognise a
-     * Bundle-backed row among a set of resolved rate-projection selections.
-     * Shared by the occupant's own inclusions and every commercial leg's own
-     * inclusions below — same sheet lookup, never repeated per caller.
-     *
-     * @return array<string, string>
-     */
-    private function bundleIdIndexForRateSheet(array $readModel, ?string $rateSheetId): array
-    {
-        $rateSheet = PackageManagerSchema::findRateSheet(
-            is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
-            $rateSheetId
-        );
-        $bundleIdByItemId = [];
-        foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $sheetRow) {
-            $rowBundleId = (string) ($sheetRow['bundle_id'] ?? '');
-            if ($rowBundleId !== '') {
-                $bundleIdByItemId[(string) ($sheetRow['item_id'] ?? '')] = $rowBundleId;
-            }
-        }
-        return $bundleIdByItemId;
-    }
-
-    /**
-     * Resolved projectTierRateSheetWith() selection rows -> the public
-     * ServiceInclusion[] shape (id/label/quantity, plus bundle_id/includes
-     * for a Bundle-backed row). Callers pass already-filtered
-     * (resolved + inclusion-or-Bundle) rows; this only reshapes them.
-     *
-     * @param  array<int, array<string, mixed>> $resolvedRows
-     * @param  array<string, string>            $bundleIdByItemId
-     * @return array<int, array<string, mixed>>
-     */
-    private function publicInclusionsFromSelections(array $resolvedRows, array $bundleIdByItemId): array
-    {
-        return array_map(
-            static function (array $row) use ($bundleIdByItemId): array {
-                $entry = ['id' => $row['item_id'], 'label' => $row['label'], 'quantity' => $row['quantity']];
-                $bundleId = $bundleIdByItemId[$row['item_id']] ?? null;
-                if ($bundleId !== null) {
-                    $entry['bundle_id'] = $bundleId;
-                    // Read-only display children — what this Bundle
-                    // compiles — never separately chargeable or selectable
-                    // lines of their own, mirroring PoolInclusionsEditor's
-                    // admin-side sub-list.
-                    $entry['includes'] = array_map(
-                        static fn(array $include): array => [
-                            'id'       => (string) ($include['item_id'] ?? ''),
-                            'label'    => (string) ($include['label'] ?? ''),
-                            'quantity' => (int) ($include['quantity'] ?? 1),
-                        ],
-                        is_array($row['includes'] ?? null) ? $row['includes'] : []
-                    );
-                }
-                return $entry;
-            },
-            $resolvedRows
-        );
-    }
-
-    /**
-     * A Tier occupant's or Edition's own commercial legs (Phase 3 — public
-     * projection), each resolved to its own price and public-shaped
-     * inclusions. No new pricing calculation: PackageManagerSchema::
-     * projectCommercialLegs() is the same Phase 1 authority price/
-     * edition_options already resolve through; this only reshapes its
-     * output the same way the occupant's own inclusions are reshaped above.
-     * Empty $legs (Simple Mode, or a record that has never used this
-     * capability) returns [] without doing any work.
-     *
-     * @param  array<int, array<string, mixed>> $legs
-     * @param  array<int, array<string, mixed>> $selections
-     * @return array<int, array<string, mixed>>
-     */
-    private function publicCommercialLegs(
-        array $readModel,
-        array $legs,
-        array $selections,
-        ?string $rateSheetId,
-        bool $contact
-    ): array {
-        if ($legs === []) {
-            return [];
-        }
-        $bundleIdByItemId = $this->bundleIdIndexForRateSheet($readModel, $rateSheetId);
-        return array_map(
-            function (array $leg) use ($bundleIdByItemId): array {
-                $resolvedInclusions = array_values(array_filter(
-                    $leg['selections'],
-                    static fn(array $row): bool => $row['resolved']
-                        && (($row['source_type'] ?? null) === 'inclusion' || isset($bundleIdByItemId[$row['item_id']]))
-                ));
-                return [
-                    'id'            => $leg['id'],
-                    'billing_cycle' => $leg['billing_cycle'],
-                    'start_month'   => $leg['start_month'],
-                    'end_month'     => $leg['end_month'],
-                    'price'         => $leg['price'],
-                    'inclusions'    => $this->publicInclusionsFromSelections($resolvedInclusions, $bundleIdByItemId),
-                ];
-            },
-            PackageManagerSchema::projectCommercialLegs($readModel, $legs, $selections, $rateSheetId, $contact)
-        );
     }
 
     /**
