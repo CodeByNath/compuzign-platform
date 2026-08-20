@@ -1902,17 +1902,24 @@ final class PackageManagerSchema
      * today). No new pricing calculation — a thin wrapper around the one
      * existing projector, reused so a Tier occupant's own live price and a
      * Tier Edition's own live price share the exact same authority. Every
-     * other key on each row passes through untouched.
+     * other key on each row passes through untouched. The only consumer
+     * (PackageRepository's edition_options mapping) reads `price`/`id`
+     * alone, so routing the price through headlineSelections() here — Row 1
+     * once the Edition's own commercial_legs are configured, its raw
+     * rate_sheet_items unchanged otherwise — carries no side effect on any
+     * other field (2026-08 Tier Inclusion ownership correction).
      *
-     * @param  array<int, array{rate_sheet_id?: ?string, rate_sheet_items?: array}> $editions
+     * @param  array<int, array{rate_sheet_id?: ?string, rate_sheet_items?: array, commercial_legs?: array}> $editions
      * @return array<int, array>
      */
     public static function projectEditionPrices(array $readModel, array $editions): array
     {
         return array_map(function (array $edition) use ($readModel): array {
+            $rawItems = $edition['rate_sheet_items'] ?? [];
+            $legs = is_array($edition['commercial_legs'] ?? null) ? $edition['commercial_legs'] : [];
             $projection = self::projectTierRateSheetWith(
                 $readModel,
-                $edition['rate_sheet_items'] ?? [],
+                self::headlineSelections($rawItems, $legs),
                 $edition['rate_sheet_id'] ?? null,
                 (bool) ($edition['contact'] ?? false)
             );
@@ -1951,27 +1958,7 @@ final class PackageManagerSchema
     ): array {
         return array_map(function (array $leg) use ($readModel, $selections, $rateSheetId, $contact): array {
             $legId = (string) ($leg['id'] ?? '');
-            $legSelections = [];
-            foreach ($selections as $selection) {
-                if (!is_array($selection)) { continue; }
-                foreach ($selection['leg_assignments'] ?? [] as $assignment) {
-                    if (!is_array($assignment) || (string) ($assignment['leg_id'] ?? '') !== $legId) { continue; }
-                    $legSelections[] = [
-                        'item_id'         => $selection['item_id'] ?? '',
-                        // The assignment's OWN quantity — independent of the
-                        // selection's top-level quantity, which governs the
-                        // Default declaration's own total, a separate
-                        // concern. sanitizeLegAssignments() already defaults
-                        // this to 1 for any properly-sanitized assignment;
-                        // the ?? 1 here is defense-in-depth only, never a
-                        // fallback to the selection's own different quantity.
-                        'quantity'        => $assignment['quantity'] ?? 1,
-                        'price_option_id' => $assignment['price_option_id'] ?? null,
-                    ];
-                    break; // sanitizeLegAssignments() already dedupes one selection's assignments by leg_id.
-                }
-            }
-            $projection = self::projectTierRateSheetWith($readModel, $legSelections, $rateSheetId, $contact);
+            $projection = self::projectTierRateSheetWith($readModel, self::legSelections($selections, $legId), $rateSheetId, $contact);
             $endMonth = $leg['end_month'] ?? null;
             return [
                 'id'               => $legId,
@@ -1987,6 +1974,74 @@ final class PackageManagerSchema
                 'selections'       => $projection['selections'],
             ];
         }, $legs);
+    }
+
+    /**
+     * One leg's own synthesized selection list: each Rate Sheet row that
+     * carries a leg_assignments entry naming $legId, rebuilt as a plain
+     * {item_id, quantity, price_option_id} row using THAT assignment's own
+     * quantity/price_option_id — never the selection's top-level fields,
+     * which are a separate concern (see headlineSelections() below). A row
+     * with no assignment for this leg contributes nothing: it does not
+     * participate in this leg's own pricing period. Shared by
+     * projectCommercialLegs() (every leg) and headlineSelections() (Row 1
+     * only) so the two can never compute a leg's own total two different
+     * ways.
+     *
+     * @param  array<int, array{item_id?:string, quantity?:int, leg_assignments?:array}> $selections
+     * @return array<int, array{item_id:string, quantity:int, price_option_id:?string}>
+     */
+    private static function legSelections(array $selections, string $legId): array
+    {
+        $legSelections = [];
+        foreach ($selections as $selection) {
+            if (!is_array($selection)) { continue; }
+            foreach ($selection['leg_assignments'] ?? [] as $assignment) {
+                if (!is_array($assignment) || (string) ($assignment['leg_id'] ?? '') !== $legId) { continue; }
+                $legSelections[] = [
+                    'item_id'         => $selection['item_id'] ?? '',
+                    // sanitizeLegAssignments() already defaults this to 1 for
+                    // any properly-sanitized assignment; the ?? 1 here is
+                    // defense-in-depth only, never a fallback to the
+                    // selection's own different top-level quantity.
+                    'quantity'        => $assignment['quantity'] ?? 1,
+                    'price_option_id' => $assignment['price_option_id'] ?? null,
+                ];
+                break; // sanitizeLegAssignments() already dedupes one selection's assignments by leg_id.
+            }
+        }
+        return $legSelections;
+    }
+
+    /**
+     * The headline/default price selections for a Tier occupant or Edition
+     * (2026-08 Tier Inclusion ownership correction). Row 1 — the first
+     * Commercial Leg, array order, never picked by date/indefinite-status
+     * (no such marker exists on a leg; see docs/code-map/tier-edition.md) —
+     * is the plan's own default declaration once Commercial Legs are
+     * configured; selection.quantity/price_option_id (Simple Mode's own
+     * fields) remain authoritative ONLY for a genuinely unconfigured/legacy
+     * record with no legs at all, which has no leg to resolve from. This is
+     * the ONE place the headline price switches source — projectTierRate
+     * SheetWith() itself stays selection-source-agnostic and unchanged, and
+     * projectCommercialLegs()'s own per-leg breakdown (every leg, additive)
+     * is untouched.
+     *
+     * @param  array<int, array{item_id?:string, quantity?:int, price_option_id?:?string, leg_assignments?:array}> $selections
+     * @param  array<int, array{id?:string}> $legs
+     * @return array
+     */
+    public static function headlineSelections(array $selections, array $legs): array
+    {
+        $firstLeg = $legs[0] ?? null;
+        if (!is_array($firstLeg)) {
+            return $selections;
+        }
+        $firstLegId = (string) ($firstLeg['id'] ?? '');
+        if ($firstLegId === '') {
+            return $selections;
+        }
+        return self::legSelections($selections, $firstLegId);
     }
 
     // ── Consumer projections ─────────────────────────────────────────────────
