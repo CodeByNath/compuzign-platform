@@ -554,6 +554,14 @@ export interface SurfaceTierDetail {
   // every occupant that has never configured one. See docs/code-map/tier-edition.md.
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
+  // The month range this billing cycle's own declaration covers — a
+  // coverage window, not a commitment length: e.g. a recurring monthly
+  // cycle that only applies from month 3 through month 12 of the
+  // occupant's overall term. Plain integers, not calendar-bound to 1-12 —
+  // a range may run past 12 to describe a later year. Null for every
+  // occupant that has never configured one.
+  from_month: number | null;
+  to_month: number | null;
   // The Rate Sheet this occupant's selections resolve against. Null when the
   // occupant is unbound (no selections). Switching it clears the selections.
   rate_sheet_id: string | null;
@@ -621,6 +629,10 @@ export interface TierEdition {
   billing_cycle: string | null;
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
+  // See SurfaceTierDetail.from_month/to_month — this Edition's own coverage
+  // window, independent of the occupant's own Default declaration.
+  from_month: number | null;
+  to_month: number | null;
   // Empty means inherit the parent occupant's own inclusions_override/
   // faq_refs; non-empty is this Edition's deliberate declaration override.
   inclusions_override: InclusionItem[];
@@ -640,6 +652,8 @@ export interface TierEditionOverviewDraft {
   contact: boolean;
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
+  from_month: number | null;
+  to_month: number | null;
   inclusions_override: InclusionItem[];
   faq_refs: string[];
 }
@@ -712,6 +726,10 @@ export interface TierPricingRulesDraft {
   // resetting it (PackageSchema::settleTierSlot).
   minimum_term_value?: number | null;
   minimum_term_unit?: string | null;
+  // See SurfaceTierDetail.from_month/to_month. Same omission rule: an
+  // omitted key preserves the settled occupant's existing value.
+  from_month?: number | null;
+  to_month?: number | null;
 }
 
 export interface TierRateSheetSelection {

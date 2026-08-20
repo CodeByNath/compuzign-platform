@@ -1532,6 +1532,20 @@ class PackageStationController
                     ? sanitize_text_field((string) $body['minimum_term_unit'])
                     : null;
             }
+            // Coverage window this billing declaration applies to — plain
+            // integers, not calendar-bound to 1-12. Same omitted-key-
+            // preserves/explicit-null-clears rule as the commitment fields
+            // above.
+            if (array_key_exists('from_month', $body)) {
+                $draftValue['from_month'] = ($body['from_month'] !== null && $body['from_month'] !== '')
+                    ? (int) $body['from_month']
+                    : null;
+            }
+            if (array_key_exists('to_month', $body)) {
+                $draftValue['to_month'] = ($body['to_month'] !== null && $body['to_month'] !== '')
+                    ? (int) $body['to_month']
+                    : null;
+            }
         } elseif ($module === 'features') {
             $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs

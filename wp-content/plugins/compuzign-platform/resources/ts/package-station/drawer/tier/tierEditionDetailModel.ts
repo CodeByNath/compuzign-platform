@@ -80,6 +80,8 @@ export function buildTierEditionDetail(
       billingCycle:     edition.billing_cycle,
       minimumTermValue: edition.minimum_term_value,
       minimumTermUnit:  edition.minimum_term_unit,
+      fromMonth: edition.from_month,
+      toMonth:   edition.to_month,
     },
     state: moduleState,
     hasDraft,

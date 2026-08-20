@@ -176,6 +176,8 @@ export function buildTierDetail(
       billingCycle:  detail.billing_cycle,
       minimumTermValue: detail.minimum_term_value,
       minimumTermUnit:  detail.minimum_term_unit,
+      fromMonth: detail.from_month,
+      toMonth:   detail.to_month,
     },
     state:    view.modules.pricing_rules,
     hasDraft: view.drafts.pricing_rules !== null,

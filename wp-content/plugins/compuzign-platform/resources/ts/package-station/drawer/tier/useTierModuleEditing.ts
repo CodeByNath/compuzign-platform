@@ -52,6 +52,10 @@ export function useTierModuleEditing({
         billing_cycle: d.billing_cycle ?? 'monthly',
         minimum_term_value: d.minimum_term_value,
         minimum_term_unit:  d.minimum_term_unit,
+        // Coverage window — 1/12 (full-year default) for an occupant that
+        // has never configured one, matching what the fields already show.
+        from_month: d.from_month ?? 1,
+        to_month:   d.to_month ?? 12,
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));

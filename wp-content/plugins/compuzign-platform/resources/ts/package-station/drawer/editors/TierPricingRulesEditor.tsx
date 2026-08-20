@@ -154,6 +154,26 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
           onChange={(billing_cycle: string) => onChange({ billing_cycle })}
         />
       </div>
+
+      {/* Coverage window this declaration applies to — plain month numbers,
+          not calendar-bound to 1-12: e.g. a recurring cycle covering only
+          months 3-12, or extending past 12 into a later year. draft is
+          seeded with 1/12 when the editor opens (useTierModuleEditing.ts),
+          so what's shown here already matches what a Save with no further
+          edits would persist. */}
+      <div class="cz-tf-field-row">
+        <AdminField
+          def={{ id: 'tier-from-month', type: 'text', label: 'From month' }}
+          value={draft.from_month != null ? String(draft.from_month) : ''}
+          onChange={(v: string) => onChange({ from_month: v === '' ? null : Number(v) })}
+        />
+
+        <AdminField
+          def={{ id: 'tier-to-month', type: 'text', label: 'To month' }}
+          value={draft.to_month != null ? String(draft.to_month) : ''}
+          onChange={(v: string) => onChange({ to_month: v === '' ? null : Number(v) })}
+        />
+      </div>
     </div>
   );
 }

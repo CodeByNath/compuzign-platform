@@ -86,6 +86,11 @@ export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewD
     contact: edition.contact,
     minimum_term_value: edition.minimum_term_value,
     minimum_term_unit: edition.minimum_term_unit,
+    // Coverage window — 1/12 (full-year default) for an Edition that has
+    // never configured one, matching what the fields already show. See
+    // the occupant's own equivalent seed in useTierModuleEditing.ts.
+    from_month: edition.from_month ?? 1,
+    to_month:   edition.to_month ?? 12,
     inclusions_override: edition.inclusions_override,
     faq_refs: edition.faq_refs,
   };

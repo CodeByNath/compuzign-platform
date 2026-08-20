@@ -91,6 +91,8 @@ export interface TierEditionPricingRulesShellData {
   billingCycle:     string | null;
   minimumTermValue: number | null;
   minimumTermUnit:  string | null;
+  fromMonth: number | null;
+  toMonth:   number | null;
 }
 
 const PRICING_RULES_ACTIONS: Record<string, ShellActionSchema> = {
@@ -119,6 +121,12 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
       id: 'minimum-term', element: 'text', label: 'Minimum commitment',
       bind: (d): TextValue => ({
         value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
+      }),
+    },
+    {
+      id: 'coverage', element: 'text', label: 'Coverage',
+      bind: (d): TextValue => ({
+        value: d.fromMonth != null && d.toMonth != null ? `Month ${d.fromMonth} – ${d.toMonth}` : '—',
       }),
     },
   ],

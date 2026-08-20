@@ -132,6 +132,14 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
         />
         <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: billingCycleOptions }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
       </div>
+
+      {/* Coverage window — mirrors the occupant's own TierPricingRulesEditor.tsx.
+          draft is seeded with 1/12 when the editor opens (draftFromTierEdition,
+          tierEditionModel.ts). */}
+      <div class="cz-tf-field-row">
+        <AdminField def={{ id: 'edt-from-month', type: 'text', label: 'From month' }} value={draft.from_month != null ? String(draft.from_month) : ''} onChange={(v: string) => onChange({ from_month: v === '' ? null : Number(v) })} />
+        <AdminField def={{ id: 'edt-to-month', type: 'text', label: 'To month' }} value={draft.to_month != null ? String(draft.to_month) : ''} onChange={(v: string) => onChange({ to_month: v === '' ? null : Number(v) })} />
+      </div>
     </div>
   );
 }

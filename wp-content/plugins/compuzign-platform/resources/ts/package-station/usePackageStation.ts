@@ -115,6 +115,9 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     // settled occupant's existing value rather than reading as cleared.
     minimum_term_value:  pr && pr.minimum_term_value !== undefined ? pr.minimum_term_value : slot.minimum_term_value,
     minimum_term_unit:   pr && pr.minimum_term_unit  !== undefined ? pr.minimum_term_unit  : slot.minimum_term_unit,
+    // Same draft-preferred rule for the coverage window.
+    from_month:          pr && pr.from_month !== undefined ? pr.from_month : slot.from_month,
+    to_month:            pr && pr.to_month   !== undefined ? pr.to_month   : slot.to_month,
     // A pending sheet switch lives on the Pricing Rules draft; otherwise the settled binding.
     rate_sheet_id:       pr && pr.rate_sheet_id !== undefined ? pr.rate_sheet_id : slot.rate_sheet_id,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,

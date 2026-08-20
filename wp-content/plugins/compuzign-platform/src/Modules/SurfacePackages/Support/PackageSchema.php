@@ -882,6 +882,10 @@ class PackageSchema
                 // Edition's own minimum_term_value/unit. See docs/code-map/tier-edition.md.
                 'minimum_term_value'  => isset($occ['minimum_term_value']) && $occ['minimum_term_value'] !== null ? (float) $occ['minimum_term_value'] : null,
                 'minimum_term_unit'   => $occ['minimum_term_unit'] ?? null,
+                // Coverage window this billing declaration applies to — plain
+                // integers, not calendar-bound to 1-12. See docs/code-map/tiers.md.
+                'from_month'          => isset($occ['from_month']) && $occ['from_month'] !== null ? (int) $occ['from_month'] : null,
+                'to_month'            => isset($occ['to_month']) && $occ['to_month'] !== null ? (int) $occ['to_month'] : null,
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
                 'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
@@ -927,6 +931,8 @@ class PackageSchema
             // carry forward at this layer.
             'minimum_term_value'  => null,
             'minimum_term_unit'   => null,
+            'from_month'          => null,
+            'to_month'            => null,
             'inclusions_override' => $tier['inclusions_override'] ?? [],
             'rate_sheet_id'       => self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []),
             'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($tier['rate_sheet_items'] ?? []),
@@ -1165,6 +1171,19 @@ class PackageSchema
             $minTermValue = (float) $data['minimum_term_value'];
         }
 
+        // Coverage window this billing declaration applies to — plain
+        // integers, not calendar-bound to 1-12 (a range may run past 12 to
+        // describe a later year). Same empty/null-stays-null rule as the
+        // commitment fields above.
+        $fromMonth = null;
+        if (isset($data['from_month']) && $data['from_month'] !== null && $data['from_month'] !== '') {
+            $fromMonth = (int) $data['from_month'];
+        }
+        $toMonth = null;
+        if (isset($data['to_month']) && $data['to_month'] !== null && $data['to_month'] !== '') {
+            $toMonth = (int) $data['to_month'];
+        }
+
         return [
             'current_occupant' => [
                 'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
@@ -1194,6 +1213,8 @@ class PackageSchema
                 'minimum_term_unit'   => (isset($data['minimum_term_unit']) && $data['minimum_term_unit'] !== '')
                     ? sanitize_text_field((string) $data['minimum_term_unit'])
                     : null,
+                'from_month'          => $fromMonth,
+                'to_month'            => $toMonth,
                 'rate_sheet_id'       => $rateSheetId,
                 'inclusions_override' => $data['inclusions_override'] ?? [],
                 'rate_sheet_items'    => $selections,
@@ -1306,6 +1327,14 @@ class PackageSchema
         if (isset($edition['minimum_term_value']) && $edition['minimum_term_value'] !== null && $edition['minimum_term_value'] !== '') {
             $minTermValue = (float) $edition['minimum_term_value'];
         }
+        $fromMonth = null;
+        if (isset($edition['from_month']) && $edition['from_month'] !== null && $edition['from_month'] !== '') {
+            $fromMonth = (int) $edition['from_month'];
+        }
+        $toMonth = null;
+        if (isset($edition['to_month']) && $edition['to_month'] !== null && $edition['to_month'] !== '') {
+            $toMonth = (int) $edition['to_month'];
+        }
 
         return [
             'id'                       => $id,
@@ -1336,6 +1365,10 @@ class PackageSchema
             'minimum_term_unit'        => (isset($edition['minimum_term_unit']) && $edition['minimum_term_unit'] !== '')
                 ? sanitize_text_field((string) $edition['minimum_term_unit'])
                 : null,
+            // See SurfaceTierDetail's own from_month/to_month — this
+            // Edition's own coverage window, independent of the occupant's.
+            'from_month'               => $fromMonth,
+            'to_month'                 => $toMonth,
 
             // Empty means inherit the parent occupant's own inclusions_override
             // / faq_refs — the same empty-means-inherit rule the occupant
@@ -1407,6 +1440,8 @@ class PackageSchema
             'contact'             => $data['contact'] ?? false,
             'minimum_term_value'  => $data['minimum_term_value'] ?? null,
             'minimum_term_unit'   => $data['minimum_term_unit'] ?? null,
+            'from_month'          => $data['from_month'] ?? null,
+            'to_month'            => $data['to_month'] ?? null,
             'inclusions_override' => $data['inclusions_override'] ?? [],
             'faq_refs'            => $data['faq_refs'] ?? [],
         ]);
@@ -1472,6 +1507,8 @@ class PackageSchema
             'contact'              => $data['contact'] ?? false,
             'minimum_term_value'   => $data['minimum_term_value'] ?? null,
             'minimum_term_unit'    => $data['minimum_term_unit'] ?? null,
+            'from_month'           => $data['from_month'] ?? null,
+            'to_month'             => $data['to_month'] ?? null,
             'inclusions_override'  => $data['inclusions_override'] ?? [],
             'faq_refs'             => $data['faq_refs'] ?? [],
         ];
@@ -1513,6 +1550,8 @@ class PackageSchema
         $edition['contact']             = $draft['contact'] ?? $edition['contact'];
         $edition['minimum_term_value']  = array_key_exists('minimum_term_value', $draft) ? $draft['minimum_term_value'] : $edition['minimum_term_value'];
         $edition['minimum_term_unit']   = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
+        $edition['from_month']          = array_key_exists('from_month', $draft) ? $draft['from_month'] : $edition['from_month'];
+        $edition['to_month']            = array_key_exists('to_month', $draft)   ? $draft['to_month']   : $edition['to_month'];
         $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];
         $edition['faq_refs']            = $draft['faq_refs'] ?? $edition['faq_refs'];
 
@@ -1861,6 +1900,7 @@ class PackageSchema
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
             'billing_cycle' => null, 'minimum_term_value' => null, 'minimum_term_unit' => null,
+            'from_month' => null, 'to_month' => null,
             'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
             'tier_editions' => [], 'tier_edition_bin' => [],
@@ -2422,6 +2462,9 @@ class PackageSchema
             // settled occupant's existing value carries forward untouched.
             'minimum_term_value'  => array_key_exists('minimum_term_value', $pr) ? $pr['minimum_term_value'] : ($occ['minimum_term_value'] ?? null),
             'minimum_term_unit'   => array_key_exists('minimum_term_unit', $pr)  ? $pr['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null),
+            // Coverage window — same draft-preferred rule as commitment above.
+            'from_month'          => array_key_exists('from_month', $pr) ? $pr['from_month'] : ($occ['from_month'] ?? null),
+            'to_month'            => array_key_exists('to_month', $pr)   ? $pr['to_month']   : ($occ['to_month']   ?? null),
             'rate_sheet_id'       => $draftRateSheetId,
             'inclusions_override' => [],
             'rate_sheet_items'    => $selections,
