@@ -37,6 +37,8 @@ const FIXED_BILLING_CYCLES: AdminFieldOption[] = [
 const RECURRING_BILLING_CYCLES: AdminFieldOption[] = [
   { value: 'annually', label: 'Yearly' },
   { value: 'monthly', label: 'Monthly' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'daily', label: 'Daily' },
 ];
 
 function paymentCategoryOf(billingCycle: string | null): PaymentCategory {
