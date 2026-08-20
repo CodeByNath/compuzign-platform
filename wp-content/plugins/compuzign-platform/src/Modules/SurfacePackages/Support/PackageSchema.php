@@ -46,15 +46,6 @@ class PackageSchema
     // and is intentionally left unvalidated against it — see sanitizeCommercialLegs().
     public const BILLING_CYCLES              = ['monthly', 'annually', 'one-time'];
 
-    // Tier Pricing Rules — Commercial Legs are the sole pricing-schedule
-    // mechanism (Simple Mode retired, see docs/code-map/tier-pricing-rules-plan.md).
-    // A leg's own Payment Category and Billing Cycle vocabularies, validated
-    // directly by sanitizeCommercialLegs() — independent of BILLING_CYCLES/
-    // active_billing_cycles above, which stay reserved for the legacy scalar's
-    // stored values and read/back-compat only.
-    public const PAYMENT_CATEGORIES            = ['one-time', 'recurring'];
-    public const COMMERCIAL_LEG_BILLING_CYCLES = ['upfront', 'monthly', 'yearly'];
-
     // Lifecycle engine C1 — promotion instance envelope. Same module trio as tiers;
     // envelope statuses come from the engine (StationLifecycle::STATUSES), NOT from
     // ALLOWED_PROMOTION_STATUSES: the legacy top-level status field stays the
@@ -133,11 +124,7 @@ class PackageSchema
             }
             $cycle = (string) $leg['billing_cycle'];
             $start = (int) $leg['start_month'];
-            // Indefinite (null end_month, no commitment bounding this leg) —
-            // treat as unbounded for overlap purposes, never coerce null to 0
-            // (which would make an Indefinite leg look like it ends before it
-            // starts and corrupt every range comparison below).
-            $end   = $leg['end_month'] === null ? PHP_INT_MAX : (int) $leg['end_month'];
+            $end   = (int) $leg['end_month'];
             $overlaps = false;
             foreach ($acceptedRangesByCycle[$cycle] ?? [] as $range) {
                 if ($start <= $range[1] && $range[0] <= $end) { $overlaps = true; break; }
@@ -151,11 +138,6 @@ class PackageSchema
             $out[] = [
                 'leg_id'          => $legId,
                 'price_option_id' => ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId),
-                // Per-leg quantity — same max(1, …) rule as the selection's own
-                // top-level quantity. Lets one inclusion carry a different
-                // quantity per leg (e.g. 2 seats upfront, 5 once recurring
-                // starts) rather than one quantity forced across every leg.
-                'quantity'        => max(1, (int) ($assignment['quantity'] ?? 1)),
             ];
         }
         return $out;
@@ -209,25 +191,17 @@ class PackageSchema
 
     /**
      * Sanitise a Tier/Edition's own commercial legs — each a scheduled
-     * application of one Payment Category + Commercial Leg Billing Cycle
-     * across an inclusive month range. A leg naming a cycle/category outside
-     * COMMERCIAL_LEG_BILLING_CYCLES/PAYMENT_CATEGORIES, or an out-of-order/
-     * zero start, is dropped rather than clamped or fabricated — the same
-     * defensive posture sanitizeTierEditions() already uses for malformed
-     * child rows. Commitment and Legs are independent concerns (Tier Pricing
-     * Rules): $commitmentMonths is null whenever there is no commitment (the
-     * caller already resolves this — see draftPreferredCommitmentMonths() —
-     * including forcing null when commitment_enabled is false regardless of
-     * any stored minimum_term_value), in which case `end_month` may be
-     * omitted entirely (Indefinite, no upper bound). A non-null
-     * $commitmentMonths bounds `end_month`: omitted end is invalid (a leg
-     * under a real commitment must state where it ends) and an end beyond
-     * the commitment is dropped. Re-run on every read/write, so shortening
-     * the commitment after legs already exist silently drops whatever no
-     * longer fits, with no separate cascade step required. Mints no id — see
-     * mintCommercialLegId().
+     * application of one active billing cycle across an inclusive month
+     * range bounded by the declared commitment. A leg naming a cycle outside
+     * $activeCycles, an out-of-order/zero range, or a range outside
+     * [1, $commitmentMonths], is dropped rather than clamped or fabricated —
+     * the same defensive posture sanitizeTierEditions() already uses for
+     * malformed child rows. Re-run on every read/write, so shortening the
+     * commitment or narrowing the active cycles after legs already exist
+     * silently drops whatever no longer fits, with no separate cascade step
+     * required. Mints no id — see mintCommercialLegId().
      */
-    public static function sanitizeCommercialLegs(mixed $legs, ?float $commitmentMonths): array
+    public static function sanitizeCommercialLegs(mixed $legs, array $activeCycles, ?float $commitmentMonths): array
     {
         if (!is_array($legs)) {
             return [];
@@ -243,41 +217,19 @@ class PackageSchema
                 continue;
             }
             $cycle = is_string($leg['billing_cycle'] ?? null) ? trim($leg['billing_cycle']) : '';
-            if ($cycle === '' || !in_array($cycle, self::COMMERCIAL_LEG_BILLING_CYCLES, true)) {
-                continue;
-            }
-            $category = is_string($leg['payment_category'] ?? null) ? trim($leg['payment_category']) : '';
-            if ($category === '' || !in_array($category, self::PAYMENT_CATEGORIES, true)) {
+            if ($cycle === '' || !in_array($cycle, $activeCycles, true)) {
                 continue;
             }
             $start = (int) ($leg['start_month'] ?? 0);
-            if ($start < 1) {
+            $end   = (int) ($leg['end_month'] ?? 0);
+            if ($start < 1 || $end < $start || $end > 1200) {
                 continue;
             }
-            $rawEnd = $leg['end_month'] ?? null;
-            $end = ($rawEnd === null || $rawEnd === '') ? null : (int) $rawEnd;
-            if ($commitmentMonths === null) {
-                // No commitment — Indefinite (null end) is valid; a stated
-                // end must still be a real, in-order range.
-                if ($end !== null && ($end < $start || $end > 1200)) {
-                    continue;
-                }
-            } else {
-                // A real commitment bounds every leg — Indefinite is not a
-                // valid shape under it, matching "leg durations may be
-                // bounded by that commitment."
-                if ($end === null || $end < $start || $end > $commitmentMonths) {
-                    continue;
-                }
+            if ($commitmentMonths !== null && $end > $commitmentMonths) {
+                continue;
             }
             $seen[$id] = true;
-            $out[] = [
-                'id'               => $id,
-                'payment_category' => $category,
-                'billing_cycle'    => $cycle,
-                'start_month'      => $start,
-                'end_month'        => $end,
-            ];
+            $out[] = ['id' => $id, 'billing_cycle' => $cycle, 'start_month' => $start, 'end_month' => $end];
         }
         return $out;
     }
@@ -1086,13 +1038,13 @@ class PackageSchema
             $editions = self::sanitizeTierEditions($occ['tier_editions'] ?? []);
             $editionBin = self::ensureTierEditionBin($occ)['tier_edition_bin'];
             $activeBillingCycles = self::sanitizeActiveBillingCycles($occ['active_billing_cycles'] ?? []);
-            $commitmentEnabled = (bool) ($occ['commitment_enabled'] ?? false);
             $commercialLegs = self::sanitizeCommercialLegs(
                 $occ['commercial_legs'] ?? [],
-                $commitmentEnabled ? self::commitmentMonths(
+                $activeBillingCycles,
+                self::commitmentMonths(
                     isset($occ['minimum_term_value']) && $occ['minimum_term_value'] !== null ? (float) $occ['minimum_term_value'] : null,
                     $occ['minimum_term_unit'] ?? null
-                ) : null
+                )
             );
             return [
                 'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
@@ -1109,11 +1061,6 @@ class PackageSchema
                 // Edition's own minimum_term_value/unit. See docs/code-map/tier-edition.md.
                 'minimum_term_value'  => isset($occ['minimum_term_value']) && $occ['minimum_term_value'] !== null ? (float) $occ['minimum_term_value'] : null,
                 'minimum_term_unit'   => $occ['minimum_term_unit'] ?? null,
-                // Independent of commercial_legs below — gates only Commitment
-                // Unit/Minimum Commitment (Tier Pricing Rules). Commercial Legs
-                // are never nested under, disabled by, or cleared because this
-                // is false. See docs/code-map/tier-pricing-rules-plan.md.
-                'commitment_enabled'  => $commitmentEnabled,
                 // Multi-cycle commercial schedule (Phase 0 — schema only). Empty
                 // for every occupant that has never used this capability: Simple
                 // Mode's own billing_cycle/price_option_id above stay fully
@@ -1165,7 +1112,6 @@ class PackageSchema
             // carry forward at this layer.
             'minimum_term_value'  => null,
             'minimum_term_unit'   => null,
-            'commitment_enabled'  => false,
             // Phase 1 flat slots predate commercial legs entirely, same as
             // minimum_term above — nothing to carry forward at this layer.
             'active_billing_cycles' => [],
@@ -1392,11 +1338,6 @@ class PackageSchema
         $existingPlatformId = '';
         $existingAddonPlatformId = '';
         $existingExplicitlyDisabled = false;
-        // Falls back to the existing occupant's own value (not hardcoded
-        // false) so a caller that does not yet know about this field — e.g.
-        // the legacy flat atomic tier-save path, which never sends it —
-        // never silently resets it. See sanitizeCommercialLegs().
-        $existingCommitmentEnabled = false;
         // Editions are mutated only through their own Package-Station-owned
         // child operations (Phase 2+), never through this Overview/Features/
         // FAQs occupant save path — so this function only ever preserves
@@ -1415,7 +1356,6 @@ class PackageSchema
             $existingPlatformId = (string) ($tierSlot['current_occupant']['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
             $existingExplicitlyDisabled = self::isExplicitlyDisabled($tierSlot['current_occupant'] ?? null);
-            $existingCommitmentEnabled = (bool) ($tierSlot['current_occupant']['commitment_enabled'] ?? false);
             $existingTierEditions = self::sanitizeTierEditions($tierSlot['current_occupant']['tier_editions'] ?? []);
             $existingTierEditionBin = self::ensureTierEditionBin($tierSlot['current_occupant'] ?? [])['tier_edition_bin'];
         } elseif (self::hasConfiguredContent($tierSlot)) {
@@ -1449,21 +1389,16 @@ class PackageSchema
             ? sanitize_text_field((string) $data['minimum_term_unit'])
             : null;
 
-        // Independent of commercial_legs below — see sanitizeCommercialLegs().
-        $commitmentEnabled = array_key_exists('commitment_enabled', $data)
-            ? (bool) $data['commitment_enabled']
-            : $existingCommitmentEnabled;
-
         // Multi-cycle commercial schedule — same local, not-shared-with-Edition
         // precedent as $minTermValue/$minTermUnit above. Legs are re-validated
-        // against this same save's own commitment every time, so a commitment
-        // shortened in the same request drops whatever no longer fits with no
-        // separate cascade step. active_billing_cycles no longer gates legs —
-        // kept only for read/back-compat, see BILLING_CYCLES.
+        // against this same save's own active cycles/commitment every time, so
+        // a commitment shortened in the same request drops whatever no longer
+        // fits with no separate cascade step.
         $activeBillingCycles = self::sanitizeActiveBillingCycles($data['active_billing_cycles'] ?? []);
         $commercialLegs = self::sanitizeCommercialLegs(
             $data['commercial_legs'] ?? [],
-            $commitmentEnabled ? self::commitmentMonths($minTermValue, $minTermUnit) : null
+            $activeBillingCycles,
+            self::commitmentMonths($minTermValue, $minTermUnit)
         );
 
         // First configuration (no prior binding) keeps the incoming selections;
@@ -1499,7 +1434,6 @@ class PackageSchema
                 // docs/code-map/tier-edition.md.
                 'minimum_term_value'  => $minTermValue,
                 'minimum_term_unit'   => $minTermUnit,
-                'commitment_enabled'  => $commitmentEnabled,
                 'active_billing_cycles' => $activeBillingCycles,
                 'commercial_legs'       => $commercialLegs,
                 'rate_sheet_id'       => $rateSheetId,
@@ -1618,16 +1552,14 @@ class PackageSchema
             ? sanitize_text_field((string) $edition['minimum_term_unit'])
             : null;
 
-        // Independent of commercial_legs below — see sanitizeCommercialLegs().
-        $commitmentEnabled = (bool) ($edition['commitment_enabled'] ?? false);
-
         // Multi-cycle commercial schedule — an Edition's own, independent of
         // the parent occupant's (never inherited, same rule as price/
         // billing_cycle/commitment above). See docs/code-map/tier-edition.md.
         $activeBillingCycles = self::sanitizeActiveBillingCycles($edition['active_billing_cycles'] ?? []);
         $commercialLegs = self::sanitizeCommercialLegs(
             $edition['commercial_legs'] ?? [],
-            $commitmentEnabled ? self::commitmentMonths($minTermValue, $minTermUnit) : null
+            $activeBillingCycles,
+            self::commitmentMonths($minTermValue, $minTermUnit)
         );
 
         return [
@@ -1657,7 +1589,6 @@ class PackageSchema
                 : null,
             'minimum_term_value'       => $minTermValue,
             'minimum_term_unit'        => $minTermUnit,
-            'commitment_enabled'       => $commitmentEnabled,
             // Additive only, an Edition's own — never inherited from the
             // parent occupant (unlike inclusions_override/faq_refs below).
             // Empty for every Edition that has never used this capability.
@@ -1734,7 +1665,6 @@ class PackageSchema
             'contact'             => $data['contact'] ?? false,
             'minimum_term_value'  => $data['minimum_term_value'] ?? null,
             'minimum_term_unit'   => $data['minimum_term_unit'] ?? null,
-            'commitment_enabled'  => $data['commitment_enabled'] ?? false,
             'active_billing_cycles' => $data['active_billing_cycles'] ?? [],
             'commercial_legs'       => $data['commercial_legs'] ?? [],
             'inclusions_override' => $data['inclusions_override'] ?? [],
@@ -1802,7 +1732,6 @@ class PackageSchema
             'contact'              => $data['contact'] ?? false,
             'minimum_term_value'   => $data['minimum_term_value'] ?? null,
             'minimum_term_unit'    => $data['minimum_term_unit'] ?? null,
-            'commitment_enabled'   => $data['commitment_enabled'] ?? false,
             'active_billing_cycles' => $data['active_billing_cycles'] ?? [],
             'commercial_legs'       => $data['commercial_legs'] ?? [],
             'inclusions_override'  => $data['inclusions_override'] ?? [],
@@ -1846,7 +1775,6 @@ class PackageSchema
         $edition['contact']             = $draft['contact'] ?? $edition['contact'];
         $edition['minimum_term_value']  = array_key_exists('minimum_term_value', $draft) ? $draft['minimum_term_value'] : $edition['minimum_term_value'];
         $edition['minimum_term_unit']   = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
-        $edition['commitment_enabled']  = array_key_exists('commitment_enabled', $draft) ? $draft['commitment_enabled'] : $edition['commitment_enabled'];
         $edition['active_billing_cycles'] = array_key_exists('active_billing_cycles', $draft) ? $draft['active_billing_cycles'] : $edition['active_billing_cycles'];
         $edition['commercial_legs']       = array_key_exists('commercial_legs', $draft) ? $draft['commercial_legs'] : $edition['commercial_legs'];
         $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];
@@ -2197,7 +2125,6 @@ class PackageSchema
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
             'billing_cycle' => null, 'minimum_term_value' => null, 'minimum_term_unit' => null,
-            'commitment_enabled' => false,
             'active_billing_cycles' => [], 'commercial_legs' => [],
             'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
@@ -2709,32 +2636,28 @@ class PackageSchema
      * a resolver/notes concern, not a backend gate).
      */
     /**
-     * The slot's own draft-preferred, commitment_enabled-gated commitment
+     * The slot's own draft-preferred active_billing_cycles and commitment
      * (converted to months) — a pending Overview draft wins, else the
      * settled occupant's own value, the exact rule settleTierSlot() uses at
-     * commit time. Null whenever commitment_enabled is false, regardless of
-     * any stored minimum_term_value — Commitment and Legs are independent
-     * (see sanitizeCommercialLegs()), so this is purely "what bound, if any,
-     * applies to a leg's end_month" — never a gate on whether legs
-     * themselves are usable. The shared lookup behind
-     * draftPreferredCommercialLegs() and sanitizeCommercialLegsForSlot()
-     * below; Overview and Commercial Schedule may be saved in either order
-     * and both resolve correctly.
+     * commit time. The shared lookup behind draftPreferredCommercialLegs()
+     * and sanitizeCommercialLegsForSlot() below; Overview and Commercial
+     * Schedule may be saved in either order and both resolve correctly.
+     *
+     * @return array{0: array<int, string>, 1: ?float}
      */
-    private static function draftPreferredCommitmentMonths(array $slot): ?float
+    private static function draftPreferredActiveCyclesAndCommitment(array $slot): array
     {
         $occ = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? []) : [];
         $ov  = is_array($slot['drafts']['overview'] ?? null) ? $slot['drafts']['overview'] : [];
-        $commitmentEnabled = (bool) (array_key_exists('commitment_enabled', $ov) ? $ov['commitment_enabled'] : ($occ['commitment_enabled'] ?? false));
-        if (!$commitmentEnabled) {
-            return null;
-        }
         $minTermValue = array_key_exists('minimum_term_value', $ov) ? $ov['minimum_term_value'] : ($occ['minimum_term_value'] ?? null);
         $minTermUnit  = array_key_exists('minimum_term_unit', $ov)  ? $ov['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null);
-        return self::commitmentMonths(
+        $activeBillingCycles = self::sanitizeActiveBillingCycles(
+            array_key_exists('active_billing_cycles', $ov) ? $ov['active_billing_cycles'] : ($occ['active_billing_cycles'] ?? [])
+        );
+        return [$activeBillingCycles, self::commitmentMonths(
             is_numeric($minTermValue) ? (float) $minTermValue : null,
             is_string($minTermUnit) ? $minTermUnit : null
-        );
+        )];
     }
 
     /**
@@ -2751,24 +2674,27 @@ class PackageSchema
         $slot = self::ensureTierLifecycle($slot);
         $occ  = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? []) : [];
         $cs   = is_array($slot['drafts']['commercial_schedule'] ?? null) ? $slot['drafts']['commercial_schedule'] : [];
+        [$activeBillingCycles, $commitmentMonths] = self::draftPreferredActiveCyclesAndCommitment($slot);
         return self::sanitizeCommercialLegs(
             array_key_exists('commercial_legs', $cs) ? $cs['commercial_legs'] : ($occ['commercial_legs'] ?? []),
-            self::draftPreferredCommitmentMonths($slot)
+            $activeBillingCycles,
+            $commitmentMonths
         );
     }
 
     /**
      * Sanitise a Commercial Schedule module's OWN newly-submitted legs
-     * against the slot's draft-preferred commitment — the controller's
-     * draft-save entry point, so a malformed/out-of-bound leg is caught
-     * immediately rather than only at Publish. settleTierSlot() re-runs this
-     * same validation at commit time regardless, so a subsequently-shortened
-     * commitment still re-drops whatever no longer fits.
+     * against the slot's draft-preferred active_billing_cycles/commitment —
+     * the controller's draft-save entry point, so a malformed/out-of-bound
+     * leg is caught immediately rather than only at Publish.
+     * settleTierSlot() re-runs this same validation at commit time
+     * regardless, so a subsequently-shortened commitment still re-drops
+     * whatever no longer fits.
      */
     public static function sanitizeCommercialLegsForSlot(array $slot, mixed $legs): array
     {
-        $slot = self::ensureTierLifecycle($slot);
-        return self::sanitizeCommercialLegs($legs, self::draftPreferredCommitmentMonths($slot));
+        [$activeBillingCycles, $commitmentMonths] = self::draftPreferredActiveCyclesAndCommitment(self::ensureTierLifecycle($slot));
+        return self::sanitizeCommercialLegs($legs, $activeBillingCycles, $commitmentMonths);
     }
 
     public static function settleTierSlot(array $slot): array
@@ -2812,20 +2738,18 @@ class PackageSchema
         // settled occupant's existing value carries forward untouched.
         $minTermValue = array_key_exists('minimum_term_value', $ov) ? $ov['minimum_term_value'] : ($occ['minimum_term_value'] ?? null);
         $minTermUnit  = array_key_exists('minimum_term_unit', $ov)  ? $ov['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null);
-        $commitmentEnabled = (bool) (array_key_exists('commitment_enabled', $ov) ? $ov['commitment_enabled'] : ($occ['commitment_enabled'] ?? false));
         $activeBillingCycles = self::sanitizeActiveBillingCycles(
             array_key_exists('active_billing_cycles', $ov) ? $ov['active_billing_cycles'] : ($occ['active_billing_cycles'] ?? [])
         );
         // Commercial Schedule module's own draft-preferred merge, same rule as
         // Features/FAQs below — a module with no draft keeps its settled value.
-        // Independent of commitment_enabled except for the bound it passes —
-        // see sanitizeCommercialLegs().
         $commercialLegs = self::sanitizeCommercialLegs(
             array_key_exists('commercial_legs', $cs) ? $cs['commercial_legs'] : ($occ['commercial_legs'] ?? []),
-            $commitmentEnabled ? self::commitmentMonths(
+            $activeBillingCycles,
+            self::commitmentMonths(
                 is_numeric($minTermValue) ? (float) $minTermValue : null,
                 is_string($minTermUnit) ? $minTermUnit : null
-            ) : null
+            )
         );
 
         $selections = $switchingSheet
@@ -2843,7 +2767,6 @@ class PackageSchema
             'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
             'minimum_term_value'  => $minTermValue,
             'minimum_term_unit'   => $minTermUnit,
-            'commitment_enabled'  => $commitmentEnabled,
             'active_billing_cycles' => $activeBillingCycles,
             'commercial_legs'       => $commercialLegs,
             'rate_sheet_id'       => $draftRateSheetId,

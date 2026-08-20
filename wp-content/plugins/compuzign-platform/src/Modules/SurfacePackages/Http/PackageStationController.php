@@ -191,7 +191,7 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'tier' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS, true)]],
         ]);
-        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/modules/(?P<module>[a-z_]+)', [
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/modules/(?P<module>[a-z]+)', [
             'methods' => 'POST', 'callback' => [$this, 'savePackageStationTierModule'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs,
@@ -219,7 +219,7 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
         ]);
-        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs|commercial_schedule)/revert', [
+        register_rest_route('compuzign/v1', $instanceBase . '/tiers/(?P<tier>[a-z]+)/modules/(?P<module>overview|features|faqs)/revert', [
             'methods' => 'POST', 'callback' => [$this, 'revertPackageStationTierModule'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'tier' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
