@@ -1929,17 +1929,23 @@ final class PackageManagerSchema
      * no work.
      *
      * No new pricing calculation exists here: for each leg, only the
-     * inclusions whose own leg_assignments name that leg participate, each
-     * synthesised into a plain {item_id, quantity, price_option_id} row
-     * using THAT assignment's own price_option_id (never the selection's
-     * top-level one, which stays Simple Mode's own field) — then handed to
-     * projectTierRateSheetWith() UNCHANGED, exactly the same authority
-     * Simple Mode and projectEditionPrices() already share. A leg with no
-     * inclusions assigned to it resolves like any other empty selection set
-     * (price null, valid_count 0) rather than being omitted.
+     * inclusions naming that leg participate — either as assignment 0 (the
+     * selection's own leg_id, its existing quantity/price_option_id) or via
+     * leg_assignments (assignment 1+, never both for the same leg —
+     * sanitizeLegAssignments() guarantees the two never collide) — each
+     * synthesised into a plain {item_id, quantity, price_option_id} row,
+     * then handed to projectTierRateSheetWith() UNCHANGED, exactly the same
+     * authority Simple Mode and projectEditionPrices() already share.
+     * Headline pricing (projectTierRateSheetWith()'s own primary call sites)
+     * is untouched by this — it keeps reading the selection's top-level
+     * quantity/price_option_id directly, regardless of legs; this function
+     * only additionally attributes that SAME contribution to its own leg's
+     * breakdown. A leg with no inclusions assigned to it resolves like any
+     * other empty selection set (price null, valid_count 0) rather than
+     * being omitted.
      *
      * @param  array<int, array{id:string, billing_cycle:string, start_month:int, end_month:int}> $legs
-     * @param  array<int, array{item_id?:string, quantity?:int, leg_assignments?:array}> $selections
+     * @param  array<int, array{item_id?:string, quantity?:int, price_option_id?:?string, leg_id?:?string, leg_assignments?:array}> $selections
      * @return array<int, array{id:string, billing_cycle:string, start_month:int, end_month:int, price:?float, valid_count:int, selections:array}>
      */
     public static function projectCommercialLegs(
@@ -1954,17 +1960,30 @@ final class PackageManagerSchema
             $legSelections = [];
             foreach ($selections as $selection) {
                 if (!is_array($selection)) { continue; }
+                // Assignment 0 — the selection's own existing quantity/
+                // price_option_id, tagged with this leg via its own leg_id.
+                // Never a second pricing declaration: same fields headline
+                // pricing already reads, just attributed to their own leg
+                // here too.
+                if ($legId !== '' && (string) ($selection['leg_id'] ?? '') === $legId) {
+                    $legSelections[] = [
+                        'item_id'         => $selection['item_id'] ?? '',
+                        'quantity'        => $selection['quantity'] ?? 1,
+                        'price_option_id' => $selection['price_option_id'] ?? null,
+                    ];
+                    continue; // sanitizeLegAssignments() already guarantees no leg_assignments entry also names this leg.
+                }
                 foreach ($selection['leg_assignments'] ?? [] as $assignment) {
                     if (!is_array($assignment) || (string) ($assignment['leg_id'] ?? '') !== $legId) { continue; }
                     $legSelections[] = [
                         'item_id'         => $selection['item_id'] ?? '',
                         // The assignment's OWN quantity — independent of the
-                        // selection's top-level quantity, which governs the
-                        // Default declaration's own total, a separate
-                        // concern. sanitizeLegAssignments() already defaults
-                        // this to 1 for any properly-sanitized assignment;
-                        // the ?? 1 here is defense-in-depth only, never a
-                        // fallback to the selection's own different quantity.
+                        // selection's top-level quantity, which governs
+                        // assignment 0's own total, a separate concern.
+                        // sanitizeLegAssignments() already defaults this to
+                        // 1 for any properly-sanitized assignment; the ?? 1
+                        // here is defense-in-depth only, never a fallback to
+                        // the selection's own different quantity.
                         'quantity'        => $assignment['quantity'] ?? 1,
                         'price_option_id' => $assignment['price_option_id'] ?? null,
                     ];

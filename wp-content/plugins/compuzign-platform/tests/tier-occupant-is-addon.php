@@ -121,14 +121,14 @@ check_is_addon($settled['current_occupant']['rate_sheet_id'] === 'rs_a', 'settle
 // billing_cycle 'monthly' + no legs yet fires Tier Pricing Rules' legacy
 // synthesis (PackageSchema::synthesizeFirstCommercialLeg()) on this settle —
 // the selection's own item_id/quantity/price_option_id survive exactly,
-// backfilled with a leg_assignments entry for the one synthesized leg.
+// tagged as assignment 0 for the synthesized leg via leg_id.
 check_is_addon(count($settled['current_occupant']['commercial_legs']) === 1, 'settle synthesizes exactly one Commercial Leg from the existing billing_cycle');
 check_is_addon(
     $settled['current_occupant']['rate_sheet_items'] === [[
         'item_id' => 'rate-vm', 'quantity' => 3, 'price_option_id' => null,
-        'leg_assignments' => [['leg_id' => $settled['current_occupant']['commercial_legs'][0]['id'], 'price_option_id' => null, 'quantity' => 3]],
+        'leg_id' => $settled['current_occupant']['commercial_legs'][0]['id'], 'leg_assignments' => [],
     ]],
-    'settle preserves existing Rate Sheet selections when only is_addon changes, backfilled onto the synthesized leg',
+    'settle preserves existing Rate Sheet selections when only is_addon changes, tagged as assignment 0 for the synthesized leg',
 );
 check_is_addon(array_unique(array_values($settled['module_status'])) === ['settled'], 'settle marks every module settled exactly once');
 

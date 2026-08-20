@@ -119,9 +119,9 @@ check_commercial_schedule(
 check_commercial_schedule(
     $legacyCadenceRead['rate_sheet_items'] === [[
         'item_id' => 'rate_legacy_item', 'quantity' => 4, 'price_option_id' => 'opt_legacy',
-        'leg_assignments' => [['leg_id' => $legacyCadenceRead['commercial_legs'][0]['id'], 'price_option_id' => 'opt_legacy', 'quantity' => 4]],
+        'leg_id' => $legacyCadenceRead['commercial_legs'][0]['id'], 'leg_assignments' => [],
     ]],
-    'the existing selection\'s own price_option_id/quantity survive exactly, backfilled onto the synthesized leg — never a duplicate or altered price',
+    'the existing selection\'s own price_option_id/quantity survive exactly, tagged as assignment 0 for the synthesized leg — never a duplicate or altered price',
 );
 // Read-time synthesis never persists by itself — a second independent read
 // produces the identical leg id, not a new one each time.
@@ -145,9 +145,9 @@ check_commercial_schedule(
     'settling an unrelated module (is_addon) on a legacy-cadence occupant also persists the synthesized leg',
 );
 check_commercial_schedule(
-    $legacyCadenceSettled['current_occupant']['rate_sheet_items'][0]['leg_assignments'][0]['leg_id']
+    $legacyCadenceSettled['current_occupant']['rate_sheet_items'][0]['leg_id']
         === $legacyCadenceSettled['current_occupant']['commercial_legs'][0]['id'],
-    'the persisted selection\'s backfilled leg_assignments points at the SAME persisted leg id',
+    'the persisted selection\'s assignment-0 leg_id points at the SAME persisted leg id',
 );
 
 // ── Case 3: selections exist but no usable billing_cycle — treated exactly ──
@@ -571,8 +571,8 @@ check_commercial_schedule(
 );
 check_commercial_schedule(
     $legacyDetail['rate_sheet_items'][0]['price_option_id'] === 'opt_legacy'
-        && $legacyDetail['rate_sheet_items'][0]['leg_assignments'][0]['leg_id'] === $legacyDetail['commercial_legs'][0]['id'],
-    'the legacy price_option_id stays authoritative, carried through into the backfilled leg_assignments entry for the synthesized leg',
+        && $legacyDetail['rate_sheet_items'][0]['leg_id'] === $legacyDetail['commercial_legs'][0]['id'],
+    'the legacy price_option_id stays authoritative, tagged as assignment 0 for the synthesized leg via leg_id',
 );
 
 // ── Phase 1 flat (pre-occupant) format never fabricates a schedule ──────────

@@ -122,9 +122,9 @@ check_edition(
 check_edition(
     $full['rate_sheet_items'] === [[
         'item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null,
-        'leg_assignments' => [['leg_id' => $full['commercial_legs'][0]['id'], 'price_option_id' => null, 'quantity' => 2]],
+        'leg_id' => $full['commercial_legs'][0]['id'], 'leg_assignments' => [],
     ]],
-    'rate_sheet_items is sanitised through the existing sanitizeTierRateSheetSelections contract, backfilled onto the synthesized leg',
+    'rate_sheet_items is sanitised through the existing sanitizeTierRateSheetSelections contract, tagged as assignment 0 for the synthesized leg',
 );
 check_edition(count($full['inclusions_override']) === 1, 'a non-empty inclusions_override is preserved as this Edition\'s explicit override');
 
@@ -248,9 +248,10 @@ $settledEdition = Schema::settleTierEditionOverview([$editionWithLegDraft], 'edt
 check_edition(
     $settledEdition['rate_sheet_items'] === [[
         'item_id' => 'rate-vm', 'quantity' => 1, 'price_option_id' => null,
+        'leg_id' => null,
         'leg_assignments' => [['leg_id' => 'leg_x', 'price_option_id' => null, 'quantity' => 1]],
     ]],
-    'settling an Edition\'s Overview draft preserves each selection\'s own leg_assignments instead of silently dropping them',
+    'settling an Edition\'s Overview draft preserves each selection\'s own leg_assignments instead of silently dropping them — no top-level leg_id here, so this row has no assignment 0, only the leg_x assignment',
 );
 
 echo "Tier Edition schema contract: PASS\n";

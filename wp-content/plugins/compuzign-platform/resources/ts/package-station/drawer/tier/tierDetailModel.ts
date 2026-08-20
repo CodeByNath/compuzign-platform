@@ -156,20 +156,40 @@ export function buildInclusionsReadRows(
     const legAssignments = selection.leg_assignments ?? [];
 
     if (commercialLegs.length > 0) {
-      const assignments = legAssignments.map((assignment) => {
-        const leg = legsById.get(assignment.leg_id);
-        const selectedOption = assignment.price_option_id
-          ? priceOptions.find((option) => option.option_id === assignment.price_option_id) ?? null
-          : null;
-        const legOptionUnresolved = !!assignment.price_option_id && !selectedOption;
-        const unitPrice = legOptionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
-        return {
-          legLabel: leg ? commercialLegLabel(leg) : 'Unknown leg',
-          priceLabel: selectedOption ? selectedOption.label : defaultPriceLabel(row.default_price_label),
-          quantity: assignment.quantity,
-          priceText: legOptionUnresolved ? 'Unresolved price option' : unitPrice !== null ? `$${(unitPrice * assignment.quantity).toFixed(2)}` : '—',
-        };
-      });
+      // Assignment 0 — this row's OWN existing quantity/price_option_id,
+      // tagged with a Commercial Leg via selection.leg_id. Never a second
+      // pricing declaration: same fields the no-legs branch below always
+      // read. Omitted (not fabricated as "Unknown leg") when leg_id is
+      // still unset — nothing to show yet, same as an unconfigured
+      // leg_assignments entry.
+      const assignment0 = selection.leg_id ? legsById.get(selection.leg_id) : undefined;
+      const assignment0Option = selection.price_option_id
+        ? priceOptions.find((option) => option.option_id === selection.price_option_id) ?? null
+        : null;
+      const assignment0OptionUnresolved = !!selection.price_option_id && !assignment0Option;
+      const assignment0UnitPrice = assignment0OptionUnresolved ? null : (assignment0Option ? assignment0Option.unit_price : row.unit_price);
+      const assignments = [
+        ...(assignment0 ? [{
+          legLabel: commercialLegLabel(assignment0),
+          priceLabel: assignment0Option ? assignment0Option.label : defaultPriceLabel(row.default_price_label),
+          quantity: selection.quantity,
+          priceText: assignment0OptionUnresolved ? 'Unresolved price option' : assignment0UnitPrice !== null ? `$${(assignment0UnitPrice * selection.quantity).toFixed(2)}` : '—',
+        }] : []),
+        ...legAssignments.map((assignment) => {
+          const leg = legsById.get(assignment.leg_id);
+          const selectedOption = assignment.price_option_id
+            ? priceOptions.find((option) => option.option_id === assignment.price_option_id) ?? null
+            : null;
+          const legOptionUnresolved = !!assignment.price_option_id && !selectedOption;
+          const unitPrice = legOptionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
+          return {
+            legLabel: leg ? commercialLegLabel(leg) : 'Unknown leg',
+            priceLabel: selectedOption ? selectedOption.label : defaultPriceLabel(row.default_price_label),
+            quantity: assignment.quantity,
+            priceText: legOptionUnresolved ? 'Unresolved price option' : unitPrice !== null ? `$${(unitPrice * assignment.quantity).toFixed(2)}` : '—',
+          };
+        }),
+      ];
       return { id: selection.item_id, label: row.label, quantity: selection.quantity, priceText: null, assignments };
     }
 
