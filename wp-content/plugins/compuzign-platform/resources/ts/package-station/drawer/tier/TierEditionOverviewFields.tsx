@@ -46,6 +46,8 @@ function paymentCategoryOf(billingCycle: string | null): PaymentCategory {
 }
 
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
+  { value: 'day', label: 'Day(s)' },
+  { value: 'week', label: 'Week(s)' },
   { value: 'month', label: 'Month(s)' },
   { value: 'year', label: 'Year(s)' },
 ];

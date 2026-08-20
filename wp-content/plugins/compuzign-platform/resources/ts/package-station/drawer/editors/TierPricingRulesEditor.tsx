@@ -37,6 +37,8 @@ function paymentCategoryOf(billingCycle: string): PaymentCategory {
 // the same precedent the billing-cycle vocabulary above already sets
 // between the editors.
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
+  { value: 'day', label: 'Day(s)' },
+  { value: 'week', label: 'Week(s)' },
   { value: 'month', label: 'Month(s)' },
   { value: 'year', label: 'Year(s)' },
 ];
