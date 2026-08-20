@@ -97,12 +97,9 @@ export interface PricingEditionOption {
 // price/inclusions come from — never a second pricing source.
 export interface PricingCommercialLeg {
   id: string;
-  payment_category: string;
   billing_cycle: string;
   start_month: number;
-  // Null means Indefinite — no commitment bounds this leg's end. See
-  // docs/code-map/tier-pricing-rules-plan.md.
-  end_month: number | null;
+  end_month: number;
   price: number | null;
   inclusions: ServiceInclusion[];
 }

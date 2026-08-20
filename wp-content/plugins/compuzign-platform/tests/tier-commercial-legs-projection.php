@@ -147,25 +147,12 @@ $withTopLevelOption = [
 $ignoresTopLevel = PMS::projectCommercialLegs($readModel, $legs, $withTopLevelOption, 'rs_test');
 assertSameValueLegs(30.0, $ignoresTopLevel[0]['price'], 'Leg A prices from its OWN leg_assignments price_option_id (Upfront=30), never the selection\'s unrelated top-level price_option_id (Annual=50)');
 
-// ── 5. Per-leg quantity is its own independent value, multiplied exactly as ─
-// ──    the shared resolver already does — never inherited from the         ─
-// ──    selection's own top-level quantity, a separate concern (that one    ─
-// ──    governs the Default declaration's own total, not any one leg).      ─
+// ── 5. Quantity multiplies exactly as the shared resolver already does ──────
 
 $withQuantity = [
-    ['item_id' => 'rate-foundation', 'quantity' => 1, 'leg_assignments' => [['leg_id' => 'leg_a', 'price_option_id' => 'opt-upfront', 'quantity' => 3]]],
+    ['item_id' => 'rate-foundation', 'quantity' => 3, 'leg_assignments' => [['leg_id' => 'leg_a', 'price_option_id' => 'opt-upfront']]],
 ];
-assertSameValueLegs(90.0, PMS::projectCommercialLegs($readModel, $legs, $withQuantity, 'rs_test')[0]['price'], 'the assignment\'s OWN quantity multiplies the leg-selected option price (30 x 3), the same rule projectTierRateSheetWith() already enforces');
-
-$withMismatchedQuantities = [
-    ['item_id' => 'rate-foundation', 'quantity' => 5, 'leg_assignments' => [['leg_id' => 'leg_a', 'price_option_id' => 'opt-upfront', 'quantity' => 2]]],
-];
-assertSameValueLegs(60.0, PMS::projectCommercialLegs($readModel, $legs, $withMismatchedQuantities, 'rs_test')[0]['price'], 'the leg prices from its OWN quantity (2) even though the selection\'s top-level quantity is a different value (5) — the two are independent, never blended');
-
-$withNoLegQuantity = [
-    ['item_id' => 'rate-foundation', 'quantity' => 5, 'leg_assignments' => [['leg_id' => 'leg_a', 'price_option_id' => 'opt-upfront']]],
-];
-assertSameValueLegs(30.0, PMS::projectCommercialLegs($readModel, $legs, $withNoLegQuantity, 'rs_test')[0]['price'], 'an assignment with no quantity of its own defaults to 1 — it never falls back to the selection\'s unrelated top-level quantity (5)');
+assertSameValueLegs(90.0, PMS::projectCommercialLegs($readModel, $legs, $withQuantity, 'rs_test')[0]['price'], 'quantity multiplies the leg-selected option price (30 x 3), the same rule projectTierRateSheetWith() already enforces');
 
 // ── 6. An unresolved price_option_id makes THAT leg's price null, never partial ──
 
