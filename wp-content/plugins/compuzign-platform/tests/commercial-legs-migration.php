@@ -50,9 +50,9 @@ check_legs_migration($leg['start_month'] === 1 && $leg['end_month'] === null, 'n
 check_legs_migration(
     $verdict['result']['rate_sheet_items'] === [[
         'item_id' => 'rate_a', 'quantity' => 2, 'price_option_id' => 'opt_x',
-        'leg_id' => $leg['id'],
+        'leg_assignments' => [['leg_id' => $leg['id'], 'price_option_id' => 'opt_x', 'quantity' => 2]],
     ]],
-    'the existing selection\'s own price_option_id/quantity survive exactly, tagged as assignment 0 for the synthesized leg — never duplicated into a leg_assignments entry',
+    'the existing selection\'s own price_option_id/quantity survive exactly, backfilled onto the synthesized leg — no duplicate pricing',
 );
 
 // ── 2. Cross-check: identical to what the live on-read synthesis produces ───
@@ -75,11 +75,8 @@ check_legs_migration(
     'the migration\'s synthesized leg is byte-identical to what a live read would already derive',
 );
 check_legs_migration(
-    $liveRead['rate_sheet_items'] === Schema::sanitizeTierRateSheetSelections(
-        $verdict['result']['rate_sheet_items'],
-        $verdict['result']['commercial_legs']
-    ),
-    'the migration\'s backfilled selections, once sanitized the same way a live read sanitizes them, are byte-identical — decision() itself deliberately returns the raw tag only (no leg_assignments: [] filler), since CommercialLegsMigration::applyPlan() persists it straight through and the next sanitizeTierRateSheetSelections() pass adds that key back identically either way',
+    $liveRead['rate_sheet_items'] === $verdict['result']['rate_sheet_items'],
+    'the migration\'s backfilled selections are byte-identical to what a live read would already derive',
 );
 
 // ── 3. A real commitment bounds the migrated leg's end_month ────────────────

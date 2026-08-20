@@ -731,25 +731,13 @@ export interface TierRateSheetSelection {
   // against the bound sheet is left as-is — never silently coerced back to
   // Default Price. See docs/code-map/rate-sheet.md.
   price_option_id?: string | null;
-  // Which Commercial Leg this row's OWN quantity/price_option_id above
-  // belong to — "assignment 0", the headline/first assignment. Never a
-  // second pricing declaration: quantity/price_option_id are the exact same
-  // fields every downstream consumer (Cost Builder, cart, inclusions_override,
-  // headline pricing) already reads, unchanged — leg_id only tags them with
-  // a leg so projectCommercialLegs() can attribute this row's contribution
-  // to the right leg's own breakdown. Not-fabricated: an id that no longer
-  // resolves against the Tier/Edition's own commercial_legs is dropped to
-  // null server-side, never defaulted to the first configured leg or
-  // silently reassigned. Absent/null in Simple Mode (no legs configured).
-  leg_id?: string | null;
-  // Additional Commercial Leg assignments BEYOND assignment 0 above — never
-  // a second declaration for the SAME leg leg_id already names (the
-  // sanitizer rejects that). Absent only for a not-yet-migrated legacy
+  // One Price Option (+ quantity) choice per Commercial Leg this inclusion
+  // participates in — every Tier/Edition has at least one leg (Tier Pricing
+  // Rules retires Simple Mode), so this is the ONE pricing path, never a
+  // special single-leg case. Absent only for a not-yet-migrated legacy
   // selection PackageSchema hasn't synthesized onto yet — the same
   // not-fabricated shape PackageSchema::sanitizeTierRateSheetSelections()
-  // returns. Array position here is presentation order only, never
-  // commercial identity — that's always leg_id. See
-  // docs/code-map/tier-pricing-rules-plan.md.
+  // returns. See docs/code-map/tier-pricing-rules-plan.md.
   leg_assignments?: LegAssignment[];
 }
 

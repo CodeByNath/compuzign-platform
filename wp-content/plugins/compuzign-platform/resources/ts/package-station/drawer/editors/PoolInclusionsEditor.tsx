@@ -126,25 +126,9 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
           </div>
           {!!commercialLegs?.length && (() => {
             const legsById = new Map(commercialLegs.map((leg) => [leg.id, leg]));
-            // Assignment 0 — this row's OWN existing quantity/price_option_id
-            // (the same fields Base Qty/Price always were), tagged with a
-            // Commercial Leg via selection.leg_id. Never a second pricing
-            // declaration alongside leg_assignments — reserved out of every
-            // leg-choice list below so it can never collide with one.
-            const selectionLegId = selection.leg_id ?? null;
-            const selectedLeg = selectionLegId ? legsById.get(selectionLegId) : undefined;
-            // Legs eligible for any leg_assignments[] entry (existing or new)
-            // — never assignment 0's own leg, never a DIFFERENT entry's leg.
-            const availableLegs = commercialLegs.filter((leg) =>
-              leg.id !== selectionLegId && !legAssignments.some((a) => a.leg_id === leg.id));
-            // Assignment 0's own Leg choices: its current leg (if any) plus
-            // whichever legs no leg_assignments entry has already claimed.
-            const availableForAssignment0 = commercialLegs.filter((leg) =>
-              leg.id === selectionLegId || !legAssignments.some((a) => a.leg_id === leg.id));
+            const availableLegs = commercialLegs.filter((leg) => !legAssignments.some((a) => a.leg_id === leg.id));
             const setAssignments = (next: LegAssignment[]) =>
               onChange(selections.map((item, itemIndex) => (itemIndex === index ? { ...item, leg_assignments: next } : item)));
-            const setSelectionField = (patch: Partial<TierRateSheetSelection>) =>
-              onChange(selections.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
             const rowClass = priceOptions.length > 0 ? 'cz-ie-leg-row' : 'cz-ie-leg-row cz-ie-leg-row--no-price';
             return (
               <>
@@ -152,39 +136,14 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                 <div class="cz-tf-field">
                   <span class="cz-tf-label">Leg assignments</span>
                   <div class="cz-ie-leg-assignments">
-                  <div class={`${rowClass} cz-ie-leg-row--head`}>
-                    <span>Leg</span>
-                    {priceOptions.length > 0 && <span>Price</span>}
-                    <span>Qty</span>
-                    <span />
-                  </div>
-                  <div class={rowClass}>
-                    <select class="cz-tf-select" aria-label={`Leg for ${row.label}`}
-                      value={selectionLegId ?? ''}
-                      onChange={(event) => setSelectionField({ leg_id: event.currentTarget.value || null })}>
-                      <option value="">— Select a leg —</option>
-                      {availableForAssignment0.map((leg) => <option value={leg.id} key={leg.id}>{commercialLegLabel(leg)}</option>)}
-                    </select>
-                    {priceOptions.length > 0 && (
-                      <select class="cz-tf-select" aria-label={`Price option for ${row.label}`}
-                        value={selection.price_option_id ?? ''}
-                        onChange={(event) => setSelectionField({ price_option_id: event.currentTarget.value || null })}>
-                        <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
-                        {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
-                      </select>
-                    )}
-                    <div class="cz-ie-leg-row__qty-cell">
-                      <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
-                        onInput={(event) => setSelectionField({ quantity: Math.max(1, Number(event.currentTarget.value) || 1) })} />
-                      <span class="cz-ie-leg-row__price-hint">{optionUnresolved ? 'Unresolved price option' : effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>
+                  {legAssignments.length > 0 && (
+                    <div class={`${rowClass} cz-ie-leg-row--head`}>
+                      <span>Leg</span>
+                      {priceOptions.length > 0 && <span>Price</span>}
+                      <span>Qty</span>
+                      <span />
                     </div>
-                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                      aria-label={selectedLeg ? `Clear ${commercialLegLabel(selectedLeg)} from ${row.label}` : `No leg selected for ${row.label}`}
-                      onClick={() => setSelectionField({ leg_id: null })}
-                      disabled={!selectionLegId}>
-                      ✕
-                    </button>
-                  </div>
+                  )}
                   {legAssignments.map((assignment) => {
                     const leg = legsById.get(assignment.leg_id);
                     if (!leg) return null;

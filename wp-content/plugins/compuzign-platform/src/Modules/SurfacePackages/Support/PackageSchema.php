@@ -65,18 +65,15 @@ class PackageSchema
     /**
      * @param array $legs the selection's own Tier/Edition's sanitized commercial_legs
      *              (sanitizeCommercialLegs() output), used only to resolve
-     *              leg_id/leg_assignments — never trusted from $items itself.
-     *              Simple Mode (every pre-existing call site, and any Multi-
-     *              Cycle occupant/Edition with no legs configured) omits the
-     *              `leg_id`/`leg_assignments` keys from every row entirely
-     *              rather than setting them to null/[] — the exact
-     *              pre-existing { item_id, quantity, price_option_id } shape,
-     *              asserted verbatim by rate-sheet-bundle.php and others, is
-     *              preserved byte-for-byte for every record that has not
-     *              opted into a commercial schedule. Once legs exist, the row
-     *              keeps this SAME quantity/price_option_id (never a second
-     *              declaration) and only gains leg_id — assignment 0 — plus
-     *              leg_assignments for any additional legs beyond it.
+     *              leg_assignments — never trusted from $items itself. Simple
+     *              Mode (every pre-existing call site, and any Multi-Cycle
+     *              occupant/Edition with no legs configured) omits the
+     *              `leg_assignments` key from every row entirely rather than
+     *              setting it to [] — the exact pre-existing
+     *              { item_id, quantity, price_option_id } shape, asserted
+     *              verbatim by rate-sheet-bundle.php and others, is preserved
+     *              byte-for-byte for every record that has not opted into a
+     *              commercial schedule.
      */
     public static function sanitizeTierRateSheetSelections(mixed $items, array $legs = []): array
     {
@@ -102,17 +99,7 @@ class PackageSchema
                 'price_option_id' => $optionId,
             ];
             if ($legsById !== []) {
-                // Assignment 0 — this row's OWN quantity/price_option_id
-                // above, tagged with the Commercial Leg it belongs to. Not-
-                // fabricated: an id that no longer resolves against the
-                // Tier/Edition's own legs is dropped to null, never defaulted
-                // to the first configured leg or silently reassigned.
-                $rawLegId = $item['leg_id'] ?? null;
-                $legId = (is_string($rawLegId) || is_int($rawLegId)) && isset($legsById[(string) $rawLegId])
-                    ? (string) $rawLegId
-                    : null;
-                $row['leg_id'] = $legId;
-                $row['leg_assignments'] = self::sanitizeLegAssignments($item['leg_assignments'] ?? [], $legsById, $legId);
+                $row['leg_assignments'] = self::sanitizeLegAssignments($item['leg_assignments'] ?? [], $legsById);
             }
             $out[] = $row;
         }
@@ -120,32 +107,22 @@ class PackageSchema
     }
 
     /**
-     * Sanitise one selection's ADDITIONAL per-leg Price Option choices —
-     * beyond assignment 0, which is the row's own leg_id above. A leg_id
-     * must resolve against the Tier/Edition's OWN commercial_legs (never
-     * trusted from input) — the same not-fabricated posture
-     * sanitizeCommercialLegs() uses for the legs themselves. Two assignments
-     * naming the same billing cycle with an overlapping month range are a
-     * double-charge shape for this one inclusion — the later one is dropped.
-     * Different cycles overlapping is a normal shape (e.g. a one-time setup
-     * fee alongside a monthly service spanning the same months) and is
-     * never rejected.
-     *
-     * @param  ?string $reservedLegId assignment 0's own leg_id (already
-     *         sanitized by the caller), if any — reserved here so no entry
-     *         can duplicate the leg assignment 0 already carries, which
-     *         would recreate a second pricing declaration for the same leg.
-     *         Identity only: assignment 0 carries no schedule-range fields
-     *         of its own (timing belongs to the Commercial Leg definition),
-     *         so it never participates in the overlap-by-range check below.
+     * Sanitise one selection's per-leg Price Option choices. A leg_id must
+     * resolve against the Tier/Edition's OWN commercial_legs (never trusted
+     * from input) — the same not-fabricated posture sanitizeCommercialLegs()
+     * uses for the legs themselves. Two assignments naming the same billing
+     * cycle with an overlapping month range are a double-charge shape for
+     * this one inclusion — the later one is dropped. Different cycles
+     * overlapping is a normal shape (e.g. a one-time setup fee alongside a
+     * monthly service spanning the same months) and is never rejected.
      */
-    private static function sanitizeLegAssignments(mixed $assignments, array $legsById, ?string $reservedLegId = null): array
+    private static function sanitizeLegAssignments(mixed $assignments, array $legsById): array
     {
         if (!is_array($assignments) || $legsById === []) {
             return [];
         }
         $out = [];
-        $seenLegIds = $reservedLegId !== null ? [$reservedLegId => true] : [];
+        $seenLegIds = [];
         $acceptedRangesByCycle = [];
         foreach ($assignments as $assignment) {
             if (!is_array($assignment)) { continue; }
@@ -371,14 +348,14 @@ class PackageSchema
             if (!is_array($item)) {
                 return $item;
             }
-            // Tag the row's OWN existing quantity/price_option_id as
-            // assignment 0 for the synthesized leg — never duplicate them
-            // into a new leg_assignments entry, which would recreate the
-            // exact two-declaration problem this migration exists to
-            // resolve. An item that already names a leg predates this
+            // An item that already carries a real assignment predates this
             // synthesis or was already migrated — never overwritten.
-            if (empty($item['leg_id'])) {
-                $item['leg_id'] = self::LEGACY_SYNTHESIZED_LEG_ID;
+            if (empty($item['leg_assignments'])) {
+                $item['leg_assignments'] = [[
+                    'leg_id'          => self::LEGACY_SYNTHESIZED_LEG_ID,
+                    'price_option_id' => $item['price_option_id'] ?? null,
+                    'quantity'        => $item['quantity'] ?? 1,
+                ]];
             }
             return $item;
         }, $rateSheetItems);

@@ -52,15 +52,15 @@ check_tier_occupant($detail['label'] === 'Starter Cloud Updated', 'overview draf
 // This settle carries a real billing_cycle ('monthly') and no legs yet, so
 // Tier Pricing Rules' legacy synthesis fires (see
 // PackageSchema::synthesizeFirstCommercialLeg()) — the selection keeps its
-// own item_id/quantity/price_option_id exactly, tagged as assignment 0 for
-// the synthesized leg via leg_id (never a duplicated leg_assignments entry).
+// own item_id/quantity/price_option_id exactly, plus a backfilled
+// leg_assignments entry pointing at the one synthesized leg.
 check_tier_occupant(count($detail['commercial_legs']) === 1, 'flat migration with a real billing_cycle synthesizes exactly one Commercial Leg');
 check_tier_occupant(
     $detail['rate_sheet_items'] === [[
         'item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null,
-        'leg_id' => $detail['commercial_legs'][0]['id'], 'leg_assignments' => [],
+        'leg_assignments' => [['leg_id' => $detail['commercial_legs'][0]['id'], 'price_option_id' => null, 'quantity' => 2]],
     ]],
-    'untouched Rate Sheet selections survive flat migration, tagged as assignment 0 for the synthesized leg',
+    'untouched Rate Sheet selections survive flat migration, backfilled onto the synthesized leg',
 );
 check_tier_occupant(array_unique(array_values($settled['module_status'])) === ['settled'], 'publish settles every module exactly once');
 
