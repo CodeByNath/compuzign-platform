@@ -37,43 +37,6 @@ Overview under Details carries one small derived read field, "Editions" —
 separately. Creation happens through "+ Edition" (see Admin editing);
 Overview collects no title/price/lifecycle action.
 
-## Commercial schedule (Phase 0 — schema only)
-
-Both the occupant and each Edition may additionally carry `active_billing_cycles`
-(a reusable cadence pool, e.g. `['one-time', 'annually']`, drawn from the same
-`PackageSchema::BILLING_CYCLES` vocabulary as the legacy scalar `billing_cycle`)
-and `commercial_legs` (each `{id, billing_cycle, start_month, end_month}` —
-1-based inclusive months, `billing_cycle` must be one of the record's own
-`active_billing_cycles`, `end_month` bounded by the record's own
-`minimum_term_value`/`unit` converted to months). Absent/empty on every
-record that has never used this capability — **Simple Mode** — whose legacy
-`billing_cycle`/`price_option_id` stay fully authoritative and whose
-`rate_sheet_items[]` rows omit the `leg_assignments` key entirely (not `[]`):
-the exact pre-existing `{item_id, quantity, price_option_id}` shape survives
-byte-for-byte, asserted by `tests/rate-sheet-bundle.php` and others. Legs are
-never inherited between occupant and Edition — each stays its own
-independent declaration, the same rule already applied to price/billing_cycle/
-commitment. An inclusion attaches to one or more legs via `leg_assignments`
-on its own `TierRateSheetSelection` row (`{leg_id, price_option_id}` pairs)
-— one inclusion identity, never duplicated — resolved through
-`PackageSchema::sanitizeTierRateSheetSelections()`'s optional `$legs`
-parameter; a `leg_id`/`price_option_id` not resolving is dropped, never
-fabricated. Two assignments on one inclusion naming the same `billing_cycle`
-with overlapping months are a double-charge shape and the later one is
-dropped; different cycles overlapping (e.g. a one-time setup fee alongside a
-monthly service) is normal and never rejected. `commercial_legs`/
-`active_billing_cycles` are re-validated against the record's own commitment
-on every read/write — shortening the commitment silently drops whatever leg
-no longer fits, with no separate cascade step. Legs carry plain local ids
-(`PackageSchema::mintCommercialLegId()`, `leg_` + random) — no Platform ID
-family, the same posture an inclusion row or a Rate Sheet Price Option's
-`option_id` already uses. `commercial_schedule` is a fourth `TIER_MODULES`
-entry for the occupant (own draft/settle, alongside `active_billing_cycles`
-staying part of the `overview` module draft); an Edition carries both in its
-one consolidated `overview` module, same as its other fields. Price
-resolution and public/Cost-Builder projection are a later phase — see
-`tests/tier-commercial-schedule.php` for the full contract.
-
 ## Identity
 
 `CZTE` uses an **occupant-qualified**, not slot-qualified, native reference
