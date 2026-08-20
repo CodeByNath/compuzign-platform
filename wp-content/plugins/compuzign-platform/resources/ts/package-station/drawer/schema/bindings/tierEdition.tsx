@@ -21,8 +21,7 @@ import { TierEditionEditor } from '../../tier/TierEditionEditor';
 import { commercialLegLabel } from '../../../rateSheetLabels';
 import type { CommercialLeg } from '../../../types';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
-import type { TextValue } from '@/drawer-kit/schema/elements/library';
-import type { CustomPricingRulesValue, CustomInclusionsValue, CustomInclusionRow } from '@/drawer-kit/schema/elements/modeRenderers';
+import type { ItemCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
 // ── Tier Overview ─────────────────────────────────────────────────────────────
 
@@ -89,11 +88,6 @@ export const tierEditionOverviewShell: ShellSchema<TierEditionOverviewShellData>
 
 export interface TierEditionPricingRulesShellData {
   rateSheetId:       string | null;
-  // Presentation-only resolved title of rateSheetId — sourced from
-  // svc.rate_sheets at binding-build time, never persisted. Null when
-  // unbound (inherits the Tier's own binding). Added for the Tier Pricing
-  // Rules read-view layout pass — mirrors the occupant's own binding.
-  rateSheetTitle:    string | null;
   minimumTermValue:  number | null;
   minimumTermUnit:   string | null;
   commitmentEnabled: boolean;
@@ -108,28 +102,21 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
     subtitle:    'Rate Sheet, Commitment, and the Commercial Legs that price this Edition.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
-    // Opts the card's own body into the SAME `drawerModule__field`/`__label`/
-    // `__value` label+value styling the Overview archetype already uses
-    // (ReadBlock's own documented opt-in scope hook) — the `custom` renderer
-    // below emits that markup directly, since a `child` archetype's own
-    // ChildShell renders no per-field label wrapper. No new CSS. Mirrors the
-    // occupant's own tierCommercialScheduleShell.
-    scopeClass:  'drawerOverview',
     count:       (d) => d.legs.length,
   },
   content: [
     {
-      // `custom`, not two floating `text` rows — mirrors the occupant's own
-      // tierCommercialScheduleShell. See the `custom` element's Amendment
-      // Log entry (drawer-kit/schema/elements/library.ts).
-      id: 'pricing-summary', element: 'custom',
-      bind: (d): CustomPricingRulesValue => ({
-        kind: 'pricing-rules',
-        rateSheetTitle: d.rateSheetTitle ?? 'Not bound',
-        commitment: d.commitmentEnabled
+      id: 'commitment', element: 'text', label: 'Tier Commitment',
+      bind: (d): TextValue => ({
+        value: d.commitmentEnabled
           ? (d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : 'Yes')
           : 'No',
-        legs: d.legs.map((leg) => commercialLegLabel(leg)),
+      }),
+    },
+    {
+      id: 'legs', element: 'text', label: 'Commercial Legs',
+      bind: (d): TextValue => ({
+        value: d.legs.length > 0 ? d.legs.map((leg) => commercialLegLabel(leg)).join('\n') : 'Not yet configured.',
       }),
     },
   ],
@@ -147,10 +134,6 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
 
 export interface TierEditionInclusionsShellData {
   items: InclusionItem[];
-  // Presentation-only richer re-projection of the SAME items above — mirrors
-  // the occupant's own TierFeaturesShellData.rows. See
-  // tierDetailModel.buildInclusionsReadRows.
-  rows: CustomInclusionRow[];
 }
 
 const INCLUSIONS_ACTIONS: Record<string, ShellActionSchema> = {
@@ -169,14 +152,9 @@ export const tierEditionInclusionsShell: ShellSchema<TierEditionInclusionsShellD
   },
   content: [
     {
-      // `custom`, not `item-collection` — mirrors the occupant's own
-      // tierFeaturesShell. See the `custom` element's Amendment Log entry
-      // (drawer-kit/schema/elements/library.ts). `items` above is unchanged
-      // and still drives the header count.
-      id: 'items', element: 'custom',
-      bind: (d): CustomInclusionsValue => ({
-        kind: 'inclusions',
-        items: d.rows,
+      id: 'items', element: 'item-collection',
+      bind: (d): ItemCollectionValue => ({
+        items: d.items,
         empty: { title: 'No features', copy: 'Add features included in this Edition.' },
       }),
     },

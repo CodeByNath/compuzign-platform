@@ -24,13 +24,7 @@ import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
 import { TierPricingRulesEditor } from '../../editors/TierPricingRulesEditor';
 import type { TierPricingRulesEditDraft, RateSheetPickerOption } from '../../editors/TierPricingRulesEditor';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
-import type { QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
-import type {
-  CustomLabelBadgeValue,
-  CustomPricingRulesValue,
-  CustomInclusionsValue,
-  CustomInclusionRow,
-} from '@/drawer-kit/schema/elements/modeRenderers';
+import type { ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
 // The tier/promotion owning-workspace footer: Discard pending changes (only
 // while a module draft exists) then Edit — the same Action Group shape as the
@@ -58,11 +52,6 @@ export interface TierOverviewShellData {
   price:        number | null;
   isAddon:      boolean;         // occupant-level selection mode — see Tier Add-on Selection code map
   popular:      boolean;         // station-level presentation flag
-  // The operator's own custom badge text for the Popular chip (Tier Overview
-  // Editor's "Popular badge label" field) — presentation-only re-projection
-  // of pkg.popularLabel, threaded through so the read-view chip matches what
-  // the editor lets the operator name it. Falls back to "Popular" when blank.
-  popularBadgeLabel: string;
   platformId:   string;
   addonPlatformId: string;
   // 1 (the occupant's own permanent Default declaration) + however many
@@ -84,22 +73,12 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
   },
   content: [
     {
-      // `custom`, not `text`: the value composes the Label plus an inline
-      // Popular chip (reusing the exact chip class TierDetailPanel.tsx
-      // already uses for the same purpose), which the plain `text` element
-      // cannot express. See the `custom` element's Amendment Log entry
-      // (drawer-kit/schema/elements/library.ts).
-      id: 'label', element: 'custom', label: 'Label',
-      bind: (d): CustomLabelBadgeValue => ({
-        kind: 'label-badge',
-        label: d.label.trim(),
-        fallback: d.tierName,
-        badge: d.popular ? (d.popularBadgeLabel.trim() || 'Popular') : null,
-      }),
+      id: 'label', element: 'text', label: 'Label',
+      bind: (d): TextValue => ({ value: d.label.trim(), fallback: d.tierName }),
     },
     {
-      id: 'platform-id', element: 'text', label: 'Platform ID',
-      bind: (d): TextValue => ({ value: d.platformId, fallback: 'Assigned after Publish' }),
+      id: 'type', element: 'text', label: 'Type',
+      bind: (d): TextValue => ({ value: d.isAddon ? 'Package Add-on' : 'Package Tier' }),
     },
     {
       // One line per selected group — unchanged single-line reading when
@@ -124,6 +103,10 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.idealFor || '—' }),
     },
     {
+      id: 'popular', element: 'text', label: 'Popular',
+      bind: (d): TextValue => ({ value: d.popular ? 'Yes' : 'No' }),
+    },
+    {
       // Small, structural, read-only — no pricing editor, no lifecycle
       // rail, no explanatory copy. The count itself only increases through
       // Options' own "+ Edition" control (TierEditionDeclarationSwitcher),
@@ -131,6 +114,10 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       // docs/code-map/tier-edition.md.
       id: 'editions', element: 'text', label: 'Editions',
       bind: (d): TextValue => ({ value: String(d.tierEditionsCount) }),
+    },
+    {
+      id: 'platform-id', element: 'text', label: 'Tier Platform ID',
+      bind: (d): TextValue => ({ value: d.platformId, fallback: 'Assigned after Publish' }),
     },
     {
       id: 'addon-platform-id', element: 'text', label: 'Add-on Platform ID',
@@ -163,13 +150,6 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
 
 export interface TierFeaturesShellData {
   items: InclusionItem[];
-  // Presentation-only richer re-projection of the SAME items above (name,
-  // qty, per-leg assignment summary, resolved price) — added for the Tier
-  // Inclusion read-view layout pass. Built from data already available at
-  // binding-build time (detail.rate_sheet_items/rate_sheet_selections/
-  // commercial_legs); never a second source of truth. See
-  // tierDetailModel.buildInclusionsReadRows.
-  rows: CustomInclusionRow[];
 }
 
 export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
@@ -184,15 +164,9 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   },
   content: [
     {
-      // `custom`, not `item-collection`: each inclusion needs qty/leg-
-      // assignment/price alongside its label, which the plain chip pool
-      // element cannot express. See the `custom` element's Amendment Log
-      // entry (drawer-kit/schema/elements/library.ts). `items` above is
-      // unchanged and still drives the header count.
-      id: 'features', element: 'custom',
-      bind: (d): CustomInclusionsValue => ({
-        kind: 'inclusions',
-        items: d.rows,
+      id: 'features', element: 'item-collection',
+      bind: (d): ItemCollectionValue => ({
+        items: d.items,
         empty: { title: 'No features', copy: 'Add features included in this tier.' },
       }),
     },
@@ -227,10 +201,6 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
 
 export interface TierCommercialScheduleShellData {
   rateSheetId:        string | null;
-  // Presentation-only resolved title of rateSheetId — sourced from
-  // svc.rate_sheets at binding-build time, never persisted. Null when
-  // unbound. Added for the Tier Pricing Rules read-view layout pass.
-  rateSheetTitle:      string | null;
   minimumTermValue:   number | null;
   minimumTermUnit:    string | null;
   commitmentEnabled:  boolean;
@@ -245,29 +215,21 @@ export const tierCommercialScheduleShell: ShellSchema<TierCommercialScheduleShel
     subtitle:    'Rate Sheet, Commitment, and the Commercial Legs that price this tier.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
-    // Opts the card's own body into the SAME `drawerModule__field`/`__label`/
-    // `__value` label+value styling the Overview archetype already uses
-    // (ReadBlock's own documented opt-in scope hook) — the `custom` renderer
-    // above emits that markup directly, since a `child` archetype's own
-    // ChildShell renders no per-field label wrapper. No new CSS.
-    scopeClass:  'drawerOverview',
     count:       (d) => d.legs.length,
   },
   content: [
     {
-      // `custom`, not two floating `text` rows: composes Rate Sheet,
-      // Commitment, and one labelled row per Commercial Leg (reusing
-      // commercialLegLabel() per-leg rather than joining every leg into one
-      // blob) as a single coherent read block. See the `custom` element's
-      // Amendment Log entry (drawer-kit/schema/elements/library.ts).
-      id: 'pricing-summary', element: 'custom',
-      bind: (d): CustomPricingRulesValue => ({
-        kind: 'pricing-rules',
-        rateSheetTitle: d.rateSheetTitle ?? 'Not bound',
-        commitment: d.commitmentEnabled
+      id: 'commitment', element: 'text', label: 'Tier Commitment',
+      bind: (d): TextValue => ({
+        value: d.commitmentEnabled
           ? (d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : 'Yes')
           : 'No',
-        legs: d.legs.map((leg) => commercialLegLabel(leg)),
+      }),
+    },
+    {
+      id: 'legs', element: 'text', label: 'Commercial Legs',
+      bind: (d): TextValue => ({
+        value: d.legs.length > 0 ? d.legs.map((leg) => commercialLegLabel(leg)).join('\n') : 'Not yet configured.',
       }),
     },
   ],

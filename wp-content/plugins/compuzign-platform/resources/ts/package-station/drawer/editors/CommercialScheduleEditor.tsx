@@ -73,96 +73,76 @@ export function CommercialScheduleEditor({ draft, onChange, commitmentMonths }: 
       <div class="cz-tf-field">
         <label class="cz-tf-label">Commercial Legs</label>
         <div class="cz-ie-list">
-          {rows.map((leg, index) => (
-            // Each leg reads as one coherent, visually bounded unit — the
-            // same subtle bordered-block treatment the FAQ editor's own
-            // repeater rows already use (.cz-ie-faq-item/__header), reused
-            // here rather than a second surface treatment.
-            <div key={leg.id} class="cz-ie-faq-item">
-              <div class="cz-ie-faq-item__header">
-                <span class="cz-tf-label">{`Leg ${index + 1}`}</span>
-                {draft.length > 1 && (
-                  <button
-                    type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                    aria-label="Remove leg"
-                    onClick={() => removeLeg(leg.id)}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              <div class="cz-ie-row">
-                <div class="cz-tf-field">
-                  <span class="cz-tf-label">Payment Category</span>
-                  <select
-                    class="cz-tf-select"
-                    aria-label="Payment Category"
-                    value={leg.payment_category}
-                    onChange={(event) => updateLeg(leg.id, { payment_category: event.currentTarget.value })}
-                  >
-                    <option value="" disabled>Payment Category…</option>
-                    {Object.entries(PAYMENT_CATEGORY_LABELS).map(([value, label]) => (
-                      <option value={value} key={value}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div class="cz-tf-field">
-                  <span class="cz-tf-label">Billing Cycle</span>
-                  <select
-                    class="cz-tf-select"
-                    aria-label="Billing Cycle"
-                    value={leg.billing_cycle}
-                    onChange={(event) => updateLeg(leg.id, { billing_cycle: event.currentTarget.value })}
-                  >
-                    <option value="" disabled>Billing Cycle…</option>
-                    {Object.entries(COMMERCIAL_LEG_CYCLE_LABELS).map(([value, label]) => (
-                      <option value={value} key={value}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div class="cz-tf-field">
-                <span class="cz-tf-label">Duration</span>
-                <div class="cz-ie-row">
-                  <span>Month</span>
+          {rows.map((leg) => (
+            <div key={leg.id} class="cz-ie-row">
+              <select
+                class="cz-tf-select"
+                aria-label="Payment Category"
+                value={leg.payment_category}
+                onChange={(event) => updateLeg(leg.id, { payment_category: event.currentTarget.value })}
+              >
+                <option value="" disabled>Payment Category…</option>
+                {Object.entries(PAYMENT_CATEGORY_LABELS).map(([value, label]) => (
+                  <option value={value} key={value}>{label}</option>
+                ))}
+              </select>
+              <select
+                class="cz-tf-select"
+                aria-label="Billing Cycle"
+                value={leg.billing_cycle}
+                onChange={(event) => updateLeg(leg.id, { billing_cycle: event.currentTarget.value })}
+              >
+                <option value="" disabled>Billing Cycle…</option>
+                {Object.entries(COMMERCIAL_LEG_CYCLE_LABELS).map(([value, label]) => (
+                  <option value={value} key={value}>{label}</option>
+                ))}
+              </select>
+              <span>Month</span>
+              <input
+                class="cz-tf-input" type="number" min="1" step="1"
+                max={commitmentMonths ?? undefined}
+                aria-label="Start month"
+                value={leg.start_month}
+                onInput={(event) => updateLeg(leg.id, { start_month: Math.max(1, Number(event.currentTarget.value) || 1) })}
+              />
+              <span>through</span>
+              {commitmentMonths === null ? (
+                <>
                   <input
                     class="cz-tf-input" type="number" min="1" step="1"
-                    max={commitmentMonths ?? undefined}
-                    aria-label="Start month"
-                    value={leg.start_month}
-                    onInput={(event) => updateLeg(leg.id, { start_month: Math.max(1, Number(event.currentTarget.value) || 1) })}
+                    aria-label="End month"
+                    disabled={leg.end_month === null}
+                    value={leg.end_month ?? ''}
+                    placeholder="Indefinite"
+                    onInput={(event) => updateLeg(leg.id, { end_month: Math.max(1, Number(event.currentTarget.value) || 1) })}
                   />
-                  <span>through</span>
-                  {commitmentMonths === null ? (
-                    <>
-                      <input
-                        class="cz-tf-input" type="number" min="1" step="1"
-                        aria-label="End month"
-                        disabled={leg.end_month === null}
-                        value={leg.end_month ?? ''}
-                        placeholder="Indefinite"
-                        onInput={(event) => updateLeg(leg.id, { end_month: Math.max(1, Number(event.currentTarget.value) || 1) })}
-                      />
-                      <label class="cz-ie-leg-toggle">
-                        <input
-                          type="checkbox"
-                          checked={leg.end_month === null}
-                          onChange={(event) => updateLeg(leg.id, { end_month: event.currentTarget.checked ? null : (leg.start_month) })}
-                        />
-                        Indefinite
-                      </label>
-                    </>
-                  ) : (
+                  <label class="cz-ie-leg-toggle">
                     <input
-                      class="cz-tf-input" type="number" min="1" step="1"
-                      max={commitmentMonths}
-                      aria-label="End month"
-                      value={leg.end_month ?? ''}
-                      onInput={(event) => updateLeg(leg.id, { end_month: Math.max(1, Number(event.currentTarget.value) || 1) })}
+                      type="checkbox"
+                      checked={leg.end_month === null}
+                      onChange={(event) => updateLeg(leg.id, { end_month: event.currentTarget.checked ? null : (leg.start_month) })}
                     />
-                  )}
-                </div>
-              </div>
+                    Indefinite
+                  </label>
+                </>
+              ) : (
+                <input
+                  class="cz-tf-input" type="number" min="1" step="1"
+                  max={commitmentMonths}
+                  aria-label="End month"
+                  value={leg.end_month ?? ''}
+                  onInput={(event) => updateLeg(leg.id, { end_month: Math.max(1, Number(event.currentTarget.value) || 1) })}
+                />
+              )}
+              {draft.length > 1 && (
+                <button
+                  type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                  aria-label="Remove leg"
+                  onClick={() => removeLeg(leg.id)}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>

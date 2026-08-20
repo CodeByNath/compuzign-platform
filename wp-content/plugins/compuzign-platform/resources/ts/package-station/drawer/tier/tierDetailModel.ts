@@ -7,17 +7,16 @@
 // passes the results through unchanged, so presentation reads the same shapes
 // as before the split.
 
-import type { CommercialLeg, PackageManagerItem, PackageRateSheet, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
+import type { PackageManagerItem, PackageRateSheet, TierResolvedRateSheetSelection } from '../../types';
 import type { PackageStation } from '../../usePackageStation';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
-import type { CustomInclusionRow } from '@/drawer-kit/schema/elements/modeRenderers';
 import type {
   TierOverviewShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
   TierCommercialScheduleShellData,
 } from '../schema/bindings/tier';
-import { commercialLegLabel, defaultPriceLabel, relationshipDisplayLabel } from '../../rateSheetLabels';
+import { relationshipDisplayLabel } from '../../rateSheetLabels';
 import { TIER_LABELS } from '../../vocabulary';
 
 // Whether a shell holds SETTLED content (an occupant). Client-side heuristic over
@@ -127,66 +126,6 @@ export function buildRateSheetCatalogue(
   return catalogue;
 }
 
-/**
- * Presentation-only richer read-view projection of a Tier/Edition's own
- * inclusion selections — name, qty, resolved price, and (once Commercial
- * Legs exist) a per-leg assignment summary. Mirrors PoolInclusionsEditor's
- * own price/leg resolution (its `rateSheetCatalogue` branch) so the read
- * view and the editor never disagree about what a selection resolves to.
- * `selections` carries the occupant/Edition's OWN quantity/price_option_id/
- * leg_assignments; `catalogue` resolves each row's label/unit_price/
- * price_options — either `detail.rate_sheet_selections` for the occupant
- * (already fully resolved against its own bound sheet) or
- * `buildRateSheetCatalogue()`'s output for an Edition. Never a second
- * source of truth: purely re-layout of data already computed elsewhere.
- */
-export function buildInclusionsReadRows(
-  selections: TierRateSheetSelection[],
-  catalogue: TierResolvedRateSheetSelection[],
-  commercialLegs: CommercialLeg[],
-): CustomInclusionRow[] {
-  const byId = new Map(catalogue.map((item) => [item.item_id, item]));
-  const legsById = new Map(commercialLegs.map((leg) => [leg.id, leg]));
-  return selections.map((selection) => {
-    const row: TierResolvedRateSheetSelection = byId.get(selection.item_id) ?? {
-      ...selection, resolved: false, label: '(unresolved Rate Sheet item)',
-      unit_price: null, per: null, group_id: null, line_total: null, price_options: [],
-    };
-    const priceOptions = row.price_options ?? [];
-    const legAssignments = selection.leg_assignments ?? [];
-
-    if (commercialLegs.length > 0) {
-      const assignments = legAssignments.map((assignment) => {
-        const leg = legsById.get(assignment.leg_id);
-        const selectedOption = assignment.price_option_id
-          ? priceOptions.find((option) => option.option_id === assignment.price_option_id) ?? null
-          : null;
-        const legOptionUnresolved = !!assignment.price_option_id && !selectedOption;
-        const unitPrice = legOptionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
-        return {
-          legLabel: leg ? commercialLegLabel(leg) : 'Unknown leg',
-          priceLabel: selectedOption ? selectedOption.label : defaultPriceLabel(row.default_price_label),
-          quantity: assignment.quantity,
-          priceText: legOptionUnresolved ? 'Unresolved price option' : unitPrice !== null ? `$${(unitPrice * assignment.quantity).toFixed(2)}` : '—',
-        };
-      });
-      return { id: selection.item_id, label: row.label, quantity: selection.quantity, priceText: null, assignments };
-    }
-
-    const selectedOption = selection.price_option_id
-      ? priceOptions.find((option) => option.option_id === selection.price_option_id) ?? null
-      : null;
-    const optionUnresolved = !!selection.price_option_id && !selectedOption;
-    const effectiveUnitPrice = optionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
-    const priceText = !row.resolved
-      ? 'Unresolved'
-      : optionUnresolved
-        ? 'Unresolved price option'
-        : effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—';
-    return { id: selection.item_id, label: row.label, quantity: selection.quantity, priceText, assignments: [] };
-  });
-}
-
 // Individual-tier derived model (null unless a tier is open).
 export function buildTierDetail(
   pkg: PackageStation,
@@ -214,7 +153,6 @@ export function buildTierDetail(
       price:        detail.price,
       isAddon:      detail.is_addon,
       popular:      isPopular,
-      popularBadgeLabel: isPopular ? pkg.popularLabel : '',
       platformId:   detail.platform_id,
       addonPlatformId: detail.addon_platform_id,
       // 1 (the occupant's own permanent Default) + however many additional
@@ -230,16 +168,8 @@ export function buildTierDetail(
     },
     busy: tierBusy,
   };
-  // The read-view row summary resolves only this occupant's OWN inclusion
-  // selections (the same ids inclusions_override already names) against the
-  // fully-resolved rate_sheet_selections — never the whole bound sheet.
-  const inclusionIds = new Set(detail.inclusions_override.map((item) => item.id));
-  const inclusionSelections = detail.rate_sheet_items.filter((item) => inclusionIds.has(item.item_id));
   const featuresBinding: ShellBinding<TierFeaturesShellData> = {
-    data: {
-      items: detail.inclusions_override,
-      rows:  buildInclusionsReadRows(inclusionSelections, detail.rate_sheet_selections, detail.commercial_legs),
-    },
+    data:     { items: detail.inclusions_override },
     state:    view.modules.features,
     hasDraft: view.drafts.features !== null,
     handlers: { edit: () => onEditSection('tier-inclusions'), 'discard-draft': () => onRevertModule('features') },
@@ -255,7 +185,6 @@ export function buildTierDetail(
   const commercialScheduleBinding: ShellBinding<TierCommercialScheduleShellData> = {
     data: {
       rateSheetId:       detail.rate_sheet_id,
-      rateSheetTitle:    svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === detail.rate_sheet_id)?.title ?? null,
       minimumTermValue:  detail.minimum_term_value,
       minimumTermUnit:   detail.minimum_term_unit,
       commitmentEnabled: detail.commitment_enabled,

@@ -32,45 +32,6 @@ export interface ElementRenderContext {
 
 export type ElementModeRenderer = (value: unknown, ctx: ElementRenderContext) => ComponentChildren;
 
-// ── `custom` element payload shapes ──────────────────────────────────────────
-// `custom` carries no single bound-value contract (locked, library.ts) — each
-// consumer's own payload is one of these small shapes, discriminated by
-// `kind` and switched on inside the one `custom` renderer below, rather than
-// a second per-consumer renderer map. Not part of the governed element
-// vocabulary; extend by adding a `kind` here alongside its render case.
-
-export interface CustomLabelBadgeValue {
-  kind: 'label-badge';
-  label: string;
-  fallback?: string;
-  badge: string | null;   // null = no chip rendered
-}
-
-export interface CustomPricingRulesValue {
-  kind: 'pricing-rules';
-  rateSheetTitle: string;
-  commitment: string;
-  legs: string[];   // pre-labelled leg strings (commercialLegLabel()), in order
-}
-
-export interface CustomInclusionRow {
-  id: string;
-  label: string;
-  quantity: number;
-  // Set only when there is one resolved price for the whole row (no
-  // per-leg assignments apply yet) — never alongside `assignments`.
-  priceText?: string | null;
-  assignments: Array<{ legLabel: string; priceLabel: string; quantity: number; priceText: string }>;
-}
-
-export interface CustomInclusionsValue {
-  kind: 'inclusions';
-  items: CustomInclusionRow[];
-  empty: { title: string; copy: string };
-}
-
-export type CustomValue = CustomLabelBadgeValue | CustomPricingRulesValue | CustomInclusionsValue;
-
 export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode, ElementModeRenderer>>> = {
   text: {
     details: (raw, { loading }) => {
@@ -220,99 +181,9 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
     },
   },
 
-  // Escape hatch — first real consumers (Amendment Log, library.ts): Tier
-  // Overview's Label+Popular-badge row, Tier Pricing Rules' whole-card
-  // composition, and Default Tier Inclusions' richer per-item composition
-  // (Tier occupant and Tier Edition alike; 2026-08 presentation pass). No
-  // single bound-value contract — each consumer's own payload is one of the
-  // small `kind`-discriminated shapes below, switched on here rather than
-  // registering a second renderer map. Reuses only already-governed classes
-  // (`drawerModule__*`, `cz-ie-*`, `cz-tf-label`) — no new CSS.
-  custom: {
-    details: (raw, { loading }) => {
-      if (loading) return <p class="drawerModule__value"><Skeleton width="55%" /></p>;
-      const v = raw as CustomValue;
-      switch (v.kind) {
-        case 'label-badge':
-          return (
-            <p class="drawerModule__value">
-              {v.label || v.fallback || ''}
-              {v.badge && <span class="cz-tier-workspace__popular-badge">{v.badge}</span>}
-            </p>
-          );
-        case 'pricing-rules':
-          return (
-            <div class="drawerModule__fields">
-              <div class="drawerModule__field" data-field-id="rate-sheet">
-                <p class="drawerModule__label">Rate Sheet</p>
-                <p class="drawerModule__value">{v.rateSheetTitle}</p>
-              </div>
-              <div class="drawerModule__field" data-field-id="commitment">
-                <p class="drawerModule__label">Commitment</p>
-                <p class="drawerModule__value">{v.commitment}</p>
-              </div>
-              {v.legs.length > 0 ? (
-                <>
-                  <div class="drawerModule__field" data-field-id="legs-count">
-                    <p class="drawerModule__label">Commercial Legs</p>
-                    <p class="drawerModule__value">{v.legs.length}</p>
-                  </div>
-                  {v.legs.map((leg, i) => (
-                    <div class="drawerModule__field" data-field-id={`leg-${i + 1}`} key={i}>
-                      <p class="drawerModule__label">{`Leg ${i + 1}`}</p>
-                      <p class="drawerModule__value">{leg}</p>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <div class="drawerModule__field" data-field-id="legs-count">
-                  <p class="drawerModule__label">Commercial Legs</p>
-                  <p class="drawerModule__value">Not yet configured.</p>
-                </div>
-              )}
-            </div>
-          );
-        case 'inclusions':
-          if (v.items.length === 0) {
-            return (
-              <div class="drawerModule__empty">
-                <p class="drawerModule__empty-title">{v.empty.title}</p>
-                <p class="drawerModule__empty-copy">{v.empty.copy}</p>
-              </div>
-            );
-          }
-          return (
-            <div class="cz-ie-list">
-              {v.items.map((item) => (
-                <div key={item.id} class="cz-ie-faq-item">
-                  <div class="cz-ie-faq-item__header">
-                    <span class="cz-tf-label">{item.label}</span>
-                    <span class="cz-tf-label">
-                      {`Qty ${item.quantity}`}
-                      {item.priceText ? ` · ${item.priceText}` : ''}
-                    </span>
-                  </div>
-                  {item.assignments.length > 0 && (
-                    <div class="cz-ie-leg-assignments">
-                      {item.assignments.map((a, idx) => (
-                        <div class="cz-ie-leg-row" key={idx}>
-                          <span>{a.legLabel}</span>
-                          <span>{a.priceLabel}</span>
-                          <span>{`Qty ${a.quantity}`}</span>
-                          <span>{a.priceText}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          );
-        default:
-          return null;
-      }
-    },
-  },
+  // Escape hatch — no registered renderers until the first real consumer
+  // arrives (no speculation before a consumer exists, phase guardrail).
+  custom: {},
 };
 
 // Fallback Rule (locked): read viewpoints fall back to the `details`

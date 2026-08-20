@@ -43,28 +43,23 @@ export function TierOverviewEditor({ draft, onChange }: Props) {
 
   return (
     <div class="cz-tf-form">
-      {/* Contact-mode and its derived read-only Price sit together — checking
-          Contact Us always reports "Contact Us" below, regardless of what the
-          bound sheet's selected rows would otherwise total. Grouped tightly
-          via .cz-tf-field-group so the two read as one related pair rather
-          than two loose fields. */}
-      <div class="cz-tf-field-group">
-        {/* An explicit override, not a Rate Sheet resolution outcome. */}
-        <AdminField
-          def={{ id: 'tier-contact', type: 'checkbox', label: 'Mark as Contact Us' }}
-          value={draft.contact}
-          onChange={(contact) => onChange({ contact })}
-        />
+      {/* An explicit override, not a Rate Sheet resolution outcome — checking
+          it always reports Contact Us below, regardless of what the bound
+          sheet's selected rows would otherwise total. */}
+      <AdminField
+        def={{ id: 'tier-contact', type: 'checkbox', label: 'Mark as Contact Us' }}
+        value={draft.contact}
+        onChange={(contact) => onChange({ contact })}
+      />
 
-        {/* Price is derived from the bound sheet's selected rows, so it
-            reports rather than accepts. Readonly, not disabled: the value is
-            still selectable and still submitted. */}
-        <AdminField
-          def={{ id: 'tier-price', type: 'text', label: 'Price', readonly: true }}
-          value={draft.contact ? 'Contact Us' : draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
-          onChange={() => undefined}
-        />
-      </div>
+      {/* Price is derived from the bound sheet's selected rows, so it reports
+          rather than accepts. Readonly, not disabled: the value is still
+          selectable and still submitted. */}
+      <AdminField
+        def={{ id: 'tier-price', type: 'text', label: 'Price', readonly: true }}
+        value={draft.contact ? 'Contact Us' : draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
+        onChange={() => undefined}
+      />
 
       <AdminField
         def={{ id: 'tier-label', type: 'text', label: 'Display Label (optional)' }}
@@ -86,30 +81,25 @@ export function TierOverviewEditor({ draft, onChange }: Props) {
         onChange={(ideal_for) => onChange({ ideal_for })}
       />
 
-      {/* The two selection-mode checkboxes (and the Popular label field they
-          conditionally reveal) read as one grouped block, same rhythm as the
-          Contact/Price pair above. */}
-      <div class="cz-tf-field-group">
-        <AdminField
-          def={{ id: 'tier-is-addon', type: 'checkbox', label: 'Make this Tier an add-on' }}
-          value={isAddon}
-          onChange={(is_addon) => onChange({ is_addon })}
-        />
+      <AdminField
+        def={{ id: 'tier-is-addon', type: 'checkbox', label: 'Make this Tier an add-on' }}
+        value={isAddon}
+        onChange={(is_addon) => onChange({ is_addon })}
+      />
 
-        <AdminField
-          def={{ id: 'tier-popular', type: 'checkbox', label: 'Mark as popular tier' }}
-          value={draft.popular}
-          onChange={(popular) => onChange({ popular })}
-        />
+      <AdminField
+        def={{ id: 'tier-popular', type: 'checkbox', label: 'Mark as popular tier' }}
+        value={draft.popular}
+        onChange={(popular) => onChange({ popular })}
+      />
 
-        {draft.popular && (
-          <AdminField
-            def={{ id: 'tier-popular-label', type: 'text', label: 'Popular badge label' }}
-            value={draft.popular_label}
-            onChange={(popular_label) => onChange({ popular_label })}
-          />
-        )}
-      </div>
+      {draft.popular && (
+        <AdminField
+          def={{ id: 'tier-popular-label', type: 'text', label: 'Popular badge label' }}
+          value={draft.popular_label}
+          onChange={(popular_label) => onChange({ popular_label })}
+        />
+      )}
     </div>
   );
 }

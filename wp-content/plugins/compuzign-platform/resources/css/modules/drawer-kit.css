@@ -480,6 +480,12 @@
   flex: 1;
 }
 
+.cz-ie-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* A Bundle-backed row's own supplied content — read-only, nested under its
    entry in the inclusion editor. */
 .cz-ie-sub-list {
@@ -761,28 +767,6 @@
   flex-direction: row;
   align-items: center;
   gap: var(--cz-space-3);
-}
-
-/* A tight sub-group of directly related fields inside .cz-tf-form — e.g. a
-   checkbox and the read-only value it derives, or a toggle and the field(s)
-   it conditionally reveals. Carries the same trailing rhythm a lone
-   .cz-tf-field would as a direct .cz-tf-form child, with a tighter internal
-   gap so the group reads as one coherent unit rather than loose fields.
-   Composed entirely from the existing field-system spacing tokens — no new
-   scale (2026-08 Tier presentation pass). */
-.cz-tf-field-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-2);
-  margin-bottom: var(--cz-space-4);
-}
-
-.cz-tf-field-group:last-child {
-  margin-bottom: 0;
-}
-
-.cz-tf-field-group .cz-tf-field {
-  margin-bottom: 0;
 }
 
 .cz-tf-label {

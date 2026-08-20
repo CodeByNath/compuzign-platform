@@ -64,11 +64,3 @@ export interface MetricsValue {
 // `custom` — first-class permanent escape hatch. No bound-value contract and
 // no registered renderer yet: the first real consumer registers its renderers
 // and is logged as a candidate element (promotion needs 2+ consumers).
-//
-// Amendment Log: 2026-08 presentation pass — Tier Overview (the Label row's
-// inline Popular badge, which the plain `text` element cannot compose),
-// Tier Pricing Rules (Rate Sheet/Commitment/per-leg read composition,
-// replacing two floating `text` rows), and Default Tier Inclusions (the
-// richer per-item qty/leg-assignment/price read composition) are its first
-// real consumers — Tier occupant and Tier Edition alike. Payload shapes and
-// the shared renderer switch live in elements/modeRenderers.tsx (`CustomValue`).
