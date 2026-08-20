@@ -2821,15 +2821,13 @@ class PackageSchema
     private static function draftPreferredCommitmentMonths(array $slot): ?float
     {
         $occ = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? []) : [];
-        // Owned by the Commercial Schedule module's own draft (Tier Pricing
-        // Rules), not Overview — see docs/code-map/tier-pricing-rules-plan.md.
-        $cs  = is_array($slot['drafts']['commercial_schedule'] ?? null) ? $slot['drafts']['commercial_schedule'] : [];
-        $commitmentEnabled = (bool) (array_key_exists('commitment_enabled', $cs) ? $cs['commitment_enabled'] : ($occ['commitment_enabled'] ?? false));
+        $ov  = is_array($slot['drafts']['overview'] ?? null) ? $slot['drafts']['overview'] : [];
+        $commitmentEnabled = (bool) (array_key_exists('commitment_enabled', $ov) ? $ov['commitment_enabled'] : ($occ['commitment_enabled'] ?? false));
         if (!$commitmentEnabled) {
             return null;
         }
-        $minTermValue = array_key_exists('minimum_term_value', $cs) ? $cs['minimum_term_value'] : ($occ['minimum_term_value'] ?? null);
-        $minTermUnit  = array_key_exists('minimum_term_unit', $cs)  ? $cs['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null);
+        $minTermValue = array_key_exists('minimum_term_value', $ov) ? $ov['minimum_term_value'] : ($occ['minimum_term_value'] ?? null);
+        $minTermUnit  = array_key_exists('minimum_term_unit', $ov)  ? $ov['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null);
         return self::commitmentMonths(
             is_numeric($minTermValue) ? (float) $minTermValue : null,
             is_string($minTermUnit) ? $minTermUnit : null
@@ -2897,25 +2895,23 @@ class PackageSchema
         $cs = is_array($drafts['commercial_schedule'] ?? null) ? $drafts['commercial_schedule'] : [];
 
         // The Tier's bound Rate Sheet: draft-preferred, occupant fallback.
-        // Owned by the Commercial Schedule module's draft (Tier Pricing
-        // Rules), not Overview — see docs/code-map/tier-pricing-rules-plan.md.
         $occRateSheetId   = self::normaliseRateSheetId($occ['rate_sheet_id'] ?? null);
-        $draftRateSheetId = array_key_exists('rate_sheet_id', $cs)
-            ? self::normaliseRateSheetId($cs['rate_sheet_id'])
+        $draftRateSheetId = array_key_exists('rate_sheet_id', $ov)
+            ? self::normaliseRateSheetId($ov['rate_sheet_id'])
             : $occRateSheetId;
         // Refinement 4 — switching an already-bound occupant to a different sheet
         // clears its selections; picking new rows is a separate settle against the
         // re-bound occupant. Non-switch settles keep the draft-preferred selections.
         $switchingSheet = $occRateSheetId !== null && $draftRateSheetId !== $occRateSheetId;
 
-        // Draft-preferred like every other Commercial Schedule field above; an
+        // Draft-preferred like every other Overview scalar above; an
         // edited-but-unsettled commitment/cycle change wins, otherwise the
         // settled occupant's existing value carries forward untouched.
-        $minTermValue = array_key_exists('minimum_term_value', $cs) ? $cs['minimum_term_value'] : ($occ['minimum_term_value'] ?? null);
-        $minTermUnit  = array_key_exists('minimum_term_unit', $cs)  ? $cs['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null);
-        $commitmentEnabled = (bool) (array_key_exists('commitment_enabled', $cs) ? $cs['commitment_enabled'] : ($occ['commitment_enabled'] ?? false));
+        $minTermValue = array_key_exists('minimum_term_value', $ov) ? $ov['minimum_term_value'] : ($occ['minimum_term_value'] ?? null);
+        $minTermUnit  = array_key_exists('minimum_term_unit', $ov)  ? $ov['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null);
+        $commitmentEnabled = (bool) (array_key_exists('commitment_enabled', $ov) ? $ov['commitment_enabled'] : ($occ['commitment_enabled'] ?? false));
         $activeBillingCycles = self::sanitizeActiveBillingCycles(
-            array_key_exists('active_billing_cycles', $cs) ? $cs['active_billing_cycles'] : ($occ['active_billing_cycles'] ?? [])
+            array_key_exists('active_billing_cycles', $ov) ? $ov['active_billing_cycles'] : ($occ['active_billing_cycles'] ?? [])
         );
         // Commercial Schedule module's own draft-preferred merge, same rule as
         // Features/FAQs below — a module with no draft keeps its settled value.

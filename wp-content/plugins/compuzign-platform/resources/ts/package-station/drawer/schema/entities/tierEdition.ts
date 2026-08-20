@@ -9,7 +9,7 @@
 // top-level. See docs/code-map/tier-edition.md.
 
 import type { TierEdition } from '../../../types';
-import { tierEditionOverviewShell, tierEditionPricingRulesShell, tierEditionInclusionsShell } from '../bindings/tierEdition';
+import { tierEditionOverviewShell, tierEditionInclusionsShell } from '../bindings/tierEdition';
 import type { EntitySchema } from '@/drawer-kit/schema/types';
 
 export const TIER_EDITION_ENTITY: EntitySchema = {
@@ -26,16 +26,14 @@ export const TIER_EDITION_ENTITY: EntitySchema = {
   },
   ownership: { parent: 'tier', label: 'Tier' },
   shells: {
-    overview:      tierEditionOverviewShell,
-    'pricing-rules': tierEditionPricingRulesShell,
-    inclusions:    tierEditionInclusionsShell,
+    overview:   tierEditionOverviewShell,
+    inclusions: tierEditionInclusionsShell,
   },
   actions: {},
   placements: {
     drawer: {
       details: [
         { module: 'overview', mode: 'details' },
-        { module: 'pricing-rules', mode: 'details' },
         { module: 'inclusions', mode: 'details' },
       ],
       connections: [],

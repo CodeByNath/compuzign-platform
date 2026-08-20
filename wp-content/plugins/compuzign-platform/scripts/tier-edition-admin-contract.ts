@@ -314,17 +314,16 @@ const editionBindings = readFileSync(resolve(
   'resources/ts/package-station/drawer/schema/bindings/tierEdition.tsx',
 ), 'utf8');
 check(
-  (editionBindings.match(/dna:\s*tierEditionOverviewModule/g) ?? []).length === 3,
-  'Edition Overview, Tier Pricing Rules, and Default Tier Inclusions shells all share the SAME dna rule — never independently resolved modules',
+  (editionBindings.match(/dna:\s*tierEditionOverviewModule/g) ?? []).length === 2,
+  'both Edition Overview and Edition Inclusions shells share the SAME dna rule — never two independently resolved modules',
 );
 check(
-  !/tierEditionPricingRulesShell[\s\S]*?editor:/.test(editionBindings)
-  && !/tierEditionInclusionsShell[\s\S]*?editor:/.test(editionBindings),
-  'neither the Pricing Rules nor the Inclusions shell carries an editor key — neither has an independent draft/save of its own',
+  !/tierEditionInclusionsShell[\s\S]*?editor:/.test(editionBindings),
+  'the Inclusions shell carries no editor key — it has no independent draft/save of its own',
 );
 check(
-  !editionBindings.includes("'discard-draft'") || !/(tierEditionPricingRulesShell|tierEditionInclusionsShell)[\s\S]*?discard-draft/.test(editionBindings),
-  'discard-draft is not duplicated onto the Pricing Rules or Inclusions cards — Overview alone surfaces it for the one shared draft',
+  !editionBindings.includes("'discard-draft'") || !/tierEditionInclusionsShell[\s\S]*?discard-draft/.test(editionBindings),
+  'discard-draft is not duplicated onto the Inclusions card — Overview alone surfaces it for the one shared draft',
 );
 
 check(
@@ -349,8 +348,8 @@ check(
   'the Edition\'s own Inclusions card resolves rows through the SAME shared buildRateSheetCatalogue resolver as the occupant\'s own Default Tier Inclusions and the Edition\'s own editor — not a fourth copy',
 );
 check(
-  (editionDetailModel.match(/onEdit\('overview'\)|onEdit\('pricing-rules'\)|onEdit\('inclusions'\)/g) ?? []).length === 3,
-  'all three cards\' edit handlers route through the same onEdit(initialTab) — one shared session, three entry points',
+  (editionDetailModel.match(/onEdit\('overview'\)|onEdit\('inclusions'\)/g) ?? []).length === 2,
+  'both cards\' edit handlers route through the same onEdit(initialTab) — one shared session, two entry points',
 );
 // Correction plan item 1: the Inclusions read card must resolve the
 // EDITION'S OWN persisted selection (rate_sheet_items) against the
@@ -370,10 +369,8 @@ const editionEntity = readFileSync(resolve(
   'resources/ts/package-station/drawer/schema/entities/tierEdition.ts',
 ), 'utf8');
 check(
-  editionEntity.includes('tierEditionOverviewShell')
-  && editionEntity.includes("'pricing-rules': tierEditionPricingRulesShell")
-  && editionEntity.includes('tierEditionInclusionsShell'),
-  'TIER_EDITION_ENTITY registers exactly the three Edition shells, all already audited above',
+  editionEntity.includes("overview:   tierEditionOverviewShell") && editionEntity.includes('inclusions: tierEditionInclusionsShell'),
+  'TIER_EDITION_ENTITY registers exactly the two Edition shells, both already audited above',
 );
 
 // ── Lifecycle presentation — single-footer, scope-aware lifecycle command

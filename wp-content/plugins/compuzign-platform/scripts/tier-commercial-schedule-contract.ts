@@ -1,21 +1,15 @@
-// Contract: Tier Pricing Rules (the renamed/restructured Commercial Schedule
-// module — see docs/code-map/tier-pricing-rules-plan.md) stays wired
-// end-to-end — schema, resolution, controller, and every frontend seam from
-// the occupant's own module through to Tier Edition's own tab.
-// Source-scanning, the same technique
+// Contract: the Commercial Schedule capability (Phase 2 — admin authoring)
+// stays wired end-to-end — schema, resolution, controller, and every
+// frontend seam from the occupant's own module through to Tier Edition's
+// third tab. Source-scanning, the same technique
 // rate-sheet-price-option-selection-contract.ts uses for its own wiring — no
 // mounted DOM needed to prove these seams exist and are shaped right.
 //
 // Non-negotiable boundary asserted throughout: a commercial leg SELECTS an
 // existing Rate Sheet Price Option (leg_assignments[].price_option_id) — it
-// never creates, calculates, or mutates a price. Commercial Legs are the
-// SOLE pricing-schedule mechanism (Simple Mode is retired): every
-// Tier/Edition has at least one leg once configured, Commitment and Legs are
-// independent concerns, and Rate Sheet binding/Commitment/Commercial Legs
-// all live on the ONE `commercial_schedule` module — Overview never carries
-// them (module key/shell name stay `commercial_schedule`/
-// `tierCommercialScheduleShell` internally; only the visible card title and
-// its fields changed).
+// never creates, calculates, or mutates a price. Simple Mode (no
+// active_billing_cycles/commercial_legs configured) must stay byte-identical
+// to before this capability existed.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -32,7 +26,6 @@ const managerSchema = read('src/Modules/SurfacePackages/Support/PackageManagerSc
 const controller = read('src/Modules/SurfacePackages/Http/PackageStationController.php');
 const types = read('resources/ts/package-station/types.ts');
 const overviewEditor = read('resources/ts/package-station/drawer/editors/TierOverviewEditor.tsx');
-const pricingRulesEditor = read('resources/ts/package-station/drawer/editors/TierPricingRulesEditor.tsx');
 const scheduleEditor = read('resources/ts/package-station/drawer/editors/CommercialScheduleEditor.tsx');
 const poolEditor = read('resources/ts/package-station/drawer/editors/PoolInclusionsEditor.tsx');
 const moduleEditing = read('resources/ts/package-station/drawer/tier/useTierModuleEditing.ts');
@@ -118,19 +111,12 @@ check(
 // ── Admin authoring UX: Overview cycles, the new module, per-leg assignment ─
 
 check(
-  !overviewEditor.includes('active_billing_cycles') && !overviewEditor.includes('rate_sheet_id') && !overviewEditor.includes('minimum_term_value'),
-  'TierOverviewEditor no longer renders Rate Sheet/Commitment/Active Billing Cycles — all retired from this editing surface, moved to Tier Pricing Rules',
+  overviewEditor.includes('active_billing_cycles') && overviewEditor.includes('Active Billing Cycles'),
+  'TierOverviewEditor renders the Active Billing Cycles multi-select alongside Commitment',
 );
 check(
-  pricingRulesEditor.includes('export function TierPricingRulesEditor')
-  && pricingRulesEditor.includes('commitment_enabled')
-  && pricingRulesEditor.includes('rate_sheet_id'),
-  'TierPricingRulesEditor exists and owns Rate Sheet binding + the independent Commitment toggle',
-);
-check(
-  scheduleEditor.includes('export function CommercialScheduleEditor')
-  && !scheduleEditor.includes('activeBillingCycles'),
-  'the Commercial Legs repeater editor exists and no longer gates on activeBillingCycles — the fixed Payment Category/Billing Cycle vocabulary replaces that gate entirely',
+  scheduleEditor.includes('export function CommercialScheduleEditor'),
+  'the Commercial Schedule module editor exists',
 );
 check(
   poolEditor.includes('commercialLegs') && poolEditor.includes('cz-ie-leg-assignments'),
@@ -154,9 +140,9 @@ check(
   'TIER_ENTITY.shells registers commercial_schedule — PlacedShell resolves entity.shells[slot.module] and renders nothing if it is missing',
 );
 check(
-  usePackageStation.includes('saveTierPricingRules')
-  && usePackageStation.includes('cs?.commercial_legs ?? slot.commercial_legs'),
-  'usePackageStation exposes saveTierPricingRules and draft-prefers the Commercial Schedule module\'s own draft over the settled occupant',
+  usePackageStation.includes('saveTierCommercialSchedule')
+  && usePackageStation.includes('slot.drafts.commercial_schedule?.commercial_legs ?? slot.commercial_legs'),
+  'usePackageStation exposes saveTierCommercialSchedule and draft-prefers the Commercial Schedule module\'s own draft over the settled occupant',
 );
 
 // ── Simple Mode never nags: an empty schedule is complete, not incomplete ───
@@ -169,14 +155,14 @@ check(
 // ── Tier Edition: third tab over the SAME session, no second draft/endpoint ─
 
 check(
-  editionFields.includes('TierEditionPricingRulesSection')
+  editionFields.includes('TierEditionCommercialScheduleSection')
   && editionFields.includes('CommercialScheduleEditor'),
-  'Tier Edition reuses the SAME CommercialScheduleEditor component the occupant\'s own module uses, inside its own TierEditionPricingRulesSection',
+  'Tier Edition reuses the SAME CommercialScheduleEditor component the occupant\'s own module uses',
 );
 check(
-  /export type TierEditionEditorTab = 'overview' \| 'pricing-rules' \| 'inclusions';/.test(editionEditor)
-  && editionEditor.includes("id: 'pricing-rules'"),
-  'TierEditionEditor renders Pricing Rules as a DrawerGroupTabs tab over the SAME session/draft, ordered Overview -> Pricing Rules -> Inclusions — never a second endpoint or module key for Editions',
+  /export type TierEditionEditorTab = 'overview' \| 'inclusions' \| 'commercial-schedule';/.test(editionEditor)
+  && editionEditor.includes("id: 'commercial-schedule'"),
+  'TierEditionEditor renders Commercial Schedule as a third DrawerGroupTabs tab over the SAME session/draft — never a second endpoint or module key for Editions',
 );
 check(
   editionModel.includes('active_billing_cycles: edition.active_billing_cycles,')

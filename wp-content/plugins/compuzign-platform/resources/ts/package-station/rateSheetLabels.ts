@@ -29,29 +29,22 @@ export function defaultPriceLabel(label: string | null | undefined): string {
   return own !== '' ? own : DEFAULT_PRICE_LABEL;
 }
 
-// Tier Pricing Rules' fixed vocabularies (PackageSchema::PAYMENT_CATEGORIES /
-// COMMERCIAL_LEG_BILLING_CYCLES) — distinct from the legacy scalar
-// billing_cycle's own BILLING_CYCLES vocabulary. See
-// docs/code-map/tier-pricing-rules-plan.md.
-export const PAYMENT_CATEGORY_LABELS: Record<string, string> = {
-  'one-time': 'One-time',
-  recurring: 'Recurring',
-};
-
-export const COMMERCIAL_LEG_CYCLE_LABELS: Record<string, string> = {
-  upfront: 'Upfront',
+// Same Title Case vocabulary as TierOverviewEditor's own BILLING_CYCLES —
+// duplicated locally rather than shared, the same small-vocabulary precedent
+// that editor's own comment already sets against TierEditionOverviewFields.
+const COMMERCIAL_LEG_CYCLE_LABELS: Record<string, string> = {
   monthly: 'Monthly',
-  yearly: 'Yearly',
+  annually: 'Annually',
+  'one-time': 'One-time',
 };
 
 /**
  * A commercial leg's own short display badge — cycle name plus its inclusive
- * month range (or "Indefinite" when there's no bounding commitment) —
- * shared by the Commercial Schedule editor and Included Features' own
- * per-leg Price Option rows so the two never name the same leg differently.
+ * month range — shared by the Commercial Schedule editor and Included
+ * Features' own per-leg Price Option rows so the two never name the same leg
+ * differently.
  */
-export function commercialLegLabel(leg: { billing_cycle: string; start_month: number; end_month: number | null }): string {
+export function commercialLegLabel(leg: { billing_cycle: string; start_month: number; end_month: number }): string {
   const cycle = COMMERCIAL_LEG_CYCLE_LABELS[leg.billing_cycle] ?? leg.billing_cycle;
-  const end = leg.end_month === null ? 'Indefinite' : String(leg.end_month);
-  return `${cycle} · Mo ${leg.start_month}–${end}`;
+  return `${cycle} · Mo ${leg.start_month}–${leg.end_month}`;
 }

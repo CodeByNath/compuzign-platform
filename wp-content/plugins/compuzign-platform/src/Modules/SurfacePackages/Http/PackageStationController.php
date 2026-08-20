@@ -1493,16 +1493,12 @@ class PackageStationController
             if (!$contact && array_key_exists('price', $body) && $body['price'] !== null && $body['price'] !== '') {
                 $price = (float) $body['price'];
             }
-            // billing_cycle is retired from every editing surface (Tier
-            // Pricing Rules — Commercial Legs are the sole pricing-schedule
-            // mechanism): never written here at all, so an omitted key
-            // correctly preserves the stored value at settle time rather
-            // than resetting it to '' for a client that no longer sends it.
             $draftValue = [
                 'label'         => sanitize_text_field((string) ($body['label'] ?? '')),
                 'ideal_for'     => sanitize_textarea_field((string) ($body['ideal_for'] ?? '')),
                 'price'         => null,
                 'contact'       => $contact,
+                'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
                 // Selection-mode flag — normal Tier vs. stackable add-on. Carried
                 // through the existing Overview module save flow rather than a new
                 // endpoint; defaults false when the client omits it.
@@ -1514,33 +1510,16 @@ class PackageStationController
             if (array_key_exists('audience_groups', $body)) {
                 $draftValue['audience_groups'] = $PS::sanitizeTierAudienceGroups($body['audience_groups']);
             }
-        } elseif ($module === 'features') {
-            // Draft-preferred, not settled — legs may exist only in a
-            // not-yet-settled Commercial Schedule draft (declare legs, then
-            // assign inclusions to them, both before Publish). Real
-            // cross-validation against the settle-time-resolved legs runs
-            // again in settleTierSlot() regardless.
-            $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? [], $PS::draftPreferredCommercialLegs($slot));
-        } elseif ($module === 'commercial_schedule') {
-            // Tier Pricing Rules — Rate Sheet binding, Commitment, and the
-            // Commercial Legs themselves all live on this ONE module's draft
-            // (see docs/code-map/tier-pricing-rules-plan.md; moved off
-            // Overview so the two can still be authored/saved independently,
-            // in either order — settleTierSlot() re-runs the same
-            // draft-preferred resolution again at commit time regardless).
-            $draftValue = [
-                'commercial_legs' => $PS::sanitizeCommercialLegsForSlot($slot, $body['commercial_legs'] ?? []),
-            ];
-            // The Tier's bound Rate Sheet — a switch commits (clearing
-            // selections at settle) before new rows are chosen, the same
-            // Refinement 4 rule as before this field moved here.
+            // The Tier's bound Rate Sheet is edited alongside overview so a switch
+            // commits (clearing selections at settle) before new rows are chosen.
             if (array_key_exists('rate_sheet_id', $body)) {
                 $draftValue['rate_sheet_id'] = sanitize_text_field((string) ($body['rate_sheet_id'] ?? ''));
             }
             // Structured minimum commitment — the occupant's own permanent
             // Default declaration, same shape/sanitize rule as an Edition's
-            // own minimum_term_value/unit. An omitted key preserves the
-            // settled occupant's existing value at settle time
+            // own minimum_term_value/unit. Travels through Overview exactly
+            // like audience_groups/rate_sheet_id above: an omitted key
+            // preserves the settled occupant's existing value at settle time
             // (PackageSchema::settleTierSlot) rather than resetting it for an
             // older/partial client payload; an explicit null clears it.
             if (array_key_exists('minimum_term_value', $body)) {
@@ -1553,17 +1532,26 @@ class PackageStationController
                     ? sanitize_text_field((string) $body['minimum_term_unit'])
                     : null;
             }
-            // Independent of commercial_legs — gates only Commitment Unit/
-            // Minimum Commitment above. Commercial Legs are never nested
-            // under, disabled by, or cleared because this is false.
-            if (array_key_exists('commitment_enabled', $body)) {
-                $draftValue['commitment_enabled'] = (bool) $body['commitment_enabled'];
-            }
-            // Legacy back-compat field only now — no longer authored through
-            // any UI, but an omitted key still preserves the existing value.
+            // The reusable cadence pool a Commercial Schedule leg may draw
+            // from — a set, not a single value, so it travels through
+            // Overview like audience_groups above rather than the legacy
+            // scalar billing_cycle. Omission preserves the existing value.
             if (array_key_exists('active_billing_cycles', $body)) {
                 $draftValue['active_billing_cycles'] = $PS::sanitizeActiveBillingCycles($body['active_billing_cycles']);
             }
+        } elseif ($module === 'features') {
+            // Draft-preferred, not settled — legs may exist only in a
+            // not-yet-settled Commercial Schedule draft (declare legs, then
+            // assign inclusions to them, both before Publish). Real
+            // cross-validation against the settle-time-resolved legs runs
+            // again in settleTierSlot() regardless.
+            $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? [], $PS::draftPreferredCommercialLegs($slot));
+        } elseif ($module === 'commercial_schedule') {
+            // Validated immediately against the slot's own draft-preferred
+            // active_billing_cycles/commitment (Overview may be saved before
+            // or after this module) — settleTierSlot() re-runs the same
+            // validation again at commit time regardless.
+            $draftValue = ['commercial_legs' => $PS::sanitizeCommercialLegsForSlot($slot, $body['commercial_legs'] ?? [])];
         } else { // faqs
             $draftValue = [];
             if (is_array($body['faq_refs'] ?? null)) {
@@ -1889,23 +1877,6 @@ class PackageStationController
         $originalSlot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
         $slot = $PS::settleTierSlot($originalSlot);
         $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
-        // Tier Pricing Rules — UI/controller validation (not a PackageSchema
-        // throw: that layer stays permissive, as it already is for every
-        // other field — see docs/code-map/tier-pricing-rules-plan.md). Legacy
-        // synthesis inside settleTierSlot() already derived a leg wherever it
-        // legitimately could; if the result STILL has none, there was no
-        // usable billing_cycle to derive from and the admin has not yet
-        // completed a first leg — Publish is refused before any Platform ID
-        // reservation happens, exactly the same "reject before committing
-        // anything" point a schema-layer throw would have used, just one
-        // layer up.
-        if ($occupant !== null && empty($occupant['commercial_legs'])) {
-            return rest_ensure_response([
-                'success' => false,
-                'code'    => 'commercial_legs_required',
-                'message' => 'Tier Pricing Rules requires at least one Commercial Leg with a Payment Category and Billing Cycle before publishing.',
-            ]);
-        }
         $primaryReservation = null;
         $addonReservation = null;
         // Resumed (not freshly minted): the id already existed on the persisted
@@ -2118,20 +2089,7 @@ class PackageStationController
         }
 
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $settledEditions = $PS::settleTierEditionOverview($editions, $editionId);
-        $settledEdition = $PS::findTierEdition($settledEditions, $editionId);
-        // Tier Pricing Rules — same UI/controller validation as the parent
-        // occupant's own settlePackageStationTier(); PackageSchema stays
-        // permissive. Computed but not yet persisted at this point (pure
-        // function), so a rejection here leaves storage untouched.
-        if ($settledEdition !== null && empty($settledEdition['commercial_legs'])) {
-            return rest_ensure_response([
-                'success' => false,
-                'code'    => 'commercial_legs_required',
-                'message' => 'Tier Pricing Rules requires at least one Commercial Leg with a Payment Category and Billing Cycle before publishing.',
-            ]);
-        }
-        $editions = $settledEditions;
+        $editions = $PS::settleTierEditionOverview($editions, $editionId);
         $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
 
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [

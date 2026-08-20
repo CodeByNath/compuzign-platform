@@ -147,17 +147,7 @@ function tel_edition(string $tier = 'basic', ?string $editionId = null): ?array
 $telOptions = ['cz_package_station' => tel_default_station()];
 tel_new_controller()->savePackageStationTierModule(new WP_REST_Request(
     ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic', 'module' => 'overview'],
-    ['label' => 'Professional'],
-));
-// Tier Pricing Rules requires a first Commercial Leg before Publish will
-// succeed (UI/controller validation — see docs/code-map/tier-pricing-rules-plan.md);
-// Rate Sheet binding and billing_cycle/rate_sheet_id are no longer authored
-// through the 'overview' module at all, only through 'commercial_schedule'.
-tel_new_controller()->savePackageStationTierModule(new WP_REST_Request(
-    ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic', 'module' => 'commercial_schedule'],
-    ['rate_sheet_id' => 'rs_primary', 'commercial_legs' => [
-        ['id' => 'leg_setup', 'payment_category' => 'recurring', 'billing_cycle' => 'monthly', 'start_month' => 1],
-    ]],
+    ['label' => 'Professional', 'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rs_primary'],
 ));
 tel_new_controller()->settlePackageStationTier(new WP_REST_Request(['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic']));
 $occupantId = tel_edition()['id'];
@@ -378,7 +368,7 @@ check_edition_lifecycle(tel_edition('basic', $editionId) !== null, 'the sibling 
 
 tel_new_controller()->savePackageStationTierModule(new WP_REST_Request(
     ['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic', 'module' => 'overview'],
-    ['label' => 'Professional (renamed)'],
+    ['label' => 'Professional (renamed)', 'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rs_primary'],
 ));
 tel_new_controller()->settlePackageStationTier(new WP_REST_Request(['id' => 909, 'instance' => 'ti_primary', 'tier' => 'basic']));
 $finalOccupant = tel_edition('basic');

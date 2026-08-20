@@ -1,39 +1,39 @@
-// Tier Edition shell bindings (Schema architecture S3a). Mirrors the Tier
-// occupant's own bindings/tier.tsx pattern: one ShellSchema per visual card,
-// DNA delivered through evaluateModule, editor.render pointing at the actual
-// editor component. Card titles are the SAME literal names the occupant
-// uses ("Tier Overview" / "Tier Pricing Rules" / "Default Tier Inclusions")
-// — not "Edition Overview" etc.; an earlier draft of this plan invented that
-// prefix and was corrected. See docs/code-map/tier-pricing-rules-plan.md.
+// Tier Edition shell bindings (Schema architecture S3a) — additive, not yet
+// wired into any placement (drawer refinement blueprint, Phase 4). Mirrors
+// the Tier occupant's own bindings/tier.tsx pattern: one ShellSchema per
+// visual card, DNA delivered through evaluateModule, editor.render pointing
+// at the actual editor component.
 //
 // Genuinely different from Tier's own three-shell split: Edition has ONE
 // consolidated backend module (see tierEditionOverviewModule and
-// docs/code-map/tier-edition.md), so all three shells below share the SAME
-// ModuleState — computed once by the binding-builder and handed to each —
-// rather than each resolving its own. Pricing Rules and Inclusions carry no
-// `editor` key and no `discard-draft` action: neither has an independent
-// draft to discard or save; their own "Edit" action opens the SAME shared
-// session Overview's does, landing on the relevant tab (see TierEditionEditor.tsx).
+// docs/code-map/tier-edition.md), so Overview and Inclusions below share the
+// SAME ModuleState — computed once by the binding-builder (Phase 5) and
+// handed to both — rather than each resolving its own. Inclusions carries no
+// `editor` key and no `discard-draft` action: it has no independent draft to
+// discard or save; its own "Edit" action opens the SAME shared session
+// Overview's does, landing on the Inclusions tab (see TierEditionEditor.tsx).
 
 import type { InclusionItem } from '@/api/types/pools';
 import { tierEditionOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import { TierEditionEditor } from '../../tier/TierEditionEditor';
-import { commercialLegLabel } from '../../../rateSheetLabels';
-import type { CommercialLeg } from '../../../types';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { ItemCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
-// ── Tier Overview ─────────────────────────────────────────────────────────────
+// ── Edition Overview ─────────────────────────────────────────────────────────
 
 export interface TierEditionOverviewShellData {
   title:             string;
   adminDescription:  string;
   price:             number | null;
   contact:           boolean;
+  billingCycle:      string | null;
+  minimumTermValue:  number | null;
+  minimumTermUnit:   string | null;
+  activeBillingCycles: string[];
   editionPlatformId: string;
 }
 
-const SHARED_ACTIONS: Record<string, ShellActionSchema> = {
+const OVERVIEW_ACTIONS: Record<string, ShellActionSchema> = {
   'discard-draft': {
     id: 'discard-draft', label: 'Discard pending changes', intent: 'secondary',
     when: (b) => b.hasDraft,
@@ -45,7 +45,7 @@ export const tierEditionOverviewShell: ShellSchema<TierEditionOverviewShellData>
   archetype: 'overview',
   dna:       tierEditionOverviewModule,
   header: {
-    title:       'Tier Overview',
+    title:       'Edition Overview',
     subtitle:    'Pricing and presentation for this Edition.',
     icon:        'overview',
     iconVariant: 'drawerModule__icon--overview',
@@ -68,63 +68,34 @@ export const tierEditionOverviewShell: ShellSchema<TierEditionOverviewShellData>
       }),
     },
     {
+      id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
+      bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
+    },
+    {
+      id: 'minimum-term', element: 'text', label: 'Minimum commitment',
+      bind: (d): TextValue => ({
+        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
+      }),
+    },
+    {
+      // Empty reads exactly like an Edition that has never used this
+      // capability — Simple Mode, no different from before it existed.
+      id: 'active-billing-cycles', element: 'text', label: 'Active Billing Cycles',
+      bind: (d): TextValue => ({ value: d.activeBillingCycles.length > 0 ? d.activeBillingCycles.join(', ') : '—' }),
+    },
+    {
       id: 'edition-platform-id', element: 'text', label: 'Edition Platform ID',
       bind: (d): TextValue => ({ value: d.editionPlatformId, fallback: 'Assigned after Publish' }),
     },
   ],
   footer:  { actions: ['discard-draft', 'edit'] },
-  actions: SHARED_ACTIONS,
+  actions: OVERVIEW_ACTIONS,
   editor: {
     render: (s) => <TierEditionEditor session={s} />,
   },
 };
 
-// ── Tier Pricing Rules ─────────────────────────────────────────────────────────
-//
-// Rate Sheet binding, Commitment (independent of Legs), and the mandatory
-// Commercial Legs themselves — Commercial Legs are the sole pricing-schedule
-// mechanism, Simple Mode is retired. Same card as the occupant's own Tier
-// Pricing Rules. See docs/code-map/tier-pricing-rules-plan.md.
-
-export interface TierEditionPricingRulesShellData {
-  rateSheetId:       string | null;
-  minimumTermValue:  number | null;
-  minimumTermUnit:   string | null;
-  commitmentEnabled: boolean;
-  legs: CommercialLeg[];
-}
-
-export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesShellData> = {
-  archetype: 'child',
-  dna:       tierEditionOverviewModule,
-  header: {
-    title:       'Tier Pricing Rules',
-    subtitle:    'Rate Sheet, Commitment, and the Commercial Legs that price this Edition.',
-    icon:        'features',
-    iconVariant: 'drawerModule__icon--features',
-    count:       (d) => d.legs.length,
-  },
-  content: [
-    {
-      id: 'commitment', element: 'text', label: 'Tier Commitment',
-      bind: (d): TextValue => ({
-        value: d.commitmentEnabled
-          ? (d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : 'Yes')
-          : 'No',
-      }),
-    },
-    {
-      id: 'legs', element: 'text', label: 'Commercial Legs',
-      bind: (d): TextValue => ({
-        value: d.legs.length > 0 ? d.legs.map((leg) => commercialLegLabel(leg)).join('\n') : 'Not yet configured.',
-      }),
-    },
-  ],
-  footer:  { actions: ['edit'] },
-  actions: { edit: { id: 'edit', label: 'Edit', intent: 'secondary' } },
-};
-
-// ── Default Tier Inclusions ────────────────────────────────────────────────────
+// ── Edition Inclusions ────────────────────────────────────────────────────────
 //
 // Read-only presentation of the SAME module's own rate_sheet_items — no
 // independent draft, save, or lifecycle (see docs/code-map/tier-edition.md:
@@ -144,7 +115,7 @@ export const tierEditionInclusionsShell: ShellSchema<TierEditionInclusionsShellD
   archetype: 'child',
   dna:       tierEditionOverviewModule,
   header: {
-    title:       'Default Tier Inclusions',
+    title:       'Edition Inclusions',
     subtitle:    'Features included in this Edition.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',

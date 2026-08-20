@@ -1,15 +1,13 @@
 // Edition editor — one shared inline editor for the Edition's single
-// consolidated module, presented as three tabs (Overview / Pricing Rules /
-// Inclusions) over the SAME draft/session (drawer refinement blueprint —
-// Edition module reuse, approved revision; reordered and the former
-// Commercial Schedule tab renamed to Pricing Rules — see
-// docs/code-map/tier-pricing-rules-plan.md). Tab selection is local
-// presentation state only: it never reaches the API, never creates a second
-// draft, and switching tabs never fires an endpoint or touches
-// session.onSave/onCancel — those stay owned by InlineEditorShell, outside
-// this component entirely. Reuses DrawerGroupTabs (the codebase's existing
-// generic {id,label,content} tab renderer, already the non-locked sibling of
-// DrawerTabs) rather than a third bespoke tab bar.
+// consolidated module, presented as two tabs (Overview / Inclusions) over
+// the SAME draft/session (drawer refinement blueprint — Edition module
+// reuse, approved revision). Tab selection is local presentation state
+// only: it never reaches the API, never creates a second draft, and
+// switching tabs never fires an endpoint or touches session.onSave/onCancel
+// — those stay owned by InlineEditorShell, outside this component entirely.
+// Reuses DrawerGroupTabs (the codebase's existing generic {id,label,content}
+// tab renderer, already the non-locked sibling of DrawerTabs) rather than a
+// third bespoke tab bar.
 //
 // session.extras.initialTab picks which tab opens — set by whichever card's
 // Edit action opened this session (Edition Overview → 'overview', Edition
@@ -22,9 +20,9 @@ import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { ShellEditSession } from '@/drawer-kit/schema/types';
 import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft } from '../../types';
-import { TierEditionOverviewSection, TierEditionPricingRulesSection, TierEditionInclusionsSection } from './TierEditionOverviewFields';
+import { TierEditionOverviewSection, TierEditionInclusionsSection, TierEditionCommercialScheduleSection } from './TierEditionOverviewFields';
 
-export type TierEditionEditorTab = 'overview' | 'pricing-rules' | 'inclusions';
+export type TierEditionEditorTab = 'overview' | 'inclusions' | 'commercial-schedule';
 
 export function TierEditionEditor({ session }: { session: ShellEditSession }) {
   const [tab, setTab] = useState<TierEditionEditorTab>(
@@ -41,12 +39,12 @@ export function TierEditionEditor({ session }: { session: ShellEditSession }) {
       content: <TierEditionOverviewSection draft={draft} onChange={onChange} />,
     },
     {
-      id: 'pricing-rules', label: 'Pricing Rules',
-      content: <TierEditionPricingRulesSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} />,
+      id: 'inclusions', label: 'Inclusions',
+      content: <TierEditionInclusionsSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} svc={svc} />,
     },
     {
-      id: 'inclusions', label: 'Inclusions',
-      content: <TierEditionInclusionsSection draft={draft} onChange={onChange} svc={svc} />,
+      id: 'commercial-schedule', label: 'Commercial Schedule',
+      content: <TierEditionCommercialScheduleSection draft={draft} onChange={onChange} />,
     },
   ];
 
