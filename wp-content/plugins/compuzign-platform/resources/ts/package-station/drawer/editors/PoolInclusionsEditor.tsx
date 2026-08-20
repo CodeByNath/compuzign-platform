@@ -109,11 +109,13 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                 </select>
               </div>
             )}
-            <div class="cz-tf-field cz-ie-faq-item__qty-field">
-              <span class="cz-tf-label">Base Qty</span>
-              <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
-                onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-            </div>
+            {!commercialLegs?.length && (
+              <div class="cz-tf-field cz-ie-faq-item__qty-field">
+                <span class="cz-tf-label">Base Qty</span>
+                <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
+                  onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
+              </div>
+            )}
             {!commercialLegs?.length && (
               <div class="cz-tf-field cz-ie-faq-item__total-field">
                 <span class="cz-tf-label">Total</span>
