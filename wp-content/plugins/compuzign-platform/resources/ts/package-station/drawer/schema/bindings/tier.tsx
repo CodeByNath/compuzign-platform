@@ -181,9 +181,6 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
     count:       (d) => d.items.length,
-    // Without this, .drawerModule__value carries no font-size/color at all —
-    // every rule for it is written as `.drawerOverview .drawerModule__value`.
-    scopeClass:  'drawerOverview',
   },
   content: [
     {

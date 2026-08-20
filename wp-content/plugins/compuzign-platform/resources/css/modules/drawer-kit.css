@@ -519,12 +519,7 @@
 .cz-ie-leg-row {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 110px auto;
-  /* start, not center: the Qty cell carries a second line (its price hint)
-     beneath the input, taller than the plain Leg/Price selects and the
-     Remove button — centering the row would shift those shorter cells down
-     to match the tall one instead of keeping every control's own top edge
-     level. */
-  align-items: start;
+  align-items: center;
   gap: var(--cz-space-2);
 }
 
@@ -606,10 +601,7 @@
    still share .cz-ie-faq-item/__header unmodified. */
 .cz-ie-faq-item__row {
   display: flex;
-  /* end, not center: every field here is a [label][control] stack except
-     Remove, which is a bare button — centering floated it against the
-     stack's midpoint instead of level with the controls' own bottom edge. */
-  align-items: flex-end;
+  align-items: center;
   gap: var(--cz-space-3);
   flex-wrap: wrap;
   margin-bottom: var(--cz-space-3);

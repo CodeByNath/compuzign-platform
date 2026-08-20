@@ -122,7 +122,7 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                 </div>
               </div>
             )}
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.label}`} onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>✕</button>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.label}`} onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
           </div>
           {!!commercialLegs?.length && (() => {
             const legsById = new Map(commercialLegs.map((leg) => [leg.id, leg]));
@@ -182,7 +182,7 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                         <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
                           aria-label={`Remove ${commercialLegLabel(leg)} from ${row.label}`}
                           onClick={() => setAssignments(legAssignments.filter((a) => a.leg_id !== assignment.leg_id))}>
-                          ✕
+                          Remove
                         </button>
                       </div>
                     );
