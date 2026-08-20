@@ -18,11 +18,29 @@ import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft, Ti
 import { PoolInclusionsEditor } from '../editors/PoolInclusionsEditor';
 import { buildRateSheetCatalogue } from './tierDetailModel';
 
-const BILLING_CYCLES: AdminFieldOption[] = [
+// Payment Category is the coarse choice; Billing Cycle's own options narrow
+// to whichever cadence vocabulary that category admits. No separate stored
+// field: derived from billing_cycle itself, mirroring the occupant's own
+// TierPricingRulesEditor.tsx.
+type PaymentCategory = 'one-time' | 'recurring';
+
+const PAYMENT_CATEGORIES: AdminFieldOption[] = [
+  { value: 'one-time', label: 'One-time' },
+  { value: 'recurring', label: 'Recurring' },
+];
+
+const ONE_TIME_BILLING_CYCLES: AdminFieldOption[] = [
   { value: 'one-time', label: 'Upfront' },
+];
+
+const RECURRING_BILLING_CYCLES: AdminFieldOption[] = [
   { value: 'annually', label: 'Yearly' },
   { value: 'monthly', label: 'Monthly' },
 ];
+
+function paymentCategoryOf(billingCycle: string | null): PaymentCategory {
+  return billingCycle === 'one-time' ? 'one-time' : 'recurring';
+}
 
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
   { value: 'month', label: 'Month(s)' },
@@ -72,6 +90,21 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
     }
   };
 
+  // Payment Category drives Billing Cycle's own choices — mirrors the
+  // occupant's own TierPricingRulesEditor.tsx exactly.
+  const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
+    paymentCategoryOf(draft.billing_cycle),
+  );
+  const changePaymentCategory = (category: PaymentCategory) => {
+    setPaymentCategory(category);
+    if (category === 'one-time') {
+      onChange({ billing_cycle: 'one-time' });
+    } else if (paymentCategoryOf(draft.billing_cycle) === 'one-time') {
+      onChange({ billing_cycle: 'monthly' });
+    }
+  };
+  const billingCycleOptions = paymentCategory === 'one-time' ? ONE_TIME_BILLING_CYCLES : RECURRING_BILLING_CYCLES;
+
   // Switching the bound sheet clears this Edition's own row selections
   // (enforced server-side at settle, mirroring the occupant's own
   // Refinement 4 rule) — confirm first, the same convention
@@ -95,7 +128,14 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
         </div>
       )}
 
-      <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
+      <div class="cz-tf-field-row">
+        <AdminField
+          def={{ id: 'edt-payment-category', type: 'select', label: 'Payment Category', options: PAYMENT_CATEGORIES }}
+          value={paymentCategory}
+          onChange={(category: string) => changePaymentCategory(category as PaymentCategory)}
+        />
+        <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: billingCycleOptions }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
+      </div>
     </div>
   );
 }

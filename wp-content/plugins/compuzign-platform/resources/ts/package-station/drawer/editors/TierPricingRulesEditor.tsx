@@ -3,17 +3,36 @@ import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { TierPricingRulesDraft } from '../../types';
 
-// The billing cycles a Tier can carry. A fixed vocabulary, so it is a constant
-// rather than a value rebuilt on every render.
-const BILLING_CYCLES: AdminFieldOption[] = [
+// Payment Category is the coarse choice; Billing Cycle's own options narrow
+// to whichever cadence vocabulary that category admits — a One-time payment
+// has exactly one cadence (Upfront), a Recurring payment offers Yearly/
+// Monthly. No separate stored field: it is derived from billing_cycle itself
+// (below), the same presentation-only-choice pattern Tier Commitment already
+// uses over minimum_term_value/unit.
+type PaymentCategory = 'one-time' | 'recurring';
+
+const PAYMENT_CATEGORIES: AdminFieldOption[] = [
+  { value: 'one-time', label: 'One-time' },
+  { value: 'recurring', label: 'Recurring' },
+];
+
+const ONE_TIME_BILLING_CYCLES: AdminFieldOption[] = [
   { value: 'one-time', label: 'Upfront' },
+];
+
+const RECURRING_BILLING_CYCLES: AdminFieldOption[] = [
   { value: 'annually', label: 'Yearly' },
   { value: 'monthly', label: 'Monthly' },
 ];
 
+function paymentCategoryOf(billingCycle: string): PaymentCategory {
+  return billingCycle === 'one-time' ? 'one-time' : 'recurring';
+}
+
 // Same vocabulary as Tier Edition's own commitment unit
 // (TierEditionOverviewFields.tsx) — duplicated locally rather than shared,
-// the same precedent BILLING_CYCLES above already sets between the editors.
+// the same precedent the billing-cycle vocabulary above already sets
+// between the editors.
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
   { value: 'month', label: 'Month(s)' },
   { value: 'year', label: 'Year(s)' },
@@ -52,6 +71,24 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
       onChange({ minimum_term_value: null, minimum_term_unit: null });
     }
   };
+
+  // Payment Category drives Billing Cycle's own choices — switching to
+  // One-time collapses billing_cycle to its one valid cadence (Upfront);
+  // switching to Recurring picks a sensible default (Monthly) only when the
+  // stored value isn't already a recurring one, so a Recurring→Recurring
+  // change (Yearly to Monthly and back) never gets clobbered.
+  const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
+    paymentCategoryOf(draft.billing_cycle),
+  );
+  const changePaymentCategory = (category: PaymentCategory) => {
+    setPaymentCategory(category);
+    if (category === 'one-time') {
+      onChange({ billing_cycle: 'one-time' });
+    } else if (paymentCategoryOf(draft.billing_cycle) === 'one-time') {
+      onChange({ billing_cycle: 'monthly' });
+    }
+  };
+  const billingCycleOptions = paymentCategory === 'one-time' ? ONE_TIME_BILLING_CYCLES : RECURRING_BILLING_CYCLES;
 
   // Switching the bound sheet clears this Tier's row selections (enforced at
   // settle). Confirm first so the change is never silent.
@@ -101,16 +138,29 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
         </div>
       )}
 
-      <AdminField
-        def={{
-          id: 'tier-billing-cycle',
-          type: 'select',
-          label: 'Billing Cycle',
-          options: BILLING_CYCLES,
-        }}
-        value={draft.billing_cycle}
-        onChange={(billing_cycle: string) => onChange({ billing_cycle })}
-      />
+      <div class="cz-tf-field-row">
+        <AdminField
+          def={{
+            id: 'tier-payment-category',
+            type: 'select',
+            label: 'Payment Category',
+            options: PAYMENT_CATEGORIES,
+          }}
+          value={paymentCategory}
+          onChange={(category: string) => changePaymentCategory(category as PaymentCategory)}
+        />
+
+        <AdminField
+          def={{
+            id: 'tier-billing-cycle',
+            type: 'select',
+            label: 'Billing Cycle',
+            options: billingCycleOptions,
+          }}
+          value={draft.billing_cycle}
+          onChange={(billing_cycle: string) => onChange({ billing_cycle })}
+        />
+      </div>
     </div>
   );
 }
