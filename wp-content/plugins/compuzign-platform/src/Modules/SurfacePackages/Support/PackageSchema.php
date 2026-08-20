@@ -176,12 +176,9 @@ class PackageSchema
     /**
      * Normalise a commitment declaration (minimum_term_value/unit) to a month
      * count for commercial-leg bounds-checking. Purely an internal conversion
-     * for validation — never itself a stored field. Public so the Phase 5
-     * batch migration tool (tools/migrate-commercial-legs.php) can derive
-     * the exact same commitment bound PackageSchema's own settle/read paths
-     * use, rather than re-deriving the value/unit -> months conversion.
+     * for validation — never itself a stored field.
      */
-    public static function commitmentMonths(?float $value, ?string $unit): ?float
+    private static function commitmentMonths(?float $value, ?string $unit): ?float
     {
         if ($value === null || $value <= 0) {
             return null;
