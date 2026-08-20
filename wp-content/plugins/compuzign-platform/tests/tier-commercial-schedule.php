@@ -76,102 +76,14 @@ check_commercial_schedule(preg_match('/^[a-z]+$/', 'commercial_schedule') === 0,
 check_commercial_schedule(preg_match('/^[a-z_]+$/', 'commercial_schedule') === 1, 'the FIXED module route character class matches commercial_schedule');
 
 // ── A never-configured occupant carries no commercial schedule ──────────────
-// No billing_cycle at all — genuinely nothing to derive a leg from (Phase 3
-// case 2: fresh-creation, no fabrication). Reused as the base fixture for
-// most of the rest of this file, which is why it deliberately stays cadence-
-// less throughout rather than picking up a billing_cycle here.
 
-$bare = Schema::upsertOccupant([], ['label' => 'Starter'], true);
+$bare = Schema::upsertOccupant([], ['label' => 'Starter', 'billing_cycle' => 'monthly'], true);
 check_commercial_schedule($bare['current_occupant']['active_billing_cycles'] === [], 'a never-configured occupant defaults active_billing_cycles to []');
 check_commercial_schedule($bare['current_occupant']['commercial_legs'] === [], 'a never-configured occupant defaults commercial_legs to []');
 check_commercial_schedule($bare['current_occupant']['commitment_enabled'] === false, 'a never-configured occupant defaults commitment_enabled to false');
 check_commercial_schedule(
     Schema::normaliseTierSlot($bare)['active_billing_cycles'] === [] && Schema::normaliseTierSlot($bare)['commercial_legs'] === [],
-    'the admin read model carries no fabricated leg for a genuinely fresh occupant — nothing to derive Payment Category/Billing Cycle from',
-);
-
-// ── Legacy synthesis (Phase 3, case 1): a real billing_cycle bridges into ───
-// ──    the mandatory-leg model on both read and settle ──────────────────────
-
-$legacyCadenceOccupant = [
-    'current_occupant' => [
-        'id' => 'occ_legacy_cadence', 'cz_platform_id' => 'CZT-LEGACYCADENCE', 'addon_platform_id' => '',
-        'platform_status' => 'active', 'is_addon' => false,
-        'label' => 'Legacy Monthly', 'ideal_for' => '', 'price' => 25.0, 'contact' => false,
-        'billing_cycle' => 'monthly', 'rate_sheet_id' => 'rate_sheet_1',
-        'rate_sheet_items' => [['item_id' => 'rate_legacy_item', 'quantity' => 4, 'price_option_id' => 'opt_legacy']],
-        'inclusions_override' => [], 'features' => [], 'faq_refs' => [],
-        // No commercial_legs/commitment_enabled keys at all — a record
-        // stored before this capability existed, exactly the case
-        // synthesis exists to bridge.
-    ],
-    'history' => [],
-];
-$legacyCadenceRead = Schema::normaliseTierSlot($legacyCadenceOccupant);
-check_commercial_schedule(
-    count($legacyCadenceRead['commercial_legs']) === 1
-        && $legacyCadenceRead['commercial_legs'][0]['payment_category'] === 'recurring'
-        && $legacyCadenceRead['commercial_legs'][0]['billing_cycle'] === 'monthly'
-        && $legacyCadenceRead['commercial_legs'][0]['start_month'] === 1
-        && $legacyCadenceRead['commercial_legs'][0]['end_month'] === null,
-    'a stored occupant with a real billing_cycle and no legs reads back with one synthesized Indefinite leg (no commitment_enabled stored, so no bound applies)',
-);
-check_commercial_schedule(
-    $legacyCadenceRead['rate_sheet_items'] === [[
-        'item_id' => 'rate_legacy_item', 'quantity' => 4, 'price_option_id' => 'opt_legacy',
-        'leg_assignments' => [['leg_id' => $legacyCadenceRead['commercial_legs'][0]['id'], 'price_option_id' => 'opt_legacy', 'quantity' => 4]],
-    ]],
-    'the existing selection\'s own price_option_id/quantity survive exactly, backfilled onto the synthesized leg — never a duplicate or altered price',
-);
-// Read-time synthesis never persists by itself — a second independent read
-// produces the identical leg id, not a new one each time.
-check_commercial_schedule(
-    Schema::normaliseTierSlot($legacyCadenceOccupant)['commercial_legs'][0]['id'] === $legacyCadenceRead['commercial_legs'][0]['id'],
-    'repeated read-time synthesis is deterministic — the same leg id every time, never a freshly minted one per call',
-);
-
-// Settling ANY module (here: just is_addon, via the standard draft-preferred
-// overview merge) also persists the synthesized leg — the self-healing path
-// that makes Phase 5's batch migration unnecessary for any record an admin
-// touches again after this capability ships.
-$legacyCadenceSlot = Schema::ensureTierLifecycle($legacyCadenceOccupant);
-$legacyCadenceSlot['drafts']['overview'] = [
-    'label' => 'Legacy Monthly', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'monthly', 'is_addon' => true,
-];
-$legacyCadenceSettled = Schema::settleTierSlot($legacyCadenceSlot);
-check_commercial_schedule(
-    count($legacyCadenceSettled['current_occupant']['commercial_legs']) === 1,
-    'settling an unrelated module (is_addon) on a legacy-cadence occupant also persists the synthesized leg',
-);
-check_commercial_schedule(
-    $legacyCadenceSettled['current_occupant']['rate_sheet_items'][0]['leg_assignments'][0]['leg_id']
-        === $legacyCadenceSettled['current_occupant']['commercial_legs'][0]['id'],
-    'the persisted selection\'s backfilled leg_assignments points at the SAME persisted leg id',
-);
-
-// ── Case 3: selections exist but no usable billing_cycle — treated exactly ──
-// ──    like a fresh record, never fabricated from Rate Sheet rows ──────────
-
-$selectionsNoCadence = [
-    'current_occupant' => [
-        'id' => 'occ_no_cadence', 'cz_platform_id' => 'CZT-NOCADENCE', 'addon_platform_id' => '',
-        'platform_status' => 'active', 'is_addon' => false,
-        'label' => 'Inconsistent Legacy', 'ideal_for' => '', 'price' => null, 'contact' => false,
-        'billing_cycle' => null, 'rate_sheet_id' => 'rate_sheet_1',
-        'rate_sheet_items' => [['item_id' => 'rate_legacy_item', 'quantity' => 1, 'price_option_id' => null]],
-        'inclusions_override' => [], 'features' => [], 'faq_refs' => [],
-    ],
-    'history' => [],
-];
-$noCadenceRead = Schema::normaliseTierSlot($selectionsNoCadence);
-check_commercial_schedule(
-    $noCadenceRead['commercial_legs'] === [],
-    'Rate Sheet selections existing is never enough to synthesize a leg on their own — no usable billing_cycle means no fabrication, same as a fresh record',
-);
-check_commercial_schedule(
-    !array_key_exists('leg_assignments', $noCadenceRead['rate_sheet_items'][0]),
-    'the existing selection is left completely untouched — not even an empty leg_assignments key is added',
+    'the admin read model carries no fabricated leg for a Simple Mode occupant',
 );
 
 // ── sanitizeActiveBillingCycles(): closed vocabulary, deduped, order-preserved ─
@@ -388,22 +300,13 @@ check_commercial_schedule(
     'settling with no pending commercial_schedule draft preserves the previously-settled legs',
 );
 
-// An explicit empty array in the draft no longer reaches true Simple Mode —
-// Tier Pricing Rules retires that state (docs/code-map/tier-pricing-rules-plan.md):
-// this occupant still has a real billing_cycle ('annually', set earlier in
-// this same fixture chain) on file, so Phase 3's legacy synthesis
-// immediately re-derives a leg from it on this very settle. An admin cannot
-// escape having at least one leg while a usable cadence is stored — only
-// UI/controller validation (Phase 4) gates the FIRST leg for a record with
-// no cadence at all; this schema layer stays permissive and simply keeps
-// deriving whatever it legitimately can.
+// An explicit empty array in the draft (administrator removing every leg) is honoured.
 $csCleared = Schema::ensureTierLifecycle($csOmittedResult);
 $csCleared['drafts']['commercial_schedule'] = ['commercial_legs' => []];
 $csClearedResult = Schema::settleTierSlot($csCleared);
 check_commercial_schedule(
-    count($csClearedResult['current_occupant']['commercial_legs']) === 1
-        && $csClearedResult['current_occupant']['commercial_legs'][0]['billing_cycle'] === 'yearly',
-    'an explicit empty array in the draft is immediately re-synthesized from the still-stored billing_cycle — never a true empty/Simple-Mode state while a real cadence is on file',
+    $csClearedResult['current_occupant']['commercial_legs'] === [],
+    'an explicit empty array in the draft clears previously-configured legs back to Simple Mode (Phase 1: mandatory-leg enforcement is a later phase, not yet active here)',
 );
 
 // ── Shortening the commitment re-validates existing legs on next settle ─────
@@ -544,28 +447,22 @@ $legacyOccupant = [
         'rate_sheet_items' => [['item_id' => 'rate_legacy_item', 'quantity' => 1, 'price_option_id' => 'opt_legacy']],
         'inclusions_override' => [], 'features' => [], 'faq_refs' => [],
         // No active_billing_cycles/commercial_legs/commitment_enabled keys at
-        // all — a record stored before this capability existed. Its real
-        // billing_cycle bridges it into the mandatory-leg model via Phase 3
-        // synthesis (see the dedicated case-1 section above); it is no
-        // longer a true empty/Simple-Mode read once a usable cadence exists.
+        // all — Simple Mode, a record stored before this capability existed.
     ],
     'history' => [],
 ];
 $legacyDetail = Schema::normaliseTierSlot($legacyOccupant);
 check_commercial_schedule($legacyDetail['active_billing_cycles'] === [], 'a legacy occupant reads active_billing_cycles as [], not an error');
+check_commercial_schedule($legacyDetail['commercial_legs'] === [], 'a legacy occupant reads commercial_legs as [], not an error');
 check_commercial_schedule($legacyDetail['commitment_enabled'] === false, 'a legacy occupant reads commitment_enabled as false, not an error');
 check_commercial_schedule(
     $legacyDetail['billing_cycle'] === 'monthly',
-    'the legacy scalar billing_cycle stays fully authoritative and untouched — it is what synthesis reads FROM, never overwritten by it',
-);
-check_commercial_schedule(
-    count($legacyDetail['commercial_legs']) === 1 && $legacyDetail['commercial_legs'][0]['billing_cycle'] === 'monthly',
-    'a legacy occupant with a real billing_cycle synthesizes one leg on read, per Phase 3',
+    'Simple Mode\'s own legacy billing_cycle stays fully authoritative and untouched',
 );
 check_commercial_schedule(
     $legacyDetail['rate_sheet_items'][0]['price_option_id'] === 'opt_legacy'
-        && $legacyDetail['rate_sheet_items'][0]['leg_assignments'][0]['leg_id'] === $legacyDetail['commercial_legs'][0]['id'],
-    'the legacy price_option_id stays authoritative, carried through into the backfilled leg_assignments entry for the synthesized leg',
+        && !array_key_exists('leg_assignments', $legacyDetail['rate_sheet_items'][0]),
+    'Simple Mode\'s own legacy price_option_id stays authoritative; leg_assignments is absent entirely, never a fabricated single-leg wrapper — the exact pre-existing { item_id, quantity, price_option_id } shape',
 );
 
 // ── Phase 1 flat (pre-occupant) format never fabricates a schedule ──────────
@@ -582,13 +479,11 @@ check_commercial_schedule(Schema::normaliseTierSlot($flatTier)['commitment_enabl
 
 // ── Tier Edition: same shape, fully independent of the parent occupant's ────
 
-// No billing_cycle at creation — genuinely nothing to synthesize from yet,
-// same reasoning as $bare above.
 $editions = [];
 ['tier_editions' => $editions, 'edition' => $edition] = Schema::addTierEdition($editions, [
-    'title' => 'Annual Plan',
+    'title' => 'Annual Plan', 'billing_cycle' => 'annually',
 ]);
-check_commercial_schedule($edition['active_billing_cycles'] === [] && $edition['commercial_legs'] === [], 'a newly-created Edition with no billing_cycle yet starts with no legs, same as a fresh occupant');
+check_commercial_schedule($edition['active_billing_cycles'] === [] && $edition['commercial_legs'] === [], 'a newly-created Edition starts in Simple Mode, same as a fresh occupant');
 check_commercial_schedule($edition['commitment_enabled'] === false, 'a newly-created Edition defaults commitment_enabled to false');
 
 $editionId = $edition['id'];
