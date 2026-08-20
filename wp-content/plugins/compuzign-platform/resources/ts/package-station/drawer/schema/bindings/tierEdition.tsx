@@ -127,7 +127,9 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
     {
       id: 'coverage', element: 'text', label: 'Coverage (Leg Default)',
       bind: (d): TextValue => ({
-        value: d.fromMonth != null && d.toMonth != null ? `Month ${d.fromMonth} – ${d.toMonth}` : '—',
+        value: d.fromMonth != null
+          ? `Month ${d.fromMonth} – ${d.toMonth != null ? d.toMonth : 'Indefinite'}`
+          : '—',
       }),
     },
     {

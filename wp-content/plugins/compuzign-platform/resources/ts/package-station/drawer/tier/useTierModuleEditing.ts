@@ -12,7 +12,7 @@ import type { TierPricingRulesDraft, TierRateSheetSelection } from '../../types'
 import type { PackageStation } from '../../usePackageStation';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
-import { resolveLegsCoverageCorrection } from './tierDetailModel';
+import { resolveLegsCoverageCorrection, totalCommitmentMonths } from './tierDetailModel';
 
 export interface TierModuleEditingArgs {
   pkg:                 PackageStation;
@@ -51,15 +51,21 @@ export function useTierModuleEditing({
         popular_label: pkg.popularTier === editingTierId ? pkg.popularLabel : '',
       });
     } else if (section === 'tier-pricing-rules') {
+      // Coverage window default for an occupant that has never configured
+      // one: 0 through Indefinite (null) with no commitment yet, or 0
+      // through the full commitment when one is already configured.
+      const totalMonths = totalCommitmentMonths(d.minimum_term_value, d.minimum_term_unit);
       setPricingRulesDraft({
         rate_sheet_id: d.rate_sheet_id,
         billing_cycle: d.billing_cycle ?? 'monthly',
         minimum_term_value: d.minimum_term_value,
         minimum_term_unit:  d.minimum_term_unit,
-        // Coverage window — 1/12 (full-year default) for an occupant that
-        // has never configured one, matching what the fields already show.
-        from_month: d.from_month ?? 1,
-        to_month:   d.to_month ?? 12,
+        from_month: d.from_month ?? 0,
+        to_month:   d.to_month ?? totalMonths,
+        // Was missing entirely before this fix — draft.legs read as
+        // undefined until the admin touched "+ Add Leg" at least once,
+        // which silently dropped any already-settled legs from the save.
+        legs: d.legs ?? [],
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));

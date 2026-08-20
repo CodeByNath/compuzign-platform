@@ -61,7 +61,10 @@ export function resolveLegsCoverageCorrection(
   const totalMonths = totalCommitmentMonths(minimumTermValue, minimumTermUnit);
   if (totalMonths === null) return null;
   if (legs && legs.length > 0) return null;
-  if (toMonth != null && toMonth >= totalMonths) return null;
+  // Indefinite (null/undefined) already covers any finite commitment by
+  // definition — it never ends, so there is nothing to "fall short." Only
+  // a concrete to_month can actually leave a gap.
+  if (toMonth == null || toMonth >= totalMonths) return null;
   return {
     to_month: totalMonths,
     notice: `To month adjusted to ${totalMonths} to keep the ${totalMonths}-month commitment fully covered.`,

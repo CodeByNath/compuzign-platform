@@ -167,7 +167,7 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
     const patch: Partial<TierEditionOverviewDraft> = { minimum_term_value: value };
     const totalMonths = totalCommitmentMonths(value, draft.minimum_term_unit ?? null);
     if (totalMonths !== null && legs.length === 0) {
-      patch.from_month = draft.from_month ?? 1;
+      patch.from_month = draft.from_month ?? 0;
       patch.to_month = totalMonths;
     }
     onChange(patch);
@@ -177,7 +177,7 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
     const patch: Partial<TierEditionOverviewDraft> = { minimum_term_unit: unit };
     const totalMonths = totalCommitmentMonths(draft.minimum_term_value ?? null, unit);
     if (totalMonths !== null && legs.length === 0) {
-      patch.from_month = draft.from_month ?? 1;
+      patch.from_month = draft.from_month ?? 0;
       patch.to_month = totalMonths;
     }
     onChange(patch);
@@ -247,8 +247,10 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
       </div>
 
       {/* Leg Default — this Edition's own permanent declaration, presented
-          as the first, unremovable leg. draft is seeded with 1/12 when the
-          editor opens (draftFromTierEdition, tierEditionModel.ts). */}
+          as the first, unremovable leg. draft is seeded with from_month 0
+          and to_month Indefinite (null) — or the full commitment, when one
+          is already configured — when the editor opens
+          (draftFromTierEdition, tierEditionModel.ts). */}
       <CommercialLegCard
         leg={{ billing_cycle: draft.billing_cycle ?? 'monthly', from_month: draft.from_month ?? null, to_month: draft.to_month ?? null }}
         onChange={changeDefaultLeg}

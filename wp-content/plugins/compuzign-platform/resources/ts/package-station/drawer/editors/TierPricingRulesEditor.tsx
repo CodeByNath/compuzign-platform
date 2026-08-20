@@ -154,7 +154,7 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
     const patch: Partial<TierPricingRulesDraft> = { minimum_term_value: value };
     const totalMonths = totalCommitmentMonths(value, draft.minimum_term_unit ?? null);
     if (totalMonths !== null && legs.length === 0) {
-      patch.from_month = draft.from_month ?? 1;
+      patch.from_month = draft.from_month ?? 0;
       patch.to_month = totalMonths;
     }
     onChange(patch);
@@ -164,7 +164,7 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
     const patch: Partial<TierPricingRulesDraft> = { minimum_term_unit: unit };
     const totalMonths = totalCommitmentMonths(draft.minimum_term_value ?? null, unit);
     if (totalMonths !== null && legs.length === 0) {
-      patch.from_month = draft.from_month ?? 1;
+      patch.from_month = draft.from_month ?? 0;
       patch.to_month = totalMonths;
     }
     onChange(patch);
@@ -269,9 +269,11 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
 
       {/* Leg Default — the occupant's own permanent declaration
           (billing_cycle/from_month/to_month above), presented as the first,
-          unremovable leg. draft is seeded with from_month/to_month 1/12 when
-          the editor opens (useTierModuleEditing.ts), so what's shown here
-          already matches what a Save with no further edits would persist. */}
+          unremovable leg. draft is seeded with from_month 0 and to_month
+          Indefinite (null) — or the full commitment, when one is already
+          configured — when the editor opens (useTierModuleEditing.ts), so
+          what's shown here already matches what a Save with no further
+          edits would persist. */}
       <CommercialLegCard
         leg={{ billing_cycle: draft.billing_cycle, from_month: draft.from_month ?? null, to_month: draft.to_month ?? null }}
         onChange={changeDefaultLeg}

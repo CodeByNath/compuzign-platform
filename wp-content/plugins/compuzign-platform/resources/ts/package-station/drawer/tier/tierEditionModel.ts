@@ -5,6 +5,7 @@
 // draft seeding stay in one place.
 
 import type { TierEdition, TierEditionOverviewDraft } from '../../types';
+import { totalCommitmentMonths } from './tierDetailModel';
 
 // The single frontend authority for an Edition's Disabled-mask presentation
 // (correction plan item 1). Edition's own backend (applyTierEditionDisabledMask,
@@ -77,6 +78,11 @@ export function draftPreferredEdition(edition: TierEdition): TierEdition {
 }
 
 export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewDraft {
+  // Coverage window default for an Edition that has never configured one:
+  // 0 through Indefinite (null) with no commitment yet, or 0 through the
+  // full commitment when one is already configured. Mirrors the
+  // occupant's own equivalent seed in useTierModuleEditing.ts.
+  const totalMonths = totalCommitmentMonths(edition.minimum_term_value, edition.minimum_term_unit);
   return {
     title: edition.title,
     admin_description: edition.admin_description,
@@ -86,11 +92,8 @@ export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewD
     contact: edition.contact,
     minimum_term_value: edition.minimum_term_value,
     minimum_term_unit: edition.minimum_term_unit,
-    // Coverage window — 1/12 (full-year default) for an Edition that has
-    // never configured one, matching what the fields already show. See
-    // the occupant's own equivalent seed in useTierModuleEditing.ts.
-    from_month: edition.from_month ?? 1,
-    to_month:   edition.to_month ?? 12,
+    from_month: edition.from_month ?? 0,
+    to_month:   edition.to_month ?? totalMonths,
     legs: edition.legs,
     inclusions_override: edition.inclusions_override,
     faq_refs: edition.faq_refs,
