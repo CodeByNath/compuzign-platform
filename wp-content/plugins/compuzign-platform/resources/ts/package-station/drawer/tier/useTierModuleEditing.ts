@@ -8,7 +8,7 @@
 // lifecycle and bin-travel actions report through the same channel.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { CommercialLeg, TierRateSheetSelection } from '../../types';
+import type { TierRateSheetSelection } from '../../types';
 import type { PackageStation } from '../../usePackageStation';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
@@ -28,9 +28,8 @@ export function useTierModuleEditing({
   const [overviewDraft, setOverviewDraft] = useState<TierOverviewEditDraft | null>(null);
   const [featuresDraft, setFeaturesDraft] = useState<TierRateSheetSelection[] | null>(null);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
-  const [commercialScheduleDraft, setCommercialScheduleDraft] = useState<CommercialLeg[] | null>(null);
 
-  const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs' | 'tier-commercial-schedule') => {
+  const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => {
     if (!editingTierId) return;
     const view = pkg.tierView(editingTierId);
     if (!view) return;
@@ -45,7 +44,6 @@ export function useTierModuleEditing({
         billing_cycle: d.billing_cycle ?? 'monthly',
         minimum_term_value: d.minimum_term_value,
         minimum_term_unit:  d.minimum_term_unit,
-        active_billing_cycles: d.active_billing_cycles,
         rate_sheet_id: d.rate_sheet_id,
         is_addon:      d.is_addon,
         popular:       pkg.popularTier === editingTierId,
@@ -53,8 +51,6 @@ export function useTierModuleEditing({
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));
-    } else if (section === 'tier-commercial-schedule') {
-      setCommercialScheduleDraft(d.commercial_legs.map((leg) => ({ ...leg })));
     } else {
       setFaqsDraft([...d.faq_refs]);
     }
@@ -90,7 +86,6 @@ export function useTierModuleEditing({
           billing_cycle: overviewDraft.billing_cycle,
           minimum_term_value: overviewDraft.minimum_term_value,
           minimum_term_unit:  overviewDraft.minimum_term_unit,
-          active_billing_cycles: overviewDraft.active_billing_cycles,
           rate_sheet_id: overviewDraft.rate_sheet_id,
           is_addon:      overviewDraft.is_addon,
         });
@@ -105,9 +100,6 @@ export function useTierModuleEditing({
       } else if (editingSection === 'tier-inclusions' && featuresDraft) {
         const r = await pkg.saveTierFeatures(editingTierId, featuresDraft);
         ok = !!r?.success;
-      } else if (editingSection === 'tier-commercial-schedule' && commercialScheduleDraft) {
-        const r = await pkg.saveTierCommercialSchedule(editingTierId, commercialScheduleDraft);
-        ok = !!r?.success;
       } else if (editingSection === 'tier-faqs' && faqsDraft) {
         const r = await pkg.saveTierFaqs(editingTierId, faqsDraft);
         ok = !!r?.success;
@@ -118,7 +110,6 @@ export function useTierModuleEditing({
       setOverviewDraft(null);
       setFeaturesDraft(null);
       setFaqsDraft(null);
-      setCommercialScheduleDraft(null);
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
     }
@@ -130,7 +121,6 @@ export function useTierModuleEditing({
     setOverviewDraft(null);
     setFeaturesDraft(null);
     setFaqsDraft(null);
-    setCommercialScheduleDraft(null);
     setSaveErr(null);
     setSaveOk(false);
   };
@@ -140,7 +130,6 @@ export function useTierModuleEditing({
     overviewDraft, setOverviewDraft,
     featuresDraft, setFeaturesDraft,
     faqsDraft, setFaqsDraft,
-    commercialScheduleDraft, setCommercialScheduleDraft,
     openSection, saveSection, cancelSection,
   };
 }

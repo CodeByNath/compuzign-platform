@@ -82,26 +82,6 @@ export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
   resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(count > 0, ctx),
 };
 
-// Commercial Schedule (Phase 2) is unlike Features/FAQs above: it is entirely
-// OPTIONAL. Simple Mode — zero commercial legs, the vast majority of Tiers —
-// is a complete, valid, unremarkable state, never "incomplete." isEmpty
-// always false / problems always [] so it never earns an error badge or an
-// "add something" prompt purely for having no legs; its own resolveStatus
-// (deliberately not resolveTierModuleStatus, whose `!complete` branch would
-// force every never-touched Tier to read Pending dim forever) treats
-// not-configured the same as settled-empty — only a genuine pending draft
-// mid-edit ever reads differently. See docs/code-map/tier-edition.md.
-export const tierCommercialScheduleModule: ModuleDefinition<{ count: number }> = {
-  key:                'tier-commercial-schedule',
-  requiresParent:     true,
-  isEmpty:            () => false,
-  problems:           () => [],
-  includeDraftInTail: true,
-  resolveStatus:      (_data, ctx) => (
-    ctx.moduleTransition === 'pending' ? 'pending-full' : (ctx.platformStatus === 'active' ? 'active' : 'pending-full')
-  ),
-};
-
 // One inclusion as a single Tier uses it — the module behind the Inclusion
 // drawer's Overview. Its truth is the selection's own resolution: a selection
 // whose Rate Sheet row and Service source both resolve is complete; one that

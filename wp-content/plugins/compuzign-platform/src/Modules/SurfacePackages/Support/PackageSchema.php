@@ -2600,68 +2600,6 @@ class PackageSchema
      * never toggles a tier's live state. Settles whatever is present (completeness is
      * a resolver/notes concern, not a backend gate).
      */
-    /**
-     * The slot's own draft-preferred active_billing_cycles and commitment
-     * (converted to months) — a pending Overview draft wins, else the
-     * settled occupant's own value, the exact rule settleTierSlot() uses at
-     * commit time. The shared lookup behind draftPreferredCommercialLegs()
-     * and sanitizeCommercialLegsForSlot() below; Overview and Commercial
-     * Schedule may be saved in either order and both resolve correctly.
-     *
-     * @return array{0: array<int, string>, 1: ?float}
-     */
-    private static function draftPreferredActiveCyclesAndCommitment(array $slot): array
-    {
-        $occ = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? []) : [];
-        $ov  = is_array($slot['drafts']['overview'] ?? null) ? $slot['drafts']['overview'] : [];
-        $minTermValue = array_key_exists('minimum_term_value', $ov) ? $ov['minimum_term_value'] : ($occ['minimum_term_value'] ?? null);
-        $minTermUnit  = array_key_exists('minimum_term_unit', $ov)  ? $ov['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null);
-        $activeBillingCycles = self::sanitizeActiveBillingCycles(
-            array_key_exists('active_billing_cycles', $ov) ? $ov['active_billing_cycles'] : ($occ['active_billing_cycles'] ?? [])
-        );
-        return [$activeBillingCycles, self::commitmentMonths(
-            is_numeric($minTermValue) ? (float) $minTermValue : null,
-            is_string($minTermUnit) ? $minTermUnit : null
-        )];
-    }
-
-    /**
-     * The slot's own draft-preferred commercial_legs — a pending Commercial
-     * Schedule draft wins, else the settled occupant's own value. Exposed so
-     * the sibling Features module can resolve/validate its own
-     * leg_assignments against legs that exist only in a not-yet-settled
-     * Commercial Schedule draft — the natural authoring order is declare
-     * legs, then assign inclusions to them, all before Publish ever runs.
-     * Read-only; never itself settles or persists anything.
-     */
-    public static function draftPreferredCommercialLegs(array $slot): array
-    {
-        $slot = self::ensureTierLifecycle($slot);
-        $occ  = self::isOccupantFormat($slot) ? ($slot['current_occupant'] ?? []) : [];
-        $cs   = is_array($slot['drafts']['commercial_schedule'] ?? null) ? $slot['drafts']['commercial_schedule'] : [];
-        [$activeBillingCycles, $commitmentMonths] = self::draftPreferredActiveCyclesAndCommitment($slot);
-        return self::sanitizeCommercialLegs(
-            array_key_exists('commercial_legs', $cs) ? $cs['commercial_legs'] : ($occ['commercial_legs'] ?? []),
-            $activeBillingCycles,
-            $commitmentMonths
-        );
-    }
-
-    /**
-     * Sanitise a Commercial Schedule module's OWN newly-submitted legs
-     * against the slot's draft-preferred active_billing_cycles/commitment —
-     * the controller's draft-save entry point, so a malformed/out-of-bound
-     * leg is caught immediately rather than only at Publish.
-     * settleTierSlot() re-runs this same validation at commit time
-     * regardless, so a subsequently-shortened commitment still re-drops
-     * whatever no longer fits.
-     */
-    public static function sanitizeCommercialLegsForSlot(array $slot, mixed $legs): array
-    {
-        [$activeBillingCycles, $commitmentMonths] = self::draftPreferredActiveCyclesAndCommitment(self::ensureTierLifecycle($slot));
-        return self::sanitizeCommercialLegs($legs, $activeBillingCycles, $commitmentMonths);
-    }
-
     public static function settleTierSlot(array $slot): array
     {
         $slot   = self::ensureTierLifecycle($slot);

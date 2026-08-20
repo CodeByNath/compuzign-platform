@@ -15,11 +15,6 @@ const AUDIENCE_GROUPS: AdminFieldOption[] = [
   { value: 'enterprise', label: 'Enterprise' },
 ];
 
-// The reusable cadence pool the Commercial Schedule module's own legs may
-// draw from — same vocabulary as BILLING_CYCLES above (the legacy scalar),
-// deliberately a separate constant: one is a single value, this is a set.
-const ACTIVE_BILLING_CYCLES: AdminFieldOption[] = BILLING_CYCLES;
-
 // Same vocabulary as Tier Edition's own commitment unit (TierEditionOverviewFields.tsx)
 // — duplicated locally rather than shared, the same precedent BILLING_CYCLES
 // above already sets between the two editors.
@@ -127,17 +122,6 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         def={{ id: 'tier-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }}
         value={draft.minimum_term_unit ?? ''}
         onChange={(v: string) => onChange({ minimum_term_unit: v || null })}
-      />
-
-      {/* The cadence pool Commercial Schedule's own legs may draw from —
-          optional; a Tier with none selected stays in Simple Mode, using
-          Billing Cycle above exactly as before this capability existed. */}
-      <MultiSelectField
-        id="tier-active-billing-cycles"
-        label="Active Billing Cycles"
-        options={ACTIVE_BILLING_CYCLES}
-        selected={draft.active_billing_cycles ?? []}
-        onChange={(next) => onChange({ active_billing_cycles: next })}
       />
 
       <AdminField

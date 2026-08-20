@@ -58,14 +58,6 @@ independently addressed, independently lifecycled ALTERNATE declarations,
 each with its own `CZTE` and its own `StationLifecycle` state (reusing the
 shared engine, not a second lifecycle system). Not a `TIER_MODULES` entry,
 not another Tier, not a second Add-on system. See [Tier Edition](../../../../../../docs/code-map/tier-edition.md).
-The occupant and each Edition may also independently carry an OPTIONAL
-multi-cycle commercial schedule (`active_billing_cycles`/`commercial_legs`,
-plus per-inclusion `leg_assignments`) authored through a fourth
-`commercial_schedule` module (`tierCommercialScheduleShell`,
-`CommercialScheduleEditor.tsx`) for the occupant and a third tab of
-`TierEditionEditor.tsx` for an Edition — absent/empty leaves Simple Mode's
-existing `billing_cycle`/`price_option_id` fully authoritative and
-unchanged. See [Tier Commercial Schedule](../../../../../../docs/code-map/tier-commercial-schedule.md).
 
 ## Ownership and entry points
 

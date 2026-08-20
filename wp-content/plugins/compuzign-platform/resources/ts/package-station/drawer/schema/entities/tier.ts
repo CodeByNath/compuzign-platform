@@ -11,7 +11,6 @@ import {
   tierOverviewShell,
   tierFeaturesShell,
   tierFaqsShell,
-  tierCommercialScheduleShell,
 } from '../bindings/tier';
 import { serviceOverviewShell } from '@/service-station';
 import type { EntitySchema } from '@/drawer-kit/schema/types';
@@ -46,7 +45,6 @@ export const TIER_ENTITY: EntitySchema = {
     features: tierFeaturesShell,
     faqs:     tierFaqsShell,
     service:  serviceOverviewShell,
-    commercial_schedule: tierCommercialScheduleShell,
   },
 
   // Occupant travel actions (engine D2–D4). The restore-conflict flows
@@ -67,7 +65,6 @@ export const TIER_ENTITY: EntitySchema = {
       details: [
         { module: 'overview', mode: 'details' },
         { module: 'features', mode: 'details' },
-        { module: 'commercial_schedule', mode: 'details' },
         { module: 'faqs',     mode: 'details' },
       ],
       connections: [

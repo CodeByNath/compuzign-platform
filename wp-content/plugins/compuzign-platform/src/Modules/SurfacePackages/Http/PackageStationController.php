@@ -1532,26 +1532,8 @@ class PackageStationController
                     ? sanitize_text_field((string) $body['minimum_term_unit'])
                     : null;
             }
-            // The reusable cadence pool a Commercial Schedule leg may draw
-            // from — a set, not a single value, so it travels through
-            // Overview like audience_groups above rather than the legacy
-            // scalar billing_cycle. Omission preserves the existing value.
-            if (array_key_exists('active_billing_cycles', $body)) {
-                $draftValue['active_billing_cycles'] = $PS::sanitizeActiveBillingCycles($body['active_billing_cycles']);
-            }
         } elseif ($module === 'features') {
-            // Draft-preferred, not settled — legs may exist only in a
-            // not-yet-settled Commercial Schedule draft (declare legs, then
-            // assign inclusions to them, both before Publish). Real
-            // cross-validation against the settle-time-resolved legs runs
-            // again in settleTierSlot() regardless.
-            $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? [], $PS::draftPreferredCommercialLegs($slot));
-        } elseif ($module === 'commercial_schedule') {
-            // Validated immediately against the slot's own draft-preferred
-            // active_billing_cycles/commitment (Overview may be saved before
-            // or after this module) — settleTierSlot() re-runs the same
-            // validation again at commit time regardless.
-            $draftValue = ['commercial_legs' => $PS::sanitizeCommercialLegsForSlot($slot, $body['commercial_legs'] ?? [])];
+            $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs
             $draftValue = [];
             if (is_array($body['faq_refs'] ?? null)) {

@@ -86,8 +86,6 @@ export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewD
     contact: edition.contact,
     minimum_term_value: edition.minimum_term_value,
     minimum_term_unit: edition.minimum_term_unit,
-    active_billing_cycles: edition.active_billing_cycles,
-    commercial_legs: edition.commercial_legs,
     inclusions_override: edition.inclusions_override,
     faq_refs: edition.faq_refs,
   };

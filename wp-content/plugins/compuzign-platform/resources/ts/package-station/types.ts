@@ -554,12 +554,6 @@ export interface SurfaceTierDetail {
   // every occupant that has never configured one. See docs/code-map/tier-edition.md.
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
-  // Multi-cycle commercial schedule (Phase 2). Empty for every occupant that
-  // has never used this capability — Simple Mode's own billing_cycle/
-  // rate_sheet_items[].price_option_id above stay fully authoritative and
-  // untouched. See docs/code-map/tier-edition.md.
-  active_billing_cycles: string[];
-  commercial_legs: CommercialLeg[];
   // The Rate Sheet this occupant's selections resolve against. Null when the
   // occupant is unbound (no selections). Switching it clears the selections.
   rate_sheet_id: string | null;
@@ -627,12 +621,6 @@ export interface TierEdition {
   billing_cycle: string | null;
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
-  // Additive only, an Edition's own — never inherited from the parent
-  // occupant, the same independent-not-inherited rule price/billing_cycle/
-  // commitment above already follow. Empty for every Edition that has never
-  // used this capability. See docs/code-map/tier-edition.md.
-  active_billing_cycles: string[];
-  commercial_legs: CommercialLeg[];
   // Empty means inherit the parent occupant's own inclusions_override/
   // faq_refs; non-empty is this Edition's deliberate declaration override.
   inclusions_override: InclusionItem[];
@@ -652,8 +640,6 @@ export interface TierEditionOverviewDraft {
   contact: boolean;
   minimum_term_value: number | null;
   minimum_term_unit: string | null;
-  active_billing_cycles: string[];
-  commercial_legs: CommercialLeg[];
   inclusions_override: InclusionItem[];
   faq_refs: string[];
 }
@@ -712,10 +698,6 @@ export interface TierOverviewDraft {
   // existing value rather than resetting it (PackageSchema::settleTierSlot).
   minimum_term_value?: number | null;
   minimum_term_unit?: string | null;
-  // The reusable cadence pool a Commercial Schedule leg may draw from — see
-  // SurfaceTierDetail.active_billing_cycles. Optional like minimum_term_value
-  // above: an omitted key preserves the settled occupant's existing value.
-  active_billing_cycles?: string[];
   // The occupant's bound Rate Sheet. Edited in the overview module so a switch
   // commits (and clears selections) before new rows are chosen.
   rate_sheet_id?: string | null;
@@ -733,27 +715,6 @@ export interface TierRateSheetSelection {
   // against the bound sheet is left as-is — never silently coerced back to
   // Default Price. See docs/code-map/rate-sheet.md.
   price_option_id?: string | null;
-  // Multi-Cycle Mode only (this Tier/Edition's own commercial_legs is
-  // non-empty) — one Price Option choice per commercial leg this inclusion
-  // participates in. Absent entirely for a Simple Mode selection (never [])
-  // — the same not-fabricated shape PackageSchema::sanitizeTierRateSheetSelections()
-  // returns. See docs/code-map/tier-edition.md.
-  leg_assignments?: LegAssignment[];
-}
-
-export interface LegAssignment {
-  leg_id: string;
-  price_option_id: string | null;
-}
-
-// A Tier/Edition's own scheduled application of one of its active_billing_cycles
-// across an inclusive, 1-based month range bounded by its own commitment
-// (minimum_term_value/unit). See docs/code-map/tier-edition.md.
-export interface CommercialLeg {
-  id: string;
-  billing_cycle: string;
-  start_month: number;
-  end_month: number;
 }
 
 export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
@@ -780,24 +741,18 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   includes?: { item_id: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
 }
 
-export interface TierCommercialScheduleDraft {
-  commercial_legs: CommercialLeg[];
-}
-
 export interface TierDrafts {
   overview: TierOverviewDraft | null;
   features: TierRateSheetSelection[] | null;
   faqs:     string[] | null;
-  commercial_schedule: TierCommercialScheduleDraft | null;
 }
 
-export type TierModuleKey = 'overview' | 'features' | 'faqs' | 'commercial_schedule';
+export type TierModuleKey = 'overview' | 'features' | 'faqs';
 
 export type TierModuleSavePayload =
   | TierOverviewDraft
   | { rate_sheet_items: TierRateSheetSelection[] }
-  | { faq_refs: string[] }
-  | TierCommercialScheduleDraft;
+  | { faq_refs: string[] };
 
 // Response of the per-module save and settle endpoints. `tier` is the settled
 // detail (unchanged by a draft save; rewritten by settle); `drafts`/`module_status`

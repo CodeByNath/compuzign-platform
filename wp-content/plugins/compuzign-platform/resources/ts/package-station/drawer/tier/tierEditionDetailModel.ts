@@ -65,7 +65,6 @@ export function buildTierEditionDetail(
       billingCycle:      edition.billing_cycle,
       minimumTermValue:  edition.minimum_term_value,
       minimumTermUnit:   edition.minimum_term_unit,
-      activeBillingCycles: edition.active_billing_cycles,
       editionPlatformId: edition.edition_platform_id,
     },
     state:    moduleState,

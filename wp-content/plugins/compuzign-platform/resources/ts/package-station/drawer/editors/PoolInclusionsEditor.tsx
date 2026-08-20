@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
-import { commercialLegLabel, defaultPriceLabel } from '../../rateSheetLabels';
-import type { CommercialLeg, LegAssignment, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
+import { defaultPriceLabel } from '../../rateSheetLabels';
+import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
 import type { InclusionItem } from '@/api/types/pools';
 
 // Pool-referencing Included Features editor (extracted from ServiceTierStep /
@@ -17,22 +17,9 @@ interface Props {
   pool:     InclusionItem[];
   onCreate: (label: string) => Promise<InclusionItem | null>;
   rateSheetCatalogue?: TierResolvedRateSheetSelection[];
-  // Multi-Cycle Mode only — this Tier/Edition's own commercial_legs. Absent/
-  // empty renders today's single Price Option select, byte-identical to
-  // before this capability existed; one-or-more renders one Price Option
-  // select per leg instead, each an independent include/exclude choice (an
-  // inclusion need not participate in every leg — e.g. a hosting fee that
-  // only applies once the upfront leg ends). See docs/code-map/tier-edition.md.
-  commercialLegs?: CommercialLeg[];
 }
 
-function updateLegAssignment(current: LegAssignment[], legId: string, priceOptionId: string | null): LegAssignment[] {
-  const next = current.filter((a) => a.leg_id !== legId);
-  next.push({ leg_id: legId, price_option_id: priceOptionId });
-  return next;
-}
-
-export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue, commercialLegs }: Props) {
+export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue }: Props) {
   const [showAdd,  setShowAdd]  = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [creating, setCreating] = useState(false);
@@ -80,11 +67,10 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
         // editor only ever mutates this row's OWN price option/qty, never
         // what it compiles (that's the Rate Sheet tool's job).
         const suppliedContent = (row.bundle_id ?? '') !== '' ? (row.includes ?? []) : null;
-        const legAssignments = selection.leg_assignments ?? [];
         return <div key={selection.item_id} class="cz-ie-entry">
           <div class="cz-ie-row">
-            <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (!commercialLegs?.length && (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`))}</div>
-            {!commercialLegs?.length && priceOptions.length > 0 && (
+            <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`)}</div>
+            {priceOptions.length > 0 && (
               <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
                 onChange={(event) => {
                   const value = event.currentTarget.value || null;
@@ -96,52 +82,9 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
             )}
             <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
               onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-            {!commercialLegs?.length && <span>{effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>}
+            <span>{effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>
             <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>✕</button>
           </div>
-          {!!commercialLegs?.length && (
-            <div class="cz-ie-leg-assignments">
-              {commercialLegs.map((leg) => {
-                const assignment = legAssignments.find((a) => a.leg_id === leg.id) ?? null;
-                const included = assignment !== null;
-                const legOptionUnresolved = included && !!assignment!.price_option_id
-                  && !priceOptions.some((option) => option.option_id === assignment!.price_option_id);
-                const legUnitPrice = !included ? null
-                  : legOptionUnresolved ? null
-                  : assignment!.price_option_id
-                    ? (priceOptions.find((option) => option.option_id === assignment!.price_option_id)?.unit_price ?? null)
-                    : row.unit_price;
-                return (
-                  <div key={leg.id} class="cz-ie-leg-row">
-                    <label class="cz-ie-leg-toggle">
-                      <input type="checkbox" checked={included}
-                        onChange={(event) => {
-                          const next = event.currentTarget.checked
-                            ? updateLegAssignment(legAssignments, leg.id, null)
-                            : legAssignments.filter((a) => a.leg_id !== leg.id);
-                          onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, leg_assignments: next } : item));
-                        }} />
-                      {commercialLegLabel(leg)}
-                    </label>
-                    {included && priceOptions.length > 0 && (
-                      <select class="cz-tf-select" aria-label={`Price option for ${row.label} — ${commercialLegLabel(leg)}`}
-                        value={assignment!.price_option_id ?? ''}
-                        onChange={(event) => {
-                          const value = event.currentTarget.value || null;
-                          onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, leg_assignments: updateLegAssignment(legAssignments, leg.id, value) } : item));
-                        }}>
-                        <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
-                        {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
-                      </select>
-                    )}
-                    {included && (
-                      <span>{legOptionUnresolved ? 'Unresolved price option' : legUnitPrice !== null ? `$${(legUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
           {suppliedContent && (
             suppliedContent.length > 0 ? (
               <ul class="cz-ie-sub-list">

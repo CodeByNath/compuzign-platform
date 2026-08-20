@@ -20,9 +20,9 @@ import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { ShellEditSession } from '@/drawer-kit/schema/types';
 import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft } from '../../types';
-import { TierEditionOverviewSection, TierEditionInclusionsSection, TierEditionCommercialScheduleSection } from './TierEditionOverviewFields';
+import { TierEditionOverviewSection, TierEditionInclusionsSection } from './TierEditionOverviewFields';
 
-export type TierEditionEditorTab = 'overview' | 'inclusions' | 'commercial-schedule';
+export type TierEditionEditorTab = 'overview' | 'inclusions';
 
 export function TierEditionEditor({ session }: { session: ShellEditSession }) {
   const [tab, setTab] = useState<TierEditionEditorTab>(
@@ -41,10 +41,6 @@ export function TierEditionEditor({ session }: { session: ShellEditSession }) {
     {
       id: 'inclusions', label: 'Inclusions',
       content: <TierEditionInclusionsSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} svc={svc} />,
-    },
-    {
-      id: 'commercial-schedule', label: 'Commercial Schedule',
-      content: <TierEditionCommercialScheduleSection draft={draft} onChange={onChange} />,
     },
   ];
 

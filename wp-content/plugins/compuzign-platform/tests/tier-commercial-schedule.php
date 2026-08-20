@@ -267,50 +267,6 @@ check_commercial_schedule(
     'shortening the commitment to 24 months drops leg B (months 25-48) on the very next settle — an automatic bounds re-check, not a silent orphan',
 );
 
-// ── draftPreferredCommercialLegs(): Features' own cross-module lookup ───────
-
-check_commercial_schedule(
-    count(Schema::draftPreferredCommercialLegs($withLegs)) === 2,
-    'draftPreferredCommercialLegs() reads the settled occupant\'s legs once no pending Commercial Schedule draft exists',
-);
-
-$pendingLegsSlot = Schema::ensureTierLifecycle($bare);
-$pendingLegsSlot['drafts']['overview'] = [
-    'label' => 'Starter', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'monthly', 'minimum_term_value' => 12, 'minimum_term_unit' => 'month',
-    'active_billing_cycles' => ['monthly'],
-];
-$pendingLegsSlot['drafts']['commercial_schedule'] = [
-    'commercial_legs' => [['id' => 'leg_pending', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => 12]],
-];
-$pendingLegs = Schema::draftPreferredCommercialLegs($pendingLegsSlot);
-check_commercial_schedule(
-    count($pendingLegs) === 1 && $pendingLegs[0]['id'] === 'leg_pending',
-    'draftPreferredCommercialLegs() sees a leg that exists only in a not-yet-settled Commercial Schedule draft — declare legs, then assign inclusions to them, both before Publish',
-);
-
-// ── sanitizeCommercialLegsForSlot(): Commercial Schedule's own draft-save ───
-
-$freshSlot = Schema::ensureTierLifecycle($bare);
-check_commercial_schedule(
-    Schema::sanitizeCommercialLegsForSlot($freshSlot, [['id' => 'leg_x', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => 6]]) === [],
-    'a leg naming a cycle before Overview has ever declared any active_billing_cycles is dropped immediately at draft-save time, not deferred to Publish',
-);
-
-$overviewOnlySlot = Schema::ensureTierLifecycle($bare);
-$overviewOnlySlot['drafts']['overview'] = [
-    'label' => 'Starter', 'ideal_for' => '', 'price' => null, 'contact' => false,
-    'billing_cycle' => 'monthly', 'minimum_term_value' => 12, 'minimum_term_unit' => 'month',
-    'active_billing_cycles' => ['monthly'],
-];
-$validAtDraftTime = Schema::sanitizeCommercialLegsForSlot($overviewOnlySlot, [
-    ['id' => 'leg_y', 'billing_cycle' => 'monthly', 'start_month' => 1, 'end_month' => 12],
-]);
-check_commercial_schedule(
-    count($validAtDraftTime) === 1,
-    'once Overview\'s own pending draft declares active_billing_cycles/commitment, a matching Commercial Schedule submission validates immediately — Overview may be saved first, in either order',
-);
-
 // ── Backward compatibility: a legacy occupant predating this capability ─────
 
 $legacyOccupant = [

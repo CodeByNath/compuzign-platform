@@ -8,11 +8,10 @@
 // renders through it unchanged until that call site is replaced.
 
 import { useMemo } from 'preact/hooks';
-import { AdminField, MultiSelectField } from '@/drawer-kit/fields';
+import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
-import type { CommercialLeg, PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft, TierRateSheetSelection } from '../../types';
+import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft, TierRateSheetSelection } from '../../types';
 import { PoolInclusionsEditor } from '../editors/PoolInclusionsEditor';
-import { CommercialScheduleEditor } from '../editors/CommercialScheduleEditor';
 import { buildRateSheetCatalogue } from './tierDetailModel';
 
 const BILLING_CYCLES: AdminFieldOption[] = [
@@ -20,11 +19,6 @@ const BILLING_CYCLES: AdminFieldOption[] = [
   { value: 'annually', label: 'Annually' },
   { value: 'one-time', label: 'One-time' },
 ];
-
-// Same vocabulary as BILLING_CYCLES above — the reusable cadence pool this
-// Edition's own Commercial Schedule legs may draw from, a set rather than a
-// single value.
-const ACTIVE_BILLING_CYCLES: AdminFieldOption[] = BILLING_CYCLES;
 
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
   { value: 'month', label: 'Month(s)' },
@@ -53,17 +47,6 @@ export function TierEditionOverviewSection({ draft, onChange }: Pick<Props, 'dra
       <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value={draft.contact ? 'Contact Us' : 'Derived from Rate Sheet selections'} onChange={() => undefined} />
       <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
       <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
-      {/* The cadence pool this Edition's own Commercial Schedule tab may draw
-          from — optional; an Edition with none selected stays in Simple
-          Mode, using Billing Cycle above exactly as before this capability
-          existed. */}
-      <MultiSelectField
-        id="edt-active-billing-cycles"
-        label="Active Billing Cycles"
-        options={ACTIVE_BILLING_CYCLES}
-        selected={draft.active_billing_cycles ?? []}
-        onChange={(next) => onChange({ active_billing_cycles: next })}
-      />
     </div>
   );
 }
@@ -103,29 +86,10 @@ export function TierEditionInclusionsSection({ draft, onChange, rateSheetOptions
             pool={[]}
             onCreate={async () => null}
             rateSheetCatalogue={catalogue}
-            commercialLegs={draft.commercial_legs}
           />
         </div>
       )}
     </div>
-  );
-}
-
-// Commercial Schedule tab — this Edition's own legs, independent of the
-// parent occupant's (never inherited, same rule price/billing_cycle/
-// commitment above already follow). Reuses the SAME CommercialScheduleEditor
-// the parent occupant's own Commercial Schedule module uses.
-export function TierEditionCommercialScheduleSection({ draft, onChange }: Pick<Props, 'draft' | 'onChange'>) {
-  const commitmentMonths = draft.minimum_term_value != null
-    ? (draft.minimum_term_unit === 'year' ? draft.minimum_term_value * 12 : draft.minimum_term_value)
-    : null;
-  return (
-    <CommercialScheduleEditor
-      draft={draft.commercial_legs}
-      onChange={(next: CommercialLeg[]) => onChange({ commercial_legs: next })}
-      activeBillingCycles={draft.active_billing_cycles ?? []}
-      commitmentMonths={commitmentMonths}
-    />
   );
 }
 
@@ -134,7 +98,6 @@ export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, s
     <>
       <TierEditionOverviewSection draft={draft} onChange={onChange} />
       <TierEditionInclusionsSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} svc={svc} />
-      <TierEditionCommercialScheduleSection draft={draft} onChange={onChange} />
     </>
   );
 }

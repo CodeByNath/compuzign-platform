@@ -14,7 +14,6 @@ import type {
   TierOverviewShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
-  TierCommercialScheduleShellData,
 } from '../schema/bindings/tier';
 import { relationshipDisplayLabel } from '../../rateSheetLabels';
 import { TIER_LABELS } from '../../vocabulary';
@@ -75,8 +74,8 @@ export function buildTierFooterModel(
 }
 
 export interface TierDetailHandlers {
-  onEditSection:  (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs' | 'tier-commercial-schedule') => void;
-  onRevertModule: (module: 'overview' | 'features' | 'faqs' | 'commercial_schedule') => void;
+  onEditSection:  (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => void;
+  onRevertModule: (module: 'overview' | 'features' | 'faqs') => void;
 }
 
 /**
@@ -154,7 +153,6 @@ export function buildTierDetail(
       billingCycle: detail.billing_cycle,
       minimumTermValue: detail.minimum_term_value,
       minimumTermUnit:  detail.minimum_term_unit,
-      activeBillingCycles: detail.active_billing_cycles,
       isAddon:      detail.is_addon,
       popular:      isPopular,
       platformId:   detail.platform_id,
@@ -186,15 +184,8 @@ export function buildTierDetail(
     handlers: { edit: () => onEditSection('tier-faqs'), 'discard-draft': () => onRevertModule('faqs') },
     busy: tierBusy,
   };
-  const commercialScheduleBinding: ShellBinding<TierCommercialScheduleShellData> = {
-    data:     { legs: detail.commercial_legs },
-    state:    view.modules.commercial_schedule,
-    hasDraft: view.drafts.commercial_schedule !== null,
-    handlers: { edit: () => onEditSection('tier-commercial-schedule'), 'discard-draft': () => onRevertModule('commercial_schedule') },
-    busy: tierBusy,
-  };
 
-  return { view, detail, rateSheetCatalogue, isPopular, overviewBinding, featuresBinding, faqsBinding, commercialScheduleBinding };
+  return { view, detail, rateSheetCatalogue, isPopular, overviewBinding, featuresBinding, faqsBinding };
 }
 
 export type TierDetailModel = ReturnType<typeof buildTierDetail>;
