@@ -161,7 +161,7 @@ export const tierEditionInclusionsShell: ShellSchema<TierEditionInclusionsShellD
   archetype: 'child',
   dna:       tierEditionOverviewModule,
   header: {
-    title:       'Tier Inclusions',
+    title:       'Default Tier Inclusions',
     subtitle:    'Features included in this Edition.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',

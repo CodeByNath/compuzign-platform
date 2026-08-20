@@ -99,7 +99,7 @@ plus Edition buttons. `ServiceCard.tsx` captures the declaration shown at click.
 revert, status, restore, guarded delete,
 `moveToBin`/`restoreFromBin`/`trashBinEntry`/`deleteBinEntry`) and
 Edition-scoped state including `tier_edition_bin[]`. The Included-Features
-module is titled **Tier Inclusions**.
+module is titled **Default Tier Inclusions**.
 `TierEditionDeclarationSwitcher.tsx` is the Options group's content, gated
 on a real occupant: a `[Edition 2] [Edition 3]` child-chip strip
 (`ChildChipStrip`) with a trailing Bin icon opening as its own focused task

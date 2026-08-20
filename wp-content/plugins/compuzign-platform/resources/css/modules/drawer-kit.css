@@ -513,45 +513,12 @@
   padding-left: var(--cz-space-6);
 }
 
-/* Leg/Price/Qty/Remove — a fixed column grid so the head row's labels line
-   up with each data row's own controls beneath it. --no-price drops the
-   Price column when the row's Rate Sheet item carries no price options. */
 .cz-ie-leg-row {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 110px auto;
+  display: flex;
   align-items: center;
   gap: var(--cz-space-2);
-}
-
-.cz-ie-leg-row--no-price {
-  grid-template-columns: minmax(140px, 1fr) 110px auto;
-}
-
-.cz-ie-leg-row--head {
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-normal);
-  color: var(--station-text-muted);
-  line-height: var(--admin-lh-s-label);
-}
-
-.cz-ie-leg-row__qty-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cz-ie-leg-row__price-hint {
-  font-size: var(--admin-fs-s-label);
-  color: var(--station-text-muted);
-  line-height: var(--admin-lh-s-label);
-}
-
-/* The "+ Add assignment" trigger — the same select-driven mechanics as any
-   other leg row, styled to read as an add action rather than a data field. */
-.cz-ie-leg-add-select {
-  width: auto;
-  min-width: 180px;
-  color: var(--station-accent-strong);
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 
 .cz-ie-leg-toggle {
@@ -575,76 +542,6 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--cz-space-3);
-}
-
-/* The stacked right-hand summary a read-only inclusion card shows per Leg
-   assignment (or, with none, the row's own base Qty/price) — reuses
-   .drawerModule__value/--muted for its type, only supplying the flex layout. */
-.cz-ie-faq-item__summary {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--cz-space-2);
-  text-align: right;
-}
-
-.cz-ie-faq-item__summary-line {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-/* The Rate Sheet Inclusion editor's own top row — identity (read-only),
-   Base Qty, optional Price, and Remove — distinct from __header above so a
-   change here never touches the FAQ/Commercial Schedule repeaters that
-   still share .cz-ie-faq-item/__header unmodified. */
-.cz-ie-faq-item__row {
-  display: flex;
-  align-items: center;
-  gap: var(--cz-space-3);
-  flex-wrap: wrap;
-  margin-bottom: var(--cz-space-3);
-}
-
-.cz-ie-faq-item__row .cz-tf-field {
-  margin-bottom: 0;
-}
-
-.cz-ie-faq-item__identity-field {
-  flex: 1 1 200px;
-  min-width: 160px;
-}
-
-.cz-ie-faq-item__qty-field,
-.cz-ie-faq-item__price-field,
-.cz-ie-faq-item__total-field {
-  flex: 0 0 130px;
-}
-
-/* A read-only value presented in the same field rhythm as an editable
-   control, without borrowing .cz-tf-control's interactive hover/focus
-   states — this box is never itself an input. */
-.cz-ie-readonly-value {
-  display: flex;
-  align-items: center;
-  min-height: var(--station-field-min-h);
-  background: var(--station-field-readonly-bg);
-  border: 1px solid var(--station-field-border);
-  border-radius: var(--station-field-radius);
-  color: var(--station-field-text);
-  font-size: var(--station-field-font);
-  padding: var(--station-field-pad-y) var(--station-field-pad-x);
-  box-sizing: border-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cz-ie-divider {
-  height: 1px;
-  background: var(--station-border);
-  margin: var(--cz-space-4) 0;
 }
 
 .cz-ie-faq-item .cz-tf-field:last-child {
