@@ -1921,62 +1921,6 @@ final class PackageManagerSchema
         }, $editions);
     }
 
-    /**
-     * Resolve a Tier/Edition's own commercial legs (Phase 1 — resolution
-     * only, see docs/code-map/tier-edition.md), each to its own aggregate
-     * price. Multi-Cycle Mode only: $legs empty (Simple Mode, or an Edition/
-     * occupant that has never used this capability) returns [] and performs
-     * no work.
-     *
-     * No new pricing calculation exists here: for each leg, only the
-     * inclusions whose own leg_assignments name that leg participate, each
-     * synthesised into a plain {item_id, quantity, price_option_id} row
-     * using THAT assignment's own price_option_id (never the selection's
-     * top-level one, which stays Simple Mode's own field) — then handed to
-     * projectTierRateSheetWith() UNCHANGED, exactly the same authority
-     * Simple Mode and projectEditionPrices() already share. A leg with no
-     * inclusions assigned to it resolves like any other empty selection set
-     * (price null, valid_count 0) rather than being omitted.
-     *
-     * @param  array<int, array{id:string, billing_cycle:string, start_month:int, end_month:int}> $legs
-     * @param  array<int, array{item_id?:string, quantity?:int, leg_assignments?:array}> $selections
-     * @return array<int, array{id:string, billing_cycle:string, start_month:int, end_month:int, price:?float, valid_count:int, selections:array}>
-     */
-    public static function projectCommercialLegs(
-        array $readModel,
-        array $legs,
-        array $selections,
-        ?string $rateSheetId,
-        bool $contact = false
-    ): array {
-        return array_map(function (array $leg) use ($readModel, $selections, $rateSheetId, $contact): array {
-            $legId = (string) ($leg['id'] ?? '');
-            $legSelections = [];
-            foreach ($selections as $selection) {
-                if (!is_array($selection)) { continue; }
-                foreach ($selection['leg_assignments'] ?? [] as $assignment) {
-                    if (!is_array($assignment) || (string) ($assignment['leg_id'] ?? '') !== $legId) { continue; }
-                    $legSelections[] = [
-                        'item_id'         => $selection['item_id'] ?? '',
-                        'quantity'        => $selection['quantity'] ?? 1,
-                        'price_option_id' => $assignment['price_option_id'] ?? null,
-                    ];
-                    break; // sanitizeLegAssignments() already dedupes one selection's assignments by leg_id.
-                }
-            }
-            $projection = self::projectTierRateSheetWith($readModel, $legSelections, $rateSheetId, $contact);
-            return [
-                'id'            => $legId,
-                'billing_cycle' => (string) ($leg['billing_cycle'] ?? ''),
-                'start_month'   => (int) ($leg['start_month'] ?? 0),
-                'end_month'     => (int) ($leg['end_month'] ?? 0),
-                'price'         => $projection['price'],
-                'valid_count'   => $projection['valid_count'],
-                'selections'    => $projection['selections'],
-            ];
-        }, $legs);
-    }
-
     // ── Consumer projections ─────────────────────────────────────────────────
 
     /**

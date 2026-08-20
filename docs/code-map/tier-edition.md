@@ -37,7 +37,7 @@ Overview under Details carries one small derived read field, "Editions" —
 separately. Creation happens through "+ Edition" (see Admin editing);
 Overview collects no title/price/lifecycle action.
 
-## Commercial schedule (Phase 0 schema, Phase 1 resolution)
+## Commercial schedule (Phase 0 — schema only)
 
 Both the occupant and each Edition may additionally carry `active_billing_cycles`
 (a reusable cadence pool, e.g. `['one-time', 'annually']`, drawn from the same
@@ -70,24 +70,9 @@ family, the same posture an inclusion row or a Rate Sheet Price Option's
 `option_id` already uses. `commercial_schedule` is a fourth `TIER_MODULES`
 entry for the occupant (own draft/settle, alongside `active_billing_cycles`
 staying part of the `overview` module draft); an Edition carries both in its
-one consolidated `overview` module, same as its other fields. See
-`tests/tier-commercial-schedule.php` for the full storage/settle contract.
-
-`PackageManagerSchema::projectCommercialLegs($readModel, $legs, $selections,
-$rateSheetId, $contact)` resolves each leg to its own aggregate price: for a
-given leg, a synthetic `{item_id, quantity, price_option_id}` row is built
-per inclusion whose own `leg_assignments` name that leg (using THAT
-assignment's own `price_option_id`, never the selection's top-level one),
-then handed to `projectTierRateSheetWith()` **unchanged** — the exact
-authority `projectEditionPrices()` already shares, called once per leg
-instead of once per Edition. No new pricing calculation; a leg with nothing
-assigned to it still appears in the result, priced null like any other empty
-selection set. `$legs` empty (Simple Mode) returns `[]` — a true no-op.
-This function exists and is directly tested
-(`tests/tier-commercial-legs-projection.php`) but is not yet wired into
-`PackageSchema::extractTierForCostBuilder()` or
-`PackageRepository::projectTierInstanceForCostBuilder()`; public/Cost-Builder
-projection of a resolved commercial schedule is a later phase.
+one consolidated `overview` module, same as its other fields. Price
+resolution and public/Cost-Builder projection are a later phase — see
+`tests/tier-commercial-schedule.php` for the full contract.
 
 ## Identity
 
