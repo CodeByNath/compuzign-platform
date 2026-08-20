@@ -19,6 +19,55 @@ import type {
 import { relationshipDisplayLabel } from '../../rateSheetLabels';
 import { TIER_LABELS } from '../../vocabulary';
 
+// ── Commercial Legs — shared pure helpers ────────────────────────────────────
+//
+// Used by both the occupant's own TierPricingRulesEditor.tsx (live auto-fill
+// as the admin edits) and the save-time coverage correction in
+// useTierModuleEditing.ts / TierEditionDeclarationSwitcher.tsx (the
+// "auto-revert + notice" rule — see the Payment Category/Commercial Legs
+// conversation). Day/week commitment units have no sensible month-based
+// total, so both return null for them — the coverage window then has to be
+// set by hand, no auto-fill/auto-revert kicks in.
+
+export function totalCommitmentMonths(
+  value: number | null | undefined,
+  unit: string | null | undefined,
+): number | null {
+  if (value == null || !unit) return null;
+  if (unit === 'month') return value;
+  if (unit === 'year') return value * 12;
+  return null;
+}
+
+export interface LegsCoverageCorrection {
+  to_month: number;
+  notice: string;
+}
+
+/**
+ * Save-time guard: when a commitment is active, no additional leg has been
+ * drafted, and the Default leg's own to_month falls short of the full
+ * commitment, snap it back up so the commitment stays fully covered — the
+ * confirmed "auto-revert + notice" behaviour. An in-progress additional leg
+ * (legs.length > 0) always wins — this never overwrites it, on the
+ * assumption the admin is already covering the remainder deliberately.
+ */
+export function resolveLegsCoverageCorrection(
+  minimumTermValue: number | null | undefined,
+  minimumTermUnit: string | null | undefined,
+  toMonth: number | null | undefined,
+  legs: { to_month: number | null }[] | null | undefined,
+): LegsCoverageCorrection | null {
+  const totalMonths = totalCommitmentMonths(minimumTermValue, minimumTermUnit);
+  if (totalMonths === null) return null;
+  if (legs && legs.length > 0) return null;
+  if (toMonth != null && toMonth >= totalMonths) return null;
+  return {
+    to_month: totalMonths,
+    notice: `To month adjusted to ${totalMonths} to keep the ${totalMonths}-month commitment fully covered.`,
+  };
+}
+
 // Whether a shell holds SETTLED content (an occupant). Client-side heuristic over
 // the settled fields — the backend is authoritative and rejects with
 // target_occupied / no_occupant when this misjudges an all-empty occupant.
@@ -178,6 +227,7 @@ export function buildTierDetail(
       minimumTermUnit:  detail.minimum_term_unit,
       fromMonth: detail.from_month,
       toMonth:   detail.to_month,
+      legsCount: detail.legs?.length ?? 0,
     },
     state:    view.modules.pricing_rules,
     hasDraft: view.drafts.pricing_rules !== null,

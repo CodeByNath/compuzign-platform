@@ -82,6 +82,7 @@ export function buildTierEditionDetail(
       minimumTermUnit:  edition.minimum_term_unit,
       fromMonth: edition.from_month,
       toMonth:   edition.to_month,
+      legsCount: edition.legs?.length ?? 0,
     },
     state: moduleState,
     hasDraft,

@@ -230,8 +230,9 @@ check(
   'settle is awaited and its success gates the subsequent publish — a failed settle must not activate an uncommitted draft',
 );
 check(
-  panel.includes('selectedId:') && panel.includes('onSelect:') && !panel.includes('useState<string | null>'),
-  'the selected declaration id arrives as a prop (selectedId/onSelect) — TierEditionDeclarationSwitcher declares no local useState<string|null> of its own that a refetch-triggered remount could silently reset',
+  panel.includes('selectedId:') && panel.includes('onSelect:')
+    && !/const \[selectedId,\s*set\w+\]\s*=\s*useState/.test(panel),
+  'the selected declaration id arrives as a prop (selectedId/onSelect) — TierEditionDeclarationSwitcher declares no local selectedId state of its own that a refetch-triggered remount could silently reset',
 );
 
 // ── Overview's "Editions" count is derived, never a second persisted field ──

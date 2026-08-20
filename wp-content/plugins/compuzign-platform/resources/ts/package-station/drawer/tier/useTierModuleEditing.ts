@@ -12,6 +12,7 @@ import type { TierPricingRulesDraft, TierRateSheetSelection } from '../../types'
 import type { PackageStation } from '../../usePackageStation';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
+import { resolveLegsCoverageCorrection } from './tierDetailModel';
 
 export interface TierModuleEditingArgs {
   pkg:                 PackageStation;
@@ -29,6 +30,9 @@ export function useTierModuleEditing({
   const [pricingRulesDraft, setPricingRulesDraft] = useState<TierPricingRulesDraft | null>(null);
   const [featuresDraft, setFeaturesDraft] = useState<TierRateSheetSelection[] | null>(null);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
+  // Set only by the Pricing Rules save-time coverage correction below — see
+  // resolveLegsCoverageCorrection's own doc comment.
+  const [pricingRulesNotice, setPricingRulesNotice] = useState<string | null>(null);
 
   const openSection = (section: 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs') => {
     if (!editingTierId) return;
@@ -65,6 +69,7 @@ export function useTierModuleEditing({
     setEditingSection(section);
     setSaveErr(null);
     setSaveOk(false);
+    setPricingRulesNotice(null);
   };
 
   const openedInitialSection = useRef(false);
@@ -102,7 +107,20 @@ export function useTierModuleEditing({
           }
         }
       } else if (editingSection === 'tier-pricing-rules' && pricingRulesDraft) {
-        const r = await pkg.saveTierPricingRules(editingTierId, pricingRulesDraft);
+        // Save-time coverage guard: if a commitment is active, no additional
+        // leg has been drafted, and Leg Default's own to_month falls short
+        // of the full commitment, snap it back up and surface why — the
+        // confirmed "auto-revert + notice" rule (never a blocking error, and
+        // never touched while merely editing — only right before this save).
+        const correction = resolveLegsCoverageCorrection(
+          pricingRulesDraft.minimum_term_value,
+          pricingRulesDraft.minimum_term_unit,
+          pricingRulesDraft.to_month,
+          pricingRulesDraft.legs,
+        );
+        const toSave = correction ? { ...pricingRulesDraft, to_month: correction.to_month } : pricingRulesDraft;
+        setPricingRulesNotice(correction?.notice ?? null);
+        const r = await pkg.saveTierPricingRules(editingTierId, toSave);
         ok = !!r?.success;
       } else if (editingSection === 'tier-inclusions' && featuresDraft) {
         const r = await pkg.saveTierFeatures(editingTierId, featuresDraft);
@@ -132,12 +150,14 @@ export function useTierModuleEditing({
     setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
+    setPricingRulesNotice(null);
   };
 
   return {
     editingSection,
     overviewDraft, setOverviewDraft,
     pricingRulesDraft, setPricingRulesDraft,
+    pricingRulesNotice,
     featuresDraft, setFeaturesDraft,
     faqsDraft, setFaqsDraft,
     openSection, saveSection, cancelSection,

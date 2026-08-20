@@ -503,7 +503,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
           {!editing && (c.saveErr || c.saveOk) && (
             <div class="cz-shell-section cz-shell-section--no-border">
               {c.saveErr && <p class="cz-admin-error-msg">{c.saveErr}</p>}
-              {c.saveOk  && <p class="cz-admin-ok-msg">Saved.</p>}
+              {c.saveOk  && <p class="cz-admin-ok-msg">{c.pricingRulesNotice ?? 'Saved.'}</p>}
             </div>
           )}
         </>

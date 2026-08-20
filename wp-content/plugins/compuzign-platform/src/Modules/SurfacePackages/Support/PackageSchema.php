@@ -65,6 +65,35 @@ class PackageSchema
     }
 
     /**
+     * Sanitize Commercial Legs — payment-behaviour segments beyond a
+     * declaration's own "Leg Default" (billing_cycle/from_month/to_month,
+     * stored as flat scalars, never an entry here). Each leg is anonymous:
+     * array order is its identity, and the whole array is replaced on every
+     * save — no per-leg id, no patch-by-id. A leg with no billing_cycle is
+     * dropped rather than stored empty.
+     */
+    public static function sanitizeCommercialLegs(mixed $legs): array
+    {
+        if (!is_array($legs)) { return []; }
+        $out = [];
+        foreach ($legs as $leg) {
+            if (!is_array($leg)) { continue; }
+            $cycle = sanitize_text_field((string) ($leg['billing_cycle'] ?? ''));
+            if ($cycle === '') { continue; }
+            $fromMonth = null;
+            if (isset($leg['from_month']) && $leg['from_month'] !== null && $leg['from_month'] !== '') {
+                $fromMonth = (int) $leg['from_month'];
+            }
+            $toMonth = null;
+            if (isset($leg['to_month']) && $leg['to_month'] !== null && $leg['to_month'] !== '') {
+                $toMonth = (int) $leg['to_month'];
+            }
+            $out[] = ['billing_cycle' => $cycle, 'from_month' => $fromMonth, 'to_month' => $toMonth];
+        }
+        return $out;
+    }
+
+    /**
      * Sanitize the multi-select audience_groups. An explicitly-empty array is
      * a valid, preserved administrator choice — callers apply the "missing
      * key defaults to all groups" fallback themselves via
@@ -886,6 +915,8 @@ class PackageSchema
                 // integers, not calendar-bound to 1-12. See docs/code-map/tiers.md.
                 'from_month'          => isset($occ['from_month']) && $occ['from_month'] !== null ? (int) $occ['from_month'] : null,
                 'to_month'            => isset($occ['to_month']) && $occ['to_month'] !== null ? (int) $occ['to_month'] : null,
+                // Commercial Legs — see sanitizeCommercialLegs().
+                'legs'                => self::sanitizeCommercialLegs($occ['legs'] ?? []),
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
                 'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
@@ -933,6 +964,7 @@ class PackageSchema
             'minimum_term_unit'   => null,
             'from_month'          => null,
             'to_month'            => null,
+            'legs'                => [],
             'inclusions_override' => $tier['inclusions_override'] ?? [],
             'rate_sheet_id'       => self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []),
             'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($tier['rate_sheet_items'] ?? []),
@@ -1215,6 +1247,8 @@ class PackageSchema
                     : null,
                 'from_month'          => $fromMonth,
                 'to_month'            => $toMonth,
+                // Commercial Legs — see sanitizeCommercialLegs().
+                'legs'                => self::sanitizeCommercialLegs($data['legs'] ?? []),
                 'rate_sheet_id'       => $rateSheetId,
                 'inclusions_override' => $data['inclusions_override'] ?? [],
                 'rate_sheet_items'    => $selections,
@@ -1369,6 +1403,9 @@ class PackageSchema
             // Edition's own coverage window, independent of the occupant's.
             'from_month'               => $fromMonth,
             'to_month'                 => $toMonth,
+            // Commercial Legs — this Edition's own, independent of the
+            // occupant's.
+            'legs'                     => self::sanitizeCommercialLegs($edition['legs'] ?? []),
 
             // Empty means inherit the parent occupant's own inclusions_override
             // / faq_refs — the same empty-means-inherit rule the occupant
@@ -1442,6 +1479,7 @@ class PackageSchema
             'minimum_term_unit'   => $data['minimum_term_unit'] ?? null,
             'from_month'          => $data['from_month'] ?? null,
             'to_month'            => $data['to_month'] ?? null,
+            'legs'                => $data['legs'] ?? [],
             'inclusions_override' => $data['inclusions_override'] ?? [],
             'faq_refs'            => $data['faq_refs'] ?? [],
         ]);
@@ -1509,6 +1547,7 @@ class PackageSchema
             'minimum_term_unit'    => $data['minimum_term_unit'] ?? null,
             'from_month'           => $data['from_month'] ?? null,
             'to_month'             => $data['to_month'] ?? null,
+            'legs'                 => $data['legs'] ?? [],
             'inclusions_override'  => $data['inclusions_override'] ?? [],
             'faq_refs'             => $data['faq_refs'] ?? [],
         ];
@@ -1552,6 +1591,7 @@ class PackageSchema
         $edition['minimum_term_unit']   = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
         $edition['from_month']          = array_key_exists('from_month', $draft) ? $draft['from_month'] : $edition['from_month'];
         $edition['to_month']            = array_key_exists('to_month', $draft)   ? $draft['to_month']   : $edition['to_month'];
+        $edition['legs']                = array_key_exists('legs', $draft) ? $draft['legs'] : $edition['legs'];
         $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];
         $edition['faq_refs']            = $draft['faq_refs'] ?? $edition['faq_refs'];
 
@@ -1900,7 +1940,7 @@ class PackageSchema
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
             'billing_cycle' => null, 'minimum_term_value' => null, 'minimum_term_unit' => null,
-            'from_month' => null, 'to_month' => null,
+            'from_month' => null, 'to_month' => null, 'legs' => [],
             'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
             'tier_editions' => [], 'tier_edition_bin' => [],
@@ -2465,6 +2505,8 @@ class PackageSchema
             // Coverage window — same draft-preferred rule as commitment above.
             'from_month'          => array_key_exists('from_month', $pr) ? $pr['from_month'] : ($occ['from_month'] ?? null),
             'to_month'            => array_key_exists('to_month', $pr)   ? $pr['to_month']   : ($occ['to_month']   ?? null),
+            // Commercial Legs — same draft-preferred rule as coverage above.
+            'legs'                => array_key_exists('legs', $pr) ? $pr['legs'] : ($occ['legs'] ?? []),
             'rate_sheet_id'       => $draftRateSheetId,
             'inclusions_override' => [],
             'rate_sheet_items'    => $selections,

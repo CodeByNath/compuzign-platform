@@ -93,6 +93,7 @@ export interface TierEditionPricingRulesShellData {
   minimumTermUnit:  string | null;
   fromMonth: number | null;
   toMonth:   number | null;
+  legsCount: number;
 }
 
 const PRICING_RULES_ACTIONS: Record<string, ShellActionSchema> = {
@@ -124,10 +125,14 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
       }),
     },
     {
-      id: 'coverage', element: 'text', label: 'Coverage',
+      id: 'coverage', element: 'text', label: 'Coverage (Leg Default)',
       bind: (d): TextValue => ({
         value: d.fromMonth != null && d.toMonth != null ? `Month ${d.fromMonth} – ${d.toMonth}` : '—',
       }),
+    },
+    {
+      id: 'commercial-legs', element: 'text', label: 'Commercial Legs',
+      bind: (d): TextValue => ({ value: d.legsCount > 0 ? `${d.legsCount} additional` : 'None' }),
     },
   ],
   footer:  { actions: ['edit'] },

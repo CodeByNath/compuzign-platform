@@ -91,6 +91,7 @@ export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewD
     // the occupant's own equivalent seed in useTierModuleEditing.ts.
     from_month: edition.from_month ?? 1,
     to_month:   edition.to_month ?? 12,
+    legs: edition.legs,
     inclusions_override: edition.inclusions_override,
     faq_refs: edition.faq_refs,
   };

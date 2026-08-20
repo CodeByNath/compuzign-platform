@@ -14,9 +14,9 @@
 import { useMemo, useState } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
-import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft, TierRateSheetSelection } from '../../types';
+import type { PackageManagerItem, PackageRateSheet, TierCommercialLeg, TierEditionOverviewDraft, TierRateSheetSelection } from '../../types';
 import { PoolInclusionsEditor } from '../editors/PoolInclusionsEditor';
-import { buildRateSheetCatalogue } from './tierDetailModel';
+import { buildRateSheetCatalogue, totalCommitmentMonths } from './tierDetailModel';
 
 // Payment Category is the coarse choice; Billing Cycle's own options narrow
 // to whichever cadence vocabulary that category admits. No separate stored
@@ -59,6 +59,67 @@ interface Props {
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
 }
 
+// One Commercial Leg card — mirrors the occupant's own CommercialLegCard
+// (TierPricingRulesEditor.tsx) exactly, duplicated locally rather than
+// shared, the same precedent every other vocabulary constant in this file
+// already sets between the two editors.
+interface LegCardProps {
+  leg:       Pick<TierCommercialLeg, 'billing_cycle' | 'from_month' | 'to_month'>;
+  onChange:  (patch: Partial<TierCommercialLeg>) => void;
+  label:     string;
+  removable: boolean;
+  onRemove?: () => void;
+}
+
+function CommercialLegCard({ leg, onChange, label, removable, onRemove }: LegCardProps) {
+  const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
+    paymentCategoryOf(leg.billing_cycle),
+  );
+  const billingCycleOptions = paymentCategory === 'fixed' ? FIXED_BILLING_CYCLES : RECURRING_BILLING_CYCLES;
+
+  return (
+    <div class="cz-ie-faq-item">
+      <div class="cz-ie-faq-item__header">
+        <span class="cz-tf-label">{label}</span>
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          disabled={!removable}
+          onClick={onRemove}
+        >
+          Remove
+        </button>
+      </div>
+
+      <div class="cz-tf-field-row">
+        <AdminField
+          def={{ id: 'edt-leg-payment-category', type: 'select', label: 'Payment Category', options: PAYMENT_CATEGORIES }}
+          value={paymentCategory}
+          onChange={(category: string) => setPaymentCategory(category as PaymentCategory)}
+        />
+        <AdminField
+          def={{ id: 'edt-leg-billing-cycle', type: 'select', label: 'Billing Cycle', options: billingCycleOptions }}
+          value={leg.billing_cycle}
+          onChange={(billing_cycle: string) => onChange({ billing_cycle })}
+        />
+      </div>
+
+      <div class="cz-tf-field-row">
+        <AdminField
+          def={{ id: 'edt-leg-from-month', type: 'text', label: 'From month' }}
+          value={leg.from_month != null ? String(leg.from_month) : ''}
+          onChange={(v: string) => onChange({ from_month: v === '' ? null : Number(v) })}
+        />
+        <AdminField
+          def={{ id: 'edt-leg-to-month', type: 'text', label: 'To month', placeholder: 'Indefinite' }}
+          value={leg.to_month != null ? String(leg.to_month) : ''}
+          onChange={(v: string) => onChange({ to_month: v === '' ? null : Number(v) })}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Overview tab — title, description, Contact Us/Price. No billing/commitment
 // or Rate Sheet/row fields here; those are Pricing Rules' and Inclusions'
 // own sections below.
@@ -95,13 +156,62 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
     }
   };
 
-  // Payment Category only narrows which Billing Cycle options are offered —
-  // no automatic relation beyond that, mirroring the occupant's own
-  // TierPricingRulesEditor.tsx exactly.
-  const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
-    paymentCategoryOf(draft.billing_cycle),
-  );
-  const billingCycleOptions = paymentCategory === 'fixed' ? FIXED_BILLING_CYCLES : RECURRING_BILLING_CYCLES;
+  const legs = draft.legs ?? [];
+
+  // Once a commitment's value AND unit are both known, Leg Default's own
+  // range auto-fills to the FULL commitment — mirrors the occupant's own
+  // TierPricingRulesEditor.tsx exactly, including the "only while no
+  // additional leg exists yet" guard.
+  const changeMinTermValue = (v: string) => {
+    const value = v === '' ? null : Number(v);
+    const patch: Partial<TierEditionOverviewDraft> = { minimum_term_value: value };
+    const totalMonths = totalCommitmentMonths(value, draft.minimum_term_unit ?? null);
+    if (totalMonths !== null && legs.length === 0) {
+      patch.from_month = draft.from_month ?? 1;
+      patch.to_month = totalMonths;
+    }
+    onChange(patch);
+  };
+  const changeMinTermUnit = (v: string) => {
+    const unit = v || null;
+    const patch: Partial<TierEditionOverviewDraft> = { minimum_term_unit: unit };
+    const totalMonths = totalCommitmentMonths(draft.minimum_term_value ?? null, unit);
+    if (totalMonths !== null && legs.length === 0) {
+      patch.from_month = draft.from_month ?? 1;
+      patch.to_month = totalMonths;
+    }
+    onChange(patch);
+  };
+
+  // Leg Default's own field changes — mirrors the occupant's own
+  // changeDefaultLeg exactly, including the single-adjacent-leg carry-
+  // forward scope limit.
+  const changeDefaultLeg = (patch: Partial<TierCommercialLeg>) => {
+    const fullPatch: Partial<TierEditionOverviewDraft> = { ...patch };
+    if ('to_month' in patch && patch.to_month != null && legs.length > 0) {
+      const nextLegs = [...legs];
+      nextLegs[0] = { ...nextLegs[0], from_month: patch.to_month + 1 };
+      fullPatch.legs = nextLegs;
+    }
+    onChange(fullPatch);
+  };
+
+  const updateLeg = (index: number, patch: Partial<TierCommercialLeg>) => {
+    onChange({ legs: legs.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)) });
+  };
+  const removeLeg = (index: number) => {
+    onChange({ legs: legs.filter((_, i) => i !== index) });
+  };
+  const addLeg = () => {
+    const lastToMonth = legs.length > 0 ? legs[legs.length - 1].to_month : draft.to_month;
+    const totalMonths = totalCommitmentMonths(draft.minimum_term_value ?? null, draft.minimum_term_unit ?? null);
+    const newLeg: TierCommercialLeg = {
+      billing_cycle: 'monthly',
+      from_month: lastToMonth != null ? lastToMonth + 1 : null,
+      to_month: totalMonths,
+    };
+    onChange({ legs: [...legs, newLeg] });
+  };
 
   // Switching the bound sheet clears this Edition's own row selections
   // (enforced server-side at settle, mirroring the occupant's own
@@ -121,27 +231,41 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
 
       {commitmentEnabled && (
         <div class="cz-tf-field-row">
-          <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
-          <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
+          <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={changeMinTermValue} />
+          <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={changeMinTermUnit} />
         </div>
       )}
 
-      <div class="cz-tf-field-row">
-        <AdminField
-          def={{ id: 'edt-payment-category', type: 'select', label: 'Payment Category', options: PAYMENT_CATEGORIES }}
-          value={paymentCategory}
-          onChange={(category: string) => setPaymentCategory(category as PaymentCategory)}
-        />
-        <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: billingCycleOptions }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
+      <div class="cz-ie-faq-item__header">
+        <div>
+          <span class="cz-tf-label">Commercial Legs</span>
+          <p class="cz-tf-hint">Payment behaviour over time.</p>
+        </div>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={addLeg}>
+          + Add Leg
+        </button>
       </div>
 
-      {/* Coverage window — mirrors the occupant's own TierPricingRulesEditor.tsx.
-          draft is seeded with 1/12 when the editor opens (draftFromTierEdition,
-          tierEditionModel.ts). */}
-      <div class="cz-tf-field-row">
-        <AdminField def={{ id: 'edt-from-month', type: 'text', label: 'From month' }} value={draft.from_month != null ? String(draft.from_month) : ''} onChange={(v: string) => onChange({ from_month: v === '' ? null : Number(v) })} />
-        <AdminField def={{ id: 'edt-to-month', type: 'text', label: 'To month' }} value={draft.to_month != null ? String(draft.to_month) : ''} onChange={(v: string) => onChange({ to_month: v === '' ? null : Number(v) })} />
-      </div>
+      {/* Leg Default — this Edition's own permanent declaration, presented
+          as the first, unremovable leg. draft is seeded with 1/12 when the
+          editor opens (draftFromTierEdition, tierEditionModel.ts). */}
+      <CommercialLegCard
+        leg={{ billing_cycle: draft.billing_cycle ?? 'monthly', from_month: draft.from_month ?? null, to_month: draft.to_month ?? null }}
+        onChange={changeDefaultLeg}
+        label="Leg Default"
+        removable={false}
+      />
+
+      {legs.map((leg, index) => (
+        <CommercialLegCard
+          key={index}
+          leg={leg}
+          onChange={(patch) => updateLeg(index, patch)}
+          label={`Leg ${index + 1}`}
+          removable
+          onRemove={() => removeLeg(index)}
+        />
+      ))}
     </div>
   );
 }

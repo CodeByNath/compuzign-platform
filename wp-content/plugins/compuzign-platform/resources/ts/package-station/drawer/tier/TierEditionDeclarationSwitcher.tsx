@@ -82,6 +82,7 @@ import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft } f
 import type { TierEditionsController } from '../../surface/tierSurface/useTierEditions';
 import { TIER_EDITION_ENTITY } from '../schema/entities/tierEdition';
 import { buildTierEditionDetail } from './tierEditionDetailModel';
+import { resolveLegsCoverageCorrection } from './tierDetailModel';
 import type { TierEditionEditorTab } from './TierEditionEditor';
 import { draftFromTierEdition } from './tierEditionModel';
 import { TierEditionBinFocusedView } from './TierEditionBinFocusedView';
@@ -126,6 +127,9 @@ export function TierEditionDeclarationSwitcher({
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
   const [openPanel, setOpenPanel] = useState<'overview' | 'pricing-rules' | 'inclusions' | null>(null);
+  // Set only by the Pricing Rules save-time coverage correction below — see
+  // resolveLegsCoverageCorrection's own doc comment (tierDetailModel.ts).
+  const [legsNotice, setLegsNotice] = useState<string | null>(null);
 
   // Mirrors editingTab on every change (covers open via Edit, close via
   // Save/Cancel/Back). A SEPARATE cleanup-only effect below guarantees a
@@ -156,8 +160,9 @@ export function TierEditionDeclarationSwitcher({
     if (!selected) return;
     setDraft(draftFromTierEdition(selected));
     setEditingTab(tab);
+    setLegsNotice(null);
   };
-  const cancelEdit = () => { setEditingTab(null); setDraft(null); };
+  const cancelEdit = () => { setEditingTab(null); setDraft(null); setLegsNotice(null); };
   // Draft-only — the module stays Pending after inline Save (matching the
   // occupant's own useTierModuleEditing.saveSection). Settling a pending
   // draft is the explicit Publish action's job (TierDrawerContent's
@@ -165,7 +170,14 @@ export function TierEditionDeclarationSwitcher({
   // Edition is already Active. See docs/code-map/tier-edition.md.
   const saveEdit = async () => {
     if (!selected || !draft) return;
-    await ctl.saveDraft(selected.id, draft);
+    // Save-time coverage guard — mirrors the occupant's own useTierModuleEditing
+    // saveSection exactly. See resolveLegsCoverageCorrection's own doc comment.
+    const correction = resolveLegsCoverageCorrection(
+      draft.minimum_term_value, draft.minimum_term_unit, draft.to_month, draft.legs,
+    );
+    const toSave = correction ? { ...draft, to_month: correction.to_month } : draft;
+    setLegsNotice(correction?.notice ?? null);
+    await ctl.saveDraft(selected.id, toSave);
     setEditingTab(null);
     setDraft(null);
   };
@@ -220,6 +232,7 @@ export function TierEditionDeclarationSwitcher({
       {!editingModule && (
         <>
           {ctl.error && <p class="cz-admin-error-msg">{ctl.error}</p>}
+          {legsNotice && <p class="cz-admin-ok-msg">{legsNotice}</p>}
 
           <ChildChipStrip
             chips={ctl.editions.map((edition) => ({ id: edition.id, label: ctl.editionView(edition.id)?.title ?? edition.title }))}

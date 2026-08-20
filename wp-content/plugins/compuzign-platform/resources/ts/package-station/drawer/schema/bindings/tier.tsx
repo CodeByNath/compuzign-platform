@@ -149,6 +149,9 @@ export interface TierPricingRulesShellData {
   minimumTermUnit:  string | null;
   fromMonth: number | null;
   toMonth:   number | null;
+  // Count of Commercial Legs beyond Leg Default (the fields above). Read-mode
+  // shows a count only — the full per-leg breakdown lives in the editor.
+  legsCount: number;
 }
 
 export const tierPricingRulesShell: ShellSchema<TierPricingRulesShellData> = {
@@ -178,10 +181,14 @@ export const tierPricingRulesShell: ShellSchema<TierPricingRulesShellData> = {
       }),
     },
     {
-      id: 'coverage', element: 'text', label: 'Coverage',
+      id: 'coverage', element: 'text', label: 'Coverage (Leg Default)',
       bind: (d): TextValue => ({
         value: d.fromMonth != null && d.toMonth != null ? `Month ${d.fromMonth} – ${d.toMonth}` : '—',
       }),
+    },
+    {
+      id: 'commercial-legs', element: 'text', label: 'Commercial Legs',
+      bind: (d): TextValue => ({ value: d.legsCount > 0 ? `${d.legsCount} additional` : 'None' }),
     },
   ],
   footer:  DETAILS_FOOTER,

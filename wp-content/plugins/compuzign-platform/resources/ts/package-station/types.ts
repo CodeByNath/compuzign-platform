@@ -562,6 +562,9 @@ export interface SurfaceTierDetail {
   // occupant that has never configured one.
   from_month: number | null;
   to_month: number | null;
+  // Commercial Legs — see TierPricingRulesDraft.legs. Empty for every
+  // occupant that has never added one.
+  legs: TierCommercialLeg[];
   // The Rate Sheet this occupant's selections resolve against. Null when the
   // occupant is unbound (no selections). Switching it clears the selections.
   rate_sheet_id: string | null;
@@ -633,6 +636,8 @@ export interface TierEdition {
   // window, independent of the occupant's own Default declaration.
   from_month: number | null;
   to_month: number | null;
+  // Commercial Legs — this Edition's own, independent of the occupant's.
+  legs: TierCommercialLeg[];
   // Empty means inherit the parent occupant's own inclusions_override/
   // faq_refs; non-empty is this Edition's deliberate declaration override.
   inclusions_override: InclusionItem[];
@@ -654,6 +659,7 @@ export interface TierEditionOverviewDraft {
   minimum_term_unit: string | null;
   from_month: number | null;
   to_month: number | null;
+  legs: TierCommercialLeg[];
   inclusions_override: InclusionItem[];
   faq_refs: string[];
 }
@@ -730,6 +736,27 @@ export interface TierPricingRulesDraft {
   // omitted key preserves the settled occupant's existing value.
   from_month?: number | null;
   to_month?: number | null;
+  // Commercial Legs — additional payment-behaviour segments beyond the
+  // Default declaration above (which is itself "Leg Default": its own
+  // billing_cycle/from_month/to_month fields, never represented as an
+  // entry in this array). Each leg is anonymous (no id — array order is
+  // its identity; legs are always replaced whole on save, never patched
+  // by id) and carries its own billing_cycle/from_month/to_month. Empty
+  // for every declaration that has never added one. See
+  // docs/code-map/tiers.md.
+  legs?: TierCommercialLeg[];
+}
+
+// One Commercial Leg — a payment-behaviour segment beyond the Default
+// declaration's own billing_cycle/from_month/to_month. See
+// TierPricingRulesDraft.legs.
+export interface TierCommercialLeg {
+  billing_cycle: string;
+  from_month: number | null;
+  // Null means Indefinite — a recurring leg with no fixed end. Not the
+  // same null as "not yet configured": to_month is always present once a
+  // leg exists, this array entry's absence is the "not configured" state.
+  to_month: number | null;
 }
 
 export interface TierRateSheetSelection {

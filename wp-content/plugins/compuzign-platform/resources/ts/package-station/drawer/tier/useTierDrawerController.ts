@@ -291,6 +291,7 @@ export function useTierDrawerController({
     // editors
     overviewDraft: editing.overviewDraft, setOverviewDraft: editing.setOverviewDraft,
     pricingRulesDraft: editing.pricingRulesDraft, setPricingRulesDraft: editing.setPricingRulesDraft,
+    pricingRulesNotice: editing.pricingRulesNotice,
     featuresDraft: editing.featuresDraft, setFeaturesDraft: editing.setFeaturesDraft,
     faqsDraft: editing.faqsDraft, setFaqsDraft: editing.setFaqsDraft,
     saveErr, saveOk, openSection, saveSection: editing.saveSection, cancelSection,

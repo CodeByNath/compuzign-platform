@@ -1546,6 +1546,12 @@ class PackageStationController
                     ? (int) $body['to_month']
                     : null;
             }
+            // Commercial Legs — payment-behaviour segments beyond the
+            // Default declaration above. Whole-array replace on every save,
+            // matching Default Tier Inclusions' own rate_sheet_items rule.
+            if (array_key_exists('legs', $body)) {
+                $draftValue['legs'] = $PS::sanitizeCommercialLegs($body['legs']);
+            }
         } elseif ($module === 'features') {
             $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs
