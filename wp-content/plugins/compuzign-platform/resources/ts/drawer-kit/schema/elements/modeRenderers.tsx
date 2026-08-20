@@ -226,8 +226,10 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
   // (Tier occupant and Tier Edition alike; 2026-08 presentation pass). No
   // single bound-value contract — each consumer's own payload is one of the
   // small `kind`-discriminated shapes below, switched on here rather than
-  // registering a second renderer map. Reuses only already-governed classes
-  // (`drawerModule__*`, `cz-ie-*`, `cz-tf-label`) — no new CSS.
+  // registering a second renderer map. Reuses `drawerModule__*`/`cz-ie-*`
+  // classes throughout; the inclusions read-card's per-Leg summary (2026-08
+  // Tier Inclusions layout pass) adds a small `cz-ie-faq-item__summary*`
+  // layout scope in drawer-kit.css rather than a new label typography.
   custom: {
     details: (raw, { loading }) => {
       if (loading) return <p class="drawerModule__value"><Skeleton width="55%" /></p>;
@@ -286,24 +288,27 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
               {v.items.map((item) => (
                 <div key={item.id} class="cz-ie-faq-item">
                   <div class="cz-ie-faq-item__header">
-                    <span class="cz-tf-label">{item.label}</span>
-                    <span class="cz-tf-label">
-                      {`Qty ${item.quantity}`}
-                      {item.priceText ? ` · ${item.priceText}` : ''}
-                    </span>
-                  </div>
-                  {item.assignments.length > 0 && (
-                    <div class="cz-ie-leg-assignments">
-                      {item.assignments.map((a, idx) => (
-                        <div class="cz-ie-leg-row" key={idx}>
-                          <span>{a.legLabel}</span>
-                          <span>{a.priceLabel}</span>
-                          <span>{`Qty ${a.quantity}`}</span>
-                          <span>{a.priceText}</span>
+                    <span class="drawerModule__value">{item.label}</span>
+                    <div class="cz-ie-faq-item__summary">
+                      {item.assignments.length > 0 ? (
+                        item.assignments.map((a, idx) => (
+                          <div class="cz-ie-faq-item__summary-line" key={idx}>
+                            <span class="drawerModule__value drawerModule__value--muted">
+                              {`${a.legLabel} · ${a.priceLabel} · Qty ${a.quantity}`}
+                            </span>
+                            <span class="drawerModule__value drawerModule__value--muted">{a.priceText}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div class="cz-ie-faq-item__summary-line">
+                          <span class="drawerModule__value drawerModule__value--muted">{`Qty ${item.quantity}`}</span>
+                          {item.priceText && (
+                            <span class="drawerModule__value drawerModule__value--muted">{item.priceText}</span>
+                          )}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>

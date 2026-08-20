@@ -176,7 +176,7 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   archetype: 'child',
   dna:       tierFeaturesModule,
   header: {
-    title:       'Default Tier Inclusions',
+    title:       'Tier Inclusions',
     subtitle:    'Features included in this tier’s Default.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',

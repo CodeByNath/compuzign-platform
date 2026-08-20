@@ -83,15 +83,22 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
         const legAssignments = selection.leg_assignments ?? [];
         // Each inclusion reads as one visually bounded unit — the same
         // subtle bordered-block treatment the FAQ editor's own repeater rows
-        // already use (.cz-ie-faq-item/__header), reused here rather than a
-        // second surface treatment (name + qty + remove in the header row,
-        // leg assignments below, exactly what a coherent inclusion needs and
-        // nothing more — no heavy nested cards).
+        // use (.cz-ie-faq-item), but with its own top-row/divider/Leg-table
+        // layout (.cz-ie-faq-item__row, .cz-ie-leg-row) rather than sharing
+        // __header, so this row's own restructure (2026-08 Tier Inclusions
+        // layout pass) never touches the FAQ/Commercial Schedule repeaters
+        // that still render through __header unmodified.
         return <div key={selection.item_id} class="cz-ie-faq-item">
-          <div class="cz-ie-faq-item__header">
-            <span class="cz-tf-label" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (!commercialLegs?.length && (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`))}</span>
-            <div class="cz-ie-row">
-              {!commercialLegs?.length && priceOptions.length > 0 && (
+          <div class="cz-ie-faq-item__row">
+            <div class="cz-tf-field cz-ie-faq-item__identity-field">
+              <span class="cz-tf-label">Rate Sheet Inclusion</span>
+              <div class="cz-ie-readonly-value" aria-label={row.label}>
+                {row.label}{!row.resolved ? ' · Unresolved' : ''}
+              </div>
+            </div>
+            {!commercialLegs?.length && priceOptions.length > 0 && (
+              <div class="cz-tf-field cz-ie-faq-item__price-field">
+                <span class="cz-tf-label">Price</span>
                 <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
                   onChange={(event) => {
                     const value = event.currentTarget.value || null;
@@ -100,77 +107,101 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                   <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
                   {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
                 </select>
-              )}
+              </div>
+            )}
+            <div class="cz-tf-field cz-ie-faq-item__qty-field">
+              <span class="cz-tf-label">Base Qty</span>
               <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
                 onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-              {!commercialLegs?.length && <span class="cz-tf-label">{effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>}
-              <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.label}`} onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>✕</button>
             </div>
+            {!commercialLegs?.length && (
+              <div class="cz-tf-field cz-ie-faq-item__total-field">
+                <span class="cz-tf-label">Total</span>
+                <div class="cz-ie-readonly-value">
+                  {optionUnresolved ? 'Unresolved price option' : effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}
+                </div>
+              </div>
+            )}
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" aria-label={`Remove ${row.label}`} onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
           </div>
           {!!commercialLegs?.length && (() => {
             const legsById = new Map(commercialLegs.map((leg) => [leg.id, leg]));
             const availableLegs = commercialLegs.filter((leg) => !legAssignments.some((a) => a.leg_id === leg.id));
             const setAssignments = (next: LegAssignment[]) =>
               onChange(selections.map((item, itemIndex) => (itemIndex === index ? { ...item, leg_assignments: next } : item)));
+            const rowClass = priceOptions.length > 0 ? 'cz-ie-leg-row' : 'cz-ie-leg-row cz-ie-leg-row--no-price';
             return (
-              <div class="cz-tf-field">
-                <span class="cz-tf-label">Leg assignments</span>
-                <div class="cz-ie-leg-assignments">
-                {legAssignments.map((assignment) => {
-                  const leg = legsById.get(assignment.leg_id);
-                  if (!leg) return null;
-                  const legOptionUnresolved = !!assignment.price_option_id
-                    && !priceOptions.some((option) => option.option_id === assignment.price_option_id);
-                  const legUnitPrice = legOptionUnresolved ? null
-                    : assignment.price_option_id
-                      ? (priceOptions.find((option) => option.option_id === assignment.price_option_id)?.unit_price ?? null)
-                      : row.unit_price;
-                  // The assignment's own current leg plus whichever legs this
-                  // inclusion hasn't used yet — never a leg already claimed by
-                  // a DIFFERENT assignment on this same row.
-                  const legChoices = [leg, ...availableLegs];
-                  return (
-                    <div key={assignment.leg_id} class="cz-ie-leg-row">
-                      <select class="cz-tf-select" aria-label={`Leg for ${row.label}`}
-                        value={assignment.leg_id}
-                        onChange={(event) => setAssignments(patchLegAssignment(legAssignments, assignment.leg_id, { leg_id: event.currentTarget.value }))}>
-                        {legChoices.map((option) => <option value={option.id} key={option.id}>{commercialLegLabel(option)}</option>)}
-                      </select>
-                      {priceOptions.length > 0 && (
-                        <select class="cz-tf-select" aria-label={`Price option for ${row.label} — ${commercialLegLabel(leg)}`}
-                          value={assignment.price_option_id ?? ''}
-                          onChange={(event) => setAssignments(patchLegAssignment(legAssignments, assignment.leg_id, { price_option_id: event.currentTarget.value || null }))}>
-                          <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
-                          {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
-                        </select>
-                      )}
-                      <input class="cz-tf-input" type="number" min="1" step="1"
-                        aria-label={`Quantity for ${row.label} — ${commercialLegLabel(leg)}`}
-                        value={assignment.quantity}
-                        onInput={(event) => setAssignments(patchLegAssignment(legAssignments, assignment.leg_id, { quantity: Math.max(1, Number(event.currentTarget.value) || 1) }))} />
-                      <span>{legOptionUnresolved ? 'Unresolved price option' : legUnitPrice !== null ? `$${(legUnitPrice * assignment.quantity).toFixed(2)}` : '—'}</span>
-                      <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-                        aria-label={`Remove ${commercialLegLabel(leg)} from ${row.label}`}
-                        onClick={() => setAssignments(legAssignments.filter((a) => a.leg_id !== assignment.leg_id))}>
-                        ✕
-                      </button>
+              <>
+                <div class="cz-ie-divider" />
+                <div class="cz-tf-field">
+                  <span class="cz-tf-label">Leg assignments</span>
+                  <div class="cz-ie-leg-assignments">
+                  {legAssignments.length > 0 && (
+                    <div class={`${rowClass} cz-ie-leg-row--head`}>
+                      <span>Leg</span>
+                      {priceOptions.length > 0 && <span>Price</span>}
+                      <span>Qty</span>
+                      <span />
                     </div>
-                  );
-                })}
-                {availableLegs.length > 0 && (
-                  <select class="cz-tf-select" aria-label={`Add leg for ${row.label}`} value=""
-                    onChange={(event) => {
-                      const legId = event.currentTarget.value;
-                      if (!legId) return;
-                      setAssignments([...legAssignments, { leg_id: legId, price_option_id: null, quantity: 1 }]);
-                      event.currentTarget.value = '';
-                    }}>
-                    <option value="">+ Add assignment…</option>
-                    {availableLegs.map((leg) => <option value={leg.id} key={leg.id}>{commercialLegLabel(leg)}</option>)}
-                  </select>
-                )}
+                  )}
+                  {legAssignments.map((assignment) => {
+                    const leg = legsById.get(assignment.leg_id);
+                    if (!leg) return null;
+                    const legOptionUnresolved = !!assignment.price_option_id
+                      && !priceOptions.some((option) => option.option_id === assignment.price_option_id);
+                    const legUnitPrice = legOptionUnresolved ? null
+                      : assignment.price_option_id
+                        ? (priceOptions.find((option) => option.option_id === assignment.price_option_id)?.unit_price ?? null)
+                        : row.unit_price;
+                    // The assignment's own current leg plus whichever legs this
+                    // inclusion hasn't used yet — never a leg already claimed by
+                    // a DIFFERENT assignment on this same row.
+                    const legChoices = [leg, ...availableLegs];
+                    return (
+                      <div key={assignment.leg_id} class={rowClass}>
+                        <select class="cz-tf-select" aria-label={`Leg for ${row.label}`}
+                          value={assignment.leg_id}
+                          onChange={(event) => setAssignments(patchLegAssignment(legAssignments, assignment.leg_id, { leg_id: event.currentTarget.value }))}>
+                          {legChoices.map((option) => <option value={option.id} key={option.id}>{commercialLegLabel(option)}</option>)}
+                        </select>
+                        {priceOptions.length > 0 && (
+                          <select class="cz-tf-select" aria-label={`Price option for ${row.label} — ${commercialLegLabel(leg)}`}
+                            value={assignment.price_option_id ?? ''}
+                            onChange={(event) => setAssignments(patchLegAssignment(legAssignments, assignment.leg_id, { price_option_id: event.currentTarget.value || null }))}>
+                            <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
+                            {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
+                          </select>
+                        )}
+                        <div class="cz-ie-leg-row__qty-cell">
+                          <input class="cz-tf-input" type="number" min="1" step="1"
+                            aria-label={`Quantity for ${row.label} — ${commercialLegLabel(leg)}`}
+                            value={assignment.quantity}
+                            onInput={(event) => setAssignments(patchLegAssignment(legAssignments, assignment.leg_id, { quantity: Math.max(1, Number(event.currentTarget.value) || 1) }))} />
+                          <span class="cz-ie-leg-row__price-hint">{legOptionUnresolved ? 'Unresolved price option' : legUnitPrice !== null ? `$${(legUnitPrice * assignment.quantity).toFixed(2)}` : '—'}</span>
+                        </div>
+                        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+                          aria-label={`Remove ${commercialLegLabel(leg)} from ${row.label}`}
+                          onClick={() => setAssignments(legAssignments.filter((a) => a.leg_id !== assignment.leg_id))}>
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {availableLegs.length > 0 && (
+                    <select class="cz-tf-select cz-ie-leg-add-select" aria-label={`Add leg for ${row.label}`} value=""
+                      onChange={(event) => {
+                        const legId = event.currentTarget.value;
+                        if (!legId) return;
+                        setAssignments([...legAssignments, { leg_id: legId, price_option_id: null, quantity: 1 }]);
+                        event.currentTarget.value = '';
+                      }}>
+                      <option value="">+ Add assignment</option>
+                      {availableLegs.map((leg) => <option value={leg.id} key={leg.id}>{commercialLegLabel(leg)}</option>)}
+                    </select>
+                  )}
+                  </div>
                 </div>
-              </div>
+              </>
             );
           })()}
           {suppliedContent && (
