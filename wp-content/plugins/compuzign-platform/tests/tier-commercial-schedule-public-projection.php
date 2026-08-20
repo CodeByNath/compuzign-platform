@@ -268,14 +268,16 @@ check_schedule_projection($legsById['leg_monthly']['inclusions'] === [['id' => '
 check_schedule_projection($legsById['leg_annual']['price'] === 14.0, 'leg_annual prices its own assigned inclusion independently (7 x qty 2 = 14) — never blended with leg_monthly\'s total');
 check_schedule_projection($legsById['leg_annual']['inclusions'][0]['label'] === 'Occupant Setup', 'leg_annual carries only ITS OWN assigned inclusion');
 
-// ── 2. The occupant's own top-level Default declaration is unaffected ───────
-// Its own price still sums every rate_sheet_items row through the SAME
-// selection list legs draw from, by Default Price/top-level price_option_id
-// (both unset here) — legs are an ADDITIONAL per-row breakdown, never a
-// replacement for the row's participation in the Default declaration's own
-// total. 10 (feature, qty 1) + 7 x 2 (setup, qty 2) = 24.
+// ── 2. The occupant's own headline price resolves from Row 1 ────────────────
+// (2026-08 Tier Inclusion ownership correction): once Commercial Legs are
+// configured, the headline/default price is no longer the top-level
+// rate_sheet_items[].quantity sum — it is the FIRST commercial leg's own
+// total (array order: leg_monthly here, same 10.0 already asserted above as
+// leg_monthly's own price), matching what a customer sees by default before
+// picking any other leg. leg_annual's own total (14.0) is NOT included —
+// it only surfaces if a customer explicitly selects that leg.
 
-check_schedule_projection($basic['price'] === 24.0, 'the occupant\'s own top-level Default price still resolves normally — commercial_legs is additive, never a second selection list that displaces the existing one');
+check_schedule_projection($basic['price'] === 10.0, 'the occupant\'s own headline price resolves from Row 1 (leg_monthly) alone, matching leg_monthly\'s own price above — never the raw top-level quantity sum, and never blended with leg_annual\'s own total');
 
 // ── 3. The Edition's own schedule resolves independently, from its OWN ──────
 // ──    Rate Sheet, never the occupant's                                 ──
