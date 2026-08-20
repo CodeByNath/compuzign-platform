@@ -27,10 +27,22 @@ import type {
   TierEditionOverviewDraft,
   TierEditionResponse,
   TierEditionBinResponse,
+  CommercialLegsMigrationResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
   return apiClient.get<TierInstancesResponse>('admin/package-station/tier-instances');
+}
+
+// Commercial Legs Migration popup (Package Tier Workspace → Settings).
+// preview never writes; apply persists through the same
+// PackageRepository::saveStation() every other mutation already uses.
+export function previewCommercialLegsMigration(): Promise<CommercialLegsMigrationResponse> {
+  return apiClient.post<CommercialLegsMigrationResponse>('admin/package-station/commercial-legs-migration/preview');
+}
+
+export function applyCommercialLegsMigration(): Promise<CommercialLegsMigrationResponse> {
+  return apiClient.post<CommercialLegsMigrationResponse>('admin/package-station/commercial-legs-migration/apply');
 }
 
 /**
