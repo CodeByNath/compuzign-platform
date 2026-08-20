@@ -27,7 +27,7 @@ import { statusDotClass } from '@/drawer-kit/utils/moduleStatus';
 import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { TiersIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
-import type { TierRateSheetSelection } from '../../types';
+import type { TierRateSheetSelection, TierPricingRulesDraft } from '../../types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
 import { useTierDrawerController } from './useTierDrawerController';
@@ -352,6 +352,20 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
 
   let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
+    editing = {
+      module: 'overview',
+      session: {
+        draft: c.overviewDraft,
+        patch: (patch) => c.setOverviewDraft((current) => current ? { ...current, ...(patch as Partial<TierOverviewEditDraft>) } : current),
+        replace: (next) => c.setOverviewDraft(next as TierOverviewEditDraft),
+        onSave: c.saveSection,
+        onCancel: c.cancelSection,
+        saving: c.pkg.saving,
+        saveErr: c.saveErr,
+        isDirty: true,
+      },
+    };
+  } else if (c.editingSection === 'tier-pricing-rules' && c.pricingRulesDraft) {
     // Selectable sheets: active ones plus the current binding (even if archived,
     // so it still displays). Switching clears the Tier's selections at settle.
     const boundId = detail.rate_sheet_id;
@@ -362,11 +376,11 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     )
       .map((sheet) => ({ id: sheet.rate_sheet_id, title: sheet.title, status: sheet.status }));
     editing = {
-      module: 'overview',
+      module: 'pricing_rules',
       session: {
-        draft: c.overviewDraft,
-        patch: (patch) => c.setOverviewDraft((current) => current ? { ...current, ...(patch as Partial<TierOverviewEditDraft>) } : current),
-        replace: (next) => c.setOverviewDraft(next as TierOverviewEditDraft),
+        draft: c.pricingRulesDraft,
+        patch: (patch) => c.setPricingRulesDraft((current) => current ? { ...current, ...(patch as Partial<TierPricingRulesDraft>) } : current),
+        replace: (next) => c.setPricingRulesDraft(next as TierPricingRulesDraft),
         onSave: c.saveSection,
         onCancel: c.cancelSection,
         saving: c.pkg.saving,
@@ -460,6 +474,16 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               binding={td.overviewBinding}
               panelOpen={c.openTierPanel === 'overview'}
               onTogglePanel={togglePanel('overview')}
+              editing={editing}
+            />
+          )}
+          {(!editing || editing.module === 'pricing_rules') && (
+            <PlacedShell
+              entity={TIER_ENTITY}
+              slot={{ module: 'pricing_rules', mode: 'details' }}
+              binding={td.pricingRulesBinding}
+              panelOpen={c.openTierPanel === 'pricing_rules'}
+              onTogglePanel={togglePanel('pricing_rules')}
               editing={editing}
             />
           )}

@@ -13,17 +13,18 @@
 // grouping only, not a change of who owns Edition data. "+ Edition" no
 // longer renders here (UI refinement, Phase 2 — see its own comment below).
 //
-// The selected Edition's own read surface is two mature module cards
-// (Edition Overview, Edition Inclusions — TIER_EDITION_ENTITY, PlacedShell,
-// the SAME renderer machinery the parent occupant's own Tier Overview/
-// Default Tier Inclusions cards render through), not a bespoke summary
-// block. Both cards' "Edit" actions open ONE shared inline editor
-// (TierEditionEditor.tsx) presenting Overview/Inclusions as two tabs over
-// the SAME TierEditionOverviewDraft — one draft, one dirty state, one Save,
-// one Cancel, one settle/revert path; there is still exactly one Edition
-// module and one editing.module, matching PlacedShell's own one-module-
-// editing-at-a-time contract. Whichever card's Edit was clicked decides only
-// which tab opens first (session.extras.initialTab, UI-only).
+// The selected Edition's own read surface is three mature module cards
+// (Edition Overview, Edition Pricing Rules, Edition Inclusions —
+// TIER_EDITION_ENTITY, PlacedShell, the SAME renderer machinery the parent
+// occupant's own Tier Overview/Tier Pricing Rules/Default Tier Inclusions
+// cards render through), not a bespoke summary block. All three cards' "Edit"
+// actions open ONE shared inline editor (TierEditionEditor.tsx) presenting
+// Overview/Pricing Rules/Inclusions as three tabs over the SAME
+// TierEditionOverviewDraft — one draft, one dirty state, one Save, one
+// Cancel, one settle/revert path; there is still exactly one Edition module
+// and one editing.module, matching PlacedShell's own one-module-editing-at-a-
+// time contract. Whichever card's Edit was clicked decides only which tab
+// opens first (session.extras.initialTab, UI-only).
 //
 // "+ Edition" (useTierDrawerController.ts's handleAddEdition) no longer
 // renders inside this module (UI refinement, Phase 2) — it lives in the
@@ -124,7 +125,7 @@ export function TierEditionDeclarationSwitcher({
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
-  const [openPanel, setOpenPanel] = useState<'overview' | 'inclusions' | null>(null);
+  const [openPanel, setOpenPanel] = useState<'overview' | 'pricing-rules' | 'inclusions' | null>(null);
 
   // Mirrors editingTab on every change (covers open via Edit, close via
   // Save/Cancel/Back). A SEPARATE cleanup-only effect below guarantees a
@@ -192,7 +193,7 @@ export function TierEditionDeclarationSwitcher({
     },
   } : null;
 
-  const togglePanel = (module: 'overview' | 'inclusions') => () =>
+  const togglePanel = (module: 'overview' | 'pricing-rules' | 'inclusions') => () =>
     setOpenPanel((p) => (p === module ? null : module));
 
   const toggleBin = () => onBinActiveChange(true);
@@ -266,6 +267,13 @@ export function TierEditionDeclarationSwitcher({
               binding={detail.overviewBinding}
               panelOpen={openPanel === 'overview'}
               onTogglePanel={togglePanel('overview')}
+            />
+            <PlacedShell
+              entity={TIER_EDITION_ENTITY}
+              slot={{ module: 'pricing-rules', mode: 'details' }}
+              binding={detail.pricingRulesBinding}
+              panelOpen={openPanel === 'pricing-rules'}
+              onTogglePanel={togglePanel('pricing-rules')}
             />
             <PlacedShell
               entity={TIER_EDITION_ENTITY}

@@ -691,20 +691,27 @@ export interface TierOverviewDraft {
   audience_groups?: ('personal_business' | 'enterprise')[];
   price: number | null;
   contact: boolean;
-  billing_cycle: string;
-  // The occupant's own permanent Default commitment — see
-  // SurfaceTierDetail.minimum_term_value/minimum_term_unit. Optional like
-  // rate_sheet_id below: an omitted key preserves the settled occupant's
-  // existing value rather than resetting it (PackageSchema::settleTierSlot).
-  minimum_term_value?: number | null;
-  minimum_term_unit?: string | null;
-  // The occupant's bound Rate Sheet. Edited in the overview module so a switch
-  // commits (and clears selections) before new rows are chosen.
-  rate_sheet_id?: string | null;
   // Selection mode — see SurfaceTierDetail.is_addon. Optional here only
   // because it rides the same generic draft payload shape; the editor always
   // supplies an explicit boolean.
   is_addon?: boolean;
+}
+
+// Rate Sheet binding + billing cadence/minimum commitment — the occupant's
+// own permanent Default declaration, split out of Overview into its own
+// TIER_MODULES entry (Tier Pricing Rules) so it can be edited/settled/
+// status-tracked independently. Same shape/sanitize rule as an Edition's own
+// equivalent fields.
+export interface TierPricingRulesDraft {
+  // The occupant's bound Rate Sheet. A switch commits (and clears selections)
+  // before new rows are chosen in Default Tier Inclusions.
+  rate_sheet_id: string | null;
+  billing_cycle: string;
+  // See SurfaceTierDetail.minimum_term_value/minimum_term_unit. Optional: an
+  // omitted key preserves the settled occupant's existing value rather than
+  // resetting it (PackageSchema::settleTierSlot).
+  minimum_term_value?: number | null;
+  minimum_term_unit?: string | null;
 }
 
 export interface TierRateSheetSelection {
@@ -742,15 +749,17 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
 }
 
 export interface TierDrafts {
-  overview: TierOverviewDraft | null;
-  features: TierRateSheetSelection[] | null;
-  faqs:     string[] | null;
+  overview:      TierOverviewDraft | null;
+  pricing_rules: TierPricingRulesDraft | null;
+  features:      TierRateSheetSelection[] | null;
+  faqs:          string[] | null;
 }
 
-export type TierModuleKey = 'overview' | 'features' | 'faqs';
+export type TierModuleKey = 'overview' | 'pricing_rules' | 'features' | 'faqs';
 
 export type TierModuleSavePayload =
   | TierOverviewDraft
+  | TierPricingRulesDraft
   | { rate_sheet_items: TierRateSheetSelection[] }
   | { faq_refs: string[] };
 

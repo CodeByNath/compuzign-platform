@@ -2,25 +2,9 @@ import { AdminField, MultiSelectField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { TierOverviewDraft } from '../../types';
 
-// The billing cycles a Tier can carry. A fixed vocabulary, so it is a constant
-// rather than a value rebuilt on every render.
-const BILLING_CYCLES: AdminFieldOption[] = [
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'annually', label: 'Annually' },
-  { value: 'one-time', label: 'One-time' },
-];
-
 const AUDIENCE_GROUPS: AdminFieldOption[] = [
   { value: 'personal_business', label: 'Personal & Business' },
   { value: 'enterprise', label: 'Enterprise' },
-];
-
-// Same vocabulary as Tier Edition's own commitment unit (TierEditionOverviewFields.tsx)
-// — duplicated locally rather than shared, the same precedent BILLING_CYCLES
-// above already sets between the two editors.
-const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
-  { value: 'month', label: 'Month(s)' },
-  { value: 'year', label: 'Year(s)' },
 ];
 
 // Tier Overview module editor (extracted from ServiceTierStep in S3a — the
@@ -30,7 +14,9 @@ const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
 // The form draft extends the tier-owned overview scalars with the
 // station-level popular fields the editor surfaces; on save the owning step
 // routes the scalars through saveTierOverview and popular through
-// setPopularTier (station-level), exactly as before.
+// setPopularTier (station-level), exactly as before. Rate Sheet, Billing
+// Cycle, and commitment live in the sibling Tier Pricing Rules module — see
+// TierPricingRulesEditor.tsx.
 
 export type TierOverviewEditDraft = TierOverviewDraft & {
   // See SurfaceTierDetail.audience_groups.
@@ -39,31 +25,12 @@ export type TierOverviewEditDraft = TierOverviewDraft & {
   popular_label: string;
 };
 
-export interface RateSheetPickerOption {
-  id:     string;
-  title:  string;
-  status: 'active' | 'archived';
-}
-
 interface Props {
-  draft:         TierOverviewEditDraft;
-  onChange:      (patch: Partial<TierOverviewEditDraft>) => void;
-  rateSheets?:   RateSheetPickerOption[];
-  hasSelections?: boolean;
+  draft:    TierOverviewEditDraft;
+  onChange: (patch: Partial<TierOverviewEditDraft>) => void;
 }
 
-export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelections = false }: Props) {
-  // Switching the bound sheet clears this Tier's row selections (enforced at
-  // settle). Confirm first so the change is never silent.
-  const changeRateSheet = (next: string | null) => {
-    if (next === (draft.rate_sheet_id ?? null)) return;
-    if (hasSelections && !window.confirm('Switching Rate Sheet clears this tier\'s selected rows. Continue?')) return;
-    onChange({ rate_sheet_id: next });
-  };
-  const rateSheetOptions: AdminFieldOption[] = rateSheets.map((sheet) => ({
-    value: sheet.id,
-    label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
-  }));
+export function TierOverviewEditor({ draft, onChange }: Props) {
   const isAddon: boolean = draft.is_addon ?? false;
   // An occupant belongs to its Tier Group, not one customer audience. Unset
   // defaults to every group.
@@ -71,18 +38,6 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
 
   return (
     <div class="cz-tf-form">
-      <AdminField
-        def={{
-          id: 'tier-rate-sheet',
-          type: 'select',
-          label: 'Rate Sheet',
-          unsetLabel: 'Not bound',
-          options: rateSheetOptions,
-        }}
-        value={draft.rate_sheet_id ?? ''}
-        onChange={(next: string) => changeRateSheet(next || null)}
-      />
-
       {/* An explicit override, not a Rate Sheet resolution outcome — checking
           it always reports Contact Us below, regardless of what the bound
           sheet's selected rows would otherwise total. */}
@@ -99,29 +54,6 @@ export function TierOverviewEditor({ draft, onChange, rateSheets = [], hasSelect
         def={{ id: 'tier-price', type: 'text', label: 'Price', readonly: true }}
         value={draft.contact ? 'Contact Us' : draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
         onChange={() => undefined}
-      />
-
-      <AdminField
-        def={{
-          id: 'tier-billing-cycle',
-          type: 'select',
-          label: 'Billing Cycle',
-          options: BILLING_CYCLES,
-        }}
-        value={draft.billing_cycle}
-        onChange={(billing_cycle: string) => onChange({ billing_cycle })}
-      />
-
-      <AdminField
-        def={{ id: 'tier-min-term-value', type: 'text', label: 'Minimum commitment' }}
-        value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''}
-        onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })}
-      />
-
-      <AdminField
-        def={{ id: 'tier-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }}
-        value={draft.minimum_term_unit ?? ''}
-        onChange={(v: string) => onChange({ minimum_term_unit: v || null })}
       />
 
       <AdminField

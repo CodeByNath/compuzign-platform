@@ -11,11 +11,15 @@ import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '../
 import type { InclusionItem } from '@/api/types/pools';
 import {
   tierOverviewModule,
+  tierPricingRulesModule,
   tierFeaturesModule,
   tierFaqsModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import { TierOverviewEditor } from '../../editors/TierOverviewEditor';
-import type { TierOverviewEditDraft, RateSheetPickerOption } from '../../editors/TierOverviewEditor';
+import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
+import { TierPricingRulesEditor } from '../../editors/TierPricingRulesEditor';
+import type { RateSheetPickerOption } from '../../editors/TierPricingRulesEditor';
+import type { TierPricingRulesDraft } from '../../../types';
 import { PoolInclusionsEditor } from '../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
@@ -46,11 +50,6 @@ export interface TierOverviewShellData {
   tierName:     string;          // canonical tier name (Basic/Standard/…) — label fallback
   contact:      boolean;
   price:        number | null;
-  billingCycle: string | null;
-  // The occupant's own permanent Default commitment — same concern as a
-  // Tier Edition's own minimum_term_value/unit. See docs/code-map/tier-edition.md.
-  minimumTermValue: number | null;
-  minimumTermUnit:  string | null;
   isAddon:      boolean;         // occupant-level selection mode — see Tier Add-on Selection code map
   popular:      boolean;         // station-level presentation flag
   platformId:   string;
@@ -104,17 +103,6 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       bind: (d): TextValue => ({ value: d.idealFor || '—' }),
     },
     {
-      id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
-      bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
-    },
-    {
-      // Mirrors Tier Edition's own 'minimum-term' row (bindings/tierEdition.tsx).
-      id: 'minimum-term', element: 'text', label: 'Minimum commitment',
-      bind: (d): TextValue => ({
-        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
-      }),
-    },
-    {
       id: 'popular', element: 'text', label: 'Popular',
       bind: (d): TextValue => ({ value: d.popular ? 'Yes' : 'No' }),
     },
@@ -143,6 +131,57 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     render: (s) => (
       <TierOverviewEditor
         draft={s.draft as TierOverviewEditDraft}
+        onChange={(patch) => s.patch?.(patch)}
+      />
+    ),
+  },
+};
+
+// ── Tier Pricing Rules (Rate Sheet binding, billing cadence, minimum
+//    commitment) — split out of Tier Overview into its own module so it can
+//    be edited/settled/status-tracked independently. ─────────────────────────
+
+export interface TierPricingRulesShellData {
+  rateSheetId:   string | null;
+  rateSheetName: string | null;
+  billingCycle:  string | null;
+  minimumTermValue: number | null;
+  minimumTermUnit:  string | null;
+}
+
+export const tierPricingRulesShell: ShellSchema<TierPricingRulesShellData> = {
+  archetype: 'overview',
+  dna:       tierPricingRulesModule,
+  header: {
+    title:       'Tier Pricing Rules',
+    subtitle:    'Rate Sheet, billing cycle, and minimum commitment.',
+    icon:        'overview',
+    iconVariant: 'drawerModule__icon--overview',
+    scopeClass:  'drawerOverview tier',
+  },
+  content: [
+    {
+      id: 'rate-sheet', element: 'text', label: 'Rate Sheet',
+      bind: (d): TextValue => ({ value: d.rateSheetName ?? 'Not bound' }),
+    },
+    {
+      id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
+      bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
+    },
+    {
+      // Mirrors Tier Edition's own 'minimum-term' row (bindings/tierEdition.tsx).
+      id: 'minimum-term', element: 'text', label: 'Minimum commitment',
+      bind: (d): TextValue => ({
+        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
+      }),
+    },
+  ],
+  footer:  DETAILS_FOOTER,
+  actions: DETAILS_ACTIONS,
+  editor: {
+    render: (s) => (
+      <TierPricingRulesEditor
+        draft={s.draft as TierPricingRulesDraft}
         onChange={(patch) => s.patch?.(patch)}
         rateSheets={(s.extras?.rateSheets ?? []) as RateSheetPickerOption[]}
         hasSelections={!!s.extras?.hasSelections}

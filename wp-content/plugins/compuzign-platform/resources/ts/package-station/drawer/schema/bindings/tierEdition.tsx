@@ -4,14 +4,15 @@
 // visual card, DNA delivered through evaluateModule, editor.render pointing
 // at the actual editor component.
 //
-// Genuinely different from Tier's own three-shell split: Edition has ONE
+// Genuinely different from Tier's own four-shell split: Edition has ONE
 // consolidated backend module (see tierEditionOverviewModule and
-// docs/code-map/tier-edition.md), so Overview and Inclusions below share the
-// SAME ModuleState — computed once by the binding-builder (Phase 5) and
-// handed to both — rather than each resolving its own. Inclusions carries no
-// `editor` key and no `discard-draft` action: it has no independent draft to
-// discard or save; its own "Edit" action opens the SAME shared session
-// Overview's does, landing on the Inclusions tab (see TierEditionEditor.tsx).
+// docs/code-map/tier-edition.md), so Overview, Pricing Rules, and Inclusions
+// below all share the SAME ModuleState — computed once by the binding-
+// builder — rather than each resolving its own. Pricing Rules and Inclusions
+// carry no `editor` key and no `discard-draft` action: neither has an
+// independent draft to discard or save; each own "Edit" action opens the
+// SAME shared session Overview's does, landing on its own tab (see
+// TierEditionEditor.tsx).
 
 import type { InclusionItem } from '@/api/types/pools';
 import { tierEditionOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
@@ -26,9 +27,6 @@ export interface TierEditionOverviewShellData {
   adminDescription:  string;
   price:             number | null;
   contact:           boolean;
-  billingCycle:      string | null;
-  minimumTermValue:  number | null;
-  minimumTermUnit:   string | null;
   editionPlatformId: string;
 }
 
@@ -67,16 +65,6 @@ export const tierEditionOverviewShell: ShellSchema<TierEditionOverviewShellData>
       }),
     },
     {
-      id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
-      bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
-    },
-    {
-      id: 'minimum-term', element: 'text', label: 'Minimum commitment',
-      bind: (d): TextValue => ({
-        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
-      }),
-    },
-    {
       id: 'edition-platform-id', element: 'text', label: 'Edition Platform ID',
       bind: (d): TextValue => ({ value: d.editionPlatformId, fallback: 'Assigned after Publish' }),
     },
@@ -86,6 +74,56 @@ export const tierEditionOverviewShell: ShellSchema<TierEditionOverviewShellData>
   editor: {
     render: (s) => <TierEditionEditor session={s} />,
   },
+};
+
+// ── Edition Pricing Rules ─────────────────────────────────────────────────────
+//
+// Read-only presentation of the SAME module's own Rate Sheet binding,
+// billing cadence, and minimum commitment — no independent draft, save, or
+// lifecycle (mirrors Edition Inclusions below; see docs/code-map/tier-
+// edition.md: Edition has one consolidated module, not a parent-style
+// Overview/Features split). Mirrors the parent Tier occupant's own Tier
+// Pricing Rules card one level deeper.
+
+export interface TierEditionPricingRulesShellData {
+  rateSheetId:      string | null;
+  rateSheetName:    string | null;
+  billingCycle:     string | null;
+  minimumTermValue: number | null;
+  minimumTermUnit:  string | null;
+}
+
+const PRICING_RULES_ACTIONS: Record<string, ShellActionSchema> = {
+  edit: { id: 'edit', label: 'Edit', intent: 'secondary' },
+};
+
+export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesShellData> = {
+  archetype: 'child',
+  dna:       tierEditionOverviewModule,
+  header: {
+    title:       'Edition Pricing Rules',
+    subtitle:    'Rate Sheet, billing cycle, and minimum commitment for this Edition.',
+    icon:        'overview',
+    iconVariant: 'drawerModule__icon--overview',
+  },
+  content: [
+    {
+      id: 'rate-sheet', element: 'text', label: 'Rate Sheet',
+      bind: (d): TextValue => ({ value: d.rateSheetName ?? 'Not bound' }),
+    },
+    {
+      id: 'billing-cycle', element: 'text', label: 'Billing Cycle',
+      bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
+    },
+    {
+      id: 'minimum-term', element: 'text', label: 'Minimum commitment',
+      bind: (d): TextValue => ({
+        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
+      }),
+    },
+  ],
+  footer:  { actions: ['edit'] },
+  actions: PRICING_RULES_ACTIONS,
 };
 
 // ── Edition Inclusions ────────────────────────────────────────────────────────

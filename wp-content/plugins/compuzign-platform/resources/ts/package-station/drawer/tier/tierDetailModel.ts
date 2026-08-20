@@ -12,6 +12,7 @@ import type { PackageStation } from '../../usePackageStation';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type {
   TierOverviewShellData,
+  TierPricingRulesShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
 } from '../schema/bindings/tier';
@@ -74,8 +75,8 @@ export function buildTierFooterModel(
 }
 
 export interface TierDetailHandlers {
-  onEditSection:  (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => void;
-  onRevertModule: (module: 'overview' | 'features' | 'faqs') => void;
+  onEditSection:  (section: 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs') => void;
+  onRevertModule: (module: 'overview' | 'pricing_rules' | 'features' | 'faqs') => void;
 }
 
 /**
@@ -150,9 +151,6 @@ export function buildTierDetail(
       tierName:     TIER_LABELS[editingTierId],
       contact:      detail.contact,
       price:        detail.price,
-      billingCycle: detail.billing_cycle,
-      minimumTermValue: detail.minimum_term_value,
-      minimumTermUnit:  detail.minimum_term_unit,
       isAddon:      detail.is_addon,
       popular:      isPopular,
       platformId:   detail.platform_id,
@@ -167,6 +165,23 @@ export function buildTierDetail(
     handlers: {
       edit: () => onEditSection('tier-overview'),
       'discard-draft': () => onRevertModule('overview'),
+    },
+    busy: tierBusy,
+  };
+  const boundRateSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === detail.rate_sheet_id) ?? null;
+  const pricingRulesBinding: ShellBinding<TierPricingRulesShellData> = {
+    data: {
+      rateSheetId:   detail.rate_sheet_id,
+      rateSheetName: boundRateSheet?.title ?? null,
+      billingCycle:  detail.billing_cycle,
+      minimumTermValue: detail.minimum_term_value,
+      minimumTermUnit:  detail.minimum_term_unit,
+    },
+    state:    view.modules.pricing_rules,
+    hasDraft: view.drafts.pricing_rules !== null,
+    handlers: {
+      edit: () => onEditSection('tier-pricing-rules'),
+      'discard-draft': () => onRevertModule('pricing_rules'),
     },
     busy: tierBusy,
   };
@@ -185,7 +200,7 @@ export function buildTierDetail(
     busy: tierBusy,
   };
 
-  return { view, detail, rateSheetCatalogue, isPopular, overviewBinding, featuresBinding, faqsBinding };
+  return { view, detail, rateSheetCatalogue, isPopular, overviewBinding, pricingRulesBinding, featuresBinding, faqsBinding };
 }
 
 export type TierDetailModel = ReturnType<typeof buildTierDetail>;

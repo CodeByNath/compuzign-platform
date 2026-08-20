@@ -9,6 +9,7 @@
 import type { SurfaceTierDetail } from '../../../types';
 import {
   tierOverviewShell,
+  tierPricingRulesShell,
   tierFeaturesShell,
   tierFaqsShell,
 } from '../bindings/tier';
@@ -41,10 +42,11 @@ export const TIER_ENTITY: EntitySchema = {
   // features / faqs). `service` is the parent station's primary module,
   // registered for the Connections group placement (shared shell object).
   shells: {
-    overview: tierOverviewShell,
-    features: tierFeaturesShell,
-    faqs:     tierFaqsShell,
-    service:  serviceOverviewShell,
+    overview:      tierOverviewShell,
+    pricing_rules: tierPricingRulesShell,
+    features:      tierFeaturesShell,
+    faqs:          tierFaqsShell,
+    service:       serviceOverviewShell,
   },
 
   // Occupant travel actions (engine D2–D4). The restore-conflict flows
@@ -63,9 +65,10 @@ export const TIER_ENTITY: EntitySchema = {
   placements: {
     drawer: {
       details: [
-        { module: 'overview', mode: 'details' },
-        { module: 'features', mode: 'details' },
-        { module: 'faqs',     mode: 'details' },
+        { module: 'overview',      mode: 'details' },
+        { module: 'pricing_rules', mode: 'details' },
+        { module: 'features',      mode: 'details' },
+        { module: 'faqs',          mode: 'details' },
       ],
       connections: [
         { module: 'service', mode: 'connections' },

@@ -76,24 +76,24 @@ check_occupant_min_term(
     'an occupant with no configured commitment projects null, exactly as before this capability existed',
 );
 
-// ── Overview settle: draft-preferred, same as every other Overview scalar ───
+// ── Pricing Rules settle: draft-preferred, same as every other Pricing
+//    Rules scalar (billing_cycle/minimum_term_value/minimum_term_unit split
+//    out of Overview into their own TIER_MODULES entry) ────────────────────
 
 $drafted = Schema::ensureTierLifecycle($configured);
-$drafted['drafts']['overview'] = [
-    'label' => 'Professional', 'ideal_for' => '', 'price' => null, 'contact' => false,
+$drafted['drafts']['pricing_rules'] = [
     'billing_cycle' => 'annually', 'minimum_term_value' => 24, 'minimum_term_unit' => 'month',
 ];
 $settled = Schema::settleTierSlot($drafted);
-check_occupant_min_term($settled['current_occupant']['minimum_term_value'] === 24.0, 'Overview settle commits the draft-preferred commitment value');
-check_occupant_min_term($settled['current_occupant']['minimum_term_unit'] === 'month', 'Overview settle commits the draft-preferred commitment unit');
+check_occupant_min_term($settled['current_occupant']['minimum_term_value'] === 24.0, 'Pricing Rules settle commits the draft-preferred commitment value');
+check_occupant_min_term($settled['current_occupant']['minimum_term_unit'] === 'month', 'Pricing Rules settle commits the draft-preferred commitment unit');
 
 // Omitting the field from the draft preserves the settled occupant's existing
 // value rather than resetting it — the same rule audience_groups/billing_cycle
 // already follow, and the same array_key_exists treatment rate_sheet_id uses
 // (null is a meaningful, distinct draft value from "key absent").
 $draftedOmitted = Schema::ensureTierLifecycle($settled);
-$draftedOmitted['drafts']['overview'] = [
-    'label' => 'Professional', 'ideal_for' => '', 'price' => null, 'contact' => false,
+$draftedOmitted['drafts']['pricing_rules'] = [
     'billing_cycle' => 'annually',
 ];
 $settledOmitted = Schema::settleTierSlot($draftedOmitted);
@@ -103,8 +103,7 @@ check_occupant_min_term($settledOmitted['current_occupant']['minimum_term_unit']
 // An explicit null in the draft (administrator deliberately clearing the
 // commitment) is honoured, not treated as omission.
 $draftedCleared = Schema::ensureTierLifecycle($settledOmitted);
-$draftedCleared['drafts']['overview'] = [
-    'label' => 'Professional', 'ideal_for' => '', 'price' => null, 'contact' => false,
+$draftedCleared['drafts']['pricing_rules'] = [
     'billing_cycle' => 'annually', 'minimum_term_value' => null, 'minimum_term_unit' => null,
 ];
 $settledCleared = Schema::settleTierSlot($draftedCleared);

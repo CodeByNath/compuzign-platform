@@ -1498,7 +1498,6 @@ class PackageStationController
                 'ideal_for'     => sanitize_textarea_field((string) ($body['ideal_for'] ?? '')),
                 'price'         => null,
                 'contact'       => $contact,
-                'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
                 // Selection-mode flag — normal Tier vs. stackable add-on. Carried
                 // through the existing Overview module save flow rather than a new
                 // endpoint; defaults false when the client omits it.
@@ -1510,18 +1509,19 @@ class PackageStationController
             if (array_key_exists('audience_groups', $body)) {
                 $draftValue['audience_groups'] = $PS::sanitizeTierAudienceGroups($body['audience_groups']);
             }
-            // The Tier's bound Rate Sheet is edited alongside overview so a switch
-            // commits (clearing selections at settle) before new rows are chosen.
-            if (array_key_exists('rate_sheet_id', $body)) {
-                $draftValue['rate_sheet_id'] = sanitize_text_field((string) ($body['rate_sheet_id'] ?? ''));
-            }
-            // Structured minimum commitment — the occupant's own permanent
-            // Default declaration, same shape/sanitize rule as an Edition's
-            // own minimum_term_value/unit. Travels through Overview exactly
-            // like audience_groups/rate_sheet_id above: an omitted key
-            // preserves the settled occupant's existing value at settle time
+        } elseif ($module === 'pricing_rules') {
+            // Rate Sheet binding + billing cadence/minimum commitment — the
+            // occupant's own permanent Default declaration, same shape/sanitize
+            // rule as an Edition's own equivalent fields. A switched Rate Sheet
+            // commits here (clearing selections at settle) before new rows are
+            // chosen in Default Tier Inclusions. An omitted key preserves the
+            // settled occupant's existing value at settle time
             // (PackageSchema::settleTierSlot) rather than resetting it for an
-            // older/partial client payload; an explicit null clears it.
+            // older/partial client payload; an explicit null/empty clears it.
+            $draftValue = [
+                'rate_sheet_id' => sanitize_text_field((string) ($body['rate_sheet_id'] ?? '')),
+                'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
+            ];
             if (array_key_exists('minimum_term_value', $body)) {
                 $draftValue['minimum_term_value'] = ($body['minimum_term_value'] !== null && $body['minimum_term_value'] !== '')
                     ? (float) $body['minimum_term_value']

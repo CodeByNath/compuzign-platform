@@ -197,7 +197,7 @@ export function useTierDrawerController({
     const ok = await pkg.toggleTierEnabled(editingTierId, nextEnabled);
     if (ok) setSaveOk(true); else setSaveErr('Update failed.');
   };
-  const handleRevertModule = async (module: 'overview' | 'features' | 'faqs') => {
+  const handleRevertModule = async (module: 'overview' | 'pricing_rules' | 'features' | 'faqs') => {
     if (!editingTierId) return;
     setSaveErr(null);
     const res = await pkg.revertTierModule(editingTierId, module);
@@ -290,6 +290,7 @@ export function useTierDrawerController({
     handleAddEdition, addingEdition,
     // editors
     overviewDraft: editing.overviewDraft, setOverviewDraft: editing.setOverviewDraft,
+    pricingRulesDraft: editing.pricingRulesDraft, setPricingRulesDraft: editing.setPricingRulesDraft,
     featuresDraft: editing.featuresDraft, setFeaturesDraft: editing.setFeaturesDraft,
     faqsDraft: editing.faqsDraft, setFaqsDraft: editing.setFaqsDraft,
     saveErr, saveOk, openSection, saveSection: editing.saveSection, cancelSection,

@@ -8,7 +8,7 @@
 // lifecycle and bin-travel actions report through the same channel.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { TierRateSheetSelection } from '../../types';
+import type { TierPricingRulesDraft, TierRateSheetSelection } from '../../types';
 import type { PackageStation } from '../../usePackageStation';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
@@ -26,10 +26,11 @@ export function useTierModuleEditing({
 }: TierModuleEditingArgs) {
   const [editingSection, setEditingSection] = useState<TierEditingSection>(null);
   const [overviewDraft, setOverviewDraft] = useState<TierOverviewEditDraft | null>(null);
+  const [pricingRulesDraft, setPricingRulesDraft] = useState<TierPricingRulesDraft | null>(null);
   const [featuresDraft, setFeaturesDraft] = useState<TierRateSheetSelection[] | null>(null);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
 
-  const openSection = (section: 'tier-overview' | 'tier-inclusions' | 'tier-faqs') => {
+  const openSection = (section: 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs') => {
     if (!editingTierId) return;
     const view = pkg.tierView(editingTierId);
     if (!view) return;
@@ -41,13 +42,16 @@ export function useTierModuleEditing({
         audience_groups: d.audience_groups,
         price:         d.price,
         contact:       d.contact,
-        billing_cycle: d.billing_cycle ?? 'monthly',
-        minimum_term_value: d.minimum_term_value,
-        minimum_term_unit:  d.minimum_term_unit,
-        rate_sheet_id: d.rate_sheet_id,
         is_addon:      d.is_addon,
         popular:       pkg.popularTier === editingTierId,
         popular_label: pkg.popularTier === editingTierId ? pkg.popularLabel : '',
+      });
+    } else if (section === 'tier-pricing-rules') {
+      setPricingRulesDraft({
+        rate_sheet_id: d.rate_sheet_id,
+        billing_cycle: d.billing_cycle ?? 'monthly',
+        minimum_term_value: d.minimum_term_value,
+        minimum_term_unit:  d.minimum_term_unit,
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));
@@ -83,10 +87,6 @@ export function useTierModuleEditing({
           audience_groups: overviewDraft.audience_groups,
           price:         null,
           contact:       overviewDraft.contact,
-          billing_cycle: overviewDraft.billing_cycle,
-          minimum_term_value: overviewDraft.minimum_term_value,
-          minimum_term_unit:  overviewDraft.minimum_term_unit,
-          rate_sheet_id: overviewDraft.rate_sheet_id,
           is_addon:      overviewDraft.is_addon,
         });
         ok = !!r?.success;
@@ -97,6 +97,9 @@ export function useTierModuleEditing({
             ok = await pkg.setPopularTier(null, '');
           }
         }
+      } else if (editingSection === 'tier-pricing-rules' && pricingRulesDraft) {
+        const r = await pkg.saveTierPricingRules(editingTierId, pricingRulesDraft);
+        ok = !!r?.success;
       } else if (editingSection === 'tier-inclusions' && featuresDraft) {
         const r = await pkg.saveTierFeatures(editingTierId, featuresDraft);
         ok = !!r?.success;
@@ -108,6 +111,7 @@ export function useTierModuleEditing({
       setSaveOk(true);
       setEditingSection(null);
       setOverviewDraft(null);
+      setPricingRulesDraft(null);
       setFeaturesDraft(null);
       setFaqsDraft(null);
     } catch (e) {
@@ -119,6 +123,7 @@ export function useTierModuleEditing({
   const cancelSection = () => {
     setEditingSection(null);
     setOverviewDraft(null);
+    setPricingRulesDraft(null);
     setFeaturesDraft(null);
     setFaqsDraft(null);
     setSaveErr(null);
@@ -128,6 +133,7 @@ export function useTierModuleEditing({
   return {
     editingSection,
     overviewDraft, setOverviewDraft,
+    pricingRulesDraft, setPricingRulesDraft,
     featuresDraft, setFeaturesDraft,
     faqsDraft, setFaqsDraft,
     openSection, saveSection, cancelSection,

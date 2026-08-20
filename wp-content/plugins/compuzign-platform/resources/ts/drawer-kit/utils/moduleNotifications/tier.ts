@@ -45,21 +45,35 @@ export const tierModule: ModuleDefinition<TierLike | undefined> = {
 };
 
 // Individual Package (Tier) sub-modules — assembled by the tier drawer.
-// Tier Overview owns the tier's pricing; Features and FAQs gate on it via parentReady.
-// When the parent (Tier Overview) is not complete they resolve to pending-dim with
-// a "Waiting for Tier Overview." info note (supplied via ctx.parentLabel).
+// Tier Overview + Tier Pricing Rules together own the tier's pricing;
+// Features and FAQs gate on the combined completeness via parentReady. When
+// that parent completeness is not met they resolve to pending-dim with a
+// "Waiting for Tier Overview." info note (supplied via ctx.parentLabel).
 
+// Overview's own completeness — price/contact only. Billing cycle and
+// commitment are Tier Pricing Rules' own concern (split out of this module).
 export const tierOverviewModule: ModuleDefinition<TierLike | undefined> = {
   key:                 'tier-overview',
   emptyPrompt:         'Edit and configure this tier.',
-  isEmpty:             tierIsEmpty,
-  problems:            (t) => tierPricingProblems('tier-overview', t),
+  isEmpty:             (t) => !t || (t.price === null && !t.contact),
+  problems:            (t) => (!t || (t.price === null && !t.contact))
+    ? [{ id: 'tier-overview.pricing.incomplete', message: 'Add a price to complete this tier.', type: 'error' }]
+    : [],
   includeDraftInTail:  true,
-  resolveStatus: (t, ctx) => {
-    const hasPrice = !!t && (t.price !== null || !!t.contact);
-    const hasCycle = !!t && !!t.billing_cycle;
-    return resolveTierModuleStatus(hasPrice && hasCycle, ctx);
-  },
+  resolveStatus: (t, ctx) => resolveTierModuleStatus(!!t && (t.price !== null || !!t.contact), ctx),
+};
+
+// Tier Pricing Rules' own completeness — billing cycle required, matching
+// the requirement this field carried while it still lived on Overview.
+export const tierPricingRulesModule: ModuleDefinition<TierLike | undefined> = {
+  key:                 'tier-pricing-rules',
+  emptyPrompt:         'Edit and configure Rate Sheet and billing.',
+  isEmpty:             (t) => !t || !t.billing_cycle,
+  problems:            (t) => (!t || !t.billing_cycle)
+    ? [{ id: 'tier-pricing-rules.cycle.incomplete', message: 'Add a billing cycle to complete Tier Pricing Rules.', type: 'error' }]
+    : [],
+  includeDraftInTail:  true,
+  resolveStatus: (t, ctx) => resolveTierModuleStatus(!!t && !!t.billing_cycle, ctx),
 };
 
 export const tierFeaturesModule: ModuleDefinition<{ count: number }> = {

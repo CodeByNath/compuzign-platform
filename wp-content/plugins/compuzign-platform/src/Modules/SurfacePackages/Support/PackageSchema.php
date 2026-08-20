@@ -37,7 +37,7 @@ class PackageSchema
     // Phase 2 tier lifecycle (P2 — store schema): the per-tier-module draft + status
     // layer stored inside each cz_service_package_station tier slot, alongside
     // current_occupant. Additive and inert in P2 — nothing reads these until P3.
-    public const TIER_MODULES                = ['overview', 'features', 'faqs'];
+    public const TIER_MODULES                = ['overview', 'pricing_rules', 'features', 'faqs'];
     public const ALLOWED_MODULE_STATUSES     = ['not-configured', 'pending', 'settled'];
 
     // Lifecycle engine C1 — promotion instance envelope. Same module trio as tiers;
@@ -2390,11 +2390,15 @@ class PackageSchema
         }
 
         $ov = is_array($drafts['overview'] ?? null) ? $drafts['overview'] : [];
+        // Rate Sheet binding + billing cadence/commitment: the Tier Pricing
+        // Rules module's own draft — split out of Overview so this module can
+        // be edited/settled/status-tracked independently (TIER_MODULES).
+        $pr = is_array($drafts['pricing_rules'] ?? null) ? $drafts['pricing_rules'] : [];
 
         // The Tier's bound Rate Sheet: draft-preferred, occupant fallback.
         $occRateSheetId   = self::normaliseRateSheetId($occ['rate_sheet_id'] ?? null);
-        $draftRateSheetId = array_key_exists('rate_sheet_id', $ov)
-            ? self::normaliseRateSheetId($ov['rate_sheet_id'])
+        $draftRateSheetId = array_key_exists('rate_sheet_id', $pr)
+            ? self::normaliseRateSheetId($pr['rate_sheet_id'])
             : $occRateSheetId;
         // Refinement 4 — switching an already-bound occupant to a different sheet
         // clears its selections; picking new rows is a separate settle against the
@@ -2412,12 +2416,12 @@ class PackageSchema
             'audience_groups'     => self::sanitizeTierAudienceGroups($ov['audience_groups'] ?? ($occ['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS)),
             'price'               => null,
             'contact'             => $ov['contact']        ?? ($occ['contact']        ?? false),
-            'billing_cycle'       => $ov['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
-            // Draft-preferred like every other Overview scalar above; an
+            'billing_cycle'       => $pr['billing_cycle']  ?? ($occ['billing_cycle']  ?? null),
+            // Draft-preferred like every other Pricing Rules scalar above; an
             // edited-but-unsettled commitment change wins, otherwise the
             // settled occupant's existing value carries forward untouched.
-            'minimum_term_value'  => array_key_exists('minimum_term_value', $ov) ? $ov['minimum_term_value'] : ($occ['minimum_term_value'] ?? null),
-            'minimum_term_unit'   => array_key_exists('minimum_term_unit', $ov)  ? $ov['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null),
+            'minimum_term_value'  => array_key_exists('minimum_term_value', $pr) ? $pr['minimum_term_value'] : ($occ['minimum_term_value'] ?? null),
+            'minimum_term_unit'   => array_key_exists('minimum_term_unit', $pr)  ? $pr['minimum_term_unit']  : ($occ['minimum_term_unit']  ?? null),
             'rate_sheet_id'       => $draftRateSheetId,
             'inclusions_override' => [],
             'rate_sheet_items'    => $selections,

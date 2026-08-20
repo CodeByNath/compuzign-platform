@@ -1,11 +1,15 @@
-// Tier Edition overview-module form fields — split into two section
-// components (Overview / Inclusions) sharing one `TierEditionOverviewDraft`,
-// so the combined two-tab editor (TierEditionEditor.tsx, Phase 4) can present
-// them as separate views of the SAME session without a second draft, save,
-// or endpoint. `TierEditionOverviewFields` itself is kept as a thin
-// concatenation of both sections — the pre-Phase-5 call site
-// (TierEditionDeclarationSwitcher.tsx's own hand-rolled edit block) still
-// renders through it unchanged until that call site is replaced.
+// Tier Edition overview-module form fields — split into three section
+// components (Overview / Pricing Rules / Inclusions) sharing one
+// `TierEditionOverviewDraft`, so the combined three-tab editor
+// (TierEditionEditor.tsx) can present them as separate views of the SAME
+// session without a second draft, save, or endpoint — mirroring the parent
+// Tier occupant's own Overview/Tier Pricing Rules/Default Tier Inclusions
+// split, even though an Edition still has only one consolidated backend
+// module (see docs/code-map/tier-edition.md). `TierEditionOverviewFields`
+// itself is kept as a thin concatenation of all three sections — the
+// pre-Phase-5 call site (TierEditionDeclarationSwitcher.tsx's own hand-rolled
+// edit block) still renders through it unchanged until that call site is
+// replaced.
 
 import { useMemo } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
@@ -32,43 +36,32 @@ interface Props {
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
 }
 
-// Overview tab — title, description, billing/commitment terms. No Rate
-// Sheet/row fields here; those are Inclusions' own section below.
+// Overview tab — title, description, Contact Us/Price. No billing/commitment
+// or Rate Sheet/row fields here; those are Pricing Rules' and Inclusions'
+// own sections below.
 export function TierEditionOverviewSection({ draft, onChange }: Pick<Props, 'draft' | 'onChange'>) {
   return (
     <div class="cz-tf-form">
       <AdminField def={{ id: 'edt-title', type: 'text', label: 'Title' }} value={draft.title} onChange={(title: string) => onChange({ title })} />
       <AdminField def={{ id: 'edt-description', type: 'textarea', label: 'Admin description (optional)', rows: 2 }} value={draft.admin_description} onChange={(admin_description: string) => onChange({ admin_description })} />
-      <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
       {/* An explicit override, not a Rate Sheet resolution outcome — checking
           it always reports Contact Us for this Edition, regardless of what
           its own bound sheet's selected rows would otherwise total. */}
       <AdminField def={{ id: 'edt-contact', type: 'checkbox', label: 'Mark as Contact Us' }} value={draft.contact} onChange={(contact: boolean) => onChange({ contact })} />
       <AdminField def={{ id: 'edt-price', type: 'text', label: 'Price', readonly: true }} value={draft.contact ? 'Contact Us' : 'Derived from Rate Sheet selections'} onChange={() => undefined} />
-      <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
-      <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
     </div>
   );
 }
 
-// Inclusions tab — Rate Sheet binding + row/quantity selection. Reuses the
-// SAME PoolInclusionsEditor and buildRateSheetCatalogue resolver the parent
-// occupant's own Default Tier Inclusions editor uses (tierDetailModel.ts) —
-// not a bespoke picker.
-export function TierEditionInclusionsSection({ draft, onChange, rateSheetOptions, svc }: Props) {
-  // Rows selectable for whichever Rate Sheet this draft is currently bound
-  // to — recomputed whenever that binding changes, exactly like the
-  // occupant's own Overview/Features editor recomputes rateSheetCatalogue
-  // from its own draft's rate_sheet_id (tierDetailModel.buildTierDetail).
-  const catalogue = useMemo(
-    () => buildRateSheetCatalogue(svc, draft.rate_sheet_id, []),
-    [svc, draft.rate_sheet_id],
-  );
-
+// Pricing Rules tab — Rate Sheet binding, billing cadence, and minimum
+// commitment. Mirrors the parent Tier occupant's own Tier Pricing Rules
+// module split out of its Overview (TierPricingRulesEditor.tsx) — same
+// fields, same vocabulary, one level deeper.
+export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptions }: Pick<Props, 'draft' | 'onChange' | 'rateSheetOptions'>) {
   // Switching the bound sheet clears this Edition's own row selections
   // (enforced server-side at settle, mirroring the occupant's own
   // Refinement 4 rule) — confirm first, the same convention
-  // TierOverviewEditor.tsx already uses for the occupant's own binding.
+  // TierPricingRulesEditor.tsx already uses for the occupant's own binding.
   const changeRateSheet = (next: string | null) => {
     if (next === (draft.rate_sheet_id ?? null)) return;
     if (draft.rate_sheet_items.length > 0 && !window.confirm('Switching Rate Sheet clears this Edition\'s selected rows. Continue?')) return;
@@ -78,7 +71,30 @@ export function TierEditionInclusionsSection({ draft, onChange, rateSheetOptions
   return (
     <div class="cz-tf-form">
       <AdminField def={{ id: 'edt-rate-sheet', type: 'select', label: 'Rate Sheet', unsetLabel: 'Inherit the Tier’s own binding', options: rateSheetOptions }} value={draft.rate_sheet_id ?? ''} onChange={(v: string) => changeRateSheet(v || null)} />
-      {draft.rate_sheet_id && (
+      <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
+      <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
+      <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
+    </div>
+  );
+}
+
+// Inclusions tab — row/quantity selection against the Rate Sheet bound in
+// Pricing Rules above. Reuses the SAME PoolInclusionsEditor and
+// buildRateSheetCatalogue resolver the parent occupant's own Default Tier
+// Inclusions editor uses (tierDetailModel.ts) — not a bespoke picker.
+export function TierEditionInclusionsSection({ draft, onChange, svc }: Pick<Props, 'draft' | 'onChange' | 'svc'>) {
+  // Rows selectable for whichever Rate Sheet this draft is currently bound
+  // to — recomputed whenever that binding changes, exactly like the
+  // occupant's own Overview/Features editor recomputes rateSheetCatalogue
+  // from its own draft's rate_sheet_id (tierDetailModel.buildTierDetail).
+  const catalogue = useMemo(
+    () => buildRateSheetCatalogue(svc, draft.rate_sheet_id, []),
+    [svc, draft.rate_sheet_id],
+  );
+
+  return (
+    <div class="cz-tf-form">
+      {draft.rate_sheet_id ? (
         <div class="cz-tf-field">
           <PoolInclusionsEditor
             draft={draft.rate_sheet_items}
@@ -88,6 +104,8 @@ export function TierEditionInclusionsSection({ draft, onChange, rateSheetOptions
             rateSheetCatalogue={catalogue}
           />
         </div>
+      ) : (
+        <p class="cz-admin-empty">Bind a Rate Sheet in Pricing Rules to select rows here.</p>
       )}
     </div>
   );
@@ -97,7 +115,8 @@ export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, s
   return (
     <>
       <TierEditionOverviewSection draft={draft} onChange={onChange} />
-      <TierEditionInclusionsSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} svc={svc} />
+      <TierEditionPricingRulesSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} />
+      <TierEditionInclusionsSection draft={draft} onChange={onChange} svc={svc} />
     </>
   );
 }

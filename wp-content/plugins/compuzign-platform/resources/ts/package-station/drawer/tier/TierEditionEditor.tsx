@@ -20,9 +20,9 @@ import type { DrawerGroup } from '@/drawer-kit/ui/drawerGroups';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { ShellEditSession } from '@/drawer-kit/schema/types';
 import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft } from '../../types';
-import { TierEditionOverviewSection, TierEditionInclusionsSection } from './TierEditionOverviewFields';
+import { TierEditionOverviewSection, TierEditionPricingRulesSection, TierEditionInclusionsSection } from './TierEditionOverviewFields';
 
-export type TierEditionEditorTab = 'overview' | 'inclusions';
+export type TierEditionEditorTab = 'overview' | 'pricing-rules' | 'inclusions';
 
 export function TierEditionEditor({ session }: { session: ShellEditSession }) {
   const [tab, setTab] = useState<TierEditionEditorTab>(
@@ -39,8 +39,12 @@ export function TierEditionEditor({ session }: { session: ShellEditSession }) {
       content: <TierEditionOverviewSection draft={draft} onChange={onChange} />,
     },
     {
+      id: 'pricing-rules', label: 'Pricing Rules',
+      content: <TierEditionPricingRulesSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} />,
+    },
+    {
       id: 'inclusions', label: 'Inclusions',
-      content: <TierEditionInclusionsSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} svc={svc} />,
+      content: <TierEditionInclusionsSection draft={draft} onChange={onChange} svc={svc} />,
     },
   ];
 

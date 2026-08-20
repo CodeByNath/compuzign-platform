@@ -104,7 +104,7 @@ The footer's "Move Edition to Bin" command composes the Trashed transition
 and relocation in one persistence operation. Permanent Delete lives only in
 `TierEditionBinList.tsx` for trashed rows.
 
-The two module cards share `TierEditionEditor.tsx`, one draft, and draft-only
+The three module cards share `TierEditionEditor.tsx`, one draft, and draft-only
 Save/Cancel; Publish settles. Every read/re-edit resolves through
 `useTierEditions.editionView()`, mirroring `usePackageStation.tierView()`: a
 pending draft wins over settled fields, so a just-Saved Edition displays

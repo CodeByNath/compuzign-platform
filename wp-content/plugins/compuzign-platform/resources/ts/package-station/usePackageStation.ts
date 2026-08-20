@@ -21,6 +21,7 @@ import type {
   SurfaceTierDetail,
   TierDrafts,
   TierOverviewDraft,
+  TierPricingRulesDraft,
   TierLifecycleResponse,
   TierArchiveResponse,
   BinRestoreResponse,
@@ -36,6 +37,7 @@ import type { TierLike } from '@/drawer-kit/utils/moduleStatus';
 import {
   evaluateModule,
   tierOverviewModule,
+  tierPricingRulesModule,
   tierFeaturesModule,
   tierFaqsModule,
 } from '@/drawer-kit/utils/moduleNotifications';
@@ -58,9 +60,9 @@ import { relationshipDisplayLabel } from './rateSheetLabels';
 // P4: landed unused. No component consumes it yet; ServiceTierStep still uses useApi.
 // Nothing here changes runtime behaviour.
 
-const EMPTY_DRAFTS: TierDrafts = { overview: null, features: null, faqs: null };
+const EMPTY_DRAFTS: TierDrafts = { overview: null, pricing_rules: null, features: null, faqs: null };
 const NOT_CONFIGURED: Record<string, string> = {
-  overview: 'not-configured', features: 'not-configured', faqs: 'not-configured',
+  overview: 'not-configured', pricing_rules: 'not-configured', features: 'not-configured', faqs: 'not-configured',
 };
 
 // A tier slot with its lifecycle layer guaranteed present (the P3 response always
@@ -99,6 +101,7 @@ function normDetail(res: ServicePackageStationResponse): NormDetail {
 // can exercise the real merge the drawer renders from, without mounting a hook.
 export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetail {
   const ov = slot.drafts.overview;
+  const pr = slot.drafts.pricing_rules;
   return {
     ...slot,
     label:               ov ? ov.label         : slot.label,
@@ -106,19 +109,19 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     audience_groups:     ov?.audience_groups ?? slot.audience_groups,
     price:               ov ? ov.price         : slot.price,
     contact:             ov ? ov.contact       : slot.contact,
-    billing_cycle:       ov ? ov.billing_cycle : slot.billing_cycle,
-    // A pending commitment change lives on the overview draft, same as
+    billing_cycle:       pr ? pr.billing_cycle : slot.billing_cycle,
+    // A pending commitment change lives on the Pricing Rules draft, same as
     // billing_cycle — an omitted key (older/partial draft) keeps the
     // settled occupant's existing value rather than reading as cleared.
-    minimum_term_value:  ov && ov.minimum_term_value !== undefined ? ov.minimum_term_value : slot.minimum_term_value,
-    minimum_term_unit:   ov && ov.minimum_term_unit  !== undefined ? ov.minimum_term_unit  : slot.minimum_term_unit,
-    // A pending sheet switch lives on the overview draft; otherwise the settled binding.
-    rate_sheet_id:       ov && ov.rate_sheet_id !== undefined ? ov.rate_sheet_id : slot.rate_sheet_id,
+    minimum_term_value:  pr && pr.minimum_term_value !== undefined ? pr.minimum_term_value : slot.minimum_term_value,
+    minimum_term_unit:   pr && pr.minimum_term_unit  !== undefined ? pr.minimum_term_unit  : slot.minimum_term_unit,
+    // A pending sheet switch lives on the Pricing Rules draft; otherwise the settled binding.
+    rate_sheet_id:       pr && pr.rate_sheet_id !== undefined ? pr.rate_sheet_id : slot.rate_sheet_id,
     rate_sheet_items:    slot.drafts.features ?? slot.rate_sheet_items,
     faq_refs:            slot.drafts.faqs     ?? slot.faq_refs,
-    // A pending is_addon change lives on the overview draft, same as label/
-    // billing_cycle; a draft that omits it (or no draft at all) keeps the
-    // settled occupant's value.
+    // A pending is_addon change lives on the overview draft, same as label;
+    // a draft that omits it (or no draft at all) keeps the settled
+    // occupant's value.
     is_addon:            ov && ov.is_addon !== undefined ? ov.is_addon : slot.is_addon,
   };
 }
@@ -133,9 +136,10 @@ export interface PackageStationTierView {
   // Per-module lifecycle: full evaluateModule result (5-state status + notes) so the
   // consumer reads status/notes from the hook rather than re-deriving evaluateModule.
   modules: {
-    overview: ModuleState;
-    features: ModuleState;
-    faqs:     ModuleState;
+    overview:      ModuleState;
+    pricing_rules: ModuleState;
+    features:      ModuleState;
+    faqs:          ModuleState;
   };
 }
 
@@ -153,9 +157,10 @@ export interface PackageStation {
   // Draft-preferred view of one tier (null until loaded / unknown tier).
   tierView:       (tierId: string) => PackageStationTierView | null;
   // Per-module persist-through saves (draft) — patch the source in place.
-  saveTierOverview: (tierId: string, draft: TierOverviewDraft) => Promise<TierLifecycleResponse | null>;
-  saveTierFeatures: (tierId: string, refs: TierRateSheetSelection[]) => Promise<TierLifecycleResponse | null>;
-  saveTierFaqs:     (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
+  saveTierOverview:     (tierId: string, draft: TierOverviewDraft) => Promise<TierLifecycleResponse | null>;
+  saveTierPricingRules: (tierId: string, draft: TierPricingRulesDraft) => Promise<TierLifecycleResponse | null>;
+  saveTierFeatures:     (tierId: string, refs: TierRateSheetSelection[]) => Promise<TierLifecycleResponse | null>;
+  saveTierFaqs:         (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
   // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
   revertTierModule: (tierId: string, module: TierModuleKey) => Promise<TierLifecycleResponse | null>;
   // Commit the whole tier.
@@ -303,7 +308,10 @@ export function usePackageStation(
       billing_cycle:           dp.billing_cycle,
       contact:                 dp.contact,
     };
-    const overviewComplete = (dp.price !== null || dp.contact) && !!dp.billing_cycle;
+    // Combined Overview (price/contact) + Pricing Rules (billing cycle)
+    // completeness — the same single readiness gate Features/FAQs always
+    // required, now spanning the two cards those fields live on.
+    const tierPricingComplete = (dp.price !== null || dp.contact) && !!dp.billing_cycle;
     // This occupant's OWN published state and explicit mask — never the
     // parent Tier Group/station status (Tier Group status is not occupant
     // truth). Each module below also gets its own moduleTransition/hasDraft,
@@ -324,6 +332,13 @@ export function usePackageStation(
           disabled:         occupantDisabled,
           platformLabel:    'Tier',
         }),
+        pricing_rules: evaluateModule(tierPricingRulesModule, tierLike, {
+          platformStatus:   occupantPlatformStatus,
+          moduleTransition: slot.module_status.pricing_rules,
+          hasDraft:         slot.drafts.pricing_rules !== null,
+          disabled:         occupantDisabled,
+          platformLabel:    'Tier',
+        }),
         features: evaluateModule(
           tierFeaturesModule,
           { count: dp.rate_sheet_items.length },
@@ -332,7 +347,7 @@ export function usePackageStation(
             moduleTransition: slot.module_status.features,
             hasDraft:         slot.drafts.features !== null,
             disabled:         occupantDisabled,
-            parentReady:      overviewComplete,
+            parentReady:      tierPricingComplete,
             parentLabel:      'Tier Overview',
             platformLabel:    'Tier',
           },
@@ -345,7 +360,7 @@ export function usePackageStation(
             moduleTransition: slot.module_status.faqs,
             hasDraft:         slot.drafts.faqs !== null,
             disabled:         occupantDisabled,
-            parentReady:      overviewComplete,
+            parentReady:      tierPricingComplete,
             parentLabel:      'Tier Overview',
             platformLabel:    'Tier',
           },
@@ -356,7 +371,7 @@ export function usePackageStation(
 
   // Persist-through patch: patch the tier slot's draft + module_status in place from
   // the endpoint response, so derived values recompute without a refetch.
-  const patchModule = useCallback((tierId: string, module: 'overview' | 'features' | 'faqs', res: TierLifecycleResponse) => {
+  const patchModule = useCallback((tierId: string, module: TierModuleKey, res: TierLifecycleResponse) => {
     setDetail(prev => {
       if (!prev) return prev;
       const tiers = patchTierModuleDraft(prev.station.tiers, tierId, module, res.drafts[module], res.module_status);
@@ -391,6 +406,16 @@ export function usePackageStation(
     try {
       const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'overview', draft);
       if (res.success) { patchModule(tierId, 'overview', res); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, tierInstanceId, onRefresh, patchModule]);
+
+  const saveTierPricingRules = useCallback(async (tierId: string, draft: TierPricingRulesDraft) => {
+    if (tierInstanceId === null) return null;
+    setSaving(true);
+    try {
+      const res = await saveServicePackageStationTierModule(serviceId, tierInstanceId, tierId, 'pricing_rules', draft);
+      if (res.success) { patchModule(tierId, 'pricing_rules', res); onRefresh?.(); }
       return res;
     } catch { return null; } finally { setSaving(false); }
   }, [serviceId, tierInstanceId, onRefresh, patchModule]);
@@ -619,6 +644,7 @@ export function usePackageStation(
     resolveOccupantSlot,
     tierView,
     saveTierOverview,
+    saveTierPricingRules,
     saveTierFeatures,
     saveTierFaqs,
     revertTierModule,
