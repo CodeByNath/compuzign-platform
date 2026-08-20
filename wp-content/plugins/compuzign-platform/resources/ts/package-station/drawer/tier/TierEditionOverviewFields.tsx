@@ -19,9 +19,9 @@ import { PoolInclusionsEditor } from '../editors/PoolInclusionsEditor';
 import { buildRateSheetCatalogue } from './tierDetailModel';
 
 const BILLING_CYCLES: AdminFieldOption[] = [
+  { value: 'one-time', label: 'Upfront' },
+  { value: 'annually', label: 'Yearly' },
   { value: 'monthly', label: 'Monthly' },
-  { value: 'annually', label: 'Annually' },
-  { value: 'one-time', label: 'One-time' },
 ];
 
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [

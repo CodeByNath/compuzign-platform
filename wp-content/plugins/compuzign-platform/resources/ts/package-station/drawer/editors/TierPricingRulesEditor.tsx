@@ -6,9 +6,9 @@ import type { TierPricingRulesDraft } from '../../types';
 // The billing cycles a Tier can carry. A fixed vocabulary, so it is a constant
 // rather than a value rebuilt on every render.
 const BILLING_CYCLES: AdminFieldOption[] = [
+  { value: 'one-time', label: 'Upfront' },
+  { value: 'annually', label: 'Yearly' },
   { value: 'monthly', label: 'Monthly' },
-  { value: 'annually', label: 'Annually' },
-  { value: 'one-time', label: 'One-time' },
 ];
 
 // Same vocabulary as Tier Edition's own commitment unit
