@@ -4,20 +4,21 @@ import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { TierPricingRulesDraft } from '../../types';
 
 // Payment Category is the coarse choice; Billing Cycle's own options narrow
-// to whichever cadence vocabulary that category admits — a One-time payment
-// has exactly one cadence (Upfront), a Recurring payment offers Yearly/
-// Monthly. No separate stored field: it is derived from billing_cycle itself
-// (below), the same presentation-only-choice pattern Tier Commitment already
-// uses over minimum_term_value/unit.
-type PaymentCategory = 'one-time' | 'recurring';
+// to whichever cadence vocabulary that category admits — Fixed offers
+// One-time/Upfront, Recurring offers Yearly/Monthly. No separate stored
+// field: it is derived from billing_cycle itself (below), the same
+// presentation-only-choice pattern Tier Commitment already uses over
+// minimum_term_value/unit.
+type PaymentCategory = 'fixed' | 'recurring';
 
 const PAYMENT_CATEGORIES: AdminFieldOption[] = [
-  { value: 'one-time', label: 'One-time' },
+  { value: 'fixed', label: 'Fixed' },
   { value: 'recurring', label: 'Recurring' },
 ];
 
-const ONE_TIME_BILLING_CYCLES: AdminFieldOption[] = [
-  { value: 'one-time', label: 'Upfront' },
+const FIXED_BILLING_CYCLES: AdminFieldOption[] = [
+  { value: 'one-time', label: 'One-time' },
+  { value: 'upfront', label: 'Upfront' },
 ];
 
 const RECURRING_BILLING_CYCLES: AdminFieldOption[] = [
@@ -26,7 +27,7 @@ const RECURRING_BILLING_CYCLES: AdminFieldOption[] = [
 ];
 
 function paymentCategoryOf(billingCycle: string): PaymentCategory {
-  return billingCycle === 'one-time' ? 'one-time' : 'recurring';
+  return billingCycle === 'one-time' || billingCycle === 'upfront' ? 'fixed' : 'recurring';
 }
 
 // Same vocabulary as Tier Edition's own commitment unit
@@ -72,23 +73,13 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
     }
   };
 
-  // Payment Category drives Billing Cycle's own choices — switching to
-  // One-time collapses billing_cycle to its one valid cadence (Upfront);
-  // switching to Recurring picks a sensible default (Monthly) only when the
-  // stored value isn't already a recurring one, so a Recurring→Recurring
-  // change (Yearly to Monthly and back) never gets clobbered.
+  // Payment Category only narrows which Billing Cycle options are offered —
+  // no automatic relation beyond that: switching category never writes
+  // billing_cycle itself, only the picker's own onChange below does.
   const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
     paymentCategoryOf(draft.billing_cycle),
   );
-  const changePaymentCategory = (category: PaymentCategory) => {
-    setPaymentCategory(category);
-    if (category === 'one-time') {
-      onChange({ billing_cycle: 'one-time' });
-    } else if (paymentCategoryOf(draft.billing_cycle) === 'one-time') {
-      onChange({ billing_cycle: 'monthly' });
-    }
-  };
-  const billingCycleOptions = paymentCategory === 'one-time' ? ONE_TIME_BILLING_CYCLES : RECURRING_BILLING_CYCLES;
+  const billingCycleOptions = paymentCategory === 'fixed' ? FIXED_BILLING_CYCLES : RECURRING_BILLING_CYCLES;
 
   // Switching the bound sheet clears this Tier's row selections (enforced at
   // settle). Confirm first so the change is never silent.
@@ -147,7 +138,7 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
             options: PAYMENT_CATEGORIES,
           }}
           value={paymentCategory}
-          onChange={(category: string) => changePaymentCategory(category as PaymentCategory)}
+          onChange={(category: string) => setPaymentCategory(category as PaymentCategory)}
         />
 
         <AdminField
