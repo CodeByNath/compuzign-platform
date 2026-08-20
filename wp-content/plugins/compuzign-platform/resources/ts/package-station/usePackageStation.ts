@@ -303,38 +303,9 @@ export function usePackageStation(
     // edit session's draft.price the moment it's opened while contact is
     // true, with no way to recompute it back when contact is unchecked
     // again in that same session.
-    // Headline price (2026-08 Tier Inclusion ownership correction): Row 1 —
-    // the first Commercial Leg — is the plan's own default declaration once
-    // dp.commercial_legs is configured; mirrors PackageManagerSchema::
-    // headlineSelections()/legSelections() server-side. inclusions_override
-    // below stays derived from resolvedSelections (the full declared set)
-    // unchanged — only the headline number's source switches.
-    if (dp.commercial_legs.length > 0) {
-      const firstLegId = dp.commercial_legs[0].id;
-      let headlineTotal = 0;
-      let anyResolved = false;
-      resolvedSelections.forEach((item) => {
-        const assignment = item.leg_assignments?.find((a) => a.leg_id === firstLegId);
-        if (!assignment || !item.resolved) return;
-        const rateItem = rateById.get(item.item_id);
-        const priceOptionId = assignment.price_option_id ?? null;
-        const selectedOption = priceOptionId !== null
-          ? rateItem?.price_options?.find((option) => option.option_id === priceOptionId) ?? null
-          : null;
-        const optionUnresolved = priceOptionId !== null && !selectedOption;
-        const unitPrice = rateItem && !optionUnresolved
-          ? (selectedOption ? selectedOption.unit_price : rateItem.unit_price)
-          : null;
-        if (unitPrice === null) return;
-        anyResolved = true;
-        headlineTotal += unitPrice * assignment.quantity;
-      });
-      dp.price = anyResolved ? headlineTotal : null;
-    } else {
-      dp.price = resolvedSelections.some((item) => item.resolved)
-        ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
-        : null;
-    }
+    dp.price = resolvedSelections.some((item) => item.resolved)
+      ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
+      : null;
     // A Bundle-backed selection carries no `source_type` at all (it has no
     // Manager source, inclusion or otherwise) — it must still count as one of
     // this occupant's own Features, not be silently dropped by a filter that

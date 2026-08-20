@@ -109,22 +109,11 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                 </select>
               </div>
             )}
-            {/* Base Qty (selection.quantity) is legacy authoring state, not a
-                second pricing quantity alongside Commercial Legs: once legs
-                exist, Leg | Price Option | Qty (below) is the complete,
-                sole per-inclusion spec — the headline price itself now
-                resolves from Row 1's own leg assignment, never this field.
-                Kept editable ONLY for a genuinely unconfigured/legacy
-                selection with no legs at all, where it remains the one and
-                only quantity. See PackageManagerSchema::headlineSelections()
-                (2026-08 Tier Inclusion ownership correction). */}
-            {!commercialLegs?.length && (
-              <div class="cz-tf-field cz-ie-faq-item__qty-field">
-                <span class="cz-tf-label">Base Qty</span>
-                <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
-                  onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-              </div>
-            )}
+            <div class="cz-tf-field cz-ie-faq-item__qty-field">
+              <span class="cz-tf-label">Base Qty</span>
+              <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
+                onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
+            </div>
             {!commercialLegs?.length && (
               <div class="cz-tf-field cz-ie-faq-item__total-field">
                 <span class="cz-tf-label">Total</span>

@@ -1566,29 +1566,7 @@ class PackageRepository
                 $extracted['rate_sheet_id'] ?? null,
                 (bool) ($extracted['contact'] ?? false)
             );
-            // Headline price (2026-08 Tier Inclusion ownership correction):
-            // Row 1 — the first Commercial Leg — is the plan's own default
-            // declaration once the occupant has configured legs; the raw
-            // top-level rate_sheet_items above (selection.quantity) remain
-            // authoritative only for a genuinely unconfigured/legacy
-            // occupant with no legs to resolve from. A SEPARATE, narrow
-            // projection computes ONLY this — $rateProjection above (and the
-            // inclusions_override/provenance it drives, below) still reads
-            // the full raw selection set unchanged, so this switches the
-            // headline number's source without touching what inclusions a
-            // customer sees. See PackageManagerSchema::headlineSelections().
-            $rawCommercialLegs = is_array($extracted['commercial_legs'] ?? null) ? $extracted['commercial_legs'] : [];
-            if ($rawCommercialLegs === []) {
-                $extracted['price'] = $rateProjection['price'];
-            } else {
-                $headlineProjection = PackageManagerSchema::projectTierRateSheetWith(
-                    $readModel,
-                    PackageManagerSchema::headlineSelections($extracted['rate_sheet_items'] ?? [], $rawCommercialLegs),
-                    $extracted['rate_sheet_id'] ?? null,
-                    (bool) ($extracted['contact'] ?? false)
-                );
-                $extracted['price'] = $headlineProjection['price'];
-            }
+            $extracted['price'] = $rateProjection['price'];
             // A Bundle-backed selection carries no source_type at all (no
             // Manager source stands behind a combination — see self_priced),
             // so the Manager-sourced-only filter below must also recognize it.
