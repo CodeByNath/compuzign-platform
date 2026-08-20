@@ -488,16 +488,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               editing={editing}
             />
           )}
-          {(!editing || editing.module === 'commercial_schedule') && (
-            <PlacedShell
-              entity={TIER_ENTITY}
-              slot={{ module: 'commercial_schedule', mode: 'details' }}
-              binding={td.commercialScheduleBinding}
-              panelOpen={c.openTierPanel === 'commercial_schedule'}
-              onTogglePanel={togglePanel('commercial_schedule')}
-              editing={editing}
-            />
-          )}
           {(!editing || editing.module === 'features') && (
             <PlacedShell
               entity={TIER_ENTITY}
@@ -505,6 +495,16 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               binding={td.featuresBinding}
               panelOpen={c.openTierPanel === 'features'}
               onTogglePanel={togglePanel('features')}
+              editing={editing}
+            />
+          )}
+          {(!editing || editing.module === 'commercial_schedule') && (
+            <PlacedShell
+              entity={TIER_ENTITY}
+              slot={{ module: 'commercial_schedule', mode: 'details' }}
+              binding={td.commercialScheduleBinding}
+              panelOpen={c.openTierPanel === 'commercial_schedule'}
+              onTogglePanel={togglePanel('commercial_schedule')}
               editing={editing}
             />
           )}
