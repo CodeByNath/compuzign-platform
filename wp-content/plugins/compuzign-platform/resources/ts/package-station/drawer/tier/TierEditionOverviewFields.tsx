@@ -11,7 +11,7 @@
 // edit block) still renders through it unchanged until that call site is
 // replaced.
 
-import { useMemo } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { PackageManagerItem, PackageRateSheet, TierEditionOverviewDraft, TierRateSheetSelection } from '../../types';
@@ -58,6 +58,20 @@ export function TierEditionOverviewSection({ draft, onChange }: Pick<Props, 'dra
 // module split out of its Overview (TierPricingRulesEditor.tsx) — same
 // fields, same vocabulary, one level deeper.
 export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptions }: Pick<Props, 'draft' | 'onChange' | 'rateSheetOptions'>) {
+  // "Tier Commitment" is a presentation-only choice over the two stored
+  // fields below it, mirroring the occupant's own TierPricingRulesEditor.tsx
+  // — no separate stored enabled flag. Seeded once from whichever field
+  // already carries a value; unchecking clears both immediately.
+  const [commitmentEnabled, setCommitmentEnabled] = useState(
+    draft.minimum_term_value != null || draft.minimum_term_unit != null,
+  );
+  const toggleCommitment = (enabled: boolean) => {
+    setCommitmentEnabled(enabled);
+    if (!enabled) {
+      onChange({ minimum_term_value: null, minimum_term_unit: null });
+    }
+  };
+
   // Switching the bound sheet clears this Edition's own row selections
   // (enforced server-side at settle, mirroring the occupant's own
   // Refinement 4 rule) — confirm first, the same convention
@@ -71,9 +85,17 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
   return (
     <div class="cz-tf-form">
       <AdminField def={{ id: 'edt-rate-sheet', type: 'select', label: 'Rate Sheet', unsetLabel: 'Inherit the Tier’s own binding', options: rateSheetOptions }} value={draft.rate_sheet_id ?? ''} onChange={(v: string) => changeRateSheet(v || null)} />
+
+      <AdminField def={{ id: 'edt-commitment-enabled', type: 'checkbox', label: 'Tier Commitment' }} value={commitmentEnabled} onChange={toggleCommitment} />
+
+      {commitmentEnabled && (
+        <div class="cz-tf-field-row">
+          <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
+          <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
+        </div>
+      )}
+
       <AdminField def={{ id: 'edt-billing-cycle', type: 'select', label: 'Billing Cycle', options: BILLING_CYCLES }} value={draft.billing_cycle ?? ''} onChange={(billing_cycle: string) => onChange({ billing_cycle })} />
-      <AdminField def={{ id: 'edt-min-term-value', type: 'text', label: 'Minimum commitment' }} value={draft.minimum_term_value != null ? String(draft.minimum_term_value) : ''} onChange={(v: string) => onChange({ minimum_term_value: v === '' ? null : Number(v) })} />
-      <AdminField def={{ id: 'edt-min-term-unit', type: 'select', label: 'Commitment unit', unsetLabel: 'None', options: MINIMUM_TERM_UNITS }} value={draft.minimum_term_unit ?? ''} onChange={(v: string) => onChange({ minimum_term_unit: v || null })} />
     </div>
   );
 }

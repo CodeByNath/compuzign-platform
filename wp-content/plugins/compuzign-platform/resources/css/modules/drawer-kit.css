@@ -732,6 +732,24 @@
   margin-bottom: 0;
 }
 
+/* Two fields sharing one row (e.g. a value + its unit) — layout only, no
+ * control restyling. Children stay ordinary .cz-tf-field wrappers; the row
+ * carries the spacing they'd otherwise carry individually. */
+.cz-tf-field-row {
+  display: flex;
+  gap: var(--cz-space-4);
+  margin-bottom: var(--cz-space-4);
+}
+
+.cz-tf-field-row:last-child {
+  margin-bottom: 0;
+}
+
+.cz-tf-field-row > .cz-tf-field {
+  flex: 1 1 0;
+  margin-bottom: 0;
+}
+
 /* The row a checkbox and its label share. It sits inside the one wrapper, so
    hint and error still read beneath the control the way they do for every
    other type. Replaces the per-editor inline style that used to do this. */
