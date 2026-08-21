@@ -1835,6 +1835,24 @@ button.cz-module-status-pill {
   overflow: hidden;
 }
 
+/* Inline pill beside a text value (e.g. Tier Overview's Label row surfacing
+   "Popular") — an accent chip, not a lifecycle status, so it uses the same
+   accent tokens as the Tier Workspace's own Popular badge rather than the
+   status-pill vocabulary. */
+.drawerOverview .drawerModule__value-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: var(--cz-space-2);
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid var(--station-accent-border);
+  border-radius: var(--station-pill-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* Tier Overview's Customer Group row (tier.tsx) prints one selected
    audience group per line when more than one is selected — an unchanged
    single line otherwise. Scoped to this one field only. */

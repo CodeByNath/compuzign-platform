@@ -38,7 +38,12 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
       const v = raw as TextValue;
       return loading
         ? <p class="drawerModule__value"><Skeleton width="55%" /></p>
-        : <p class="drawerModule__value">{v.value || v.fallback || ''}</p>;
+        : (
+          <p class="drawerModule__value">
+            {v.value || v.fallback || ''}
+            {v.badge && <span class="drawerModule__value-badge">{v.badge}</span>}
+          </p>
+        );
     },
   },
 

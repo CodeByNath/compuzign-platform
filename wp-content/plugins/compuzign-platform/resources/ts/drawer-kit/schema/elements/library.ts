@@ -18,6 +18,10 @@
 export interface TextValue {
   value: string;
   fallback?: string;    // shown when value is empty (e.g. 'New Service')
+  // Optional inline pill rendered beside the value (e.g. Tier Overview's own
+  // Label row surfacing "Popular") — an accent chip, not a lifecycle status.
+  // Omit for every other 'text' consumer; renders no differently than today.
+  badge?: string;
 }
 
 // `rich-text` — a multi-line prose value (e.g. a description instance).

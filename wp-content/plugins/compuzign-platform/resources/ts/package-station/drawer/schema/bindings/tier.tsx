@@ -74,11 +74,10 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
   content: [
     {
       id: 'label', element: 'text', label: 'Label',
-      bind: (d): TextValue => ({ value: d.label.trim(), fallback: d.tierName }),
-    },
-    {
-      id: 'type', element: 'text', label: 'Type',
-      bind: (d): TextValue => ({ value: d.isAddon ? 'Package Add-on' : 'Package Tier' }),
+      bind: (d): TextValue => ({
+        value: d.label.trim(), fallback: d.tierName,
+        badge: d.popular ? 'Popular' : undefined,
+      }),
     },
     {
       // One line per selected group — unchanged single-line reading when
@@ -101,10 +100,6 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     {
       id: 'ideal-for', element: 'text', label: 'Ideal For',
       bind: (d): TextValue => ({ value: d.idealFor || '—' }),
-    },
-    {
-      id: 'popular', element: 'text', label: 'Popular',
-      bind: (d): TextValue => ({ value: d.popular ? 'Yes' : 'No' }),
     },
     {
       // Small, structural, read-only — no pricing editor, no lifecycle
