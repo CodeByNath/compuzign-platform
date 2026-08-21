@@ -36,12 +36,11 @@ function paymentCategoryOf(billingCycle: string): PaymentCategory {
 // Same vocabulary as Tier Edition's own commitment unit
 // (TierEditionOverviewFields.tsx) — duplicated locally rather than shared,
 // the same precedent the billing-cycle vocabulary above already sets
-// between the editors.
+// between the editors. Months-only: Day(s)/Week(s)/Year(s) are retired, but
+// the field stays a real select (not a static label) — see toggleCommitment
+// below, which seeds 'month' the moment commitment is enabled.
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
-  { value: 'day', label: 'Day(s)' },
-  { value: 'week', label: 'Week(s)' },
   { value: 'month', label: 'Month(s)' },
-  { value: 'year', label: 'Year(s)' },
 ];
 
 export interface RateSheetPickerOption {
@@ -138,6 +137,8 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
     setCommitmentEnabled(enabled);
     if (!enabled) {
       onChange({ minimum_term_value: null, minimum_term_unit: null });
+    } else if (draft.minimum_term_unit == null) {
+      onChange({ minimum_term_unit: 'month' });
     }
   };
 

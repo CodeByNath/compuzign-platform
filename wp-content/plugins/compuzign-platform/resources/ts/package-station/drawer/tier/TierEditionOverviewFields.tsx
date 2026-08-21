@@ -45,11 +45,11 @@ function paymentCategoryOf(billingCycle: string | null): PaymentCategory {
   return billingCycle === 'one-time' || billingCycle === 'upfront' ? 'fixed' : 'recurring';
 }
 
+// Months-only: Day(s)/Week(s)/Year(s) are retired, but the field stays a
+// real select (not a static label) — see toggleCommitment below, which
+// seeds 'month' the moment commitment is enabled.
 const MINIMUM_TERM_UNITS: AdminFieldOption[] = [
-  { value: 'day', label: 'Day(s)' },
-  { value: 'week', label: 'Week(s)' },
   { value: 'month', label: 'Month(s)' },
-  { value: 'year', label: 'Year(s)' },
 ];
 
 interface Props {
@@ -153,6 +153,8 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
     setCommitmentEnabled(enabled);
     if (!enabled) {
       onChange({ minimum_term_value: null, minimum_term_unit: null });
+    } else if (draft.minimum_term_unit == null) {
+      onChange({ minimum_term_unit: 'month' });
     }
   };
 
@@ -296,6 +298,7 @@ export function TierEditionInclusionsSection({ draft, onChange, svc }: Pick<Prop
             pool={[]}
             onCreate={async () => null}
             rateSheetCatalogue={catalogue}
+            legsCount={(draft.legs ?? []).length}
           />
         </div>
       ) : (

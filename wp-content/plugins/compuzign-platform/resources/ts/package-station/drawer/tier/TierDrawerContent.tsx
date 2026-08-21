@@ -402,7 +402,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
-        extras: { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved) },
+        extras: { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved), legsCount: (detail.legs ?? []).length },
       },
     };
   } else if (c.editingSection === 'tier-faqs' && c.faqsDraft) {

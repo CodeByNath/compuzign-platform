@@ -728,10 +728,10 @@ $stored = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::san
 ]);
 check_bundle(
     $stored === [
-        ['item_id' => 'rate_carrot_tier', 'quantity' => 2, 'price_option_id' => null],
-        ['item_id' => 'rate_soup_tier', 'quantity' => 1, 'price_option_id' => 'opt_soup_annual'],
+        ['item_id' => 'rate_carrot_tier', 'quantity' => 2, 'price_option_id' => null, 'leg_index' => null],
+        ['item_id' => 'rate_soup_tier', 'quantity' => 1, 'price_option_id' => 'opt_soup_annual', 'leg_index' => null],
     ],
-    'stored Tier selections keep the pre-Bundle shape exactly: { item_id, quantity, price_option_id }',
+    'stored Tier selections keep the pre-Bundle shape exactly: { item_id, quantity, price_option_id, leg_index }',
     json_encode($stored)
 );
 

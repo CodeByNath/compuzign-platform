@@ -17,9 +17,15 @@ interface Props {
   pool:     InclusionItem[];
   onCreate: (label: string) => Promise<InclusionItem | null>;
   rateSheetCatalogue?: TierResolvedRateSheetSelection[];
+  // Count of Commercial Legs configured beyond Leg Default (Tier Pricing
+  // Rules owns that array and its own billing_cycle/from_month/to_month
+  // calculation — this editor only needs the count to offer "Leg 1"…"Leg N"
+  // alongside the always-present Leg Default option). Absent/0 renders just
+  // Leg Default.
+  legsCount?: number;
 }
 
-export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue }: Props) {
+export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue, legsCount }: Props) {
   const [showAdd,  setShowAdd]  = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [creating, setCreating] = useState(false);
@@ -93,6 +99,17 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
             )}
             <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
               onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
+            <select class="cz-tf-select" aria-label={`Commercial Leg for ${row.label}`} value={selection.leg_index ?? ''}
+              onChange={(event) => {
+                const raw = event.currentTarget.value;
+                const value = raw === '' ? null : Number(raw);
+                onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, leg_index: value } : item));
+              }}>
+              <option value="">Leg Default</option>
+              {Array.from({ length: legsCount ?? 0 }, (_, legIndex) => (
+                <option value={legIndex} key={legIndex}>{`Leg ${legIndex + 1}`}</option>
+              ))}
+            </select>
           </div>
           {suppliedContent && (
             suppliedContent.length > 0 ? (

@@ -63,7 +63,7 @@ $flippedBound = Schema::upsertOccupant($bound, [
     'rate_sheet_items' => [['item_id' => 'rate-vm', 'quantity' => 2]],
 ], true);
 check_is_addon($flippedBound['current_occupant']['rate_sheet_id'] === 'rs_a', 'marking an occupant an add-on does not clear or change its bound Rate Sheet');
-check_is_addon($flippedBound['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null]], 'marking an occupant an add-on does not touch its Rate Sheet selections');
+check_is_addon($flippedBound['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null, 'leg_index' => null]], 'marking an occupant an add-on does not touch its Rate Sheet selections');
 check_is_addon($flippedBound['current_occupant']['platform_status'] === 'active', 'marking an occupant an add-on does not change platform_status');
 
 $disabledAddon = Schema::upsertOccupant([], ['label' => 'Disabled Addon', 'is_addon' => true], false);
@@ -118,7 +118,7 @@ check_is_addon($settled['current_occupant']['is_addon'] === true, 'settle commit
 check_is_addon($settled['current_occupant']['id'] === $originalOccupantId, 'settle preserves the stable occupant id');
 check_is_addon($settled['current_occupant']['platform_status'] === 'active', 'settle does not alter platform_status');
 check_is_addon($settled['current_occupant']['rate_sheet_id'] === 'rs_a', 'settle does not clear the bound Rate Sheet when only is_addon changes');
-check_is_addon($settled['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 3, 'price_option_id' => null]], 'settle preserves existing Rate Sheet selections when only is_addon changes');
+check_is_addon($settled['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 3, 'price_option_id' => null, 'leg_index' => null]], 'settle preserves existing Rate Sheet selections when only is_addon changes');
 check_is_addon(array_unique(array_values($settled['module_status'])) === ['settled'], 'settle marks every module settled exactly once');
 
 // A settle with NO overview draft at all must keep the previously settled

@@ -59,7 +59,16 @@ class PackageSchema
             $seen[$id] = true;
             $rawOptionId = $item['price_option_id'] ?? null;
             $optionId = ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId);
-            $out[] = ['item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1)), 'price_option_id' => $optionId];
+            // Which Commercial Leg this inclusion references — see
+            // TierRateSheetSelection.leg_index. Null/absent is Leg Default;
+            // a non-negative index selects legs[] by position. Never
+            // clamped against the current legs[] length here — this
+            // sanitizer has no legs array in scope, and a temporarily
+            // out-of-range index (e.g. its leg was since removed) is left
+            // as-is rather than silently reassigned.
+            $rawLegIndex = $item['leg_index'] ?? null;
+            $legIndex = ($rawLegIndex === null || $rawLegIndex === '') ? null : max(0, (int) $rawLegIndex);
+            $out[] = ['item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1)), 'price_option_id' => $optionId, 'leg_index' => $legIndex];
         }
         return $out;
     }

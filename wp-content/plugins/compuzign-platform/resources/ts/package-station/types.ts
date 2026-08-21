@@ -767,6 +767,15 @@ export interface TierRateSheetSelection {
   // against the bound sheet is left as-is — never silently coerced back to
   // Default Price. See docs/code-map/rate-sheet.md.
   price_option_id?: string | null;
+  // Which Commercial Leg this inclusion is associated with, for pricing
+  // correlation only. Absent/null means Leg Default — the controlled entity
+  // that is born together with the Tier's inclusions, not an ordinary
+  // manually-added leg; a value selects one of TierPricingRulesDraft.legs[]
+  // by index, mirroring that array's own "position is identity" rule. This
+  // field only references the leg — it never stores or recomputes the
+  // leg's own billing_cycle/from_month/to_month; that calculation stays
+  // owned entirely by Tier Pricing Rules.
+  leg_index?: number | null;
 }
 
 export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {

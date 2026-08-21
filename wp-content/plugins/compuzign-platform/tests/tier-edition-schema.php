@@ -108,7 +108,7 @@ check_edition($full['edition_platform_id'] === 'CZTE2A7KZ', 'an existing edition
 check_edition($full['price'] === 199.0, 'a numeric-string price coerces to float');
 check_edition($full['minimum_term_value'] === 12.0, 'minimum_term_value coerces to float');
 check_edition($full['minimum_term_unit'] === 'months', 'minimum_term_unit round-trips');
-check_edition($full['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null]], 'rate_sheet_items is sanitised through the existing sanitizeTierRateSheetSelections contract');
+check_edition($full['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null, 'leg_index' => null]], 'rate_sheet_items is sanitised through the existing sanitizeTierRateSheetSelections contract');
 check_edition(count($full['inclusions_override']) === 1, 'a non-empty inclusions_override is preserved as this Edition\'s explicit override');
 
 // ── sanitizeTierEditions: collection-level safety ────────────────────────────

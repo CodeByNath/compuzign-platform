@@ -249,6 +249,7 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
         pool={(s.extras?.pool ?? []) as InclusionItem[]}
         onCreate={s.extras?.onCreate as (label: string) => Promise<InclusionItem | null>}
         rateSheetCatalogue={s.extras?.rateSheetCatalogue as TierResolvedRateSheetSelection[] | undefined}
+        legsCount={s.extras?.legsCount as number | undefined}
       />
     ),
   },

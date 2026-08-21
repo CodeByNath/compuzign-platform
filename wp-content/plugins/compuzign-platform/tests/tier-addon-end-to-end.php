@@ -78,7 +78,7 @@ $normalProjected = Schema::extractTierForCostBuilder($instance['tiers']['standar
 $addonProjected  = Schema::extractTierForCostBuilder($instance['tiers']['enterprise']);
 check_addon_e2e($normalProjected['is_addon'] === false, 'the normal Tier still projects is_addon: false');
 check_addon_e2e($addonProjected['is_addon'] === true, 'the add-on Tier projects is_addon: true');
-check_addon_e2e($normalProjected['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 3, 'price_option_id' => null]], 'the normal Tier keeps its Rate Sheet selections (Scenario 14: pricing remains intact)');
+check_addon_e2e($normalProjected['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 3, 'price_option_id' => null, 'leg_index' => null]], 'the normal Tier keeps its Rate Sheet selections (Scenario 14: pricing remains intact)');
 check_addon_e2e($normalProjected['inclusions_override'] === [['id' => 'inc_1', 'label' => 'Managed backups']], 'the normal Tier keeps its inclusions (Scenario 14: inclusions remain intact)');
 
 // ── Scenario 8: a disabled add-on Tier is not shown. ────────────────────────
