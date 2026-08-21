@@ -76,7 +76,7 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       id: 'label', element: 'text', label: 'Label',
       bind: (d): TextValue => ({
         value: d.label.trim(), fallback: d.tierName,
-        badge: d.popular ? 'Popular' : undefined,
+        badges: [d.popular && 'Popular', d.isAddon && 'Add-on'].filter((b): b is string => !!b),
       }),
     },
     {
@@ -170,9 +170,12 @@ export const tierPricingRulesShell: ShellSchema<TierPricingRulesShellData> = {
     },
     {
       // Mirrors Tier Edition's own 'minimum-term' row (bindings/tierEdition.tsx).
+      // Hidden when unset — Coverage (Leg Default) below already carries the
+      // tier's commitment window, so an unset commitment has nothing to add.
       id: 'minimum-term', element: 'text', label: 'Minimum commitment',
+      when: (d) => d.minimumTermValue != null,
       bind: (d): TextValue => ({
-        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
+        value: `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim(),
       }),
     },
     {
@@ -185,7 +188,8 @@ export const tierPricingRulesShell: ShellSchema<TierPricingRulesShellData> = {
     },
     {
       id: 'commercial-legs', element: 'text', label: 'Commercial Legs',
-      bind: (d): TextValue => ({ value: d.legsCount > 0 ? `${d.legsCount} additional` : 'None' }),
+      when: (d) => d.legsCount > 0,
+      bind: (d): TextValue => ({ value: `${d.legsCount} additional` }),
     },
   ],
   footer:  DETAILS_FOOTER,

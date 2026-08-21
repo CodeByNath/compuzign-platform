@@ -101,13 +101,20 @@ const PRICING_RULES_ACTIONS: Record<string, ShellActionSchema> = {
 };
 
 export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesShellData> = {
-  archetype: 'child',
+  // 'overview' (not 'child'): this content is labelled text fields, and
+  // ChildShell renders a bare collection body with no field labels at all
+  // (see childShell.tsx) — the labels here were never actually reaching the
+  // DOM. 'overview' routes through the same drawerModule__field/label/value
+  // structure and drawerOverview token scope the parent Tier's own Pricing
+  // Rules card (bindings/tier.tsx) already uses.
+  archetype: 'overview',
   dna:       tierEditionOverviewModule,
   header: {
     title:       'Edition Pricing Rules',
     subtitle:    'Rate Sheet, billing cycle, and minimum commitment for this Edition.',
     icon:        'overview',
     iconVariant: 'drawerModule__icon--overview',
+    scopeClass:  'drawerOverview tier',
   },
   content: [
     {
@@ -119,9 +126,12 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
       bind: (d): TextValue => ({ value: d.billingCycle || '—' }),
     },
     {
+      // Hidden when unset — Coverage (Leg Default) below already carries the
+      // Edition's commitment window, so an unset commitment has nothing to add.
       id: 'minimum-term', element: 'text', label: 'Minimum commitment',
+      when: (d) => d.minimumTermValue != null,
       bind: (d): TextValue => ({
-        value: d.minimumTermValue != null ? `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim() : '—',
+        value: `${d.minimumTermValue} ${d.minimumTermUnit ?? ''}`.trim(),
       }),
     },
     {
@@ -134,7 +144,8 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
     },
     {
       id: 'commercial-legs', element: 'text', label: 'Commercial Legs',
-      bind: (d): TextValue => ({ value: d.legsCount > 0 ? `${d.legsCount} additional` : 'None' }),
+      when: (d) => d.legsCount > 0,
+      bind: (d): TextValue => ({ value: `${d.legsCount} additional` }),
     },
   ],
   footer:  { actions: ['edit'] },
