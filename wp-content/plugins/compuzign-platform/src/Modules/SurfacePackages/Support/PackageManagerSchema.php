@@ -1897,6 +1897,46 @@ final class PackageManagerSchema
     }
 
     /**
+     * The canonical Default Leg resolved object — see the "Commercial Legs
+     * pricing boundary" project note. ONE declaration combining the
+     * already-resolved inclusion pricing (projectTierRateSheetWith()'s own
+     * output, never recomputed here — no second price engine) with the
+     * Default Leg's own commercial terms (billing_cycle/from_month/
+     * to_month/commitment_months, read straight off the Tier's own record,
+     * never derived beyond the months-only collapse below). No duration or
+     * payment-count math: from_month/to_month pass through exactly as
+     * stored — this function only assembles, it does not calculate.
+     * commitment_months mirrors the frontend's own totalCommitmentMonths()
+     * (tierDetailModel.ts) for the now-only-allowed 'month' unit: since
+     * Tier Pricing Rules already restricts minimum_term_unit to 'month',
+     * $legTerms' own minimum_term_value/minimum_term_unit pair collapses to
+     * this one field here — a non-'month' unit (legacy data) resolves to
+     * null rather than reintroducing day/week/year conversion.
+     *
+     * Not called anywhere yet: a standalone, independently testable unit.
+     * The existing headline price path (every projectTierRateSheetWith()
+     * caller) is completely untouched by this addition.
+     *
+     * @param array<string, mixed> $pricedSelection projectTierRateSheetWith()'s own return shape
+     * @param array<string, mixed> $legTerms { billing_cycle, from_month, to_month, minimum_term_value, minimum_term_unit }
+     * @return array<string, mixed>
+     */
+    public static function resolveLeg(array $pricedSelection, array $legTerms): array
+    {
+        $minimumTermValue = $legTerms['minimum_term_value'] ?? null;
+        $minimumTermUnit  = $legTerms['minimum_term_unit'] ?? null;
+        $commitmentMonths = ($minimumTermValue !== null && $minimumTermUnit === 'month') ? $minimumTermValue : null;
+        return [
+            'price'             => $pricedSelection['price'] ?? null,
+            'available'         => (bool) ($pricedSelection['pricing']['complete'] ?? false),
+            'billing_cycle'     => $legTerms['billing_cycle'] ?? null,
+            'from_month'        => $legTerms['from_month'] ?? null,
+            'to_month'          => $legTerms['to_month'] ?? null,
+            'commitment_months' => $commitmentMonths,
+        ];
+    }
+
+    /**
      * Batch-apply projectTierRateSheetWith() to a list of rows that each
      * carry their own rate_sheet_id + rate_sheet_items (Tier Editions
      * today). No new pricing calculation — a thin wrapper around the one
