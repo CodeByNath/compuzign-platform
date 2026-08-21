@@ -7,7 +7,6 @@ import type { FooterAction } from './ActionFooter';
 
 interface Props {
   title: string;
-  count?: number;
   // Footer — either an ordered action descriptor list (S1b, preferred) or the
   // legacy single-Edit shorthand. `actions` wins when both are supplied.
   actions?: FooterAction[];
@@ -35,7 +34,7 @@ interface Props {
 }
 
 export function ReadBlock({
-  title, count, actions, onEdit, editDisabled,
+  title, actions, onEdit, editDisabled,
   icon, iconVariant, subtitle, scopeClass,
   status, notes, panelOpen, onTogglePanel, children,
 }: Props) {
@@ -57,12 +56,7 @@ export function ReadBlock({
             </span>
           )}
           <div class="drawerModule__heading">
-            <p class="drawerModule__title">
-              {title}
-              {count != null && count > 0 && (
-                <span class="drawerModule__count">{count}</span>
-              )}
-            </p>
+            <p class="drawerModule__title">{title}</p>
             {subtitle && <p class="drawerModule__subtitle">{subtitle}</p>}
           </div>
           {status && (

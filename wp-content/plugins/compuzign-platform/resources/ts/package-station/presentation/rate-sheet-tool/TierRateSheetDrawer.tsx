@@ -188,7 +188,6 @@ function TierRateSheetReadScope({
   return (
     <ReadBlock
       title={title}
-      count={scope.scopedRows.length}
       subtitle={subtitle}
       icon={<RateSheetIcon />}
       scopeClass="drawerOverview"
@@ -232,7 +231,6 @@ function TierRateSheetConnectionsScope({
   return (
     <ReadBlock
       title="Connections"
-      count={services.length}
       subtitle={`Services supplying the ${tierLabel} Tier's connected rows here.`}
       icon={<ServicesIcon />}
       scopeClass="drawerOverview"

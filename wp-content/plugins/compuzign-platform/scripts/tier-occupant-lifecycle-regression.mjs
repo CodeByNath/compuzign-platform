@@ -25,7 +25,7 @@
 // (siblings retain their state, in Details AND in Support); and an Add-on
 // occupant follows the identical lifecycle.
 //
-// Overview and Default Tier Inclusions live in Details; Common Questions
+// Overview and Tier Inclusions live in Details; Common Questions
 // lives in Support — a separate, mutually-exclusive group in both Tabs and
 // Accordion mode (only one group's content is ever mounted at a time, the
 // same way Details/Connections always were). So this regression checks each
@@ -92,7 +92,7 @@ const ITEM_ID = 'ri_1';
 const SOURCE_ITEM_ID = 'src_1';
 
 // FAQ_ITEM/FAQ_SOURCE_ID — Common Questions resolves through the SAME
-// rate_sheet_items pipeline as Default Tier Inclusions (usePackageStation.tierView
+// rate_sheet_items pipeline as Tier Inclusions (usePackageStation.tierView
 // re-derives dp.faq_refs from resolved selections whose source_type is
 // 'faq'); a Tier is only "complete" for that module with a resolved faq row.
 const FAQ_ITEM_ID = 'ri_2';
@@ -457,12 +457,12 @@ function selectGroup(label) {
 
 // Details and Support are mutually exclusive at any one moment (single
 // active group, in both Tabs and Accordion) — the same way Details/
-// Connections always were. Overview and Default Tier Inclusions are both
+// Connections always were. Overview and Tier Inclusions are both
 // Details' own content, so they read together without navigating; Common
 // Questions is Support's own content, so reading it means switching there
 // and back, proving reachability rather than assuming co-visibility.
 function detailsPillsRead(label) {
-  return pillLabel('Tier Overview') === label && pillLabel('Default Tier Inclusions') === label;
+  return pillLabel('Tier Overview') === label && pillLabel('Tier Inclusions') === label;
 }
 async function faqPillReads(label) {
   selectGroup('Support');
@@ -481,7 +481,7 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('a footer was registered on mount', setFooterCalls > 0);
   let faqActive = await faqPillReads('Active');
-  check('Details exposes Overview and Default Tier Inclusions, both Active, on mount', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Details exposes Overview and Tier Inclusions, both Active, on mount', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Tier Inclusions')}`);
   check('Support exposes Common Questions, Active, on mount', faqActive, faqActive);
 
   let footerDom = renderFooterDom();
@@ -532,14 +532,14 @@ async function runScenario(tierId, label) {
   const settleCallsBeforeNav = settleCalls;
   const enabledCallsBeforeNav = enabledCalls;
   const overviewPillBeforeNav = pillLabel('Tier Overview');
-  const featuresPillBeforeNav = pillLabel('Default Tier Inclusions');
+  const featuresPillBeforeNav = pillLabel('Tier Inclusions');
   selectGroup('Support');
   await sleep(20);
   const faqPillDuringNav = pillLabel('Common Questions');
   selectGroup('Details');
   await sleep(20);
   check('no settle/enabled request fired from switching groups', settleCalls === settleCallsBeforeNav && enabledCalls === enabledCallsBeforeNav, `settleCalls=${settleCalls} enabledCalls=${enabledCalls}`);
-  check('Overview/Default Tier Inclusions pills are unchanged after the round trip', pillLabel('Tier Overview') === overviewPillBeforeNav && pillLabel('Default Tier Inclusions') === featuresPillBeforeNav);
+  check('Overview/Tier Inclusions pills are unchanged after the round trip', pillLabel('Tier Overview') === overviewPillBeforeNav && pillLabel('Tier Inclusions') === featuresPillBeforeNav);
   check('Common Questions was reachable while Support was the active group', faqPillDuringNav !== undefined, faqPillDuringNav);
 
   console.log('\n1c) Compact icon view toggle (top-nav refinement): no CURRENT PLAN text, Tabs mode shows the four group tabs plus one alternate-view icon, Accordion mode shows only the icon (no tab row) plus the accordion sections, the icon toggles both ways without firing a mutation, and Support/Common Questions stays reachable in both modes');
@@ -601,7 +601,7 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('a ready module Save persists a draft only — the occupant is not re-settled by Save', settleCalls === 0, `settleCalls=${settleCalls}`);
   check('the edited module (Overview) reads Pending', pillLabel('Tier Overview') === 'Pending', pillLabel('Tier Overview'));
-  check('sibling module in the same group retains its settled state (Default Tier Inclusions)', pillLabel('Default Tier Inclusions') === 'Active', pillLabel('Default Tier Inclusions'));
+  check('sibling module in the same group retains its settled state (Tier Inclusions)', pillLabel('Tier Inclusions') === 'Active', pillLabel('Tier Inclusions'));
   check('sibling module in the OTHER group (Support) also retains its settled state (Common Questions)', await faqPillReads('Active'));
 
   console.log('\n3) Publish — activates, and every module returns to settled/Active');
@@ -609,7 +609,7 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('the settle endpoint was called', settleCalls >= 1, `settleCalls=${settleCalls}`);
   faqActive = await faqPillReads('Active');
-  check('Details reads Active on both its own modules after Publish', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Details reads Active on both its own modules after Publish', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Tier Inclusions')}`);
   check('Support reads Active on Common Questions after Publish', faqActive);
   check('the edit reached the server (label updated)', tiers[tierId].settled.label.endsWith('(edited)'), tiers[tierId].settled.label);
 
@@ -623,7 +623,7 @@ async function runScenario(tierId, label) {
   check('the enabled endpoint was called for Disable', enabledCalls === 1, `enabledCalls=${enabledCalls}`);
   check('the Disable request carried enabled:false', lastEnabledPayload?.enabled === false, JSON.stringify(lastEnabledPayload));
   faqActive = await faqPillReads('Disabled');
-  check('Details reads Disabled on both its own modules after Disable', detailsPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Details reads Disabled on both its own modules after Disable', detailsPillsRead('Disabled'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Tier Inclusions')}`);
   check('Support reads Disabled on Common Questions after Disable', faqActive);
 
   footerDom = renderFooterDom();
@@ -637,7 +637,7 @@ async function runScenario(tierId, label) {
   check('the enabled endpoint was called for Enable', enabledCalls === 2, `enabledCalls=${enabledCalls}`);
   check('the Enable request carried enabled:true', lastEnabledPayload?.enabled === true, JSON.stringify(lastEnabledPayload));
   faqActive = await faqPillReads('Pending');
-  check('Enable never activates — Details reads Pending, not Active, on both its own modules', detailsPillsRead('Pending'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Enable never activates — Details reads Pending, not Active, on both its own modules', detailsPillsRead('Pending'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Tier Inclusions')}`);
   check('Enable never activates — Support reads Pending on Common Questions too', faqActive);
 
   footerDom = renderFooterDom();
@@ -649,7 +649,7 @@ async function runScenario(tierId, label) {
   await waitToSettle();
   check('the settle endpoint was called again', settleCalls === settleCallsBefore + 1, `settleCalls=${settleCalls}`);
   faqActive = await faqPillReads('Active');
-  check('Publish after Enable reaches Active on Details\' own modules', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Default Tier Inclusions')}`);
+  check('Publish after Enable reaches Active on Details\' own modules', detailsPillsRead('Active'), `overview=${pillLabel('Tier Overview')} features=${pillLabel('Tier Inclusions')}`);
   check('Publish after Enable reaches Active on Support\'s Common Questions too', faqActive);
 
   footerDom = renderFooterDom();
@@ -740,19 +740,19 @@ async function runSiblingSuppressionScenario(tierId, label) {
   render(h(Harness, { initialTierId: tierId }), container);
   await waitToSettle();
   check('Tier Overview is visible at rest', findModule('Tier Overview') !== null);
-  check('Default Tier Inclusions is visible at rest', findModule('Default Tier Inclusions') !== null);
+  check('Tier Inclusions is visible at rest', findModule('Tier Inclusions') !== null);
   check('no editor shell is open at rest', container.querySelector('.cz-ies') === null);
   check('the outer duplicate save-status block is absent at rest (no save has happened yet)', container.querySelector('.cz-shell-section.cz-shell-section--no-border') === null);
 
   const settleCallsBefore = settleCalls;
   const enabledCallsBefore = enabledCalls;
 
-  console.log('\n2) Opening the Tier Overview editor hides Default Tier Inclusions, but not itself');
+  console.log('\n2) Opening the Tier Overview editor hides Tier Inclusions, but not itself');
   editButtonFor('Tier Overview')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await sleep(20);
   const overviewLabelInput = container.querySelector('#tier-label');
   check('the Overview editor opened', overviewLabelInput !== null);
-  check('Default Tier Inclusions is hidden while Overview is editing', findModule('Default Tier Inclusions') === null);
+  check('Tier Inclusions is hidden while Overview is editing', findModule('Tier Inclusions') === null);
   check('Tier Overview\'s own editor is still present (not hidden by its own guard)', container.querySelector('.cz-ies') !== null);
   check('the outer duplicate save-status block is absent while editing', container.querySelector('.cz-shell-section.cz-shell-section--no-border') === null);
 
@@ -768,22 +768,22 @@ async function runSiblingSuppressionScenario(tierId, label) {
   check('the label input is the exact same DOM node after the sibling re-renders — not unmounted/remounted', sameLabelInput === overviewLabelInput);
   check('the typed draft value survived', sameLabelInput?.value === 'Ultimate Draft', sameLabelInput?.value);
 
-  console.log('\n3) Cancelling the Overview edit (discard-confirm) restores Default Tier Inclusions');
+  console.log('\n3) Cancelling the Overview edit (discard-confirm) restores Tier Inclusions');
   clickButtonWithText('Cancel');
   await sleep(20);
   check('the discard-confirm prompt appeared (isDirty is always true for this editor)', container.textContent.includes('Discard unsaved changes?'));
   clickButtonWithText('Discard');
   await sleep(20);
   check('the Overview editor closed', container.querySelector('.cz-ies') === null);
-  check('Default Tier Inclusions is visible again after Cancel', findModule('Default Tier Inclusions') !== null);
+  check('Tier Inclusions is visible again after Cancel', findModule('Tier Inclusions') !== null);
   check('Tier Overview is visible again after Cancel', findModule('Tier Overview') !== null);
   check('the discarded draft never reached the server', tiers[tierId].drafts.overview === null);
 
-  console.log('\n4) Opening the Default Tier Inclusions editor hides Tier Overview, but not itself');
-  editButtonFor('Default Tier Inclusions')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  console.log('\n4) Opening the Tier Inclusions editor hides Tier Overview, but not itself');
+  editButtonFor('Tier Inclusions')?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   await sleep(20);
   check('the Inclusions editor opened', container.querySelector('.cz-ies') !== null);
-  check('Tier Overview is hidden while Default Tier Inclusions is editing', findModule('Tier Overview') === null);
+  check('Tier Overview is hidden while Tier Inclusions is editing', findModule('Tier Overview') === null);
   check('the outer duplicate save-status block is absent while editing', container.querySelector('.cz-shell-section.cz-shell-section--no-border') === null);
 
   console.log('\n4a) Backing out (the shell\'s own back button, not the Cancel button) restores Tier Overview');
@@ -794,7 +794,7 @@ async function runSiblingSuppressionScenario(tierId, label) {
   await sleep(20);
   check('the Inclusions editor closed', container.querySelector('.cz-ies') === null);
   check('Tier Overview is visible again after Back', findModule('Tier Overview') !== null);
-  check('Default Tier Inclusions is visible again after Back', findModule('Default Tier Inclusions') !== null);
+  check('Tier Inclusions is visible again after Back', findModule('Tier Inclusions') !== null);
 
   console.log('\n5) Support\'s FAQ editor gets the same outer duplicate-block guard, even with no sibling to hide');
   selectGroup('Support');
@@ -815,7 +815,7 @@ async function runSiblingSuppressionScenario(tierId, label) {
   selectGroup('Details');
   await sleep(20);
   check('Tier Overview reads normally after the round trip', findModule('Tier Overview') !== null);
-  check('Default Tier Inclusions reads normally after the round trip', findModule('Default Tier Inclusions') !== null);
+  check('Tier Inclusions reads normally after the round trip', findModule('Tier Inclusions') !== null);
 
   check('no settle/enabled endpoint was ever called by this scenario — sibling suppression is presentation-only', settleCalls === settleCallsBefore && enabledCalls === enabledCallsBefore, `settleCalls=${settleCalls} enabledCalls=${enabledCalls}`);
 }

@@ -66,8 +66,7 @@ function resolveFooterActions<T>(schema: ShellSchema<T>, binding: ShellBinding<T
 }
 
 // Read frame — the canonical `.drawerModule` card. Status and notes render
-// exactly as delivered by the DNA (`binding.state`); the count is suppressed
-// while the authoritative detail is loading, matching the S1 cards.
+// exactly as delivered by the DNA (`binding.state`).
 export function ShellReadFrame<T>({ schema, binding, mode, panelOpen, onTogglePanel, body, footer }: {
   schema:  ShellSchema<T>;
   binding: ShellBinding<T>;
@@ -77,8 +76,6 @@ export function ShellReadFrame<T>({ schema, binding, mode, panelOpen, onTogglePa
   body: ComponentChildren;
   footer?: string[];   // v1.2 slot-footer re-selection (see ShellProps)
 }) {
-  const loading = binding.state.status === 'loading';
-  const count   = loading ? undefined : schema.header.count?.(binding.data) ?? undefined;
   return (
     <ReadBlock
       title={schema.header.title}
@@ -86,7 +83,6 @@ export function ShellReadFrame<T>({ schema, binding, mode, panelOpen, onTogglePa
       icon={MODULE_ICONS[schema.header.icon]}
       iconVariant={schema.header.iconVariant}
       scopeClass={schema.header.scopeClass}
-      count={count}
       status={binding.state.status}
       notes={binding.state.notes}
       panelOpen={panelOpen}

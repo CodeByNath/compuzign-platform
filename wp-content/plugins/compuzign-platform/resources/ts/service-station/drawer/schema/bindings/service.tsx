@@ -182,7 +182,6 @@ export const serviceInclusionsShell: ShellSchema<ServiceInclusionsShellData> = {
     subtitle:    'Add and manage the features included in this service.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
-    count:       (d) => d.items.length,
   },
   content: [
     {
@@ -255,7 +254,6 @@ export const serviceFaqsShell: ShellSchema<ServiceFaqsShellData> = {
     subtitle:    'Add questions and answers for this service.',
     icon:        'faqs',
     iconVariant: 'drawerModule__icon--faqs',
-    count:       (d) => d.items.length,
   },
   content: [
     {

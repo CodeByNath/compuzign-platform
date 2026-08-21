@@ -176,7 +176,6 @@ export const tierEditionInclusionsShell: ShellSchema<TierEditionInclusionsShellD
     subtitle:    'Features included in this Edition.',
     icon:        'features',
     iconVariant: 'drawerModule__icon--features',
-    count:       (d) => d.items.length,
   },
   content: [
     {

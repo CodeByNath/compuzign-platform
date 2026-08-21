@@ -81,7 +81,6 @@ export const packageFamilyRelationshipsShell: ShellSchema<PackageFamilyRelations
     title: 'Connected Records',
     subtitle: 'Live Package Station relationships using this Family.',
     icon: 'package',
-    count: (data) => data.services + data.rateSheetRows + data.tierSelections,
     scopeClass: 'drawerOverview',
   },
   content: [

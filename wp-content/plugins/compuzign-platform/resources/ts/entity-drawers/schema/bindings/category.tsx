@@ -83,7 +83,6 @@ export const categoryServicesShell: ShellSchema<CategoryServicesShellData> = {
     title: 'Assigned Services',
     subtitle: 'Services currently related to this Category.',
     icon: 'package',
-    count: (data) => data.total,
     scopeClass: 'drawerOverview',
   },
   content: [

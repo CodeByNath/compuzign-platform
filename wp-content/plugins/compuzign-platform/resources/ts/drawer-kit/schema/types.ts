@@ -67,7 +67,6 @@ export interface ShellBinding<T = unknown> {
 export interface HeaderGroup<T> {
   title: string; subtitle?: string;
   icon: IconId; iconVariant?: string; scopeClass?: string;
-  count?: (data: T) => number | null;
 }
 
 export interface ContentElement<T> {
@@ -223,7 +222,7 @@ export interface ShellSchema<T = unknown> {
   // binding file, not in this reference.
   dna: ModuleDefinition<any>;
 
-  header:  HeaderGroup<T>;             // identity elements: title, subtitle, icon id, count
+  header:  HeaderGroup<T>;             // identity elements: title, subtitle, icon id
   content: ContentElement<T>[];        // Content Group — Platform Element instances (§6)
   footer:  FooterGroup;                // ordered action ids
   actions: Record<string, ShellActionSchema>;  // Action Group

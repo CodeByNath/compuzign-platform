@@ -1756,13 +1756,6 @@ button.cz-module-status-pill {
   padding: var(--cz-space-4) var(--cz-space-5);
 }
 
-.drawerModule__count {
-  font-size: var(--admin-fs-s-label);
-  font-weight: var(--admin-fw-normal);
-  color: var(--station-text-muted);
-  margin-left: var(--cz-space-2);
-}
-
 .drawerModule__empty {
   display: flex;
   flex-direction: column;

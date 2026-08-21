@@ -503,7 +503,6 @@ function RateSheetCollectionView({
     <div class="cz-req-detail">
       <ReadBlock
         title="Rate Sheets"
-        count={list.length}
         subtitle="Each Tier binds to one sheet; its rows resolve within that sheet."
         icon={<RateSheetIcon />}
         scopeClass="drawerOverview"
