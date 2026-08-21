@@ -1,7 +1,72 @@
 import { useState } from 'preact/hooks';
 import { defaultPriceLabel } from '../../rateSheetLabels';
-import type { TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
+import type { TierRateSheetLegAssignment, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
 import type { InclusionItem } from '@/api/types/pools';
+
+// One inclusion row's Leg assignment — its own Default Leg (fixed, disabled
+// Leg select — see TierRateSheetSelection.leg_index) or one of its
+// leg_assignments[] (a real, admin-chosen Leg). Mirrors CommercialLegCard's
+// own Leg Default + legs[] card shape (TierPricingRulesEditor.tsx) one level
+// deeper: same .cz-ie-faq-item frame, same Remove-disabled-when-not-
+// removable rule, same "+ Add …" precedent — "+ Add Assignment" below.
+function InclusionAssignmentCard({
+  row, label, removable, onRemove,
+  priceOptionId, onPriceOptionChange, quantity, onQuantityChange,
+  legIndex, legDisabled, legsCount, onLegIndexChange,
+}: {
+  row: TierResolvedRateSheetSelection;
+  label: string;
+  removable: boolean;
+  onRemove: () => void;
+  priceOptionId: string | null | undefined;
+  onPriceOptionChange: (value: string | null) => void;
+  quantity: number;
+  onQuantityChange: (value: number) => void;
+  legIndex: number | null;
+  legDisabled: boolean;
+  legsCount: number;
+  onLegIndexChange: (value: number) => void;
+}) {
+  const priceOptions = row.price_options ?? [];
+  const selectedOption = priceOptionId ? priceOptions.find((option) => option.option_id === priceOptionId) ?? null : null;
+  const optionUnresolved = !!priceOptionId && !selectedOption;
+  const effectiveUnitPrice = optionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
+
+  return (
+    <div class="cz-ie-faq-item">
+      <div class="cz-ie-faq-item__header">
+        <span class="cz-tf-label">{label}</span>
+        <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+          disabled={!removable} onClick={onRemove}>
+          Remove
+        </button>
+      </div>
+      <div class="cz-ie-row">
+        {priceOptions.length > 0 ? (
+          <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={priceOptionId ?? ''}
+            onChange={(event) => onPriceOptionChange(event.currentTarget.value || null)}>
+            <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
+            {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
+          </select>
+        ) : (
+          <div class="cz-tf-input" aria-label="Price">
+            {optionUnresolved ? 'Unresolved price option' : effectiveUnitPrice !== null ? `$${effectiveUnitPrice.toFixed(2)}${row.per ? ` ${row.per}` : ''}` : '—'}
+          </div>
+        )}
+        <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={quantity}
+          onInput={(event) => onQuantityChange(Math.max(1, Number(event.currentTarget.value) || 1))} />
+        <select class="cz-tf-select" aria-label={`Commercial Leg for ${row.label}`} value={legDisabled ? '' : (legIndex ?? 0)} disabled={legDisabled}
+          onChange={(event) => onLegIndexChange(Number(event.currentTarget.value))}>
+          {legDisabled ? (
+            <option value="">Leg Default</option>
+          ) : (
+            Array.from({ length: legsCount }, (_, i) => <option value={i} key={i}>{`Leg ${i + 1}`}</option>)
+          )}
+        </select>
+      </div>
+    </div>
+  );
+}
 
 // Pool-referencing Included Features editor (extracted from ServiceTierStep /
 // the shared station editors.
@@ -60,19 +125,15 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
     return <div class="cz-tf-form"><div class="cz-tf-field"><label class="cz-tf-label">Included Features</label>
       {selectedRows.length > 0 && <div class="cz-ie-list">{selectedRows.map((row, index) => {
         const selection = selections[index];
-        // Effective price mirrors PackageManagerSchema::projectTierRateSheetWith:
-        // Default Price unless price_option_id resolves against this row's own
-        // price_options[]; a present-but-unresolved id never falls back.
-        const priceOptions = row.price_options ?? [];
-        const selectedOption = selection.price_option_id
-          ? priceOptions.find((option) => option.option_id === selection.price_option_id) ?? null
-          : null;
-        const optionUnresolved = !!selection.price_option_id && !selectedOption;
-        const effectiveUnitPrice = optionUnresolved ? null : (selectedOption ? selectedOption.unit_price : row.unit_price);
+        const assignments = selection.leg_assignments ?? [];
         // A Bundle-backed row's own supplied content, read-only here — the
         // editor only ever mutates this row's OWN price option/qty, never
         // what it compiles (that's the Rate Sheet tool's job).
         const suppliedContent = (row.bundle_id ?? '') !== '' ? (row.includes ?? []) : null;
+        const patchSelection = (patch: Partial<TierRateSheetSelection>) =>
+          onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
+        const patchAssignment = (assignmentIndex: number, patch: Partial<TierRateSheetLegAssignment>) =>
+          patchSelection({ leg_assignments: assignments.map((a, ai) => ai === assignmentIndex ? { ...a, ...patch } : a) });
         return <div key={selection.item_id} class="cz-ie-entry">
           <div class="cz-ie-row">
             <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : ''}</div>
@@ -82,35 +143,43 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
             </button>
           </div>
           <div class="cz-ie-divider" />
-          <div class="cz-ie-row">
-            {priceOptions.length > 0 ? (
-              <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
-                onChange={(event) => {
-                  const value = event.currentTarget.value || null;
-                  onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, price_option_id: value } : item));
-                }}>
-                <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
-                {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
-              </select>
-            ) : (
-              <div class="cz-tf-input" aria-label="Price">
-                {optionUnresolved ? 'Unresolved price option' : effectiveUnitPrice !== null ? `$${effectiveUnitPrice.toFixed(2)}${row.per ? ` ${row.per}` : ''}` : '—'}
-              </div>
-            )}
-            <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
-              onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-            <select class="cz-tf-select" aria-label={`Commercial Leg for ${row.label}`} value={selection.leg_index ?? ''}
-              onChange={(event) => {
-                const raw = event.currentTarget.value;
-                const value = raw === '' ? null : Number(raw);
-                onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, leg_index: value } : item));
-              }}>
-              <option value="">Leg Default</option>
-              {Array.from({ length: legsCount ?? 0 }, (_, legIndex) => (
-                <option value={legIndex} key={legIndex}>{`Leg ${legIndex + 1}`}</option>
-              ))}
-            </select>
-          </div>
+          <InclusionAssignmentCard
+            row={row}
+            label="Default Leg"
+            removable={false}
+            onRemove={() => undefined}
+            priceOptionId={selection.price_option_id}
+            onPriceOptionChange={(value) => patchSelection({ price_option_id: value })}
+            quantity={selection.quantity}
+            onQuantityChange={(value) => patchSelection({ quantity: value })}
+            legIndex={null}
+            legDisabled
+            legsCount={legsCount ?? 0}
+            onLegIndexChange={() => undefined}
+          />
+          {assignments.map((assignment, assignmentIndex) => (
+            <InclusionAssignmentCard
+              key={assignmentIndex}
+              row={row}
+              label={`Assignment ${assignmentIndex + 1}`}
+              removable
+              onRemove={() => patchSelection({ leg_assignments: assignments.filter((_, ai) => ai !== assignmentIndex) })}
+              priceOptionId={assignment.price_option_id}
+              onPriceOptionChange={(value) => patchAssignment(assignmentIndex, { price_option_id: value })}
+              quantity={assignment.quantity}
+              onQuantityChange={(value) => patchAssignment(assignmentIndex, { quantity: value })}
+              legIndex={assignment.leg_index}
+              legDisabled={false}
+              legsCount={legsCount ?? 0}
+              onLegIndexChange={(value) => patchAssignment(assignmentIndex, { leg_index: value })}
+            />
+          ))}
+          {(legsCount ?? 0) > 0 && (
+            <button type="button" class="cz-tf-add-btn"
+              onClick={() => patchSelection({ leg_assignments: [...assignments, { price_option_id: null, quantity: 1, leg_index: 0 }] })}>
+              + Add Assignment
+            </button>
+          )}
           {suppliedContent && (
             suppliedContent.length > 0 ? (
               <ul class="cz-ie-sub-list">

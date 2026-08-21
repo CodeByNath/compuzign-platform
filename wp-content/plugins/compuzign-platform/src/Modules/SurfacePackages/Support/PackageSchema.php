@@ -68,7 +68,32 @@ class PackageSchema
             // as-is rather than silently reassigned.
             $rawLegIndex = $item['leg_index'] ?? null;
             $legIndex = ($rawLegIndex === null || $rawLegIndex === '') ? null : max(0, (int) $rawLegIndex);
-            $out[] = ['item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1)), 'price_option_id' => $optionId, 'leg_index' => $legIndex];
+            // Additional Leg assignments beyond this row's own Default Leg
+            // assignment above — see TierRateSheetSelection.leg_assignments.
+            // An assignment with no leg chosen is dropped rather than stored
+            // ambiguous; leg_index is required per entry (never Default Leg,
+            // whose identity belongs exclusively to the fields above).
+            $rawAssignments = $item['leg_assignments'] ?? [];
+            $assignments = [];
+            if (is_array($rawAssignments)) {
+                foreach ($rawAssignments as $assignment) {
+                    if (!is_array($assignment)) { continue; }
+                    $rawAssignmentLegIndex = $assignment['leg_index'] ?? null;
+                    if ($rawAssignmentLegIndex === null || $rawAssignmentLegIndex === '') { continue; }
+                    $assignmentRawOptionId = $assignment['price_option_id'] ?? null;
+                    $assignmentOptionId = ($assignmentRawOptionId === null || $assignmentRawOptionId === '')
+                        ? null : sanitize_text_field((string) $assignmentRawOptionId);
+                    $assignments[] = [
+                        'price_option_id' => $assignmentOptionId,
+                        'quantity'        => max(1, (int) ($assignment['quantity'] ?? 1)),
+                        'leg_index'       => max(0, (int) $rawAssignmentLegIndex),
+                    ];
+                }
+            }
+            $out[] = [
+                'item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1)), 'price_option_id' => $optionId,
+                'leg_index' => $legIndex, 'leg_assignments' => $assignments,
+            ];
         }
         return $out;
     }

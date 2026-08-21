@@ -767,15 +767,29 @@ export interface TierRateSheetSelection {
   // against the bound sheet is left as-is — never silently coerced back to
   // Default Price. See docs/code-map/rate-sheet.md.
   price_option_id?: string | null;
-  // Which Commercial Leg this inclusion is associated with, for pricing
-  // correlation only. Absent/null means Leg Default — the controlled entity
-  // that is born together with the Tier's inclusions, not an ordinary
-  // manually-added leg; a value selects one of TierPricingRulesDraft.legs[]
-  // by index, mirroring that array's own "position is identity" rule. This
-  // field only references the leg — it never stores or recomputes the
-  // leg's own billing_cycle/from_month/to_month; that calculation stays
-  // owned entirely by Tier Pricing Rules.
+  // Always null — this row's own quantity/price_option_id above IS its
+  // Default Leg assignment, born together with the inclusion, not an
+  // ordinary manually-added leg. Never editable/reassignable in the editor
+  // (PoolInclusionsEditor.tsx renders it as a disabled "Leg Default"
+  // control); kept for shape symmetry with TierRateSheetLegAssignment.leg_index
+  // below, which IS a real, admin-chosen reference.
   leg_index?: number | null;
+  // Additional Leg assignments beyond the row's own Default Leg assignment
+  // above. Each entry picks one of TierPricingRulesDraft.legs[] by index
+  // (never Default Leg — that identity belongs exclusively to the row's own
+  // top-level fields) and carries its own price_option_id/quantity. Mirrors
+  // TierPricingRulesDraft's own Leg Default + legs[] + "+ Add Leg" shape one
+  // level deeper — see PoolInclusionsEditor.tsx's "+ Add Assignment". A leg
+  // reference never stores or recomputes the leg's own billing_cycle/
+  // from_month/to_month; that calculation stays owned entirely by Tier
+  // Pricing Rules.
+  leg_assignments?: TierRateSheetLegAssignment[];
+}
+
+export interface TierRateSheetLegAssignment {
+  price_option_id?: string | null;
+  quantity: number;
+  leg_index: number;
 }
 
 export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
