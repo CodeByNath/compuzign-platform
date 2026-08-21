@@ -20,6 +20,7 @@ const tierDetailModel = read('resources/ts/package-station/drawer/tier/tierDetai
 const poolEditor = read('resources/ts/package-station/drawer/editors/PoolInclusionsEditor.tsx');
 const inclusionController = read('resources/ts/package-station/drawer/inclusion/useTierInclusionDrawerController.ts');
 const usePackageStation = read('resources/ts/package-station/usePackageStation.ts');
+const rateSheetLabels = read('resources/ts/package-station/rateSheetLabels.ts');
 const schema = read('src/Modules/SurfacePackages/Support/PackageSchema.php');
 const managerSchema = read('src/Modules/SurfacePackages/Support/PackageManagerSchema.php');
 
@@ -68,10 +69,18 @@ check(
 );
 
 // ── usePackageStation's client-side live projection mirrors the same rule ───
+// (resolution itself lives in the shared resolveRateSheetSelection() —
+// rateSheetLabels.ts — so both usePackageStation.tierView() and the Tier
+// Edition detail model share one rule instead of two copies that could
+// drift; see tier-occupant-inclusions-bundle-contract.ts for that seam.)
 
 check(
-  usePackageStation.includes('selectedOption.unit_price') && usePackageStation.includes('optionUnresolved'),
-  'usePackageStation.tierView() resolves the SAME price_option_id semantics (option price when resolved, null when not) for its own live/optimistic price, not just the backend',
+  rateSheetLabels.includes('selectedOption.unit_price') && rateSheetLabels.includes('optionUnresolved'),
+  'resolveRateSheetSelection() resolves the SAME price_option_id semantics (option price when resolved, null when not) for the live/optimistic price both usePackageStation.tierView() and the Tier Edition detail model use, not just the backend',
+);
+check(
+  usePackageStation.includes("import { resolveRateSheetSelection } from './rateSheetLabels';"),
+  'usePackageStation.tierView() resolves each selection through the shared resolveRateSheetSelection() rule, not a second inline copy',
 );
 
 // ── Backend: sanitizer preserves the field; projector resolves it ───────────

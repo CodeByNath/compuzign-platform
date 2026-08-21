@@ -34,18 +34,28 @@ function check(condition: unknown, message: string): asserts condition {
 
 const root = resolve(import.meta.dirname, '..');
 const usePackageStation = readFileSync(resolve(root, 'resources/ts/package-station/usePackageStation.ts'), 'utf8');
+const rateSheetLabels = readFileSync(resolve(root, 'resources/ts/package-station/rateSheetLabels.ts'), 'utf8');
 const poolInclusionsEditor = readFileSync(resolve(root, 'resources/ts/package-station/drawer/editors/PoolInclusionsEditor.tsx'), 'utf8');
 
+// Resolution itself now lives in the shared resolveRateSheetSelection()
+// (rateSheetLabels.ts) — usePackageStation.tierView() and the Tier Edition
+// detail model both call it instead of each carrying their own copy (the
+// Edition's own copy had drifted into a weaker, buildRateSheetCatalogue-
+// based resolution that dropped Bundle-backed rows entirely).
 check(
-  /const bundleBacked = !!rateItem && \(rateItem\.bundle_id \?\? ''\) !== '';/.test(usePackageStation),
-  'tierView() computes bundleBacked from the resolved row\'s own bundle_id, not from any Manager relationship lookup',
+  usePackageStation.includes("import { resolveRateSheetSelection } from './rateSheetLabels';"),
+  'tierView() resolves each selection through the shared resolveRateSheetSelection() rule, not a second inline copy',
 );
 check(
-  /const resolved = bundleBacked \|\| /.test(usePackageStation),
+  /const bundleBacked = !!rateItem && \(rateItem\.bundle_id \?\? ''\) !== '';/.test(rateSheetLabels),
+  'resolveRateSheetSelection() computes bundleBacked from the resolved row\'s own bundle_id, not from any Manager relationship lookup',
+);
+check(
+  /const resolved = bundleBacked \|\| /.test(rateSheetLabels),
   'a Bundle-backed selection resolves on its own presence — resolved is never gated on finding a Manager source for it',
 );
 check(
-  usePackageStation.includes("rateItem?.label?.trim() || 'Untitled Bundle'"),
+  rateSheetLabels.includes("rateItem?.label?.trim() || 'Untitled Bundle'"),
   'a Bundle-backed selection reads its OWN row label (the Bundle Name), falling back to "Untitled Bundle" — the same convention the Rate Sheet tool and buildRateSheetCatalogue() already use — never the generic "(unresolved Rate Sheet item)" string',
 );
 check(
@@ -57,8 +67,8 @@ check(
   'the Bundle\'s supplied content is no longer squished into this label string — it moved to the inclusion editor\'s own read-only sub-list, so the read card\'s chip stays a bare Bundle name like any other Feature',
 );
 check(
-  /includes: rateItem\?\.includes,/.test(usePackageStation),
-  'resolvedSelections carries the row\'s own live-resolved includes[] through unchanged, so buildRateSheetCatalogue()\'s existingSelections fallback (a stored selection whose row fell out of the bound sheet) still has it available for the inclusion editor\'s sub-list',
+  /includes: rateItem\?\.includes,/.test(rateSheetLabels),
+  'resolveRateSheetSelection() carries the row\'s own live-resolved includes[] through unchanged, so buildRateSheetCatalogue()\'s existingSelections fallback (a stored selection whose row fell out of the bound sheet) still has it available for the inclusion editor\'s sub-list',
 );
 
 check(

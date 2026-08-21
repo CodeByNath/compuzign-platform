@@ -45,7 +45,7 @@ import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from '@/hooks/stationPrimitives';
 import { deriveTierOccupants, resolveTierOccupantSlot } from './tierOccupants';
 import type { TierOccupant } from './tierOccupants';
-import { relationshipDisplayLabel } from './rateSheetLabels';
+import { resolveRateSheetSelection } from './rateSheetLabels';
 
 // ── usePackageStation ────────────────────────────────────────────────────────
 //
@@ -231,58 +231,12 @@ export function usePackageStation(
     const rateSheet = (detail?.service.rate_sheets ?? []).find((s) => s.rate_sheet_id === dp.rate_sheet_id) ?? null;
     const sourceById = new Map((detail?.service.package_relationships ?? []).map((item) => [item.item_id, item]));
     const rateById = new Map((rateSheet?.items ?? []).map((item) => [item.item_id, item]));
-    const resolvedSelections = dp.rate_sheet_items.map((selection) => {
-      const rateItem = rateById.get(selection.item_id);
-      const source = rateItem ? sourceById.get(rateItem.source_item_id) : undefined;
-      // A Bundle-backed row stands behind itself (see PackageRateSheetItem's
-      // `bundle_id`) — it has no Manager source to resolve against, so it
-      // resolves on its own presence instead, the same rule
-      // `buildRateSheetCatalogue()` already uses for the picker's own
-      // candidate list. Without this, a Bundle-only selection resolves as
-      // unresolved here even though the picker correctly offered it.
-      const bundleBacked = !!rateItem && (rateItem.bundle_id ?? '') !== '';
-      const resolved = bundleBacked || (!!rateItem && !!source && !source.missing);
-      // A Bundle-backed selection reads its OWN row label (the Bundle Name),
-      // the same "Untitled Bundle" fallback the Rate Sheet tool and
-      // buildRateSheetCatalogue() already use — same single label string
-      // every plain Feature carries, so the read card's chip looks identical
-      // to any other Feature's. Its supplied content is shown separately, in
-      // the inclusion editor's own read-only sub-list (see
-      // PoolInclusionsEditor.tsx), not baked into this label.
-      const label = bundleBacked
-        ? (rateItem?.label?.trim() || 'Untitled Bundle')
-        : resolved && source
-          ? relationshipDisplayLabel(source)
-          : dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label ?? '(unresolved Rate Sheet item)';
-      // Effective unit price mirrors PackageManagerSchema::projectTierRateSheetWith:
-      // Default Price unless price_option_id resolves against this row's own
-      // price_options[]; a present-but-unresolved id never falls back to
-      // Default Price.
-      const priceOptionId = selection.price_option_id ?? null;
-      const selectedOption = priceOptionId !== null
-        ? rateItem?.price_options?.find((option) => option.option_id === priceOptionId) ?? null
-        : null;
-      const optionUnresolved = priceOptionId !== null && !selectedOption;
-      const unitPrice = resolved && rateItem && !optionUnresolved
-        ? (selectedOption ? selectedOption.unit_price : rateItem.unit_price)
-        : null;
-      return {
-        ...selection, resolved, label,
-        price_option_id: priceOptionId,
-        source_type: source?.source_type ?? null,
-        source_id: source?.source_id ?? null,
-        unit_price: unitPrice,
-        per: resolved && rateItem ? rateItem.per : null,
-        group_id: resolved && rateItem ? rateItem.group_id : null,
-        line_total: unitPrice !== null ? unitPrice * selection.quantity : null,
-        price_options: rateItem?.price_options,
-        // Display only — what the row calls the price this selection already
-        // uses when it carries no price_option_id.
-        default_price_label: rateItem?.default_price_label,
-        bundle_id: rateItem?.bundle_id,
-        includes: rateItem?.includes,
-      };
-    });
+    const resolvedSelections = dp.rate_sheet_items.map((selection) => resolveRateSheetSelection(
+      selection,
+      rateById,
+      sourceById,
+      dp.rate_sheet_selections.find((item) => item.item_id === selection.item_id)?.label,
+    ));
     dp.rate_sheet_selections = resolvedSelections;
     // The resolved Rate Sheet total stays intact regardless of dp.contact —
     // display layers (resolveTierStatus's hasPrice, the editor's Price

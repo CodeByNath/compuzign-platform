@@ -353,8 +353,8 @@ const editionDetailModel = readFileSync(resolve(
   'resources/ts/package-station/drawer/tier/tierEditionDetailModel.ts',
 ), 'utf8');
 check(
-  editionDetailModel.includes('buildRateSheetCatalogue(svc, edition.rate_sheet_id'),
-  'the Edition\'s own Inclusions card resolves rows through the SAME shared buildRateSheetCatalogue resolver as the occupant\'s own Default Tier Inclusions and the Edition\'s own editor — not a fourth copy',
+  editionDetailModel.includes("import { resolveRateSheetSelection } from '../../rateSheetLabels';"),
+  'the Edition\'s own Overview price and Inclusions card resolve rows through the SAME shared resolveRateSheetSelection() rule usePackageStation.tierView() uses for the occupant\'s own live price and inclusions_override — not a separate, weaker copy (buildRateSheetCatalogue\'s own generic quantity:1/Default-Price candidate rows never reflected an actual selection\'s own quantity/price_option_id)',
 );
 check(
   (editionDetailModel.match(/onEdit\('overview'\)|onEdit\('pricing-rules'\)|onEdit\('inclusions'\)/g) ?? []).length === 3,

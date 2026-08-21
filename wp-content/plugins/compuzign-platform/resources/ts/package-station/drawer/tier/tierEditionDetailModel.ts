@@ -14,7 +14,7 @@ import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type { TierEditionOverviewShellData, TierEditionPricingRulesShellData, TierEditionInclusionsShellData } from '../schema/bindings/tierEdition';
 import { evaluateModule, tierEditionOverviewModule } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
-import { buildRateSheetCatalogue } from './tierDetailModel';
+import { resolveRateSheetSelection } from '../../rateSheetLabels';
 import { tierEditionDisabledMasked } from './tierEditionModel';
 
 export interface TierEditionDetailHandlers {
@@ -56,11 +56,35 @@ export function buildTierEditionDetail(
   const hasDraft = edition.drafts.overview !== null;
   const moduleState = tierEditionModuleState(edition);
 
+  // Resolved rows — the SAME per-selection resolution rule
+  // usePackageStation.tierView() uses for the occupant's own live price and
+  // inclusions_override (resolveRateSheetSelection, rateSheetLabels.ts).
+  // Previously this Edition model built its own weaker resolution via
+  // buildRateSheetCatalogue()'s generic candidate rows (always quantity: 1,
+  // always Default Price) — that never reflected THIS Edition's own
+  // selected quantity/price_option_id, and dropped Bundle-backed/unresolved
+  // rows outright. Sharing the one rule fixes both: Price below is now
+  // live from these same resolved lines instead of a stored snapshot that
+  // only a full page reload could refresh, and Inclusions (below) stops
+  // silently losing rows the occupant's own equivalent card would show.
+  const boundRateSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === edition.rate_sheet_id) ?? null;
+  const sourceById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
+  const rateById = new Map((boundRateSheet?.items ?? []).map((item) => [item.item_id, item]));
+  const resolvedSelections = edition.rate_sheet_items.map((selection) => (
+    resolveRateSheetSelection(selection, rateById, sourceById)
+  ));
+  // Same formula as usePackageStation.ts's own dp.price: the resolved total
+  // when at least one line resolves, else null (Contact/"Not configured"
+  // branching happens at the shell binding's own text render, not here).
+  const price = resolvedSelections.some((item) => item.resolved)
+    ? resolvedSelections.reduce((total, item) => total + (item.line_total ?? 0), 0)
+    : null;
+
   const overviewBinding: ShellBinding<TierEditionOverviewShellData> = {
     data: {
       title:             edition.title,
       adminDescription:  edition.admin_description,
-      price:             edition.price,
+      price,
       contact:           edition.contact,
       editionPlatformId: edition.edition_platform_id,
     },
@@ -72,7 +96,6 @@ export function buildTierEditionDetail(
     },
   };
 
-  const boundRateSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === edition.rate_sheet_id) ?? null;
   const pricingRulesBinding: ShellBinding<TierEditionPricingRulesShellData> = {
     data: {
       rateSheetId:      edition.rate_sheet_id,
@@ -91,26 +114,16 @@ export function buildTierEditionDetail(
     },
   };
 
-  // Resolved rows for display — the SAME buildRateSheetCatalogue resolver
-  // the occupant's own Default Tier Inclusions card and this Edition's own
-  // editor both use (tier-edition-admin-contract.ts already audits that
-  // reuse). Selection-first: resolve edition.rate_sheet_items (the Edition's
-  // OWN persisted selection) against the catalogue, THEN filter to
-  // inclusion-type sources — exactly the direction usePackageStation.tierView
-  // derives the occupant's own inclusions_override from its
-  // resolvedSelections. Filtering the catalogue directly (the prior code
-  // here) rendered every inclusion-type row the bound Rate Sheet has, not
-  // just the ones this Edition actually selected.
-  const catalogue = buildRateSheetCatalogue(svc, edition.rate_sheet_id, []);
-  const resolvedSelections = edition.rate_sheet_items.map((selection) => (
-    catalogue.find((item) => item.item_id === selection.item_id) ?? {
-      item_id: selection.item_id, source_type: null, source_id: null, quantity: selection.quantity,
-      resolved: false, label: '(unresolved Rate Sheet item)', unit_price: null, per: null, group_id: null, line_total: null,
-    }
-  ));
+  // Same rule usePackageStation.ts's own inclusions_override uses: a
+  // Bundle-backed row carries no source_type at all (no Manager source
+  // stands behind a combination — see self_priced), so the filter must
+  // recognize it by bundle_id too, or it silently vanishes here even
+  // though it resolves fine. Unresolved rows are kept (missing: true)
+  // rather than dropped outright — a selection whose row later became
+  // unavailable should still show as a gap, not disappear entirely.
   const items = resolvedSelections
-    .filter((item) => item.resolved && item.source_type === 'inclusion')
-    .map((item) => ({ id: item.item_id, label: item.label }));
+    .filter((item) => item.source_type === 'inclusion' || !!item.bundle_id)
+    .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
 
   const inclusionsBinding: ShellBinding<TierEditionInclusionsShellData> = {
     data: { items },
