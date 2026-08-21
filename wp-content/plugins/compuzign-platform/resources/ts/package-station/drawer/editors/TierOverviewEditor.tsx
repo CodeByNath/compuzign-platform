@@ -38,29 +38,22 @@ export function TierOverviewEditor({ draft, onChange }: Props) {
 
   return (
     <div class="cz-tf-form">
-      {/* An explicit override, not a Rate Sheet resolution outcome — checking
-          it always reports Contact Us below, regardless of what the bound
-          sheet's selected rows would otherwise total. */}
-      <AdminField
-        def={{ id: 'tier-contact', type: 'checkbox', label: 'Mark as Contact Us' }}
-        value={draft.contact}
-        onChange={(contact) => onChange({ contact })}
-      />
+      <div class="cz-tf-field-row">
+        <AdminField
+          def={{ id: 'tier-label', type: 'text', label: 'Display Label' }}
+          value={draft.label}
+          onChange={(label) => onChange({ label })}
+        />
 
-      {/* Price is derived from the bound sheet's selected rows, so it reports
-          rather than accepts. Readonly, not disabled: the value is still
-          selectable and still submitted. */}
-      <AdminField
-        def={{ id: 'tier-price', type: 'text', label: 'Price', readonly: true }}
-        value={draft.contact ? 'Contact Us' : draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
-        onChange={() => undefined}
-      />
-
-      <AdminField
-        def={{ id: 'tier-label', type: 'text', label: 'Display Label (optional)' }}
-        value={draft.label}
-        onChange={(label) => onChange({ label })}
-      />
+        {/* Price is derived from the bound sheet's selected rows, so it
+            reports rather than accepts. Readonly, not disabled: the value
+            is still selectable and still submitted. */}
+        <AdminField
+          def={{ id: 'tier-price', type: 'text', label: 'Price · read only', readonly: true }}
+          value={draft.contact ? 'Contact Us' : draft.price != null ? `$${draft.price.toFixed(2)}` : 'Not configured'}
+          onChange={() => undefined}
+        />
+      </div>
 
       <MultiSelectField
         id="tier-audience-groups"
@@ -76,17 +69,28 @@ export function TierOverviewEditor({ draft, onChange }: Props) {
         onChange={(ideal_for) => onChange({ ideal_for })}
       />
 
-      <AdminField
-        def={{ id: 'tier-is-addon', type: 'checkbox', label: 'Make this Tier an add-on' }}
-        value={isAddon}
-        onChange={(is_addon) => onChange({ is_addon })}
-      />
+      <div class="cz-tf-field-row">
+        {/* An explicit override, not a Rate Sheet resolution outcome —
+            checking it always reports Contact Us above, regardless of what
+            the bound sheet's selected rows would otherwise total. */}
+        <AdminField
+          def={{ id: 'tier-contact', type: 'checkbox', label: 'Mark as Contact Us' }}
+          value={draft.contact}
+          onChange={(contact) => onChange({ contact })}
+        />
 
-      <AdminField
-        def={{ id: 'tier-popular', type: 'checkbox', label: 'Mark as popular tier' }}
-        value={draft.popular}
-        onChange={(popular) => onChange({ popular })}
-      />
+        <AdminField
+          def={{ id: 'tier-is-addon', type: 'checkbox', label: 'Make this Tier an add-on' }}
+          value={isAddon}
+          onChange={(is_addon) => onChange({ is_addon })}
+        />
+
+        <AdminField
+          def={{ id: 'tier-popular', type: 'checkbox', label: 'Mark as popular tier' }}
+          value={draft.popular}
+          onChange={(popular) => onChange({ popular })}
+        />
+      </div>
 
       {draft.popular && (
         <AdminField
