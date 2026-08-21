@@ -69,8 +69,15 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
         const suppliedContent = (row.bundle_id ?? '') !== '' ? (row.includes ?? []) : null;
         return <div key={selection.item_id} class="cz-ie-entry">
           <div class="cz-ie-row">
-            <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : (optionUnresolved ? ' · Unresolved price option' : ` · $${effectiveUnitPrice?.toFixed(2)} ${row.per ?? ''}`)}</div>
-            {priceOptions.length > 0 && (
+            <div class="cz-tf-input" aria-label={row.label}>{row.label}{!row.resolved ? ' · Unresolved' : ''}</div>
+            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
+              onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>
+              Remove
+            </button>
+          </div>
+          <div class="cz-ie-divider" />
+          <div class="cz-ie-row">
+            {priceOptions.length > 0 ? (
               <select class="cz-tf-select" aria-label={`Price option for ${row.label}`} value={selection.price_option_id ?? ''}
                 onChange={(event) => {
                   const value = event.currentTarget.value || null;
@@ -79,11 +86,13 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
                 <option value="">{defaultPriceLabel(row.default_price_label)} · ${row.unit_price?.toFixed(2) ?? '—'}</option>
                 {priceOptions.map((option) => <option value={option.option_id} key={option.option_id}>{option.label} · ${option.unit_price.toFixed(2)}</option>)}
               </select>
+            ) : (
+              <div class="cz-tf-input" aria-label="Price">
+                {optionUnresolved ? 'Unresolved price option' : effectiveUnitPrice !== null ? `$${effectiveUnitPrice.toFixed(2)}${row.per ? ` ${row.per}` : ''}` : '—'}
+              </div>
             )}
-            <input class="cz-tf-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
+            <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={selection.quantity}
               onInput={(event) => onChange(selections.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Math.max(1, Number(event.currentTarget.value) || 1) } : item))} />
-            <span>{effectiveUnitPrice !== null ? `$${(effectiveUnitPrice * selection.quantity).toFixed(2)}` : '—'}</span>
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" onClick={() => onChange(selections.filter((_, itemIndex) => itemIndex !== index))}>✕</button>
           </div>
           {suppliedContent && (
             suppliedContent.length > 0 ? (

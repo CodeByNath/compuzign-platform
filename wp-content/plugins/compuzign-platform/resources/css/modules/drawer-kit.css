@@ -476,14 +476,30 @@
   flex-wrap: wrap;
 }
 
-.cz-ie-row .cz-tf-input {
+.cz-ie-row .cz-tf-input,
+.cz-ie-row .cz-tf-select {
   flex: 1;
+}
+
+/* The Qty box in a rate-sheet inclusion row's price line stays a compact
+   fixed width — the price element beside it (cz-tf-input/cz-tf-select above)
+   takes the rest via flex: 1. */
+.cz-ie-row .cz-ie-qty-input {
+  flex: 0 0 72px;
+  width: 72px;
 }
 
 .cz-ie-entry {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* Separates a rate-sheet inclusion row's identity (name + Remove) from its
+   price line (price/price option + Qty) below it. */
+.cz-ie-divider {
+  border-top: 1px solid var(--station-border);
+  margin: var(--cz-space-1) 0;
 }
 
 /* A Bundle-backed row's own supplied content — read-only, nested under its
