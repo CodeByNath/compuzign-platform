@@ -4,7 +4,8 @@ import type { TierCommercialLeg, TierRateSheetLegAssignment, TierRateSheetSelect
 import type { InclusionItem } from '@/api/types/pools';
 
 // One inclusion row's Leg assignment — its own Default Leg (fixed, disabled
-// Leg select — see TierRateSheetSelection.leg_index) or one of its
+// Leg select; the row's own fields ARE that assignment, no stored field
+// names it — see TierRateSheetSelection's own doc comment) or one of its
 // leg_assignments[] (a real, admin-chosen Leg, referenced by Leg identity —
 // see TierRateSheetLegAssignment.leg_platform_id). Mirrors CommercialLegCard's
 // own Leg Default + legs[] card shape (TierPricingRulesEditor.tsx) one level

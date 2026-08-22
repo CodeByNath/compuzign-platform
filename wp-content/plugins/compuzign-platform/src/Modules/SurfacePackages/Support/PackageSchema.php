@@ -59,12 +59,6 @@ class PackageSchema
             $seen[$id] = true;
             $rawOptionId = $item['price_option_id'] ?? null;
             $optionId = ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId);
-            // Vestigial shape-symmetry field — see TierRateSheetSelection.
-            // leg_index. Always null/absent in practice: this row's own
-            // fields above ARE its Default Leg assignment; Phase 3 (Leg
-            // identity on leg_assignments[] below) does not touch it.
-            $rawLegIndex = $item['leg_index'] ?? null;
-            $legIndex = ($rawLegIndex === null || $rawLegIndex === '') ? null : max(0, (int) $rawLegIndex);
             // Additional Leg assignments beyond this row's own Default Leg
             // assignment above — see TierRateSheetSelection.leg_assignments.
             // An assignment with no leg chosen is dropped rather than stored
@@ -98,7 +92,7 @@ class PackageSchema
             }
             $out[] = [
                 'item_id' => $id, 'quantity' => max(1, (int) ($item['quantity'] ?? 1)), 'price_option_id' => $optionId,
-                'leg_index' => $legIndex, 'leg_assignments' => $assignments,
+                'leg_assignments' => $assignments,
             ];
         }
         return $out;

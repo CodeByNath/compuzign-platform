@@ -789,15 +789,14 @@ export interface TierRateSheetSelection {
   // against the bound sheet is left as-is — never silently coerced back to
   // Default Price. See docs/code-map/rate-sheet.md.
   price_option_id?: string | null;
-  // Always null — this row's own quantity/price_option_id above IS its
-  // Default Leg assignment, born together with the inclusion, not an
-  // ordinary manually-added leg. Never editable/reassignable in the editor
-  // (PoolInclusionsEditor.tsx renders it as a disabled "Leg Default"
-  // control); kept for shape symmetry with TierRateSheetLegAssignment's own
-  // real, admin-chosen reference (leg_platform_id) below. Never touched by
-  // Phase 3 — the Default Leg's identity belongs to the occupant's/Edition's
-  // own default_leg_platform_id, not to a value stored per row.
-  leg_index?: number | null;
+  // The row's own membership in its Default Leg is implicit — item_id/
+  // quantity/price_option_id above ARE that assignment, born together with
+  // the inclusion. There is no stored field naming it: the Default Leg's
+  // identity belongs to the occupant's/Edition's own
+  // default_leg_platform_id (SurfaceTierDetail/TierEdition), never to a
+  // per-row value (Leg identity, Phase 4 — the row-level `leg_index` this
+  // comment used to describe was always null and is removed).
+  //
   // Additional Leg assignments beyond the row's own Default Leg assignment
   // above. Each entry picks one of TierPricingRulesDraft.legs[] by Leg
   // identity (never Default Leg — that identity belongs exclusively to the

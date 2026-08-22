@@ -49,7 +49,7 @@ check_tier_occupant(
     'exposed occupant id is the stable stored identity'
 );
 check_tier_occupant($detail['label'] === 'Starter Cloud Updated', 'overview draft wins during flat migration');
-check_tier_occupant($detail['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null, 'leg_index' => null, 'leg_assignments' => []]], 'untouched Rate Sheet selections survive flat migration');
+check_tier_occupant($detail['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null, 'leg_assignments' => []]], 'untouched Rate Sheet selections survive flat migration');
 check_tier_occupant(array_unique(array_values($settled['module_status'])) === ['settled'], 'publish settles every module exactly once');
 
 // Refinement 4 — the occupant stores its bound Rate Sheet, and switching sheets
@@ -59,7 +59,7 @@ $bound = Schema::upsertOccupant([], [
     'rate_sheet_items' => [['item_id' => 'rate-vm', 'quantity' => 2]],
 ], true);
 check_tier_occupant($bound['current_occupant']['rate_sheet_id'] === 'rs_a', 'a first-configured occupant keeps its incoming rate_sheet_id and selections');
-check_tier_occupant($bound['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null, 'leg_index' => null, 'leg_assignments' => []]], 'first configuration keeps the incoming selections');
+check_tier_occupant($bound['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 2, 'price_option_id' => null, 'leg_assignments' => []]], 'first configuration keeps the incoming selections');
 
 $switched = Schema::upsertOccupant($bound, [
     'label' => 'Bound', 'rate_sheet_id' => 'rs_b',
@@ -73,6 +73,6 @@ $kept = Schema::upsertOccupant($bound, [
     'label' => 'Bound', 'rate_sheet_id' => 'rs_a',
     'rate_sheet_items' => [['item_id' => 'rate-vm', 'quantity' => 5]],
 ], true);
-check_tier_occupant($kept['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 5, 'price_option_id' => null, 'leg_index' => null, 'leg_assignments' => []]], 'editing selections without switching keeps them');
+check_tier_occupant($kept['current_occupant']['rate_sheet_items'] === [['item_id' => 'rate-vm', 'quantity' => 5, 'price_option_id' => null, 'leg_assignments' => []]], 'editing selections without switching keeps them');
 
 echo "Tier occupant compatibility checks passed.\n";
