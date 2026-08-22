@@ -17,18 +17,21 @@ declare(strict_types=1);
  *
  *   - Default owns the base composition (its own top-level
  *     rate_sheet_items, unconditional whenever Default is itself active).
- *   - An Additional Leg never introduces a new inclusion — it only
- *     supersedes Default's own declared quantity/price_option_id for an
- *     inclusion it explicitly claims via leg_assignments[].leg_platform_id,
- *     for exactly the months that Leg is itself active. Default's own
- *     value for that inclusion is dropped, never summed with the Leg's.
- *   - Multiple simultaneously-active Legs claiming the SAME inclusion are
- *     never precedence-ordered against each other — each keeps its own
- *     component, resolved independently from its own leg_assignments[]
- *     entry. There is no winner-selection rule.
- *   - A claim naming a Leg that isn't active this period never supersedes
- *     Default — Default still owns that inclusion for as long as the
- *     claiming Leg itself isn't live.
+ *   - An Additional Leg never introduces a new inclusion — it resolves its
+ *     own explicitly claimed items (via leg_assignments[].leg_platform_id)
+ *     at that assignment's own quantity/price_option_id, for exactly the
+ *     months that Leg is itself active.
+ *   - Two active commercial identities that both carry the same inclusion
+ *     are never a collision — each is its own independent component,
+ *     resolved from its own declaration. A Leg's claim never removes the
+ *     same inclusion from Default's own component, and multiple
+ *     simultaneously-active Legs claiming the SAME inclusion are never
+ *     precedence-ordered against each other either. There is no
+ *     winner-selection rule; the Leg Platform ID (or 'default') is the
+ *     commercial identity that distinguishes the outcome, not the
+ *     inclusion itself.
+ *   - A claim naming a Leg that isn't active this period contributes
+ *     nothing this period — that Leg simply has no component then.
  *   - Components are never collapsed across billing_cycle — mixed cadences
  *     coexist as separate, independently priced components.
  *   - Commitment is applied LAST, once, over the fully-resolved period
@@ -163,7 +166,7 @@ assertSameValue(1, count($t1[0]['components']), '1. exactly one component (Defau
 assertSameValue('default', $t1[0]['components'][0]['source'], '1. that component is Default');
 assertSameValue(200.0, $t1[0]['components'][0]['price'], '1. Default\'s price is qty2 x $100 = $200');
 
-// ── 2. Quantity increase: Leg's own claim supersedes Default, never adds ──
+// ── 2. Quantity increase: Leg's own claim is independent of Default's ──
 
 $c2 = container([
     'billing_cycle' => 'monthly', 'from_month' => 1, 'to_month' => null,
@@ -172,11 +175,13 @@ $c2 = container([
 ]);
 $t2 = PMS::resolveCommercialLegTimeline($readModel, $c2);
 assertSameValue(1, count($t2), '2. one period (Default and Leg share the same window)');
-assertSameValue(1, count($t2[0]['components']), '2. exactly one component — Default contributes nothing once its only item is claimed');
-assertTrue(componentBySource($t2[0], 'default') === null, '2. no Default component appears — Hosting is fully superseded');
+assertSameValue(2, count($t2[0]['components']), '2. two components — Default keeps its own hosting AND the Leg has its own');
+$default2 = componentBySource($t2[0], 'default');
+assertTrue($default2 !== null, '2. Default\'s own component still exists');
+assertSameValue(100.0, $default2['price'], '2. Default\'s own state is unchanged: qty1 x $100 = $100');
 $leg2 = componentBySource($t2[0], 'CZTL_2');
 assertTrue($leg2 !== null, '2. the Leg\'s own component exists');
-assertSameValue(300.0, $leg2['price'], '2. result is qty3 x $100 = $300, never $100 (Default) + $300 (Leg) = $400');
+assertSameValue(300.0, $leg2['price'], '2. result is qty3 x $100 = $300, independent of Default\'s own $100 — never merged into one number');
 
 // ── 3. Quantity decrease ────────────────────────────────────────────────
 
@@ -245,8 +250,8 @@ assertSameValue(2, count($t7), '7. two periods — both-active, then Leg-only');
 $p7a = periodAt($t7, 6);
 $p7b = periodAt($t7, 20);
 assertSameValue(2, count($p7a['components']), '7. months 1-12: both Default and the Leg contribute');
-assertSameValue(100.0, componentBySource($p7a, 'default')['price'], '7. Default\'s own component only carries hosting (addon is claimed)');
-assertSameValue(30.0, componentBySource($p7a, 'CZTL_7')['price'], '7. the Leg\'s own component carries only its claimed addon');
+assertSameValue(130.0, componentBySource($p7a, 'default')['price'], '7. Default\'s own component keeps its full composition: hosting(100) + addon(30) = 130');
+assertSameValue(30.0, componentBySource($p7a, 'CZTL_7')['price'], '7. the Leg\'s own component carries its own claimed addon independently');
 assertSameValue(1, count($p7b['components']), '7. month 13+: only the Leg remains — Default has stopped');
 assertTrue(componentBySource($p7b, 'default') === null, '7. no Default component past month 12');
 assertSameValue(30.0, componentBySource($p7b, 'CZTL_7')['price'], '7. the Leg continues charging its own claimed addon unchanged');
@@ -271,9 +276,9 @@ $p8b = periodAt($t8, 18);
 $p8c = periodAt($t8, 30);
 assertSameValue(1, count($p8a['components']), '8. months 1-12: Default only, hosting not yet claimed');
 assertSameValue(120.0, componentBySource($p8a, 'default')['price'], '8. Default carries hosting(100, unclaimed here) + support(20)');
-assertSameValue(2, count($p8b['components']), '8. months 13-24: both active, hosting now superseded');
-assertSameValue(20.0, componentBySource($p8b, 'default')['price'], '8. Default\'s own component drops to support only');
-assertSameValue(200.0, componentBySource($p8b, 'CZTL_8')['price'], '8. the Leg\'s own component carries its claimed hosting at qty2');
+assertSameValue(2, count($p8b['components']), '8. months 13-24: both active, hosting claimed by both independently');
+assertSameValue(120.0, componentBySource($p8b, 'default')['price'], '8. Default\'s own component keeps its full composition: hosting(100) + support(20) = 120');
+assertSameValue(200.0, componentBySource($p8b, 'CZTL_8')['price'], '8. the Leg\'s own component carries its own claimed hosting at qty2, independently');
 assertSameValue(1, count($p8c['components']), '8. month 25+: Default has ended, only the Leg remains');
 assertSameValue(200.0, componentBySource($p8c, 'CZTL_8')['price'], '8. the Leg keeps charging its own claim unchanged after Default stops');
 
@@ -288,7 +293,8 @@ $t9 = PMS::resolveCommercialLegTimeline($readModel, $c9);
 assertSameValue(2, count($t9), '9. two periods — Leg active, then Leg ends and Default resumes');
 $p9a = periodAt($t9, 3);
 $p9b = periodAt($t9, 9);
-assertTrue(componentBySource($p9a, 'default') === null, '9. months 1-6: Default superseded, no Default component');
+assertSameValue(2, count($p9a['components']), '9. months 1-6: both Default and the Leg contribute independently');
+assertSameValue(100.0, componentBySource($p9a, 'default')['price'], '9. Default\'s own component is unaffected by the Leg\'s claim: qty1 x $100 = $100');
 assertSameValue(300.0, componentBySource($p9a, 'CZTL_9')['price'], '9. the Leg\'s own claim during its active window');
 assertSameValue(1, count($p9b['components']), '9. month 7+: only Default remains, the Leg has ended');
 assertSameValue(100.0, componentBySource($p9b, 'default')['price'], '9. Hosting falls back to Default\'s own qty1 value once the Leg stops claiming it');
@@ -306,12 +312,15 @@ $c10 = container([
 $t10 = PMS::resolveCommercialLegTimeline($readModel, $c10);
 assertSameValue(3, count($t10), '10. three periods: Default-only, overlap, Leg-only');
 assertSameValue(1, count(periodAt($t10, 3)['components']), '10. months 1-5: Default only');
-assertSameValue(2, count(periodAt($t10, 9)['components']), '10. months 6-12: both active, contributing independently (Default: support, Leg: hosting)');
+$p10b = periodAt($t10, 9);
+assertSameValue(2, count($p10b['components']), '10. months 6-12: both active, each its own independent component');
+assertSameValue(120.0, componentBySource($p10b, 'default')['price'], '10. Default keeps its full composition: support(20) + hosting(100) = 120');
+assertSameValue(100.0, componentBySource($p10b, 'CZTL_10')['price'], '10. the Leg\'s own claimed hosting resolves independently');
 assertSameValue(1, count(periodAt($t10, 15)['components']), '10. months 13-18: Leg only, Default has ended');
 assertTrue(periodAt($t10, 20) === null, '10. nothing exists past month 18 — both windows have closed');
 
-// ── 11. Two Additional Legs, same inclusion, overlapping — additive, no
-//        precedence; Default falls back once both Legs have ended ──────
+// ── 11. Two Additional Legs, same inclusion, overlapping with Default —
+//        every active identity keeps its own independent component ──────
 
 $c11 = container([
     'billing_cycle' => 'monthly', 'from_month' => 1, 'to_month' => null,
@@ -324,16 +333,18 @@ $p11a = periodAt($t11, 3);
 $p11b = periodAt($t11, 9);
 $p11c = periodAt($t11, 15);
 $p11d = periodAt($t11, 25);
-assertSameValue(1, count($p11a['components']), '11. months 1-5: only Leg A claims hosting, Default superseded');
+assertSameValue(2, count($p11a['components']), '11. months 1-5: Default and Leg A both claim hosting, each independently');
+assertSameValue(200.0, componentBySource($p11a, 'default')['price'], '11. Default\'s own qty2 component is unaffected by Leg A\'s claim');
 assertSameValue(100.0, componentBySource($p11a, 'CZTL_11A')['price'], '11. Leg A\'s own qty1 claim');
-assertSameValue(2, count($p11b['components']), '11. months 6-12: BOTH Legs active — additive, not one winner');
+assertSameValue(3, count($p11b['components']), '11. months 6-12: Default + BOTH Legs active — every identity independent');
+assertSameValue(200.0, componentBySource($p11b, 'default')['price'], '11. Default\'s own component is unaffected by either Leg\'s claim');
 assertSameValue(100.0, componentBySource($p11b, 'CZTL_11A')['price'], '11. Leg A keeps its own qty1 component');
-assertSameValue(300.0, componentBySource($p11b, 'CZTL_11B')['price'], '11. Leg B keeps its own qty3 component, independently — never merged with A');
-assertTrue(componentBySource($p11b, 'default') === null, '11. Default still contributes nothing while either Leg claims hosting');
-assertSameValue(1, count($p11c['components']), '11. months 13-18: Leg A has ended, only Leg B remains');
+assertSameValue(300.0, componentBySource($p11b, 'CZTL_11B')['price'], '11. Leg B keeps its own qty3 component, independently — never merged with A or Default');
+assertSameValue(2, count($p11c['components']), '11. months 13-18: Leg A has ended, Default and Leg B remain');
+assertSameValue(200.0, componentBySource($p11c, 'default')['price'], '11. Default\'s own component is still unaffected by Leg B\'s claim');
 assertSameValue(300.0, componentBySource($p11c, 'CZTL_11B')['price'], '11. Leg B\'s own claim continues unchanged');
-assertSameValue(1, count($p11d['components']), '11. month 19+: both Legs have ended, Default resumes');
-assertSameValue(200.0, componentBySource($p11d, 'default')['price'], '11. hosting falls back to Default\'s own qty2 value');
+assertSameValue(1, count($p11d['components']), '11. month 19+: both Legs have ended, only Default remains');
+assertSameValue(200.0, componentBySource($p11d, 'default')['price'], '11. Default\'s own qty2 value, unchanged throughout');
 
 // ── 12. Two Additional Legs, sequential, no Default at all ─────────────
 
@@ -446,9 +457,10 @@ assertTrue(componentBySource($t21b[0], 'CZTL_21A') === null, '21. A never picks 
 // Default: monthly, month 1 -> indefinite, full base composition (hosting +
 // support). Additional Leg: yearly, month 13 -> indefinite, one inclusion
 // (hosting) carries a different quantity on the Leg. Expected: before month
-// 13, Default's own state; from month 13, Default's OTHER inclusion
-// (support) is untouched while hosting is commercially replaced by the
-// Leg's own claim — never duplicated.
+// 13, Default's own state; from month 13, Default keeps its own full
+// composition unchanged while the Leg ALSO resolves its own claimed
+// hosting independently — two separate commercial identities, not one
+// replacing the other.
 
 $tierDefault = container([
     'billing_cycle' => 'monthly', 'from_month' => 1, 'to_month' => null,
@@ -464,9 +476,9 @@ $before13 = periodAt($tier19, 6);
 $from13 = periodAt($tier19, 24);
 assertSameValue(1, count($before13['components']), '19. before month 13: Default only');
 assertSameValue(220.0, componentBySource($before13, 'default')['price'], '19. Default\'s own state: hosting(qty2 x $100) + support($20) = $220');
-assertSameValue(2, count($from13['components']), '19. from month 13: Default (support) + the Leg (hosting) both contribute');
-assertSameValue(20.0, componentBySource($from13, 'default')['price'], '19. Default\'s own remaining state is JUST support — hosting is not duplicated here');
-assertSameValue(500.0, componentBySource($from13, 'CZTL_TIER19')['price'], '19. the Leg\'s own claimed hosting at its own qty5 = $500');
+assertSameValue(2, count($from13['components']), '19. from month 13: Default AND the Leg both contribute independently');
+assertSameValue(220.0, componentBySource($from13, 'default')['price'], '19. Default\'s own full composition is unchanged by the Leg\'s claim: hosting(qty2 x $100) + support($20) = $220');
+assertSameValue(500.0, componentBySource($from13, 'CZTL_TIER19')['price'], '19. the Leg\'s own claimed hosting at its own qty5 = $500, independently priced');
 
 // ── 20. Real Edition acceptance case ────────────────────────────────────
 // Edition Default Leg + one Additional Leg with a different Price Option
@@ -485,8 +497,8 @@ $editionContainer = container([
 $edition20 = PMS::resolveCommercialLegTimeline($readModel, $editionContainer);
 assertSameValue(1, count($edition20), '20. one period — both Legs share the same start, both clamped by commitment');
 assertSameValue(24, $edition20[0]['to_month'], '20. commitment clamps the Edition\'s own timeline to 24 months');
-assertSameValue(2, count($edition20[0]['components']), '20. Default (support) and the Additional Leg (hosting) both contribute');
-assertSameValue(20.0, componentBySource($edition20[0], 'default')['price'], '20. Default\'s own remaining state is support only — hosting is superseded');
+assertSameValue(2, count($edition20[0]['components']), '20. Default and the Additional Leg both contribute independently');
+assertSameValue(120.0, componentBySource($edition20[0], 'default')['price'], '20. Default\'s own full composition is unchanged by the Leg\'s claim: hosting(100) + support(20) = 120');
 assertSameValue(200.0, componentBySource($edition20[0], 'CZTEL_EDITION20')['price'], '20. the Additional Leg\'s own Price Option + quantity: qty4 x po_cheap($50) = $200');
 assertSameValue('yearly', componentBySource($edition20[0], 'CZTEL_EDITION20')['billing_cycle'], '20. the Additional Leg\'s own cadence is preserved distinctly from Default\'s monthly cadence');
 

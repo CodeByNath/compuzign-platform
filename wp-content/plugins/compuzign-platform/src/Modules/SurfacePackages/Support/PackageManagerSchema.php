@@ -1978,15 +1978,21 @@ final class PackageManagerSchema
      * "platform_id-or-id" fallback).
      *
      * Default owns the base composition (its own top-level rate_sheet_items,
-     * unconditional). An Additional Leg never introduces a new inclusion —
-     * structurally guaranteed, since leg_assignments[] only ever exists
-     * nested inside an item that is already part of that top-level list —
-     * it only supersedes Default's own declared quantity/price_option_id
-     * for an inclusion it explicitly claims, for exactly the months it is
-     * itself active. Multiple simultaneously-active Legs claiming the SAME
-     * inclusion are never precedence-ordered against each other — each
-     * keeps its own component, resolved from its own leg_assignments[]
-     * entry, never merged or normalized against a different billing_cycle.
+     * unconditional whenever Default is itself active). An Additional Leg
+     * never introduces a new inclusion — structurally guaranteed, since
+     * leg_assignments[] only ever exists nested inside an item that is
+     * already part of that top-level list — it resolves its own explicitly
+     * claimed items at that assignment's own quantity/price_option_id, for
+     * exactly the months it is itself active. A Leg's claim never removes
+     * the same inclusion from Default's own component, and multiple
+     * simultaneously-active Legs claiming the SAME inclusion are never
+     * precedence-ordered against each other either: every active commercial
+     * identity (Default included) that carries an inclusion gets its own
+     * independent component, resolved from its own declaration, never
+     * merged, suppressed, or normalized against a different billing_cycle.
+     * Same item_id or price_option_id across two active Legs is not a
+     * collision — the Leg Platform ID (or 'default') is the commercial
+     * identity that distinguishes the outcome.
      *
      * Resolution order (locked): segment first from every child's own
      * from_month/to_month, resolve every active child's own components per
@@ -2143,14 +2149,17 @@ final class PackageManagerSchema
     }
 
     /**
-     * Default's own bucket is every top-level rate_sheet_items entry that no
-     * ACTIVE Leg's leg_assignments[] claims this period (a claim naming a
-     * Leg that isn't active this period never supersedes Default — Default
-     * still owns that inclusion for as long as the claiming Leg itself
-     * isn't live). Each active Leg's own bucket is only its own explicitly
-     * claimed items, at that assignment's own quantity/price_option_id —
-     * never a fallback to the item's top-level values, never another Leg's
-     * claim. Matching is by leg_platform_id only, never array position.
+     * Default's own bucket is every top-level rate_sheet_items entry,
+     * unconditionally, whenever Default is itself active — a Leg naming the
+     * same item in its own leg_assignments[] never removes it from Default.
+     * Each active Leg's own bucket is only its own explicitly claimed
+     * items, at that assignment's own quantity/price_option_id — never a
+     * fallback to the item's top-level values, never another Leg's claim.
+     * Two active commercial identities that both carry the same inclusion
+     * are two independent components, not a collision — the Leg Platform
+     * ID (or 'default') is what distinguishes the outcome, never the
+     * inclusion itself. Matching is by leg_platform_id only, never array
+     * position.
      *
      * @param array<int, array{source:string, billing_cycle:string, from_month:int, to_month:?int}> $activeChildren
      * @return array<string, array<int, array{item_id:string, quantity:mixed, price_option_id:mixed}>>
@@ -2169,25 +2178,23 @@ final class PackageManagerSchema
             if (!is_array($item)) { continue; }
             $itemId = (string) ($item['item_id'] ?? '');
             if ($itemId === '') { continue; }
-            $claimed = false;
+            if ($defaultActive) {
+                $buckets['default'][] = [
+                    'item_id'         => $itemId,
+                    'quantity'        => $item['quantity'] ?? 1,
+                    'price_option_id' => $item['price_option_id'] ?? null,
+                ];
+            }
             foreach (is_array($item['leg_assignments'] ?? null) ? $item['leg_assignments'] : [] as $assignment) {
                 if (!is_array($assignment)) { continue; }
                 $ref = (string) ($assignment['leg_platform_id'] ?? '');
                 if ($ref !== '' && isset($activeLegSources[$ref])) {
-                    $claimed = true;
                     $buckets[$ref][] = [
                         'item_id'         => $itemId,
                         'quantity'        => $assignment['quantity'] ?? 1,
                         'price_option_id' => $assignment['price_option_id'] ?? null,
                     ];
                 }
-            }
-            if (!$claimed && $defaultActive) {
-                $buckets['default'][] = [
-                    'item_id'         => $itemId,
-                    'quantity'        => $item['quantity'] ?? 1,
-                    'price_option_id' => $item['price_option_id'] ?? null,
-                ];
             }
         }
         return $buckets;
