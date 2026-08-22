@@ -368,6 +368,13 @@ class PricingBuilder
             // publicTierEditionOptions(), already filtered to Active only.
             $payload['pricing']['tiers'][$tierId]['edition_options'] = $pkgTier['edition_options'] ?? [];
 
+            // The occupant's own resolved Default + Additional Leg
+            // commercial timeline — see PackageManagerSchema::
+            // resolveCommercialLegTimeline(). Additive, carried verbatim
+            // from PackageSchema::extractTierForCostBuilder(), same
+            // unconditional pass-through as edition_options above.
+            $payload['pricing']['tiers'][$tierId]['commercial_legs'] = $pkgTier['commercial_legs'] ?? [];
+
             // Structured minimum commitment (Phase 8) — the resolved default
             // Edition's own value, carried the same way price/billing_cycle
             // already are; null for every Tier that has never used this

@@ -48,6 +48,12 @@ final class PackageFamilyPricingBuilder
                     'edition_options'   => is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : [],
                     'minimum_term_value' => $tier['minimum_term_value'] ?? null,
                     'minimum_term_unit'  => $tier['minimum_term_unit'] ?? null,
+                    // The occupant's own resolved Default + Additional Leg
+                    // commercial timeline — see PackageManagerSchema::
+                    // resolveCommercialLegTimeline(). Additive alongside
+                    // price above, same as every other field here; carried
+                    // through whole, like edition_options already is.
+                    'commercial_legs'   => is_array($tier['commercial_legs'] ?? null) ? $tier['commercial_legs'] : [],
                 ];
             }
             return [
