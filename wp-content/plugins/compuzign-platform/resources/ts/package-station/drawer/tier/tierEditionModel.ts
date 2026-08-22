@@ -88,7 +88,14 @@ export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewD
     admin_description: edition.admin_description,
     rate_sheet_id: edition.rate_sheet_id,
     rate_sheet_items: edition.rate_sheet_items,
-    billing_cycle: edition.billing_cycle,
+    // Written into the draft itself, not just displayed — matching the
+    // occupant's own seed exactly. Leg Default's own card previously showed
+    // "Monthly" via a display-only fallback that was never saved, so an
+    // Edition whose admin never explicitly touched this field persisted
+    // billing_cycle: null and its Default Leg silently never appeared in
+    // resolveCommercialLegTimeline()'s output (commercialLegTimelineChildren()
+    // gates the 'default' child on a non-empty billing_cycle).
+    billing_cycle: edition.billing_cycle ?? 'monthly',
     contact: edition.contact,
     minimum_term_value: edition.minimum_term_value,
     minimum_term_unit: edition.minimum_term_unit,
