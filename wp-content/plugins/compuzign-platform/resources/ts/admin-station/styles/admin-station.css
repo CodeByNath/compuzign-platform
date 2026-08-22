@@ -2941,6 +2941,82 @@ button.cz-station-status-pill {
   line-height: var(--station-line-snug);
 }
 
+/* Package Settings' own Maintenance section — Commercial Legs Debug. A
+   read-only report, nested Family -> Tier -> Edition -> Period -> Component
+   -> Item via plain <details>, not a new drawer/module presentation system. */
+.cz-legs-debug {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  width: 100%;
+}
+
+.cz-legs-debug__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cz-legs-debug__controls .cz-tf-select {
+  width: auto;
+  max-width: 360px;
+}
+
+.cz-legs-debug__muted {
+  margin: 0;
+  color: var(--station-text-muted);
+  font-size: var(--station-text-xs);
+}
+
+.cz-legs-debug__family-title {
+  margin: 0;
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+  font-weight: 700;
+}
+
+.cz-legs-debug__tier,
+.cz-legs-debug__edition,
+.cz-legs-debug__period,
+.cz-legs-debug__component {
+  margin: 6px 0 6px 12px;
+  padding: 4px 0 4px 10px;
+  border-left: 2px solid var(--station-border);
+}
+
+.cz-legs-debug__tier > summary,
+.cz-legs-debug__edition > summary,
+.cz-legs-debug__period > summary,
+.cz-legs-debug__component > summary {
+  cursor: pointer;
+  color: var(--station-text);
+  font-size: var(--station-text-xs);
+}
+
+.cz-legs-debug__tier > summary {
+  font-weight: 700;
+}
+
+.cz-legs-debug__edition > summary {
+  font-weight: 600;
+}
+
+.cz-legs-debug__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0 10px;
+  font-size: var(--station-text-xs);
+}
+
+.cz-legs-debug__table th,
+.cz-legs-debug__table td {
+  text-align: left;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--station-border);
+  color: var(--station-text);
+}
+
 /* Keep every primary data value on the Station foreground. WordPress and the
    separately loaded drawer stylesheet both expose inherited text colours; the
    deck is a Station surface and must close that inheritance boundary itself. */

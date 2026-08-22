@@ -37,9 +37,10 @@ import {
 import { projectTierRateSheetAccess } from '../../surface/tierInstance/tierRateSheetAccessModel';
 import { ConnectedStationsSummary, RateSheetPoolSummary, TierGroupPoolSummary } from './FocusedTierSettings';
 import { TierAccordionSection } from './TierAccordionSection';
+import { CommercialLegsDebugPanel } from './CommercialLegsDebugPanel';
 
 export type PoolSubject = 'family' | 'tier' | 'rate-sheet';
-type SettingsGroupId = 'family-groups' | 'tier-groups' | 'rate-sheets';
+type SettingsGroupId = 'family-groups' | 'tier-groups' | 'rate-sheets' | 'maintenance';
 type SettingsSectionId = 'connected' | 'pool';
 
 // Family Groups' own filter. Default is the full loaded Family pool (`all`),
@@ -236,6 +237,29 @@ export function TierSystemSettings({
       : pool;
     return projectRateSheetPoolRows(ordered).filter((row) => row.platformId !== '');
   }, [focusedRateSheets, rateSheetFilter, rateSheets]);
+
+  // Diagnostics, deliberately defined and rendered outside the three ordered
+  // record-type groups below (Family Groups / Tier Groups / Rate Sheets — a
+  // locked hierarchy; see tier-settings-contract.ts's own source-text block
+  // extraction, which assumes nothing follows Rate Sheets in this file). Its
+  // own source text must stay ABOVE the `groups` block below, not just
+  // ordered first at runtime, since that contract slices raw file text.
+  const maintenanceGroup = useMemo<SettingsGroup>(() => ({
+    id: 'maintenance',
+    title: 'Maintenance',
+    note: '',
+    summary: 'Read-only diagnostics',
+    sections: [
+      {
+        id: 'connected',
+        title: '',
+        description: 'Diagnose the live Commercial Legs projection for one Package Family.',
+        leaf: 'Commercial Legs Debug',
+        content: <CommercialLegsDebugPanel families={families} />,
+      },
+    ],
+  }), [families]);
+
   const groups = useMemo<SettingsGroup[]>(() => {
     const groupCount = rateSheets.reduce((total, sheet) => total + sheet.groups.length, 0);
     return [
@@ -351,16 +375,19 @@ export function TierSystemSettings({
     ];
   }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetFilter, rateSheetRows, rateSheets, presentableInstances, settingsLoading, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
 
+  const allGroups = useMemo<SettingsGroup[]>(() => [maintenanceGroup, ...groups], [groups, maintenanceGroup]);
+
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,
     'tier-groups':   false,
     'rate-sheets':   false,
+    'maintenance':   false,
   });
 
   return (
     <div class="cz-tier-settings">
       <div class="cz-tier-deck__accordion">
-        {groups.map((group) => (
+        {allGroups.map((group) => (
           <TierAccordionSection
             key={group.id}
             id={`cz-tier-settings__${group.id}`}

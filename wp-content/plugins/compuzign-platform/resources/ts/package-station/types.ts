@@ -947,3 +947,74 @@ export interface TierSavePayload {
   new_inclusions: Array<{ label: string }>;
   new_faqs: Array<{ question: string; answer: string }>;
 }
+
+// ── Commercial Legs Debug (Package Settings' own Maintenance section) ──────
+// Read-only diagnostics shape. Mirrors PackageRepository::
+// findAllActiveFamiliesForCostBuilder()'s own raw internal shape verbatim —
+// the SAME array the public /package-builder route projects from, filtered
+// to one Family — not a second, debug-specific contract. Kept separate from
+// PackageFamilyPricingBuilder's own customer-facing types.ts contracts
+// (api/types/cost-builder.ts) since this is intentionally the wider,
+// unwhitelisted internal shape (occupant_id/platform_id/commercial_legs
+// included), not the narrower public response.
+
+export interface CommercialLegsDebugItem {
+  item_id: string;
+  label: string;
+  quantity: number;
+  price_option_id: string | null;
+  unit_price: number | null;
+  line_total: number | null;
+  available: boolean;
+}
+
+export interface CommercialLegsDebugComponent {
+  source: string;
+  from_month: number | null;
+  to_month: number | null;
+  billing_cycle: string | null;
+  price: number | null;
+  available: boolean;
+  items: CommercialLegsDebugItem[];
+}
+
+export interface CommercialLegsDebugPeriod {
+  from_month: number;
+  to_month: number | null;
+  components: CommercialLegsDebugComponent[];
+}
+
+export interface CommercialLegsDebugEditionOption {
+  id: string;
+  label: string;
+  edition_platform_id: string;
+  price: number | null;
+  minimum_term_value: number | null;
+  minimum_term_unit: string | null;
+  commercial_legs: CommercialLegsDebugPeriod[];
+}
+
+export interface CommercialLegsDebugTier {
+  label: string;
+  platform_id: string;
+  price: number | null;
+  minimum_term_value: number | null;
+  minimum_term_unit: string | null;
+  commercial_legs: CommercialLegsDebugPeriod[];
+  edition_options: CommercialLegsDebugEditionOption[];
+}
+
+export interface CommercialLegsDebugFamily {
+  family_id: string;
+  family_platform_id: string;
+  title: string;
+  tier_instance_id: string;
+  tier_instance_platform_id: string;
+  tiers: Record<string, CommercialLegsDebugTier>;
+}
+
+export interface CommercialLegsDebugResponse {
+  success: boolean;
+  message?: string;
+  family?: CommercialLegsDebugFamily;
+}

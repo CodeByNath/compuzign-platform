@@ -95,6 +95,18 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'],
         ]);
 
+        // Read-only diagnostics — Package Settings' own Maintenance section.
+        // Reuses findAllActiveFamiliesForCostBuilder() verbatim (the SAME
+        // method /wp-json/compuzign/v1/package-builder already calls) rather
+        // than a second resolver/projection: this returns exactly what a
+        // customer's own live storefront read already produced, filtered
+        // down to the one requested Family.
+        register_rest_route('compuzign/v1', '/admin/package-station/commercial-legs-debug/(?P<family>[a-z0-9_]+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getCommercialLegsDebug'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
         register_rest_route('compuzign/v1', '/admin/package-station/tier-assignments', [
             'methods'             => 'POST',
             'callback'            => [$this, 'createTierAssignment'],
@@ -352,6 +364,30 @@ class PackageStationController
             $instances
         );
         return rest_ensure_response(['success' => true, 'tier_assignments' => $assignments]);
+    }
+
+    /**
+     * Read-only diagnostics for Package Settings' own Maintenance section —
+     * NOT a second resolver. Filters the SAME array
+     * findAllActiveFamiliesForCostBuilder() already returns to the public
+     * /package-builder route down to the one requested Family, so the
+     * admin sees exactly what a customer's own live storefront read
+     * already produced (flat price, commercial_legs, edition_options[]
+     * with their own commercial_legs) — no reconstruction from Package
+     * Station authoring data, no separate pricing path.
+     */
+    public function getCommercialLegsDebug(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $familyId = sanitize_key((string) $request->get_param('family'));
+        foreach ($this->packages()->findAllActiveFamiliesForCostBuilder() as $family) {
+            if (($family['family_id'] ?? null) === $familyId) {
+                return rest_ensure_response(['success' => true, 'family' => $family]);
+            }
+        }
+        return rest_ensure_response([
+            'success' => false,
+            'message' => 'This Package Family is not resolvable through the live Cost Builder projection right now — it may not be Active, may have no Tier Instance assignment, or that instance may not itself be Active.',
+        ]);
     }
 
     public function createTierAssignment(\WP_REST_Request $request): \WP_REST_Response

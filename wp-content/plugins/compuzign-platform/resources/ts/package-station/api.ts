@@ -28,6 +28,7 @@ import type {
   TierEditionResponse,
   TierEditionBinResponse,
   TierCommercialLeg,
+  CommercialLegsDebugResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -66,6 +67,16 @@ function stripLegSelfIdentity<T extends TierModuleSavePayload | TierEditionOverv
  */
 export function fetchTierGroupByPlatformId(platformId: string): Promise<TierGroupReadResponse> {
   return apiClient.get<TierGroupReadResponse>(`admin/tier-groups/${platformId}`);
+}
+
+/**
+ * Package Settings' own Maintenance section — read-only diagnostics. Returns
+ * exactly what the public /package-builder route already produced for this
+ * Family, filtered server-side to the one requested native group_id. No
+ * mutation, no second resolver.
+ */
+export function fetchCommercialLegsDebug(familyId: string): Promise<CommercialLegsDebugResponse> {
+  return apiClient.get<CommercialLegsDebugResponse>(`admin/package-station/commercial-legs-debug/${familyId}`);
 }
 
 export function createTierInstance(payload: {
