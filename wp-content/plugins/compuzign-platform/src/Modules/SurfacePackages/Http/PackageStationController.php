@@ -804,6 +804,27 @@ class PackageStationController
         }
     }
 
+    /**
+     * Leg identity, Phase 3 — internal Leg id => newly minted platform_id,
+     * for every JUST-reserved Additional Leg in $reservations (see
+     * reserveTierLegPlatformIds()). Excludes the 'default' entry: an
+     * inclusion's leg_assignments[] never references Default Leg, so
+     * including it here could only ever match stray/malformed client input.
+     * Feeds PackageSchema::resolveLegAssignmentPlatformIds().
+     *
+     * @param list<array{legId: string, reservation: \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation, resumed: bool}> $reservations
+     * @return array<string, string>
+     */
+    private function legReservationPlatformIdMap(array $reservations): array
+    {
+        $map = [];
+        foreach ($reservations as $entry) {
+            if ($entry['legId'] === 'default') continue;
+            $map[$entry['legId']] = $entry['reservation']->platformId();
+        }
+        return $map;
+    }
+
     private function instanceDeleteGuardResponse(string $code, string $message): \WP_REST_Response
     {
         return new \WP_REST_Response(['success' => false, 'code' => $code, 'message' => $message], 409);
@@ -2015,6 +2036,18 @@ class PackageStationController
             }
         }
 
+        // Leg identity, Phase 3 — any inclusion assignment still naming a
+        // newly-identified Additional Leg by its Phase 1 internal id (the
+        // only identity that existed while drafting, before this exact
+        // reservation pass) now resolves to that Leg's real CZTL. See
+        // resolveLegAssignmentPlatformIds()'s own doc comment.
+        if ($legReservations !== [] && is_array($slot['current_occupant']['rate_sheet_items'] ?? null)) {
+            $slot['current_occupant']['rate_sheet_items'] = $PS::resolveLegAssignmentPlatformIds(
+                $slot['current_occupant']['rate_sheet_items'],
+                $this->legReservationPlatformIdMap($legReservations)
+            );
+        }
+
         $instance['tiers'][$tierId] = $slot;
         try {
             $this->persistTierInstance($station, $instanceId, $instance);
@@ -2293,6 +2326,17 @@ class PackageStationController
                 $this->retireTierLegReservations($legReservations);
                 if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a Tier Edition Leg Platform identifier.'], 500);
+            }
+
+            // Leg identity, Phase 3 — same resolution as the Tier occupant's
+            // own settlePackageStationTier(): any inclusion assignment still
+            // naming a newly-identified Additional Leg by its Phase 1
+            // internal id now resolves to that Leg's real CZTEL.
+            if ($legReservations !== [] && is_array($updatedEdition['rate_sheet_items'] ?? null)) {
+                $updatedEdition['rate_sheet_items'] = $PS::resolveLegAssignmentPlatformIds(
+                    $updatedEdition['rate_sheet_items'],
+                    $this->legReservationPlatformIdMap($legReservations)
+                );
             }
 
             if ($reservation !== null || $legReservations !== []) {

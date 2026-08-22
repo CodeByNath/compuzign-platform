@@ -59,34 +59,40 @@ class PackageSchema
             $seen[$id] = true;
             $rawOptionId = $item['price_option_id'] ?? null;
             $optionId = ($rawOptionId === null || $rawOptionId === '') ? null : sanitize_text_field((string) $rawOptionId);
-            // Which Commercial Leg this inclusion references — see
-            // TierRateSheetSelection.leg_index. Null/absent is Leg Default;
-            // a non-negative index selects legs[] by position. Never
-            // clamped against the current legs[] length here — this
-            // sanitizer has no legs array in scope, and a temporarily
-            // out-of-range index (e.g. its leg was since removed) is left
-            // as-is rather than silently reassigned.
+            // Vestigial shape-symmetry field — see TierRateSheetSelection.
+            // leg_index. Always null/absent in practice: this row's own
+            // fields above ARE its Default Leg assignment; Phase 3 (Leg
+            // identity on leg_assignments[] below) does not touch it.
             $rawLegIndex = $item['leg_index'] ?? null;
             $legIndex = ($rawLegIndex === null || $rawLegIndex === '') ? null : max(0, (int) $rawLegIndex);
             // Additional Leg assignments beyond this row's own Default Leg
             // assignment above — see TierRateSheetSelection.leg_assignments.
             // An assignment with no leg chosen is dropped rather than stored
-            // ambiguous; leg_index is required per entry (never Default Leg,
-            // whose identity belongs exclusively to the fields above).
+            // ambiguous; leg_platform_id is required per entry (never Default
+            // Leg, whose identity belongs exclusively to the fields above).
+            // Its value references the chosen Additional Leg by whichever
+            // identity is currently authoritative — the Leg's own stable
+            // Phase 1 `id` (legitimate pre-settlement draft addressing) or
+            // its real platform_id once minted; never validated against the
+            // current legs[] here (this sanitizer has no legs array in
+            // scope) — an orphaned/still-unresolved reference (its Leg was
+            // since removed, or not yet Published) is left as-is rather
+            // than silently reassigned. See resolveLegAssignmentPlatformIds()
+            // for the settle-time resolution from internal id to Platform ID.
             $rawAssignments = $item['leg_assignments'] ?? [];
             $assignments = [];
             if (is_array($rawAssignments)) {
                 foreach ($rawAssignments as $assignment) {
                     if (!is_array($assignment)) { continue; }
-                    $rawAssignmentLegIndex = $assignment['leg_index'] ?? null;
-                    if ($rawAssignmentLegIndex === null || $rawAssignmentLegIndex === '') { continue; }
+                    $rawAssignmentLegRef = sanitize_text_field((string) ($assignment['leg_platform_id'] ?? ''));
+                    if ($rawAssignmentLegRef === '') { continue; }
                     $assignmentRawOptionId = $assignment['price_option_id'] ?? null;
                     $assignmentOptionId = ($assignmentRawOptionId === null || $assignmentRawOptionId === '')
                         ? null : sanitize_text_field((string) $assignmentRawOptionId);
                     $assignments[] = [
-                        'price_option_id' => $assignmentOptionId,
-                        'quantity'        => max(1, (int) ($assignment['quantity'] ?? 1)),
-                        'leg_index'       => max(0, (int) $rawAssignmentLegIndex),
+                        'price_option_id'  => $assignmentOptionId,
+                        'quantity'         => max(1, (int) ($assignment['quantity'] ?? 1)),
+                        'leg_platform_id'  => $rawAssignmentLegRef,
                     ];
                 }
             }
@@ -96,6 +102,39 @@ class PackageSchema
             ];
         }
         return $out;
+    }
+
+    /**
+     * Leg identity, Phase 3 — resolve every leg_assignments[].leg_platform_id
+     * in $selections that still names a Leg by its Phase 1 internal `id`
+     * (legitimate draft addressing, used while that Leg had no Platform ID
+     * yet) to the real Platform ID $idsToPlatformIds now maps it to. An
+     * assignment already carrying a real Platform ID is left untouched (its
+     * key simply won't appear in $idsToPlatformIds); one naming a Leg that
+     * is still unpublished or was since removed is also left exactly as-is
+     * — never silently reassigned or dropped, same rule the old positional
+     * leg_index followed. Called once, right after a Publish/Active
+     * transition mints platform_id for whichever Legs lacked one
+     * (PackageStationController::reserveTierLegPlatformIds), so this is the
+     * exact moment those Legs' own identity first exists to resolve to —
+     * see the composition/identity invariant's rule 11.
+     *
+     * @param array<string, string> $idsToPlatformIds internal Leg id => newly minted platform_id (Additional Legs only, never 'default')
+     */
+    public static function resolveLegAssignmentPlatformIds(array $selections, array $idsToPlatformIds): array
+    {
+        if ($idsToPlatformIds === []) { return $selections; }
+        foreach ($selections as $index => $selection) {
+            if (!is_array($selection) || !is_array($selection['leg_assignments'] ?? null)) { continue; }
+            foreach ($selection['leg_assignments'] as $assignmentIndex => $assignment) {
+                if (!is_array($assignment)) { continue; }
+                $ref = (string) ($assignment['leg_platform_id'] ?? '');
+                if ($ref !== '' && isset($idsToPlatformIds[$ref])) {
+                    $selections[$index]['leg_assignments'][$assignmentIndex]['leg_platform_id'] = $idsToPlatformIds[$ref];
+                }
+            }
+        }
+        return $selections;
     }
 
     /**
@@ -1689,7 +1728,16 @@ class PackageSchema
             'minimum_term_unit'    => $data['minimum_term_unit'] ?? null,
             'from_month'           => $data['from_month'] ?? null,
             'to_month'             => $data['to_month'] ?? null,
-            'legs'                 => $data['legs'] ?? [],
+            // Sanitized immediately (Leg identity, Phase 1) — mirrors
+            // savePackageStationTierModule's own pricing_rules branch for
+            // the occupant, so a Leg's own stable id exists as soon as it is
+            // first drafted, not only once this Edition itself settles. An
+            // inclusion assignment drafted in the SAME or a later session
+            // needs that id to reference the Leg by identity before either
+            // has ever been Published (see resolveLegAssignmentPlatformIds's
+            // own doc comment). sanitizeCommercialLegs() preserves an id
+            // already present, so resaving this same draft never re-mints.
+            'legs'                 => self::sanitizeCommercialLegs($data['legs'] ?? []),
             'inclusions_override'  => $data['inclusions_override'] ?? [],
             'faq_refs'             => $data['faq_refs'] ?? [],
         ];

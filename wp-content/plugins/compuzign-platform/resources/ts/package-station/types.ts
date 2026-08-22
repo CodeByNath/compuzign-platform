@@ -793,25 +793,37 @@ export interface TierRateSheetSelection {
   // Default Leg assignment, born together with the inclusion, not an
   // ordinary manually-added leg. Never editable/reassignable in the editor
   // (PoolInclusionsEditor.tsx renders it as a disabled "Leg Default"
-  // control); kept for shape symmetry with TierRateSheetLegAssignment.leg_index
-  // below, which IS a real, admin-chosen reference.
+  // control); kept for shape symmetry with TierRateSheetLegAssignment's own
+  // real, admin-chosen reference (leg_platform_id) below. Never touched by
+  // Phase 3 — the Default Leg's identity belongs to the occupant's/Edition's
+  // own default_leg_platform_id, not to a value stored per row.
   leg_index?: number | null;
   // Additional Leg assignments beyond the row's own Default Leg assignment
-  // above. Each entry picks one of TierPricingRulesDraft.legs[] by index
-  // (never Default Leg — that identity belongs exclusively to the row's own
-  // top-level fields) and carries its own price_option_id/quantity. Mirrors
-  // TierPricingRulesDraft's own Leg Default + legs[] + "+ Add Leg" shape one
-  // level deeper — see PoolInclusionsEditor.tsx's "+ Add Assignment". A leg
-  // reference never stores or recomputes the leg's own billing_cycle/
-  // from_month/to_month; that calculation stays owned entirely by Tier
-  // Pricing Rules.
+  // above. Each entry picks one of TierPricingRulesDraft.legs[] by Leg
+  // identity (never Default Leg — that identity belongs exclusively to the
+  // row's own top-level fields) and carries its own price_option_id/
+  // quantity. Mirrors TierPricingRulesDraft's own Leg Default + legs[] +
+  // "+ Add Leg" shape one level deeper — see PoolInclusionsEditor.tsx's
+  // "+ Add Assignment". A leg reference never stores or recomputes the
+  // leg's own billing_cycle/from_month/to_month; that calculation stays
+  // owned entirely by Tier Pricing Rules.
   leg_assignments?: TierRateSheetLegAssignment[];
 }
 
 export interface TierRateSheetLegAssignment {
   price_option_id?: string | null;
   quantity: number;
-  leg_index: number;
+  // Leg identity (Phase 3) — references the chosen Additional Leg by
+  // whichever identity is currently authoritative: its stable Phase 1 `id`
+  // before that Leg has ever been Publish/Active (no CZTL/CZTEL exists yet
+  // — legitimate draft-addressing per the composition/identity invariant),
+  // or its permanent `platform_id` once minted. The settle boundary
+  // resolves a still-internal-id reference to the real Platform ID the
+  // moment the referenced Leg's own identity is minted
+  // (PackageSchema::resolveLegAssignmentPlatformIds) — never array
+  // position. Required per entry (never Default Leg, whose identity
+  // belongs exclusively to the row's own top-level fields).
+  leg_platform_id: string;
 }
 
 export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {

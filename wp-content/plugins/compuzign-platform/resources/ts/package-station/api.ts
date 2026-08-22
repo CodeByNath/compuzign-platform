@@ -27,10 +27,34 @@ import type {
   TierEditionOverviewDraft,
   TierEditionResponse,
   TierEditionBinResponse,
+  TierCommercialLeg,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
   return apiClient.get<TierInstancesResponse>('admin/package-station/tier-instances');
+}
+
+// Leg identity (Phase 2/3): every TierCommercialLeg the read model returns
+// carries its own `platform_id` (self-identity, output-only, same field
+// PackageStationController::rejectPlatformIdMutation blocks anywhere in a
+// save request body — CZTL/CZTEL are immutable). A pricing_rules/Edition
+// overview draft's own `legs[]` is built by spreading the SAME objects the
+// read model handed back (TierPricingRulesEditor.tsx's updateLeg/removeLeg),
+// so it would otherwise resubmit that field on every ordinary edit — not
+// just reordering — and get the whole request rejected the moment any Leg
+// has a real (non-empty) platform_id. Strip it here, the one place every
+// module save request is actually built, rather than at each editor's own
+// onChange (which has no reason to know about this server-side guard).
+function stripLegSelfIdentity<T extends TierModuleSavePayload | TierEditionOverviewDraft>(payload: T): T {
+  const legs = (payload as { legs?: TierCommercialLeg[] }).legs;
+  if (!Array.isArray(legs)) return payload;
+  return {
+    ...payload,
+    legs: legs.map((leg) => {
+      const { platform_id, ...rest } = leg;
+      return rest;
+    }),
+  };
 }
 
 /**
@@ -218,7 +242,7 @@ export function saveServicePackageStationTierModule(
 ): Promise<TierLifecycleResponse> {
   return apiClient.post<TierLifecycleResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/modules/${module}`,
-    payload,
+    stripLegSelfIdentity(payload),
   );
 }
 
@@ -348,7 +372,7 @@ export function saveTierEditionModule(
 ): Promise<TierEditionResponse> {
   return apiClient.post<TierEditionResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/tiers/${tierId}/editions/${editionId}/modules/overview`,
-    payload,
+    stripLegSelfIdentity(payload),
   );
 }
 

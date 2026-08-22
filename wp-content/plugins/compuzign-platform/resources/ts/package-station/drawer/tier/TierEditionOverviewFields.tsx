@@ -298,7 +298,7 @@ export function TierEditionInclusionsSection({ draft, onChange, svc }: Pick<Prop
             pool={[]}
             onCreate={async () => null}
             rateSheetCatalogue={catalogue}
-            legsCount={(draft.legs ?? []).length}
+            legs={draft.legs ?? []}
           />
         </div>
       ) : (

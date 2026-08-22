@@ -1,18 +1,19 @@
 import { useState } from 'preact/hooks';
 import { defaultPriceLabel } from '../../rateSheetLabels';
-import type { TierRateSheetLegAssignment, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
+import type { TierCommercialLeg, TierRateSheetLegAssignment, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
 import type { InclusionItem } from '@/api/types/pools';
 
 // One inclusion row's Leg assignment — its own Default Leg (fixed, disabled
 // Leg select — see TierRateSheetSelection.leg_index) or one of its
-// leg_assignments[] (a real, admin-chosen Leg). Mirrors CommercialLegCard's
+// leg_assignments[] (a real, admin-chosen Leg, referenced by Leg identity —
+// see TierRateSheetLegAssignment.leg_platform_id). Mirrors CommercialLegCard's
 // own Leg Default + legs[] card shape (TierPricingRulesEditor.tsx) one level
 // deeper: same .cz-ie-faq-item frame, same Remove-disabled-when-not-
 // removable rule, same "+ Add …" precedent — "+ Add Assignment" below.
 function InclusionAssignmentCard({
   row, label, removable, onRemove,
   priceOptionId, onPriceOptionChange, quantity, onQuantityChange,
-  legIndex, legDisabled, legsCount, onLegIndexChange,
+  legRef, legDisabled, legs, onLegRefChange,
 }: {
   row: TierResolvedRateSheetSelection;
   label: string;
@@ -22,10 +23,13 @@ function InclusionAssignmentCard({
   onPriceOptionChange: (value: string | null) => void;
   quantity: number;
   onQuantityChange: (value: number) => void;
-  legIndex: number | null;
+  // The chosen Additional Leg's own identity (platform_id once minted, else
+  // its stable Phase 1 id) — never array position. Null only for the
+  // disabled Default Leg row.
+  legRef: string | null;
   legDisabled: boolean;
-  legsCount: number;
-  onLegIndexChange: (value: number) => void;
+  legs: TierCommercialLeg[];
+  onLegRefChange: (value: string) => void;
 }) {
   const priceOptions = row.price_options ?? [];
   const selectedOption = priceOptionId ? priceOptions.find((option) => option.option_id === priceOptionId) ?? null : null;
@@ -55,12 +59,12 @@ function InclusionAssignmentCard({
         )}
         <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1" aria-label={`Quantity for ${row.label}`} value={quantity}
           onInput={(event) => onQuantityChange(Math.max(1, Number(event.currentTarget.value) || 1))} />
-        <select class="cz-tf-select" aria-label={`Commercial Leg for ${row.label}`} value={legDisabled ? '' : (legIndex ?? 0)} disabled={legDisabled}
-          onChange={(event) => onLegIndexChange(Number(event.currentTarget.value))}>
+        <select class="cz-tf-select" aria-label={`Commercial Leg for ${row.label}`} value={legDisabled ? '' : (legRef ?? '')} disabled={legDisabled}
+          onChange={(event) => onLegRefChange(event.currentTarget.value)}>
           {legDisabled ? (
             <option value="">Leg Default</option>
           ) : (
-            Array.from({ length: legsCount }, (_, i) => <option value={i} key={i}>{`Leg ${i + 1}`}</option>)
+            legs.map((leg, i) => <option value={leg.platform_id || leg.id || ''} key={leg.id ?? i}>{`Leg ${i + 1}`}</option>)
           )}
         </select>
       </div>
@@ -82,15 +86,17 @@ interface Props {
   pool:     InclusionItem[];
   onCreate: (label: string) => Promise<InclusionItem | null>;
   rateSheetCatalogue?: TierResolvedRateSheetSelection[];
-  // Count of Commercial Legs configured beyond Leg Default (Tier Pricing
-  // Rules owns that array and its own billing_cycle/from_month/to_month
-  // calculation — this editor only needs the count to offer "Leg 1"…"Leg N"
-  // alongside the always-present Leg Default option). Absent/0 renders just
-  // Leg Default.
-  legsCount?: number;
+  // Commercial Legs configured beyond Leg Default (Tier Pricing Rules owns
+  // this array and its own billing_cycle/from_month/to_month calculation —
+  // this editor only needs each Leg's own identity/label to offer
+  // "Leg 1"…"Leg N" alongside the always-present Leg Default option, and to
+  // reference the chosen one by identity rather than array position).
+  // Absent/empty renders just Leg Default.
+  legs?: TierCommercialLeg[];
 }
 
-export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue, legsCount }: Props) {
+export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue, legs }: Props) {
+  const availableLegs = legs ?? [];
   const [showAdd,  setShowAdd]  = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [creating, setCreating] = useState(false);
@@ -152,10 +158,10 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
             onPriceOptionChange={(value) => patchSelection({ price_option_id: value })}
             quantity={selection.quantity}
             onQuantityChange={(value) => patchSelection({ quantity: value })}
-            legIndex={null}
+            legRef={null}
             legDisabled
-            legsCount={legsCount ?? 0}
-            onLegIndexChange={() => undefined}
+            legs={availableLegs}
+            onLegRefChange={() => undefined}
           />
           {assignments.map((assignment, assignmentIndex) => (
             <InclusionAssignmentCard
@@ -168,15 +174,15 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
               onPriceOptionChange={(value) => patchAssignment(assignmentIndex, { price_option_id: value })}
               quantity={assignment.quantity}
               onQuantityChange={(value) => patchAssignment(assignmentIndex, { quantity: value })}
-              legIndex={assignment.leg_index}
+              legRef={assignment.leg_platform_id}
               legDisabled={false}
-              legsCount={legsCount ?? 0}
-              onLegIndexChange={(value) => patchAssignment(assignmentIndex, { leg_index: value })}
+              legs={availableLegs}
+              onLegRefChange={(value) => patchAssignment(assignmentIndex, { leg_platform_id: value })}
             />
           ))}
-          {(legsCount ?? 0) > 0 && (
+          {availableLegs.length > 0 && (
             <button type="button" class="cz-tf-add-btn"
-              onClick={() => patchSelection({ leg_assignments: [...assignments, { price_option_id: null, quantity: 1, leg_index: 0 }] })}>
+              onClick={() => patchSelection({ leg_assignments: [...assignments, { price_option_id: null, quantity: 1, leg_platform_id: availableLegs[0].platform_id || availableLegs[0].id || '' }] })}>
               + Add Assignment
             </button>
           )}
