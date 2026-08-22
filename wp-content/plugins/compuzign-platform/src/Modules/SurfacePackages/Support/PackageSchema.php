@@ -221,6 +221,45 @@ class PackageSchema
     }
 
     /**
+     * A Leg with no assignment does nothing to the commercial flow — it is
+     * left alone. An assignment referencing a Leg that no longer exists is
+     * the actual hazard, so it is dropped, never silently reassigned to
+     * Default or another Leg (same "no silent reassignment" rule the old
+     * positional leg_index followed). $currentLegs must be the authoritative,
+     * already-settled set — each entry's own `id` (draft/internal identity,
+     * still legitimate pre-Publish) AND `platform_id` (settled identity)
+     * both count as valid references, since an assignment may still be
+     * addressing a Leg by whichever identity was authoritative when it was
+     * made (see resolveLegAssignmentPlatformIds()). Call this AFTER the
+     * write boundary that already reattached platform_id onto $currentLegs
+     * (upsertOccupant()/settleTierEditionOverview()), never before — an
+     * incomplete or pre-reattach leg list would wrongly prune a still-valid
+     * reference. Deliberately separate from, and unrelated to, Commercial
+     * Legs resolution/commitment — this only keeps stored data internally
+     * consistent.
+     */
+    public static function pruneOrphanedLegAssignments(array $selections, array $currentLegs): array
+    {
+        $validRefs = [];
+        foreach ($currentLegs as $leg) {
+            if (!is_array($leg)) { continue; }
+            $id = (string) ($leg['id'] ?? '');
+            if ($id !== '') { $validRefs[$id] = true; }
+            $platformId = (string) ($leg['platform_id'] ?? '');
+            if ($platformId !== '') { $validRefs[$platformId] = true; }
+        }
+        foreach ($selections as $index => $selection) {
+            if (!is_array($selection) || !is_array($selection['leg_assignments'] ?? null)) { continue; }
+            $selections[$index]['leg_assignments'] = array_values(array_filter(
+                $selection['leg_assignments'],
+                static fn($assignment): bool => is_array($assignment)
+                    && isset($validRefs[(string) ($assignment['leg_platform_id'] ?? '')])
+            ));
+        }
+        return $selections;
+    }
+
+    /**
      * Mint a Leg's stable id — plumbing only, matching the same
      * `<prefix>_ + random suffix` convention as `occ_`/`edt_`/`bin_` above.
      * Not a Platform ID: `CZTL`/`CZTEL` are a later phase and, once they
@@ -1795,6 +1834,10 @@ class PackageSchema
         $edition['legs'] = array_key_exists('legs', $draft)
             ? self::reattachLegPlatformIds(self::sanitizeCommercialLegs($draft['legs']), $edition['legs'])
             : $edition['legs'];
+        // Legs are now final (platform_id already reattached above) — drop
+        // any assignment left pointing at a Leg that no longer exists, e.g.
+        // removed in this same save while an inclusion still referenced it.
+        $edition['rate_sheet_items'] = self::pruneOrphanedLegAssignments($edition['rate_sheet_items'], $edition['legs']);
         $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];
         $edition['faq_refs']            = $draft['faq_refs'] ?? $edition['faq_refs'];
 
@@ -2727,6 +2770,14 @@ class PackageSchema
         $result = self::commitTierLifecycle(self::upsertOccupant($slot, $tierData, true));
         if (is_array($result['current_occupant'] ?? null)) {
             $result['current_occupant']['is_explicitly_disabled'] = false;
+            // Legs are now final (upsertOccupant() already reattached
+            // platform_id) — drop any assignment left pointing at a Leg
+            // that no longer exists, e.g. removed in this same Pricing
+            // Rules save while Features/Inclusions still referenced it.
+            $result['current_occupant']['rate_sheet_items'] = self::pruneOrphanedLegAssignments(
+                $result['current_occupant']['rate_sheet_items'] ?? [],
+                $result['current_occupant']['legs'] ?? []
+            );
         }
         return $result;
     }
