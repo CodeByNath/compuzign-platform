@@ -1929,6 +1929,13 @@ class PackageRepository
                 (bool) ($extracted['contact'] ?? false)
             );
             $extracted['price'] = $rateProjection['price'];
+            // Additive alongside the flat price above — the occupant's own
+            // resolved Default + Additional Leg commercial timeline. Reuses
+            // the same read model and the same rate_sheet_id/rate_sheet_items
+            // this projector call already resolved against; nothing here
+            // recomputes pricing, it only segments and buckets before
+            // calling the SAME projector again per bucket.
+            $extracted['commercial_legs'] = PackageManagerSchema::resolveCommercialLegTimeline($readModel, $extracted);
             // A Bundle-backed selection carries no source_type at all (no
             // Manager source stands behind a combination — see self_priced),
             // so the Manager-sourced-only filter below must also recognize it.
@@ -1995,15 +2002,27 @@ class PackageRepository
                 foreach (PackageManagerSchema::projectEditionPrices($readModel, $rawEditions) as $priced) {
                     $editionPriceById[$priced['id']] = $priced['price'];
                 }
+                // Same additive Commercial Legs timeline as the occupant's
+                // own above, resolved per Edition from that Edition's own
+                // rate_sheet_id/rate_sheet_items/legs — never the occupant's.
+                $editionTimelineById = [];
+                foreach ($rawEditions as $rawEdition) {
+                    $editionTimelineById[$rawEdition['id']] = PackageManagerSchema::resolveCommercialLegTimeline($readModel, $rawEdition);
+                }
                 $extracted['edition_options'] = array_map(
-                    static fn(array $option): array => [...$option, 'price' => $editionPriceById[$option['id']] ?? $option['price']],
+                    static fn(array $option): array => [
+                        ...$option,
+                        'price' => $editionPriceById[$option['id']] ?? $option['price'],
+                        'commercial_legs' => $editionTimelineById[$option['id']] ?? [],
+                    ],
                     $extracted['edition_options']
                 );
             }
-            // The projector above is the only internal consumer of these two
-            // keys; Rate Sheet binding identity itself never becomes a public
-            // response field, even though the server-side projection needs it.
-            unset($extracted['rate_sheet_id'], $extracted['rate_sheet_items']);
+            // The projector above is the only internal consumer of these
+            // keys; Rate Sheet binding identity and the raw Leg list never
+            // become public response fields — commercial_legs above is the
+            // resolved, public-safe shape derived from 'legs' instead.
+            unset($extracted['rate_sheet_id'], $extracted['rate_sheet_items'], $extracted['legs']);
             $flatTiers[$tierId] = $extracted;
         }
         $projected['platform_status'] = 'active';

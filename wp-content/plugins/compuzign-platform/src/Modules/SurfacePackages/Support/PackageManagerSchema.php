@@ -8,12 +8,14 @@
  * SOURCE_RECONCILIATION  Pool source resolution and item reconciliation
  * MANAGER_READ_MODEL     Provenance, health, and consumer projections
  * RATE_SHEET_PROJECTION  Tier Rate Sheet reference projection
+ * COMMERCIAL_LEG_RESOLUTION  Default + Additional Leg commercial timeline
  *
  * Search: SECTION: MANAGER_SHAPE
  *         SECTION: MANAGER_COMMIT
  *         SECTION: SOURCE_RECONCILIATION
  *         SECTION: MANAGER_READ_MODEL
  *         SECTION: RATE_SHEET_PROJECTION
+ *         SECTION: COMMERCIAL_LEG_RESOLUTION
  */
 
 namespace CompuZign\Platform\Modules\SurfacePackages\Support;
@@ -1959,6 +1961,267 @@ final class PackageManagerSchema
             $edition['price'] = $projection['price'];
             return $edition;
         }, $editions);
+    }
+
+    // ===================================================================
+    // SECTION: COMMERCIAL_LEG_RESOLUTION
+    // ===================================================================
+
+    /**
+     * Commercial Legs resolver — see the "Commercial Legs pricing boundary"
+     * project note and the locked resolver contract it derives from: the
+     * Tier occupant / Tier Edition is one parent commercial object; Default
+     * and every Additional Leg are time-scoped commercial children of it,
+     * each independently identified (Default is the literal string
+     * 'default'; an Additional Leg is its own platform_id, or its Phase 1
+     * draft id pre-settlement — matches every other Leg-identity call site's
+     * "platform_id-or-id" fallback).
+     *
+     * Default owns the base composition (its own top-level rate_sheet_items,
+     * unconditional). An Additional Leg never introduces a new inclusion —
+     * structurally guaranteed, since leg_assignments[] only ever exists
+     * nested inside an item that is already part of that top-level list —
+     * it only supersedes Default's own declared quantity/price_option_id
+     * for an inclusion it explicitly claims, for exactly the months it is
+     * itself active. Multiple simultaneously-active Legs claiming the SAME
+     * inclusion are never precedence-ordered against each other — each
+     * keeps its own component, resolved from its own leg_assignments[]
+     * entry, never merged or normalized against a different billing_cycle.
+     *
+     * Resolution order (locked): segment first from every child's own
+     * from_month/to_month, resolve every active child's own components per
+     * segment through the existing pricing engine UNCHANGED, and only then
+     * clamp the whole derived timeline to commitment — never the reverse,
+     * and never pushed into segmentation or a single child's own
+     * resolution. Commitment is not required for any of this to resolve.
+     *
+     * Purely additive: never called by the existing flat price path
+     * (projectTierRateSheetWith/projectEditionPrices above), which stays
+     * completely untouched and keeps computing the SAME single number it
+     * always has, for every existing consumer that reads it today.
+     *
+     * @param array<string, mixed> $readModel buildReadModel()'s own output
+     * @param array<string, mixed> $container occupant or Tier Edition shape:
+     *   billing_cycle, from_month, to_month, minimum_term_value,
+     *   minimum_term_unit, contact, rate_sheet_id, rate_sheet_items (each
+     *   entry may carry its own leg_assignments[]), legs[] (Additional Legs)
+     * @return array<int, array{from_month:int, to_month:?int, components:array}>
+     */
+    public static function resolveCommercialLegTimeline(array $readModel, array $container): array
+    {
+        $children = self::commercialLegTimelineChildren($container);
+        if ($children === []) {
+            return [];
+        }
+
+        $rateSheetItems = is_array($container['rate_sheet_items'] ?? null) ? $container['rate_sheet_items'] : [];
+        $rateSheetId = $container['rate_sheet_id'] ?? null;
+        $contact = (bool) ($container['contact'] ?? false);
+
+        $periods = [];
+        foreach (self::commercialLegTimelinePeriods($children) as $period) {
+            $active = self::activeCommercialLegTimelineChildren($children, $period['from_month']);
+            $buckets = self::bucketRateSheetItemsByCommercialLegChild($rateSheetItems, $active);
+
+            $components = [];
+            foreach ($active as $child) {
+                $selections = $buckets[$child['source']] ?? [];
+                if ($selections === []) {
+                    continue;
+                }
+                $priced = self::projectTierRateSheetWith($readModel, $selections, $rateSheetId, $contact);
+                $resolved = self::resolveLeg($priced, [
+                    'billing_cycle' => $child['billing_cycle'],
+                    'from_month'    => $period['from_month'],
+                    'to_month'      => $period['to_month'],
+                ]);
+                $components[] = [
+                    'source'        => $child['source'],
+                    'billing_cycle' => $resolved['billing_cycle'],
+                    'price'         => $resolved['price'],
+                    'available'     => $resolved['available'],
+                    'items'         => $priced['selections'],
+                ];
+            }
+            if ($components === []) {
+                continue;
+            }
+            $periods[] = [
+                'from_month' => $period['from_month'],
+                'to_month'   => $period['to_month'],
+                'components' => $components,
+            ];
+        }
+
+        return self::clampCommercialLegTimelineToCommitment($periods, $container);
+    }
+
+    /**
+     * Every commercial child of $container, Default first: Default only
+     * when it has a billing_cycle at all (mirrors sanitizeCommercialLegs()
+     * dropping a Leg with none — a never-configured occupant/Edition has no
+     * Default Leg to resolve), then every Additional Leg entry that also
+     * has one (already guaranteed by sanitizeCommercialLegs() for stored
+     * data). A from_month left unset defaults to month 1 for either kind —
+     * the same "no configured start defaults to the beginning" reading
+     * already implicit in resolveTierLegRecord()'s own Default branch.
+     *
+     * @return array<int, array{source:string, billing_cycle:string, from_month:int, to_month:?int}>
+     */
+    private static function commercialLegTimelineChildren(array $container): array
+    {
+        $children = [];
+        $defaultCycle = sanitize_text_field((string) ($container['billing_cycle'] ?? ''));
+        if ($defaultCycle !== '') {
+            $children[] = [
+                'source'        => 'default',
+                'billing_cycle' => $defaultCycle,
+                'from_month'    => isset($container['from_month']) && $container['from_month'] !== null ? (int) $container['from_month'] : 1,
+                'to_month'      => isset($container['to_month']) && $container['to_month'] !== null ? (int) $container['to_month'] : null,
+            ];
+        }
+        foreach (is_array($container['legs'] ?? null) ? $container['legs'] : [] as $leg) {
+            if (!is_array($leg)) { continue; }
+            $cycle = sanitize_text_field((string) ($leg['billing_cycle'] ?? ''));
+            if ($cycle === '') { continue; }
+            $identity = (string) ($leg['platform_id'] ?? '');
+            if ($identity === '') { $identity = (string) ($leg['id'] ?? ''); }
+            if ($identity === '') { continue; }
+            $children[] = [
+                'source'        => $identity,
+                'billing_cycle' => $cycle,
+                'from_month'    => isset($leg['from_month']) && $leg['from_month'] !== null ? (int) $leg['from_month'] : 1,
+                'to_month'      => isset($leg['to_month']) && $leg['to_month'] !== null ? (int) $leg['to_month'] : null,
+            ];
+        }
+        return $children;
+    }
+
+    /**
+     * Sweep every child's own from_month, and to_month+1 where finite, into
+     * a sorted boundary set, then keep only the resulting [from, to]
+     * stretches that actually have at least one active child — this is what
+     * drops both a genuine gap between two windows and any trailing stretch
+     * past the last finite end when nothing indefinite covers it, with no
+     * separate gap-detection rule needed.
+     *
+     * @param array<int, array{source:string, billing_cycle:string, from_month:int, to_month:?int}> $children
+     * @return array<int, array{from_month:int, to_month:?int}>
+     */
+    private static function commercialLegTimelinePeriods(array $children): array
+    {
+        $boundaries = [];
+        foreach ($children as $child) {
+            $boundaries[] = $child['from_month'];
+            if ($child['to_month'] !== null) {
+                $boundaries[] = $child['to_month'] + 1;
+            }
+        }
+        $boundaries = array_values(array_unique($boundaries));
+        sort($boundaries, SORT_NUMERIC);
+
+        $periods = [];
+        $count = count($boundaries);
+        for ($i = 0; $i < $count; $i++) {
+            $from = $boundaries[$i];
+            $to = ($i + 1 < $count) ? ($boundaries[$i + 1] - 1) : null;
+            if (self::activeCommercialLegTimelineChildren($children, $from) === []) {
+                continue;
+            }
+            $periods[] = ['from_month' => $from, 'to_month' => $to];
+        }
+        return $periods;
+    }
+
+    /** A child active at $month is active for its whole enclosing period — segments are built from its own boundaries. */
+    private static function activeCommercialLegTimelineChildren(array $children, int $month): array
+    {
+        return array_values(array_filter(
+            $children,
+            static fn(array $child): bool => $child['from_month'] <= $month && ($child['to_month'] === null || $child['to_month'] >= $month)
+        ));
+    }
+
+    /**
+     * Default's own bucket is every top-level rate_sheet_items entry that no
+     * ACTIVE Leg's leg_assignments[] claims this period (a claim naming a
+     * Leg that isn't active this period never supersedes Default — Default
+     * still owns that inclusion for as long as the claiming Leg itself
+     * isn't live). Each active Leg's own bucket is only its own explicitly
+     * claimed items, at that assignment's own quantity/price_option_id —
+     * never a fallback to the item's top-level values, never another Leg's
+     * claim. Matching is by leg_platform_id only, never array position.
+     *
+     * @param array<int, array{source:string, billing_cycle:string, from_month:int, to_month:?int}> $activeChildren
+     * @return array<string, array<int, array{item_id:string, quantity:mixed, price_option_id:mixed}>>
+     */
+    private static function bucketRateSheetItemsByCommercialLegChild(array $rateSheetItems, array $activeChildren): array
+    {
+        $defaultActive = false;
+        $activeLegSources = [];
+        foreach ($activeChildren as $child) {
+            if ($child['source'] === 'default') { $defaultActive = true; }
+            else { $activeLegSources[$child['source']] = true; }
+        }
+
+        $buckets = [];
+        foreach ($rateSheetItems as $item) {
+            if (!is_array($item)) { continue; }
+            $itemId = (string) ($item['item_id'] ?? '');
+            if ($itemId === '') { continue; }
+            $claimed = false;
+            foreach (is_array($item['leg_assignments'] ?? null) ? $item['leg_assignments'] : [] as $assignment) {
+                if (!is_array($assignment)) { continue; }
+                $ref = (string) ($assignment['leg_platform_id'] ?? '');
+                if ($ref !== '' && isset($activeLegSources[$ref])) {
+                    $claimed = true;
+                    $buckets[$ref][] = [
+                        'item_id'         => $itemId,
+                        'quantity'        => $assignment['quantity'] ?? 1,
+                        'price_option_id' => $assignment['price_option_id'] ?? null,
+                    ];
+                }
+            }
+            if (!$claimed && $defaultActive) {
+                $buckets['default'][] = [
+                    'item_id'         => $itemId,
+                    'quantity'        => $item['quantity'] ?? 1,
+                    'price_option_id' => $item['price_option_id'] ?? null,
+                ];
+            }
+        }
+        return $buckets;
+    }
+
+    /**
+     * Commitment applied LAST, once, over the already-fully-resolved period
+     * list — never inside segmentation or a single child's own resolution
+     * above. No commitment (minimum_term_unit isn't exactly 'month', or no
+     * value set) leaves every period exactly as authored. With commitment,
+     * the boundary is anchored at the SAME from_month Default's own child
+     * used above (month 1 when unset) plus minimum_term_value months: a
+     * period starting after that boundary is dropped entirely, and a
+     * period's own to_month (finite or indefinite) is capped to it, never
+     * extended past it.
+     */
+    private static function clampCommercialLegTimelineToCommitment(array $periods, array $container): array
+    {
+        $unit = $container['minimum_term_unit'] ?? null;
+        $value = $container['minimum_term_value'] ?? null;
+        if ($unit !== 'month' || $value === null) {
+            return $periods;
+        }
+        $anchor = isset($container['from_month']) && $container['from_month'] !== null ? (int) $container['from_month'] : 1;
+        $commitmentEnd = $anchor + (int) $value - 1;
+
+        $clamped = [];
+        foreach ($periods as $period) {
+            if ($period['from_month'] > $commitmentEnd) { continue; }
+            $to = $period['to_month'];
+            if ($to === null || $to > $commitmentEnd) { $to = $commitmentEnd; }
+            $clamped[] = ['from_month' => $period['from_month'], 'to_month' => $to, 'components' => $period['components']];
+        }
+        return $clamped;
     }
 
     // ── Consumer projections ─────────────────────────────────────────────────

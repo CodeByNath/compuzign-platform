@@ -1266,6 +1266,16 @@ class PackageSchema
                 // in here — same rule already applied to price/billing_cycle.
                 'minimum_term_value'  => $occ['minimum_term_value'] ?? null,
                 'minimum_term_unit'   => $occ['minimum_term_unit'] ?? null,
+                // Default Leg's own coverage window plus the occupant's
+                // Additional Legs — needed only by
+                // PackageManagerSchema::resolveCommercialLegTimeline()
+                // (Commercial Legs resolver); the repository call site
+                // unsets 'legs' again once that projection is computed, the
+                // same way rate_sheet_id/rate_sheet_items never survive as
+                // public fields either.
+                'from_month'          => $occ['from_month'] ?? null,
+                'to_month'            => $occ['to_month'] ?? null,
+                'legs'                => is_array($occ['legs'] ?? null) ? $occ['legs'] : [],
             ];
         }
 
