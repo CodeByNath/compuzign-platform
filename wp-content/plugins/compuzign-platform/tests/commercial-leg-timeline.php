@@ -415,6 +415,14 @@ assertSameValue(36, $p17b['to_month'], '17. the Leg\'s own indefinite window cla
 assertSameValue(13, $p17b['from_month'], '17. the Leg\'s own from_month is untouched by the clamp — only to_month is limited');
 assertSameValue(30.0, componentBySource($p17b, 'CZTL_17')['price'], '17. the Leg\'s own claimed component still resolves correctly inside the clamped period');
 assertTrue(periodAt($t17, 40) === null, '17. nothing exists past the commitment boundary');
+// The PERIOD's own to_month is clamped (36); the COMPONENT's own to_month
+// is that child's genuine authored window and is never itself clamped —
+// resolve the Legs first, then clamp the final (period) timeline, never
+// the child's own range.
+assertSameValue(null, componentBySource($p17b, 'CZTL_17')['to_month'], '17. the Leg\'s own component reports its true authored to_month (null/indefinite), distinct from the clamped period it lives inside');
+assertSameValue(13, componentBySource($p17b, 'CZTL_17')['from_month'], '17. the Leg\'s own component reports its true authored from_month');
+assertSameValue(null, componentBySource($p17a, 'default')['to_month'], '17. Default\'s own component in the earlier, naturally-finite period ALSO reports its true authored to_month (null/indefinite) — the period boundary (12) is not the child\'s own range');
+assertSameValue(1, componentBySource($p17a, 'default')['from_month'], '17. Default\'s own component reports its true authored from_month');
 
 // ── 18. Leg starts after commitment ends — never creates state outside it ─
 
@@ -428,6 +436,35 @@ $t18 = PMS::resolveCommercialLegTimeline($readModel, $c18);
 assertSameValue(1, count($t18), '18. only Default\'s own clamped period exists');
 assertSameValue(12, $t18[0]['to_month'], '18. Default clamps to the 12-month commitment boundary');
 assertTrue(componentBySource($t18[0], 'CZTL_18') === null, '18. the Leg never appears — its own window starts entirely after commitment already ended');
+
+// ── 22. Indefinite Default split by a later indefinite Leg, NO commitment —
+//         each child's own range is read independently, never truncated by
+//         the segmentation boundary the other child's start creates ──────
+
+$c22 = container([
+    'billing_cycle' => 'monthly', 'from_month' => 0, 'to_month' => null,
+    'legs' => [leg('CZTL_22', 'monthly', 13, null)],
+    'rate_sheet_items' => [
+        item('hosting', 1),
+        item('addon', 1, null, [claim('CZTL_22', 1)]),
+    ],
+]);
+$t22 = PMS::resolveCommercialLegTimeline($readModel, $c22);
+assertSameValue(2, count($t22), '22. two periods — the active-child set changes at month 13, that is a period boundary, not either child\'s own end');
+$p22a = periodAt($t22, 6);
+$p22b = periodAt($t22, 20);
+assertSameValue(0, $p22a['from_month'], '22. first period starts at Default\'s own from_month (0)');
+assertSameValue(12, $p22a['to_month'], '22. first period ends at month 12 — this is the SEGMENTATION boundary (Leg 1 starts at 13), not a truncation of Default\'s own range');
+assertSameValue(null, $p22b['to_month'], '22. second period stays open-ended — no commitment to clamp it');
+$default22a = componentBySource($p22a, 'default');
+assertSameValue(0, $default22a['from_month'], '22. Default\'s own component reports its true authored from_month (0)');
+assertSameValue(null, $default22a['to_month'], '22. Default\'s own component reports its true authored to_month: still indefinite, NOT 12 — this is the exact bug this scenario locks against');
+$default22b = componentBySource($p22b, 'default');
+assertTrue($default22b !== null, '22. Default is still active in the second period too — nothing claims hosting, so it keeps contributing after month 13');
+assertSameValue(null, $default22b['to_month'], '22. Default\'s own component in the SECOND period also reports to_month: null — the SAME child, same authored range, regardless of which period it is resolved within');
+$leg22b = componentBySource($p22b, 'CZTL_22');
+assertSameValue(13, $leg22b['from_month'], '22. Leg 1\'s own component reports its true authored from_month (13)');
+assertSameValue(null, $leg22b['to_month'], '22. Leg 1\'s own component reports its true authored to_month: null/indefinite, never forced finite by Default\'s own presence in the same period');
 
 // ── 21. Reordering Legs changes no assignment relationship — matching is
 //         by leg_platform_id only, array order carries no meaning ─────────

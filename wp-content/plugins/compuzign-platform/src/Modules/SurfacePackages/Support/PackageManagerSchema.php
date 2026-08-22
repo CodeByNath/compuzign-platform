@@ -1995,6 +1995,24 @@ final class PackageManagerSchema
      * and never pushed into segmentation or a single child's own
      * resolution. Commitment is not required for any of this to resolve.
      *
+     * A period's own from_month/to_month (segmentation's own boundary,
+     * clamped by commitment when one exists) and a component's own
+     * from_month/to_month (that child's own authored window, straight off
+     * its own stored record) answer two different questions and must never
+     * be confused: a Leg starting partway through another Leg's own
+     * indefinite run creates a period boundary because the ACTIVE-CHILD SET
+     * changes there, never because either child's own range changed. With
+     * no commitment, Default 0→indefinite and Leg 1 13→indefinite both stay
+     * indefinite on their own component — the period they are resolved
+     * within may still be finite (e.g. 0→12, because Leg 1 starts at 13),
+     * but that is the period's own boundary, not either child's. With
+     * commitment, the period itself is what gets clamped (Default's own
+     * period ending at 12 is already commitment-shaped on its own, per
+     * "resolve the Legs first, then clamp the final timeline") — a child's
+     * own component-level window is never itself clamped, since it always
+     * reports that child's genuine authored range regardless of commitment.
+     *
+
      * Purely additive: never called by the existing flat price path
      * (projectTierRateSheetWith/projectEditionPrices above), which stays
      * completely untouched and keeps computing the SAME single number it
@@ -2030,14 +2048,20 @@ final class PackageManagerSchema
                     continue;
                 }
                 $priced = self::projectTierRateSheetWith($readModel, $selections, $rateSheetId, $contact);
+                // This child's own authored window — never the enclosing
+                // period's boundary (see this function's own doc comment).
+                // Independent of commitment: a component's own from_month/
+                // to_month is always that child's genuine stored range.
                 $resolved = self::resolveLeg($priced, [
                     'billing_cycle' => $child['billing_cycle'],
-                    'from_month'    => $period['from_month'],
-                    'to_month'      => $period['to_month'],
+                    'from_month'    => $child['from_month'],
+                    'to_month'      => $child['to_month'],
                 ]);
                 $components[] = [
                     'source'        => $child['source'],
                     'billing_cycle' => $resolved['billing_cycle'],
+                    'from_month'    => $resolved['from_month'],
+                    'to_month'      => $resolved['to_month'],
                     'price'         => $resolved['price'],
                     'available'     => $resolved['available'],
                     'items'         => $priced['selections'],
