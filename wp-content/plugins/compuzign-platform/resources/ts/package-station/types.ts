@@ -542,6 +542,8 @@ export interface SurfaceTierDetail {
   platform_id: string;
   /** Output-only permanent Add-on identity; dormant while is_addon is false. */
   addon_platform_id: string;
+  /** Output-only permanent CZTL identity for this occupant's own Default Leg; empty until bound. */
+  default_leg_platform_id: string;
   label: string;
   ideal_for: string;
   // An occupant belongs to its Tier Group, not one customer audience.
@@ -618,6 +620,8 @@ export interface TierEdition {
   id: string;
   /** Output-only permanent identity; empty until first Publish (Active). */
   edition_platform_id: string;
+  /** Output-only permanent CZTEL identity for this Edition's own Default Leg; empty until bound. */
+  default_leg_platform_id: string;
   title: string;
   admin_description: string;
   platform_status: 'draft' | 'active' | 'disabled' | 'archived' | 'trashed';
@@ -759,6 +763,12 @@ export interface TierPricingRulesDraft {
 // changes sort_order only; id and billing terms never change. Both are
 // optional here only because a leg the admin has just added in this editing
 // session (addLeg) has neither yet; the backend assigns both on save.
+//
+// Leg identity (Phase 2): platform_id is this Leg's own permanent CZTL/CZTEL
+// identity, output-only and empty until the reserve/bind sequence assigns
+// one (same first-Publish/first-Active moment CZT/CZTE assign theirs) — the
+// editor never sets it. Bound to the Leg's own `id` above, so reordering
+// (which changes only sort_order) never changes it either.
 export interface TierCommercialLeg {
   id?: string;
   sort_order?: number;
@@ -768,6 +778,7 @@ export interface TierCommercialLeg {
   // same null as "not yet configured": to_month is always present once a
   // leg exists, this array entry's absence is the "not configured" state.
   to_month: number | null;
+  platform_id?: string;
 }
 
 export interface TierRateSheetSelection {

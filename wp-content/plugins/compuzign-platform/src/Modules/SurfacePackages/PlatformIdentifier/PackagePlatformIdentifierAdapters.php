@@ -73,6 +73,42 @@ final class PackagePlatformIdentifierAdapters
         );
     }
 
+    /**
+     * A Tier occupant's own Leg — Default or Additional, distinguished by
+     * native reference (see PackagePlatformNativeReference::tierLeg()), not
+     * by a separate adapter. One shared CZTL entity type for both.
+     */
+    public function tierLeg(): PackagePlatformIdentifierAdapter
+    {
+        return new PackagePlatformIdentifierAdapter(
+            PlatformIdentifierPolicy::TIER_LEG,
+            fn(int|string|null $cursor, int $limit): array => $this->packages->tierLegAssignmentPage(
+                is_string($cursor) && $cursor !== '' ? $cursor : null,
+                $limit
+            ),
+            fn(int|string $reference): string => $this->packages->tierLegPlatformId((string) $reference),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierLegPlatformId((string) $reference, $platformId),
+            fn(string $platformId): bool => $this->packages->tierLegPlatformIdExists($platformId),
+            fn(int|string $reference): ?array => $this->packages->tierLegProjection((string) $reference)
+        );
+    }
+
+    /** A Tier Edition's own Leg — same Default/Additional split as tierLeg(), one level deeper, own CZTEL entity type. */
+    public function tierEditionLeg(): PackagePlatformIdentifierAdapter
+    {
+        return new PackagePlatformIdentifierAdapter(
+            PlatformIdentifierPolicy::TIER_EDITION_LEG,
+            fn(int|string|null $cursor, int $limit): array => $this->packages->tierEditionLegAssignmentPage(
+                is_string($cursor) && $cursor !== '' ? $cursor : null,
+                $limit
+            ),
+            fn(int|string $reference): string => $this->packages->tierEditionLegPlatformId((string) $reference),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierEditionLegPlatformId((string) $reference, $platformId),
+            fn(string $platformId): bool => $this->packages->tierEditionLegPlatformIdExists($platformId),
+            fn(int|string $reference): ?array => $this->packages->tierEditionLegProjection((string) $reference)
+        );
+    }
+
     public function rateSheet(): PackagePlatformIdentifierAdapter
     {
         return $this->rateSheetAdapter(PlatformIdentifierPolicy::PACKAGE_RATE_CARD, 'sheet');

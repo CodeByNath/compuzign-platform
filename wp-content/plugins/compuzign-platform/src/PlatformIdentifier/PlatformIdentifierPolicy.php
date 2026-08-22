@@ -20,6 +20,8 @@ final class PlatformIdentifierPolicy
     public const TIER                    = 'tier';
     public const TIER_ADDON              = 'tier_addon';
     public const TIER_EDITION            = 'tier_edition';
+    public const TIER_LEG                = 'tier_leg';
+    public const TIER_EDITION_LEG        = 'tier_edition_leg';
     public const TIER_PROMOTION          = 'tier_promotion';
     public const PACKAGE_RATE_CARD        = 'package_rate_card';
     public const PACKAGE_RATE_CARD_GROUP  = 'package_rate_card_group';
@@ -42,6 +44,18 @@ final class PlatformIdentifierPolicy
         self::TIER                    => 'CZT',
         self::TIER_ADDON              => 'CZTA',
         self::TIER_EDITION            => 'CZTE',
+        // A Commercial Leg — Default or Additional alike, distinguished by
+        // native reference, not by a separate prefix (the spec's own
+        // vocabulary: "Tier Leg -> CZTLxxxxx" covers both). Longer prefixes
+        // sharing a stem with an existing one (CZTL/CZTEL against
+        // CZT/CZTA/CZTE/CZTG) are unambiguous for the same reason the
+        // CZPRCB family already is: validate()'s anchored regex requires the
+        // FULL string to be exactly prefix + SUFFIX_LENGTH chars, so a real
+        // CZTEL id (5-char prefix + 5-char suffix = 10 chars) can never
+        // satisfy CZTE's own pattern (4-char prefix + 5-char suffix = 9
+        // chars) regardless of alphabet overlap.
+        self::TIER_LEG                => 'CZTL',
+        self::TIER_EDITION_LEG        => 'CZTEL',
         self::TIER_PROMOTION          => 'CZTP',
         self::PACKAGE_RATE_CARD        => 'CZPRC',
         self::PACKAGE_RATE_CARD_GROUP  => 'CZPRCG',

@@ -730,6 +730,80 @@ class PackageStationController
         return $this->platformIdentity->reserve($adapter);
     }
 
+    /**
+     * Reserve CZTL/CZTEL for a Leg container's own Default Leg + every
+     * Additional Leg lacking one, using the SAME reserve/resume rule
+     * identityNeedsReconciliation()/reservationForReconciliation() already
+     * apply to CZT/CZTA/CZTE, per-Leg instead of per-occupant. $container is
+     * the occupant or a Tier Edition (both share the same
+     * default_leg_platform_id/legs[] shape) — mutated with any newly
+     * reserved/resumed ids written back, never touching a Leg that already
+     * carries one.
+     *
+     * @return array{container: array, reservations: list<array{legId: string, reservation: \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation, resumed: bool}>}
+     */
+    private function reserveTierLegPlatformIds(array $container, PackagePlatformIdentifierAdapter $adapter): array
+    {
+        $reservations = [];
+        $existingDefaultId = (string) ($container['default_leg_platform_id'] ?? '');
+        if ($existingDefaultId === '') {
+            $reservation = $this->platformIdentity->reserve($adapter);
+            $container['default_leg_platform_id'] = $reservation->platformId();
+            $reservations[] = ['legId' => 'default', 'reservation' => $reservation, 'resumed' => false];
+        } elseif ($this->identityNeedsReconciliation($existingDefaultId)) {
+            $reservation = $this->reservationForReconciliation($adapter, $existingDefaultId);
+            $resumed = $reservation->platformId() === $existingDefaultId;
+            $container['default_leg_platform_id'] = $reservation->platformId();
+            $reservations[] = ['legId' => 'default', 'reservation' => $reservation, 'resumed' => $resumed];
+        }
+
+        $legs = is_array($container['legs'] ?? null) ? $container['legs'] : [];
+        foreach ($legs as $index => $leg) {
+            if (!is_array($leg)) continue;
+            $legId = (string) ($leg['id'] ?? '');
+            if ($legId === '') continue;
+            $existingId = (string) ($leg['platform_id'] ?? '');
+            if ($existingId === '') {
+                $reservation = $this->platformIdentity->reserve($adapter);
+                $legs[$index]['platform_id'] = $reservation->platformId();
+                $reservations[] = ['legId' => $legId, 'reservation' => $reservation, 'resumed' => false];
+            } elseif ($this->identityNeedsReconciliation($existingId)) {
+                $reservation = $this->reservationForReconciliation($adapter, $existingId);
+                $resumed = $reservation->platformId() === $existingId;
+                $legs[$index]['platform_id'] = $reservation->platformId();
+                $reservations[] = ['legId' => $legId, 'reservation' => $reservation, 'resumed' => $resumed];
+            }
+        }
+        $container['legs'] = $legs;
+
+        return ['container' => $container, 'reservations' => $reservations];
+    }
+
+    /** @param list<array{legId: string, reservation: \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation, resumed: bool}> $reservations */
+    private function retireTierLegReservations(array $reservations): void
+    {
+        foreach ($reservations as $entry) {
+            if (!$entry['resumed']) $this->retireReservation($entry['reservation']);
+        }
+    }
+
+    /**
+     * Bind every already-reserved Leg identifier (see
+     * reserveTierLegPlatformIds()) to its own native reference. Throws on
+     * any failure — every call site wraps this in the SAME try/catch already
+     * guarding the parent occupant's/Edition's own bind, so a Leg bind
+     * failure is retried and reported exactly like a primary/addon/Edition
+     * one.
+     *
+     * @param list<array{legId: string, reservation: \CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation, resumed: bool}> $reservations
+     */
+    private function bindTierLegPlatformIds(PackagePlatformIdentifierAdapter $adapter, array $reservations, \Closure $buildReference): void
+    {
+        foreach ($reservations as $entry) {
+            $this->platformIdentity->bind($adapter, $entry['reservation'], $buildReference($entry['legId']));
+        }
+    }
+
     private function instanceDeleteGuardResponse(string $code, string $message): \WP_REST_Response
     {
         return new \WP_REST_Response(['success' => false, 'code' => $code, 'message' => $message], 409);
@@ -1917,20 +1991,43 @@ class PackageStationController
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Platform identifier.'], 500);
             }
         }
+
+        // CZTL — the occupant's own Default Leg + every Additional Leg
+        // lacking one, reserved through the SAME infrastructure as CZT/CZTA
+        // just above, but unconditionally on every settle (not gated to
+        // "first Publish" the way primary/addon are): a Leg can be added to
+        // an already-Active Tier, and only reaches settlement here — Legs
+        // have no dedicated Publish endpoint of their own. Only a Leg that
+        // does not yet carry a platform_id (or needs reconciliation) ever
+        // reserves; an already-identified Leg is untouched. See the Leg
+        // identity architecture note.
+        $legReservations = [];
+        if ($this->identityEnabled && $occupant !== null) {
+            try {
+                $legResult = $this->reserveTierLegPlatformIds($slot['current_occupant'], $this->identityAdapters->tierLeg());
+                $slot['current_occupant'] = $legResult['container'];
+                $legReservations = $legResult['reservations'];
+            } catch (\Throwable) {
+                $this->retireTierLegReservations($legReservations);
+                if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                if ($addonReservation !== null && !$addonResumed) $this->retireReservation($addonReservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a Tier Leg Platform identifier.'], 500);
+            }
+        }
+
         $instance['tiers'][$tierId] = $slot;
         try {
             $this->persistTierInstance($station, $instanceId, $instance);
         } catch (\Throwable) {
+            $this->retireTierLegReservations($legReservations);
             if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
             if ($addonReservation !== null && !$addonResumed) $this->retireReservation($addonReservation);
             return new \WP_REST_Response(['success' => false, 'message' => 'Tier settlement could not be persisted.'], 500);
         }
 
-        if ($occupant !== null && ($primaryReservation !== null || $addonReservation !== null)) {
-            $nativeReference = PackagePlatformNativeReference::tierOccupant(
-                $instanceId,
-                (string) $slot['current_occupant']['id']
-            );
+        if ($occupant !== null && ($primaryReservation !== null || $addonReservation !== null || $legReservations !== [])) {
+            $occupantId = (string) $slot['current_occupant']['id'];
+            $nativeReference = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
             try {
                 if ($primaryReservation !== null) {
                     $this->platformIdentity->bind($this->identityAdapters->tier(), $primaryReservation, $nativeReference);
@@ -1938,6 +2035,11 @@ class PackageStationController
                 if ($addonReservation !== null) {
                     $this->platformIdentity->bind($this->identityAdapters->tierAddon(), $addonReservation, $nativeReference);
                 }
+                $this->bindTierLegPlatformIds(
+                    $this->identityAdapters->tierLeg(),
+                    $legReservations,
+                    fn(string $legId): string => PackagePlatformNativeReference::tierLeg($instanceId, $occupantId, $legId)
+                );
             } catch (\Throwable) {
                 // Every id here is already written onto the persisted occupant
                 // by persistTierInstance() above. A freshly-minted reservation
@@ -1949,6 +2051,7 @@ class PackageStationController
                 // above.
                 if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
                 if ($addonReservation !== null && !$addonResumed) $this->retireReservation($addonReservation);
+                $this->retireTierLegReservations($legReservations);
                 return new \WP_REST_Response([
                     'success' => false,
                     'message' => 'Tier settlement persisted, but Platform identifier binding requires reconciliation.',
@@ -2160,6 +2263,7 @@ class PackageStationController
         $updatedEdition = $PS::findTierEdition($editions, $editionId);
         $reservation = null;
         $resumed = false;
+        $legReservations = [];
         if ($this->identityEnabled && ($updatedEdition['platform_status'] ?? null) === $engine::STATUS_ACTIVE) {
             $existingId = (string) ($updatedEdition['edition_platform_id'] ?? '');
             try {
@@ -2176,23 +2280,51 @@ class PackageStationController
                 if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Edition Platform identifier.'], 500);
             }
-            if ($reservation !== null) {
+
+            // CZTEL — this Edition's own Default Leg + every Additional Leg
+            // lacking one, same reserve rule as CZTEL's parent CZTE just
+            // above, applied per-Leg. See reserveTierLegPlatformIds() and
+            // the Leg identity architecture note.
+            try {
+                $legResult = $this->reserveTierLegPlatformIds($updatedEdition, $this->identityAdapters->tierEditionLeg());
+                $updatedEdition = $legResult['container'];
+                $legReservations = $legResult['reservations'];
+            } catch (\Throwable) {
+                $this->retireTierLegReservations($legReservations);
+                if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a Tier Edition Leg Platform identifier.'], 500);
+            }
+
+            if ($reservation !== null || $legReservations !== []) {
                 $editions = $PS::replaceTierEdition($editions, $updatedEdition);
             }
         }
 
         $station = $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
 
-        if ($reservation !== null) {
+        if ($reservation !== null || $legReservations !== []) {
             $nativeReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference::tierEdition(
                 $instanceId,
                 (string) $occupant['id'],
                 $editionId
             );
             try {
-                $this->platformIdentity->bind($this->identityAdapters->tierEdition(), $reservation, $nativeReference);
+                if ($reservation !== null) {
+                    $this->platformIdentity->bind($this->identityAdapters->tierEdition(), $reservation, $nativeReference);
+                }
+                $this->bindTierLegPlatformIds(
+                    $this->identityAdapters->tierEditionLeg(),
+                    $legReservations,
+                    fn(string $legId): string => \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference::tierEditionLeg(
+                        $instanceId,
+                        (string) $occupant['id'],
+                        $editionId,
+                        $legId
+                    )
+                );
             } catch (\Throwable) {
-                if (!$resumed) $this->retireReservation($reservation);
+                if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                $this->retireTierLegReservations($legReservations);
                 return new \WP_REST_Response([
                     'success' => false,
                     'message' => 'Tier Edition status changed, but Platform identifier binding requires reconciliation.',

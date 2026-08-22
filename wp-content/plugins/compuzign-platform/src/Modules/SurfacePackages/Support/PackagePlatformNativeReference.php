@@ -35,6 +35,29 @@ final class PackagePlatformNativeReference
         return self::composite('tier-edition', [$tierInstanceId, $occupantId, $editionId]);
     }
 
+    /**
+     * A Tier Leg — Default (legId literal `'default'`, the occupant's own
+     * permanent declaration) or Additional (legId is that Leg's own stable
+     * Phase 1 `id`) — is scoped to the occupant that owns it, exactly like
+     * tierOccupant() itself. Default and Additional share this one
+     * reference shape and one entity type (CZTL); the legId segment alone
+     * distinguishes them, never a separate prefix.
+     */
+    public static function tierLeg(string $tierInstanceId, string $occupantId, string $legId): string
+    {
+        return self::composite('tier-leg', [$tierInstanceId, $occupantId, $legId]);
+    }
+
+    /**
+     * A Tier Edition's own Leg — same Default/Additional split as tierLeg(),
+     * one level deeper: scoped to the Edition that owns it, exactly like
+     * tierEdition() is scoped to its own occupant.
+     */
+    public static function tierEditionLeg(string $tierInstanceId, string $occupantId, string $editionId, string $legId): string
+    {
+        return self::composite('tier-edition-leg', [$tierInstanceId, $occupantId, $editionId, $legId]);
+    }
+
     public static function rateSheet(string $rateSheetId): string
     {
         return self::single('rate-sheet', $rateSheetId);

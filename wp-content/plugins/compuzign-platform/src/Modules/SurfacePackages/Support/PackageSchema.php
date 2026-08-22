@@ -115,6 +115,18 @@ class PackageSchema
      * moving it. Output is sorted by `sort_order` so read order always
      * reflects current position regardless of input array order. A leg with
      * no billing_cycle is dropped rather than stored empty.
+     *
+     * `platform_id` (Phase 2 — CZTL/CZTEL) is ALWAYS emitted empty here,
+     * deliberately never read from `$legs` itself: a real mutation request
+     * can never carry one (PackageStationController::rejectPlatformIdMutation
+     * rejects the whole request first, exactly as it already does for
+     * `cz_platform_id`/`edition_platform_id`), so trusting this array's own
+     * `platform_id` would silently wipe every already-identified Leg's
+     * identity on its very next ordinary save. Use reattachLegPlatformIds()
+     * against the actually-previous stored legs to carry identity forward —
+     * the same "existing record wins, input never invents or clears it" rule
+     * `cz_platform_id`/`addon_platform_id`/`default_leg_platform_id` already
+     * follow one level up.
      */
     public static function sanitizeCommercialLegs(mixed $legs): array
     {
@@ -140,10 +152,39 @@ class PackageSchema
                 'billing_cycle' => $cycle,
                 'from_month'    => $fromMonth,
                 'to_month'      => $toMonth,
+                'platform_id'   => '',
             ];
         }
         usort($out, static fn(array $a, array $b): int => $a['sort_order'] <=> $b['sort_order']);
         return $out;
+    }
+
+    /**
+     * Carry each Leg's own `platform_id` forward from $previousLegs, matched
+     * by `id` — never from sanitizeCommercialLegs()'s own output, which
+     * always emits it empty (see that function's own doc comment). A Leg
+     * whose id has no match in $previousLegs (genuinely new this save)
+     * stays empty, to be assigned later through the normal reserve/bind
+     * sequence. Callers pass the SAME array for both parameters when
+     * re-sanitizing already-stored, already-correct data (a pure read
+     * projection); a real write boundary passes the record's OWN legs from
+     * BEFORE this save's new/draft data overwrote them. $legs is expected
+     * already sanitized (i.e. sanitizeCommercialLegs() has already run and
+     * every entry carries an `id`) — pass raw/draft data through that first.
+     */
+    public static function reattachLegPlatformIds(array $legs, mixed $previousLegs): array
+    {
+        $existingById = [];
+        foreach (is_array($previousLegs) ? $previousLegs : [] as $leg) {
+            if (is_array($leg) && isset($leg['id'])) {
+                $existingById[(string) $leg['id']] = (string) ($leg['platform_id'] ?? '');
+            }
+        }
+        foreach ($legs as $index => $leg) {
+            if (!is_array($leg) || !isset($leg['id'])) { continue; }
+            $legs[$index]['platform_id'] = $existingById[$leg['id']] ?? '';
+        }
+        return $legs;
     }
 
     /**
@@ -964,6 +1005,10 @@ class PackageSchema
                 'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
                 'platform_id'          => (string) ($occ['cz_platform_id'] ?? ''),
                 'addon_platform_id'    => (string) ($occ['addon_platform_id'] ?? ''),
+                // CZTL — the occupant's own Default Leg identity. Same
+                // output-only, empty-until-bound convention as the two
+                // fields above; see the Leg identity architecture note.
+                'default_leg_platform_id' => (string) ($occ['default_leg_platform_id'] ?? ''),
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
                 'audience_groups'     => self::sanitizeTierAudienceGroups($occ['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS),
@@ -979,8 +1024,11 @@ class PackageSchema
                 // integers, not calendar-bound to 1-12. See docs/code-map/tiers.md.
                 'from_month'          => isset($occ['from_month']) && $occ['from_month'] !== null ? (int) $occ['from_month'] : null,
                 'to_month'            => isset($occ['to_month']) && $occ['to_month'] !== null ? (int) $occ['to_month'] : null,
-                // Commercial Legs — see sanitizeCommercialLegs().
-                'legs'                => self::sanitizeCommercialLegs($occ['legs'] ?? []),
+                // Commercial Legs — see sanitizeCommercialLegs(). Self-
+                // referential reattach: $occ['legs'] is already-persisted,
+                // already-correct data, so this is a pure re-sanitize that
+                // surfaces the real platform_id already in storage.
+                'legs'                => self::reattachLegPlatformIds(self::sanitizeCommercialLegs($occ['legs'] ?? []), $occ['legs'] ?? []),
                 'inclusions_override' => $occ['inclusions_override'] ?? [],
                 'rate_sheet_id'       => self::defaultRateSheetId($occ['rate_sheet_id'] ?? null, $occ['rate_sheet_items'] ?? []),
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
@@ -1215,6 +1263,11 @@ class PackageSchema
         $existingRateSheetId = null;
         $existingPlatformId = '';
         $existingAddonPlatformId = '';
+        // CZTL — the occupant's own Default Leg identity. Same output-only,
+        // empty-until-bound convention as cz_platform_id/addon_platform_id
+        // above; see the Leg identity architecture note.
+        $existingDefaultLegPlatformId = '';
+        $existingLegs = [];
         $existingExplicitlyDisabled = false;
         // Editions are mutated only through their own Package-Station-owned
         // child operations (Phase 2+), never through this Overview/Features/
@@ -1233,12 +1286,19 @@ class PackageSchema
             $existingRateSheetId = self::normaliseRateSheetId($tierSlot['current_occupant']['rate_sheet_id'] ?? null);
             $existingPlatformId = (string) ($tierSlot['current_occupant']['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
+            $existingDefaultLegPlatformId = (string) ($tierSlot['current_occupant']['default_leg_platform_id'] ?? '');
+            // The occupant's own Additional Legs BEFORE this call's $data
+            // overwrites them — the source reattachLegPlatformIds() below
+            // carries each Leg's platform_id forward from, since $data
+            // (a real HTTP save) can never carry one itself.
+            $existingLegs = is_array($tierSlot['current_occupant']['legs'] ?? null) ? $tierSlot['current_occupant']['legs'] : [];
             $existingExplicitlyDisabled = self::isExplicitlyDisabled($tierSlot['current_occupant'] ?? null);
             $existingTierEditions = self::sanitizeTierEditions($tierSlot['current_occupant']['tier_editions'] ?? []);
             $existingTierEditionBin = self::ensureTierEditionBin($tierSlot['current_occupant'] ?? [])['tier_edition_bin'];
         } elseif (self::hasConfiguredContent($tierSlot)) {
             $existingPlatformId = (string) ($tierSlot['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['addon_platform_id'] ?? '');
+            $existingDefaultLegPlatformId = (string) ($tierSlot['default_leg_platform_id'] ?? '');
         }
 
         // The Tier's bound sheet: an explicit incoming id wins; when omitted the
@@ -1285,6 +1345,7 @@ class PackageSchema
                 'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
                 'cz_platform_id'      => $existingPlatformId,
                 'addon_platform_id'   => $existingAddonPlatformId,
+                'default_leg_platform_id' => $existingDefaultLegPlatformId,
                 'platform_status'     => $enabled ? 'active' : 'disabled',
                 // Preserved across every edit that is not itself a Disable/Enable/
                 // Publish/Restore transition (those write it directly). Defaults
@@ -1311,8 +1372,11 @@ class PackageSchema
                     : null,
                 'from_month'          => $fromMonth,
                 'to_month'            => $toMonth,
-                // Commercial Legs — see sanitizeCommercialLegs().
-                'legs'                => self::sanitizeCommercialLegs($data['legs'] ?? []),
+                // Commercial Legs — see sanitizeCommercialLegs(). $data can
+                // never carry a real platform_id (guard-rejected at the HTTP
+                // boundary), so identity is carried forward from
+                // $existingLegs (captured above, from BEFORE this call).
+                'legs'                => self::reattachLegPlatformIds(self::sanitizeCommercialLegs($data['legs'] ?? []), $existingLegs),
                 'rate_sheet_id'       => $rateSheetId,
                 'inclusions_override' => $data['inclusions_override'] ?? [],
                 'rate_sheet_items'    => $selections,
@@ -1440,6 +1504,13 @@ class PackageSchema
             // cz_platform_id/addon_platform_id's own empty-string-until-bound
             // convention on the occupant itself.
             'edition_platform_id'      => sanitize_text_field((string) ($edition['edition_platform_id'] ?? '')),
+            // CZTEL — this Edition's own Default Leg identity. Same
+            // output-only, empty-until-bound convention as
+            // edition_platform_id above; see the Leg identity architecture
+            // note. Shares resolveTierLegRecord()'s field-name expectations
+            // (billing_cycle/from_month/to_month/legs already exist on this
+            // shape below) with the occupant's own equivalent.
+            'default_leg_platform_id' => sanitize_text_field((string) ($edition['default_leg_platform_id'] ?? '')),
             'title'                    => sanitize_text_field((string) ($edition['title'] ?? '')),
             'admin_description'        => sanitize_textarea_field((string) ($edition['admin_description'] ?? '')),
 
@@ -1469,7 +1540,14 @@ class PackageSchema
             'to_month'                 => $toMonth,
             // Commercial Legs — this Edition's own, independent of the
             // occupant's.
-            'legs'                     => self::sanitizeCommercialLegs($edition['legs'] ?? []),
+            // Self-referential reattach: whoever assembled $edition already
+            // resolved the correct platform_id per Leg onto $edition['legs']
+            // itself (addTierEdition's brand-new array has none yet;
+            // settleTierEditionOverview's own reattachLegPlatformIds() call
+            // already merged the draft's legs against the prior edition's
+            // legs before this function ever runs) — this is a pure
+            // re-sanitize, never the write boundary itself.
+            'legs'                     => self::reattachLegPlatformIds(self::sanitizeCommercialLegs($edition['legs'] ?? []), $edition['legs'] ?? []),
 
             // Empty means inherit the parent occupant's own inclusions_override
             // / faq_refs — the same empty-means-inherit rule the occupant
@@ -1655,7 +1733,16 @@ class PackageSchema
         $edition['minimum_term_unit']   = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
         $edition['from_month']          = array_key_exists('from_month', $draft) ? $draft['from_month'] : $edition['from_month'];
         $edition['to_month']            = array_key_exists('to_month', $draft)   ? $draft['to_month']   : $edition['to_month'];
-        $edition['legs']                = array_key_exists('legs', $draft) ? $draft['legs'] : $edition['legs'];
+        // The draft's own legs (drafted via saveTierEditionDraft, sanitized
+        // there but never carrying a real platform_id — a real save request
+        // can't: rejectPlatformIdMutation rejects it at the HTTP boundary)
+        // must not overwrite this Edition's already-identified Legs outright
+        // — reattach each one's platform_id from $edition['legs'] as it
+        // stood BEFORE this line, by id, same rule cz_platform_id/
+        // edition_platform_id/default_leg_platform_id already follow.
+        $edition['legs'] = array_key_exists('legs', $draft)
+            ? self::reattachLegPlatformIds(self::sanitizeCommercialLegs($draft['legs']), $edition['legs'])
+            : $edition['legs'];
         $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];
         $edition['faq_refs']            = $draft['faq_refs'] ?? $edition['faq_refs'];
 
@@ -1999,7 +2086,7 @@ class PackageSchema
     private static function emptyTierDetail(): array
     {
         return [
-            'occupant_id' => null, 'platform_id' => '', 'addon_platform_id' => '',
+            'occupant_id' => null, 'platform_id' => '', 'addon_platform_id' => '', 'default_leg_platform_id' => '',
             'label' => '', 'ideal_for' => '',
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
