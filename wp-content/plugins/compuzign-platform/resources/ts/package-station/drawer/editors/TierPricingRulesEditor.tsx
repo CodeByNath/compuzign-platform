@@ -284,7 +284,7 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
 
       {legs.map((leg, index) => (
         <CommercialLegCard
-          key={index}
+          key={leg.id ?? index}
           leg={leg}
           onChange={(patch) => updateLeg(index, patch)}
           label={`Leg ${index + 1}`}

@@ -750,7 +750,18 @@ export interface TierPricingRulesDraft {
 // One Commercial Leg — a payment-behaviour segment beyond the Default
 // declaration's own billing_cycle/from_month/to_month. See
 // TierPricingRulesDraft.legs.
+//
+// Leg identity (Phase 1): id is this Leg's own stable identity, independent
+// of its position in the array — PackageSchema::sanitizeCommercialLegs
+// preserves whatever id a leg already carries and mints a new one only for
+// a leg that has never been saved before. sort_order is that Leg's current
+// display/commercial-sequence position, independent of id — moving a Leg
+// changes sort_order only; id and billing terms never change. Both are
+// optional here only because a leg the admin has just added in this editing
+// session (addLeg) has neither yet; the backend assigns both on save.
 export interface TierCommercialLeg {
+  id?: string;
+  sort_order?: number;
   billing_cycle: string;
   from_month: number | null;
   // Null means Indefinite — a recurring leg with no fixed end. Not the

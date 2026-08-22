@@ -101,16 +101,26 @@ class PackageSchema
     /**
      * Sanitize Commercial Legs — payment-behaviour segments beyond a
      * declaration's own "Leg Default" (billing_cycle/from_month/to_month,
-     * stored as flat scalars, never an entry here). Each leg is anonymous:
-     * array order is its identity, and the whole array is replaced on every
-     * save — no per-leg id, no patch-by-id. A leg with no billing_cycle is
-     * dropped rather than stored empty.
+     * stored as flat scalars, never an entry here). The whole array is
+     * still replaced on every save — no patch-by-id — but each leg now
+     * carries its own stable `id` (Leg identity, Phase 1): a leg submitted
+     * with an id it already had keeps that exact id; a leg with none (just
+     * added client-side this session) gets a fresh one minted here. `id`
+     * never changes for the life of the Leg. `sort_order` is that Leg's
+     * current display position, independent of `id` — a submitted value is
+     * preserved as-is (mirrors sanitizeRateSheetGroups'/sanitizeBundles' own
+     * `sort_order` rule), defaulting only to the entry's own array position
+     * for a leg that has never carried one. Reordering therefore changes
+     * only `sort_order`; a Leg's `id` and billing terms are untouched by
+     * moving it. Output is sorted by `sort_order` so read order always
+     * reflects current position regardless of input array order. A leg with
+     * no billing_cycle is dropped rather than stored empty.
      */
     public static function sanitizeCommercialLegs(mixed $legs): array
     {
         if (!is_array($legs)) { return []; }
         $out = [];
-        foreach ($legs as $leg) {
+        foreach ($legs as $index => $leg) {
             if (!is_array($leg)) { continue; }
             $cycle = sanitize_text_field((string) ($leg['billing_cycle'] ?? ''));
             if ($cycle === '') { continue; }
@@ -122,9 +132,29 @@ class PackageSchema
             if (isset($leg['to_month']) && $leg['to_month'] !== null && $leg['to_month'] !== '') {
                 $toMonth = (int) $leg['to_month'];
             }
-            $out[] = ['billing_cycle' => $cycle, 'from_month' => $fromMonth, 'to_month' => $toMonth];
+            $id = sanitize_text_field((string) ($leg['id'] ?? ''));
+            if ($id === '') { $id = self::mintCommercialLegId(); }
+            $out[] = [
+                'id'            => $id,
+                'sort_order'    => (int) ($leg['sort_order'] ?? $index),
+                'billing_cycle' => $cycle,
+                'from_month'    => $fromMonth,
+                'to_month'      => $toMonth,
+            ];
         }
+        usort($out, static fn(array $a, array $b): int => $a['sort_order'] <=> $b['sort_order']);
         return $out;
+    }
+
+    /**
+     * Mint a Leg's stable id — plumbing only, matching the same
+     * `<prefix>_ + random suffix` convention as `occ_`/`edt_`/`bin_` above.
+     * Not a Platform ID: `CZTL`/`CZTEL` are a later phase and, once they
+     * exist, become the authoritative Leg identity this id currently is.
+     */
+    public static function mintCommercialLegId(): string
+    {
+        return 'leg_' . bin2hex(random_bytes(4));
     }
 
     /**

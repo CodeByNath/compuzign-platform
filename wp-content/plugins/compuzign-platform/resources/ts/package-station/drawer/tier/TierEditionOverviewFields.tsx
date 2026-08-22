@@ -262,7 +262,7 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
 
       {legs.map((leg, index) => (
         <CommercialLegCard
-          key={index}
+          key={leg.id ?? index}
           leg={leg}
           onChange={(patch) => updateLeg(index, patch)}
           label={`Leg ${index + 1}`}
