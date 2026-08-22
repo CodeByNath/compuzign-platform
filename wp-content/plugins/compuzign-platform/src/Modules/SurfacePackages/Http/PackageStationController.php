@@ -830,6 +830,41 @@ class PackageStationController
         return new \WP_REST_Response(['success' => false, 'code' => $code, 'message' => $message], 409);
     }
 
+    /**
+     * Enrich an already-normalised tier detail's `tier_editions[]` with the
+     * SAME live price projection getPackageStation()'s own read response
+     * already computes (PackageManagerSchema::projectEditionPrices()) —
+     * every OTHER mutation response (settle, module save/revert, enable/
+     * disable, archive, bin restore) has been returning $detail straight
+     * from PS::normaliseTierSlot() with no such enrichment, so an Edition's
+     * `price` reads null there even though its own stored platform_status
+     * never changed; the read endpoint's own response was always correct,
+     * only a subsequent mutation response's Editions were stale/incomplete
+     * until the next full reload re-fetched them. No Edition lifecycle,
+     * persistence, or pricing rule is touched here — this only restates,
+     * for a mutation's own response, the exact same read-only projection
+     * getPackageStation() already trusts.
+     *
+     * @param array<string, mixed> $station  the SAME station each caller already has in scope
+     * @param array<string, mixed> $instance the SAME instance each caller already has in scope
+     * @param array<string, mixed> $detail   PackageSchema::normaliseTierSlot()'s own return shape
+     * @return array<string, mixed> $detail, with tier_editions[] price-enriched
+     */
+    private function enrichTierEditionPrices(int $serviceId, array $station, array $instance, array $detail): array
+    {
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+        $instanceStatus = TierInstanceSchema::deriveInstanceStatus($instance);
+        $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
+        $sanitizedManager = $PMS::sanitize($rawManager);
+        [$incPool, $faqPool] = $this->packages()->sourcePools($station, $sanitizedManager['sources']);
+        $managerModel = $PMS::buildReadModel($serviceId, $sanitizedManager, $incPool, $faqPool, $instanceStatus);
+        $detail['tier_editions'] = $PMS::projectEditionPrices(
+            $managerModel,
+            is_array($detail['tier_editions'] ?? null) ? $detail['tier_editions'] : []
+        );
+        return $detail;
+    }
+
     // ===================================================================
     // SECTION: PACKAGE_READ_AND_MANAGER
     // ===================================================================
@@ -1466,7 +1501,10 @@ class PackageStationController
 
         $tiers = [];
         foreach (\CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::ALLOWED_TIERS as $tid) {
-            $tiers[$tid] = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot($instance['tiers'][$tid] ?? []);
+            $tiers[$tid] = $this->enrichTierEditionPrices(
+                $serviceId, $station, $instance,
+                \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::normaliseTierSlot($instance['tiers'][$tid] ?? [])
+            );
         }
 
         $responseStation = [
@@ -1533,7 +1571,7 @@ class PackageStationController
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'         => true,
             'tier_id'         => $tierId,
-            'tier'            => $PS::normaliseTierSlot($slot),
+            'tier'            => $this->enrichTierEditionPrices($serviceId, $station, $instance, $PS::normaliseTierSlot($slot)),
             'drafts'          => $slot['drafts'],
             'module_status'   => $slot['module_status'],
             'platform_status' => TierInstanceSchema::deriveInstanceStatus($instance),
@@ -1668,7 +1706,7 @@ class PackageStationController
             'success'       => true,
             'tier_id'       => $tierId,
             'module'        => $module,
-            'tier'          => $PS::normaliseTierSlot($slot),
+            'tier'          => $this->enrichTierEditionPrices($serviceId, $station, $instance, $PS::normaliseTierSlot($slot)),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
         ]));
@@ -1725,7 +1763,7 @@ class PackageStationController
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
             'success'         => true,
             'tier_id'         => $tierId,
-            'tier'            => $PS::normaliseTierSlot($slot),
+            'tier'            => $this->enrichTierEditionPrices($serviceId, $station, $result['station'], $PS::normaliseTierSlot($slot)),
             'drafts'          => $slot['drafts'],
             'module_status'   => $slot['module_status'],
             'bin_entry'       => $result['entry'],
@@ -1797,7 +1835,7 @@ class PackageStationController
             'success'         => true,
             'bin_id'          => $binId,
             'tier_id'         => $tierId,
-            'tier'            => $PS::normaliseTierSlot($slot),
+            'tier'            => $this->enrichTierEditionPrices($serviceId, $station, $result['station'], $PS::normaliseTierSlot($slot)),
             'drafts'          => $slot['drafts'],
             'module_status'   => $slot['module_status'],
             'displaced_entry' => $result['displaced'],
@@ -1943,7 +1981,7 @@ class PackageStationController
             'success'       => true,
             'tier_id'       => $tierId,
             'module'        => $module,
-            'tier'          => $PS::normaliseTierSlot($slot),
+            'tier'          => $this->enrichTierEditionPrices($serviceId, $station, $instance, $PS::normaliseTierSlot($slot)),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
         ]));
@@ -2097,7 +2135,7 @@ class PackageStationController
             'success'       => true,
             'tier_id'       => $tierId,
             'platform_status' => TierInstanceSchema::deriveInstanceStatus($instance),
-            'tier'          => $PS::normaliseTierSlot($slot),
+            'tier'          => $this->enrichTierEditionPrices($serviceId, $station, $instance, $PS::normaliseTierSlot($slot)),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
         ]));

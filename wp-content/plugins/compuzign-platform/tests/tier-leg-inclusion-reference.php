@@ -64,6 +64,12 @@ if (!function_exists('update_option')) {
 if (!function_exists('get_post')) {
     function get_post(int $id): ?WP_Post { return $id === 909 ? new WP_Post($id, 'Tier Leg Inclusion Reference Service') : null; }
 }
+if (!function_exists('get_post_meta')) {
+    function get_post_meta(int $id, string $key, bool $single = false): mixed { return $single ? [] : []; }
+}
+if (!function_exists('wp_get_post_terms')) {
+    function wp_get_post_terms(int $postId, string $taxonomy, array $args = []): array { return []; }
+}
 if (!function_exists('current_time')) {
     function current_time(string $type, bool $gmt = false): string { return '2026-08-22 00:00:00'; }
 }
