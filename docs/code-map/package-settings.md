@@ -28,9 +28,9 @@ Settings
     └── standalone Rate Sheet rows → `rate-sheet` using the loaded native key behind the visible `CZPRC`
 ```
 
-One ordered accordion section per Package-owned record type, not Connections' Stations/Tools axis. Exactly three pool creations. Groups is not a fourth record-type section: each group is edited and summarised inside its owning Rate Sheet. Tier Structure has no entry: fixed slots are the engine's listing. All three record-type toolbars share one control system, a status filter plus the pool launcher; Rate Sheets carries no search field or Tier Group dropdown.
+One ordered accordion section per Package-owned record type, not Connections' Stations/Tools axis. Three pool creations. Groups is not a fourth record-type section: each group is edited and summarised inside its owning Rate Sheet. Tier Structure has no entry: fixed slots are the engine's listing. All three record-type toolbars share one control system, a status filter plus the pool launcher; Rate Sheets carries no search field or Tier Group dropdown.
 
-Maintenance is diagnostics, not a fourth pool. [CommercialLegsDebugPanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/CommercialLegsDebugPanel.tsx) picks a Family; Run Debug filters `findAllActiveFamiliesForCostBuilder()` to it and renders the result nested — Family → Tier → `commercial_legs` → Edition → the same.
+Maintenance is diagnostics, not a fourth pool. [CommercialLegsDebugPanel.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/presentation/package-tier-workspace/CommercialLegsDebugPanel.tsx) picks a Family; Run Debug filters `findAllActiveFamiliesForCostBuilder()` to it — the real customer projection path — and renders Family → Tier → Period → Leg → Inclusion; see [Commercial Legs](commercial-legs.md).
 
 All three record-type groups default to `All` — the complete pool, focused record(s) first, existing stable order after. `Focused` narrows to the connected/parent record for Family/Tier Groups, or to the sheets the focused parent Tier Group's `allowed_rate_sheet_ids` allows — the same projection `TierSystemContent.tsx`'s Rate Sheet Access module authors. `Active`/`Disabled` map stored `archived` to Disabled without changing storage. `Pending` reads a Tier Group's `draft`; a Rate Sheet has none persisted, so it reports empty.
 
@@ -60,4 +60,4 @@ From the plugin root: `npm run contract:tier-settings`, `npm run contract:packag
 
 ## Related Code Maps
 
-[Tiers](tiers.md), [Package Station](package-station.md), [Package Manager](package-manager.md), [Rate Sheet](rate-sheet.md), and [Drawer System](drawer-system.md).
+[Tiers](tiers.md), [Package Station](package-station.md), [Package Manager](package-manager.md), [Commercial Legs](commercial-legs.md), [Rate Sheet](rate-sheet.md), and [Drawer System](drawer-system.md).

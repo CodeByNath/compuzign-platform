@@ -23,7 +23,9 @@ and `inclusions_override`/`faq_refs` (empty inherits the occupant's).
 
 There is no default-Edition pointer — an earlier `default_edition_id` field
 let an Edition *replace* the occupant's terms, inverting the model, and was
-removed.
+removed. An Edition is a vertical variant, never the mechanism for
+multi-cycle billing — like the occupant, it owns its own Default Leg plus
+Additional Legs; see [Commercial Legs](commercial-legs.md).
 
 `price` projects live via `projectEditionPrices()`
 (`projectTierRateSheetWith()` per Edition), each row's own `contact`
@@ -34,23 +36,21 @@ mechanism/field as the occupant's) never affects a sibling's price.
 
 Overview under Details carries one small derived read field, "Editions" —
 `1` plus however many rows `tier_editions[]` holds, never persisted
-separately. Creation happens through "+ Edition" (see Admin editing);
-Overview collects no title/price/lifecycle action.
+separately. Creation happens through "+ Edition"; Overview collects no
+title/price/lifecycle action.
 
 ## Identity
 
-`CZTE` uses an **occupant-qualified**, not slot-qualified, native reference
-— `PackagePlatformNativeReference::tierEdition($tierInstanceId, $occupantId,
-$editionId)`, mirroring `tierOccupant()`. Assigned on first Active via the
-same reserve → persist → bind sequence `CZT`/`CZTA` use. Admin/audit only —
+`CZTE` uses an **occupant-qualified**, not slot-qualified, native reference,
+mirroring `tierOccupant()`. Assigned on first Active via the same
+reserve → persist → bind sequence `CZT`/`CZTA` use. Admin/audit only —
 never public or in the cart.
 
 ## Lifecycle and cascade
 
 Full `StationLifecycle` vocabulary via one generic `PATCH .../status`
 endpoint (engine transition + Disable/Enable mask), Package Family's shape.
-Guarded permanent delete requires trashed status only — no default-Edition
-guard. Parent-to-child
+Guarded permanent delete requires trashed status only. Parent-to-child
 cascade reuses per-Edition transition functions verbatim;
 `cascaded_edition_ids` scopes a later Tier-level trash/restore to only the
 ids that same archive carried; restore lands `disabled`, never `active`.
@@ -61,15 +61,12 @@ Cascade reads only `tier_editions[]`; a binned Edition is invisible to it.
 `current_occupant.tier_edition_bin[]` mirrors `occupant_bin`'s
 archive/restore/trash/delete shape one level deeper. `moveTierEditionToBin()`
 requires the Edition already `archived`/`trashed` and never itself changes
-`platform_status` (Admin editing below covers the atomic command built on
-it). A bin entry holds only `bin_id`/`edition` (full row, with
-`CZTE`)/`status`/`displaced_at` — none of `occupant_bin`'s metadata.
+`platform_status`. A bin entry holds only `bin_id`/`edition` (full row)/
+`status`/`displaced_at` — none of `occupant_bin`'s metadata.
 
 `tier_editions[]` numbering is array-derived; moving out compacts it, and
-restore appends to the end, landing `disabled`, never `active`.
-`trashTierEditionBinEntry()`/`deleteTierEditionBinEntry()` mirror
-`trashBinnedOccupant()`/`deleteBinnedOccupant()`. Cascade never reaches a
-binned Edition (`PackageRepository`/`upsertOccupant()` too).
+restore appends to the end, landing `disabled`, never `active`. Cascade
+never reaches a binned Edition.
 
 ## Public projection and Cost Builder
 
@@ -78,7 +75,9 @@ flag) feeds `edition_options`, empty otherwise.
 `extractTierForCostBuilder()` resolves the occupant's terms as primary; its
 `rate_sheet_id`/`rate_sheet_items` are internal projector inputs only —
 `PackageRepository::projectTierInstanceForCostBuilder()` strips both before
-the tier reaches `$flatTiers`, so neither ever reaches the public response.
+the tier reaches `$flatTiers`. `commercial_legs` (the resolved Leg
+timeline) accompanies each option additively — see [Commercial
+Legs](commercial-legs.md); the flat `price` stays untouched.
 `PricingTiers.tsx` renders the switch once **one** Edition exists: Default
 plus Edition buttons. `ServiceCard.tsx` captures the declaration shown at click.
 
@@ -97,18 +96,17 @@ module is titled **Default Tier Inclusions**.
 `TierEditionDeclarationSwitcher.tsx` is the Options group's content, gated
 on a real occupant: a `[Edition 2] [Edition 3]` child-chip strip
 (`ChildChipStrip`) with a fixed trailing Bin icon opening the Bin as its own
-focused task (`TierEditionBinFocusedView.tsx`, `FocusedTaskShell`), replacing the strip
-and cards. Default is never a row; "+ Edition" lives in Options navigation.
+focused task (`TierEditionBinFocusedView.tsx`), replacing the strip and
+cards. Default is never a row; "+ Edition" lives in Options navigation.
 
 The footer's "Move Edition to Bin" command composes the Trashed transition
-and relocation in one persistence operation. Permanent Delete lives only in
+and relocation atomically. Permanent Delete lives only in
 `TierEditionBinList.tsx` for trashed rows.
 
-The three module cards share `TierEditionEditor.tsx`, one draft, and draft-only
+The three module cards share `TierEditionEditor.tsx`, one draft, draft-only
 Save/Cancel; Publish settles. Every read/re-edit resolves through
-`useTierEditions.editionView()`, mirroring `usePackageStation.tierView()`: a
-pending draft wins over settled fields, so a just-Saved Edition displays
-immediately. Selection state lives in `useTierDrawerController.ts`.
+`useTierEditions.editionView()`: a pending draft wins over settled fields,
+so a just-Saved Edition displays immediately.
 
 `TierDrawerFooter` carries two independent splits: LEFT
 (`buildTierLifecycleMenu` — Disable/Enable/Archive/Restore, Move to Bin
@@ -129,4 +127,4 @@ only its own menu (`menuOnly`).
 
 ## Related Code Maps
 
-[Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Rate Sheet](rate-sheet.md), [Platform Identifier Station](platform-identifier-station.md), [Cost Builder](cost-builder.md), and [Quote Builder](quote-builder.md).
+[Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Commercial Legs](commercial-legs.md), [Rate Sheet](rate-sheet.md), [Platform Identifier Station](platform-identifier-station.md), [Cost Builder](cost-builder.md), and [Quote Builder](quote-builder.md).

@@ -77,6 +77,21 @@ Tier choices borrow Package grouping, ordering, pricing and availability at
 read time. Source provenance and Package structure are never copied into Tier
 storage.
 
+## 5a. Commercial Legs
+
+A Tier occupant and a Tier Edition each own their own commercial
+composition over that same Rate Sheet — the Rate Sheet row remains the
+atomic pricing source of truth; Commercial Legs never recompute or
+duplicate it. An Edition is a vertical variant of the occupant's offer
+(e.g. a different Rate Sheet binding), never a mechanism for multi-cycle
+billing. Multi-cycle and time-scoped billing is expressed instead by every
+Tier occupant/Edition owning a born-with Default Leg plus zero or more
+Additional Legs — independent, possibly overlapping, independently
+identified commercial components, each resolved from the same Rate Sheet
+without altering source, supply, or Rate Sheet identity. A finite
+commitment belongs to the parent Tier/Edition, never to any one Leg. See
+[Commercial Legs](../code-map/commercial-legs.md).
+
 ## 6. Three simultaneous identities
 
 1. **Source identity** — provider, catalogue placement, source entity and

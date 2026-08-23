@@ -66,22 +66,21 @@ Service owns `cz_platform_id` post meta and `CZS` integration. Phase 3 injects
 the same instance through `AdminModule`; Category owns atomic
 `cz_platform_id` term-meta claims, both `CZC` creation paths, projection,
 immutable request rejection, and guarded hard deletion. Phase 3A adds
-authenticated reads at `GET /admin/services/{platformId}` and
-`/admin/categories/{platformId}`. Each resolves here, rejects
-non-bound/conflicting/wrong-entity bindings, then calls its owner's projection
-by native numeric ID. The drawer schema carries optional `platformIdOf`; native
-`idOf` is unchanged.
+authenticated reads that resolve here, reject non-bound/conflicting/
+wrong-entity bindings, then call the owner's projection by native numeric
+ID. The drawer schema carries optional `platformIdOf`; native `idOf` is
+unchanged.
 
-Phase 3B registers
-`wp compuzign platform-identifiers assign <service|category>` when WP-CLI is
-active. `--limit` defaults to 100, capped at 500; `--cursor` defaults to zero.
-Each invocation returns JSON with processed/assigned/preserved/conflict counts,
-completion, and the next cursor.
+Phase 3B registers a WP-CLI backfill command for Service/Category. Each
+invocation returns processed/assigned/preserved/conflict counts, completion,
+and the next cursor.
 
 During the final temporary Package entity rollout, Admin refresh reads
-independent v3 progress and runs zero-write preflights for each Package entity.
+independent v4 progress and runs zero-write preflights for nine Package
+entity scopes — `TIER_LEG`/`TIER_EDITION_LEG` (Commercial Legs) reuse their
+existing live-reservation adapters; no separate backfill tool exists.
 Assignment processes 100-record Package-owned string-cursor batches through
-`assignExistingBatch()`, guarded by a 45-second atomic lock. Invalid, duplicate,
+`assignExistingBatch()`, guarded by a 45-second lock. Invalid, duplicate,
 or conflicting bindings stop assignment; valid IDs are preserved. Completion
 hides the notice. The controller remains only until live allocation is verified.
 
@@ -90,18 +89,18 @@ shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`
 in its `category_groups[]` row and string native `group_id`. Creation reserves
 `CZPG`, persists the Pending Family, binds the returned native identity,
 projects output-only identity, rejects mutation, and tombstones guarded hard
-deletion. The read at `/admin/package-families/{platformId}` resolves only a
-bound matching Family before delegating to Package projection. The same WP-CLI
-command accepts `package-family`, using bounded lexically sorted `group_id`
-pages and Package-owned immutable scalar callbacks.
+deletion. The same WP-CLI command accepts `package-family`, using bounded
+lexically sorted `group_id` pages and Package-owned immutable scalar callbacks.
 
 Package identity covers Tier Group (`CZTG`), Tier (`CZT`), Tier Add-on
-(`CZTA`), Tier Edition (`CZTE`), Rate Sheet (`CZPRC`), Rate Sheet Group
+(`CZTA`), Tier Edition (`CZTE`), Tier Leg (`CZTL`), Tier Edition Leg
+(`CZTEL`), Rate Sheet (`CZPRC`), Rate Sheet Group
 (`CZPRCG`), Rate Sheet Item (`CZPRCI`), Price Option (`CZPRCIO`), and
 [Rate Sheet Bundle](rate-sheet-bundle.md)'s `CZPRCB`/`CZPRCBI`/`CZPRCBIO`.
 Tier/Add-on share one instance-qualified occupant reference; Tier Edition's
-reference is occupant- not slot-qualified — see
-[Tier Edition](tier-edition.md). Rate Sheet Group/Item/Option use
+reference is occupant- not slot-qualified; a Leg's reference further
+qualifies by its own `legId` — see [Commercial Legs](commercial-legs.md).
+Rate Sheet Group/Item/Option use
 `(rate_sheet_id, group_id)`/`(rate_sheet_id, item_id)`/
 `(rate_sheet_id, item_id, option_id)`; Bundle scopes qualify by `bundle_id`. Package adapters retain
 storage/projection ownership and delegate registry work here. Tier

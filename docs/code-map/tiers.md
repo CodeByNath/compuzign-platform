@@ -4,9 +4,9 @@
 
 ## Purpose and ownership
 
-Package Station owns Tier instances, occupants, slots, overview/pricing selections, inclusions, FAQs, publish/enabled/popular state, bin travel, validation, and persistence. Service records and pools are inputs; Service, Admin, and Station Manager own no Tier configuration. Operations address `(tier_instance_id, slotId)`.
+Package Station owns Tier instances, occupants, slots, overview/pricing selections, inclusions, FAQs, publish/enabled/popular state, bin travel, validation, and persistence. Service records/pools are inputs; Service, Admin, and Station Manager own no Tier configuration. Operations address `(tier_instance_id, slotId)`.
 
-Stable surface/drawer identity is string `occupant_id`; fixed `slotId` remains the mutation/storage address. Empty slots are not cards; identities are never coerced or substituted.
+Stable surface/drawer identity is string `occupant_id`; fixed `slotId` remains the mutation/storage address. Empty slots are not cards; identities are never substituted.
 
 Permanent identity uses `(tier_instance_id, occupant_id)`. First occupant
 settlement assigns primary `tier/CZT`; first settlement with `is_addon: true`
@@ -17,13 +17,15 @@ either binding.
 
 An occupant binds to **one** Rate Sheet via Pricing Rules' confirm-then-clear picker; rows resolve only as `(rate_sheet_id, item_id)`. Switching sheets clears selections (`upsertOccupant`/`settleTierSlot`); first configuration keeps them. Legacy selections without a sheet id read as `rs_primary`.
 
-`contact` (Overview's "Mark as Contact Us" checkbox) is an explicit override, not a resolution outcome: `projectTierRateSheetWith()` threads it into `evaluateTierPricing()`'s `contact` mode, nulling the total while rows/inclusions still resolve normally. Every occupant-price call site passes it through; admin's live preview draft-prefers it like `rate_sheet_id`.
+`contact` (Overview's "Mark as Contact Us" checkbox) is an explicit override, not a resolution outcome: `projectTierRateSheetWith()` threads it into `evaluateTierPricing()`'s `contact` mode, nulling the total while rows/inclusions still resolve normally. Every occupant-price call site passes it through; admin's live preview draft-prefers it.
 
 An occupant carries `is_addon` and Overview-owned `audience_groups[]`
 (default: every group). It may also carry
 independently lifecycled `tier_editions[]` children with their own `CZTE`.
-Editions never own or override customer grouping. See [Tier Add-on
-Selection](tier-addon.md) and [Tier Edition](tier-edition.md).
+Editions never own or override customer grouping. Every occupant/Edition
+also owns a born-with Default Leg plus Additional Legs — see [Commercial
+Legs](commercial-legs.md), [Tier Add-on Selection](tier-addon.md), and
+[Tier Edition](tier-edition.md).
 
 ## Locked creation and lifecycle
 
@@ -41,7 +43,7 @@ conditionally assigns `CZTA` on first Add-on Publish. Incomplete configuration
 is Pending dim; publication-ready saved draft is Pending full; Publish is
 Active; Disable is Disabled; Enable returns to Pending dim/full by readiness.
 Never-published occupants offer Move to Trash; previously published occupants
-retain Archive. Package Station remains the sole authority for occupant state.
+retain Archive. Package Station is the sole authority for occupant state.
 
 Tier Group / Tier System is a separate aggregate and is not promoted by this
 occupant conformance. Its registration and Publish/Apply contract remains in
@@ -58,13 +60,13 @@ Details/Connections/Settings. `TierDrawerHost.tsx` decodes occupant,
 empty-slot, and registration addresses without fabricating identity. Tier
 System registration remains documented in [Tier System Registration](tier-registration.md).
 
-Family and Tier instance remain assignment-linked peers. Both Family surfaces
-read four counts derived from the assigned Tier Group's occupants,
-never persisted — `tierGroupProjection` for one, `tierGroupCompositions` for
+Family/Tier instance are assignment-linked peers. Both Family surfaces
+read four counts derived from the assigned Tier Group's occupants —
+`tierGroupProjection` for one, `tierGroupCompositions` for
 walls, omitting groups lacking `CZTG` (`php tests/tier-group-composition.php`;
 `npm run contract:package-family-card-metrics`).
 
-Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`; `PackageRepository::projectTierInstanceForCostBuilder()` resolves price/inclusions live through it but strips both keys before responding, so neither reaches the browser.
+Public consumption follows exact assignments and fails closed. Rate Sheet row identity remains `(rate_sheet_id, item_id)`; `PackageRepository::projectTierInstanceForCostBuilder()` resolves price/inclusions live through it but strips both keys before responding.
 
 ## Drawer, state, and persistence
 
@@ -75,7 +77,7 @@ Public consumption follows exact assignments and fails closed. Rate Sheet row id
 - [tierOccupants.ts](../../wp-content/plugins/compuzign-platform/resources/ts/package-station/tierOccupants.ts) projects occupants and resolves them back to slots.
 - [PackageSchema.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php) owns occupant compatibility and lifecycle shapes; [PackageStationController.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Http/PackageStationController.php) owns mutations; [PackageRepository.php](../../wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php) persists `cz_package_station`.
 
-Presentation calls no endpoints. New inclusion/FAQ pool items go through Service Station's public write contract.
+Presentation calls no endpoints. New inclusion/FAQ pool items go through Service Station's write contract.
 
 ## Related Code Maps
 

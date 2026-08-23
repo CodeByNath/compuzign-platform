@@ -37,6 +37,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Tier Capability Instances and Assignments](tier-capability.md)
 - [Tier Add-on Selection](tier-addon.md)
 - [Tier Edition](tier-edition.md)
+- [Commercial Legs](commercial-legs.md)
 - [Promotions](promotions.md)
 - [Categories](categories.md)
 - [Service Category Groups](category-groups.md)
