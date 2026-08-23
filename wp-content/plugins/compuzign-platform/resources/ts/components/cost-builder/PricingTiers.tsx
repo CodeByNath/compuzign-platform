@@ -443,7 +443,15 @@ export function TierCard({
               <span class="cz-cost-builder__tier-fact-value">{formatPrice(upfrontAmount)}</span>
             </>
           ) : (
-            <span class="cz-cost-builder__tier-fact-fallback">Flexible</span>
+            // No matching upfront/one-time Leg. When the Tier/Edition still
+            // carries a commitment, "Flexible" would misleadingly imply no
+            // obligation at all — "Instant Access" says the right thing
+            // instead (there's a term, just no separate upfront charge to
+            // start). No commitment either -> "Flexible" stays exactly
+            // right (nothing to pay upfront AND nothing to commit to).
+            <span class="cz-cost-builder__tier-fact-fallback">
+              {minimumTermValue != null ? 'Instant Access' : 'Flexible'}
+            </span>
           )}
         </div>
         <div class="cz-cost-builder__tier-fact">
