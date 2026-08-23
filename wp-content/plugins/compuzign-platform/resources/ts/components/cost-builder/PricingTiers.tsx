@@ -238,7 +238,13 @@ export function TierCard({
 
   const label = data?.label || tier.title;
 
-  // Fixed card-section structure (1–8 below): every section renders on every
+  // Upfront Payment — see the Commercial Facts section comment below for why
+  // this stays null: no Tier/Edition-parent-scoped field currently exposes a
+  // one-time amount without wading into ambiguous Commercial Leg component
+  // resolution, which is out of scope here.
+  const upfrontAmount: number | null = null;
+
+  // Fixed card-section structure (1–9 below): every section renders on every
   // card, even carrying no content, so equivalent sections land on the same
   // subgrid row (see .cz-cost-builder__tier in cost-builder.css) and no card
   // collapses upward past a taller neighbor.
@@ -268,7 +274,7 @@ export function TierCard({
 
       {/* 3. Tier Overview — Tier name/title plus "Ideal For" content. The
           section wrapper is kept even when the focused view presents both on
-          its own left column, so the card still has its 8 fixed sections. */}
+          its own left column, so the card still has its 9 fixed sections. */}
       <div class="cz-cost-builder__tier-overview">
         {!hideOverview && (
           <>
@@ -349,7 +355,42 @@ export function TierCard({
         )}
       </div>
 
-      {/* 5. Action — Choose Plan (Package Builder only, above) and the
+      {/* 5. Commercial Facts — permanent two-row section, always rendered
+          (Upfront Payment row, then Minimum Commitment/No Commitments row)
+          regardless of whether either fact applies to this Tier/Edition, so
+          the pricing section keeps one consistent footprint across the whole
+          strip — no card-specific spacer or margin needed to line up Action
+          below it. Follows the same active Default/Edition `effective`
+          values the price above already resolves; never a second Edition
+          state. Upfront Payment currently always reads "None" — no
+          Tier/Edition-parent-scoped field exposes a one-time amount yet, and
+          resolving one from a Period's own components would mean picking
+          among possibly-ambiguous simultaneously-active components (see
+          FamilyTierAdapter.tsx's periodPriceOverride), which stays out of
+          scope here. */}
+      <div class="cz-cost-builder__tier-facts">
+        <div class="cz-cost-builder__tier-fact">
+          <span class="cz-cost-builder__tier-fact-label">Upfront Payment</span>
+          <span class="cz-cost-builder__tier-fact-value">
+            {upfrontAmount !== null ? formatPrice(upfrontAmount) : 'None'}
+          </span>
+        </div>
+        {minimumTermValue != null ? (
+          <div class="cz-cost-builder__tier-fact">
+            <span class="cz-cost-builder__tier-fact-label">Minimum Commitment</span>
+            <span class="cz-cost-builder__tier-fact-value">
+              {minimumTermValue} {minimumTermUnit ?? ''}
+            </span>
+          </div>
+        ) : (
+          <div class="cz-cost-builder__tier-fact">
+            <span class="cz-cost-builder__tier-fact-label">No Commitments</span>
+            <span class="cz-cost-builder__tier-fact-value">Cancel Anytime</span>
+          </div>
+        )}
+      </div>
+
+      {/* 6. Action — Choose Plan (Package Builder only, above) and the
           Add to Quote / selected-state action, kept aligned across cards
           regardless of how tall the sections above it are. */}
       <div class="cz-cost-builder__tier-action-row">
@@ -373,12 +414,12 @@ export function TierCard({
         </button>
       </div>
 
-      {/* 6. Notes — Tier notes. No content today; the row is created and
+      {/* 7. Notes — Tier notes. No content today; the row is created and
           retained now so a future note doesn't require another pass to
           re-align every card's rows. */}
       <div class="cz-cost-builder__tier-notes" />
 
-      {/* 7. Tier Inclusions — check icon + inclusion + quantity. */}
+      {/* 8. Tier Inclusions — check icon + inclusion + quantity. */}
       <div class="cz-cost-builder__tier-inclusions">
         {inclusionItems.length > 0 && (
           <ul class="cz-cost-builder__tier-features">
@@ -421,7 +462,7 @@ export function TierCard({
         )}
       </div>
 
-      {/* 8. Tier Card Footer — kept now as a placeholder; special Tier
+      {/* 9. Tier Card Footer — kept now as a placeholder; special Tier
           notes can be surfaced here later without another restructure. */}
       <div class="cz-cost-builder__tier-footer">
         <span class="cz-cost-builder__tier-footer-note">Special notes for this Tier may appear here.</span>

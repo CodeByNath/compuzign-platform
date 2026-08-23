@@ -224,14 +224,14 @@
 }
 
 /* Tier strip: always horizontal above 767px — scrolls if constrained, sidebar does not control this.
-   A grid rather than a flex row: 8 shared row tracks (one per TierCard section, see
+   A grid rather than a flex row: 9 shared row tracks (one per TierCard section, see
    .cz-cost-builder__tier below) let every card's equivalent section land on the same
    row and reach the same height across the whole strip, with no per-card fixed height. */
 .cz-cost-builder__tiers {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(320px, 1fr);
-  grid-template-rows: repeat(8, auto);
+  grid-template-rows: repeat(9, auto);
   align-items: stretch;
   gap: var(--cz-space-3);
   overflow-x: auto;
@@ -277,15 +277,16 @@
   color: var(--cz-color-accent);
 }
 
-/* One TierCard = one grid column, subgridding the strip's 8 row tracks so its
-   8 fixed sections (Product Badge, Tier Labels, Tier Overview, Price, Action,
-   Notes, Tier Inclusions, Tier Card Footer — in that order, each a direct
-   child below) share row height with the same section on every other card. */
+/* One TierCard = one grid column, subgridding the strip's 9 row tracks so its
+   9 fixed sections (Product Badge, Tier Labels, Tier Overview, Price,
+   Commercial Facts, Action, Notes, Tier Inclusions, Tier Card Footer — in
+   that order, each a direct child below) share row height with the same
+   section on every other card. */
 .cz-cost-builder__tier {
   min-width: 0;
   display: grid;
   grid-template-rows: subgrid;
-  grid-row: 1 / span 8;
+  grid-row: 1 / span 9;
   gap: var(--cz-space-2);
   padding: var(--cz-space-3);
   background: var(--cz-color-surface-2);
@@ -447,7 +448,36 @@
   color: var(--cz-color-muted);
 }
 
-/* 7. Tier Inclusions — check icon + inclusion + quantity per row. */
+/* 5. Commercial Facts — permanent two-row section: Upfront Payment, then
+   Minimum Commitment or No Commitments. Always exactly two rows so this
+   section's own row track never varies in content count across cards. */
+.cz-cost-builder__tier-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  padding-top: var(--cz-space-1);
+  border-top: 1px solid var(--cz-color-line);
+}
+
+.cz-cost-builder__tier-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cz-space-2);
+  font-size: var(--cz-font-size-xs);
+}
+
+.cz-cost-builder__tier-fact-label {
+  color: var(--cz-color-muted);
+}
+
+.cz-cost-builder__tier-fact-value {
+  font-weight: 600;
+  color: var(--cz-color-text);
+  text-align: right;
+}
+
+/* 8. Tier Inclusions — check icon + inclusion + quantity per row. */
 .cz-cost-builder__tier-inclusions {
   display: flex;
   flex-direction: column;
@@ -469,7 +499,7 @@
   color: var(--cz-color-muted);
 }
 
-/* 5. Action row — optional Choose Plan stacked above Add to Quote. */
+/* 6. Action row — optional Choose Plan stacked above Add to Quote. */
 .cz-cost-builder__tier-action-row {
   display: flex;
   flex-direction: column;
@@ -554,13 +584,13 @@
   color: var(--cz-color-danger);
 }
 
-/* 6. Notes row — reserved for future Tier notes; no content renders into it
+/* 7. Notes row — reserved for future Tier notes; no content renders into it
    yet (see TierCard's JSX comment). */
 .cz-cost-builder__tier-notes {
   min-height: 1px;
 }
 
-/* 8. Tier Card Footer — placeholder today; special per-Tier notes can be
+/* 9. Tier Card Footer — placeholder today; special per-Tier notes can be
    surfaced here later without another card restructure. */
 .cz-cost-builder__tier-footer {
   padding-top: var(--cz-space-2);
