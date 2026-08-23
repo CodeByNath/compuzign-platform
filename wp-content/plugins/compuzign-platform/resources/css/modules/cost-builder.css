@@ -414,20 +414,6 @@
   margin: 0;
 }
 
-/* Focused shell only (Commercial Period wiring): every active commercial
-   component of the selected Period, stacked — each with its own price row
-   and inclusions, mirroring Commercial Legs Debug's own structure. */
-.cz-cost-builder__tier-components {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-4);
-}
-
-.cz-cost-builder__tier-component + .cz-cost-builder__tier-component {
-  padding-block-start: var(--cz-space-4);
-  border-block-start: 1px solid var(--cz-color-line);
-}
-
 .cz-cost-builder__tier-price {
   display: flex;
   align-items: baseline;

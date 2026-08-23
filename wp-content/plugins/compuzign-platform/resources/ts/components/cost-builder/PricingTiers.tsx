@@ -17,33 +17,19 @@ export interface EffectiveTierDisplay {
   minimumTermUnit: string | null;
 }
 
-// One resolved commercial component of a selected Commercial Period, ready
-// for display — mirrors the Commercial Legs Debug tool's own
-// Period → components → { billing_cycle, price, items } structure exactly,
-// with no frontend interpretation beyond mapping field names for display.
-// Never merged, summed, or deduplicated against a sibling component: two
-// components legitimately carrying the same underlying item are two
-// separate, independent commercial identities, shown separately.
-export interface PeriodPriceComponent {
-  // That component's own commercial identity (a Leg Platform ID, or the
-  // literal 'default' fallback) — used ONLY as a stable render key, never
-  // displayed. See the architecture note: Platform IDs bind, they are not
-  // customer-facing copy.
-  identityKey: string;
-  billingCycle: string | null;
-  price: number | null;
-  inclusionItems: ServiceInclusion[];
-}
-
-// Focused shell only (Commercial Period wiring): every active commercial
-// component of a selected Commercial Period, substituted for the card's own
-// single flat/Edition-resolved price+inclusions wherever supplied. Never
-// computed here — see FamilyTierAdapter.tsx's periodPriceOverride(), a
-// straight pass-through of period.components with no picking, merging, or
-// recomputation. Commitment stays completely untouched, since it belongs to
-// the Tier/Edition parent, never a Leg or Period.
+// Focused shell only (Commercial Period wiring): the resolved price/cycle/
+// inclusions for the one unambiguous commercial component of a selected
+// Commercial Period, substituted for the card's own flat/Edition-resolved
+// values wherever supplied. Never computed here — see
+// FamilyTierAdapter.tsx's periodPriceOverride(), which only ever produces
+// one from a Period with exactly one active commercial component (Default
+// alone, no simultaneously active Additional Leg); commitment stays
+// completely untouched, since it belongs to the Tier/Edition parent, never
+// a Leg or Period.
 export interface PeriodPriceOverride {
-  components: PeriodPriceComponent[];
+  price: number | null;
+  billingCycle: string | null;
+  inclusionItems: ServiceInclusion[];
 }
 
 /**
@@ -233,28 +219,17 @@ export function TierCard({
     if (!isControlledEdition) setInternalSelectedEditionId(editionId);
   };
   const declaredEffective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
-  // What Add to Quote captures (`effective`, handed to onClick) is
-  // deliberately kept separate from what the card DISPLAYS (periodOverride,
-  // below) — a single quote line item has no way to represent two or more
-  // independent, simultaneously active commercial components without
-  // merging them, and merging is explicitly out of scope (cart/quote
-  // architecture, unchanged across every phase of this work). Only an
-  // unambiguous single-component Period substitutes its own resolved value
-  // here; every other case — no Period, or 2+ simultaneously active
-  // components — keeps the Tier's/Edition's own already-established flat
-  // declaration. Commitment (minimumTermValue/minimumTermUnit) and
-  // selectedEdition are never touched by this at all — they belong to the
-  // Tier/Edition parent, not a Commercial Period/Leg.
-  const singleComponentOverride = periodOverride?.components.length === 1
-    ? periodOverride.components[0]
-    : null;
-  const effective: EffectiveTierDisplay = singleComponentOverride
+  // Commitment (minimumTermValue/minimumTermUnit) and selectedEdition are
+  // never overridden here — they belong to the Tier/Edition parent, not a
+  // Commercial Period/Leg, and stay exactly as the Default/Edition
+  // declaration already resolved them.
+  const effective: EffectiveTierDisplay = periodOverride
     ? {
         ...declaredEffective,
-        price: singleComponentOverride.price,
-        billingCycle: singleComponentOverride.billingCycle ?? declaredEffective.billingCycle,
-        inclusionLabels: singleComponentOverride.inclusionItems.map((item) => item.label),
-        inclusionItems: singleComponentOverride.inclusionItems,
+        price: periodOverride.price,
+        billingCycle: periodOverride.billingCycle ?? declaredEffective.billingCycle,
+        inclusionLabels: periodOverride.inclusionItems.map((item) => item.label),
+        inclusionItems: periodOverride.inclusionItems,
       }
     : declaredEffective;
   const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
@@ -348,57 +323,17 @@ export function TierCard({
             })}
           </div>
         )}
-        {periodOverride ? (
-          // Every active commercial component of the selected Period, each
-          // with its own price/cycle/inclusions — mirrors Commercial Legs
-          // Debug's own Period → components structure exactly. Isolated to
-          // this one focused card (never part of the multi-card strip), so
-          // it is free to depart from the fixed single-price-row layout
-          // below without breaking cross-card row alignment.
-          <div class="cz-cost-builder__tier-components">
-            {periodOverride.components.map((component) => {
-              const componentSuffix = formatCycleLabel(component.billingCycle ?? '');
-              return (
-                <div class="cz-cost-builder__tier-component" key={component.identityKey}>
-                  <div class="cz-cost-builder__tier-price">
-                    <span class="cz-cost-builder__tier-amount">
-                      {formatPrice(component.price)}
-                    </span>
-                    {component.price !== null && componentSuffix && (
-                      <span class="cz-cost-builder__tier-cycle">{componentSuffix}</span>
-                    )}
-                  </div>
-                  {component.inclusionItems.length > 0 && (
-                    <ul class="cz-cost-builder__tier-features">
-                      {component.inclusionItems.map((item, i) => (
-                        <li key={item.id || i}>
-                          <TierInclusionCheckIcon />
-                          <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
-                          <span class="cz-cost-builder__tier-feature-qty">{item.quantity ?? ''}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <>
-            {/* Old price row: no discount/compare-at data source yet —
-                reserved so a future sale price doesn't shift the current-
-                price row. */}
-            <div class="cz-cost-builder__tier-price-old" />
-            <div class="cz-cost-builder__tier-price">
-              <span class="cz-cost-builder__tier-amount">
-                {formatPrice(effectivePrice)}
-              </span>
-              {effectivePrice !== null && suffix && (
-                <span class="cz-cost-builder__tier-cycle">{suffix}</span>
-              )}
-            </div>
-          </>
-        )}
+        {/* Old price row: no discount/compare-at data source yet — reserved
+            so a future sale price doesn't shift the current-price row. */}
+        <div class="cz-cost-builder__tier-price-old" />
+        <div class="cz-cost-builder__tier-price">
+          <span class="cz-cost-builder__tier-amount">
+            {formatPrice(effectivePrice)}
+          </span>
+          {effectivePrice !== null && suffix && (
+            <span class="cz-cost-builder__tier-cycle">{suffix}</span>
+          )}
+        </div>
         {minimumTermValue != null && (
           <p class="cz-cost-builder__tier-commitment">
             Minimum {minimumTermValue} {minimumTermUnit ?? ''}
@@ -435,12 +370,9 @@ export function TierCard({
           re-align every card's rows. */}
       <div class="cz-cost-builder__tier-notes" />
 
-      {/* 7. Tier Inclusions — check icon + inclusion + quantity. Empty
-          whenever periodOverride is active: each component's own
-          inclusions already render inline with it, in section 4 above, so
-          they are never duplicated here. */}
+      {/* 7. Tier Inclusions — check icon + inclusion + quantity. */}
       <div class="cz-cost-builder__tier-inclusions">
-        {!periodOverride && inclusionItems.length > 0 && (
+        {inclusionItems.length > 0 && (
           <ul class="cz-cost-builder__tier-features">
             {inclusionItems.flatMap((item, i) => [
               /* A Bundle-backed row (bundle_id present) reads as a section
