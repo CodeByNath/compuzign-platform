@@ -402,23 +402,35 @@ export function TierCard({
           card-specific spacer or margin needed to line up Action below it.
           Follows the same active Default/Edition `effective`/
           `declaredEffective` values the price above already resolves; never
-          a second Edition state. Upfront Payment reads resolveUpfrontPayment()
-          above, falling back to "Flexible" (never "None"/zero/hidden) when no
-          matching Leg exists. Minimum Commitment keeps its existing label in
-          both states — no separate "No Commitments" label — falling back to
-          "Cancel anytime" when there is no commitment. */}
+          a second Edition state. Each row is either a real label/value fact
+          or a standalone fallback message — "Flexible"/"Cancel anytime" are
+          NOT that row's value (they don't mean an amount or a commitment),
+          so they never render paired with the "Upfront Payment"/"Minimum
+          Commitment" label. Upfront Payment reads resolveUpfrontPayment()
+          above (unchanged — still scans every resolved component, matches
+          only available one-time/upfront billing_cycle, never sums).
+          Minimum Commitment still reads the existing resolved commitment
+          value/unit, never Leg periods. */}
       <div class="cz-cost-builder__tier-facts">
         <div class="cz-cost-builder__tier-fact">
-          <span class="cz-cost-builder__tier-fact-label">Upfront Payment</span>
-          <span class="cz-cost-builder__tier-fact-value">
-            {upfrontAmount !== null ? formatPrice(upfrontAmount) : 'Flexible'}
-          </span>
+          {upfrontAmount !== null ? (
+            <>
+              <span class="cz-cost-builder__tier-fact-label">Upfront Payment</span>
+              <span class="cz-cost-builder__tier-fact-value">{formatPrice(upfrontAmount)}</span>
+            </>
+          ) : (
+            <span class="cz-cost-builder__tier-fact-fallback">Flexible</span>
+          )}
         </div>
         <div class="cz-cost-builder__tier-fact">
-          <span class="cz-cost-builder__tier-fact-label">Minimum Commitment</span>
-          <span class="cz-cost-builder__tier-fact-value">
-            {minimumTermValue != null ? `${minimumTermValue} ${minimumTermUnit ?? ''}` : 'Cancel anytime'}
-          </span>
+          {minimumTermValue != null ? (
+            <>
+              <span class="cz-cost-builder__tier-fact-label">Minimum Commitment</span>
+              <span class="cz-cost-builder__tier-fact-value">{minimumTermValue} {minimumTermUnit ?? ''}</span>
+            </>
+          ) : (
+            <span class="cz-cost-builder__tier-fact-fallback">Cancel anytime</span>
+          )}
         </div>
       </div>
 

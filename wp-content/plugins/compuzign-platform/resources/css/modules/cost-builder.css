@@ -450,9 +450,10 @@
 
 /* 5. Commercial Facts — permanent two-row section: Upfront Payment, then
    Minimum Commitment. Always exactly two rows so this section's own row
-   track never varies in content count across cards. Label and value share
-   the same neutral, muted treatment — neither row is a highlighted/status
-   value, just a plain commercial fact. */
+   track never varies in content count across cards. A row is either a real
+   label/value fact or a standalone fallback message (never both — see
+   TierCard's JSX) — label, value, and fallback all share the same neutral,
+   muted treatment, none of them a highlighted/status value. */
 .cz-cost-builder__tier-facts {
   display: flex;
   flex-direction: column;
@@ -477,6 +478,10 @@
 .cz-cost-builder__tier-fact-value {
   color: var(--cz-color-muted);
   text-align: right;
+}
+
+.cz-cost-builder__tier-fact-fallback {
+  color: var(--cz-color-muted);
 }
 
 /* 8. Tier Inclusions — check icon + inclusion + quantity per row. */
