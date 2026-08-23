@@ -75,9 +75,14 @@ interface LegCardProps {
   // while commitment is off or indefinite: no cap, Indefinite stays
   // available either way — this only ever clamps an explicit numeric entry.
   maxToMonth?: number | null;
+  // Customer-facing Headline pointer — mirrors the occupant's own
+  // CommercialLegCard (TierPricingRulesEditor.tsx) exactly. This Edition's
+  // own headline_leg_id, never shared with the occupant's.
+  isHeadline:    boolean;
+  onSetHeadline: () => void;
 }
 
-function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMonth }: LegCardProps) {
+function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMonth, isHeadline, onSetHeadline }: LegCardProps) {
   const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
     paymentCategoryOf(leg.billing_cycle),
   );
@@ -126,6 +131,12 @@ function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMon
           }}
         />
       </div>
+
+      <AdminField
+        def={{ id: 'edt-leg-headline', type: 'checkbox', label: 'Headline' }}
+        value={isHeadline}
+        onChange={(checked: boolean) => { if (checked) onSetHeadline(); }}
+      />
     </div>
   );
 }
@@ -211,8 +222,17 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
   const updateLeg = (index: number, patch: Partial<TierCommercialLeg>) => {
     onChange({ legs: legs.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)) });
   };
+  // Mirrors the occupant's own removeLeg (TierPricingRulesEditor.tsx):
+  // removing the Leg currently selected as this Edition's own Headline
+  // resets the pointer back to Leg Default.
   const removeLeg = (index: number) => {
-    onChange({ legs: legs.filter((_, i) => i !== index) });
+    const removed = legs[index];
+    const removedId = removed.platform_id || removed.id;
+    const patch: Partial<TierEditionOverviewDraft> = { legs: legs.filter((_, i) => i !== index) };
+    if (removedId && removedId === (draft.headline_leg_id ?? '')) {
+      patch.headline_leg_id = '';
+    }
+    onChange(patch);
   };
   const addLeg = () => {
     const lastToMonth = legs.length > 0 ? legs[legs.length - 1].to_month : draft.to_month;
@@ -273,19 +293,26 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
         label="Leg Default"
         removable={false}
         maxToMonth={commitmentCap}
+        isHeadline={!draft.headline_leg_id}
+        onSetHeadline={() => onChange({ headline_leg_id: '' })}
       />
 
-      {legs.map((leg, index) => (
-        <CommercialLegCard
-          key={leg.id ?? index}
-          leg={leg}
-          onChange={(patch) => updateLeg(index, patch)}
-          maxToMonth={commitmentCap}
-          label={`Leg ${index + 1}`}
-          removable
-          onRemove={() => removeLeg(index)}
-        />
-      ))}
+      {legs.map((leg, index) => {
+        const legId = leg.platform_id || leg.id || '';
+        return (
+          <CommercialLegCard
+            key={leg.id ?? index}
+            leg={leg}
+            onChange={(patch) => updateLeg(index, patch)}
+            maxToMonth={commitmentCap}
+            label={`Leg ${index + 1}`}
+            removable
+            onRemove={() => removeLeg(index)}
+            isHeadline={legId !== '' && legId === draft.headline_leg_id}
+            onSetHeadline={() => onChange({ headline_leg_id: legId })}
+          />
+        );
+      })}
     </div>
   );
 }

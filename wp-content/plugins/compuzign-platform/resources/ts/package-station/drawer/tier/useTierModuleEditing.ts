@@ -66,6 +66,12 @@ export function useTierModuleEditing({
         // undefined until the admin touched "+ Add Leg" at least once,
         // which silently dropped any already-settled legs from the save.
         legs: d.legs ?? [],
+        // Customer-facing Headline pointer — must be seeded here too, or
+        // the editor's own onChange({ headline_leg_id }) would start from
+        // undefined and the save's own array_key_exists('headline_leg_id')
+        // check (PackageStationController::savePackageStationTierModule)
+        // would never see it change.
+        headline_leg_id: d.headline_leg_id ?? '',
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));

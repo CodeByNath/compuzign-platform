@@ -861,6 +861,34 @@ class PackageStationController
         return $map;
     }
 
+    /**
+     * Headline Leg pointer (presentation metadata — see
+     * PackageSchema::extractTierForCostBuilder()): if $container's own
+     * headline_leg_id currently names a Leg this SAME reservation pass just
+     * minted an identity for — its draft id (Additional Leg) or the
+     * 'default' bucketing key (Leg Default) — rewrite it to that newly-
+     * minted platform_id, so it stays addressable by the same identity
+     * commercial_legs[].components[].source will show going forward.
+     * Deliberately a separate map from legReservationPlatformIdMap() above
+     * (which excludes 'default' — leg_assignments[] never addresses the
+     * Default Leg, but headline_leg_id can): different field, different
+     * inclusion rule, same $reservations input.
+     */
+    private function rewriteHeadlineLegId(array $container, array $reservations): array
+    {
+        $headlineLegId = (string) ($container['headline_leg_id'] ?? '');
+        if ($headlineLegId === '') {
+            return $container;
+        }
+        foreach ($reservations as $entry) {
+            if ($entry['legId'] === $headlineLegId) {
+                $container['headline_leg_id'] = $entry['reservation']->platformId();
+                break;
+            }
+        }
+        return $container;
+    }
+
     private function instanceDeleteGuardResponse(string $code, string $message): \WP_REST_Response
     {
         return new \WP_REST_Response(['success' => false, 'code' => $code, 'message' => $message], 409);
@@ -1721,6 +1749,14 @@ class PackageStationController
             if (array_key_exists('legs', $body)) {
                 $draftValue['legs'] = $PS::sanitizeCommercialLegs($body['legs']);
             }
+            // Headline Leg pointer — presentation metadata only (see
+            // PackageSchema::extractTierForCostBuilder()). Same omitted-key-
+            // preserves rule as the fields above: an older/partial client
+            // payload must not silently reset an existing Headline choice
+            // back to Default.
+            if (array_key_exists('headline_leg_id', $body)) {
+                $draftValue['headline_leg_id'] = sanitize_text_field((string) $body['headline_leg_id']);
+            }
         } elseif ($module === 'features') {
             $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
         } else { // faqs
@@ -2106,6 +2142,7 @@ class PackageStationController
                 $legResult = $this->reserveTierLegPlatformIds($slot['current_occupant'], $this->identityAdapters->tierLeg());
                 $slot['current_occupant'] = $legResult['container'];
                 $legReservations = $legResult['reservations'];
+                $slot['current_occupant'] = $this->rewriteHeadlineLegId($slot['current_occupant'], $legReservations);
             } catch (\Throwable) {
                 $this->retireTierLegReservations($legReservations);
                 if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
@@ -2404,6 +2441,7 @@ class PackageStationController
                 $legResult = $this->reserveTierLegPlatformIds($updatedEdition, $this->identityAdapters->tierEditionLeg());
                 $updatedEdition = $legResult['container'];
                 $legReservations = $legResult['reservations'];
+                $updatedEdition = $this->rewriteHeadlineLegId($updatedEdition, $legReservations);
             } catch (\Throwable) {
                 $this->retireTierLegReservations($legReservations);
                 if ($reservation !== null && !$resumed) $this->retireReservation($reservation);

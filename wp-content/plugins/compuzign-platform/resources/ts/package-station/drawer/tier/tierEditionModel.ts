@@ -102,6 +102,7 @@ export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewD
     from_month: edition.from_month ?? 0,
     to_month:   edition.to_month ?? totalMonths,
     legs: edition.legs,
+    headline_leg_id: edition.headline_leg_id,
     inclusions_override: edition.inclusions_override,
     faq_refs: edition.faq_refs,
   };

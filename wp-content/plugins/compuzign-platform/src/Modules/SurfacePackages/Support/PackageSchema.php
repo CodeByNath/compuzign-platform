@@ -1081,6 +1081,15 @@ class PackageSchema
                 // output-only, empty-until-bound convention as the two
                 // fields above; see the Leg identity architecture note.
                 'default_leg_platform_id' => (string) ($occ['default_leg_platform_id'] ?? ''),
+                // Customer-UI presentation pointer — which Leg's own resolved
+                // commercial component (see commercial_legs[].components[].source)
+                // drives the Cost Builder card's headline price/billing_cycle.
+                // Empty means Leg Default (the out-of-box choice); a non-empty
+                // value is an Additional Leg's own platform_id (once minted) or
+                // draft id. Pure presentation metadata, the same weight class as
+                // audience_groups — never derives pricing, never touched by
+                // resolveCommercialLegTimeline().
+                'headline_leg_id'     => (string) ($occ['headline_leg_id'] ?? ''),
                 'label'               => $occ['label'] ?? '',
                 'ideal_for'           => $occ['ideal_for'] ?? '',
                 'audience_groups'     => self::sanitizeTierAudienceGroups($occ['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS),
@@ -1149,6 +1158,7 @@ class PackageSchema
             'from_month'          => null,
             'to_month'            => null,
             'legs'                => [],
+            'headline_leg_id'     => '',
             'inclusions_override' => $tier['inclusions_override'] ?? [],
             'rate_sheet_id'       => self::defaultRateSheetId($tier['rate_sheet_id'] ?? null, $tier['rate_sheet_items'] ?? []),
             'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($tier['rate_sheet_items'] ?? []),
@@ -1320,6 +1330,23 @@ class PackageSchema
                 // component-identity substitution, same "unset here"
                 // convention as legs above.
                 'default_leg_platform_id' => $occ['default_leg_platform_id'] ?? '',
+                // Customer-facing Headline pointer — presentation metadata
+                // only (see 'headline_leg_id' above in normaliseTierSlot()).
+                // The stored value never leaks the internal empty-means-
+                // Default state to the public response: an empty stored
+                // pointer resolves here to the occupant's own real Default
+                // Leg identity, matching exactly the same fallback
+                // resolveCommercialLegTimeline() already computes internally
+                // for the Default component's own 'source' (real
+                // default_leg_platform_id once minted, else the literal
+                // 'default' — never a new resolver, just the same fallback
+                // read where every other field here is already whitelisted).
+                // A stored pointer at an Additional Leg passes through as-is.
+                'headline_leg_id'     => (($occ['headline_leg_id'] ?? '') !== '')
+                    ? (string) $occ['headline_leg_id']
+                    : (((string) ($occ['default_leg_platform_id'] ?? '')) !== ''
+                        ? (string) $occ['default_leg_platform_id']
+                        : 'default'),
             ];
         }
 
@@ -1464,6 +1491,12 @@ class PackageSchema
                 // boundary), so identity is carried forward from
                 // $existingLegs (captured above, from BEFORE this call).
                 'legs'                => self::reattachLegPlatformIds(self::sanitizeCommercialLegs($data['legs'] ?? []), $existingLegs),
+                // Headline Leg pointer — plain presentation metadata, not a
+                // minted identity itself, so (unlike legs[]'s own
+                // platform_id above) it needs no identity-preservation
+                // reattach: whatever $data supplies is simply sanitized and
+                // stored. See extractTierForCostBuilder().
+                'headline_leg_id'     => sanitize_text_field((string) ($data['headline_leg_id'] ?? '')),
                 'rate_sheet_id'       => $rateSheetId,
                 'inclusions_override' => $data['inclusions_override'] ?? [],
                 'rate_sheet_items'    => $selections,
@@ -1635,6 +1668,10 @@ class PackageSchema
             // legs before this function ever runs) — this is a pure
             // re-sanitize, never the write boundary itself.
             'legs'                     => self::reattachLegPlatformIds(self::sanitizeCommercialLegs($edition['legs'] ?? []), $edition['legs'] ?? []),
+            // Headline Leg pointer — this Edition's own, independent of the
+            // occupant's. Presentation metadata only; see
+            // extractTierForCostBuilder()'s edition_options resolution.
+            'headline_leg_id'          => sanitize_text_field((string) ($edition['headline_leg_id'] ?? '')),
 
             // Empty means inherit the parent occupant's own inclusions_override
             // / faq_refs — the same empty-means-inherit rule the occupant
@@ -1786,6 +1823,9 @@ class PackageSchema
             // own doc comment). sanitizeCommercialLegs() preserves an id
             // already present, so resaving this same draft never re-mints.
             'legs'                 => self::sanitizeCommercialLegs($data['legs'] ?? []),
+            // Headline Leg pointer — this Edition's own, independent of the
+            // occupant's. Presentation metadata only.
+            'headline_leg_id'      => sanitize_text_field((string) ($data['headline_leg_id'] ?? '')),
             'inclusions_override'  => $data['inclusions_override'] ?? [],
             'faq_refs'             => $data['faq_refs'] ?? [],
         ];
@@ -1839,6 +1879,11 @@ class PackageSchema
         $edition['legs'] = array_key_exists('legs', $draft)
             ? self::reattachLegPlatformIds(self::sanitizeCommercialLegs($draft['legs']), $edition['legs'])
             : $edition['legs'];
+        // Headline Leg pointer — plain presentation metadata, not a minted
+        // identity itself, so (unlike legs[] above) no reattach is needed.
+        $edition['headline_leg_id'] = array_key_exists('headline_leg_id', $draft)
+            ? sanitize_text_field((string) $draft['headline_leg_id'])
+            : ($edition['headline_leg_id'] ?? '');
 
         // Authoring-time guard, separate from the resolver: a finite
         // commitment is the maximum legal commercial end for this Edition —
@@ -2212,7 +2257,7 @@ class PackageSchema
             'audience_groups' => self::DEFAULT_TIER_AUDIENCE_GROUPS,
             'price' => null, 'contact' => false,
             'billing_cycle' => null, 'minimum_term_value' => null, 'minimum_term_unit' => null,
-            'from_month' => null, 'to_month' => null, 'legs' => [],
+            'from_month' => null, 'to_month' => null, 'legs' => [], 'headline_leg_id' => '',
             'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
             'tier_editions' => [], 'tier_edition_bin' => [],
@@ -2779,6 +2824,9 @@ class PackageSchema
             'to_month'            => array_key_exists('to_month', $pr)   ? $pr['to_month']   : ($occ['to_month']   ?? null),
             // Commercial Legs — same draft-preferred rule as coverage above.
             'legs'                => array_key_exists('legs', $pr) ? $pr['legs'] : ($occ['legs'] ?? []),
+            // Headline Leg pointer — same draft-preferred rule as legs above.
+            // Presentation metadata only; see extractTierForCostBuilder().
+            'headline_leg_id'     => (string) (array_key_exists('headline_leg_id', $pr) ? $pr['headline_leg_id'] : ($occ['headline_leg_id'] ?? '')),
             'rate_sheet_id'       => $draftRateSheetId,
             'inclusions_override' => [],
             'rate_sheet_items'    => $selections,

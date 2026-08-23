@@ -109,6 +109,41 @@ export function resolveUpfrontPayment(commercialLegs: CommercialLegPeriod[] | un
   return null;
 }
 
+export interface HeadlinePrice {
+  price: number | null;
+  billing_cycle: string | null;
+}
+
+/**
+ * Finds the active Default/Edition's own admin-selected Headline Leg among
+ * its already-resolved commercial_legs — presentation metadata only, never
+ * a pricing calculation. `headlineLegId` is already resolved server-side
+ * (PackageSchema::extractTierForCostBuilder()) to a real Leg identity or the
+ * literal 'default', matching exactly the same identity
+ * commercial_legs[].components[].source already carries — so this is a
+ * plain identity match, never array position, billing_cycle, price,
+ * item_id, or label. Scans every resolved Period in order (not just the
+ * focused shell's currently selected one — Headline is a standing card fact,
+ * independent of which Commercial Period is being browsed) and returns the
+ * first available match's own resolved price/billing_cycle; `null` when
+ * nothing matches (e.g. `headlineLegId` names a since-removed Leg), letting
+ * the caller fall back to today's existing behavior.
+ */
+export function resolveHeadlinePrice(
+  commercialLegs: CommercialLegPeriod[] | undefined,
+  headlineLegId: string | undefined,
+): HeadlinePrice | null {
+  if (!headlineLegId) return null;
+  for (const period of commercialLegs ?? []) {
+    for (const component of period.components) {
+      if (component.available && component.source === headlineLegId) {
+        return { price: component.price, billing_cycle: component.billing_cycle };
+      }
+    }
+  }
+  return null;
+}
+
 // Price-line suffix for the two cycles the shared formatCycleLabel()
 // (utils/format.ts) doesn't cover — 'upfront' isn't in its map at all, and
 // 'one-time' resolves to '' there. Kept local rather than extending that
@@ -280,19 +315,49 @@ export function TierCard({
     if (!isControlledEdition) setInternalSelectedEditionId(editionId);
   };
   const declaredEffective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
+
+  // Upfront Payment / Headline both read the active Default/Edition's own
+  // resolved commercial_legs — never the focused shell's periodOverride,
+  // which is scoped to one selected Commercial Period only; these facts
+  // stand regardless of which Period is being browsed. See
+  // resolveUpfrontPayment()/resolveHeadlinePrice() above.
+  const activeCommercialLegs = declaredEffective.selectedEdition
+    ? declaredEffective.selectedEdition.commercial_legs
+    : data?.commercial_legs;
+  const activeHeadlineLegId = declaredEffective.selectedEdition
+    ? declaredEffective.selectedEdition.headline_leg_id
+    : data?.headline_leg_id;
+  const headlineOverride = resolveHeadlinePrice(activeCommercialLegs, activeHeadlineLegId);
+
   // Commitment (minimumTermValue/minimumTermUnit) and selectedEdition are
   // never overridden here — they belong to the Tier/Edition parent, not a
   // Commercial Period/Leg, and stay exactly as the Default/Edition
   // declaration already resolved them.
-  const effective: EffectiveTierDisplay = periodOverride
-    ? {
-        ...declaredEffective,
-        price: periodOverride.price,
-        billingCycle: periodOverride.billingCycle ?? declaredEffective.billingCycle,
-        inclusionLabels: periodOverride.inclusionItems.map((item) => item.label),
-        inclusionItems: periodOverride.inclusionItems,
-      }
-    : declaredEffective;
+  //
+  // Price/billing-cycle priority: the admin-selected Headline Leg (if it
+  // resolves) always wins — in BOTH the normal card and the focused shell —
+  // a selected Commercial Period never overrides the card's own Headline
+  // choice; Period is for inspecting that period's own detail, a separate
+  // concern from which price is "the" headline. periodOverride still
+  // supplies inclusionItems/inclusionLabels unconditionally when present,
+  // and still supplies price/billingCycle only as the fallback when the
+  // Headline lookup returns null (e.g. a never-configured Tier, or a
+  // headline_leg_id naming a since-removed Leg) — so every existing/
+  // never-configured Tier keeps exactly today's behavior.
+  const effective: EffectiveTierDisplay = {
+    ...declaredEffective,
+    ...(periodOverride
+      ? {
+          inclusionLabels: periodOverride.inclusionItems.map((item) => item.label),
+          inclusionItems: periodOverride.inclusionItems,
+        }
+      : {}),
+    ...(headlineOverride
+      ? { price: headlineOverride.price, billingCycle: headlineOverride.billing_cycle ?? declaredEffective.billingCycle }
+      : periodOverride
+        ? { price: periodOverride.price, billingCycle: periodOverride.billingCycle ?? declaredEffective.billingCycle }
+        : {}),
+  };
   const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
 
   const suffix = TIER_CYCLE_SUFFIX_OVERRIDES[effectiveBillingCycle] ?? formatCycleLabel(effectiveBillingCycle);
@@ -300,14 +365,8 @@ export function TierCard({
 
   const label = data?.label || tier.title;
 
-  // Upfront Payment — the active Default/Edition's own resolved
-  // commercial_legs (never the focused shell's periodOverride, which is
-  // scoped to one selected Commercial Period only; this fact stands
-  // regardless of which Period is being browsed). See
-  // resolveUpfrontPayment() above.
-  const activeCommercialLegs = declaredEffective.selectedEdition
-    ? declaredEffective.selectedEdition.commercial_legs
-    : data?.commercial_legs;
+  // Upfront Payment — see resolveUpfrontPayment() above; activeCommercialLegs
+  // is already computed above, shared with the Headline lookup.
   const upfrontAmount = resolveUpfrontPayment(activeCommercialLegs);
 
   // Fixed card-section structure (1–9 below): every section renders on every

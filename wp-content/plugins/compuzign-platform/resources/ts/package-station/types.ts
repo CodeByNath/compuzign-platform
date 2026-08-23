@@ -544,6 +544,12 @@ export interface SurfaceTierDetail {
   addon_platform_id: string;
   /** Output-only permanent CZTL identity for this occupant's own Default Leg; empty until bound. */
   default_leg_platform_id: string;
+  // Customer-facing Headline pointer — presentation metadata only, which
+  // Leg's own resolved commercial component drives the Cost Builder card's
+  // headline price/billing_cycle. Empty means Leg Default (the out-of-box
+  // choice); non-empty is an Additional Leg's own platform_id (once minted)
+  // or draft id. Never itself a price/cycle value or a pricing calculation.
+  headline_leg_id: string;
   label: string;
   ideal_for: string;
   // An occupant belongs to its Tier Group, not one customer audience.
@@ -642,6 +648,10 @@ export interface TierEdition {
   to_month: number | null;
   // Commercial Legs — this Edition's own, independent of the occupant's.
   legs: TierCommercialLeg[];
+  // Customer-facing Headline pointer — this Edition's own, independent of
+  // the occupant's. Same presentation-metadata concern as
+  // SurfaceTierDetail.headline_leg_id.
+  headline_leg_id: string;
   // Empty means inherit the parent occupant's own inclusions_override/
   // faq_refs; non-empty is this Edition's deliberate declaration override.
   inclusions_override: InclusionItem[];
@@ -664,6 +674,7 @@ export interface TierEditionOverviewDraft {
   from_month: number | null;
   to_month: number | null;
   legs: TierCommercialLeg[];
+  headline_leg_id: string;
   inclusions_override: InclusionItem[];
   faq_refs: string[];
 }
@@ -749,6 +760,13 @@ export interface TierPricingRulesDraft {
   // for every declaration that has never added one. See
   // docs/code-map/tiers.md.
   legs?: TierCommercialLeg[];
+  // Customer-facing Headline pointer — presentation metadata only, which
+  // Leg's own resolved commercial component drives the Cost Builder card's
+  // headline price/billing_cycle. Empty means Leg Default; a non-empty
+  // value is an Additional Leg's own id (draft) or platform_id (once
+  // minted). Same omission rule as the fields above: an omitted key
+  // preserves the settled occupant's existing value.
+  headline_leg_id?: string;
 }
 
 // One Commercial Leg — a payment-behaviour segment beyond the Default

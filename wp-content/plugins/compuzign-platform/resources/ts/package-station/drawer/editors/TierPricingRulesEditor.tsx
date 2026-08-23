@@ -67,9 +67,19 @@ interface LegCardProps {
   // while commitment is off or indefinite: no cap, Indefinite stays
   // available either way — this only ever clamps an explicit numeric entry.
   maxToMonth?: number | null;
+  // Customer-facing Headline pointer (presentation metadata — see
+  // extractTierForCostBuilder()): whether THIS Leg is the one whose own
+  // resolved price/billing_cycle drives the Cost Builder card's headline.
+  // Exclusive/radio-like across every Leg card the parent renders — the
+  // parent owns draft.headline_leg_id and computes isHeadline by
+  // comparison; onSetHeadline always ACTIVATES this Leg (never an
+  // independent uncheck), the same "click activates" pattern the public
+  // Default/Edition switch already uses.
+  isHeadline:    boolean;
+  onSetHeadline: () => void;
 }
 
-function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMonth }: LegCardProps) {
+function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMonth, isHeadline, onSetHeadline }: LegCardProps) {
   const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
     paymentCategoryOf(leg.billing_cycle),
   );
@@ -118,6 +128,12 @@ function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMon
           }}
         />
       </div>
+
+      <AdminField
+        def={{ id: 'leg-headline', type: 'checkbox', label: 'Headline' }}
+        value={isHeadline}
+        onChange={(checked: boolean) => { if (checked) onSetHeadline(); }}
+      />
     </div>
   );
 }
@@ -199,8 +215,17 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
   const updateLeg = (index: number, patch: Partial<TierCommercialLeg>) => {
     onChange({ legs: legs.map((leg, i) => (i === index ? { ...leg, ...patch } : leg)) });
   };
+  // Removing the Leg currently selected as Headline resets the pointer back
+  // to Leg Default — presentation-preference cleanup, never a stale pointer
+  // and never a silent reassignment to some other remaining Leg.
   const removeLeg = (index: number) => {
-    onChange({ legs: legs.filter((_, i) => i !== index) });
+    const removed = legs[index];
+    const removedId = removed.platform_id || removed.id;
+    const patch: Partial<TierPricingRulesDraft> = { legs: legs.filter((_, i) => i !== index) };
+    if (removedId && removedId === (draft.headline_leg_id ?? '')) {
+      patch.headline_leg_id = '';
+    }
+    onChange(patch);
   };
   // Continuity: a new leg starts the day after whatever came before it
   // (the previous leg's own to_month, or Leg Default's when there are no
@@ -297,19 +322,26 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
         label="Leg Default"
         removable={false}
         maxToMonth={commitmentCap}
+        isHeadline={!draft.headline_leg_id}
+        onSetHeadline={() => onChange({ headline_leg_id: '' })}
       />
 
-      {legs.map((leg, index) => (
-        <CommercialLegCard
-          key={leg.id ?? index}
-          leg={leg}
-          onChange={(patch) => updateLeg(index, patch)}
-          maxToMonth={commitmentCap}
-          label={`Leg ${index + 1}`}
-          removable
-          onRemove={() => removeLeg(index)}
-        />
-      ))}
+      {legs.map((leg, index) => {
+        const legId = leg.platform_id || leg.id || '';
+        return (
+          <CommercialLegCard
+            key={leg.id ?? index}
+            leg={leg}
+            onChange={(patch) => updateLeg(index, patch)}
+            maxToMonth={commitmentCap}
+            label={`Leg ${index + 1}`}
+            removable
+            onRemove={() => removeLeg(index)}
+            isHeadline={legId !== '' && legId === draft.headline_leg_id}
+            onSetHeadline={() => onChange({ headline_leg_id: legId })}
+          />
+        );
+      })}
     </div>
   );
 }

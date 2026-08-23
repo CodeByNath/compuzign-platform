@@ -2006,14 +2006,29 @@ class PackageRepository
                 // own above, resolved per Edition from that Edition's own
                 // rate_sheet_id/rate_sheet_items/legs — never the occupant's.
                 $editionTimelineById = [];
+                // Customer-facing Headline pointer, resolved per Edition —
+                // same presentation-metadata resolution as the occupant's
+                // own in PackageSchema::extractTierForCostBuilder(): an
+                // empty stored pointer (Default Leg is Headline) resolves to
+                // this Edition's own real default_leg_platform_id once
+                // minted, else the literal 'default' — matching exactly what
+                // resolveCommercialLegTimeline() already computes internally
+                // for that Edition's own Default component's 'source'.
+                $editionHeadlineById = [];
                 foreach ($rawEditions as $rawEdition) {
                     $editionTimelineById[$rawEdition['id']] = PackageManagerSchema::resolveCommercialLegTimeline($readModel, $rawEdition);
+                    $editionHeadlineId = (string) ($rawEdition['headline_leg_id'] ?? '');
+                    $editionDefaultLegId = (string) ($rawEdition['default_leg_platform_id'] ?? '');
+                    $editionHeadlineById[$rawEdition['id']] = $editionHeadlineId !== ''
+                        ? $editionHeadlineId
+                        : ($editionDefaultLegId !== '' ? $editionDefaultLegId : 'default');
                 }
                 $extracted['edition_options'] = array_map(
                     static fn(array $option): array => [
                         ...$option,
                         'price' => $editionPriceById[$option['id']] ?? $option['price'],
                         'commercial_legs' => $editionTimelineById[$option['id']] ?? [],
+                        'headline_leg_id' => $editionHeadlineById[$option['id']] ?? 'default',
                     ],
                     $extracted['edition_options']
                 );

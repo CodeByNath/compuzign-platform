@@ -71,6 +71,23 @@ alongside `price` (`PackageFamilyPricingBuilder`/`PricingBuilder`).
 `default_leg_platform_id` through to the resolver so its emitted component
 identity is the real Leg, not the internal fallback.
 
+## Headline Leg (customer-UI presentation metadata)
+
+`headline_leg_id` — a Rung-1 presentation pointer, stored independently on
+the occupant and on each Edition — never a pricing concept, never touching
+`resolveCommercialLegTimeline()` itself. A checkbox on each `CommercialLegCard`
+marks exactly one Leg (Default or one Additional) as Headline; Default is
+the out-of-box choice (stored `''`). It shares the identity space
+`commercial_legs[].components[].source` already uses, rewritten at Publish
+by `PackageStationController::rewriteHeadlineLegId()` from the same
+`reservations` `reserveTierLegPlatformIds()` already returns — no separate
+mechanism. `extractTierForCostBuilder()` never exposes the raw `''` state:
+it resolves to the real `default_leg_platform_id` (else `'default'`),
+matching the Default component's own `source`. The frontend
+(`resolveHeadlinePrice()`, `PricingTiers.tsx`) does the identity-match lookup
+itself and wins over a selected Commercial Period for the card's headline
+price/`billing_cycle` (Period still governs that period's own inclusions).
+
 ## Debug tool
 
 Package Settings → Maintenance → Commercial Legs Debug
@@ -93,12 +110,12 @@ No separate backfill script exists.
 | Area | Files |
 |---|---|
 | Resolver/commitment | `PackageManagerSchema.php` — `resolveCommercialLegTimeline()`, `checkFiniteCommitmentLegCap()`, `clampCommercialLegTimelineToCommitment()` |
-| Identity/settle | `PackageSchema.php` (Leg sanitize/reattach/prune), `PackageStationController.php` (`reserveTierLegPlatformIds()`) |
-| Cost Builder | `PackageRepository.php`, `PackageFamilyPricingBuilder.php`, `PricingBuilder.php` |
+| Identity/settle | `PackageSchema.php` (Leg sanitize/reattach/prune), `PackageStationController.php` (`reserveTierLegPlatformIds()`, `rewriteHeadlineLegId()`) |
+| Cost Builder | `PackageRepository.php`, `PackageFamilyPricingBuilder.php`, `PricingBuilder.php`, `PricingTiers.tsx` (`resolveHeadlinePrice()`) |
 | Migration | `TemporaryMigrationController.php`, `PackagePlatformIdentifierAdapters.php` |
 | Debug tool | `CommercialLegsDebugPanel.tsx` |
 | Editors | `TierPricingRulesEditor.tsx`, `TierEditionOverviewFields.tsx` |
-| Tests | `commercial-leg-resolution.php`, `tier-commercial-leg-identity.php`, `commercial-leg-timeline.php`, `commercial-leg-commitment-cap.php`, `tier-leg-inclusion-reference.php`, `tier-leg-platform-identity.php`, `tier-leg-assignment-orphan-pruning.php`, `tier-default-leg-identity-cost-builder.php`, `platform-identifier-temporary-migration.php` |
+| Tests | `commercial-leg-resolution.php`, `tier-commercial-leg-identity.php`, `commercial-leg-timeline.php`, `commercial-leg-commitment-cap.php`, `tier-leg-inclusion-reference.php`, `tier-leg-platform-identity.php`, `tier-leg-assignment-orphan-pruning.php`, `tier-default-leg-identity-cost-builder.php`, `commercial-leg-headline-id.php`, `platform-identifier-temporary-migration.php` |
 
 ## Related Code Maps
 

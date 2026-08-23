@@ -54,6 +54,13 @@ final class PackageFamilyPricingBuilder
                     // price above, same as every other field here; carried
                     // through whole, like edition_options already is.
                     'commercial_legs'   => is_array($tier['commercial_legs'] ?? null) ? $tier['commercial_legs'] : [],
+                    // Customer-facing Headline pointer — presentation metadata
+                    // only, already resolved to a real identity (or 'default')
+                    // by PackageSchema::extractTierForCostBuilder(); matched
+                    // against commercial_legs[].components[].source on the
+                    // frontend. Carried through verbatim, same as
+                    // commercial_legs above.
+                    'headline_leg_id'   => (string) ($tier['headline_leg_id'] ?? 'default'),
                 ];
             }
             return [

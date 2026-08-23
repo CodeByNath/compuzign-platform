@@ -375,6 +375,14 @@ class PricingBuilder
             // unconditional pass-through as edition_options above.
             $payload['pricing']['tiers'][$tierId]['commercial_legs'] = $pkgTier['commercial_legs'] ?? [];
 
+            // Customer-facing Headline pointer — presentation metadata only,
+            // already resolved to a real identity (or 'default') by
+            // PackageSchema::extractTierForCostBuilder(); matched against
+            // commercial_legs[].components[].source on the frontend. Carried
+            // through verbatim, same unconditional pass-through as
+            // commercial_legs above.
+            $payload['pricing']['tiers'][$tierId]['headline_leg_id'] = $pkgTier['headline_leg_id'] ?? 'default';
+
             // Structured minimum commitment (Phase 8) — the resolved default
             // Edition's own value, carried the same way price/billing_cycle
             // already are; null for every Tier that has never used this

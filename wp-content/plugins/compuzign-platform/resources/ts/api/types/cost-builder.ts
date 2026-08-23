@@ -87,6 +87,13 @@ export interface PricingEditionOption {
   // alongside price/billing_cycle/inclusions_override above, which stay the
   // Edition's own flat/base declaration.
   commercial_legs?: CommercialLegPeriod[];
+  // Customer-facing Headline pointer — presentation metadata only, this
+  // Edition's own independent choice (never shared with the occupant's).
+  // Already resolved server-side to a real Leg identity (or the literal
+  // 'default'), matching exactly what one of commercial_legs' own
+  // components[].source will carry — see resolveHeadlinePrice() in
+  // PricingTiers.tsx. Never itself a price/cycle value.
+  headline_leg_id?: string;
 }
 
 // One resolved commercial-priced Rate Sheet selection inside a Commercial
@@ -169,6 +176,12 @@ export interface PricingTierData {
   // alongside price/billing_cycle/inclusions above, which stay the
   // occupant's own flat/base Default declaration.
   commercial_legs?: CommercialLegPeriod[];
+  // Customer-facing Headline pointer — presentation metadata only, never a
+  // pricing calculation of its own. Already resolved server-side to a real
+  // Leg identity (or the literal 'default'), matching exactly what one of
+  // commercial_legs' own components[].source will carry — see
+  // resolveHeadlinePrice() in PricingTiers.tsx.
+  headline_leg_id?: string;
 }
 
 export interface ServicePricing {
