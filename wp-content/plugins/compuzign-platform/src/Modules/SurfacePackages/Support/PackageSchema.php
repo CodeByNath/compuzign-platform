@@ -1834,6 +1834,27 @@ class PackageSchema
         $edition['legs'] = array_key_exists('legs', $draft)
             ? self::reattachLegPlatformIds(self::sanitizeCommercialLegs($draft['legs']), $edition['legs'])
             : $edition['legs'];
+
+        // Authoring-time guard, separate from the resolver: a finite
+        // commitment is the maximum legal commercial end for this Edition —
+        // no Leg's own authored to_month may exceed it. Checked here,
+        // against what is ABOUT to be settled, so a stale payload cannot
+        // bypass the editor's own cap. See
+        // PackageManagerSchema::checkFiniteCommitmentLegCap().
+        $capViolation = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::checkFiniteCommitmentLegCap($edition);
+        if ($capViolation !== null) {
+            $defaultLabel = (string) ($edition['default_leg_platform_id'] ?? '') ?: 'the Default Leg';
+            $names = array_map(
+                static fn(array $v): string => ($v['source'] === 'default' ? $defaultLabel : $v['source']) . " (to month {$v['to_month']})",
+                $capViolation['violations']
+            );
+            throw new \InvalidArgumentException(sprintf(
+                'Leg range exceeds the commitment boundary (month %d): %s.',
+                $capViolation['commitment_end'],
+                implode(', ', $names)
+            ));
+        }
+
         // Legs are now final (platform_id already reattached above) — drop
         // any assignment left pointing at a Leg that no longer exists, e.g.
         // removed in this same save while an inclusion still referenced it.
@@ -2763,6 +2784,25 @@ class PackageSchema
             // existing value carries forward untouched.
             'is_addon'            => $ov['is_addon']       ?? ($occ['is_addon']       ?? false),
         ];
+
+        // Authoring-time guard, separate from the resolver: a finite
+        // commitment is the maximum legal commercial end for this Tier — no
+        // Leg's own authored to_month may exceed it. Checked here, against
+        // what is ABOUT to be settled, so a stale payload cannot bypass the
+        // editor's own cap. See PackageManagerSchema::checkFiniteCommitmentLegCap().
+        $capViolation = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::checkFiniteCommitmentLegCap($tierData);
+        if ($capViolation !== null) {
+            $defaultLabel = (string) ($occ['default_leg_platform_id'] ?? '') ?: 'the Default Leg';
+            $names = array_map(
+                static fn(array $v): string => ($v['source'] === 'default' ? $defaultLabel : $v['source']) . " (to month {$v['to_month']})",
+                $capViolation['violations']
+            );
+            throw new \InvalidArgumentException(sprintf(
+                'Leg range exceeds the commitment boundary (month %d): %s.',
+                $capViolation['commitment_end'],
+                implode(', ', $names)
+            ));
+        }
 
         // Publish alone activates and clears the explicit Disable marker —
         // Enable is a separate transition that never activates on its own, and

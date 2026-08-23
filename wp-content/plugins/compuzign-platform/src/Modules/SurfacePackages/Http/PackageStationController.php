@@ -2046,7 +2046,11 @@ class PackageStationController
         [$station, $instanceId, $instance] = $context;
 
         $originalSlot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
-        $slot = $PS::settleTierSlot($originalSlot);
+        try {
+            $slot = $PS::settleTierSlot($originalSlot);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
         $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
         $primaryReservation = null;
         $addonReservation = null;
@@ -2301,7 +2305,11 @@ class PackageStationController
         }
 
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
-        $editions = $PS::settleTierEditionOverview($editions, $editionId);
+        try {
+            $editions = $PS::settleTierEditionOverview($editions, $editionId);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
         $this->persistTierEditionOccupant($station, $instanceId, $instance, $tierId, $occupant, $editions);
 
         return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [

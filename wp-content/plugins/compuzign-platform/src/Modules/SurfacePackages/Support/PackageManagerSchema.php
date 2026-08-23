@@ -2243,6 +2243,41 @@ final class PackageManagerSchema
         return $clamped;
     }
 
+    /**
+     * Authoring-time guard, separate from the resolver above: a finite
+     * commitment is the maximum legal commercial end for the Tier/Edition —
+     * no Leg's own authored `to_month` may exceed it. `Indefinite`
+     * (`to_month === null`) is never a violation on its own; it already
+     * resolves correctly capped at the commitment boundary by
+     * clampCommercialLegTimelineToCommitment() above, so nothing here needs
+     * to special-case it. This intentionally does NOT require any Leg to
+     * reach the commitment end — Legs may start late, end early, overlap,
+     * or exist only in the middle; the sole invariant enforced is the cap
+     * itself. No commitment configured (unit isn't exactly 'month', or no
+     * value set) means nothing to enforce.
+     *
+     * @param array<string, mixed> $container occupant or Tier Edition shape — same as resolveCommercialLegTimeline()'s own
+     * @return null|array{commitment_end:int, violations: array<int, array{source:string, to_month:int}>}
+     */
+    public static function checkFiniteCommitmentLegCap(array $container): ?array
+    {
+        $unit = $container['minimum_term_unit'] ?? null;
+        $value = $container['minimum_term_value'] ?? null;
+        if ($unit !== 'month' || $value === null) {
+            return null;
+        }
+        $anchor = isset($container['from_month']) && $container['from_month'] !== null ? (int) $container['from_month'] : 1;
+        $commitmentEnd = $anchor + (int) $value - 1;
+
+        $violations = [];
+        foreach (self::commercialLegTimelineChildren($container) as $child) {
+            if ($child['to_month'] !== null && $child['to_month'] > $commitmentEnd) {
+                $violations[] = ['source' => $child['source'], 'to_month' => $child['to_month']];
+            }
+        }
+        return $violations === [] ? null : ['commitment_end' => $commitmentEnd, 'violations' => $violations];
+    }
+
     // ── Consumer projections ─────────────────────────────────────────────────
 
     /**
