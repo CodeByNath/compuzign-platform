@@ -422,7 +422,7 @@ assertSameValue(2, count($t17), '17. two periods — Default alone, then Default
 $p17a = periodAt($t17, 6);
 $p17b = periodAt($t17, 20);
 assertSameValue(12, $p17a['to_month'], '17. Default-only period is already finite (segmentation, not commitment) — the Leg starts at month 13');
-assertSameValue(36, $p17b['to_month'], '17. the Leg\'s own indefinite window clamps to month 36 (anchor 1 + 36 - 1), never extended past commitment');
+assertSameValue(36, $p17b['to_month'], '17. the Leg\'s own indefinite window clamps to month 36, the parent\'s own commitment length, never extended past it');
 assertSameValue(13, $p17b['from_month'], '17. the Leg\'s own from_month is untouched by the clamp — only to_month is limited');
 assertSameValue(30.0, componentBySource($p17b, 'CZTL_17')['price'], '17. the Leg\'s own claimed component still resolves correctly inside the clamped period');
 assertTrue(periodAt($t17, 40) === null, '17. nothing exists past the commitment boundary');
@@ -533,5 +533,24 @@ $c23 = container([
 ]);
 $t23 = PMS::resolveCommercialLegTimeline($readModel, $c23);
 assertTrue(componentBySource($t23[0], 'default') !== null, '23. legacy/never-minted Default Leg still resolves under the literal \'default\' fallback');
+
+// ── 24. The commitment boundary is the parent's own commitment length —
+//         NEVER anchored at the Default Leg's own from_month. A Default Leg
+//         starting at month 5 (not 1) must not shift the cap to 52 ─────────
+
+$c24 = container([
+    'billing_cycle' => 'monthly', 'from_month' => 5, 'to_month' => null,
+    'minimum_term_value' => 48, 'minimum_term_unit' => 'month',
+    'rate_sheet_items' => [item('hosting', 1)],
+]);
+$t24 = PMS::resolveCommercialLegTimeline($readModel, $c24);
+foreach ($t24 as $period) {
+    assertTrue(
+        $period['to_month'] === null || $period['to_month'] <= 48,
+        '24. no period may extend past month 48, regardless of the Default Leg\'s own from_month (5)'
+    );
+}
+$last24 = $t24[count($t24) - 1];
+assertSameValue(48, $last24['to_month'], '24. the final period ends exactly at the parent\'s own commitment length (48), never 5 + 48 - 1 = 52');
 
 echo "Commercial Legs resolver contract: PASS\n";

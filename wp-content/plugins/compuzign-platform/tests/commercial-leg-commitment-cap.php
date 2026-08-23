@@ -126,6 +126,22 @@ assertTrue(PMS::checkFiniteCommitmentLegCap(ccContainer([
     'legs' => [ccLeg('CZTL_8', 5, 20)],
 ])) === null, '8. Default 1-48 (exactly the cap), Leg 5-20 — valid');
 
+// ── 9. The cap is the parent's own commitment length, NEVER anchored at
+//         the Default Leg's own from_month — 5 → 48 passes against
+//         commitment 48 (not rejected as if the cap were 5+48-1=52), and
+//         0 → 56 still correctly fails against that SAME cap of 48 ────────
+
+assertTrue(PMS::checkFiniteCommitmentLegCap(ccContainer([
+    'from_month' => 5, 'to_month' => 48, 'minimum_term_value' => 48, 'minimum_term_unit' => 'month',
+])) === null, '9a. Default Leg starting at month 5, ending at 48, against commitment 48 — valid (cap is 48, never 52)');
+
+$v9b = PMS::checkFiniteCommitmentLegCap(ccContainer([
+    'from_month' => 5, 'to_month' => 20, 'minimum_term_value' => 48, 'minimum_term_unit' => 'month',
+    'legs' => [ccLeg('CZTL_9B', 0, 56)],
+]));
+assertTrue($v9b !== null, '9b. Leg 0-56 still fails against the SAME parent cap of 48, regardless of the Default Leg\'s own from_month (5)');
+assertSameValue(48, $v9b['commitment_end'], '9b. reported commitment end is 48, not 52');
+
 echo "Commercial Legs finite-commitment cap contract (pure): PASS\n";
 
 // ═══════════════════════════════════════════════════════════════════════════

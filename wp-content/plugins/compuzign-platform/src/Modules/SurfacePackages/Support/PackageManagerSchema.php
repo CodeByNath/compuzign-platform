@@ -2216,12 +2216,13 @@ final class PackageManagerSchema
      * Commitment applied LAST, once, over the already-fully-resolved period
      * list — never inside segmentation or a single child's own resolution
      * above. No commitment (minimum_term_unit isn't exactly 'month', or no
-     * value set) leaves every period exactly as authored. With commitment,
-     * the boundary is anchored at the SAME from_month Default's own child
-     * used above (month 1 when unset) plus minimum_term_value months: a
-     * period starting after that boundary is dropped entirely, and a
-     * period's own to_month (finite or indefinite) is capped to it, never
-     * extended past it.
+     * value set) leaves every period exactly as authored. The boundary is
+     * the parent Tier/Edition's own commitment length alone — never
+     * anchored at any child's own from_month (Default's included: it is
+     * structurally just one more child, sharing its from_month field with
+     * the container only incidentally). A period starting after that
+     * boundary is dropped entirely, and a period's own to_month (finite or
+     * indefinite) is capped to it, never extended past it.
      */
     private static function clampCommercialLegTimelineToCommitment(array $periods, array $container): array
     {
@@ -2230,8 +2231,7 @@ final class PackageManagerSchema
         if ($unit !== 'month' || $value === null) {
             return $periods;
         }
-        $anchor = isset($container['from_month']) && $container['from_month'] !== null ? (int) $container['from_month'] : 1;
-        $commitmentEnd = $anchor + (int) $value - 1;
+        $commitmentEnd = (int) $value;
 
         $clamped = [];
         foreach ($periods as $period) {
@@ -2254,7 +2254,10 @@ final class PackageManagerSchema
      * reach the commitment end — Legs may start late, end early, overlap,
      * or exist only in the middle; the sole invariant enforced is the cap
      * itself. No commitment configured (unit isn't exactly 'month', or no
-     * value set) means nothing to enforce.
+     * value set) means nothing to enforce. The boundary is the parent's own
+     * commitment length alone — never anchored at any child's own
+     * from_month (Default's included), matching
+     * clampCommercialLegTimelineToCommitment()'s own boundary exactly.
      *
      * @param array<string, mixed> $container occupant or Tier Edition shape — same as resolveCommercialLegTimeline()'s own
      * @return null|array{commitment_end:int, violations: array<int, array{source:string, to_month:int}>}
@@ -2266,8 +2269,7 @@ final class PackageManagerSchema
         if ($unit !== 'month' || $value === null) {
             return null;
         }
-        $anchor = isset($container['from_month']) && $container['from_month'] !== null ? (int) $container['from_month'] : 1;
-        $commitmentEnd = $anchor + (int) $value - 1;
+        $commitmentEnd = (int) $value;
 
         $violations = [];
         foreach (self::commercialLegTimelineChildren($container) as $child) {
