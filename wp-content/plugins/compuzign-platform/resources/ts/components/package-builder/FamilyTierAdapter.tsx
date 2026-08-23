@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { PricingTiers, TierCard } from '@/components/cost-builder/PricingTiers';
-import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
+import type { EffectiveTierDisplay, PeriodPriceOverride, PeriodPriceComponent } from '@/components/cost-builder/PricingTiers';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { CommercialLegPeriod, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 
@@ -31,27 +31,27 @@ function periodLabel(period: CommercialLegPeriod): string {
   return `Month ${period.from_month}–${to}`;
 }
 
-// The focused card's price/cycle/inclusions for a selected Period — ONLY
-// when that Period resolves to exactly one active commercial component, the
-// one case with no ambiguity about which component to show. A Period with
-// two or more simultaneously active components (the occupant's/Edition's own
-// Default Leg plus a concurrently active Additional Leg) has no
-// backend-exposed field telling the frontend which one is "the" component to
-// show on this one card slot — picking the first would be exactly the
-// forbidden array-position identification, and combining them would be a new
-// frontend pricing calculation. Both are out of scope for this phase; such a
-// Period is left on the Tier's/Edition's own flat declaration instead. See
-// the Phase 2 report for the exact missing field this would need.
+// The focused card's display for a selected Period: EVERY active commercial
+// component of it, straight from the resolved projection — the exact same
+// Period → components → { billing_cycle, price, items } structure
+// Commercial Legs Debug renders, with no frontend interpretation beyond
+// mapping field names for display. Never picks one component, never merges
+// or sums them, never drops a component whose items happen to repeat an
+// item_id already seen under a sibling component — two components carrying
+// the same underlying item are two independent commercial identities, not a
+// duplicate to collapse.
 function periodPriceOverride(period: CommercialLegPeriod | null): PeriodPriceOverride | null {
-  if (!period || period.components.length !== 1) return null;
-  const component = period.components[0];
+  if (!period) return null;
   return {
-    price: component.price,
-    billingCycle: component.billing_cycle,
-    inclusionItems: component.items.map((item): ServiceInclusion => ({
-      id: item.item_id,
-      label: item.label,
-      quantity: item.quantity,
+    components: period.components.map((component): PeriodPriceComponent => ({
+      identityKey: component.source,
+      billingCycle: component.billing_cycle,
+      price: component.price,
+      inclusionItems: component.items.map((item): ServiceInclusion => ({
+        id: item.item_id,
+        label: item.label,
+        quantity: item.quantity,
+      })),
     })),
   };
 }
@@ -345,11 +345,15 @@ export function FamilyTierAdapter({
               // newly active variant's own timeline, same as the tab row.
               selectedEditionId={focusedEditionId}
               onEditionChange={(editionId) => selectVariant(focusedTier.id, editionId)}
-              // The selected Commercial Period's own resolved price/cycle/
-              // inclusions, substituted in for the card's flat declaration —
-              // see periodPriceOverride(). Commitment is untouched (it
-              // belongs to the Tier/Edition parent, resolved the same as
-              // always inside TierCard).
+              // Every active component of the selected Commercial Period,
+              // displayed exactly as Commercial Legs Debug shows them — see
+              // periodPriceOverride(). What Add to Quote actually captures
+              // (`effective`, below) is a separate concern TierCard resolves
+              // on its own: only an unambiguous single-component Period
+              // feeds it, since one quote line can't represent 2+
+              // independent components without merging them (out of scope).
+              // Commitment is untouched either way — it belongs to the
+              // Tier/Edition parent, resolved the same as always.
               periodOverride={cardPeriodOverride}
               // Same single selection action as a card's own button. Add to
               // Quote leaves the focused presentation and lands in the
