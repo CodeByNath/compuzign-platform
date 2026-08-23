@@ -1,7 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import type { PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
+import type { CommercialLegPeriod, PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItemTierId } from './types';
 
 export interface EffectiveTierDisplay {
@@ -71,6 +71,42 @@ export function resolveEffectiveTierDisplay(
   const minimumTermUnit  = selectedEdition ? selectedEdition.minimum_term_unit  : (data?.minimum_term_unit  ?? null);
 
   return { price, billingCycle: effectiveCycle, inclusionLabels, inclusionItems, selectedEdition, minimumTermValue, minimumTermUnit };
+}
+
+// Payment Category values that mean a one-time/upfront obligation rather than
+// a recurring one — the exact same vocabulary the Tier/Edition admin editors
+// already use (see paymentCategoryOf() in TierPricingRulesEditor.tsx /
+// TierEditionOverviewFields.tsx): billing_cycle 'one-time' or 'upfront' is
+// Fixed, everything else is Recurring. There is no separate stored "Payment
+// Category" field on the public projection — this is the one field that
+// carries it.
+const UPFRONT_BILLING_CYCLES = new Set(['one-time', 'upfront']);
+
+/**
+ * Finds the active Default/Edition's own resolved one-time/upfront
+ * commercial obligation, if any — pure and exported for the same
+ * testability reason resolveEffectiveTierDisplay is. Scans every resolved
+ * Period's own components (not just one Period, and not the focused shell's
+ * currently selected one): Upfront Payment is a standing commercial fact
+ * about the variant, independent of which Commercial Period is being
+ * browsed. Matches only by each component's own tagged billing_cycle field
+ * — never array position — and returns the first available match's own
+ * resolved price; never sums multiple matches together.
+ */
+export function resolveUpfrontPayment(commercialLegs: CommercialLegPeriod[] | undefined): number | null {
+  for (const period of commercialLegs ?? []) {
+    for (const component of period.components) {
+      if (
+        component.available
+        && component.price !== null
+        && component.billing_cycle
+        && UPFRONT_BILLING_CYCLES.has(component.billing_cycle)
+      ) {
+        return component.price;
+      }
+    }
+  }
+  return null;
 }
 
 // Inline check glyph for Tier Inclusions rows — follows this codebase's
@@ -238,11 +274,15 @@ export function TierCard({
 
   const label = data?.label || tier.title;
 
-  // Upfront Payment — see the Commercial Facts section comment below for why
-  // this stays null: no Tier/Edition-parent-scoped field currently exposes a
-  // one-time amount without wading into ambiguous Commercial Leg component
-  // resolution, which is out of scope here.
-  const upfrontAmount: number | null = null;
+  // Upfront Payment — the active Default/Edition's own resolved
+  // commercial_legs (never the focused shell's periodOverride, which is
+  // scoped to one selected Commercial Period only; this fact stands
+  // regardless of which Period is being browsed). See
+  // resolveUpfrontPayment() above.
+  const activeCommercialLegs = declaredEffective.selectedEdition
+    ? declaredEffective.selectedEdition.commercial_legs
+    : data?.commercial_legs;
+  const upfrontAmount = resolveUpfrontPayment(activeCommercialLegs);
 
   // Fixed card-section structure (1–9 below): every section renders on every
   // card, even carrying no content, so equivalent sections land on the same
@@ -356,38 +396,30 @@ export function TierCard({
       </div>
 
       {/* 5. Commercial Facts — permanent two-row section, always rendered
-          (Upfront Payment row, then Minimum Commitment/No Commitments row)
-          regardless of whether either fact applies to this Tier/Edition, so
-          the pricing section keeps one consistent footprint across the whole
-          strip — no card-specific spacer or margin needed to line up Action
-          below it. Follows the same active Default/Edition `effective`
-          values the price above already resolves; never a second Edition
-          state. Upfront Payment currently always reads "None" — no
-          Tier/Edition-parent-scoped field exposes a one-time amount yet, and
-          resolving one from a Period's own components would mean picking
-          among possibly-ambiguous simultaneously-active components (see
-          FamilyTierAdapter.tsx's periodPriceOverride), which stays out of
-          scope here. */}
+          (Upfront Payment row, then Minimum Commitment row) regardless of
+          whether either fact applies to this Tier/Edition, so the pricing
+          section keeps one consistent footprint across the whole strip — no
+          card-specific spacer or margin needed to line up Action below it.
+          Follows the same active Default/Edition `effective`/
+          `declaredEffective` values the price above already resolves; never
+          a second Edition state. Upfront Payment reads resolveUpfrontPayment()
+          above, falling back to "Flexible" (never "None"/zero/hidden) when no
+          matching Leg exists. Minimum Commitment keeps its existing label in
+          both states — no separate "No Commitments" label — falling back to
+          "Cancel anytime" when there is no commitment. */}
       <div class="cz-cost-builder__tier-facts">
         <div class="cz-cost-builder__tier-fact">
           <span class="cz-cost-builder__tier-fact-label">Upfront Payment</span>
           <span class="cz-cost-builder__tier-fact-value">
-            {upfrontAmount !== null ? formatPrice(upfrontAmount) : 'None'}
+            {upfrontAmount !== null ? formatPrice(upfrontAmount) : 'Flexible'}
           </span>
         </div>
-        {minimumTermValue != null ? (
-          <div class="cz-cost-builder__tier-fact">
-            <span class="cz-cost-builder__tier-fact-label">Minimum Commitment</span>
-            <span class="cz-cost-builder__tier-fact-value">
-              {minimumTermValue} {minimumTermUnit ?? ''}
-            </span>
-          </div>
-        ) : (
-          <div class="cz-cost-builder__tier-fact">
-            <span class="cz-cost-builder__tier-fact-label">No Commitments</span>
-            <span class="cz-cost-builder__tier-fact-value">Cancel Anytime</span>
-          </div>
-        )}
+        <div class="cz-cost-builder__tier-fact">
+          <span class="cz-cost-builder__tier-fact-label">Minimum Commitment</span>
+          <span class="cz-cost-builder__tier-fact-value">
+            {minimumTermValue != null ? `${minimumTermValue} ${minimumTermUnit ?? ''}` : 'Cancel anytime'}
+          </span>
+        </div>
       </div>
 
       {/* 6. Action — Choose Plan (Package Builder only, above) and the

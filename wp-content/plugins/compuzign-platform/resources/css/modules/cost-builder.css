@@ -449,8 +449,10 @@
 }
 
 /* 5. Commercial Facts — permanent two-row section: Upfront Payment, then
-   Minimum Commitment or No Commitments. Always exactly two rows so this
-   section's own row track never varies in content count across cards. */
+   Minimum Commitment. Always exactly two rows so this section's own row
+   track never varies in content count across cards. Label and value share
+   the same neutral, muted treatment — neither row is a highlighted/status
+   value, just a plain commercial fact. */
 .cz-cost-builder__tier-facts {
   display: flex;
   flex-direction: column;
@@ -465,6 +467,7 @@
   justify-content: space-between;
   gap: var(--cz-space-2);
   font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
 }
 
 .cz-cost-builder__tier-fact-label {
@@ -472,8 +475,7 @@
 }
 
 .cz-cost-builder__tier-fact-value {
-  font-weight: 600;
-  color: var(--cz-color-text);
+  color: var(--cz-color-muted);
   text-align: right;
 }
 
