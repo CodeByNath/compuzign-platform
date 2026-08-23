@@ -1,6 +1,11 @@
 .DS_Store
 deploy-test.txt
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/compuzign-platform-architecture/
+.claude/skills/compuzign-platform-architecture/*
+!.claude/skills/compuzign-platform-architecture/SKILL.md
 .idea/
 .vscode/
 *.log
