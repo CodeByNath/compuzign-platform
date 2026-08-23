@@ -20,7 +20,7 @@ import {
   type PlatformIdentifierStatus as StatusResponse,
 } from '../api/platformIdentifiers';
 
-const ENTITY_TYPES: EntityType[] = ['package_family_group', 'tier_group', 'tier', 'tier_addon', 'package_rate_card_group', 'package_rate_card', 'package_rate_card_item'];
+const ENTITY_TYPES: EntityType[] = ['package_family_group', 'tier_group', 'tier', 'tier_addon', 'package_rate_card_group', 'package_rate_card', 'package_rate_card_item', 'tier_leg', 'tier_edition_leg'];
 
 export function PlatformIdentifierMigrationNotice() {
   const [status, setStatus] = useState<StatusResponse | null>(null);

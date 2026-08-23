@@ -17,8 +17,12 @@ final class TemporaryMigrationController
     // a real preflight and bounded assignment pass.
     // v3 deliberately does not inherit the completed v2 Package-entity pass:
     // CZPRCI rows require one final independent live assignment and verification.
-    private const PROGRESS_OPTION = 'cz_package_entity_identifier_migration_v3';
-    private const LOCK_OPTION = 'cz_package_entity_identifier_migration_lock_v3';
+    // v4 deliberately does not inherit the completed v3 pass either: adding
+    // TIER_LEG/TIER_EDITION_LEG below means an install that already reports
+    // complete=true (all v3 scopes done) must not stay stuck hiding the
+    // dashboard notice before these two new scopes ever get a dry-run.
+    private const PROGRESS_OPTION = 'cz_package_entity_identifier_migration_v4';
+    private const LOCK_OPTION = 'cz_package_entity_identifier_migration_lock_v4';
     private const LIMIT = 100;
     private const LOCK_SECONDS = 45;
     private const ENTITY_TYPES = [
@@ -29,6 +33,12 @@ final class TemporaryMigrationController
         PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP,
         PlatformIdentifierPolicy::PACKAGE_RATE_CARD,
         PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM,
+        // Commercial Legs — the occupant's/Edition's own Default Leg plus
+        // every Additional Leg (PackagePlatformIdentifierAdapters::tierLeg()/
+        // tierEditionLeg()), already enumerable/reservable through this SAME
+        // dry-run/assign engine; only wiring them into this list was missing.
+        PlatformIdentifierPolicy::TIER_LEG,
+        PlatformIdentifierPolicy::TIER_EDITION_LEG,
     ];
 
     public function __construct(
@@ -203,6 +213,8 @@ final class TemporaryMigrationController
             PlatformIdentifierPolicy::PACKAGE_RATE_CARD_GROUP => $adapters->rateSheetGroup(),
             PlatformIdentifierPolicy::PACKAGE_RATE_CARD => $adapters->rateSheet(),
             PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM => $adapters->rateSheetItem(),
+            PlatformIdentifierPolicy::TIER_LEG => $adapters->tierLeg(),
+            PlatformIdentifierPolicy::TIER_EDITION_LEG => $adapters->tierEditionLeg(),
             default => throw new \InvalidArgumentException('Unsupported migration entity scope.'),
         };
     }

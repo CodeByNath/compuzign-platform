@@ -131,8 +131,8 @@ $family = $controller->run(new WP_REST_Request(['action' => 'assign', 'entity_ty
 migration_check($family['entity_complete'] === true && $family['complete'] === false && str_starts_with($packages->familyPlatformId('pcg_alpha'), 'CZPG'), 'Family batch completes only its own scope and assigns the missing CZPG ID');
 migration_check($packages->familyPlatformId('pcg_beta') === 'CZPGRAJ5F', 'Family batch preserves CZPGRAJ5F exactly');
 migration_check($station->lookupNative(PlatformIdentifierPolicy::PACKAGE_FAMILY_GROUP, 'pcg_alpha')?->platformId() === $packages->familyPlatformId('pcg_alpha'), 'Family batch creates the reverse binding');
-migration_check($GLOBALS['mig_autoload']['cz_package_entity_identifier_migration_v3'] === 'no', 'final row rollout progress option is non-autoloaded');
-migration_check(!isset($GLOBALS['mig_options']['cz_package_entity_identifier_migration_lock_v3']), 'short-lived final-rollout lock is released');
+migration_check($GLOBALS['mig_autoload']['cz_package_entity_identifier_migration_v4'] === 'no', 'final row rollout progress option is non-autoloaded');
+migration_check(!isset($GLOBALS['mig_options']['cz_package_entity_identifier_migration_lock_v4']), 'short-lived final-rollout lock is released');
 
 $rowReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlatformNativeReference::rateSheetItem('rs_legacy', 'rate_b');
 $station->ensure(PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM, $rowReference,
@@ -166,9 +166,9 @@ $tierReference = \CompuZign\Platform\Modules\SurfacePackages\Support\PackagePlat
 $beforeRepair = $repairController->run(new WP_REST_Request(['action' => 'dry-run', 'entity_type' => 'tier_group']))->get_data();
 migration_check($beforeRepair['report']['would_assign'] === 1, 'a Tier Group with no CZTG is reported by the dry check');
 
-$progress = $GLOBALS['mig_options']['cz_package_entity_identifier_migration_v3'] ?? [];
+$progress = $GLOBALS['mig_options']['cz_package_entity_identifier_migration_v4'] ?? [];
 $progress['tier_group'] = ['cursor' => 'zzzzzzzz', 'complete' => true, 'processed' => 1, 'assigned' => 0, 'preserved' => 0, 'conflicts' => []];
-$GLOBALS['mig_options']['cz_package_entity_identifier_migration_v3'] = $progress;
+$GLOBALS['mig_options']['cz_package_entity_identifier_migration_v4'] = $progress;
 
 $repaired = $repairController->run(new WP_REST_Request(['action' => 'assign', 'entity_type' => 'tier_group']))->get_data();
 migration_check($repaired['assigned'] === 1, 'assigning an already-complete scope restarts and repairs the missing ID');
