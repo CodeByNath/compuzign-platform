@@ -1315,6 +1315,11 @@ class PackageSchema
                 'from_month'          => $occ['from_month'] ?? null,
                 'to_month'            => $occ['to_month'] ?? null,
                 'legs'                => is_array($occ['legs'] ?? null) ? $occ['legs'] : [],
+                // The occupant's own minted Default Leg identity (CZTL) —
+                // needed only by resolveCommercialLegTimeline()'s own
+                // component-identity substitution, same "unset here"
+                // convention as legs above.
+                'default_leg_platform_id' => $occ['default_leg_platform_id'] ?? '',
             ];
         }
 
