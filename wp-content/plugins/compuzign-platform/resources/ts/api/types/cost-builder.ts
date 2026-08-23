@@ -81,6 +81,55 @@ export interface PricingEditionOption {
   minimum_term_unit: string | null;
   inclusions_override: ServiceInclusion[];
   edition_platform_id?: string;
+  // Resolved Default + Additional Leg commercial timeline for THIS
+  // Edition's own rate_sheet_id/rate_sheet_items/legs — see
+  // PackageManagerSchema::resolveCommercialLegTimeline(). Additive
+  // alongside price/billing_cycle/inclusions_override above, which stay the
+  // Edition's own flat/base declaration.
+  commercial_legs?: CommercialLegPeriod[];
+}
+
+// One resolved commercial-priced Rate Sheet selection inside a Commercial
+// Leg component — PackageManagerSchema::projectTierRateSheetWith()'s own
+// per-row selection shape, carried through resolveCommercialLegTimeline()
+// unchanged. Distinct from ServiceInclusion (the flat/base declaration's own
+// display shape); mapped to it only for display, never merged.
+export interface CommercialLegPricedItem {
+  item_id: string;
+  label: string;
+  quantity: number;
+  price_option_id: string | null;
+  unit_price: number | null;
+  line_total: number | null;
+  available: boolean;
+}
+
+// One resolved commercial identity's contribution within a Period — the
+// occupant's/Edition's own Default Leg, or one Additional Leg. `source` is
+// that Leg's own real commercial identity: a Leg Platform ID (CZTL/CZTEL),
+// or the literal string 'default' ONLY as a legacy fallback for a Default
+// Leg that predates Platform ID backfill — never array position, a display
+// label, or billing_cycle text. Two components sharing the same item_id
+// inside their own `items` is normal (independent commercial identities),
+// never a collision to resolve on the frontend.
+export interface CommercialLegComponent {
+  source: string;
+  billing_cycle: string | null;
+  price: number | null;
+  available: boolean;
+  items: CommercialLegPricedItem[];
+}
+
+// One resolved, time-scoped segment of a Tier occupant's/Edition's own
+// commercial timeline — see PackageManagerSchema::resolveCommercialLegTimeline().
+// A Period itself carries no Platform ID (it is a resolved range, not an
+// independently identified commercial atom); the component(s) inside it are
+// the identified commercial components. `to_month: null` means indefinite
+// (open-ended), same convention as minimum_term_value/unit elsewhere.
+export interface CommercialLegPeriod {
+  from_month: number;
+  to_month: number | null;
+  components: CommercialLegComponent[];
 }
 
 export interface PricingTierData {
@@ -114,6 +163,12 @@ export interface PricingTierData {
   // every Tier that has never configured one, exactly like price/billing_cycle.
   minimum_term_value?: number | null;
   minimum_term_unit?: string | null;
+  // Resolved Default + Additional Leg commercial timeline for this
+  // occupant's own rate_sheet_id/rate_sheet_items/legs — see
+  // PackageManagerSchema::resolveCommercialLegTimeline(). Additive
+  // alongside price/billing_cycle/inclusions above, which stay the
+  // occupant's own flat/base Default declaration.
+  commercial_legs?: CommercialLegPeriod[];
 }
 
 export interface ServicePricing {

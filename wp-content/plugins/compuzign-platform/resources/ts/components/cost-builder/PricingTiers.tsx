@@ -17,6 +17,21 @@ export interface EffectiveTierDisplay {
   minimumTermUnit: string | null;
 }
 
+// Focused shell only (Commercial Period wiring): the resolved price/cycle/
+// inclusions for the one unambiguous commercial component of a selected
+// Commercial Period, substituted for the card's own flat/Edition-resolved
+// values wherever supplied. Never computed here — see
+// FamilyTierAdapter.tsx's periodPriceOverride(), which only ever produces
+// one from a Period with exactly one active commercial component (Default
+// alone, no simultaneously active Additional Leg); commitment stays
+// completely untouched, since it belongs to the Tier/Edition parent, never
+// a Leg or Period.
+export interface PeriodPriceOverride {
+  price: number | null;
+  billingCycle: string | null;
+  inclusionItems: ServiceInclusion[];
+}
+
 /**
  * Resolve what a Tier card should currently show — pure and exported so the
  * Tier Edition switch's actual logic (not just its JSX) is independently
@@ -153,6 +168,7 @@ export function TierCard({
   isEnterpriseView = false,
   selectedEditionId: controlledSelectedEditionId,
   onEditionChange,
+  periodOverride = null,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -180,6 +196,10 @@ export function TierCard({
   // as it already was.
   selectedEditionId?: string | null;
   onEditionChange?: (editionId: string | null) => void;
+  // Focused shell only (Commercial Period wiring) — see PeriodPriceOverride.
+  // Omitted by every other caller, which keeps this card's price resolution
+  // exactly as it already was (Default/Edition flat declaration only).
+  periodOverride?: PeriodPriceOverride | null;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -198,7 +218,20 @@ export function TierCard({
     onEditionChange?.(editionId);
     if (!isControlledEdition) setInternalSelectedEditionId(editionId);
   };
-  const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
+  const declaredEffective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
+  // Commitment (minimumTermValue/minimumTermUnit) and selectedEdition are
+  // never overridden here — they belong to the Tier/Edition parent, not a
+  // Commercial Period/Leg, and stay exactly as the Default/Edition
+  // declaration already resolved them.
+  const effective: EffectiveTierDisplay = periodOverride
+    ? {
+        ...declaredEffective,
+        price: periodOverride.price,
+        billingCycle: periodOverride.billingCycle ?? declaredEffective.billingCycle,
+        inclusionLabels: periodOverride.inclusionItems.map((item) => item.label),
+        inclusionItems: periodOverride.inclusionItems,
+      }
+    : declaredEffective;
   const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
 
   const suffix = formatCycleLabel(effectiveBillingCycle);

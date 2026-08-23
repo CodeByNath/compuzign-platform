@@ -1,20 +1,60 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { PricingTiers, TierCard } from '@/components/cost-builder/PricingTiers';
-import type { EffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
+import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
-import type { PackageBuilderFamily, Tier, TierId } from '@/api/types/cost-builder';
+import type { CommercialLegPeriod, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 
-// Focused-plan durations. Presentation only: the selection prints the plan
-// line below the dropdown and nothing else. It deliberately does not touch
-// price, billing cycle, Editions, or the quote — those stay owned by the
-// Tier's own declaration exactly as before.
-const PLAN_DURATIONS = [1, 12, 24] as const;
-type PlanDuration = (typeof PLAN_DURATIONS)[number];
+// The active focused variant's own resolved Commercial Period list — the
+// occupant's own commercial_legs for Default, or the matching Edition's own,
+// never a frontend reconstruction. See PackageManagerSchema::
+// resolveCommercialLegTimeline(); Period itself carries no Platform ID, only
+// the component(s) inside it do.
+function periodsForVariant(
+  family: PackageBuilderFamily,
+  tierId: TierId,
+  editionId: string | null,
+): CommercialLegPeriod[] {
+  const tierData = family.pricing.tiers[tierId];
+  if (!tierData) return [];
+  if (editionId === null) return tierData.commercial_legs ?? [];
+  const edition = (tierData.edition_options ?? []).find((option) => option.id === editionId);
+  return edition?.commercial_legs ?? [];
+}
 
-const durationLabel = (months: PlanDuration): string =>
-  `${months} ${months === 1 ? 'month' : 'months'}`;
+// "Month 1–12" / "Month 13–Indefinite" — built entirely from the Period's
+// own resolved from_month/to_month, the same "Indefinite" convention the
+// Commercial Legs Debug tool already uses for a null to_month. Not a
+// marketing label: there is no other existing customer-facing terminology
+// for a resolved Period to reuse instead.
+function periodLabel(period: CommercialLegPeriod): string {
+  const to = period.to_month === null ? 'Indefinite' : String(period.to_month);
+  return `Month ${period.from_month}–${to}`;
+}
 
-const planLine = (months: PlanDuration): string => `${durationLabel(months)} plan`;
+// The focused card's price/cycle/inclusions for a selected Period — ONLY
+// when that Period resolves to exactly one active commercial component, the
+// one case with no ambiguity about which component to show. A Period with
+// two or more simultaneously active components (the occupant's/Edition's own
+// Default Leg plus a concurrently active Additional Leg) has no
+// backend-exposed field telling the frontend which one is "the" component to
+// show on this one card slot — picking the first would be exactly the
+// forbidden array-position identification, and combining them would be a new
+// frontend pricing calculation. Both are out of scope for this phase; such a
+// Period is left on the Tier's/Edition's own flat declaration instead. See
+// the Phase 2 report for the exact missing field this would need.
+function periodPriceOverride(period: CommercialLegPeriod | null): PeriodPriceOverride | null {
+  if (!period || period.components.length !== 1) return null;
+  const component = period.components[0];
+  return {
+    price: component.price,
+    billingCycle: component.billing_cycle,
+    inclusionItems: component.items.map((item): ServiceInclusion => ({
+      id: item.item_id,
+      label: item.label,
+      quantity: item.quantity,
+    })),
+  };
+}
 
 interface FamilyTierAdapterProps {
   family: PackageBuilderFamily;
@@ -71,15 +111,27 @@ export function FamilyTierAdapter({
   // TierCard below. `null` means Default. Entry point (Choose Plan vs. an
   // Edition chip) seeds this; it is not itself a new selection concept.
   const [focusedEditionId, setFocusedEditionId] = useState<string | null>(null);
-  const [planDuration, setPlanDuration] = useState<PlanDuration>(1);
+  // Which Commercial Period is selected for the CURRENTLY active variant,
+  // keyed by that Period's own from_month (a Period carries no Platform ID
+  // of its own — from_month is genuine resolved data, not a rendered array
+  // index). Reset to the new variant's own first resolved Period every time
+  // the active variant changes, so a Period never leaks from one Edition's
+  // timeline into another's or into Default's — each variant's timeline is
+  // independently resolved and never genuinely the same object as another's.
+  const [selectedPeriodFromMonth, setSelectedPeriodFromMonth] = useState<number | null>(null);
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
 
-  // Entry point into the focused shell, from either the normal card's Choose
-  // Plan button (editionId null) or one of its Edition chips (that Edition's
-  // id) — both land on the same shell, just on a different starting tab.
-  const openFocused = (tierId: TierId, editionId: string | null) => {
+  // Selects a Default/Edition variant and seeds its own first resolved
+  // Period — the one path every variant change goes through, whether that's
+  // the entry point into the focused shell (the normal card's Choose Plan
+  // button, editionId null, or one of its Edition chips), the top variant
+  // tab row, or the focused card's own Edition switch. Both land on the same
+  // shell, just on a different starting tab.
+  const selectVariant = (tierId: TierId, editionId: string | null) => {
     setFocusedTierId(tierId);
     setFocusedEditionId(editionId);
+    const periods = periodsForVariant(family, tierId, editionId);
+    setSelectedPeriodFromMonth(periods[0]?.from_month ?? null);
   };
 
   // Keeps the active top variant tab visible when the tab row overflows —
@@ -141,10 +193,15 @@ export function FamilyTierAdapter({
 
   /**
    * The one Add to Quote action, reached from either entry point: a Tier
-   * card's own button, or the focused Choose Plan view (which supplies the
-   * duration it collected). It always performs today's quote action, then
-   * isolates the Tier and reveals Add-ons when the Tier System offers any —
-   * with none there is nothing to choose, so it stays exactly as it was.
+   * card's own button, or the focused Choose Plan view. `planDurationMonths`
+   * is a reserved, currently-unpopulated field on the quote item (see
+   * itemFor) — a resolved Commercial Period is a from/to range, not a single
+   * "plan duration in months" value, so wiring it through here would
+   * misrepresent the field rather than genuinely use it; every caller below
+   * passes null, exactly as every caller already did before Commercial
+   * Periods existed. It always performs today's quote action, then isolates
+   * the Tier and reveals Add-ons when the Tier System offers any — with none
+   * there is nothing to choose, so it stays exactly as it was.
    */
   const commitSelection = (
     tierId: TierId,
@@ -154,6 +211,7 @@ export function FamilyTierAdapter({
     onAdd(itemFor(tierId, effective, false, planDurationMonths));
     setFocusedTierId(null);
     setFocusedEditionId(null);
+    setSelectedPeriodFromMonth(null);
     setStagedTierId(addonTiers.length > 0 ? tierId : null);
   };
 
@@ -182,6 +240,16 @@ export function FamilyTierAdapter({
   if (focusedTier) {
     const focusedData = family.pricing.tiers[focusedTier.id];
     const focusedEditionOptions = focusedData?.edition_options ?? [];
+    // The active variant's own resolved Commercial Period list, and the one
+    // currently selected within it — falls back to the first resolved
+    // Period whenever selectedPeriodFromMonth doesn't (yet, or no longer)
+    // match one, which is exactly the state right after selectVariant seeds
+    // it and covers the first render with no separate effect needed.
+    const activePeriods = periodsForVariant(family, focusedTier.id, focusedEditionId);
+    const selectedPeriod = activePeriods.find((period) => period.from_month === selectedPeriodFromMonth)
+      ?? activePeriods[0]
+      ?? null;
+    const cardPeriodOverride = periodPriceOverride(selectedPeriod);
     return (
       <div class="cz-package-builder__focused">
         {/* Default/Edition navigation only — which commercial variant of
@@ -195,7 +263,7 @@ export function FamilyTierAdapter({
             role="tab"
             class={`cz-package-builder__focused-variant${focusedEditionId === null ? ' is-active' : ''}`}
             aria-selected={focusedEditionId === null}
-            onClick={() => setFocusedEditionId(null)}
+            onClick={() => selectVariant(focusedTier.id, null)}
           >
             Default
           </button>
@@ -207,7 +275,7 @@ export function FamilyTierAdapter({
               role="tab"
               class={`cz-package-builder__focused-variant${focusedEditionId === edition.id ? ' is-active' : ''}`}
               aria-selected={focusedEditionId === edition.id}
-              onClick={() => setFocusedEditionId(edition.id)}
+              onClick={() => selectVariant(focusedTier.id, edition.id)}
             >
               {edition.label}
             </button>
@@ -216,12 +284,11 @@ export function FamilyTierAdapter({
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. It only clears this local
               focused-Tier state, restoring the card comparison — no
-              navigation, routing, or persisted builder state. The chosen
-              duration simply stays in state, since nothing unmounts. */}
+              navigation, routing, or persisted builder state. */}
           <button
             type="button"
             class="cz-package-builder__focused-back"
-            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); }}
+            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); }}
           >
             ← All plans
           </button>
@@ -235,18 +302,23 @@ export function FamilyTierAdapter({
             <span class="cz-package-builder__focused-field-label">Plan duration</span>
             <select
               class="cz-package-builder__plan-select"
-              value={String(planDuration)}
+              value={selectedPeriod ? String(selectedPeriod.from_month) : ''}
+              disabled={activePeriods.length === 0}
               onChange={(event) => {
-                const next = Number((event.target as HTMLSelectElement).value) as PlanDuration;
-                setPlanDuration(next);
+                const next = Number((event.target as HTMLSelectElement).value);
+                setSelectedPeriodFromMonth(Number.isFinite(next) ? next : null);
               }}
             >
-              {PLAN_DURATIONS.map((months) => (
-                <option key={months} value={String(months)}>{durationLabel(months)}</option>
+              {activePeriods.length === 0 ? (
+                <option value="">Standard pricing</option>
+              ) : activePeriods.map((period) => (
+                <option key={period.from_month} value={String(period.from_month)}>{periodLabel(period)}</option>
               ))}
             </select>
           </label>
-          <p class="cz-package-builder__focused-plan-line">{planLine(planDuration)}</p>
+          {selectedPeriod && (
+            <p class="cz-package-builder__focused-plan-line">{periodLabel(selectedPeriod)}</p>
+          )}
           {/* Reserved: the rest of the left column is intentionally empty for
               now. Future focused-plan content (term comparison, commitment
               detail, plan-specific messaging) belongs here, beneath the
@@ -267,21 +339,29 @@ export function FamilyTierAdapter({
               addedLabel="✓ Selected"
               // Controlled by the top variant tab row above, so the card's
               // own Edition switch and the tab row always agree on which
-              // variant is active — one shared value, not two.
+              // variant is active — one shared value, not two. Routed
+              // through selectVariant (not setFocusedEditionId directly) so
+              // the card's own chip also resets the Period selection to the
+              // newly active variant's own timeline, same as the tab row.
               selectedEditionId={focusedEditionId}
-              onEditionChange={setFocusedEditionId}
-              // Same single selection action as a card's own button — it just
-              // hands over the duration this view collected. Add to Quote
-              // leaves the focused presentation and lands in the selected-Tier
-              // view; removing an already-selected Tier is not that action, so
-              // it stays here.
+              onEditionChange={(editionId) => selectVariant(focusedTier.id, editionId)}
+              // The selected Commercial Period's own resolved price/cycle/
+              // inclusions, substituted in for the card's flat declaration —
+              // see periodPriceOverride(). Commitment is untouched (it
+              // belongs to the Tier/Edition parent, resolved the same as
+              // always inside TierCard).
+              periodOverride={cardPeriodOverride}
+              // Same single selection action as a card's own button. Add to
+              // Quote leaves the focused presentation and lands in the
+              // selected-Tier view; removing an already-selected Tier is not
+              // that action, so it stays here.
               onClick={(effective) => {
                 if (selectedTierId === focusedTier.id) {
                   onRemovePrimary();
                   setStagedTierId(null);
                   return;
                 }
-                commitSelection(focusedTier.id, effective, planDuration);
+                commitSelection(focusedTier.id, effective, null);
               }}
               hideOverview
             />
@@ -353,7 +433,7 @@ export function FamilyTierAdapter({
         billingCycle=""
         onSelect={select}
         onToggleAddon={toggleAddon}
-        onChoosePlan={openFocused}
+        onChoosePlan={selectVariant}
         isEnterpriseView={customerGroup === 'enterprise'}
       />
     </>
