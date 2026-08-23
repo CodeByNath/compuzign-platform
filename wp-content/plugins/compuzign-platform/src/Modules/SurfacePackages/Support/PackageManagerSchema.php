@@ -2010,7 +2010,8 @@ final class PackageManagerSchema
      * @param array<string, mixed> $container occupant or Tier Edition shape:
      *   billing_cycle, from_month, to_month, minimum_term_value,
      *   minimum_term_unit, contact, rate_sheet_id, rate_sheet_items (each
-     *   entry may carry its own leg_assignments[]), legs[] (Additional Legs)
+     *   entry may carry its own leg_assignments[]), legs[] (Additional Legs),
+     *   default_leg_platform_id (the Default Leg's own CZTL/CZTEL identity)
      * @return array<int, array{from_month:int, to_month:?int, components:array}>
      */
     public static function resolveCommercialLegTimeline(array $readModel, array $container): array
@@ -2023,6 +2024,17 @@ final class PackageManagerSchema
         $rateSheetItems = is_array($container['rate_sheet_items'] ?? null) ? $container['rate_sheet_items'] : [];
         $rateSheetId = $container['rate_sheet_id'] ?? null;
         $contact = (bool) ($container['contact'] ?? false);
+
+        // The Default child's internal bucketing key stays the literal
+        // 'default' throughout (matches leg_assignments[] never referencing
+        // it, and every internal lookup above) — only the identity emitted
+        // on the OUTPUT component substitutes the Default Leg's own real
+        // Platform ID, falling back to 'default' only when one was never
+        // minted (legacy data).
+        $defaultIdentity = sanitize_text_field((string) ($container['default_leg_platform_id'] ?? ''));
+        if ($defaultIdentity === '') {
+            $defaultIdentity = 'default';
+        }
 
         $periods = [];
         foreach (self::commercialLegTimelinePeriods($children) as $period) {
@@ -2042,7 +2054,7 @@ final class PackageManagerSchema
                     'to_month'      => $period['to_month'],
                 ]);
                 $components[] = [
-                    'source'        => $child['source'],
+                    'source'        => $child['source'] === 'default' ? $defaultIdentity : $child['source'],
                     'billing_cycle' => $resolved['billing_cycle'],
                     'price'         => $resolved['price'],
                     'available'     => $resolved['available'],

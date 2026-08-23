@@ -502,4 +502,36 @@ assertSameValue(120.0, componentBySource($edition20[0], 'default')['price'], '20
 assertSameValue(200.0, componentBySource($edition20[0], 'CZTEL_EDITION20')['price'], '20. the Additional Leg\'s own Price Option + quantity: qty4 x po_cheap($50) = $200');
 assertSameValue('yearly', componentBySource($edition20[0], 'CZTEL_EDITION20')['billing_cycle'], '20. the Additional Leg\'s own cadence is preserved distinctly from Default\'s monthly cadence');
 
+// ── 22. Default Leg's own real Platform ID is emitted as its identity —
+//         internal bucketing/matching stays keyed by the literal 'default'
+//         regardless; only the OUTPUT component's identity changes ────────
+
+$c22 = container([
+    'billing_cycle' => 'monthly', 'from_month' => 1, 'to_month' => null,
+    'default_leg_platform_id' => 'CZTL_DEFAULT22',
+    'legs' => [leg('CZTL_22', 'monthly', 1, null)],
+    'rate_sheet_items' => [
+        item('hosting', 2),
+        item('addon', 1, null, [claim('CZTL_22', 1)]),
+    ],
+]);
+$t22 = PMS::resolveCommercialLegTimeline($readModel, $c22);
+assertSameValue(2, count($t22[0]['components']), '22. two components: Default (under its real identity) and the Leg');
+assertTrue(componentBySource($t22[0], 'default') === null, '22. the literal string \'default\' is never emitted once a real Platform ID exists');
+$default22 = componentBySource($t22[0], 'CZTL_DEFAULT22');
+assertTrue($default22 !== null, '22. Default\'s own component is addressable by its real CZTL identity');
+assertSameValue(230.0, $default22['price'], '22. Default\'s own bucket still resolves correctly under its real identity: hosting(qty2 x $100) + addon(30) = 230');
+assertSameValue(30.0, componentBySource($t22[0], 'CZTL_22')['price'], '22. the Additional Leg\'s own claim is unaffected by Default\'s identity change');
+
+// ── 23. No default_leg_platform_id configured — falls back to the literal
+//         'default' identity, exactly as every prior scenario in this file
+//         already relies on ─────────────────────────────────────────────
+
+$c23 = container([
+    'billing_cycle' => 'monthly', 'from_month' => 1, 'to_month' => null,
+    'rate_sheet_items' => [item('hosting', 1)],
+]);
+$t23 = PMS::resolveCommercialLegTimeline($readModel, $c23);
+assertTrue(componentBySource($t23[0], 'default') !== null, '23. legacy/never-minted Default Leg still resolves under the literal \'default\' fallback');
+
 echo "Commercial Legs resolver contract: PASS\n";
