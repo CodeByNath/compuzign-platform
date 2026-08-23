@@ -64,14 +64,20 @@ interface Props {
 // shared, the same precedent every other vocabulary constant in this file
 // already sets between the two editors.
 interface LegCardProps {
-  leg:       Pick<TierCommercialLeg, 'billing_cycle' | 'from_month' | 'to_month'>;
-  onChange:  (patch: Partial<TierCommercialLeg>) => void;
-  label:     string;
-  removable: boolean;
-  onRemove?: () => void;
+  leg:        Pick<TierCommercialLeg, 'billing_cycle' | 'from_month' | 'to_month'>;
+  onChange:   (patch: Partial<TierCommercialLeg>) => void;
+  label:      string;
+  removable:  boolean;
+  onRemove?:  () => void;
+  // Finite-commitment authoring cap (the parent's own commitment length,
+  // never anchored at any Leg's own from_month — see
+  // PackageManagerSchema::checkFiniteCommitmentLegCap()). null/undefined
+  // while commitment is off or indefinite: no cap, Indefinite stays
+  // available either way — this only ever clamps an explicit numeric entry.
+  maxToMonth?: number | null;
 }
 
-function CommercialLegCard({ leg, onChange, label, removable, onRemove }: LegCardProps) {
+function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMonth }: LegCardProps) {
   const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
     paymentCategoryOf(leg.billing_cycle),
   );
@@ -113,7 +119,11 @@ function CommercialLegCard({ leg, onChange, label, removable, onRemove }: LegCar
         <AdminField
           def={{ id: 'edt-leg-to-month', type: 'text', label: 'To month', placeholder: 'Indefinite' }}
           value={leg.to_month != null ? String(leg.to_month) : ''}
-          onChange={(v: string) => onChange({ to_month: v === '' ? null : Number(v) })}
+          onChange={(v: string) => {
+            if (v === '') { onChange({ to_month: null }); return; }
+            const n = Number(v);
+            onChange({ to_month: maxToMonth != null ? Math.min(n, maxToMonth) : n });
+          }}
         />
       </div>
     </div>
@@ -225,6 +235,10 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
     onChange({ rate_sheet_id: next, rate_sheet_items: [] });
   };
 
+  // Finite-commitment authoring cap, applied to every Leg card below
+  // (Default included) — mirrors the occupant's own TierPricingRulesEditor.tsx.
+  const commitmentCap = totalCommitmentMonths(draft.minimum_term_value ?? null, draft.minimum_term_unit ?? null);
+
   return (
     <div class="cz-tf-form">
       <AdminField def={{ id: 'edt-rate-sheet', type: 'select', label: 'Rate Sheet', unsetLabel: 'Inherit the Tier’s own binding', options: rateSheetOptions }} value={draft.rate_sheet_id ?? ''} onChange={(v: string) => changeRateSheet(v || null)} />
@@ -258,6 +272,7 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
         onChange={changeDefaultLeg}
         label="Leg Default"
         removable={false}
+        maxToMonth={commitmentCap}
       />
 
       {legs.map((leg, index) => (
@@ -265,6 +280,7 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
           key={leg.id ?? index}
           leg={leg}
           onChange={(patch) => updateLeg(index, patch)}
+          maxToMonth={commitmentCap}
           label={`Leg ${index + 1}`}
           removable
           onRemove={() => removeLeg(index)}

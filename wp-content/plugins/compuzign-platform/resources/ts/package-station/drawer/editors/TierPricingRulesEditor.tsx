@@ -56,14 +56,20 @@ export interface RateSheetPickerOption {
 // toggle state is per-card, seeded from THIS leg's own billing_cycle, so
 // switching one leg's category never affects a sibling's.
 interface LegCardProps {
-  leg:       Pick<TierCommercialLeg, 'billing_cycle' | 'from_month' | 'to_month'>;
-  onChange:  (patch: Partial<TierCommercialLeg>) => void;
-  label:     string;
-  removable: boolean;
-  onRemove?: () => void;
+  leg:        Pick<TierCommercialLeg, 'billing_cycle' | 'from_month' | 'to_month'>;
+  onChange:   (patch: Partial<TierCommercialLeg>) => void;
+  label:      string;
+  removable:  boolean;
+  onRemove?:  () => void;
+  // Finite-commitment authoring cap (the parent's own commitment length,
+  // never anchored at any Leg's own from_month — see
+  // PackageManagerSchema::checkFiniteCommitmentLegCap()). null/undefined
+  // while commitment is off or indefinite: no cap, Indefinite stays
+  // available either way — this only ever clamps an explicit numeric entry.
+  maxToMonth?: number | null;
 }
 
-function CommercialLegCard({ leg, onChange, label, removable, onRemove }: LegCardProps) {
+function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMonth }: LegCardProps) {
   const [paymentCategory, setPaymentCategory] = useState<PaymentCategory>(
     paymentCategoryOf(leg.billing_cycle),
   );
@@ -105,7 +111,11 @@ function CommercialLegCard({ leg, onChange, label, removable, onRemove }: LegCar
         <AdminField
           def={{ id: 'leg-to-month', type: 'text', label: 'To month', placeholder: 'Indefinite' }}
           value={leg.to_month != null ? String(leg.to_month) : ''}
-          onChange={(v: string) => onChange({ to_month: v === '' ? null : Number(v) })}
+          onChange={(v: string) => {
+            if (v === '') { onChange({ to_month: null }); return; }
+            const n = Number(v);
+            onChange({ to_month: maxToMonth != null ? Math.min(n, maxToMonth) : n });
+          }}
         />
       </div>
     </div>
@@ -222,6 +232,12 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
     label: `${sheet.title || '(untitled)'}${sheet.status === 'archived' ? ' (archived)' : ''}`,
   }));
 
+  // Finite-commitment authoring cap, applied to every Leg card below
+  // (Default included) — the parent's own commitment length, matching
+  // PackageManagerSchema::checkFiniteCommitmentLegCap() exactly. null while
+  // commitment is off or incomplete: no cap in that state.
+  const commitmentCap = totalCommitmentMonths(draft.minimum_term_value ?? null, draft.minimum_term_unit ?? null);
+
   return (
     <div class="cz-tf-form">
       <AdminField
@@ -280,6 +296,7 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
         onChange={changeDefaultLeg}
         label="Leg Default"
         removable={false}
+        maxToMonth={commitmentCap}
       />
 
       {legs.map((leg, index) => (
@@ -287,6 +304,7 @@ export function TierPricingRulesEditor({ draft, onChange, rateSheets = [], hasSe
           key={leg.id ?? index}
           leg={leg}
           onChange={(patch) => updateLeg(index, patch)}
+          maxToMonth={commitmentCap}
           label={`Leg ${index + 1}`}
           removable
           onRemove={() => removeLeg(index)}
