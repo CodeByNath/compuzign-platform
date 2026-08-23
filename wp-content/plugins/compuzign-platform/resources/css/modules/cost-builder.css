@@ -369,10 +369,17 @@
 
 /* 4. Price — Edition switch, old price (reserved), current price/"Contact
    Us", minimum-commitment note. One column so the rows below stack in the
-   fixed order the section owns. */
+   fixed order the section owns. This row track is shared/stretched across
+   every card in the strip (see .cz-cost-builder__tiers' subgrid), so a
+   card without Editions gets a taller box than its own content needs;
+   bottom-anchoring keeps that slack ABOVE the price instead of below it, so
+   Action (Choose Plan/Add to Quote) sits the same short distance below
+   price/commitment on every card regardless of whether Editions exist —
+   no placeholder row, no fixed height, no per-card margin. */
 .cz-cost-builder__tier-price-block {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: var(--cz-space-1);
 }
 
