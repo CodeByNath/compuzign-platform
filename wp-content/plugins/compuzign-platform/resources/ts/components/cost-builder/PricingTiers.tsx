@@ -118,8 +118,10 @@ interface PricingTiersProps {
   onSelect: (tierId: TierId, effective: EffectiveTierDisplay) => void;
   onToggleAddon: (tierId: TierId, effective: EffectiveTierDisplay) => void;
   // Package Builder only. Supplying it adds a "Choose Plan" action to each
-  // normal Tier card; Cost Builder passes nothing and renders as before.
-  onChoosePlan?: (tierId: TierId) => void;
+  // normal Tier card and turns each Edition chip into an entry point into
+  // the focused Tier shell on that Edition; Cost Builder passes nothing and
+  // renders as before (chips stay a local, in-card swap).
+  onChoosePlan?: (tierId: TierId, editionId: string | null) => void;
   // Package Builder only. Places the Recommendations area beside the Tier
   // strip instead of below it — used once a Tier is selected and the strip
   // has been narrowed to that one Tier. Cost Builder passes nothing and keeps
@@ -149,6 +151,8 @@ export function TierCard({
   onChoosePlan,
   hideOverview = false,
   isEnterpriseView = false,
+  selectedEditionId: controlledSelectedEditionId,
+  onEditionChange,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -160,12 +164,22 @@ export function TierCard({
   onClick: (effective: EffectiveTierDisplay) => void;
   // Optional, Package Builder only — see PricingTiersProps.onChoosePlan.
   // Omitted while already focused, which is how the focused card hides it.
-  onChoosePlan?: () => void;
+  // Also what makes the normal card's own Edition chips act as an entry
+  // point into the focused shell instead of a local swap — see the chip
+  // handler below.
+  onChoosePlan?: (editionId: string | null) => void;
   // Focused view only: the Tier name and Ideal For are presented on its left
   // column instead, so the card must not repeat them.
   hideOverview?: boolean;
   // See PricingTiersProps.isEnterpriseView.
   isEnterpriseView?: boolean;
+  // Focused shell only: lets the focused Tier card's own Edition switch stay
+  // in sync with the focused shell's top variant tab row — one active-variant
+  // value shared both ways instead of a second, disconnected one. Omitted by
+  // every other caller, which keeps this card's switch fully self-contained
+  // as it already was.
+  selectedEditionId?: string | null;
+  onEditionChange?: (editionId: string | null) => void;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -177,7 +191,13 @@ export function TierCard({
   // declaration is currently shown — and, via `effective` passed to onClick
   // below, which one is captured into the quote when that click happens.
   const editionOptions = data?.edition_options ?? [];
-  const [selectedEditionId, setSelectedEditionId] = useState<string | null>(null);
+  const isControlledEdition = controlledSelectedEditionId !== undefined;
+  const [internalSelectedEditionId, setInternalSelectedEditionId] = useState<string | null>(null);
+  const selectedEditionId = isControlledEdition ? controlledSelectedEditionId : internalSelectedEditionId;
+  const setSelectedEditionId = (editionId: string | null) => {
+    onEditionChange?.(editionId);
+    if (!isControlledEdition) setInternalSelectedEditionId(editionId);
+  };
   const effective = resolveEffectiveTierDisplay(data, billingCycle, selectedEditionId);
   const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
 
@@ -251,7 +271,18 @@ export function TierCard({
                   type="button"
                   class={`cz-cost-builder__tier-edition${active ? ' is-active' : ''}`}
                   aria-pressed={active}
-                  onClick={(e) => { e.stopPropagation(); setSelectedEditionId(edition.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Package Builder (onChoosePlan present): an Edition chip
+                    // is an entry point into the focused shell on that
+                    // Edition, not a local swap. Cost Builder (no
+                    // onChoosePlan) keeps the local swap exactly as before.
+                    if (onChoosePlan) {
+                      onChoosePlan(edition.id);
+                    } else {
+                      setSelectedEditionId(edition.id);
+                    }
+                  }}
                 >
                   {edition.label}
                 </button>
@@ -285,7 +316,7 @@ export function TierCard({
           <button
             type="button"
             class={`cz-cost-builder__tier-choose${(isPopular || isEnterpriseView) ? ' cz-cost-builder__tier-choose--filled' : ''}`}
-            onClick={() => onChoosePlan()}
+            onClick={() => onChoosePlan(null)}
           >
             Choose Plan
           </button>
@@ -496,7 +527,7 @@ export function PricingTiers({
               billingCycle={billingCycle}
               addedLabel="✓ Selected"
               onClick={(effective) => onSelect(tier.id, effective)}
-              onChoosePlan={onChoosePlan && (() => onChoosePlan(tier.id))}
+              onChoosePlan={onChoosePlan && ((editionId) => onChoosePlan(tier.id, editionId))}
               isEnterpriseView={isEnterpriseView}
             />
           ))}

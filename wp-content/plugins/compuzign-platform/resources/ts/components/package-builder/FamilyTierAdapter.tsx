@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { PricingTiers, TierCard } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
@@ -64,8 +64,31 @@ export function FamilyTierAdapter({
   // presents the one Tier beside its plan details; it changes nothing about
   // which Tier is selected in the quote.
   const [focusedTierId, setFocusedTierId] = useState<TierId | null>(null);
+  // Which Default/Edition variant is active inside the focused shell. Hoisted
+  // here (rather than left card-local) because the top variant tab row and
+  // the focused card's own Edition switch must stay in sync as one value —
+  // see the `selectedEditionId`/`onEditionChange` controlled pair handed to
+  // TierCard below. `null` means Default. Entry point (Choose Plan vs. an
+  // Edition chip) seeds this; it is not itself a new selection concept.
+  const [focusedEditionId, setFocusedEditionId] = useState<string | null>(null);
   const [planDuration, setPlanDuration] = useState<PlanDuration>(1);
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
+
+  // Entry point into the focused shell, from either the normal card's Choose
+  // Plan button (editionId null) or one of its Edition chips (that Edition's
+  // id) — both land on the same shell, just on a different starting tab.
+  const openFocused = (tierId: TierId, editionId: string | null) => {
+    setFocusedTierId(tierId);
+    setFocusedEditionId(editionId);
+  };
+
+  // Keeps the active top variant tab visible when the tab row overflows —
+  // fires on entry (Choose Plan/Edition chip) and on every in-shell tab
+  // switch, since both change focusedTierId/focusedEditionId.
+  const activeVariantTabRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    activeVariantTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [focusedTierId, focusedEditionId]);
 
   // Add-ons come from this Family's one Tier System, where compatibility is
   // implicit — there is no per-Tier compatibility ledger, so "does this Tier
@@ -130,6 +153,7 @@ export function FamilyTierAdapter({
   ) => {
     onAdd(itemFor(tierId, effective, false, planDurationMonths));
     setFocusedTierId(null);
+    setFocusedEditionId(null);
     setStagedTierId(addonTiers.length > 0 ? tierId : null);
   };
 
@@ -157,8 +181,38 @@ export function FamilyTierAdapter({
   // Choose Plan is withheld because this is already that Tier's focused view.
   if (focusedTier) {
     const focusedData = family.pricing.tiers[focusedTier.id];
+    const focusedEditionOptions = focusedData?.edition_options ?? [];
     return (
       <div class="cz-package-builder__focused">
+        {/* Default/Edition navigation only — which commercial variant of
+            this SAME Tier occupant is being viewed. Not Commercial Period,
+            Leg, duration, or billing-cycle navigation; those are wired in a
+            later phase. Spans both columns, above the detail/card split. */}
+        <div class="cz-package-builder__focused-variants" role="tablist" aria-label={`${focusedData?.label || focusedTier.title} variant`}>
+          <button
+            ref={focusedEditionId === null ? activeVariantTabRef : undefined}
+            type="button"
+            role="tab"
+            class={`cz-package-builder__focused-variant${focusedEditionId === null ? ' is-active' : ''}`}
+            aria-selected={focusedEditionId === null}
+            onClick={() => setFocusedEditionId(null)}
+          >
+            Default
+          </button>
+          {focusedEditionOptions.map((edition) => (
+            <button
+              key={edition.id}
+              ref={focusedEditionId === edition.id ? activeVariantTabRef : undefined}
+              type="button"
+              role="tab"
+              class={`cz-package-builder__focused-variant${focusedEditionId === edition.id ? ' is-active' : ''}`}
+              aria-selected={focusedEditionId === edition.id}
+              onClick={() => setFocusedEditionId(edition.id)}
+            >
+              {edition.label}
+            </button>
+          ))}
+        </div>
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. It only clears this local
               focused-Tier state, restoring the card comparison — no
@@ -167,7 +221,7 @@ export function FamilyTierAdapter({
           <button
             type="button"
             class="cz-package-builder__focused-back"
-            onClick={() => setFocusedTierId(null)}
+            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); }}
           >
             ← All plans
           </button>
@@ -211,6 +265,11 @@ export function FamilyTierAdapter({
               isActive={focusedTier.id === selectedTierId}
               billingCycle=""
               addedLabel="✓ Selected"
+              // Controlled by the top variant tab row above, so the card's
+              // own Edition switch and the tab row always agree on which
+              // variant is active — one shared value, not two.
+              selectedEditionId={focusedEditionId}
+              onEditionChange={setFocusedEditionId}
               // Same single selection action as a card's own button — it just
               // hands over the duration this view collected. Add to Quote
               // leaves the focused presentation and lands in the selected-Tier
@@ -294,7 +353,7 @@ export function FamilyTierAdapter({
         billingCycle=""
         onSelect={select}
         onToggleAddon={toggleAddon}
-        onChoosePlan={setFocusedTierId}
+        onChoosePlan={openFocused}
         isEnterpriseView={customerGroup === 'enterprise'}
       />
     </>

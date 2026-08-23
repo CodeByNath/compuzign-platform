@@ -3468,6 +3468,54 @@
   }
 }
 
+/* Default/Edition variant tabs — spans both columns, above the
+   detail/card split. Horizontally scrollable so an overflowing tab list
+   stays reachable instead of wrapping and pushing the layout down. */
+.cz-package-builder__focused-variants {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--cz-space-1);
+  padding: var(--cz-space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: fit-content;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-pill);
+  background: var(--cz-color-surface-2);
+}
+
+.cz-package-builder__focused-variants::-webkit-scrollbar {
+  display: none;
+}
+
+.cz-package-builder__focused-variant {
+  flex: 0 0 auto;
+  padding: var(--cz-space-3) var(--cz-space-5);
+  border: 0;
+  border-radius: var(--cz-radius-pill);
+  background: transparent;
+  color: var(--cz-color-muted);
+  font: inherit;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--cz-transition-fast), color var(--cz-transition-fast);
+}
+
+.cz-package-builder__focused-variant:hover {
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__focused-variant:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
+.cz-package-builder__focused-variant.is-active {
+  background: var(--cz-color-accent);
+  color: var(--cz-color-surface);
+}
+
 .cz-package-builder__focused-detail {
   display: flex;
   flex-direction: column;
