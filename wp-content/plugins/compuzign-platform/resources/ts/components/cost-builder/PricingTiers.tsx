@@ -109,6 +109,31 @@ export function resolveUpfrontPayment(commercialLegs: CommercialLegPeriod[] | un
   return null;
 }
 
+// Price-line suffix for the two cycles the shared formatCycleLabel()
+// (utils/format.ts) doesn't cover — 'upfront' isn't in its map at all, and
+// 'one-time' resolves to '' there. Kept local rather than extending that
+// shared helper: it's also read by QuoteProposalPreview.tsx/OrderSummary.tsx,
+// which this phase doesn't touch. monthly/annual/annually/quarterly still
+// resolve through formatCycleLabel() unchanged — they're simply absent from
+// the override map below.
+const TIER_CYCLE_SUFFIX_OVERRIDES: Record<string, string> = {
+  upfront: '/ upfront',
+  'one-time': '/ once',
+};
+
+// Billing wording line under the price — same local-vs-shared reasoning as
+// the suffix override above. "One-time Payment" is deliberately not "Billed
+// one-time": a one-time obligation isn't a recurring billing cadence, so it
+// reads as its own phrase rather than forcing the "Billed X" pattern onto it.
+const TIER_BILLING_WORDING: Record<string, string> = {
+  monthly: 'Billed monthly',
+  annual: 'Billed annually',
+  annually: 'Billed annually',
+  quarterly: 'Billed quarterly',
+  upfront: 'Billed upfront',
+  'one-time': 'One-time Payment',
+};
+
 // Inline check glyph for Tier Inclusions rows — follows this codebase's
 // existing inline-SVG icon convention (viewBox 0 0 24 24, stroke-based,
 // currentColor, aria-hidden) rather than the CSS '✓' pseudo-element it
@@ -270,7 +295,8 @@ export function TierCard({
     : declaredEffective;
   const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
 
-  const suffix = formatCycleLabel(effectiveBillingCycle);
+  const suffix = TIER_CYCLE_SUFFIX_OVERRIDES[effectiveBillingCycle] ?? formatCycleLabel(effectiveBillingCycle);
+  const billingWording = TIER_BILLING_WORDING[effectiveBillingCycle] ?? `Billed ${effectiveBillingCycle}`;
 
   const label = data?.label || tier.title;
 
@@ -380,13 +406,11 @@ export function TierCard({
             <span class="cz-cost-builder__tier-cycle">{suffix}</span>
           )}
         </div>
-        {/* Billing wording — the same "Billed {cycle}" convention already
-            used for the resolved billing cycle elsewhere (QuoteProposalPreview,
-            OrderSummary), reused here rather than a new phrase invented for
-            this card. Gated the same as the cycle suffix above: no wording
-            beside a "Contact Us" price. */}
+        {/* Billing wording — see TIER_BILLING_WORDING above. Gated the same
+            as the cycle suffix above: no wording beside a "Contact Us"
+            price. */}
         {effectivePrice !== null && effectiveBillingCycle && (
-          <p class="cz-cost-builder__tier-billing-wording">Billed {effectiveBillingCycle}</p>
+          <p class="cz-cost-builder__tier-billing-wording">{billingWording}</p>
         )}
         {minimumTermValue != null && (
           <p class="cz-cost-builder__tier-commitment">
