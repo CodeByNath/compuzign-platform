@@ -80,7 +80,7 @@ function PeriodsBlock({ periods }: { periods: CommercialLegsDebugPeriod[] }): VN
           {period.components.map((component, componentIndex) => (
             <details key={componentIndex} open class="cz-legs-debug__component">
               <summary>
-                {component.source} · {component.billing_cycle ?? '—'} · {formatMoney(component.price)} · own range {formatMonth(component.from_month)} → {formatMonth(component.to_month)} · {component.available ? 'available' : 'unavailable'}
+                {component.source} · {component.billing_cycle ?? '—'} · {formatMoney(component.price)} · {component.available ? 'available' : 'unavailable'}
               </summary>
               <ItemsTable items={component.items} />
             </details>
