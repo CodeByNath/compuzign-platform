@@ -415,6 +415,14 @@
   color: var(--cz-color-on-accent, #fff);
 }
 
+/* "Billed monthly" / "Billed annually" — secondary line under the headline
+   price, same treatment as the commitment note below it. */
+.cz-cost-builder__tier-billing-wording {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+  margin: 0;
+}
+
 .cz-cost-builder__tier-commitment {
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted);

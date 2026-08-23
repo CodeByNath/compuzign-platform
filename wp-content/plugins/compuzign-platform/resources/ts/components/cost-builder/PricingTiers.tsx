@@ -334,6 +334,14 @@ export function TierCard({
             <span class="cz-cost-builder__tier-cycle">{suffix}</span>
           )}
         </div>
+        {/* Billing wording — the same "Billed {cycle}" convention already
+            used for the resolved billing cycle elsewhere (QuoteProposalPreview,
+            OrderSummary), reused here rather than a new phrase invented for
+            this card. Gated the same as the cycle suffix above: no wording
+            beside a "Contact Us" price. */}
+        {effectivePrice !== null && effectiveBillingCycle && (
+          <p class="cz-cost-builder__tier-billing-wording">Billed {effectiveBillingCycle}</p>
+        )}
         {minimumTermValue != null && (
           <p class="cz-cost-builder__tier-commitment">
             Minimum {minimumTermValue} {minimumTermUnit ?? ''}
