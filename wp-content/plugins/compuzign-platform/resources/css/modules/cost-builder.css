@@ -3645,6 +3645,9 @@
      width) without this, the same reason .cz-cost-builder__main/
      .cz-cost-builder__tier already set it elsewhere in this file. */
   min-width: 0;
+  border: 1px solid var(--cz-color-line-strong);
+  padding: var(--cz-space-12);
+  border-radius: var(--cz-radius-sm);
 }
 
 /* Selected-Tier view header — carries the same return control back to the
