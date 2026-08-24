@@ -417,16 +417,26 @@ export function TierCard({
           future discount/compare-at value), then the current price or its
           "Contact Us" replacement. */}
       <div class="cz-cost-builder__tier-price-block">
-        {editionOptions.length >= 1 && (
+        {/* Focused shell: the left-side variant tab row (rendered by
+            FamilyTierAdapter above this card) already offers Default/Edition
+            navigation, so this in-card strip would be a redundant duplicate —
+            omit it entirely there. Normal card: Default is always the
+            already-active state you're looking at, so its own chip is a
+            no-op — omit just that button and keep Edition chips as the entry
+            point into the focused shell. Plain Cost Builder (no onChoosePlan)
+            keeps today's Default + Edition local-swap switch unchanged. */}
+        {!hideOverview && editionOptions.length >= 1 && (
           <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${label} payment options`}>
-            <button
-              type="button"
-              class={`cz-cost-builder__tier-edition${selectedEditionId === null ? ' is-active' : ''}`}
-              aria-pressed={selectedEditionId === null}
-              onClick={(e) => { e.stopPropagation(); setSelectedEditionId(null); }}
-            >
-              Default
-            </button>
+            {!onChoosePlan && (
+              <button
+                type="button"
+                class={`cz-cost-builder__tier-edition${selectedEditionId === null ? ' is-active' : ''}`}
+                aria-pressed={selectedEditionId === null}
+                onClick={(e) => { e.stopPropagation(); setSelectedEditionId(null); }}
+              >
+                Default
+              </button>
+            )}
             {editionOptions.map((edition) => {
               const active = selectedEditionId === edition.id;
               return (
