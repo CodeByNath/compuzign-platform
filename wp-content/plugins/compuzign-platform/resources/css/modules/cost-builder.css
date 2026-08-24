@@ -345,7 +345,8 @@
 .cz-cost-builder__tier-overview {
   display: flex;
   flex-direction: column;
-  gap: var(--cz-space-1);
+  gap: var(--cz-space-2);
+  max-width: 280px;
 }
 
 .cz-cost-builder__tier-name {
