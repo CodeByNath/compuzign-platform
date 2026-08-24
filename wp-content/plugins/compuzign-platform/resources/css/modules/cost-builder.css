@@ -390,12 +390,23 @@
   min-height: 1px;
 }
 
+/* Price/cycle on the left, the Edition switch pinned to the card's right
+   corner on the same row — top-aligned so it sits flush with the top of the
+   (larger) price digits rather than centered against their full height. */
+.cz-cost-builder__tier-price-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cz-space-2);
+}
+
 /* Tier Edition switch — an in-card, mutually-exclusive choice among this
    SAME Tier's Editions (e.g. Monthly/Annual). Never a second Tier card. */
 .cz-cost-builder__tier-editions {
   display: flex;
   gap: var(--cz-space-1);
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .cz-cost-builder__tier-edition {
