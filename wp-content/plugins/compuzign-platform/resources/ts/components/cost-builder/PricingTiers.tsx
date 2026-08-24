@@ -417,14 +417,38 @@ export function TierCard({
           future discount/compare-at value), then the current price or its
           "Contact Us" replacement. */}
       <div class="cz-cost-builder__tier-price-block">
-        {/* Focused shell: the left-side variant tab row (rendered by
-            FamilyTierAdapter above this card) already offers Default/Edition
-            navigation, so this in-card strip would be a redundant duplicate —
-            omit it entirely there. Normal card: Default is always the
-            already-active state you're looking at, so its own chip is a
-            no-op — omit just that button and keep Edition chips as the entry
-            point into the focused shell. Plain Cost Builder (no onChoosePlan)
-            keeps today's Default + Edition local-swap switch unchanged. */}
+        {/* Old price row: no discount/compare-at data source yet — reserved
+            so a future sale price doesn't shift the current-price row. */}
+        <div class="cz-cost-builder__tier-price-old" />
+        <div class="cz-cost-builder__tier-price">
+          <span class="cz-cost-builder__tier-amount">
+            {formatPrice(effectivePrice)}
+          </span>
+          {effectivePrice !== null && suffix && (
+            <span class="cz-cost-builder__tier-cycle">{suffix}</span>
+          )}
+        </div>
+        {/* Billing wording — see TIER_BILLING_WORDING above. Gated the same
+            as the cycle suffix above: no wording beside a "Contact Us"
+            price. */}
+        {effectivePrice !== null && effectiveBillingCycle && (
+          <p class="cz-cost-builder__tier-billing-wording">{billingWording}</p>
+        )}
+        {minimumTermValue != null && (
+          <p class="cz-cost-builder__tier-commitment">
+            Minimum {minimumTermValue} {minimumTermUnit ?? ''}
+          </p>
+        )}
+        {/* Edition switch — moved to the bottom of this block, below price/
+            commitment. Focused shell: the left-side variant tab row
+            (rendered by FamilyTierAdapter above this card) already offers
+            Default/Edition navigation, so this in-card strip would be a
+            redundant duplicate — omit it entirely there. Normal card:
+            Default is always the already-active state you're looking at, so
+            its own chip is a no-op — omit just that button and keep Edition
+            chips as the entry point into the focused shell. Plain Cost
+            Builder (no onChoosePlan) keeps today's Default + Edition
+            local-swap switch unchanged. */}
         {!hideOverview && editionOptions.length >= 1 && (
           <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${label} payment options`}>
             {!onChoosePlan && (
@@ -463,28 +487,6 @@ export function TierCard({
               );
             })}
           </div>
-        )}
-        {/* Old price row: no discount/compare-at data source yet — reserved
-            so a future sale price doesn't shift the current-price row. */}
-        <div class="cz-cost-builder__tier-price-old" />
-        <div class="cz-cost-builder__tier-price">
-          <span class="cz-cost-builder__tier-amount">
-            {formatPrice(effectivePrice)}
-          </span>
-          {effectivePrice !== null && suffix && (
-            <span class="cz-cost-builder__tier-cycle">{suffix}</span>
-          )}
-        </div>
-        {/* Billing wording — see TIER_BILLING_WORDING above. Gated the same
-            as the cycle suffix above: no wording beside a "Contact Us"
-            price. */}
-        {effectivePrice !== null && effectiveBillingCycle && (
-          <p class="cz-cost-builder__tier-billing-wording">{billingWording}</p>
-        )}
-        {minimumTermValue != null && (
-          <p class="cz-cost-builder__tier-commitment">
-            Minimum {minimumTermValue} {minimumTermUnit ?? ''}
-          </p>
         )}
       </div>
 
