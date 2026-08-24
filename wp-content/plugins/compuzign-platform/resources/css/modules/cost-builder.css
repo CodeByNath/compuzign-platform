@@ -410,15 +410,19 @@
 }
 
 .cz-cost-builder__tier-edition {
-  padding: var(--cz-space-1) var(--cz-space-2);
+  padding: var(--cz-space-2);
   font-size: var(--cz-font-size-xs);
   font-weight: 600;
-  border-radius: var(--cz-radius-sm);
-  border: 1px solid var(--cz-color-line);
+  border-radius: var(--cz-radius-xs);
+  border: 1px solid var(--cz-color-accent-dark);
   background: transparent;
-  color: var(--cz-color-muted);
+  color: var(--cz-color-accent);
   cursor: pointer;
   transition: border-color var(--cz-transition-fast), background var(--cz-transition-fast), color var(--cz-transition-fast);
+}
+
+.cz-cost-builder__tier-edition:hover {
+  border-color: var(--cz-color-accent);
 }
 
 .cz-cost-builder__tier-edition.is-active {
