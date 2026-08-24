@@ -461,31 +461,37 @@ export function TierCard({
                 Default
               </button>
             )}
-            {editionOptions.map((edition) => {
-              const active = selectedEditionId === edition.id;
-              return (
-                <button
-                  key={edition.id}
-                  type="button"
-                  class={`cz-cost-builder__tier-edition${active ? ' is-active' : ''}`}
-                  aria-pressed={active}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Package Builder (onChoosePlan present): an Edition chip
-                    // is an entry point into the focused shell on that
-                    // Edition, not a local swap. Cost Builder (no
-                    // onChoosePlan) keeps the local swap exactly as before.
-                    if (onChoosePlan) {
-                      onChoosePlan(edition.id);
-                    } else {
-                      setSelectedEditionId(edition.id);
-                    }
-                  }}
-                >
-                  {edition.label}
-                </button>
-              );
-            })}
+            {onChoosePlan ? (
+              // Package Builder: one "Editions" chip regardless of how many
+              // Editions exist — all of them are still loaded on `data` and
+              // reachable, just not listed as individual chips here. It's
+              // the same entry-point route an individual Edition chip used
+              // (onChoosePlan → the focused shell), landing on the first
+              // Edition; the focused shell's own tab row lists every Edition
+              // from there.
+              <button
+                type="button"
+                class="cz-cost-builder__tier-edition"
+                onClick={(e) => { e.stopPropagation(); onChoosePlan(editionOptions[0].id); }}
+              >
+                Editions
+              </button>
+            ) : (
+              editionOptions.map((edition) => {
+                const active = selectedEditionId === edition.id;
+                return (
+                  <button
+                    key={edition.id}
+                    type="button"
+                    class={`cz-cost-builder__tier-edition${active ? ' is-active' : ''}`}
+                    aria-pressed={active}
+                    onClick={(e) => { e.stopPropagation(); setSelectedEditionId(edition.id); }}
+                  >
+                    {edition.label}
+                  </button>
+                );
+              })
+            )}
           </div>
         )}
       </div>
