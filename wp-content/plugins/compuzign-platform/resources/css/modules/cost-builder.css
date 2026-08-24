@@ -3529,7 +3529,7 @@
    narrow breakpoint the Tier strip already stacks at. */
 .cz-package-builder__focused {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
   gap: var(--cz-space-5);
   align-items: start;
 }
@@ -3540,58 +3540,111 @@
   }
 }
 
-/* Default/Edition variant tabs — spans both columns, above the
-   detail/card split. Horizontally scrollable so an overflowing tab list
-   stays reachable instead of wrapping and pushing the layout down. */
-.cz-package-builder__focused-variants {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: var(--cz-space-1);
-  padding: var(--cz-space-1);
-  overflow-x: auto;
-  scrollbar-width: none;
-  max-width: fit-content;
-  border: 1px solid var(--cz-color-line-strong);
+/* Default/Edition cue-ball selector — full width of the left (detail)
+   column, directly below the Tier/Edition name and description (the name
+   above does the talking; no text renders on the track itself). No CSS
+   calc() arithmetic and no clientWidth/resize JS: --cz-cue-inset anchors
+   .cue-rail's own left/right edges, so the browser — not authored math —
+   computes the rail's inset width; pots/ball inside it then use plain
+   percentages (0%–100%) of that already-inset width, never clipping at the
+   track's raw edges once centered via translate(-50%). */
+.cz-package-builder__cue-track {
+  --cz-cue-inset: 11px;
+  position: relative;
+  width: 100%;
+  /* Taller than the visual line/ball need on their own — the click targets
+     below inherit this full height, keeping their tap area close to the
+     ~40px comfortable-touch-target size on mobile without changing how
+     slim the track itself reads (line/pots/ball stay vertically centered). */
+  height: 40px;
+}
+
+.cz-package-builder__cue-line {
+  position: absolute;
+  left: var(--cz-cue-inset);
+  right: var(--cz-cue-inset);
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
   border-radius: var(--cz-radius-pill);
-  background: var(--cz-color-surface-2);
+  background: var(--cz-color-surface-3);
+  pointer-events: none;
 }
 
-.cz-package-builder__focused-variants::-webkit-scrollbar {
-  display: none;
+/* The positioned ancestor pots/ball resolve their own plain percentage
+   `left` values against — its width is however much room is left between
+   the two inset anchors, computed by the browser's normal box layout. */
+.cz-package-builder__cue-rail {
+  position: absolute;
+  left: var(--cz-cue-inset);
+  right: var(--cz-cue-inset);
+  top: 0;
+  bottom: 0;
 }
 
-.cz-package-builder__focused-variant {
-  flex: 0 0 auto;
-  padding: var(--cz-space-3) var(--cz-space-5);
+.cz-package-builder__cue-pot {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cz-color-muted-2);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Transparent, evenly-sliced click/tap targets — one per destination,
+   labeled by the real Tier/Edition label (never rendered as visible text).
+   Ordinary buttons with aria-current, not tab semantics: this control only
+   ever changes which declaration one already-visible card shows, so a full
+   tablist implementation (roving keyboard focus, panel association) isn't
+   warranted — see EditionCueSelector's own comment in FamilyTierAdapter.tsx. */
+.cz-package-builder__cue-target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  padding: 0;
+  margin: 0;
   border: 0;
-  border-radius: var(--cz-radius-pill);
   background: transparent;
-  color: var(--cz-color-muted);
-  font: inherit;
-  font-size: var(--cz-font-size-sm);
-  font-weight: 700;
+  border-radius: var(--cz-radius-sm);
   cursor: pointer;
-  transition: background var(--cz-transition-fast), color var(--cz-transition-fast);
+  transition: background var(--cz-transition-fast);
 }
 
-.cz-package-builder__focused-variant:hover {
-  color: var(--cz-color-text);
+.cz-package-builder__cue-target:hover {
+  background: var(--cz-color-surface-3);
 }
 
-.cz-package-builder__focused-variant:focus-visible {
+.cz-package-builder__cue-target:focus-visible {
   outline: 2px solid var(--cz-color-accent);
   outline-offset: 2px;
 }
 
-.cz-package-builder__focused-variant.is-active {
+.cz-package-builder__cue-ball {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
   background: var(--cz-color-accent);
-  color: var(--cz-color-surface);
+  box-shadow: 0 0 0 5px var(--cz-color-surface-2);
+  transform: translate(-50%, -50%);
+  transition: left var(--cz-transition-fast);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .cz-package-builder__focused-detail {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-3);
+  /* Lets a long Edition name/description wrap instead of forcing the
+     column (and the right card beside it) wider than the grid track —
+     grid items default to min-width:auto (their content's min-content
+     width) without this, the same reason .cz-cost-builder__main/
+     .cz-cost-builder__tier already set it elsewhere in this file. */
+  min-width: 0;
 }
 
 /* Selected-Tier view header — carries the same return control back to the
@@ -3625,6 +3678,77 @@
   outline-offset: 2px;
 }
 
+/* Focused-Tier exit control — a circular icon-only X, not a back link (this
+   isn't browser/back navigation, it's the one action that clears the
+   focused-Tier state). Sized to its own content (no wrapper) so it never
+   reserves a wider empty column in .cz-package-builder__focused-detail;
+   align-self keeps it from stretching to the flex column's full width. */
+.cz-package-builder__focused-close {
+  align-self: flex-start;
+  position: sticky;
+  top: var(--cz-space-4);
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-pill);
+  background: var(--cz-color-surface-2);
+  color: var(--cz-color-muted);
+  cursor: pointer;
+  box-shadow: none;
+  transition: background var(--cz-transition-fast), color var(--cz-transition-fast), border-color var(--cz-transition-fast), box-shadow var(--cz-transition-fast), transform var(--cz-transition-fast);
+}
+
+.cz-package-builder__focused-close:hover {
+  background: var(--cz-color-surface-3);
+  color: var(--cz-color-text);
+  border-color: var(--cz-color-line-strong);
+  transform: translateY(-1px);
+}
+
+.cz-package-builder__focused-close:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
+/* Stronger elevation once the page has scrolled — see the isCloseElevated
+   scroll effect in FamilyTierAdapter.tsx. Subtle/no shadow at rest. */
+.cz-package-builder__focused-close.is-elevated {
+  background: var(--cz-color-surface-3);
+  border-color: var(--cz-color-line-strong);
+  box-shadow: var(--cz-shadow-card);
+}
+
+/* Two rotated bars forming an X — no icon package needed. */
+.cz-package-builder__focused-close-x {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+
+.cz-package-builder__focused-close-x::before,
+.cz-package-builder__focused-close-x::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  width: 2px;
+  height: 16px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.cz-package-builder__focused-close-x::before {
+  transform: rotate(45deg);
+}
+
+.cz-package-builder__focused-close-x::after {
+  transform: rotate(-45deg);
+}
+
 .cz-package-builder__focused-name {
   margin: 0;
   font-size: var(--cz-font-size-xl);
@@ -3639,13 +3763,58 @@
   line-height: 1.45;
 }
 
-.cz-package-builder__focused-field {
+/* Commercial Terms — three compact, read-only facts (Upfront payment,
+   Commitment, Plan billing). Deliberately lighter/quieter than the right
+   pricing card: no accent color, small/muted typography throughout, using
+   the same token set as the rest of this file. */
+.cz-package-builder__terms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+}
+
+.cz-package-builder__terms-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cz-space-4);
+}
+
+@media (max-width: 480px) {
+  .cz-package-builder__terms-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cz-package-builder__term {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-1);
-  max-width: 220px;
+  padding-top: var(--cz-space-2);
+  border-top: 1px solid var(--cz-color-line);
 }
 
+.cz-package-builder__term-label {
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-color-muted);
+}
+
+.cz-package-builder__term-value {
+  font-size: var(--cz-font-size-md);
+  font-weight: 700;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__term-note {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted-2);
+}
+
+/* Still used: the "Commercial Terms" eyebrow above the terms grid reuses
+   this exact uppercase/muted/xs treatment (see FamilyTierAdapter.tsx). The
+   dropdown it was originally written for ('Plan duration') is gone. */
 .cz-package-builder__focused-field-label {
   font-size: var(--cz-font-size-xs);
   font-weight: 600;
@@ -3654,31 +3823,176 @@
   color: var(--cz-color-muted);
 }
 
-.cz-package-builder__plan-select {
-  padding: var(--cz-space-2) var(--cz-space-3);
+/* Periods timeline — informational, no selection. Deliberately lighter than
+   the right pricing card: no accent-colored price, small/muted typography,
+   the same token set as Commercial Terms above it. The vertical stage line/
+   node reuses the same halo technique (box-shadow ring in the surface
+   color) the cue-ball selector's own ball already uses. */
+.cz-package-builder__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
+.cz-package-builder__timeline-title {
+  margin: 0;
+  font-size: var(--cz-font-size-md);
+  font-weight: 700;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__timeline-sub {
+  margin: 0 0 var(--cz-space-2);
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+}
+
+.cz-package-builder__stages {
+  display: flex;
+  flex-direction: column;
+}
+
+.cz-package-builder__stage {
+  position: relative;
+  padding-left: var(--cz-space-6);
+  padding-bottom: var(--cz-space-5);
+}
+
+.cz-package-builder__stage::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: var(--cz-space-1);
+  bottom: calc(-1 * var(--cz-space-1));
+  width: 2px;
+  background: var(--cz-color-line-strong);
+}
+
+.cz-package-builder__stage:last-child {
+  padding-bottom: 0;
+}
+
+.cz-package-builder__stage:last-child::before {
+  display: none;
+}
+
+.cz-package-builder__stage-node {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cz-color-accent);
+  box-shadow: 0 0 0 4px var(--cz-color-surface-2);
+}
+
+.cz-package-builder__stage-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--cz-space-2);
+  margin-bottom: var(--cz-space-2);
+}
+
+.cz-package-builder__stage-label {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__stage-count {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+}
+
+.cz-package-builder__stage-components {
+  display: grid;
+  gap: var(--cz-space-2);
+}
+
+/* Outer card — a column so a subordinate note (and, later, a Leg-level
+   discount line) can stack below the name/price row without restructuring
+   this container again. */
+.cz-package-builder__stage-component {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  padding: var(--cz-space-3);
   border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-sm);
   background: var(--cz-color-surface-2);
-  color: var(--cz-color-text);
-  font: inherit;
-  font-size: var(--cz-font-size-sm);
-  cursor: pointer;
 }
 
-.cz-package-builder__plan-select:focus-visible {
-  outline: 2px solid var(--cz-color-accent);
-  outline-offset: 2px;
+.cz-package-builder__stage-component-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cz-space-3);
 }
 
-.cz-package-builder__focused-plan-line {
-  margin: 0;
+.cz-package-builder__stage-component-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
+.cz-package-builder__stage-component-name {
   font-size: var(--cz-font-size-sm);
   font-weight: 600;
+  color: var(--cz-color-text);
 }
 
-/* Reserved for future focused-plan content — see FamilyTierAdapter.tsx. */
-.cz-package-builder__focused-reserved {
-  min-height: 1px;
+.cz-package-builder__stage-component-meta {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+}
+
+.cz-package-builder__stage-component-price {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-text);
+  white-space: nowrap;
+}
+
+/* Calculation-rhythm note — deliberately the most subordinate text in the
+   card: smaller color step than -meta, no weight, tight line-height so it
+   never reads as a paragraph. */
+.cz-package-builder__stage-component-note {
+  margin: 0;
+  font-size: var(--cz-font-size-xs);
+  line-height: 1.4;
+  color: var(--cz-color-muted-2);
+}
+
+/* Right card stays in view while the left column's timeline (which can
+   grow much taller once several Periods/collided components are resolved)
+   scrolls past it — same top offset as the close button opposite it, so
+   both settle at the same height once scrolled. Safe here: .cz-cost-builder
+   (the root ancestor) only clips the X axis (documented at its own rule),
+   .cz-cost-builder__body/-main set no overflow, and .cz-package-builder__
+   focused already uses align-items:start, which sticky positioning needs
+   inside a grid. Off at the same breakpoint the two-column layout stacks,
+   since a "stuck" card makes no sense once it's no longer beside anything. */
+.cz-package-builder__focused-card {
+  position: sticky;
+  top: var(--cz-space-4);
+}
+
+@media (max-width: 767px) {
+  .cz-package-builder__focused-card {
+    position: static;
+  }
+}
+
+/* Overview (row 3) and Commercial Facts (row 5, hidden below) are always
+   empty in this one card — the shared 9-row subgrid's own gap between two
+   now-content-less rows would otherwise read as one doubled-up blank strip.
+   Tightening the gap only inside the focused card (never the strip/staged
+   cards, which use every row) keeps it starting visually at the headline
+   price with no such gap, without touching TierCard's own row structure. */
+.cz-package-builder__focused-card .cz-cost-builder__tier {
+  gap: var(--cz-space-1);
 }
 
 /* Inside the focused view Choose Plan is withheld (this already is that
@@ -3695,4 +4009,13 @@
 .cz-package-builder__focused-card .cz-cost-builder__tier-action:not(.is-selected):not(.is-removing):hover {
   background: transparent;
   color: var(--cz-color-accent);
+}
+
+/* The focused card keeps only headline price/billing wording, Add to Quote,
+   and What's Included — Commercial Facts (Upfront Payment/Minimum
+   Commitment) duplicates what the focused shell's own left column explains
+   elsewhere, so it's hidden here only. Strip and staged cards (outside
+   .cz-package-builder__focused-card) keep it unchanged. */
+.cz-package-builder__focused-card .cz-cost-builder__tier-facts {
+  display: none;
 }

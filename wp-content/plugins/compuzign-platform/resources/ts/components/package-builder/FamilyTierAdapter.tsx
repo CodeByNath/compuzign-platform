@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
-import { PricingTiers, TierCard } from '@/components/cost-builder/PricingTiers';
+import { useEffect, useState } from 'preact/hooks';
+import { PricingTiers, TierCard, resolveEffectiveTierDisplay, resolveUpfrontPayment, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
+import { formatPrice } from '@/utils/format';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
-import type { CommercialLegPeriod, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
+import type { CommercialLegComponent, CommercialLegPeriod, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 
 // The active focused variant's own resolved Commercial Period list — the
 // occupant's own commercial_legs for Default, or the matching Edition's own,
@@ -54,6 +55,221 @@ function periodPriceOverride(period: CommercialLegPeriod | null): PeriodPriceOve
       quantity: item.quantity,
     })),
   };
+}
+
+// One Period's own AVAILABLE commercial components, in the resolver's own
+// order — the single place "available" is defined. Both the flattened
+// cross-Period reader below (Commercial Terms) and the per-Period Periods
+// timeline read through this same predicate, so a Period's rendered
+// component count, its "N payments active" note, and whether it renders at
+// all always agree with each other. Never counts an unavailable component;
+// never re-sorts or re-groups what the resolver already returned.
+function availablePeriodComponents(period: CommercialLegPeriod): CommercialLegComponent[] {
+  return period.components.filter((component) => component.available);
+}
+
+// Every AVAILABLE commercial component across a variant's resolved Periods,
+// in the Periods'/components' own resolved order — the flattened form of
+// availablePeriodComponents() above, read by the Commercial Terms facts.
+function availableComponents(periods: CommercialLegPeriod[]): CommercialLegComponent[] {
+  return periods.flatMap(availablePeriodComponents);
+}
+
+// Customer-facing name for one resolved commercial component — the exact
+// billing-cycle vocabulary Phase 4 audited (PricingTiers.tsx's own maps,
+// utils/format.ts's CYCLE_LABELS): monthly/annual/annually/quarterly/
+// one-time/upfront. A neutral fallback ('Payment') covers both a genuinely
+// null billing_cycle and any future/unmapped value — never throws, never
+// exposes the raw cycle string or any Leg identity.
+const COMPONENT_PAYMENT_NAMES: Record<string, string> = {
+  monthly: 'Monthly payment',
+  annual: 'Annual payment',
+  annually: 'Annual payment',
+  quarterly: 'Quarterly payment',
+  'one-time': 'One-time payment',
+  upfront: 'Upfront payment',
+};
+
+function componentPaymentName(cycle: string | null): string {
+  if (cycle === null) return 'Payment';
+  return COMPONENT_PAYMENT_NAMES[cycle] ?? 'Payment';
+}
+
+// Short, subordinate explanation of one component's own calculation rhythm
+// — the same billing-cycle vocabulary as COMPONENT_PAYMENT_NAMES above,
+// `joined` distinguishing whether it's the only active component in its
+// Period (`alone`) or shares the Period with another (`joined`, from the
+// SAME available-components-only count the stage header's own "N payments
+// active" note reads — never period.components.length). Never exposes the
+// raw cycle string; unknown/null falls back to one neutral sentence.
+//
+// `joined` copy is deliberately generic/plural-safe ("other active
+// charges", never "the other active payment"): the resolver allows any
+// number of simultaneously active, overlapping Legs in one Period, and this
+// helper is never told how many or what cycle they are — singular/"the"
+// wording would misdescribe a Period with 3+ available components or a
+// non-recurring co-active component.
+const COMPONENT_NOTES: Record<string, { alone: string; joined: string }> = {
+  monthly: {
+    alone: 'Repeats each month while this stage is active.',
+    joined: 'Repeats monthly alongside other active charges.',
+  },
+  annual: {
+    alone: 'Charged yearly while this stage is active.',
+    joined: 'Charged yearly in addition to other active charges.',
+  },
+  annually: {
+    alone: 'Charged yearly while this stage is active.',
+    joined: 'Charged yearly in addition to other active charges.',
+  },
+  quarterly: {
+    alone: 'Charged every quarter while this stage is active.',
+    joined: 'Charged quarterly in addition to other active charges.',
+  },
+  'one-time': {
+    alone: 'Charged once when this stage begins.',
+    joined: 'Charged once when this stage begins, alongside other active charges.',
+  },
+  upfront: {
+    alone: 'Charged once when this stage begins.',
+    joined: 'Charged once when this stage begins, alongside other active charges.',
+  },
+};
+
+function componentNote(billingCycle: string | null, joined: boolean): string {
+  const entry = billingCycle !== null ? COMPONENT_NOTES[billingCycle] : undefined;
+  if (!entry) return 'Applies while this stage is active.';
+  return joined ? entry.joined : entry.alone;
+}
+
+// Short standalone billing-cycle labels for the Plan Billing fact — a third,
+// deliberately separate map from TIER_CYCLE_SUFFIX_OVERRIDES ('/mo') and
+// TIER_BILLING_WORDING ('Billed monthly') in PricingTiers.tsx, which already
+// coexist as separate maps for their own different string shapes. Keys are
+// exactly the billing_cycle vocabulary already in use across this codebase
+// (PricingTiers.tsx's own two maps, utils/format.ts's CYCLE_LABELS) — no
+// 'yearly' alias, since nothing in the current data model emits it.
+const PLAN_BILLING_CYCLE_LABELS: Record<string, string> = {
+  monthly: 'Monthly',
+  annual: 'Annual',
+  annually: 'Annual',
+  quarterly: 'Quarterly',
+  'one-time': 'One-time',
+  upfront: 'Upfront',
+};
+
+// Descriptive-only summary of which billing cycles are represented among the
+// active variant's own available components — e.g. "Monthly + Annual". A
+// unique, first-seen-order set of DISPLAY labels (so 'annual' and 'annually'
+// collapse to one "Annual" instead of appearing twice); never sums prices,
+// merges components, or reads only the headline component.
+function planBillingSummary(components: CommercialLegComponent[]): string {
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  for (const component of components) {
+    if (!component.billing_cycle) continue;
+    const label = PLAN_BILLING_CYCLE_LABELS[component.billing_cycle] ?? component.billing_cycle;
+    if (seen.has(label)) continue;
+    seen.add(label);
+    labels.push(label);
+  }
+  return labels.join(' + ');
+}
+
+// One selectable destination on the cue-ball selector below — `id: null` is
+// the Tier's own permanent Default declaration, matching the exact
+// `selectVariant(tierId, editionId)` vocabulary everywhere else in this
+// file (Choose Plan, an Edition chip, this control). Real Edition entries
+// carry their own stable id from `edition_options`, never a derived index —
+// the destination's position in this array decides only where its pot sits
+// on the track, never which Edition it resolves to.
+interface CueDestination {
+  id: string | null;
+  label: string;
+}
+
+// Full-width Default/Edition selector for the focused Tier shell — replaces
+// the old textual tab row. No text labels render on the track itself (the
+// Tier/Edition name above it already says which one is active); this is a
+// position-only control over the same `selectVariant` path every other
+// entry point already uses.
+//
+// Positioning: a physically-inset rail (.cz-package-builder__cue-rail, anchored
+// `left`/`right` at the shared --cz-cue-inset) is the positioned ancestor for
+// the pots/ball, so their `left` values are ordinary percentages (0%–100%)
+// resolved against the rail's own already-inset width — never CSS calc()
+// arithmetic. The multiplication (index / (destinations.length - 1)) happens
+// once in TS, producing a plain percentage string; array index feeds only
+// this visual placement, never which Edition a click resolves to (see
+// destinations' own id below). No clientWidth/resize listener — the browser
+// computes the rail's inset width itself, so this recalculates on resize.
+//
+// Accessibility follows the same `role="group"` + one active-state
+// attribute convention TierCard's own Edition chips already use (see
+// `.cz-cost-builder__tier-editions` in PricingTiers.tsx), not tab
+// semantics — a full tablist implementation (keyboard roving focus, panel
+// association) isn't warranted for a control that only ever changes which
+// declaration one already-visible card shows.
+function EditionCueSelector({
+  destinations,
+  activeId,
+  onSelect,
+}: {
+  destinations: CueDestination[];
+  activeId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const hasEditions = destinations.length > 1;
+  const activeIndex = Math.max(0, destinations.findIndex((destination) => destination.id === activeId));
+  // Plain percentage of the rail's own (already-inset) width — true 50% when
+  // there's nothing to switch between, exactly matching the rail's own
+  // horizontal center regardless of the inset's size.
+  const cuePercent = hasEditions ? (activeIndex / (destinations.length - 1)) * 100 : 50;
+
+  return (
+    <div
+      class="cz-package-builder__cue-track"
+      role={hasEditions ? 'group' : undefined}
+      aria-label={hasEditions ? 'Plan variant' : undefined}
+    >
+      <span class="cz-package-builder__cue-line" aria-hidden="true" />
+      {/* The rail: left/right-anchored at --cz-cue-inset, so it IS the
+          already-inset width — pots/ball inside it use plain 0%–100%
+          percentages, never calc() arithmetic. */}
+      <div class="cz-package-builder__cue-rail">
+        {hasEditions && destinations.map((destination, index) => (
+          <span
+            key={destination.id ?? 'default'}
+            class="cz-package-builder__cue-pot"
+            style={{ left: `${(index / (destinations.length - 1)) * 100}%` }}
+            aria-hidden="true"
+          />
+        ))}
+        {/* No-Edition Tier: the track and a centered cue ball render as a
+            static "you are here" indicator only — no pots, no buttons, no
+            fake navigation affordance. */}
+        <span
+          class="cz-package-builder__cue-ball"
+          style={{ left: `${cuePercent}%` }}
+          aria-hidden="true"
+        />
+      </div>
+      {hasEditions && destinations.map((destination, index) => {
+        const active = destination.id === activeId;
+        return (
+          <button
+            key={destination.id ?? 'default'}
+            type="button"
+            class="cz-package-builder__cue-target"
+            style={{ left: `${(index * 100) / destinations.length}%`, width: `${100 / destinations.length}%` }}
+            aria-label={destination.label}
+            aria-current={active ? 'true' : undefined}
+            onClick={() => onSelect(destination.id)}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 interface FamilyTierAdapterProps {
@@ -134,13 +350,19 @@ export function FamilyTierAdapter({
     setSelectedPeriodFromMonth(periods[0]?.from_month ?? null);
   };
 
-  // Keeps the active top variant tab visible when the tab row overflows —
-  // fires on entry (Choose Plan/Edition chip) and on every in-shell tab
-  // switch, since both change focusedTierId/focusedEditionId.
-  const activeVariantTabRef = useRef<HTMLButtonElement | null>(null);
+  // Sticky close (X) button elevation — stronger shadow once the page has
+  // scrolled, subtle otherwise. Listener only attaches while a Tier is
+  // actually focused (the button's only rendered then), so it costs nothing
+  // in the card-comparison/staged views and is removed on leaving focus or
+  // unmount.
+  const [isCloseElevated, setIsCloseElevated] = useState(false);
   useEffect(() => {
-    activeVariantTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-  }, [focusedTierId, focusedEditionId]);
+    if (focusedTierId === null) return;
+    const onScroll = () => setIsCloseElevated(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [focusedTierId]);
 
   // Add-ons come from this Family's one Tier System, where compatibility is
   // implicit — there is no per-Tier compatibility ledger, so "does this Tier
@@ -250,47 +472,37 @@ export function FamilyTierAdapter({
       ?? activePeriods[0]
       ?? null;
     const cardPeriodOverride = periodPriceOverride(selectedPeriod);
+    // Commercial Terms facts — read-only presentation over data already
+    // resolved above/elsewhere, never a new pricing calculation:
+    // - Upfront: the exact same resolveUpfrontPayment() TierCard's own
+    //   headline card uses, over this variant's own resolved Periods (never
+    //   summed, never inferred from commitment or the Headline Leg).
+    // - Commitment: resolveEffectiveTierDisplay()'s own minimumTermValue/
+    //   Unit — the Tier/Edition parent's own commitment, the identical call
+    //   TierCard makes internally for this same focused card, never a Leg
+    //   from_month/to_month.
+    // - Plan billing: only AVAILABLE components (availableComponents()),
+    //   first-seen billing-cycle order, never merged/summed/headline-only.
+    const focusedDeclaredEffective = resolveEffectiveTierDisplay(focusedData, '', focusedEditionId);
+    const upfrontAmount = resolveUpfrontPayment(activePeriods);
+    const focusedAvailableComponents = availableComponents(activePeriods);
+    const billingSummary = planBillingSummary(focusedAvailableComponents);
     return (
       <div class="cz-package-builder__focused">
-        {/* Default/Edition navigation only — which commercial variant of
-            this SAME Tier occupant is being viewed. Not Commercial Period,
-            Leg, duration, or billing-cycle navigation; those are wired in a
-            later phase. Spans both columns, above the detail/card split. */}
-        <div class="cz-package-builder__focused-variants" role="tablist" aria-label={`${focusedData?.label || focusedTier.title} variant`}>
-          <button
-            ref={focusedEditionId === null ? activeVariantTabRef : undefined}
-            type="button"
-            role="tab"
-            class={`cz-package-builder__focused-variant${focusedEditionId === null ? ' is-active' : ''}`}
-            aria-selected={focusedEditionId === null}
-            onClick={() => selectVariant(focusedTier.id, null)}
-          >
-            Default
-          </button>
-          {focusedEditionOptions.map((edition) => (
-            <button
-              key={edition.id}
-              ref={focusedEditionId === edition.id ? activeVariantTabRef : undefined}
-              type="button"
-              role="tab"
-              class={`cz-package-builder__focused-variant${focusedEditionId === edition.id ? ' is-active' : ''}`}
-              aria-selected={focusedEditionId === edition.id}
-              onClick={() => selectVariant(focusedTier.id, edition.id)}
-            >
-              {edition.label}
-            </button>
-          ))}
-        </div>
         <div class="cz-package-builder__focused-detail">
-          {/* Return path out of the focused view. It only clears this local
-              focused-Tier state, restoring the card comparison — no
-              navigation, routing, or persisted builder state. */}
+          {/* Return path out of the focused view. Same clear action as
+              before ("← All plans") — only this local focused-Tier state,
+              restoring the card comparison; no navigation, routing, browser
+              history, or persisted builder state. Circular X rather than a
+              text link because this isn't back-navigation: it's the one
+              action that exits the focused view. */}
           <button
             type="button"
-            class="cz-package-builder__focused-back"
+            class={`cz-package-builder__focused-close${isCloseElevated ? ' is-elevated' : ''}`}
+            aria-label="Close focused plan"
             onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); }}
           >
-            ← All plans
+            <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
           <h3 class="cz-package-builder__focused-name">
             {focusedData?.label || focusedTier.title}
@@ -298,32 +510,104 @@ export function FamilyTierAdapter({
           {focusedData?.ideal_for && (
             <p class="cz-package-builder__focused-ideal-for">{focusedData.ideal_for}</p>
           )}
-          <label class="cz-package-builder__focused-field">
-            <span class="cz-package-builder__focused-field-label">Plan duration</span>
-            <select
-              class="cz-package-builder__plan-select"
-              value={selectedPeriod ? String(selectedPeriod.from_month) : ''}
-              disabled={activePeriods.length === 0}
-              onChange={(event) => {
-                const next = Number((event.target as HTMLSelectElement).value);
-                setSelectedPeriodFromMonth(Number.isFinite(next) ? next : null);
-              }}
-            >
-              {activePeriods.length === 0 ? (
-                <option value="">Standard pricing</option>
-              ) : activePeriods.map((period) => (
-                <option key={period.from_month} value={String(period.from_month)}>{periodLabel(period)}</option>
-              ))}
-            </select>
-          </label>
-          {selectedPeriod && (
-            <p class="cz-package-builder__focused-plan-line">{periodLabel(selectedPeriod)}</p>
-          )}
-          {/* Reserved: the rest of the left column is intentionally empty for
-              now. Future focused-plan content (term comparison, commitment
-              detail, plan-specific messaging) belongs here, beneath the
-              duration control, without disturbing the card on the right. */}
-          <div class="cz-package-builder__focused-reserved" />
+          {/* Default/Edition navigation only — which commercial variant of
+              this SAME Tier occupant is being viewed. Not Commercial
+              Period, Leg, duration, or billing-cycle navigation; those are
+              wired in a later phase. */}
+          <EditionCueSelector
+            destinations={[{ id: null, label: 'Default' }, ...focusedEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
+            activeId={focusedEditionId}
+            onSelect={(editionId) => selectVariant(focusedTier.id, editionId)}
+          />
+          <div class="cz-package-builder__terms">
+            <span class="cz-package-builder__focused-field-label">Commercial Terms</span>
+            <div class="cz-package-builder__terms-grid">
+              <div class="cz-package-builder__term">
+                <span class="cz-package-builder__term-label">Upfront payment</span>
+                <span class="cz-package-builder__term-value">
+                  {upfrontAmount !== null ? formatPrice(upfrontAmount) : 'Flexible'}
+                </span>
+                <span class="cz-package-builder__term-note">
+                  {upfrontAmount !== null ? 'Paid at plan start' : 'No upfront payment required'}
+                </span>
+              </div>
+              <div class="cz-package-builder__term">
+                <span class="cz-package-builder__term-label">Commitment</span>
+                <span class="cz-package-builder__term-value">
+                  {focusedDeclaredEffective.minimumTermValue != null
+                    ? `${focusedDeclaredEffective.minimumTermValue} ${focusedDeclaredEffective.minimumTermUnit ?? ''}`
+                    : 'Cancel anytime'}
+                </span>
+                <span class="cz-package-builder__term-note">
+                  {focusedDeclaredEffective.minimumTermValue != null ? 'Minimum commitment' : 'No minimum commitment'}
+                </span>
+              </div>
+              <div class="cz-package-builder__term">
+                <span class="cz-package-builder__term-label">Plan billing</span>
+                <span class="cz-package-builder__term-value">{billingSummary || '—'}</span>
+                <span class="cz-package-builder__term-note">Based on active commercial components</span>
+              </div>
+            </div>
+          </div>
+          {/* Periods timeline — informational only. Renders EVERY resolved
+              Period (never a "selected" one), each with its own AVAILABLE
+              components rendered as independent cards — colliding/
+              overlapping Legs in the same Period never summed, merged, or
+              picked down to one. No click handlers, no highlighted
+              "active" Period, no effect on Add to Quote: selectedPeriod/
+              cardPeriodOverride/selectedPeriodFromMonth below are an
+              unrelated internal compatibility path (Phase 5, preserving
+              existing quote features/fallback pricing) that this timeline
+              never reads from or writes to. Payment explanation sentences
+              land in a later phase — for now each card shows only name/
+              billing wording/price. */}
+          <div class="cz-package-builder__timeline">
+            <h4 class="cz-package-builder__timeline-title">How this plan is charged</h4>
+            <p class="cz-package-builder__timeline-sub">See when each payment starts and which charges run together.</p>
+            <div class="cz-package-builder__stages">
+              {activePeriods.map((period) => {
+                const components = availablePeriodComponents(period);
+                if (components.length === 0) return null;
+                // Same available-components-only count for both the stage
+                // header's "N payments active" note and each component's
+                // own alone/joined explanation — never period.components.length.
+                const joined = components.length > 1;
+                return (
+                  <div class="cz-package-builder__stage" key={period.from_month}>
+                    <span class="cz-package-builder__stage-node" aria-hidden="true" />
+                    <div class="cz-package-builder__stage-head">
+                      <span class="cz-package-builder__stage-label">{periodLabel(period)}</span>
+                      <span class="cz-package-builder__stage-count">
+                        {joined ? `${components.length} payments active` : '1 payment active'}
+                      </span>
+                    </div>
+                    <div class="cz-package-builder__stage-components">
+                      {components.map((component, index) => (
+                        <div class="cz-package-builder__stage-component" key={index}>
+                          <div class="cz-package-builder__stage-component-row">
+                            <div class="cz-package-builder__stage-component-info">
+                              <span class="cz-package-builder__stage-component-name">{componentPaymentName(component.billing_cycle)}</span>
+                              <span class="cz-package-builder__stage-component-meta">{billingWording(component.billing_cycle)}</span>
+                            </div>
+                            <span class="cz-package-builder__stage-component-price">
+                              {formatPrice(component.price)} {cycleSuffix(component.billing_cycle)}
+                            </span>
+                          </div>
+                          {/* Subordinate calculation-rhythm note. A future
+                              Leg-level discount line belongs here too, as
+                              another child of this same card — no
+                              restructuring needed to add it later. */}
+                          <p class="cz-package-builder__stage-component-note">
+                            {componentNote(component.billing_cycle, joined)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
         <div class="cz-package-builder__focused-card">
           {/* The strip's own grid context, so the one focused card keeps the

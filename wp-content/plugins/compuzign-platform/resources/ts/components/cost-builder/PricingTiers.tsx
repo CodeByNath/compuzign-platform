@@ -169,6 +169,26 @@ const TIER_BILLING_WORDING: Record<string, string> = {
   'one-time': 'One-time Payment',
 };
 
+// Pure presentation helpers over the two lookups above — extracted so the
+// focused shell's Periods timeline (FamilyTierAdapter.tsx) can render each
+// resolved commercial component's own price suffix/billing wording with the
+// exact same text this card already shows, instead of a second copy of
+// these tables. `cycle === null` (never a falsy-empty-string check) is the
+// only branch that differs from the raw lookups below, so every existing
+// TierCard call site — whose own `effectiveBillingCycle` is always a
+// `string`, never actually `null` — keeps byte-identical output; only a
+// genuinely null `CommercialLegComponent.billing_cycle` (a real
+// possibility on the timeline, never on this card) takes the new branch.
+export function cycleSuffix(cycle: string | null): string {
+  if (cycle === null) return '';
+  return TIER_CYCLE_SUFFIX_OVERRIDES[cycle] ?? formatCycleLabel(cycle);
+}
+
+export function billingWording(cycle: string | null): string {
+  if (cycle === null) return '';
+  return TIER_BILLING_WORDING[cycle] ?? `Billed ${cycle}`;
+}
+
 // Inline check glyph for Tier Inclusions rows — follows this codebase's
 // existing inline-SVG icon convention (viewBox 0 0 24 24, stroke-based,
 // currentColor, aria-hidden) rather than the CSS '✓' pseudo-element it
@@ -360,8 +380,8 @@ export function TierCard({
   };
   const { price: effectivePrice, billingCycle: effectiveBillingCycle, inclusionItems, minimumTermValue, minimumTermUnit } = effective;
 
-  const suffix = TIER_CYCLE_SUFFIX_OVERRIDES[effectiveBillingCycle] ?? formatCycleLabel(effectiveBillingCycle);
-  const billingWording = TIER_BILLING_WORDING[effectiveBillingCycle] ?? `Billed ${effectiveBillingCycle}`;
+  const suffix = cycleSuffix(effectiveBillingCycle);
+  const billingWordingText = billingWording(effectiveBillingCycle);
 
   const label = data?.label || tier.title;
 
@@ -489,7 +509,7 @@ export function TierCard({
             as the cycle suffix above: no wording beside a "Contact Us"
             price. */}
         {effectivePrice !== null && effectiveBillingCycle && (
-          <p class="cz-cost-builder__tier-billing-wording">{billingWording}</p>
+          <p class="cz-cost-builder__tier-billing-wording">{billingWordingText}</p>
         )}
         {minimumTermValue != null && (
           <p class="cz-cost-builder__tier-commitment">
