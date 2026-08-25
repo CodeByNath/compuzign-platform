@@ -44,8 +44,10 @@ function periodLabel(period: CommercialLegPeriod): string {
 // Period is left on the Tier's/Edition's own flat declaration instead. See
 // the Phase 2 report for the exact missing field this would need.
 function periodPriceOverride(period: CommercialLegPeriod | null): PeriodPriceOverride | null {
-  if (!period || period.components.length !== 1) return null;
-  const component = period.components[0];
+  if (!period) return null;
+  const components = availablePeriodComponents(period);
+  if (components.length !== 1) return null;
+  const component = components[0];
   return {
     price: component.price,
     billingCycle: component.billing_cycle,
