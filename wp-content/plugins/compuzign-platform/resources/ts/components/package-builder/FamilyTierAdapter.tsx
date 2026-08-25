@@ -505,7 +505,7 @@ export function FamilyTierAdapter({
             <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
           <h3 class="cz-package-builder__focused-name">
-            {focusedData?.label || focusedTier.title}
+            {focusedDeclaredEffective.selectedEdition?.label ?? focusedData?.label ?? focusedTier.title}
           </h3>
           {focusedData?.ideal_for && (
             <p class="cz-package-builder__focused-ideal-for">{focusedData.ideal_for}</p>
