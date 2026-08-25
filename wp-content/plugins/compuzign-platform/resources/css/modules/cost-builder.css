@@ -4022,3 +4022,32 @@
 .cz-package-builder__focused-card .cz-cost-builder__tier-facts {
   display: none;
 }
+
+/* Extension groups (Phase 5) — below the focused card's own What's Included
+   list. Layout scaffolding only: no border/background/padding, so no new
+   card/box is introduced. Rows reuse .cz-cost-builder__tier-features
+   verbatim (see FamilyTierAdapter.tsx) so they visually match the ordinary
+   inclusion rows above with zero new row styling. */
+.cz-package-builder__extensions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+  margin-top: var(--cz-space-4);
+}
+
+.cz-package-builder__extension-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+}
+
+/* Same small/compact/uppercase shape as .cz-package-builder__focused-field-label
+   ("Commercial Terms"), accent-colored instead of muted per the Extension
+   heading's own visual rule. */
+.cz-package-builder__extension-heading {
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-color-accent);
+}

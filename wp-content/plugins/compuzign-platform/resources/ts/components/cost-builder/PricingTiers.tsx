@@ -193,7 +193,7 @@ export function billingWording(cycle: string | null): string {
 // existing inline-SVG icon convention (viewBox 0 0 24 24, stroke-based,
 // currentColor, aria-hidden) rather than the CSS '✓' pseudo-element it
 // replaces, so the mark scales and themes exactly like other stroke icons.
-function TierInclusionCheckIcon() {
+export function TierInclusionCheckIcon() {
   return (
     <svg
       width="16"

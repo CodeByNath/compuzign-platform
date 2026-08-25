@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'preact/hooks';
-import { PricingTiers, TierCard, resolveEffectiveTierDisplay, resolveUpfrontPayment, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
+import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
-import type { CommercialLegComponent, CommercialLegPeriod, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
+import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 
 // The active focused variant's own resolved Commercial Period list — the
 // occupant's own commercial_legs for Default, or the matching Edition's own,
@@ -75,6 +75,62 @@ function availablePeriodComponents(period: CommercialLegPeriod): CommercialLegCo
 // availablePeriodComponents() above, read by the Commercial Terms facts.
 function availableComponents(periods: CommercialLegPeriod[]): CommercialLegComponent[] {
   return periods.flatMap(availablePeriodComponents);
+}
+
+// One resolved commercial identity's (Default or one Additional Leg) own
+// billing cadence + claimed inclusions, collapsed to a SINGLE entry no
+// matter how many resolved Periods that same `source` appears active in —
+// Phase 2 of the focused Tier/Edition inclusion blueprint (see the Phase 1
+// audit report). Grouping key is component.source alone, never billing_cycle
+// (two different Legs sharing a cadence stay two groups) and never Default-
+// vs-Additional classification (deliberately out of scope this phase).
+export interface CommercialLegInclusionGroup {
+  source: string;
+  billingCycle: string | null;
+  items: CommercialLegPricedItem[];
+}
+
+// First-seen-wins per source is safe, not an unproven shortcut: a Leg's own
+// billing_cycle and claimed items[] are built ONCE from the container's
+// static declaration (PackageManagerSchema::commercialLegTimelineChildren()
+// / bucketRateSheetItemsByCommercialLegChild()) — every Period only decides
+// WHETHER that Leg is active, never re-derives what it claims. So every
+// repeated appearance of the same source is structurally guaranteed
+// identical; there is nothing to reconcile between them.
+export function commercialLegInclusionGroups(periods: CommercialLegPeriod[]): CommercialLegInclusionGroup[] {
+  const groups: CommercialLegInclusionGroup[] = [];
+  const seen = new Set<string>();
+  for (const component of availableComponents(periods)) {
+    if (seen.has(component.source)) continue;
+    seen.add(component.source);
+    groups.push({ source: component.source, billingCycle: component.billing_cycle, items: component.items });
+  }
+  return groups;
+}
+
+// Focused-card "Extensions" — Phase 4B. Same shape as CommercialLegInclusionGroup
+// (a distinct name only so a future renderer reads as Extension-specific,
+// never a second interface to keep in sync). Deliberately NOT a
+// classification of any Leg as Default/Main/Extra: every commercialLegInclusionGroups()
+// group is reduced to only the items it shares with the focused card's own
+// already-rendered "What's included" list — identity match is by
+// item_id ONLY (never label, billing_cycle, or array position), and a
+// group left with zero matching items is omitted entirely, never rendered
+// empty.
+export type CommercialLegExtensionGroup = CommercialLegInclusionGroup;
+
+export function commercialLegExtensionGroups(
+  periods: CommercialLegPeriod[],
+  focusedInclusions: ServiceInclusion[],
+): CommercialLegExtensionGroup[] {
+  const focusedItemIds = new Set(focusedInclusions.map((inclusion) => inclusion.id));
+  const groups: CommercialLegExtensionGroup[] = [];
+  for (const group of commercialLegInclusionGroups(periods)) {
+    const items = group.items.filter((item) => focusedItemIds.has(item.item_id));
+    if (items.length === 0) continue;
+    groups.push({ source: group.source, billingCycle: group.billingCycle, items });
+  }
+  return groups;
 }
 
 // Customer-facing name for one resolved commercial component — the exact
@@ -176,6 +232,28 @@ function planBillingSummary(components: CommercialLegComponent[]): string {
     labels.push(label);
   }
   return labels.join(' + ');
+}
+
+// Extension group heading — "Extensions billed {cycle}" (e.g. "Extensions
+// billed Annually"). A fourth, deliberately separate cycle-word map: neither
+// billingWording() ('Billed annually'/'One-time Payment' — full sentences,
+// wrong shape for this heading) nor PLAN_BILLING_CYCLE_LABELS above (collapses
+// annual/annually to 'Annual', not the 'Annually' this heading needs) fits
+// verbatim. Same never-leak-the-raw-cycle-string rule as every other map in
+// this file: an unmapped/null cycle falls back to the bare 'Extensions'
+// heading, never the raw backend string.
+const EXTENSION_BILLING_CYCLE_LABELS: Record<string, string> = {
+  monthly: 'Monthly',
+  annual: 'Annually',
+  annually: 'Annually',
+  quarterly: 'Quarterly',
+  'one-time': 'One-time',
+  upfront: 'Upfront',
+};
+
+function extensionHeading(billingCycle: string | null): string {
+  const label = billingCycle !== null ? EXTENSION_BILLING_CYCLE_LABELS[billingCycle] : undefined;
+  return label ? `Extensions billed ${label}` : 'Extensions';
 }
 
 // One selectable destination on the cue-ball selector below — `id: null` is
@@ -489,6 +567,12 @@ export function FamilyTierAdapter({
     const upfrontAmount = resolveUpfrontPayment(activePeriods);
     const focusedAvailableComponents = availableComponents(activePeriods);
     const billingSummary = planBillingSummary(focusedAvailableComponents);
+    // Phase 5: the same complete "What's included" list already rendered
+    // below by TierCard (focusedDeclaredEffective.inclusionItems — untouched,
+    // read-only input here), reduced per Leg by commercialLegExtensionGroups()
+    // itself. Never a second inclusion source, never a mutation of the list
+    // TierCard renders.
+    const extensionGroups = commercialLegExtensionGroups(activePeriods, focusedDeclaredEffective.inclusionItems);
     return (
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
@@ -652,6 +736,30 @@ export function FamilyTierAdapter({
               hideOverview
             />
           </div>
+          {/* Extension groups — below the complete "What's included" list
+              TierCard just rendered above, never inside it and never a
+              change to TierCard itself (normal/front cards never reach this
+              branch). Static only this phase: no hover/focus/click
+              dimming, no price, no Period range, no Leg id, no affected-
+              count text — label + this Leg's own quantity, nothing else. */}
+          {extensionGroups.length > 0 && (
+            <div class="cz-package-builder__extensions">
+              {extensionGroups.map((group) => (
+                <div class="cz-package-builder__extension-group" key={group.source}>
+                  <span class="cz-package-builder__extension-heading">{extensionHeading(group.billingCycle)}</span>
+                  <ul class="cz-cost-builder__tier-features">
+                    {group.items.map((item) => (
+                      <li key={item.item_id}>
+                        <TierInclusionCheckIcon />
+                        <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
+                        <span class="cz-cost-builder__tier-feature-qty">{item.quantity}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
