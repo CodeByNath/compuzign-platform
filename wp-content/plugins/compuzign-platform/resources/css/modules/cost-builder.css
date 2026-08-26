@@ -4096,3 +4096,271 @@
   opacity: 0.6;
   transition: opacity var(--cz-transition-fast);
 }
+
+/* ─── Phase 7: View Plan Details ─── */
+
+/* Trigger — right-aligned below the last rendered Leg/payment card, same
+   quiet-text-control recipe as .cz-package-builder__focused-back ("← All
+   plans"): never a CTA, so it never competes with Choose Plan/Add to Quote. */
+.cz-package-builder__details-trigger-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--cz-space-3);
+}
+
+.cz-package-builder__details-trigger {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cz-color-muted);
+  font: inherit;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--cz-transition-fast);
+}
+
+.cz-package-builder__details-trigger:hover {
+  color: var(--cz-color-accent);
+}
+
+.cz-package-builder__details-trigger:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
+/* Backdrop/dialog sizing — same fixed/centered/max-height/scroll recipe as
+   .cz-pdf-modal__backdrop/.cz-pdf-modal (cost-builder's own existing modal),
+   own namespace so this document-style dark treatment never leaks onto that
+   lighter form modal. */
+.cz-package-builder__details-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  padding: var(--cz-space-4);
+  backdrop-filter: blur(4px);
+}
+
+/* Positioning wrapper — sized to match the dialog itself so the close
+   button (an absolutely-positioned sibling of the dialog, not a child of
+   its scrolling content) has a correctly-sized box to anchor its corner
+   offset against. */
+.cz-package-builder__details-panel {
+  position: relative;
+  width: 100%;
+  max-width: 860px;
+}
+
+.cz-package-builder__details-modal {
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--cz-color-surface-2);
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-xl);
+  box-shadow: var(--cz-shadow-card);
+}
+
+/* Same circular X visual as .cz-package-builder__focused-close (see
+   FamilyTierAdapter.tsx) — a SIBLING of the scrolling dialog (see
+   .cz-package-builder__details-panel above), positioned outside its top-right
+   corner rather than sticky inside its own scrolling content, so the close
+   control never moves as the panel's body scrolls and never depends on a
+   scroll-position trick to stay put. */
+.cz-package-builder__details-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(35%, -35%);
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-pill);
+  background: var(--cz-color-surface-3);
+  color: var(--cz-color-muted);
+  cursor: pointer;
+  box-shadow: var(--cz-shadow-card);
+  z-index: 1;
+  transition: background var(--cz-transition-fast), color var(--cz-transition-fast), border-color var(--cz-transition-fast), transform var(--cz-transition-fast);
+}
+
+.cz-package-builder__details-close:hover {
+  background: var(--cz-color-surface-3);
+  color: var(--cz-color-text);
+  border-color: var(--cz-color-line-strong);
+  transform: translate(35%, -35%) translateY(-1px);
+}
+
+.cz-package-builder__details-close:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
+.cz-package-builder__details-body {
+  padding: var(--cz-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-7);
+}
+
+.cz-package-builder__details-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+}
+
+/* Strong section hierarchy — a terms-document heading, not another pricing
+   card title: larger than the timeline's own muted eyebrow labels, a
+   restrained accent-colored rule beneath it rather than a filled/boxed
+   header. */
+.cz-package-builder__details-heading {
+  margin: 0;
+  padding-bottom: var(--cz-space-2);
+  font-size: var(--cz-font-size-lg);
+  font-weight: 700;
+  color: var(--cz-color-text);
+  border-bottom: 2px solid rgba(255, 218, 23, .28);
+}
+
+.cz-package-builder__details-overview {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+}
+
+.cz-package-builder__details-overview-row {
+  display: flex;
+  gap: var(--cz-space-2);
+  font-size: var(--cz-font-size-sm);
+}
+
+.cz-package-builder__details-overview-row dt {
+  min-width: 110px;
+  color: var(--cz-color-muted);
+  font-weight: 600;
+}
+
+.cz-package-builder__details-overview-row dd {
+  margin: 0;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__details-period {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-4) 0;
+  border-bottom: 1px solid var(--cz-color-line);
+}
+
+.cz-package-builder__details-period:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.cz-package-builder__details-period-heading {
+  margin: 0;
+  font-size: var(--cz-font-size-base);
+  font-weight: 700;
+  color: var(--cz-color-accent);
+}
+
+.cz-package-builder__details-fact {
+  margin: 0;
+  font-size: var(--cz-font-size-sm);
+  color: var(--cz-color-muted);
+}
+
+.cz-package-builder__details-fact strong {
+  color: var(--cz-color-text);
+  font-weight: 600;
+}
+
+.cz-package-builder__details-table-label {
+  margin: var(--cz-space-2) 0 0;
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-color-muted);
+}
+
+/* Compact tables — smaller type/padding than the Tier comparison grid
+   (.cz-cost-builder__compare-table), since these sit inside an
+   already-scrollable document body rather than the page itself. */
+.cz-package-builder__details-table-wrap {
+  overflow-x: auto;
+}
+
+.cz-package-builder__details-table {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+  font-size: var(--cz-font-size-xs);
+}
+
+.cz-package-builder__details-table th {
+  padding: var(--cz-space-2) var(--cz-space-3);
+  text-align: left;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cz-color-muted);
+  border-bottom: 1px solid var(--cz-color-line-strong);
+  white-space: nowrap;
+}
+
+.cz-package-builder__details-table td {
+  padding: var(--cz-space-2) var(--cz-space-3);
+  color: var(--cz-color-text);
+  border-bottom: 1px solid var(--cz-color-line);
+}
+
+.cz-package-builder__details-table th:not(:first-child),
+.cz-package-builder__details-table td:not(:first-child) {
+  text-align: right;
+}
+
+.cz-package-builder__details-table-total {
+  margin: 0;
+  text-align: right;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__details-summary-table td:first-child,
+.cz-package-builder__details-summary-table th:first-child {
+  text-align: left;
+}
+
+.cz-package-builder__details-summary-total td {
+  font-weight: 700;
+  color: var(--cz-color-accent);
+  border-bottom: 0;
+  border-top: 2px solid var(--cz-color-line-strong);
+}
+
+.cz-package-builder__details-timing-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
+  font-size: var(--cz-font-size-sm);
+  color: var(--cz-color-muted);
+}
+
+.cz-package-builder__details-timing-list strong {
+  color: var(--cz-color-text);
+  font-weight: 600;
+}

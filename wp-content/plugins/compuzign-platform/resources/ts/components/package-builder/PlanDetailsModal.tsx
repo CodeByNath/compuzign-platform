@@ -1,0 +1,520 @@
+import { useEffect, useRef } from 'preact/hooks';
+import { cycleSuffix } from '@/components/cost-builder/PricingTiers';
+import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem } from '@/api/types/cost-builder';
+import { availablePeriodComponents, periodLabel, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
+
+// Phase 7 — View Plan Details popup. Presentation only: every number here is
+// read straight from the SAME resolved Periods/components/items the focused
+// shell's own timeline already renders (see FamilyTierAdapter.tsx's
+// activePeriods) — no new resolver call, no second commercial model.
+
+interface PlanDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  familyTitle: string;
+  planLabel: string;
+  commitmentValue: number | null;
+  commitmentUnit: string | null;
+  periods: CommercialLegPeriod[];
+}
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+// Cents-precise currency — deliberately NOT utils/format.ts's formatPrice()
+// (which rounds to whole dollars for the card/summary price displays
+// elsewhere). This popup's own per-item Unit Price/Total figures are
+// genuinely sub-dollar (see e.g. a $0.05 unit price) and would silently
+// round to $0 under that helper, misstating a real line item — so this is a
+// second formatter covering a different display need, not a duplicate of
+// the same one.
+function formatMoney(value: number | null): string {
+  if (value === null) return '—';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+// Spelled-out cadence suffix ("/ month", "/ year") for this document-style
+// popup's own longer-form copy — the focused shell's compact stage cards use
+// cycleSuffix()'s abbreviated "/ mo"/"/ yr" instead (see
+// commercialLegPresentation.ts); one-time/upfront already read as full words
+// there ('/ once', '/ upfront'), so those fall through to it unchanged.
+const LONG_CADENCE_SUFFIX: Record<string, string> = {
+  monthly: '/ month',
+  annual: '/ year',
+  annually: '/ year',
+  quarterly: '/ quarter',
+};
+
+function billingSuffixLong(cycle: string | null): string {
+  if (cycle === null) return '';
+  return LONG_CADENCE_SUFFIX[cycle] ?? cycleSuffix(cycle);
+}
+
+function priceWithCadence(price: number | null, cycle: string | null): string {
+  const suffix = billingSuffixLong(cycle);
+  return suffix ? `${formatMoney(price)} ${suffix}` : formatMoney(price);
+}
+
+// One continuous Commercial Leg/payment stream's own resolved facts —
+// deduplicated by component.source across every Period it appears in (see
+// buildLegPaymentSummaries below). NOT a Period fragment: a Leg repeating
+// across two adjacent Periods (because a different Leg starts or stops)
+// collapses to exactly one of these.
+export interface LegPaymentSummary {
+  source: string;
+  billingCycle: string | null;
+  price: number | null;
+  startMonth: number;
+  // The Leg's own resolved last appearance's to_month, falling back to the
+  // Tier/Edition parent's own commitment when that appearance is open-ended
+  // (to_month === null) — see the Commitment cap note below. Still null when
+  // neither is available (genuinely open-ended, no commitment on file).
+  endMonth: number | null;
+  // True only for a RECURRING Leg (never one-time/upfront) whose endMonth is
+  // still null after the commitment fallback — genuinely open-ended, no
+  // numeric cap anywhere to project a finite schedule from. occurrenceMonths
+  // is empty and subtotal is null in this case: a single known first charge
+  // is not "1 occurrence" of a finite stream, and must never be presented as
+  // a finite Total Contract Value contributor.
+  isOngoing: boolean;
+  occurrenceMonths: number[];
+  subtotal: number | null;
+}
+
+const CADENCE_INTERVAL_MONTHS: Record<string, number> = {
+  monthly: 1,
+  quarterly: 3,
+  annual: 12,
+  annually: 12,
+};
+
+const CADENCE_WORD: Record<string, string> = {
+  monthly: 'month',
+  quarterly: 'quarter',
+  annual: 'year',
+  annually: 'year',
+};
+
+function isSingleOccurrenceCycle(cycle: string | null): boolean {
+  return cycle === 'one-time' || cycle === 'upfront';
+}
+
+// Only ever called with a genuinely finite effectiveEnd — an open-ended Leg
+// (effectiveEnd === null) is handled as isOngoing before this is reached,
+// never approximated as "1 occurrence" here.
+function buildOccurrenceMonths(start: number, effectiveEnd: number, cycle: string | null): number[] {
+  const interval = (cycle !== null ? CADENCE_INTERVAL_MONTHS[cycle] : undefined) ?? 1;
+  const months: number[] = [];
+  for (let m = start; m < effectiveEnd; m += interval) months.push(m);
+  return months.length > 0 ? months : [start];
+}
+
+// Periods explain coexistence, not restart: the same source repeating across
+// Periods (because some OTHER Leg started/stopped) is one continuous payment
+// stream, never counted twice. Periods are assumed chronologically ordered
+// (the same assumption the timeline above already renders under) — a
+// source's LAST appearance in that order is read as its true end, so a
+// later re-appearance's to_month always wins over an earlier one.
+//
+// Commitment cap: a Leg's own last appearance can be open-ended
+// (to_month === null) purely because nothing else was scheduled to end its
+// Period — the Tier/Edition parent's own commitment is the real commercial
+// cap in that case, never an assumption that the payment continues forever.
+// When commercial_legs already closes the final Period at the commitment
+// (the common case), this fallback is a no-op — the numeric to_month is
+// used as-is either way, never re-derived from raw commercial_legs (which,
+// per PricingTierData/PricingEditionOption, IS this same Periods array; the
+// frontend has no separate raw per-Leg start/end source to prefer instead).
+export function buildLegPaymentSummaries(
+  periods: CommercialLegPeriod[],
+  commitmentMonths: number | null,
+): LegPaymentSummary[] {
+  const order: string[] = [];
+  const bySource = new Map<string, { billingCycle: string | null; price: number | null; start: number; end: number | null }>();
+  for (const period of periods) {
+    for (const component of availablePeriodComponents(period)) {
+      const existing = bySource.get(component.source);
+      if (!existing) {
+        order.push(component.source);
+        bySource.set(component.source, {
+          billingCycle: component.billing_cycle,
+          price: component.price,
+          start: period.from_month,
+          end: period.to_month,
+        });
+      } else {
+        existing.end = period.to_month;
+      }
+    }
+  }
+  return order.map((source) => {
+    const entry = bySource.get(source)!;
+    const effectiveEnd = entry.end ?? commitmentMonths;
+    const singleOccurrence = isSingleOccurrenceCycle(entry.billingCycle);
+    const isOngoing = !singleOccurrence && effectiveEnd === null;
+    const occurrenceMonths = singleOccurrence
+      ? [entry.start]
+      : isOngoing
+        ? []
+        : buildOccurrenceMonths(entry.start, effectiveEnd as number, entry.billingCycle);
+    const subtotal = isOngoing
+      ? null
+      : (entry.price !== null ? entry.price * occurrenceMonths.length : null);
+    return {
+      source,
+      billingCycle: entry.billingCycle,
+      price: entry.price,
+      startMonth: entry.start,
+      endMonth: effectiveEnd,
+      isOngoing,
+      occurrenceMonths,
+      subtotal,
+    };
+  });
+}
+
+// Same payment/inclusion composition as another component of the SAME
+// source — billing_cycle, price, and every claimed item (id/quantity/unit
+// price/line total) all identical. Used only to decide whether a Period's
+// rendered breakdown for this component is a genuine repeat of the
+// IMMEDIATELY PRECEDING Period's own (never any earlier one, never a
+// same-Period different-source comparison) — never a resolver-level
+// dedupe, never merges/changes what's rendered elsewhere.
+function sameComposition(a: CommercialLegComponent, b: CommercialLegComponent): boolean {
+  if (a.billing_cycle !== b.billing_cycle || a.price !== b.price) return false;
+  if (a.items.length !== b.items.length) return false;
+  return a.items.every((item, i) => {
+    const other = b.items[i];
+    return other
+      && item.item_id === other.item_id
+      && item.quantity === other.quantity
+      && item.unit_price === other.unit_price
+      && item.line_total === other.line_total;
+  });
+}
+
+function frequencyLabel(cycle: string | null): string {
+  return cycle !== null ? (PLAN_BILLING_CYCLE_LABELS[cycle] ?? 'Payment') : 'Payment';
+}
+
+function monthsPhrase(months: number[]): string {
+  if (months.length === 1) return `Month ${months[0]}`;
+  return `Months ${months.slice(0, -1).join(', ')} and ${months[months.length - 1]}`;
+}
+
+// One Payment Timing sentence per continuous Leg — "every {cadence}
+// throughout the commitment" only when this Leg has been active since the
+// plan's own first resolved month AND runs the full commitment (or is
+// genuinely open-ended); a Leg starting later, or ending before the full
+// commitment, reads as its own explicit month list instead so the sentence
+// never implies coverage it doesn't have.
+function paymentTimingSentence(
+  summary: LegPaymentSummary,
+  planStartMonth: number,
+  commitmentValue: number | null,
+  commitmentUnit: string | null,
+): string {
+  const label = frequencyLabel(summary.billingCycle);
+  const price = formatMoney(summary.price);
+
+  // Open-ended, no commitment to project a schedule against: state the
+  // first payment and its recurrence only — never a count or an implied end.
+  if (summary.isOngoing) {
+    const cadenceWord = summary.billingCycle !== null ? (CADENCE_WORD[summary.billingCycle] ?? 'period') : 'period';
+    return `${label} Payment: ${price} every ${cadenceWord}, beginning in Month ${summary.startMonth}, continuing indefinitely.`;
+  }
+
+  const [first, ...rest] = summary.occurrenceMonths;
+
+  if (rest.length === 0) {
+    return `${label} Payment: ${price} charged once, in Month ${first}.`;
+  }
+
+  // summary.isOngoing already returned above, so endMonth is guaranteed
+  // finite here — "runs full commitment" only means it matches the parent's
+  // own commitment value.
+  const runsFullCommitment = commitmentValue !== null && summary.endMonth === commitmentValue;
+
+  if (summary.startMonth === planStartMonth && runsFullCommitment) {
+    const cadenceWord = summary.billingCycle !== null ? (CADENCE_WORD[summary.billingCycle] ?? 'period') : 'period';
+    const commitmentPhrase = commitmentValue !== null && commitmentUnit
+      ? `the ${commitmentValue}-${commitmentUnit.toLowerCase().replace(/s$/, '')} commitment`
+      : 'the plan';
+    return `${label} Payment: ${price} every ${cadenceWord} throughout ${commitmentPhrase}.`;
+  }
+
+  return `${label} Payment: ${price} charged in Month ${first}, then again in ${monthsPhrase(rest)}.`;
+}
+
+function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]; cycle: string | null }) {
+  const totalLabel = cycle !== null ? `${frequencyLabel(cycle)} total` : 'Total';
+  const total = items.reduce((sum, item) => (item.line_total !== null ? sum + item.line_total : sum), 0);
+  return (
+    <>
+      <div class="cz-package-builder__details-table-wrap">
+        <table class="cz-package-builder__details-table">
+          <thead>
+            <tr>
+              <th>Item Included</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, i) => (
+              <tr key={`${item.item_id}-${i}`}>
+                <td>{item.label}</td>
+                <td>{item.quantity}</td>
+                <td>{formatMoney(item.unit_price)}</td>
+                <td>{formatMoney(item.line_total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="cz-package-builder__details-table-total">{totalLabel}: {formatMoney(total)}</p>
+    </>
+  );
+}
+
+export function PlanDetailsModal({
+  isOpen,
+  onClose,
+  familyTitle,
+  planLabel,
+  commitmentValue,
+  commitmentUnit,
+  periods,
+}: PlanDetailsModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Same scroll-lock/ESC/focus-trap pattern as PdfModal.tsx (cost-builder's
+  // own existing modal) — reused verbatim rather than a second
+  // implementation of the same behavior.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const getFocusable = () =>
+      Array.from(modalRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []);
+    getFocusable()[0]?.focus();
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const els = getFocusable();
+        if (els.length === 0) return;
+        const first = els[0];
+        const last = els[els.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const commitmentMonths = commitmentUnit && /month/i.test(commitmentUnit) ? commitmentValue : null;
+  const planStartMonth = periods[0]?.from_month ?? 0;
+  const legSummaries = buildLegPaymentSummaries(periods, commitmentMonths);
+  const totalContractValue = legSummaries.reduce(
+    (sum, s) => (s.subtotal !== null ? sum + s.subtotal : sum),
+    0,
+  );
+  const dueAtStart = legSummaries.reduce(
+    (sum, s) => (s.startMonth === planStartMonth && s.price !== null ? sum + s.price : sum),
+    0,
+  );
+
+  // Available components of the IMMEDIATELY PRECEDING Period only, keyed by
+  // source — never any earlier Period, never a running "ever seen" set. A
+  // component "continues unchanged" only when its own source was active in
+  // that one preceding Period with an identical composition (see
+  // sameComposition above); a gap, a genuinely new source, or a changed
+  // composition all read as "not continuing" and get their own breakdown.
+
+  return (
+    <div class="cz-package-builder__details-backdrop" role="presentation" onClick={onClose}>
+      {/* Positioning wrapper only — the close button and the scrolling
+          dialog are SIBLINGS here, not parent/child, so the button sits
+          outside the panel's own scrolling content and never scrolls with
+          it (no sticky trick needed: it simply isn't inside the scrollable
+          box at all). */}
+      <div class="cz-package-builder__details-panel">
+        {/* Same circular X pattern as the focused shell's own exit control
+            (.cz-package-builder__focused-close / -close-x in
+            FamilyTierAdapter.tsx) — positioned outside the panel's own
+            top-right edge instead of the sticky page column that button
+            lives in elsewhere; visual treatment (border/background/glyph)
+            unchanged. */}
+        <button
+          type="button"
+          class="cz-package-builder__details-close"
+          aria-label="Close plan details"
+          onClick={onClose}
+        >
+          <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
+        </button>
+        <div
+          class="cz-package-builder__details-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Plan details"
+          ref={modalRef}
+          onClick={(e) => e.stopPropagation()}
+        >
+        <div class="cz-package-builder__details-body">
+          <section class="cz-package-builder__details-section">
+            <h4 class="cz-package-builder__details-heading">Plan Overview</h4>
+            <dl class="cz-package-builder__details-overview">
+              <div class="cz-package-builder__details-overview-row">
+                <dt>Family</dt>
+                <dd>{familyTitle}</dd>
+              </div>
+              <div class="cz-package-builder__details-overview-row">
+                <dt>Plan Tier</dt>
+                <dd>{planLabel}</dd>
+              </div>
+              <div class="cz-package-builder__details-overview-row">
+                <dt>Commitment</dt>
+                <dd>{commitmentValue != null ? `${commitmentValue} ${commitmentUnit ?? ''}` : 'Cancel anytime'}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="cz-package-builder__details-section">
+            <h4 class="cz-package-builder__details-heading">Billing Breakdown by Period</h4>
+            {periods.map((period, index) => {
+              const components = availablePeriodComponents(period);
+              if (components.length === 0) return null;
+              const recurringCostLine = components
+                .map((component) => priceWithCadence(component.price, component.billing_cycle))
+                .join(' + ');
+              const collision = components.length > 1;
+              const previousComponentsBySource = new Map(
+                (index > 0 ? availablePeriodComponents(periods[index - 1]) : []).map((c) => [c.source, c]),
+              );
+              return (
+                <div class="cz-package-builder__details-period" key={period.from_month}>
+                  <h5 class="cz-package-builder__details-period-heading">{periodLabel(period)}</h5>
+                  <p class="cz-package-builder__details-fact">
+                    <strong>Recurring Cost:</strong> {recurringCostLine}
+                  </p>
+                  {/* Collision-Period wording only — a sole active component
+                      never gets a standalone "Begins in Month X" line (the
+                      Recurring Cost line above already says everything a
+                      first/only appearance needs to say). A CONTINUING sole
+                      component still gets this line, though, since that's
+                      the one thing "describe it as continuing unchanged"
+                      requires regardless of collision. */}
+                  {components.map((component) => {
+                    const previous = previousComponentsBySource.get(component.source);
+                    const continuing = previous !== undefined && sameComposition(previous, component);
+                    if (!collision && !continuing) return null;
+                    return (
+                      <p class="cz-package-builder__details-fact" key={component.source}>
+                        <strong>{frequencyLabel(component.billing_cycle)} payment:</strong>{' '}
+                        {continuing
+                          ? `Continues unchanged at ${priceWithCadence(component.price, component.billing_cycle)}`
+                          : `Begins in Month ${period.from_month} at ${priceWithCadence(component.price, component.billing_cycle)}`}
+                      </p>
+                    );
+                  })}
+                  {components.map((component) => {
+                    const previous = previousComponentsBySource.get(component.source);
+                    const continuing = previous !== undefined && sameComposition(previous, component);
+                    if (continuing) return null; // already active with this exact composition last Period — no repeated table
+                    return (
+                      <div key={component.source}>
+                        {collision && (
+                          <p class="cz-package-builder__details-table-label">
+                            {frequencyLabel(component.billing_cycle)} payment breakdown:
+                          </p>
+                        )}
+                        <ItemBreakdownTable items={component.items} cycle={component.billing_cycle} />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </section>
+
+          <section class="cz-package-builder__details-section">
+            <h4 class="cz-package-builder__details-heading">Your Plan Summary</h4>
+            <div class="cz-package-builder__details-table-wrap">
+              <table class="cz-package-builder__details-table cz-package-builder__details-summary-table">
+                <thead>
+                  <tr>
+                    <th>Billing Schedule</th>
+                    <th>Frequency</th>
+                    <th>Rate</th>
+                    <th>Charge Occurrences</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legSummaries.map((s) => {
+                    const label = frequencyLabel(s.billingCycle);
+                    return (
+                      <tr key={s.source}>
+                        <td>Months {s.startMonth}–{s.endMonth ?? 'Ongoing'}</td>
+                        <td>{label}</td>
+                        <td>{formatMoney(s.price)}</td>
+                        <td>
+                          {s.isOngoing
+                            ? 'Ongoing'
+                            : `${s.occurrenceMonths.length} ${label.toLowerCase()} charge${s.occurrenceMonths.length === 1 ? '' : 's'}`}
+                        </td>
+                        <td>{s.isOngoing ? '—' : formatMoney(s.subtotal)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr class="cz-package-builder__details-summary-total">
+                    <td colSpan={4}>Total Contract Value</td>
+                    <td>{formatMoney(totalContractValue)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="cz-package-builder__details-section">
+            <h4 class="cz-package-builder__details-heading">Payment Timing</h4>
+            <ul class="cz-package-builder__details-timing-list">
+              <li><strong>Due at plan start:</strong> {formatMoney(dueAtStart)}</li>
+              {legSummaries.map((s) => (
+                <li key={s.source}>{paymentTimingSentence(s, planStartMonth, commitmentValue, commitmentUnit)}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -4,6 +4,8 @@ import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cos
 import { formatPrice } from '@/utils/format';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
+import { periodLabel, availablePeriodComponents, availableComponents, componentPaymentName, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
+import { PlanDetailsModal } from './PlanDetailsModal';
 
 // The active focused variant's own resolved Commercial Period list — the
 // occupant's own commercial_legs for Default, or the matching Edition's own,
@@ -20,16 +22,6 @@ function periodsForVariant(
   if (editionId === null) return tierData.commercial_legs ?? [];
   const edition = (tierData.edition_options ?? []).find((option) => option.id === editionId);
   return edition?.commercial_legs ?? [];
-}
-
-// "Month 1–12" / "Month 13–Indefinite" — built entirely from the Period's
-// own resolved from_month/to_month, the same "Indefinite" convention the
-// Commercial Legs Debug tool already uses for a null to_month. Not a
-// marketing label: there is no other existing customer-facing terminology
-// for a resolved Period to reuse instead.
-function periodLabel(period: CommercialLegPeriod): string {
-  const to = period.to_month === null ? 'Indefinite' : String(period.to_month);
-  return `Month ${period.from_month}–${to}`;
 }
 
 // The focused card's price/cycle/inclusions for a selected Period — ONLY
@@ -70,24 +62,6 @@ function periodPriceOverride(period: CommercialLegPeriod | null, declaredInclusi
       };
     }),
   };
-}
-
-// One Period's own AVAILABLE commercial components, in the resolver's own
-// order — the single place "available" is defined. Both the flattened
-// cross-Period reader below (Commercial Terms) and the per-Period Periods
-// timeline read through this same predicate, so a Period's rendered
-// component count, its "N payments active" note, and whether it renders at
-// all always agree with each other. Never counts an unavailable component;
-// never re-sorts or re-groups what the resolver already returned.
-function availablePeriodComponents(period: CommercialLegPeriod): CommercialLegComponent[] {
-  return period.components.filter((component) => component.available);
-}
-
-// Every AVAILABLE commercial component across a variant's resolved Periods,
-// in the Periods'/components' own resolved order — the flattened form of
-// availablePeriodComponents() above, read by the Commercial Terms facts.
-function availableComponents(periods: CommercialLegPeriod[]): CommercialLegComponent[] {
-  return periods.flatMap(availablePeriodComponents);
 }
 
 // One resolved commercial identity's (Default or one Additional Leg) own
@@ -171,28 +145,9 @@ export function commercialLegExtensionGroups(
   return groups;
 }
 
-// Customer-facing name for one resolved commercial component — the exact
-// billing-cycle vocabulary Phase 4 audited (PricingTiers.tsx's own maps,
-// utils/format.ts's CYCLE_LABELS): monthly/annual/annually/quarterly/
-// one-time/upfront. A neutral fallback ('Payment') covers both a genuinely
-// null billing_cycle and any future/unmapped value — never throws, never
-// exposes the raw cycle string or any Leg identity.
-const COMPONENT_PAYMENT_NAMES: Record<string, string> = {
-  monthly: 'Monthly payment',
-  annual: 'Annual payment',
-  annually: 'Annual payment',
-  quarterly: 'Quarterly payment',
-  'one-time': 'One-time payment',
-  upfront: 'Upfront payment',
-};
-
-function componentPaymentName(cycle: string | null): string {
-  if (cycle === null) return 'Payment';
-  return COMPONENT_PAYMENT_NAMES[cycle] ?? 'Payment';
-}
-
 // Short, subordinate explanation of one component's own calculation rhythm
-// — the same billing-cycle vocabulary as COMPONENT_PAYMENT_NAMES above,
+// — the same billing-cycle vocabulary componentPaymentName() (see
+// commercialLegPresentation.ts) already uses,
 // `joined` distinguishing whether it's the only active component in its
 // Period (`alone`) or shares the Period with another (`joined`, from the
 // SAME available-components-only count the stage header's own "N payments
@@ -249,22 +204,6 @@ function componentNote(billingCycle: string | null, joined: boolean): string {
 function inclusionCountLabel(count: number): string {
   return `${count} inclusion${count === 1 ? '' : 's'}`;
 }
-
-// Short standalone billing-cycle labels for the Plan Billing fact — a third,
-// deliberately separate map from TIER_CYCLE_SUFFIX_OVERRIDES ('/mo') and
-// TIER_BILLING_WORDING ('Billed monthly') in PricingTiers.tsx, which already
-// coexist as separate maps for their own different string shapes. Keys are
-// exactly the billing_cycle vocabulary already in use across this codebase
-// (PricingTiers.tsx's own two maps, utils/format.ts's CYCLE_LABELS) — no
-// 'yearly' alias, since nothing in the current data model emits it.
-const PLAN_BILLING_CYCLE_LABELS: Record<string, string> = {
-  monthly: 'Monthly',
-  annual: 'Annual',
-  annually: 'Annual',
-  quarterly: 'Quarterly',
-  'one-time': 'One-time',
-  upfront: 'Upfront',
-};
 
 // Descriptive-only summary of which billing cycles are represented among the
 // active variant's own available components — e.g. "Monthly + Annual". A
@@ -470,14 +409,20 @@ export function FamilyTierAdapter({
   // hovered/keyboard-focused, driving the right focused card's inclusion/
   // Extension dimming below. Inspection-only, no click/tap pinning yet.
   const [hoveredLegSource, setHoveredLegSource] = useState<string | null>(null);
+  // Phase 7: the View Plan Details popup's own open/closed state — local to
+  // the focused shell, never persisted, never affecting the quote/cart.
+  const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
 
   // Cleared on Edition switch, focused Tier switch, and close — selectVariant()
   // (the one path every variant change goes through) always updates both
   // focusedTierId and focusedEditionId together, and the close button sets
-  // focusedTierId back to null, so this single effect covers all three.
+  // focusedTierId back to null, so this single effect covers all three. The
+  // Plan Details popup describes ONE variant's own terms, so it closes right
+  // alongside the hover state whenever that variant changes underneath it.
   useEffect(() => {
     setHoveredLegSource(null);
+    setIsPlanDetailsOpen(false);
   }, [focusedTierId, focusedEditionId]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
@@ -709,6 +654,7 @@ export function FamilyTierAdapter({
       </div>
     ) : null;
     return (
+      <>
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. Same clear action as
@@ -856,6 +802,19 @@ export function FamilyTierAdapter({
                 );
               })}
             </div>
+            {/* Phase 7: informational-only entry point to the Plan Details
+                popup — quiet text control (reuses .cz-package-builder__focused-back's
+                own visual recipe), right-aligned below the last rendered
+                Leg/payment card, never the primary yellow CTA. */}
+            <div class="cz-package-builder__details-trigger-row">
+              <button
+                type="button"
+                class="cz-package-builder__details-trigger"
+                onClick={() => setIsPlanDetailsOpen(true)}
+              >
+                View plan details
+              </button>
+            </div>
           </div>
         </div>
         <div class="cz-package-builder__focused-card">
@@ -909,6 +868,21 @@ export function FamilyTierAdapter({
           </div>
         </div>
       </div>
+      {/* Phase 7: describes this SAME focused variant's own terms — see
+          isPlanDetailsOpen above (closes automatically on Tier/Edition
+          switch). Rendered as a sibling of .cz-package-builder__focused
+          (a position:fixed overlay) rather than nested inside it, same
+          reasoning PdfModal.tsx already renders at its own call site. */}
+      <PlanDetailsModal
+        isOpen={isPlanDetailsOpen}
+        onClose={() => setIsPlanDetailsOpen(false)}
+        familyTitle={family.title}
+        planLabel={focusedDeclaredEffective.selectedEdition?.label ?? focusedData?.label ?? focusedTier.title}
+        commitmentValue={focusedDeclaredEffective.minimumTermValue}
+        commitmentUnit={focusedDeclaredEffective.minimumTermUnit}
+        periods={activePeriods}
+      />
+      </>
     );
   }
 
