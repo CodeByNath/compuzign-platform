@@ -108,59 +108,50 @@ export function commercialLegInclusionGroups(periods: CommercialLegPeriod[]): Co
   return groups;
 }
 
-// Focused-card "Extensions" — Phase 5B. Same shape as CommercialLegInclusionGroup
+// Focused-card "Extensions" — Phase 5C. Same shape as CommercialLegInclusionGroup
 // (a distinct name only so a future renderer reads as Extension-specific,
-// never a second interface to keep in sync). Deliberately NOT a
-// classification of any Leg as Default/Main/Extra.
+// never a second interface to keep in sync).
 export type CommercialLegExtensionGroup = CommercialLegInclusionGroup;
 
-// Inclusion-first, not Leg-first: eligibility is decided per Rate Sheet
-// item_id, never by classifying a whole Leg (see the platform's own
-// identity-composition law — two Legs independently claiming the same
-// item_id is normal, never a reason to suppress one of them wholesale).
-// A repeated item_id qualifies for Extension treatment only when its own
-// Leg occurrences either overlap in some resolved Period, or carry
-// different Leg-specific quantities; an item claimed by exactly one Leg is
-// already fully explained by the normal inclusion list and never qualifies.
+// Headline-Leg-relative, not "any two Legs collide": the Headline Leg
+// (component.source === headlineLegId — the same real Leg resolveHeadlinePrice()
+// already resolves the card's own headline price/cycle from) is the one
+// fixed reference point every other Leg is compared against. An Other Leg
+// is an Extension candidate only if IT SPECIFICALLY overlaps the Headline
+// Leg in some resolved Period (never a generic pairwise collision among
+// arbitrary Legs); once eligible, only its differences/additions relative
+// to the Headline Leg's own items[] (by exact item_id) are shown — an item
+// identical to the Headline Leg's own claim (same item_id, same quantity)
+// is already fully explained there and is never repeated as an Extension.
 export function commercialLegExtensionGroups(
   periods: CommercialLegPeriod[],
-  focusedInclusions: ServiceInclusion[],
+  headlineLegId: string | null | undefined,
 ): CommercialLegExtensionGroup[] {
-  const focusedItemIds = new Set(focusedInclusions.map((inclusion) => inclusion.id));
+  if (!headlineLegId) return [];
   const legGroups = commercialLegInclusionGroups(periods);
+  const headlineGroup = legGroups.find((group) => group.source === headlineLegId);
+  if (!headlineGroup) return [];
+  const headlineItemsById = new Map(headlineGroup.items.map((item) => [item.item_id, item]));
 
-  // item_id -> every Leg occurrence that claims it (restricted to item_ids
-  // also on the focused card's own "What's included" list — the exact
-  // Rate Sheet row this feature explains duplicate treatment of).
-  const occurrencesByItemId = new Map<string, { source: string; quantity: number }[]>();
-  for (const group of legGroups) {
-    for (const item of group.items) {
-      if (!focusedItemIds.has(item.item_id)) continue;
-      const occurrences = occurrencesByItemId.get(item.item_id) ?? [];
-      occurrences.push({ source: group.source, quantity: item.quantity });
-      occurrencesByItemId.set(item.item_id, occurrences);
+  // Other Leg sources that are available in the SAME resolved Period as the
+  // Headline Leg — Headline <-> Other only, read straight off activePeriods.
+  const overlappingOtherSources = new Set<string>();
+  for (const period of periods) {
+    const availableSources = availablePeriodComponents(period).map((component) => component.source);
+    if (!availableSources.includes(headlineLegId)) continue;
+    for (const source of availableSources) {
+      if (source !== headlineLegId) overlappingOtherSources.add(source);
     }
-  }
-
-  const qualifyingItemIds = new Set<string>();
-  for (const [itemId, occurrences] of occurrencesByItemId) {
-    // Claimed by exactly one Leg → not a duplicate at all; nothing to explain.
-    if (occurrences.length < 2) continue;
-    const occurrenceSources = new Set(occurrences.map((occurrence) => occurrence.source));
-    // Do any of this item_id's own Leg occurrences become simultaneously
-    // available in the same resolved Period?
-    const overlaps = periods.some((period) => {
-      const activeOccurrenceSources = availablePeriodComponents(period)
-        .filter((component) => occurrenceSources.has(component.source));
-      return activeOccurrenceSources.length >= 2;
-    });
-    const quantityDiffers = new Set(occurrences.map((occurrence) => occurrence.quantity)).size > 1;
-    if (overlaps || quantityDiffers) qualifyingItemIds.add(itemId);
   }
 
   const groups: CommercialLegExtensionGroup[] = [];
   for (const group of legGroups) {
-    const items = group.items.filter((item) => qualifyingItemIds.has(item.item_id));
+    if (group.source === headlineLegId) continue; // the Headline Leg is the baseline, never its own Extension
+    if (!overlappingOtherSources.has(group.source)) continue; // never overlaps the Headline Leg -> no Extension group at all
+    const items = group.items.filter((item) => {
+      const headlineItem = headlineItemsById.get(item.item_id);
+      return !headlineItem || headlineItem.quantity !== item.quantity; // addition (Headline doesn't claim it) or a differing quantity
+    });
     if (items.length === 0) continue;
     groups.push({ source: group.source, billingCycle: group.billingCycle, items });
   }
@@ -601,12 +592,13 @@ export function FamilyTierAdapter({
     const upfrontAmount = resolveUpfrontPayment(activePeriods);
     const focusedAvailableComponents = availableComponents(activePeriods);
     const billingSummary = planBillingSummary(focusedAvailableComponents);
-    // Phase 5: the same complete "What's included" list already rendered
-    // below by TierCard (focusedDeclaredEffective.inclusionItems — untouched,
-    // read-only input here), reduced per Leg by commercialLegExtensionGroups()
-    // itself. Never a second inclusion source, never a mutation of the list
-    // TierCard renders.
-    const extensionGroups = commercialLegExtensionGroups(activePeriods, focusedDeclaredEffective.inclusionItems);
+    // Same Headline Leg pointer TierCard's own resolveHeadlinePrice() reads
+    // (see PricingTiers.tsx) — the Default/Edition's own headline_leg_id,
+    // never a second/independent resolution of "which Leg is headline."
+    const focusedHeadlineLegId = focusedDeclaredEffective.selectedEdition
+      ? focusedDeclaredEffective.selectedEdition.headline_leg_id
+      : focusedData?.headline_leg_id;
+    const extensionGroups = commercialLegExtensionGroups(activePeriods, focusedHeadlineLegId);
     // Rendered INSIDE TierCard itself (via extensionsContent), directly
     // after its own inclusion list and before its footer notes — never a
     // sibling panel below the card's own bordered/padded box (that box is
