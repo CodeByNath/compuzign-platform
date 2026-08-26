@@ -627,24 +627,44 @@ export function FamilyTierAdapter({
       ? focusedDeclaredEffective.selectedEdition.headline_leg_id
       : focusedData?.headline_leg_id;
     const extensionGroups = commercialLegExtensionGroups(activePeriods, focusedHeadlineLegId);
-    // Phase 6 dimming, derived from hoveredLegSource — inspection only, no
-    // new presentation data, no row injected/removed/reordered:
-    // - Headline Leg hovered (or nothing hovered): main "What's included"
-    //   list stays entirely full opacity (relatedInclusionIds === null means
-    //   "don't dim" — TierCard never adds is-dimmed to any row). The
-    //   Headline Leg never has its own Extension group, so this branch
-    //   alone can't tell "idle" from "Headline hovered" — that's fine, both
-    //   want the exact same main-list result.
-    // - Any other Leg hovered: only that Leg's OWN full claimed item set
-    //   (commercialLegInclusionGroups — the unfiltered per-Leg claim, never
-    //   the already-Headline-diffed extensionGroups items) stays full
-    //   opacity; every other main row dims.
-    const relatedInclusionIds = (hoveredLegSource !== null && hoveredLegSource !== focusedHeadlineLegId)
-      ? new Set(
-          (commercialLegInclusionGroups(activePeriods).find((group) => group.source === hoveredLegSource)?.items ?? [])
-            .map((item) => item.item_id),
-        )
-      : null;
+    // Phase 6A dimming, derived from hoveredLegSource — inspection only, no
+    // new presentation data, no row injected/removed/reordered. The main
+    // "What's included" list and the Extension groups are two DIFFERENT
+    // presentation layers (Headline/base vs. differences-from-Headline), so
+    // a hovered Leg never keeps a same-item_id main row full just because an
+    // Extension group also claims that item_id — the two lists dim/stay-full
+    // independently of each other:
+    // - Headline Leg hovered, or nothing hovered: main list stays entirely
+    //   full opacity (relatedInclusionIds === null means "don't dim" —
+    //   TierCard never adds is-dimmed to any row). The Headline Leg never
+    //   has its own Extension group, so this branch alone can't tell "idle"
+    //   from "Headline hovered" — that's fine, both want the exact same
+    //   main-list result.
+    // - Non-Headline Leg hovered WITH a rendered Extension group (this Leg
+    //   overlapped the Headline Leg and has differing/additional items —
+    //   see extensionGroups above): the main list is Headline-only
+    //   presentation, so it has nothing of THIS Leg's own to keep full —
+    //   every main row dims (an empty Set, truthy, `.has()` always false —
+    //   never null, which would mean "don't dim"). The matching Extension
+    //   group itself stays full via extensionsContent's own isDimmed check
+    //   below; that's where this Leg's items are shown.
+    // - Non-Headline Leg hovered WITHOUT a rendered Extension group (never
+    //   overlapped the Headline Leg in any Period, so it has no diffed
+    //   items to show as an Extension): existing inspection behavior — that
+    //   Leg's OWN full claimed item set (commercialLegInclusionGroups — the
+    //   unfiltered per-Leg claim) stays full opacity in the main list,
+    //   every other main row dims.
+    const hoveredExtensionGroup = hoveredLegSource !== null
+      ? extensionGroups.find((group) => group.source === hoveredLegSource)
+      : undefined;
+    const relatedInclusionIds = (hoveredLegSource === null || hoveredLegSource === focusedHeadlineLegId)
+      ? null
+      : hoveredExtensionGroup
+        ? new Set<string>()
+        : new Set(
+            (commercialLegInclusionGroups(activePeriods).find((group) => group.source === hoveredLegSource)?.items ?? [])
+              .map((item) => item.item_id),
+          );
     // Rendered INSIDE TierCard itself (via extensionsContent), directly
     // after its own inclusion list and before its footer notes — never a
     // sibling panel below the card's own bordered/padded box (that box is
