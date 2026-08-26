@@ -287,6 +287,7 @@ export function TierCard({
   onEditionChange,
   periodOverride = null,
   extensionsContent = null,
+  relatedInclusionIds = null,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -323,6 +324,12 @@ export function TierCard({
   // commercialLegExtensionGroups()). Omitted by every other caller, so
   // normal/front/staged cards render byte-for-byte as before.
   extensionsContent?: ComponentChildren;
+  // Focused shell only (Phase 6 hover/focus dimming) — null means "don't
+  // dim anything" (the default, and also how the Headline Leg hover case
+  // keeps every row full opacity); a Set dims any inclusion row (including
+  // Bundle child rows) whose own id isn't a member. Omitted by every other
+  // caller, so normal/front/staged cards never render is-dimmed at all.
+  relatedInclusionIds?: Set<string> | null;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -612,7 +619,7 @@ export function TierCard({
                  column the quantity would otherwise occupy. Still the same
                  alignment as every other row, just not a checkable one. */
               item.bundle_id ? (
-                <li key={item.id || i}>
+                <li key={item.id || i} class={relatedInclusionIds && !relatedInclusionIds.has(item.id) ? 'is-dimmed' : undefined}>
                   {/* Spans the icon + label columns so the Bundle name sits
                       flush at the row's left edge, like a section header,
                       rather than offset to where a checkmark would leave it. */}
@@ -620,7 +627,7 @@ export function TierCard({
                   <TierBundleIcon />
                 </li>
               ) : (
-                <li key={item.id || i}>
+                <li key={item.id || i} class={relatedInclusionIds && !relatedInclusionIds.has(item.id) ? 'is-dimmed' : undefined}>
                   <TierInclusionCheckIcon />
                   <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
                   {/* Always rendered (even empty) so every row keeps the same
@@ -633,7 +640,7 @@ export function TierCard({
                  their parent, at the SAME alignment as ordinary inclusions —
                  never priced, selected, or merged into the top-level list. */
               ...(item.includes ?? []).map((child, ci) => (
-                <li key={child.id || `${item.id}-${ci}`}>
+                <li key={child.id || `${item.id}-${ci}`} class={relatedInclusionIds && !relatedInclusionIds.has(child.id) ? 'is-dimmed' : undefined}>
                   <TierInclusionCheckIcon />
                   <span class="cz-cost-builder__tier-feature-label">{child.label}</span>
                   <span class="cz-cost-builder__tier-feature-qty">{child.quantity ?? ''}</span>

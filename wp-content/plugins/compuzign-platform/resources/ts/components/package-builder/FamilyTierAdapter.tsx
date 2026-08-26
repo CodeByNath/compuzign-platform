@@ -453,7 +453,20 @@ export function FamilyTierAdapter({
   // timeline into another's or into Default's — each variant's timeline is
   // independently resolved and never genuinely the same object as another's.
   const [selectedPeriodFromMonth, setSelectedPeriodFromMonth] = useState<number | null>(null);
+  // Phase 6: which left payment component (by its own component.source —
+  // never array/Period index, billing cycle, or label) is currently
+  // hovered/keyboard-focused, driving the right focused card's inclusion/
+  // Extension dimming below. Inspection-only, no click/tap pinning yet.
+  const [hoveredLegSource, setHoveredLegSource] = useState<string | null>(null);
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
+
+  // Cleared on Edition switch, focused Tier switch, and close — selectVariant()
+  // (the one path every variant change goes through) always updates both
+  // focusedTierId and focusedEditionId together, and the close button sets
+  // focusedTierId back to null, so this single effect covers all three.
+  useEffect(() => {
+    setHoveredLegSource(null);
+  }, [focusedTierId, focusedEditionId]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
   // Period — the one path every variant change goes through, whether that's
@@ -614,26 +627,53 @@ export function FamilyTierAdapter({
       ? focusedDeclaredEffective.selectedEdition.headline_leg_id
       : focusedData?.headline_leg_id;
     const extensionGroups = commercialLegExtensionGroups(activePeriods, focusedHeadlineLegId);
+    // Phase 6 dimming, derived from hoveredLegSource — inspection only, no
+    // new presentation data, no row injected/removed/reordered:
+    // - Headline Leg hovered (or nothing hovered): main "What's included"
+    //   list stays entirely full opacity (relatedInclusionIds === null means
+    //   "don't dim" — TierCard never adds is-dimmed to any row). The
+    //   Headline Leg never has its own Extension group, so this branch
+    //   alone can't tell "idle" from "Headline hovered" — that's fine, both
+    //   want the exact same main-list result.
+    // - Any other Leg hovered: only that Leg's OWN full claimed item set
+    //   (commercialLegInclusionGroups — the unfiltered per-Leg claim, never
+    //   the already-Headline-diffed extensionGroups items) stays full
+    //   opacity; every other main row dims.
+    const relatedInclusionIds = (hoveredLegSource !== null && hoveredLegSource !== focusedHeadlineLegId)
+      ? new Set(
+          (commercialLegInclusionGroups(activePeriods).find((group) => group.source === hoveredLegSource)?.items ?? [])
+            .map((item) => item.item_id),
+        )
+      : null;
     // Rendered INSIDE TierCard itself (via extensionsContent), directly
     // after its own inclusion list and before its footer notes — never a
     // sibling panel below the card's own bordered/padded box (that box is
     // .cz-cost-builder__tier, one level inside .cz-package-builder__focused-card).
     const extensionsContent = extensionGroups.length > 0 ? (
       <div class="cz-package-builder__extensions">
-        {extensionGroups.map((group) => (
-          <div class="cz-package-builder__extension-group" key={group.source}>
-            <span class="cz-package-builder__extension-heading">{extensionHeading(group.billingCycle)}</span>
-            <ul class="cz-cost-builder__tier-features">
-              {group.items.map((item) => (
-                <li key={item.item_id}>
-                  <TierInclusionCheckIcon />
-                  <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
-                  <span class="cz-cost-builder__tier-feature-qty">{item.quantity}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {extensionGroups.map((group) => {
+          // Dimmed whenever something else is hovered — covers idle (never
+          // dimmed, hoveredLegSource null), the hovered Leg's own group
+          // (never dimmed, source matches), the Headline Leg hovered (every
+          // group dims — the Headline Leg never has its own group here, so
+          // group.source !== headlineLegId always holds), and every other
+          // Leg's group (dims, source doesn't match).
+          const isDimmed = hoveredLegSource !== null && group.source !== hoveredLegSource;
+          return (
+            <div class={`cz-package-builder__extension-group${isDimmed ? ' is-dimmed' : ''}`} key={group.source}>
+              <span class="cz-package-builder__extension-heading">{extensionHeading(group.billingCycle)}</span>
+              <ul class="cz-cost-builder__tier-features">
+                {group.items.map((item) => (
+                  <li key={item.item_id}>
+                    <TierInclusionCheckIcon />
+                    <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
+                    <span class="cz-cost-builder__tier-feature-qty">{item.quantity}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </div>
     ) : null;
     return (
@@ -702,14 +742,16 @@ export function FamilyTierAdapter({
               Period (never a "selected" one), each with its own AVAILABLE
               components rendered as independent cards — colliding/
               overlapping Legs in the same Period never summed, merged, or
-              picked down to one. No click handlers, no highlighted
-              "active" Period, no effect on Add to Quote: selectedPeriod/
-              cardPeriodOverride/selectedPeriodFromMonth below are an
-              unrelated internal compatibility path (Phase 5, preserving
-              existing quote features/fallback pricing) that this timeline
-              never reads from or writes to. Payment explanation sentences
-              land in a later phase — for now each card shows only name/
-              billing wording/price. */}
+              picked down to one. No click handlers yet (Phase 6 adds only
+              hover/keyboard-focus dimming on the right card, keyed by each
+              component's own source — see hoveredLegSource above), no
+              highlighted "active" Period, no effect on Add to Quote:
+              selectedPeriod/cardPeriodOverride/selectedPeriodFromMonth
+              below are an unrelated internal compatibility path (Phase 5,
+              preserving existing quote features/fallback pricing) that
+              this timeline never reads from or writes to. Payment
+              explanation sentences land in a later phase — for now each
+              card shows only name/billing wording/price. */}
           <div class="cz-package-builder__timeline">
             <h4 class="cz-package-builder__timeline-title">How this plan is charged</h4>
             <p class="cz-package-builder__timeline-sub">See when each payment starts and which charges run together.</p>
@@ -731,8 +773,24 @@ export function FamilyTierAdapter({
                       </span>
                     </div>
                     <div class="cz-package-builder__stage-components">
-                      {components.map((component, index) => (
-                        <div class="cz-package-builder__stage-component" key={index}>
+                      {components.map((component) => (
+                        // Stable Leg identity is component.source alone —
+                        // never array index (a Leg can repeat across
+                        // Periods with a different index each time),
+                        // Period index, billing cycle, or label. Hover and
+                        // keyboard focus both set the same state, so both
+                        // produce identical dimming below (see
+                        // relatedInclusionIds/extension-group dimming).
+                        <div
+                          class="cz-package-builder__stage-component"
+                          key={component.source}
+                          tabIndex={0}
+                          aria-label={`Highlight inclusions billed by this ${componentPaymentName(component.billing_cycle)} payment`}
+                          onMouseEnter={() => setHoveredLegSource(component.source)}
+                          onMouseLeave={() => setHoveredLegSource((current) => (current === component.source ? null : current))}
+                          onFocus={() => setHoveredLegSource(component.source)}
+                          onBlur={() => setHoveredLegSource((current) => (current === component.source ? null : current))}
+                        >
                           <div class="cz-package-builder__stage-component-row">
                             <div class="cz-package-builder__stage-component-info">
                               <span class="cz-package-builder__stage-component-name">{componentPaymentName(component.billing_cycle)}</span>
@@ -801,6 +859,10 @@ export function FamilyTierAdapter({
               // price, no Period range, no Leg id, no affected-count text —
               // label + this Leg's own quantity, nothing else.
               extensionsContent={extensionsContent}
+              // Phase 6: null (idle, or the Headline Leg hovered) means "no
+              // dimming" — every main row stays full opacity. A Set means
+              // only its item_ids stay full opacity; every other row dims.
+              relatedInclusionIds={relatedInclusionIds}
             />
           </div>
         </div>

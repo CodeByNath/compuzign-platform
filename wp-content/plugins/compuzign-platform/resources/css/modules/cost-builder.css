@@ -3925,6 +3925,18 @@
   border: 1px solid var(--cz-color-line);
   border-radius: var(--cz-radius-sm);
   background: var(--cz-color-surface-2);
+  transition: border-color var(--cz-transition-fast);
+}
+
+/* Phase 6: hover/keyboard-focus affordance only — border-color never
+   changes box size, so this never moves anything else in the timeline. */
+.cz-package-builder__stage-component:hover {
+  border-color: var(--cz-color-accent);
+}
+
+.cz-package-builder__stage-component:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
 }
 
 .cz-package-builder__stage-component-row {
@@ -4050,4 +4062,17 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--cz-color-accent);
+}
+
+/* Phase 6 hover/focus dimming — opacity only, same value as the existing
+   .cz-cost-builder__card--unavailable convention. Applies to the whole
+   Extension group (heading + rows dim together) via normal opacity
+   inheritance, so the heading's own accent-color rule above is untouched —
+   it's just rendered at reduced opacity, never removed or overridden.
+   Scoped to the focused card only; normal/front/staged cards never render
+   these classes at all. */
+.cz-package-builder__extension-group.is-dimmed,
+.cz-package-builder__focused-card .cz-cost-builder__tier-features li.is-dimmed {
+  opacity: 0.6;
+  transition: opacity var(--cz-transition-fast);
 }
