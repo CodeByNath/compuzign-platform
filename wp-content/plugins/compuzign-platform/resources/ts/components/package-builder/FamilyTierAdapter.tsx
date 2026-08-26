@@ -108,53 +108,60 @@ export function commercialLegInclusionGroups(periods: CommercialLegPeriod[]): Co
   return groups;
 }
 
-// Focused-card "Extensions" — Phase 4B. Same shape as CommercialLegInclusionGroup
+// Focused-card "Extensions" — Phase 5B. Same shape as CommercialLegInclusionGroup
 // (a distinct name only so a future renderer reads as Extension-specific,
 // never a second interface to keep in sync). Deliberately NOT a
-// classification of any Leg as Default/Main/Extra: every commercialLegInclusionGroups()
-// group is reduced to only the items it shares with the focused card's own
-// already-rendered "What's included" list — identity match is by
-// item_id ONLY (never label, billing_cycle, or array position), and a
-// group left with zero matching items is omitted entirely, never rendered
-// empty.
+// classification of any Leg as Default/Main/Extra.
 export type CommercialLegExtensionGroup = CommercialLegInclusionGroup;
 
-// A Leg only overlaps another when some resolved Period actually runs it
-// alongside a second AVAILABLE component at the same time — never inferred
-// from the flattened/deduplicated group list above, which has already lost
-// which Legs were ever simultaneously active in the same Period. A Leg
-// active alone across every Period (or active in sequence with another,
-// never concurrently) never lands in this set.
-function overlappingLegSources(periods: CommercialLegPeriod[]): Set<string> {
-  const sources = new Set<string>();
-  for (const period of periods) {
-    const components = availablePeriodComponents(period);
-    if (components.length < 2) continue;
-    for (const component of components) sources.add(component.source);
-  }
-  return sources;
-}
-
+// Inclusion-first, not Leg-first: eligibility is decided per Rate Sheet
+// item_id, never by classifying a whole Leg (see the platform's own
+// identity-composition law — two Legs independently claiming the same
+// item_id is normal, never a reason to suppress one of them wholesale).
+// A repeated item_id qualifies for Extension treatment only when its own
+// Leg occurrences either overlap in some resolved Period, or carry
+// different Leg-specific quantities; an item claimed by exactly one Leg is
+// already fully explained by the normal inclusion list and never qualifies.
 export function commercialLegExtensionGroups(
   periods: CommercialLegPeriod[],
   focusedInclusions: ServiceInclusion[],
 ): CommercialLegExtensionGroup[] {
   const focusedItemIds = new Set(focusedInclusions.map((inclusion) => inclusion.id));
-  const eligibleSources = overlappingLegSources(periods);
+  const legGroups = commercialLegInclusionGroups(periods);
+
+  // item_id -> every Leg occurrence that claims it (restricted to item_ids
+  // also on the focused card's own "What's included" list — the exact
+  // Rate Sheet row this feature explains duplicate treatment of).
+  const occurrencesByItemId = new Map<string, { source: string; quantity: number }[]>();
+  for (const group of legGroups) {
+    for (const item of group.items) {
+      if (!focusedItemIds.has(item.item_id)) continue;
+      const occurrences = occurrencesByItemId.get(item.item_id) ?? [];
+      occurrences.push({ source: group.source, quantity: item.quantity });
+      occurrencesByItemId.set(item.item_id, occurrences);
+    }
+  }
+
+  const qualifyingItemIds = new Set<string>();
+  for (const [itemId, occurrences] of occurrencesByItemId) {
+    // Claimed by exactly one Leg → not a duplicate at all; nothing to explain.
+    if (occurrences.length < 2) continue;
+    const occurrenceSources = new Set(occurrences.map((occurrence) => occurrence.source));
+    // Do any of this item_id's own Leg occurrences become simultaneously
+    // available in the same resolved Period?
+    const overlaps = periods.some((period) => {
+      const activeOccurrenceSources = availablePeriodComponents(period)
+        .filter((component) => occurrenceSources.has(component.source));
+      return activeOccurrenceSources.length >= 2;
+    });
+    const quantityDiffers = new Set(occurrences.map((occurrence) => occurrence.quantity)).size > 1;
+    if (overlaps || quantityDiffers) qualifyingItemIds.add(itemId);
+  }
+
   const groups: CommercialLegExtensionGroup[] = [];
-  for (const group of commercialLegInclusionGroups(periods)) {
-    // Rule 1: no overlap with another available Leg anywhere → never an
-    // Extension candidate, regardless of what it claims.
-    if (!eligibleSources.has(group.source)) continue;
-    const items = group.items.filter((item) => focusedItemIds.has(item.item_id));
+  for (const group of legGroups) {
+    const items = group.items.filter((item) => qualifyingItemIds.has(item.item_id));
     if (items.length === 0) continue;
-    // Rule 3 (presentation dedup only, not a Default/Main/Headline role):
-    // a group whose matched item_id set is the SAME complete set already
-    // rendered by the focused card's own "What's included" list would just
-    // repeat it verbatim underneath — suppress that one group, never the
-    // list itself.
-    const matchedIds = new Set(items.map((item) => item.item_id));
-    if (matchedIds.size === focusedItemIds.size) continue;
     groups.push({ source: group.source, billingCycle: group.billingCycle, items });
   }
   return groups;

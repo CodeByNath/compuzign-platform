@@ -1,8 +1,12 @@
 // Contract: commercialLegExtensionGroups() (FamilyTierAdapter.tsx) — Phase
-// 4B of the focused Tier/Edition card blueprint. Exercises the actual
-// production function: each commercialLegInclusionGroups() group reduced to
-// only the items it shares with the focused card's own "What's included"
-// list, matched by item_id only.
+// 5B: inclusion-first Extension eligibility. Eligibility is decided per
+// Rate Sheet item_id, never by classifying a whole Leg as Default/Main/
+// Extra — two Legs independently claiming the same item_id is normal
+// (the platform's own identity-composition law), never a reason to
+// suppress one of them wholesale. A repeated item_id qualifies only when
+// its own Leg occurrences overlap in some resolved Period, or carry
+// different Leg-specific quantities; an item claimed by exactly one Leg is
+// already fully explained by the normal inclusion list and never qualifies.
 
 import { commercialLegExtensionGroups } from '../resources/ts/components/package-builder/FamilyTierAdapter';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, ServiceInclusion } from '../resources/ts/api/types/cost-builder';
@@ -19,98 +23,114 @@ function component(source: string, billingCycle: string | null, items: Commercia
   return { source, billing_cycle: billingCycle, price: 0, available: true, items };
 }
 
-// The focused card's own already-rendered "What's included" list — 'support'
-// and 'phone_support' are deliberately absent from it.
+function period(fromMonth: number, toMonth: number | null, components: CommercialLegComponent[]): CommercialLegPeriod {
+  return { from_month: fromMonth, to_month: toMonth, components };
+}
+
+// The focused card's own already-rendered "What's included" list.
 const focusedInclusions: ServiceInclusion[] = [
   { id: 'hosting', label: 'Hosting' },
+  { id: 'suse_linux', label: 'SUSE Linux' },
+  { id: 'static_ip', label: 'Static IP Block' },
   { id: 'block_storage', label: 'Block Storage' },
   { id: 'backup_storage', label: 'Backup Storage — BaaS' },
 ];
 
-const periods: CommercialLegPeriod[] = [
-  {
-    from_month: 1, to_month: null,
-    components: [
-      component('CZTL_MAIN', 'monthly', [item('hosting', 2), item('support', 1)]),
-      component('CZTL_ANNUAL_A', 'annually', [item('block_storage', 100), item('backup_storage', 50)]),
-      component('CZTL_ANNUAL_B', 'annually', [item('block_storage', 10)]),
-      component('CZTL_NOMATCH', 'quarterly', [item('phone_support', 1)]),
-    ],
-  },
+// 1. repeated item_id + overlapping Legs + SAME quantity → Extension for
+// both occurrences. Overlap alone is meaningful, even when nothing differs
+// numerically.
+const overlapSameQtyPeriods: CommercialLegPeriod[] = [
+  period(1, null, [
+    component('CZTL_SUSE_MONTHLY', 'monthly', [item('suse_linux', 1)]),
+    component('CZTL_SUSE_ANNUAL', 'annually', [item('suse_linux', 1)]),
+  ]),
 ];
-
-const groups = commercialLegExtensionGroups(periods, focusedInclusions);
-
-// 1. same item_id in the focused list + a Leg's own claim → appears in that Leg's Extension group.
-const mainGroup = groups.find((g) => g.source === 'CZTL_MAIN');
-check(mainGroup !== undefined && mainGroup.items.some((i) => i.item_id === 'hosting'), "'hosting' is in both the focused list and CZTL_MAIN's claim, so it appears in CZTL_MAIN's Extension group");
-
-// 2. a Leg's own item not present in the focused list → excluded from its group; a Leg with NO matching items → omitted entirely.
-check(mainGroup!.items.every((i) => i.item_id !== 'support'), "'support' is claimed by CZTL_MAIN but absent from the focused list, so it is excluded from CZTL_MAIN's group");
-check(groups.find((g) => g.source === 'CZTL_NOMATCH') === undefined, "CZTL_NOMATCH's only claimed item ('phone_support') is absent from the focused list, so the whole group is omitted, never rendered empty");
-
-// 3. same item_id under two different Leg sources → preserved independently in both groups.
-const annualA = groups.find((g) => g.source === 'CZTL_ANNUAL_A');
-const annualB = groups.find((g) => g.source === 'CZTL_ANNUAL_B');
+const overlapSameQtyGroups = commercialLegExtensionGroups(overlapSameQtyPeriods, focusedInclusions);
 check(
-  annualA !== undefined && annualA.items.some((i) => i.item_id === 'block_storage')
-    && annualB !== undefined && annualB.items.some((i) => i.item_id === 'block_storage'),
-  "'block_storage' is claimed by both CZTL_ANNUAL_A and CZTL_ANNUAL_B — it is never deduplicated across their Extension groups",
+  overlapSameQtyGroups.find((g) => g.source === 'CZTL_SUSE_MONTHLY')?.items.some((i) => i.item_id === 'suse_linux') === true
+    && overlapSameQtyGroups.find((g) => g.source === 'CZTL_SUSE_ANNUAL')?.items.some((i) => i.item_id === 'suse_linux') === true,
+  'suse_linux is claimed by two Legs active in the same Period (overlap) — Extension treatment applies to both occurrences even though their quantities are equal',
 );
 
-// 4. quantities stay Leg-specific.
-check(annualA!.items.find((i) => i.item_id === 'block_storage')!.quantity === 100, "CZTL_ANNUAL_A's own block_storage quantity (100) is preserved from component.items[]");
-check(annualB!.items.find((i) => i.item_id === 'block_storage')!.quantity === 10, "CZTL_ANNUAL_B's own block_storage quantity (10) is independent of CZTL_ANNUAL_A's");
-
-// 5. two Legs sharing a billing cycle remain separate groups by source, never merged.
-check(annualA !== annualB, 'CZTL_ANNUAL_A and CZTL_ANNUAL_B both bill annually but stay two distinct Extension groups');
-check(groups.length === 3, 'exactly three Extension groups: CZTL_MAIN, CZTL_ANNUAL_A, CZTL_ANNUAL_B — CZTL_NOMATCH omitted');
-
-// 6. a Leg that never shares a resolved Period with a second AVAILABLE
-// component — active alone throughout — is never an Extension candidate,
-// even when every item it claims matches the focused list.
-const alonePeriods: CommercialLegPeriod[] = [
-  { from_month: 1, to_month: null, components: [component('CZTL_ALONE', 'monthly', [item('hosting', 1)])] },
+// 2. repeated item_id + overlapping Legs + DIFFERENT quantity → Extension.
+const overlapDiffQtyPeriods: CommercialLegPeriod[] = [
+  period(1, null, [
+    component('CZTL_IP_MONTHLY', 'monthly', [item('static_ip', 1)]),
+    component('CZTL_IP_ANNUAL', 'annually', [item('static_ip', 2)]),
+  ]),
 ];
+const overlapDiffQtyGroups = commercialLegExtensionGroups(overlapDiffQtyPeriods, focusedInclusions);
 check(
-  commercialLegExtensionGroups(alonePeriods, focusedInclusions).length === 0,
-  'CZTL_ALONE is the only available component in its Period (no overlap), so it is never an Extension candidate despite a matching item_id',
+  overlapDiffQtyGroups.find((g) => g.source === 'CZTL_IP_MONTHLY')?.items.find((i) => i.item_id === 'static_ip')?.quantity === 1
+    && overlapDiffQtyGroups.find((g) => g.source === 'CZTL_IP_ANNUAL')?.items.find((i) => i.item_id === 'static_ip')?.quantity === 2,
+  'static_ip is claimed by two overlapping Legs with different quantities (1 vs 2) — both occurrences get Extension treatment',
 );
 
-// Same rule across two sequential (never concurrent) Periods: one Leg ends
-// before the next starts, so neither Period ever has 2+ available
-// components — still no Extension.
-const sequentialPeriods: CommercialLegPeriod[] = [
-  { from_month: 1, to_month: 12, components: [component('CZTL_SEQ_MONTHLY', 'monthly', [item('hosting', 1)])] },
-  { from_month: 13, to_month: null, components: [component('CZTL_SEQ_ANNUAL', 'annually', [item('hosting', 1)])] },
+// 3. repeated item_id + NO overlap (sequential Periods) + SAME quantity →
+// no Extension. The left timeline already explains the billing transition.
+const sequentialSameQtyPeriods: CommercialLegPeriod[] = [
+  period(1, 5, [component('CZTL_SEQ_A', 'monthly', [item('hosting', 1)])]),
+  period(6, null, [component('CZTL_SEQ_B', 'annually', [item('hosting', 1)])]),
 ];
 check(
-  commercialLegExtensionGroups(sequentialPeriods, focusedInclusions).length === 0,
-  'CZTL_SEQ_MONTHLY ends before CZTL_SEQ_ANNUAL starts — they are never concurrent in the same Period, so neither is an Extension candidate',
+  commercialLegExtensionGroups(sequentialSameQtyPeriods, focusedInclusions).length === 0,
+  'hosting is claimed by two Legs that are never concurrent (CZTL_SEQ_A ends before CZTL_SEQ_B starts) and carry the same quantity — no Extension',
 );
 
-// 7. two Legs DO overlap in the same Period: the one whose matched items
-// are the SAME complete set already shown by the focused card's own
-// "What's included" list is suppressed as a duplicate; the other Leg's
-// partial match remains a valid, independent Extension.
-const overlapPeriods: CommercialLegPeriod[] = [
-  {
-    from_month: 1, to_month: null,
-    components: [
-      component('CZTL_FULL', 'monthly', [item('hosting', 1), item('block_storage', 100), item('backup_storage', 50)]),
-      component('CZTL_EXTRA', 'annually', [item('block_storage', 2)]),
-    ],
-  },
+// 4. repeated item_id + NO overlap + DIFFERENT quantity → Extension. The
+// inclusion itself changes, which the timeline alone doesn't explain.
+const sequentialDiffQtyPeriods: CommercialLegPeriod[] = [
+  period(1, 5, [component('CZTL_SEQ_IP_A', 'monthly', [item('static_ip', 1)])]),
+  period(6, null, [component('CZTL_SEQ_IP_B', 'annually', [item('static_ip', 2)])]),
 ];
-const overlapGroups = commercialLegExtensionGroups(overlapPeriods, focusedInclusions);
+const sequentialDiffQtyGroups = commercialLegExtensionGroups(sequentialDiffQtyPeriods, focusedInclusions);
 check(
-  overlapGroups.find((g) => g.source === 'CZTL_FULL') === undefined,
-  "CZTL_FULL's matched items are the same complete set the focused card's own What's Included list already shows — suppressed as a duplicate, not rendered as an Extension",
+  sequentialDiffQtyGroups.find((g) => g.source === 'CZTL_SEQ_IP_A')?.items.find((i) => i.item_id === 'static_ip')?.quantity === 1
+    && sequentialDiffQtyGroups.find((g) => g.source === 'CZTL_SEQ_IP_B')?.items.find((i) => i.item_id === 'static_ip')?.quantity === 2,
+  'static_ip changes quantity (1 -> 2) across two non-overlapping Legs — Extension treatment explains the change even with no overlap',
 );
-const extraGroup = overlapGroups.find((g) => g.source === 'CZTL_EXTRA');
+
+// 5. an item_id claimed by exactly one Leg is never a duplicate — no
+// Extension for it, even alongside another item in the SAME Leg that IS
+// eligible (repeated + overlapping) in the same resolved Period.
+const singleLegPeriods: CommercialLegPeriod[] = [
+  period(1, null, [
+    component('CZTL_MAIN', 'monthly', [item('hosting', 2), item('block_storage', 100)]),
+    component('CZTL_STORAGE_B', 'annually', [item('block_storage', 10)]),
+  ]),
+];
+const singleLegGroups = commercialLegExtensionGroups(singleLegPeriods, focusedInclusions);
+const mainGroup = singleLegGroups.find((g) => g.source === 'CZTL_MAIN');
+check(mainGroup !== undefined, 'CZTL_MAIN has a qualifying item (block_storage, repeated + overlapping), so its group is present');
 check(
-  extraGroup !== undefined && extraGroup.items.length === 1 && extraGroup.items[0].item_id === 'block_storage' && extraGroup.items[0].quantity === 2,
-  'CZTL_EXTRA overlaps CZTL_FULL in the same Period and its own partial match (block_storage, qty 2) remains a valid, independent Extension candidate',
+  mainGroup!.items.every((i) => i.item_id !== 'hosting'),
+  "hosting is claimed by only CZTL_MAIN — never repeated across Legs — so it's excluded from the group even though CZTL_MAIN has another qualifying item",
+);
+check(
+  mainGroup!.items.some((i) => i.item_id === 'block_storage')
+    && singleLegGroups.find((g) => g.source === 'CZTL_STORAGE_B')?.items.some((i) => i.item_id === 'block_storage'),
+  'block_storage IS repeated across CZTL_MAIN and CZTL_STORAGE_B, overlapping in the same Period — it qualifies for Extension treatment in both groups',
+);
+
+// 6. two Legs sharing the same billing cycle stay two independent Extension
+// groups by component.source — never merged just because both are Annual.
+const sameCyclePeriods: CommercialLegPeriod[] = [
+  period(1, null, [
+    component('CZTL_ANNUAL_A', 'annually', [item('backup_storage', 50)]),
+    component('CZTL_ANNUAL_B', 'annually', [item('backup_storage', 5)]),
+  ]),
+];
+const sameCycleGroups = commercialLegExtensionGroups(sameCyclePeriods, focusedInclusions);
+const annualA = sameCycleGroups.find((g) => g.source === 'CZTL_ANNUAL_A');
+const annualB = sameCycleGroups.find((g) => g.source === 'CZTL_ANNUAL_B');
+check(
+  annualA !== undefined && annualB !== undefined && annualA !== annualB,
+  'CZTL_ANNUAL_A and CZTL_ANNUAL_B both bill annually but remain two distinct Extension groups, identified by component.source',
+);
+check(
+  annualA!.items.find((i) => i.item_id === 'backup_storage')!.quantity === 50
+    && annualB!.items.find((i) => i.item_id === 'backup_storage')!.quantity === 5,
+  'each Leg keeps its own independent quantity for the same repeated item_id',
 );
 
 console.log('Commercial Leg extension groups contract checks passed.');
