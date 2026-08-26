@@ -43,19 +43,32 @@ function periodLabel(period: CommercialLegPeriod): string {
 // frontend pricing calculation. Both are out of scope for this phase; such a
 // Period is left on the Tier's/Edition's own flat declaration instead. See
 // the Phase 2 report for the exact missing field this would need.
-function periodPriceOverride(period: CommercialLegPeriod | null): PeriodPriceOverride | null {
+// `declaredInclusionItems` is the SAME complete "What's included" list the
+// normal/front card already resolves (resolveEffectiveTierDisplay()'s own
+// inclusionItems) — read-only here, only to look up a matching declared
+// item's existing bundle_id/includes by its exact item_id. This is the
+// normal card's own Bundle data/rendering path (TierCard already expands
+// bundle_id/includes into child rows); never a second Bundle resolver or a
+// new shape, just carrying the same fields through onto the Period's own
+// price/quantity override.
+function periodPriceOverride(period: CommercialLegPeriod | null, declaredInclusionItems: ServiceInclusion[]): PeriodPriceOverride | null {
   if (!period) return null;
   const components = availablePeriodComponents(period);
   if (components.length !== 1) return null;
   const component = components[0];
+  const declaredById = new Map(declaredInclusionItems.map((inclusion) => [inclusion.id, inclusion]));
   return {
     price: component.price,
     billingCycle: component.billing_cycle,
-    inclusionItems: component.items.map((item): ServiceInclusion => ({
-      id: item.item_id,
-      label: item.label,
-      quantity: item.quantity,
-    })),
+    inclusionItems: component.items.map((item): ServiceInclusion => {
+      const declared = declaredById.get(item.item_id);
+      return {
+        id: item.item_id,
+        label: item.label,
+        quantity: item.quantity,
+        ...(declared?.bundle_id ? { bundle_id: declared.bundle_id, includes: declared.includes } : {}),
+      };
+    }),
   };
 }
 
@@ -576,7 +589,6 @@ export function FamilyTierAdapter({
     const selectedPeriod = activePeriods.find((period) => period.from_month === selectedPeriodFromMonth)
       ?? activePeriods[0]
       ?? null;
-    const cardPeriodOverride = periodPriceOverride(selectedPeriod);
     // Commercial Terms facts — read-only presentation over data already
     // resolved above/elsewhere, never a new pricing calculation:
     // - Upfront: the exact same resolveUpfrontPayment() TierCard's own
@@ -589,6 +601,9 @@ export function FamilyTierAdapter({
     // - Plan billing: only AVAILABLE components (availableComponents()),
     //   first-seen billing-cycle order, never merged/summed/headline-only.
     const focusedDeclaredEffective = resolveEffectiveTierDisplay(focusedData, '', focusedEditionId);
+    // Computed after focusedDeclaredEffective so the Bundle parity lookup
+    // above has the normal card's own declared inclusion list to read from.
+    const cardPeriodOverride = periodPriceOverride(selectedPeriod, focusedDeclaredEffective.inclusionItems);
     const upfrontAmount = resolveUpfrontPayment(activePeriods);
     const focusedAvailableComponents = availableComponents(activePeriods);
     const billingSummary = planBillingSummary(focusedAvailableComponents);
