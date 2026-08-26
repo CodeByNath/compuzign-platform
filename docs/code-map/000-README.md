@@ -47,6 +47,8 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Platform Identifier Station](platform-identifier-station.md)
 - [Homepage](homepage.md)
 - [Cost Builder](cost-builder.md)
+- [Package Builder Focused Shell](package-builder-focused-shell.md)
+- [Plan Details](plan-details.md)
 - [Quote Builder](quote-builder.md)
 - [Lifecycle and Module State](lifecycle-system.md)
 

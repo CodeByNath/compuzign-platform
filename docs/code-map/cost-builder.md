@@ -31,11 +31,11 @@ Sheet inclusion sources.
   and reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
   `FamilyTierAdapter.tsx` converts `EffectiveTierDisplay` into a `family_tier`
   snapshot and filters cards by `audience_groups[]`; no term/pricing logic.
-  Package-Builder-only: Choose Plan swaps the strip for one `TierCard`
-  (`hideOverview`) beside the Tier's name/`Ideal For` and a presentation-only
-  1/12/24-month line. Add to Quote is one action from either entry point: it
-  adds the line, then isolates the Tier and reveals Recommendations inside,
-  stacking at 767px. Duration rides along as cart-local `planDurationMonths`.
+  Package-Builder-only: Choose Plan swaps the strip for one Commercial-Legs-
+  aware focused shell — see [Focused Shell](package-builder-focused-shell.md)
+  and [Plan Details](plan-details.md). Add to Quote adds the line, then
+  isolates the Tier and reveals Recommendations inside, stacking at 767px.
+  `planDurationMonths` stays reserved/unpopulated — every caller passes `null`.
   Focused Family Categories follow compiled Tier inclusions → provenance →
   source Services, then deduplicate. Rate Sheets are never consumer
   references. Use component classes and atomic tokens; no inline styles.
@@ -70,4 +70,4 @@ From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tie
 
 ## Related Code Maps
 
-[Rate Sheet](rate-sheet.md), [Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Tier Edition](tier-edition.md), and [Quote Builder](quote-builder.md).
+[Rate Sheet](rate-sheet.md), [Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Tier Edition](tier-edition.md), [Commercial Legs](commercial-legs.md), [Package Builder Focused Shell](package-builder-focused-shell.md), [Plan Details](plan-details.md), and [Quote Builder](quote-builder.md).
