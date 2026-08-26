@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { cycleSuffix } from '@/components/cost-builder/PricingTiers';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem } from '@/api/types/cost-builder';
-import { availablePeriodComponents, periodLabel, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
+import { availablePeriodComponents, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
 
 // Phase 7 — View Plan Details popup. Presentation only: every number here is
 // read straight from the SAME resolved Periods/components/items the focused
@@ -58,6 +58,28 @@ function billingSuffixLong(cycle: string | null): string {
 function priceWithCadence(price: number | null, cycle: string | null): string {
   const suffix = billingSuffixLong(cycle);
   return suffix ? `${formatMoney(price)} ${suffix}` : formatMoney(price);
+}
+
+// Phase 7B: customer-facing month range — this popup's own presentation
+// only, never the resolver's/backend's raw from_month/to_month values,
+// which are untouched everywhere else (the left timeline's own stage
+// headers still read periodLabel() in commercialLegPresentation.ts
+// unchanged; this is a separate, Plan-Details-only formatter so that
+// unrelated surface is never affected).
+//
+// A technical `0` start reads to a customer as if it were itself a whole
+// extra month inside a range ("0–48" looks like 49 months against a
+// 48-month commitment) — "Plan start" replaces the bare 0 instead. Every
+// other start month is unambiguous as a plain number. The end side stays a
+// real month number (or "Ongoing" for a still-open range) either way; it
+// only needs its own "Month" word when the start side didn't already
+// supply one (i.e. "Plan start–Month 10", vs "Month 11–48" where "Month"
+// is read once for the whole range).
+function customerFacingRange(from: number, to: number | null): string {
+  const startsAtPlanStart = from === 0;
+  const startLabel = startsAtPlanStart ? 'Plan start' : `Month ${from}`;
+  const endLabel = to === null ? 'Ongoing' : (startsAtPlanStart ? `Month ${to}` : `${to}`);
+  return `${startLabel}–${endLabel}`;
 }
 
 // One continuous Commercial Leg/payment stream's own resolved facts —
@@ -200,6 +222,21 @@ function sameComposition(a: CommercialLegComponent, b: CommercialLegComponent): 
 
 function frequencyLabel(cycle: string | null): string {
   return cycle !== null ? (PLAN_BILLING_CYCLE_LABELS[cycle] ?? 'Payment') : 'Payment';
+}
+
+// Phase 7C: Payment Category — the exact same billing_cycle-derived
+// synthesis the admin Pricing Rules/Edition editors already use
+// (paymentCategoryOf() in TierPricingRulesEditor.tsx /
+// TierEditionOverviewFields.tsx: "No separate stored field: derived from
+// billing_cycle itself"). billing_cycle stays the one source of truth; no
+// payment_category field added anywhere. The one addition beyond the raw
+// admin rule: a `null` cycle is never confidently called Fixed or
+// Recurring, same neutral-fallback convention frequencyLabel() above and
+// componentPaymentName() (commercialLegPresentation.ts) already use for a
+// null cycle.
+function paymentCategoryLabel(cycle: string | null): string {
+  if (cycle === null) return 'Payment';
+  return cycle === 'one-time' || cycle === 'upfront' ? 'Fixed payment' : 'Recurring payment';
 }
 
 function monthsPhrase(months: number[]): string {
@@ -420,13 +457,19 @@ export function PlanDetailsModal({
               );
               return (
                 <div class="cz-package-builder__details-period" key={period.from_month}>
-                  <h5 class="cz-package-builder__details-period-heading">{periodLabel(period)}</h5>
+                  <h5 class="cz-package-builder__details-period-heading">{customerFacingRange(period.from_month, period.to_month)}</h5>
+                  {/* Phase 7C: a sole active component gets its own real
+                      Payment Category label (Fixed/Recurring, derived from
+                      its own billing_cycle — never assumed "Recurring" for
+                      a one-time/upfront Leg); multiple simultaneously
+                      active components keep the existing neutral aggregate,
+                      since a mixed Period isn't itself Fixed or Recurring. */}
                   <p class="cz-package-builder__details-fact">
-                    <strong>Recurring Cost:</strong> {recurringCostLine}
+                    <strong>{collision ? 'Active payments' : paymentCategoryLabel(components[0].billing_cycle)}:</strong> {recurringCostLine}
                   </p>
                   {/* Collision-Period wording only — a sole active component
                       never gets a standalone "Begins in Month X" line (the
-                      Recurring Cost line above already says everything a
+                      Payment Category line above already says everything a
                       first/only appearance needs to say). A CONTINUING sole
                       component still gets this line, though, since that's
                       the one thing "describe it as continuing unchanged"
@@ -482,7 +525,7 @@ export function PlanDetailsModal({
                     const label = frequencyLabel(s.billingCycle);
                     return (
                       <tr key={s.source}>
-                        <td>Months {s.startMonth}–{s.endMonth ?? 'Ongoing'}</td>
+                        <td>{customerFacingRange(s.startMonth, s.endMonth)}</td>
                         <td>{label}</td>
                         <td>{formatMoney(s.price)}</td>
                         <td>
