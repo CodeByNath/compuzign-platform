@@ -469,6 +469,12 @@ export function FamilyTierAdapter({
   // exactly as "the focused shell swapped to a different Tier" without ever
   // exiting focused mode. Same reset scope commitSelection()/the close
   // button already use below — never a second convention.
+  //
+  // This is the mechanism behind the earlier "focused timeline sometimes
+  // renders blank after 2-3 Tier/Edition switches" reports: an audit of the
+  // switch/effect ordering inside this component found no race there, and
+  // that audit was correct — the missing reset was always one level up, at
+  // this Family boundary, not inside the switch itself.
   useEffect(() => {
     setFocusedTierId(null);
     setFocusedEditionId(null);
