@@ -455,6 +455,28 @@ export function FamilyTierAdapter({
     setPlanDetailsTarget(null);
   }, [focusedTierId, focusedEditionId]);
 
+  // The Package Family selector (PackageBuilderApp.tsx's own "Package
+  // Families" tablist) is a SIBLING of this whole component, outside every
+  // one of its focused/staged/default render branches — clicking it only
+  // ever swaps the `family` prop, never touches this component's own
+  // focused-mode state. Without this, a stale focusedTierId from the OLD
+  // Family survives here: TierId ('basic'/'standard'/etc) is a shared enum
+  // across every Family, not Family-scoped, and visibleTiers' own
+  // `?? [...]` audience_groups fallback lets a same-named Tier id from the
+  // NEW Family still pass the filter — so focusedTier keeps resolving
+  // non-null and the component stays on the focused branch, now silently
+  // rendering the NEW Family's data for that id. To the customer that reads
+  // exactly as "the focused shell swapped to a different Tier" without ever
+  // exiting focused mode. Same reset scope commitSelection()/the close
+  // button already use below — never a second convention.
+  useEffect(() => {
+    setFocusedTierId(null);
+    setFocusedEditionId(null);
+    setSelectedPeriodFromMonth(null);
+    setHoveredLegSource(null);
+    setPlanDetailsTarget(null);
+  }, [family.family_id]);
+
   // Selects a Default/Edition variant and seeds its own first resolved
   // Period — the one path every variant change goes through, whether that's
   // the entry point into the focused shell (the normal card's Choose Plan
