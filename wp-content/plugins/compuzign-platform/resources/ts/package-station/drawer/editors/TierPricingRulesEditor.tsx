@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
 import type { AdminFieldOption } from '@/drawer-kit/fields';
 import type { TierCommercialLeg, TierPricingRulesDraft } from '../../types';
-import { totalCommitmentMonths } from '../tier/tierDetailModel';
+import { isYearlyLegBillingCycle, totalCommitmentMonths, yearlyLegToMonthChoices } from '../tier/tierDetailModel';
 
 // Payment Category is the coarse choice; Billing Cycle's own options narrow
 // to whichever cadence vocabulary that category admits — Fixed offers
@@ -85,6 +85,41 @@ function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMon
   );
   const billingCycleOptions = paymentCategory === 'fixed' ? FIXED_BILLING_CYCLES : RECURRING_BILLING_CYCLES;
 
+  // Yearly alone gets a cycle-constrained to_month choice list, anchored at
+  // THIS leg's own from_month — never at commitment. See
+  // yearlyLegToMonthChoices()'s own doc comment (tierDetailModel.ts).
+  const isYearly = isYearlyLegBillingCycle(leg.billing_cycle);
+  const yearlyChoices = isYearly && leg.from_month != null
+    ? yearlyLegToMonthChoices(leg.from_month, maxToMonth ?? null)
+    : [];
+
+  // Changing Billing Cycle or From month recomputes the valid Yearly
+  // to_month choices; if the leg's current to_month no longer appears among
+  // them, it is explicitly reset to Indefinite rather than silently snapped
+  // to a different specific commercial range.
+  const handleBillingCycleChange = (billing_cycle: string) => {
+    setPaymentCategory(paymentCategoryOf(billing_cycle));
+    const patch: Partial<TierCommercialLeg> = { billing_cycle };
+    if (isYearlyLegBillingCycle(billing_cycle) && leg.from_month != null && leg.to_month != null) {
+      const choices = yearlyLegToMonthChoices(leg.from_month, maxToMonth ?? null);
+      if (!choices.some((c) => c.value === leg.to_month)) {
+        patch.to_month = null;
+      }
+    }
+    onChange(patch);
+  };
+  const handleFromMonthChange = (v: string) => {
+    const from_month = v === '' ? null : Number(v);
+    const patch: Partial<TierCommercialLeg> = { from_month };
+    if (isYearly && from_month != null && leg.to_month != null) {
+      const choices = yearlyLegToMonthChoices(from_month, maxToMonth ?? null);
+      if (!choices.some((c) => c.value === leg.to_month)) {
+        patch.to_month = null;
+      }
+    }
+    onChange(patch);
+  };
+
   return (
     <div class="cz-ie-faq-item">
       <div class="cz-ie-faq-item__header">
@@ -108,25 +143,39 @@ function CommercialLegCard({ leg, onChange, label, removable, onRemove, maxToMon
         <AdminField
           def={{ id: 'leg-billing-cycle', type: 'select', label: 'Billing Cycle', options: billingCycleOptions }}
           value={leg.billing_cycle}
-          onChange={(billing_cycle: string) => onChange({ billing_cycle })}
+          onChange={handleBillingCycleChange}
         />
       </div>
 
       <div class="cz-tf-field-row">
         <AdminField
-          def={{ id: 'leg-from-month', type: 'text', label: 'From month' }}
-          value={leg.from_month != null ? String(leg.from_month) : ''}
-          onChange={(v: string) => onChange({ from_month: v === '' ? null : Number(v) })}
-        />
-        <AdminField
-          def={{ id: 'leg-to-month', type: 'text', label: 'To month', placeholder: 'Indefinite' }}
-          value={leg.to_month != null ? String(leg.to_month) : ''}
-          onChange={(v: string) => {
-            if (v === '') { onChange({ to_month: null }); return; }
-            const n = Number(v);
-            onChange({ to_month: maxToMonth != null ? Math.min(n, maxToMonth) : n });
+          def={{
+            id: 'leg-from-month', type: 'text', label: 'From month',
+            hint: leg.from_month === 0 ? 'Plan start' : undefined,
           }}
+          value={leg.from_month != null ? String(leg.from_month) : ''}
+          onChange={handleFromMonthChange}
         />
+        {isYearly && leg.from_month != null ? (
+          <AdminField
+            def={{
+              id: 'leg-to-month', type: 'select', label: 'To month', unsetLabel: 'Indefinite',
+              options: yearlyChoices.map((c) => ({ value: String(c.value), label: c.label })),
+            }}
+            value={leg.to_month != null ? String(leg.to_month) : ''}
+            onChange={(v: string) => onChange({ to_month: v === '' ? null : Number(v) })}
+          />
+        ) : (
+          <AdminField
+            def={{ id: 'leg-to-month', type: 'text', label: 'To month', placeholder: 'Indefinite' }}
+            value={leg.to_month != null ? String(leg.to_month) : ''}
+            onChange={(v: string) => {
+              if (v === '') { onChange({ to_month: null }); return; }
+              const n = Number(v);
+              onChange({ to_month: maxToMonth != null ? Math.min(n, maxToMonth) : n });
+            }}
+          />
+        )}
       </div>
 
       <AdminField
