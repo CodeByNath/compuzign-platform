@@ -1,4 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import type { CommercialLegPeriod, PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
@@ -285,6 +286,7 @@ export function TierCard({
   selectedEditionId: controlledSelectedEditionId,
   onEditionChange,
   periodOverride = null,
+  extensionsContent = null,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -316,6 +318,11 @@ export function TierCard({
   // Omitted by every other caller, which keeps this card's price resolution
   // exactly as it already was (Default/Edition flat declaration only).
   periodOverride?: PeriodPriceOverride | null;
+  // Focused shell only — Extension groups rendered inside this same card,
+  // after the inclusion list and before the footer notes (see FamilyTierAdapter.tsx's
+  // commercialLegExtensionGroups()). Omitted by every other caller, so
+  // normal/front/staged cards render byte-for-byte as before.
+  extensionsContent?: ComponentChildren;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -636,6 +643,10 @@ export function TierCard({
           </ul>
         )}
       </div>
+
+      {/* Extensions — focused shell only, between the inclusion list above
+          and the footer notes below, inside this same bordered card. */}
+      {extensionsContent}
 
       {/* 9. Tier Card Footer — kept now as a placeholder; special Tier
           notes can be surfaced here later without another restructure. */}

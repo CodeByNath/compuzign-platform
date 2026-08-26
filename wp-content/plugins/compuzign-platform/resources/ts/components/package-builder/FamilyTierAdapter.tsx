@@ -119,15 +119,42 @@ export function commercialLegInclusionGroups(periods: CommercialLegPeriod[]): Co
 // empty.
 export type CommercialLegExtensionGroup = CommercialLegInclusionGroup;
 
+// A Leg only overlaps another when some resolved Period actually runs it
+// alongside a second AVAILABLE component at the same time — never inferred
+// from the flattened/deduplicated group list above, which has already lost
+// which Legs were ever simultaneously active in the same Period. A Leg
+// active alone across every Period (or active in sequence with another,
+// never concurrently) never lands in this set.
+function overlappingLegSources(periods: CommercialLegPeriod[]): Set<string> {
+  const sources = new Set<string>();
+  for (const period of periods) {
+    const components = availablePeriodComponents(period);
+    if (components.length < 2) continue;
+    for (const component of components) sources.add(component.source);
+  }
+  return sources;
+}
+
 export function commercialLegExtensionGroups(
   periods: CommercialLegPeriod[],
   focusedInclusions: ServiceInclusion[],
 ): CommercialLegExtensionGroup[] {
   const focusedItemIds = new Set(focusedInclusions.map((inclusion) => inclusion.id));
+  const eligibleSources = overlappingLegSources(periods);
   const groups: CommercialLegExtensionGroup[] = [];
   for (const group of commercialLegInclusionGroups(periods)) {
+    // Rule 1: no overlap with another available Leg anywhere → never an
+    // Extension candidate, regardless of what it claims.
+    if (!eligibleSources.has(group.source)) continue;
     const items = group.items.filter((item) => focusedItemIds.has(item.item_id));
     if (items.length === 0) continue;
+    // Rule 3 (presentation dedup only, not a Default/Main/Headline role):
+    // a group whose matched item_id set is the SAME complete set already
+    // rendered by the focused card's own "What's included" list would just
+    // repeat it verbatim underneath — suppress that one group, never the
+    // list itself.
+    const matchedIds = new Set(items.map((item) => item.item_id));
+    if (matchedIds.size === focusedItemIds.size) continue;
     groups.push({ source: group.source, billingCycle: group.billingCycle, items });
   }
   return groups;
@@ -573,6 +600,28 @@ export function FamilyTierAdapter({
     // itself. Never a second inclusion source, never a mutation of the list
     // TierCard renders.
     const extensionGroups = commercialLegExtensionGroups(activePeriods, focusedDeclaredEffective.inclusionItems);
+    // Rendered INSIDE TierCard itself (via extensionsContent), directly
+    // after its own inclusion list and before its footer notes — never a
+    // sibling panel below the card's own bordered/padded box (that box is
+    // .cz-cost-builder__tier, one level inside .cz-package-builder__focused-card).
+    const extensionsContent = extensionGroups.length > 0 ? (
+      <div class="cz-package-builder__extensions">
+        {extensionGroups.map((group) => (
+          <div class="cz-package-builder__extension-group" key={group.source}>
+            <span class="cz-package-builder__extension-heading">{extensionHeading(group.billingCycle)}</span>
+            <ul class="cz-cost-builder__tier-features">
+              {group.items.map((item) => (
+                <li key={item.item_id}>
+                  <TierInclusionCheckIcon />
+                  <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
+                  <span class="cz-cost-builder__tier-feature-qty">{item.quantity}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    ) : null;
     return (
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
@@ -734,32 +783,12 @@ export function FamilyTierAdapter({
                 commitSelection(focusedTier.id, effective, null);
               }}
               hideOverview
+              // Static only this phase: no hover/focus/click dimming, no
+              // price, no Period range, no Leg id, no affected-count text —
+              // label + this Leg's own quantity, nothing else.
+              extensionsContent={extensionsContent}
             />
           </div>
-          {/* Extension groups — below the complete "What's included" list
-              TierCard just rendered above, never inside it and never a
-              change to TierCard itself (normal/front cards never reach this
-              branch). Static only this phase: no hover/focus/click
-              dimming, no price, no Period range, no Leg id, no affected-
-              count text — label + this Leg's own quantity, nothing else. */}
-          {extensionGroups.length > 0 && (
-            <div class="cz-package-builder__extensions">
-              {extensionGroups.map((group) => (
-                <div class="cz-package-builder__extension-group" key={group.source}>
-                  <span class="cz-package-builder__extension-heading">{extensionHeading(group.billingCycle)}</span>
-                  <ul class="cz-cost-builder__tier-features">
-                    {group.items.map((item) => (
-                      <li key={item.item_id}>
-                        <TierInclusionCheckIcon />
-                        <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
-                        <span class="cz-cost-builder__tier-feature-qty">{item.quantity}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     );
