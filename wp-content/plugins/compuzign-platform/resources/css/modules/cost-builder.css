@@ -3980,6 +3980,15 @@
   color: var(--cz-color-muted-2);
 }
 
+/* Phase 6B: this Leg/component's own inclusion count — same subordinate
+   step as -note above (smaller color, no weight), rendered as its own
+   line beneath it so it reads as a distinct small fact, not a continuation
+   of the note's sentence. */
+.cz-package-builder__stage-component-count {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted-2);
+}
+
 /* Right card stays in view while the left column's timeline (which can
    grow much taller once several Periods/collided components are resolved)
    scrolls past it — same top offset as the close button opposite it, so
@@ -4071,8 +4080,19 @@
    it's just rendered at reduced opacity, never removed or overridden.
    Scoped to the focused card only; normal/front/staged cards never render
    these classes at all. */
-.cz-package-builder__extension-group.is-dimmed,
-.cz-package-builder__focused-card .cz-cost-builder__tier-features li.is-dimmed {
+.cz-package-builder__extension-group.is-dimmed {
+  opacity: 0.6;
+  transition: opacity var(--cz-transition-fast);
+}
+
+/* Phase 6A: the inclusion row's own `li` is `display: contents` (see
+   .cz-cost-builder__tier-features li above) — it generates no box of its
+   own, so an opacity rule targeting the li directly has no visual effect
+   at all. Its children (icon/label/qty) DO generate boxes and become the
+   list's actual grid items, so dimming is applied to them instead — same
+   opacity value/transition, just moved one level down to where a box
+   actually exists to render it against. */
+.cz-package-builder__focused-card .cz-cost-builder__tier-features li.is-dimmed > * {
   opacity: 0.6;
   transition: opacity var(--cz-transition-fast);
 }

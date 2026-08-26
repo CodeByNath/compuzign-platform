@@ -238,6 +238,18 @@ function componentNote(billingCycle: string | null, joined: boolean): string {
   return joined ? entry.joined : entry.alone;
 }
 
+// Phase 6B: "N inclusions" under a payment card — this component's OWN
+// items[].length, straight from the resolved component occurrence (the same
+// unfiltered `items` commercialLegInclusionGroups()/commercialLegExtensionGroups()
+// already render elsewhere; there is no item-level availability filter in
+// this render path to reuse, only the component-level one availablePeriodComponents()
+// already applied before this component ever reaches here). Never deduped by
+// item_id, never summed across Legs/Periods — one component occurrence's own
+// count only.
+function inclusionCountLabel(count: number): string {
+  return `${count} inclusion${count === 1 ? '' : 's'}`;
+}
+
 // Short standalone billing-cycle labels for the Plan Billing fact — a third,
 // deliberately separate map from TIER_CYCLE_SUFFIX_OVERRIDES ('/mo') and
 // TIER_BILLING_WORDING ('Billed monthly') in PricingTiers.tsx, which already
@@ -827,6 +839,16 @@ export function FamilyTierAdapter({
                           <p class="cz-package-builder__stage-component-note">
                             {componentNote(component.billing_cycle, joined)}
                           </p>
+                          {/* Phase 6B: this component occurrence's own claimed
+                              item count — presentation only, matches the same
+                              set the hover/focus dimming above already keys
+                              off of (commercialLegInclusionGroups' unfiltered
+                              per-Leg items, for a non-Headline Leg with no
+                              rendered Extension group; the Extension group's
+                              own diffed items when one renders). */}
+                          <span class="cz-package-builder__stage-component-count">
+                            {inclusionCountLabel(component.items.length)}
+                          </span>
                         </div>
                       ))}
                     </div>

@@ -619,7 +619,7 @@ export function TierCard({
                  column the quantity would otherwise occupy. Still the same
                  alignment as every other row, just not a checkable one. */
               item.bundle_id ? (
-                <li key={item.id || i} class={relatedInclusionIds && !relatedInclusionIds.has(item.id) ? 'is-dimmed' : undefined}>
+                <li key={item.id || i} class={relatedInclusionIds !== null && !relatedInclusionIds.has(item.id) ? 'is-dimmed' : undefined}>
                   {/* Spans the icon + label columns so the Bundle name sits
                       flush at the row's left edge, like a section header,
                       rather than offset to where a checkmark would leave it. */}
@@ -627,7 +627,7 @@ export function TierCard({
                   <TierBundleIcon />
                 </li>
               ) : (
-                <li key={item.id || i} class={relatedInclusionIds && !relatedInclusionIds.has(item.id) ? 'is-dimmed' : undefined}>
+                <li key={item.id || i} class={relatedInclusionIds !== null && !relatedInclusionIds.has(item.id) ? 'is-dimmed' : undefined}>
                   <TierInclusionCheckIcon />
                   <span class="cz-cost-builder__tier-feature-label">{item.label}</span>
                   {/* Always rendered (even empty) so every row keeps the same
@@ -640,7 +640,7 @@ export function TierCard({
                  their parent, at the SAME alignment as ordinary inclusions —
                  never priced, selected, or merged into the top-level list. */
               ...(item.includes ?? []).map((child, ci) => (
-                <li key={child.id || `${item.id}-${ci}`} class={relatedInclusionIds && !relatedInclusionIds.has(child.id) ? 'is-dimmed' : undefined}>
+                <li key={child.id || `${item.id}-${ci}`} class={relatedInclusionIds !== null && !relatedInclusionIds.has(child.id) ? 'is-dimmed' : undefined}>
                   <TierInclusionCheckIcon />
                   <span class="cz-cost-builder__tier-feature-label">{child.label}</span>
                   <span class="cz-cost-builder__tier-feature-qty">{child.quantity ?? ''}</span>
