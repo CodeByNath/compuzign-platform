@@ -7,9 +7,15 @@ import { availablePeriodComponents, PLAN_BILLING_CYCLE_LABELS } from './commerci
 // read straight from the SAME resolved Periods/components/items the focused
 // shell's own timeline already renders (see FamilyTierAdapter.tsx's
 // activePeriods) — no new resolver call, no second commercial model.
+//
+// Phase 7E: no `isOpen` prop — the caller only ever mounts this component
+// while a Plan Details target identity is set, keyed by
+// `${platformId}:${openGeneration}` (see FamilyTierAdapter.tsx), so mounting
+// IS opening and unmounting IS closing. Every open is therefore a genuinely
+// fresh component instance — fresh refs, fresh scroll-lock/focus-trap effect
+// — never the same instance with its props merely updated.
 
 interface PlanDetailsModalProps {
-  isOpen: boolean;
   onClose: () => void;
   familyTitle: string;
   planLabel: string;
@@ -331,7 +337,6 @@ function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]
 }
 
 export function PlanDetailsModal({
-  isOpen,
   onClose,
   familyTitle,
   planLabel,
@@ -343,10 +348,12 @@ export function PlanDetailsModal({
 
   // Same scroll-lock/ESC/focus-trap pattern as PdfModal.tsx (cost-builder's
   // own existing modal) — reused verbatim rather than a second
-  // implementation of the same behavior.
+  // implementation of the same behavior. Phase 7E: runs once on mount and
+  // cleans up once on unmount (empty dependency array) — this component is
+  // only ever mounted while open (see the caller's key-based fresh-mount
+  // above), so there is no separate "isOpen toggled while still mounted"
+  // transition to react to; mount/unmount IS the open/close signal.
   useEffect(() => {
-    if (!isOpen) return;
-
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -381,9 +388,7 @@ export function PlanDetailsModal({
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', handleKey);
     };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
+  }, []);
 
   const commitmentMonths = commitmentUnit && /month/i.test(commitmentUnit) ? commitmentValue : null;
   const planStartMonth = periods[0]?.from_month ?? 0;

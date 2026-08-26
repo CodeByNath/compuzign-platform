@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
 import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
@@ -6,6 +7,25 @@ import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import { periodLabel, availablePeriodComponents, availableComponents, componentPaymentName, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
 import { PlanDetailsModal } from './PlanDetailsModal';
+
+// Phase 7E: the Plan Details popup's own explicit target identity, resolved
+// once at "View plan details" click time from whichever Tier/Edition is
+// focused at that exact moment — never inferred from tab position/index,
+// array order, or carried over from a previous popup open. `tierId`/
+// `editionId` are the SAME internal identifiers periodsForVariant() and
+// family.pricing.tiers already key on (never a second ID scheme); platformId
+// is the popup's own stable EXTERNAL identity — the Tier occupant's real
+// tier_platform_id, or the selected Edition's real edition_platform_id when
+// one is active (the exact same Platform ID fields itemFor() below already
+// puts on a quote item — not invented here). Identity only: the actual
+// Periods/pricing this identity resolves to are derived fresh from `family`
+// on every render (see planDetailsData in the focused branch), never copied
+// into this object.
+interface PlanDetailsTarget {
+  tierId: TierId;
+  editionId: string | null;
+  platformId: string;
+}
 
 // The active focused variant's own resolved Commercial Period list — the
 // occupant's own commercial_legs for Default, or the matching Edition's own,
@@ -409,20 +429,30 @@ export function FamilyTierAdapter({
   // hovered/keyboard-focused, driving the right focused card's inclusion/
   // Extension dimming below. Inspection-only, no click/tap pinning yet.
   const [hoveredLegSource, setHoveredLegSource] = useState<string | null>(null);
-  // Phase 7: the View Plan Details popup's own open/closed state — local to
-  // the focused shell, never persisted, never affecting the quote/cart.
-  const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
+  // Phase 7E: the Plan Details popup's own explicit target identity — null
+  // means closed. Identity ONLY (tierId/editionId locate the data in
+  // `family`; platformId is the popup's stable external identity — the
+  // Tier occupant's own tier_platform_id, or the selected Edition's own
+  // edition_platform_id when one is active). Never the copied Periods/
+  // pricing data itself — that's re-derived from `family` + this identity
+  // on every render (see planDetailsData below), never snapshotted here.
+  const [planDetailsTarget, setPlanDetailsTarget] = useState<PlanDetailsTarget | null>(null);
+  // Bumped on every "View plan details" click, independent of whether the
+  // resolved identity is byte-identical to the previous open (re-opening
+  // the SAME plan still counts as a new open) — folded into the modal's
+  // own `key` below so each open mounts a genuinely fresh instance (fresh
+  // refs, fresh scroll-lock/focus-trap effect), never the same instance
+  // with its props merely updated.
+  const [planDetailsOpenGeneration, setPlanDetailsOpenGeneration] = useState(0);
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
 
   // Cleared on Edition switch, focused Tier switch, and close — selectVariant()
   // (the one path every variant change goes through) always updates both
   // focusedTierId and focusedEditionId together, and the close button sets
-  // focusedTierId back to null, so this single effect covers all three. The
-  // Plan Details popup describes ONE variant's own terms, so it closes right
-  // alongside the hover state whenever that variant changes underneath it.
+  // focusedTierId back to null, so this single effect covers all three.
   useEffect(() => {
     setHoveredLegSource(null);
-    setIsPlanDetailsOpen(false);
+    setPlanDetailsTarget(null);
   }, [focusedTierId, focusedEditionId]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
@@ -434,6 +464,14 @@ export function FamilyTierAdapter({
   const selectVariant = (tierId: TierId, editionId: string | null) => {
     setFocusedTierId(tierId);
     setFocusedEditionId(editionId);
+    // Closed HERE, synchronously in the same batch as the variant change —
+    // never left to the [focusedTierId, focusedEditionId] effect below,
+    // which only runs after this render has already committed. Switching
+    // Tier/Edition must never mutate an already-open popup from one plan's
+    // identity into another's — it closes immediately instead; the NEXT
+    // "View plan details" click resolves a fresh target for whichever plan
+    // is focused at that moment (see the button's onClick below).
+    setPlanDetailsTarget(null);
     const periods = periodsForVariant(family, tierId, editionId);
     setSelectedPeriodFromMonth(periods[0]?.from_month ?? null);
   };
@@ -522,6 +560,7 @@ export function FamilyTierAdapter({
     setFocusedTierId(null);
     setFocusedEditionId(null);
     setSelectedPeriodFromMonth(null);
+    setPlanDetailsTarget(null);
     setStagedTierId(addonTiers.length > 0 ? tierId : null);
   };
 
@@ -542,6 +581,50 @@ export function FamilyTierAdapter({
     }
     onAdd(itemFor(tierId, effective, true));
   };
+
+  // Phase 7E-correction: computed ONCE here, before any of the three views
+  // below, and independent of all of them — never reads focusedData/
+  // activePeriods/focusedDeclaredEffective (those views' own live locals),
+  // only `family`/`tiers` (stable props) and planDetailsTarget's own stored
+  // identity. This is what makes the popup a genuinely separate overlay
+  // surface rather than a child that continues reading whichever tab
+  // happens to be focused after it opened — see the shared final `return`
+  // at the bottom of this component, where it renders as mainContent's
+  // sibling regardless of which of the three views produced mainContent.
+  const planDetailsOverlay = planDetailsTarget && (() => {
+    const targetTierData = family.pricing.tiers[planDetailsTarget.tierId];
+    const targetDeclaredEffective = resolveEffectiveTierDisplay(targetTierData, '', planDetailsTarget.editionId);
+    const targetPeriods = periodsForVariant(family, planDetailsTarget.tierId, planDetailsTarget.editionId);
+    const targetTier = tiers.find((tier) => tier.id === planDetailsTarget.tierId);
+    // Development-only trace — never rendered into the DOM/customer UI,
+    // visible only in the browser console. Confirms exactly which identity
+    // each open resolved, for tracing repeated Tier/Edition switching
+    // (Starter -> Business -> Enterprise -> Starter, or
+    // Tier -> Edition 1 -> Edition 2 -> Tier).
+    console.debug('[CZ PlanDetails] open', {
+      platformId: planDetailsTarget.platformId,
+      tierId: planDetailsTarget.tierId,
+      editionId: planDetailsTarget.editionId,
+      periodsLength: targetPeriods.length,
+    });
+    return (
+      <PlanDetailsModal
+        // Platform ID + open generation: re-opening the SAME plan still
+        // mounts a genuinely fresh instance (fresh refs, fresh scroll-lock/
+        // focus-trap effect), never the same instance with its props
+        // merely updated.
+        key={`${planDetailsTarget.platformId}:${planDetailsOpenGeneration}`}
+        onClose={() => setPlanDetailsTarget(null)}
+        familyTitle={family.title}
+        planLabel={targetDeclaredEffective.selectedEdition?.label ?? targetTierData?.label ?? targetTier?.title ?? planDetailsTarget.tierId}
+        commitmentValue={targetDeclaredEffective.minimumTermValue}
+        commitmentUnit={targetDeclaredEffective.minimumTermUnit}
+        periods={targetPeriods}
+      />
+    );
+  })();
+
+  let mainContent: ComponentChildren;
 
   // Focused Tier: the other cards are hidden and the chosen Tier is presented
   // beside its plan details. The card itself is the SAME TierCard the strip
@@ -653,8 +736,7 @@ export function FamilyTierAdapter({
         })}
       </div>
     ) : null;
-    return (
-      <>
+    mainContent = (
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. Same clear action as
@@ -667,7 +749,7 @@ export function FamilyTierAdapter({
             type="button"
             class={`cz-package-builder__focused-close${isCloseElevated ? ' is-elevated' : ''}`}
             aria-label="Close focused plan"
-            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); }}
+            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); setPlanDetailsTarget(null); }}
           >
             <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
@@ -810,7 +892,23 @@ export function FamilyTierAdapter({
               <button
                 type="button"
                 class="cz-package-builder__details-trigger"
-                onClick={() => setIsPlanDetailsOpen(true)}
+                onClick={() => {
+                  // Resolved HERE, at click time, from whichever Tier/Edition
+                  // is actually focused in THIS render — never a stale/
+                  // previous target, never inferred from array position. The
+                  // Edition's own real Platform ID wins when one is
+                  // selected and has one; otherwise the Tier occupant's own
+                  // — the exact same fields itemFor() below puts on a quote
+                  // item, not a second identity scheme. focusedTier.id is a
+                  // last-resort fallback only for a never-configured Tier
+                  // with no tier_platform_id on file, so this always stays a
+                  // non-empty, stable string to key the modal by.
+                  const platformId = focusedDeclaredEffective.selectedEdition?.edition_platform_id
+                    ?? focusedData?.tier_platform_id
+                    ?? focusedTier.id;
+                  setPlanDetailsTarget({ tierId: focusedTier.id, editionId: focusedEditionId, platformId });
+                  setPlanDetailsOpenGeneration((generation) => generation + 1);
+                }}
               >
                 View plan details
               </button>
@@ -868,32 +966,15 @@ export function FamilyTierAdapter({
           </div>
         </div>
       </div>
-      {/* Phase 7: describes this SAME focused variant's own terms — see
-          isPlanDetailsOpen above (closes automatically on Tier/Edition
-          switch). Rendered as a sibling of .cz-package-builder__focused
-          (a position:fixed overlay) rather than nested inside it, same
-          reasoning PdfModal.tsx already renders at its own call site. */}
-      <PlanDetailsModal
-        isOpen={isPlanDetailsOpen}
-        onClose={() => setIsPlanDetailsOpen(false)}
-        familyTitle={family.title}
-        planLabel={focusedDeclaredEffective.selectedEdition?.label ?? focusedData?.label ?? focusedTier.title}
-        commitmentValue={focusedDeclaredEffective.minimumTermValue}
-        commitmentUnit={focusedDeclaredEffective.minimumTermUnit}
-        periods={activePeriods}
-      />
-      </>
     );
-  }
-
   // Selected-Tier view: the chosen Tier alone, with Recommendations beside
   // it. Reached only when recommendation content exists — today that means
   // the Tier System offers Add-ons — so this view always has something to
   // choose. It is the same PricingTiers as the comparison: narrowing the Tier
   // list is what hides the other cards and reveals Recommendations, so there
   // is no second Add-on, recommendation, or quote flow here.
-  if (stagedTier) {
-    return (
+  } else if (stagedTier) {
+    mainContent = (
       <>
         <div class="cz-package-builder__staged-header">
           <button
@@ -918,10 +999,9 @@ export function FamilyTierAdapter({
         />
       </>
     );
-  }
-
-  return (
-    <>
+  } else {
+    mainContent = (
+      <>
       <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
         {CUSTOMER_GROUPS.map((group) => (
           <button
@@ -951,6 +1031,21 @@ export function FamilyTierAdapter({
         onChoosePlan={selectVariant}
         isEnterpriseView={customerGroup === 'enterprise'}
       />
+      </>
+    );
+  }
+
+  // Phase 7E-correction: rendered as a true sibling of whichever view above
+  // produced mainContent — never nested inside the focused branch's own
+  // subtree, so it never depends on that branch's own live locals
+  // (focusedData/activePeriods/focusedDeclaredEffective) once open. See
+  // planDetailsOverlay above: derived entirely from `family` +
+  // planDetailsTarget's own stored identity, closes automatically on
+  // Tier/Edition switch (the effect and selectVariant() above).
+  return (
+    <>
+      {mainContent}
+      {planDetailsOverlay}
     </>
   );
 }
