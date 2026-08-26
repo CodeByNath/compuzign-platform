@@ -239,6 +239,16 @@ function paymentCategoryLabel(cycle: string | null): string {
   return cycle === 'one-time' || cycle === 'upfront' ? 'Fixed payment' : 'Recurring payment';
 }
 
+// Phase 7D: Payment Timing's own single-point month mentions — the same
+// customer-facing "don't show a raw 0" semantic customerFacingRange()
+// already applies to ranges, extended to these single-point sentences.
+// Never touches monthsPhrase() below: a LATER occurrence can never be month
+// 0 (occurrences only increase from a Leg's own start), so only each
+// sentence's own first/start mention ever needs this substitution.
+function pointInPlanPhrase(month: number): string {
+  return month === 0 ? 'at plan start' : `in Month ${month}`;
+}
+
 function monthsPhrase(months: number[]): string {
   if (months.length === 1) return `Month ${months[0]}`;
   return `Months ${months.slice(0, -1).join(', ')} and ${months[months.length - 1]}`;
@@ -263,13 +273,13 @@ function paymentTimingSentence(
   // first payment and its recurrence only — never a count or an implied end.
   if (summary.isOngoing) {
     const cadenceWord = summary.billingCycle !== null ? (CADENCE_WORD[summary.billingCycle] ?? 'period') : 'period';
-    return `${label} Payment: ${price} every ${cadenceWord}, beginning in Month ${summary.startMonth}, continuing indefinitely.`;
+    return `${label} Payment: ${price} every ${cadenceWord}, beginning ${pointInPlanPhrase(summary.startMonth)}, continuing indefinitely.`;
   }
 
   const [first, ...rest] = summary.occurrenceMonths;
 
   if (rest.length === 0) {
-    return `${label} Payment: ${price} charged once, in Month ${first}.`;
+    return `${label} Payment: ${price} charged once, ${pointInPlanPhrase(first)}.`;
   }
 
   // summary.isOngoing already returned above, so endMonth is guaranteed
@@ -285,7 +295,7 @@ function paymentTimingSentence(
     return `${label} Payment: ${price} every ${cadenceWord} throughout ${commitmentPhrase}.`;
   }
 
-  return `${label} Payment: ${price} charged in Month ${first}, then again in ${monthsPhrase(rest)}.`;
+  return `${label} Payment: ${price} charged ${pointInPlanPhrase(first)}, then again in ${monthsPhrase(rest)}.`;
 }
 
 function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]; cycle: string | null }) {
@@ -378,10 +388,13 @@ export function PlanDetailsModal({
   const commitmentMonths = commitmentUnit && /month/i.test(commitmentUnit) ? commitmentValue : null;
   const planStartMonth = periods[0]?.from_month ?? 0;
   const legSummaries = buildLegPaymentSummaries(periods, commitmentMonths);
-  const totalContractValue = legSummaries.reduce(
-    (sum, s) => (s.subtotal !== null ? sum + s.subtotal : sum),
-    0,
-  );
+  // Phase 7D: a finite Total Contract Value is only meaningful when EVERY
+  // contributing Leg has one — an ongoing Leg (subtotal === null) makes the
+  // whole plan's total non-finite, never silently skipped/treated as 0
+  // while still producing a numeric sum from the other Legs.
+  const totalContractValue = legSummaries.some((s) => s.subtotal === null)
+    ? null
+    : legSummaries.reduce((sum, s) => sum + (s.subtotal ?? 0), 0);
   const dueAtStart = legSummaries.reduce(
     (sum, s) => (s.startMonth === planStartMonth && s.price !== null ? sum + s.price : sum),
     0,
