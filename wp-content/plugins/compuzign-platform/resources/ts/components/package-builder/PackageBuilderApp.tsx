@@ -93,6 +93,13 @@ export function PackageBuilderApp() {
           <span><FeatureIcon kind="support" />24/7 support</span>
           <span><FeatureIcon kind="cancel" />Cancel anytime</span>
         </div>
+        {/* Only ever swaps which Family's data FamilyTierAdapter reads —
+            it deliberately does nothing else. FamilyTierAdapter is a
+            sibling of this whole hero section, so it never renders inside
+            this component's own branches; it owns clearing its own
+            focused-Tier/Edition/Plan-Details state in response, keyed on
+            family.family_id, rather than this button trying to reach into
+            a sibling's internal state. */}
         <div class="cz-package-builder__selector" role="tablist" aria-label="Package Families">
           {data.families.map((candidate) => (
             <button
