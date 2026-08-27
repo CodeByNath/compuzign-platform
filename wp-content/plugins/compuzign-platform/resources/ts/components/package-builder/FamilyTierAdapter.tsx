@@ -244,7 +244,7 @@ function inclusionCountLabel(items: CommercialLegPricedItem[]): string {
   }
   const inclusionWord = (n: number) => `${n} inclusion${n === 1 ? '' : 's'}`;
   const bundleWord = (n: number) => `${n} bundle${n === 1 ? '' : 's'}`;
-  const itemWord = (n: number) => `${n} included item${n === 1 ? '' : 's'}`;
+  const itemWord = (n: number) => `${n} bundle inclusion${n === 1 ? '' : 's'}`;
   if (bundles === 0) return inclusionWord(plain);
   if (plain === 0) return `${bundleWord(bundles)} · ${itemWord(bundleContents)}`;
   return `${inclusionWord(plain)} + ${bundleWord(bundles)} · ${itemWord(bundleContents)}`;
