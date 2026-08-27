@@ -109,6 +109,13 @@ export interface CommercialLegPricedItem {
   unit_price: number | null;
   line_total: number | null;
   available: boolean;
+  // Present (non-null) only for a Bundle-backed row — its compiled supplied
+  // content, already emitted by PackageManagerSchema::projectTierRateSheetWith()
+  // ('includes' => $rateItem['includes'] ?? null) and carried through
+  // resolveCommercialLegTimeline() unchanged. Display-only, mirrors
+  // ServiceInclusion.includes; a Bundle is still exactly one row/one
+  // commercial inclusion, never separately priced/selectable entries.
+  includes?: CommercialLegPricedItem[] | null;
 }
 
 // One resolved commercial identity's contribution within a Period — the

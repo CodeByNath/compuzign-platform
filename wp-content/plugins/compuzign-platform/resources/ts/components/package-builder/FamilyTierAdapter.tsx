@@ -213,16 +213,41 @@ function componentNote(billingCycle: string | null, joined: boolean): string {
   return joined ? entry.joined : entry.alone;
 }
 
-// Phase 6B: "N inclusions" under a payment card — this component's OWN
-// items[].length, straight from the resolved component occurrence (the same
+// Phase 6C: "N inclusions" under a payment card — this component's OWN
+// items[], straight from the resolved component occurrence (the same
 // unfiltered `items` commercialLegInclusionGroups()/commercialLegExtensionGroups()
 // already render elsewhere; there is no item-level availability filter in
 // this render path to reuse, only the component-level one availablePeriodComponents()
 // already applied before this component ever reaches here). Never deduped by
 // item_id, never summed across Legs/Periods — one component occurrence's own
-// count only.
-function inclusionCountLabel(count: number): string {
-  return `${count} inclusion${count === 1 ? '' : 's'}`;
+// items only.
+//
+// A Bundle row is still exactly ONE Rate Sheet inclusion commercially (never
+// split into per-supplied-content Leg assignments), but the customer-facing
+// right card expands its `includes[]` into that many visible rows — so the
+// plain "N inclusions" count alone reads as wrong next to that expansion.
+// Detected by `includes` being non-null (the only field this row shape
+// carries for a Bundle; `bundle_id` itself isn't projected onto
+// CommercialLegPricedItem). M is always the real
+// `includes.length` sum, never a hardcoded assumption.
+function inclusionCountLabel(items: CommercialLegPricedItem[]): string {
+  let plain = 0;
+  let bundles = 0;
+  let bundleContents = 0;
+  for (const item of items) {
+    if (item.includes != null) {
+      bundles += 1;
+      bundleContents += item.includes.length;
+    } else {
+      plain += 1;
+    }
+  }
+  const inclusionWord = (n: number) => `${n} inclusion${n === 1 ? '' : 's'}`;
+  const bundleWord = (n: number) => `${n} bundle${n === 1 ? '' : 's'}`;
+  const itemWord = (n: number) => `${n} included item${n === 1 ? '' : 's'}`;
+  if (bundles === 0) return inclusionWord(plain);
+  if (plain === 0) return `${bundleWord(bundles)} · ${itemWord(bundleContents)}`;
+  return `${inclusionWord(plain)} + ${bundleWord(bundles)} · ${itemWord(bundleContents)}`;
 }
 
 // Descriptive-only summary of which billing cycles are represented among the
@@ -903,7 +928,7 @@ export function FamilyTierAdapter({
                               rendered Extension group; the Extension group's
                               own diffed items when one renders). */}
                           <span class="cz-package-builder__stage-component-count">
-                            {inclusionCountLabel(component.items.length)}
+                            {inclusionCountLabel(component.items)}
                           </span>
                         </div>
                       ))}
