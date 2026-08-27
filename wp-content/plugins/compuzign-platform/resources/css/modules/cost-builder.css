@@ -3650,6 +3650,12 @@
   border-radius: var(--cz-radius-sm);
 }
 
+@media (max-width: 767px) {
+  .cz-package-builder__focused-detail {
+    padding: var(--cz-space-6);
+  }
+}
+
 /* Selected-Tier view header — carries the same return control back to the
    card comparison. */
 .cz-package-builder__staged-header {
