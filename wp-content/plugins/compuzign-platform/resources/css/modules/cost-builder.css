@@ -784,15 +784,56 @@
   letter-spacing: 0.05em;
 }
 
-/* One or more payment-stream amounts, stacked — a multi-stream item (e.g.
-   an upfront charge alongside a separate recurring Leg) never sums unlike
-   cycles into one line; each keeps its own .cz-quote-summary__item-price. */
+/* Order-summary rows (Phase 7): charge-type label on the left, price on the
+   right — one .cz-quote-summary__stream-row per resolved payment stream,
+   never summing unlike cycles into one line. Kept as its own wrapper
+   (rather than each row managing its own vertical gap) so a single
+   flat-price item can still fall back to the plain .item-price span below
+   without a wrapper mismatch. */
 .cz-quote-summary__item-prices {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-1);
 }
 
+.cz-quote-summary__stream-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cz-space-3);
+}
+
+.cz-quote-summary__stream-label {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+}
+
+.cz-quote-summary__stream-value {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-accent);
+  white-space: nowrap;
+}
+
+/* This item's own "Total" row — set apart from its payment-stream rows
+   above by a divider, its label bolder/darker than a plain stream's own
+   muted label since it's a subtotal, not another charge. Never shown for
+   an ongoing/unbounded item (see QuoteSummary.tsx's totalContractValue
+   gate) — no fake finite Total for those. */
+.cz-quote-summary__stream-row--total {
+  margin-top: 2px;
+  padding-top: var(--cz-space-2);
+  border-top: 1px dashed var(--cz-color-line);
+}
+
+.cz-quote-summary__stream-row--total .cz-quote-summary__stream-label {
+  font-weight: 600;
+  color: var(--cz-color-text);
+}
+
+/* The flat single-line fallback for an item with no resolved payment
+   streams at all (a Cost Builder QuoteItem, or a pre-Phase-5 legacy cart
+   entry) — unchanged from before Phase 7. */
 .cz-quote-summary__item-price {
   font-size: var(--cz-font-size-sm);
   font-weight: 700;
@@ -800,34 +841,9 @@
   white-space: nowrap;
 }
 
-/* Total Contract Value: its own labeled block, set apart from the
-   payment-stream amounts above by a divider — never squeezed into the same
-   line as a stream's own price. */
-.cz-quote-summary__item-tcv {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: var(--cz-space-2);
-  border-top: 1px dashed var(--cz-color-line);
-}
-
-.cz-quote-summary__item-tcv-label {
-  font-size: var(--cz-font-size-xs);
-  color: var(--cz-color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.cz-quote-summary__item-tcv-value {
-  font-size: var(--cz-font-size-sm);
-  font-weight: 700;
-  color: var(--cz-color-accent);
-}
-
 /* Fixed top-right corner, independent of the content column's own height
    (1 line for a simple item, several for a multi-stream one with its own
-   Total Contract Value block) — never competing with price text for
-   horizontal space. */
+   Total row) — never competing with price text for horizontal space. */
 .cz-quote-summary__remove {
   position: absolute;
   top: var(--cz-space-3);

@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
-import { cycleSuffix, computeTotalContractValue } from './PricingTiers';
+import { chargeTypeLabel, computeTotalContractValue } from './PricingTiers';
 import type { CartItem } from './types';
 
 interface QuoteSummaryProps {
@@ -22,7 +22,7 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
 
   const { unpricedItems, cycleEntries, hasMixedCycles, singleCycle } = calcQuoteTotals(items);
 
-  // Phase 6: calcQuoteTotals()'s own cycle-bucket math is untouched — it
+  // Phase 6/7: calcQuoteTotals()'s own cycle-bucket math is untouched — it
   // still only ever sees each item's single flat Headline price/cycle, so
   // its "Est. X total" is only trustworthy when NO item actually has more
   // than one real payment stream. Rather than teach that function a second,
@@ -32,20 +32,26 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
   // labels at all.
   const familyTierItems = items.filter(isFamilyTierQuoteItem);
   const hasMultiStreamItem = familyTierItems.some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
-  // "One finite multi-stream primary offer": the cart's only priced line is
-  // that one multi-stream item — its own already-computed
-  // computeTotalContractValue() is reused as-is (never re-derived) as the
-  // footer's headline number. Two or more priced items (e.g. an add-on
-  // alongside it) can't be reduced to one truthful figure without summing
-  // across genuinely different offers, so that case — and an ongoing/
-  // unbounded stream with no finite total — falls through to the neutral
-  // "see pricing above" note instead of a fabricated aggregate.
-  const pricedItemCount = items.filter((item) => item.price !== null).length;
-  const soleMultiStreamItem = hasMultiStreamItem && pricedItemCount === 1
-    ? familyTierItems.find((item) => (item.legPaymentSummaries?.length ?? 0) > 1) ?? null
-    : null;
-  const soleItemTotalContractValue = soleMultiStreamItem
-    ? computeTotalContractValue(soleMultiStreamItem.legPaymentSummaries!)
+  // Phase 7: sum every PRIMARY (non-add-on) Tier/Edition item's own finite
+  // Total Contract Value — never add-ons (no canonical finite-contract math
+  // exists for them yet; they stay represented by calcQuoteTotals' own
+  // cycle totals wherever those still apply) and never a live re-derivation
+  // (computeTotalContractValue() is reused exactly as Plan Details/the
+  // per-item row below already call it). "No legPaymentSummaries at all" is
+  // treated as unknown, not zero — it must never silently count as $0
+  // toward the sum, and an empty primaries list must never vacuously read
+  // as "all finite" (.every() on [] is true) and show a fabricated "$0
+  // Total Contract Value".
+  const primaryFamilyTierItems = familyTierItems.filter((item) => !item.isAddon);
+  const primaryTotalContractValues = primaryFamilyTierItems.map((item) =>
+    item.legPaymentSummaries && item.legPaymentSummaries.length > 0
+      ? computeTotalContractValue(item.legPaymentSummaries)
+      : null,
+  );
+  const allPrimariesFinite = primaryFamilyTierItems.length > 0
+    && primaryTotalContractValues.every((value) => value !== null);
+  const combinedPrimaryTotalContractValue = allPrimariesFinite
+    ? primaryTotalContractValues.reduce((sum, value) => sum + (value as number), 0)
     : null;
 
   return (
@@ -76,25 +82,26 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
       <ul class="cz-quote-summary__list">
         {items.map((item) => {
           const flatCycleSuffix = formatCycleLabel(item.billingCycle);
-          // Phase 5: this quoted option's own resolved commercial payment
+          // Phase 5/7: this quoted option's own resolved commercial payment
           // streams (buildLegPaymentSummaries(), captured at Add to Quote
-          // time — see FamilyTierAdapter.tsx's itemFor()). A single stream
-          // (or none, e.g. a Cost Builder QuoteItem, which never has this
-          // field) keeps today's one flat price/cycle line unchanged — only
-          // 2+ distinct streams switch to showing each its own amount, never
-          // summed into one fake cycle total (a real $160k upfront charge
-          // alongside a $16k/year Leg must never collapse into one "annual"
-          // number).
+          // time — see FamilyTierAdapter.tsx's itemFor()). Any item with no
+          // streams at all (a Cost Builder QuoteItem, which never has this
+          // field, or a pre-Phase-5 legacy cart entry) keeps today's one
+          // flat price/cycle line — there's no per-stream data to lay out.
+          // An item WITH streams (1 or more) renders each as its own
+          // order-summary row — charge-type label on the left, price on the
+          // right, never a slash suffix duplicating what the label already
+          // says — plus a "Total" row when computeTotalContractValue()
+          // resolves finite (never shown for an ongoing/unbounded stream).
           const streams = isFamilyTierQuoteItem(item) ? item.legPaymentSummaries : null;
-          const isMultiStream = !!streams && streams.length > 1;
-          const totalContractValue = isMultiStream ? computeTotalContractValue(streams!) : null;
+          const hasStreams = !!streams && streams.length > 0;
+          const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
           return (
             <li key={quoteItemKey(item)} class="cz-quote-summary__item">
               {/* Phase 6: fixed top-right corner, independent of the content
                   column's own height below (1 line for a simple item,
-                  several for a multi-stream one with its own Total Contract
-                  Value block) — never competing with price text for
-                  horizontal space. */}
+                  several for a multi-stream one with its own Total row) —
+                  never competing with price text for horizontal space. */}
               <button
                 type="button"
                 class="cz-quote-summary__remove"
@@ -115,15 +122,27 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
                     surfaces); this component simply stops printing them. */}
               </div>
               <div class="cz-quote-summary__item-prices">
-                {isMultiStream ? (
-                  streams!.map((stream) => (
-                    <span key={stream.source} class="cz-quote-summary__item-price">
-                      {formatPrice(stream.price)}
-                      {cycleSuffix(stream.billingCycle) && (
-                        <span class="cz-quote-summary__item-cycle">{' '}{cycleSuffix(stream.billingCycle)}</span>
-                      )}
-                    </span>
-                  ))
+                {hasStreams ? (
+                  <>
+                    {streams!.map((stream) => (
+                      <div key={stream.source} class="cz-quote-summary__stream-row">
+                        <span class="cz-quote-summary__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                        <span class="cz-quote-summary__stream-value">{formatPrice(stream.price)}</span>
+                      </div>
+                    ))}
+                    {/* Phase 7: "Total" (this item's own subtotal) — deliberately
+                        NOT "Total Contract Value" (that wording is reserved for
+                        the whole-cart footer below, so the two numbers are never
+                        confused for each other). Only when finite; an ongoing
+                        stream leaves just its own row(s) above, never a fake
+                        finite Total. */}
+                    {totalContractValue !== null && (
+                      <div class="cz-quote-summary__stream-row cz-quote-summary__stream-row--total">
+                        <span class="cz-quote-summary__stream-label">Total</span>
+                        <span class="cz-quote-summary__stream-value">{formatPrice(totalContractValue)}</span>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <span class="cz-quote-summary__item-price">
                     {item.price !== null ? (
@@ -137,15 +156,6 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
                   </span>
                 )}
               </div>
-              {/* Phase 6: Total Contract Value is its own labeled block,
-                  visually set apart from the payment-stream amounts above —
-                  never squeezed into the same line as a stream's own price. */}
-              {isMultiStream && totalContractValue !== null && (
-                <div class="cz-quote-summary__item-tcv">
-                  <span class="cz-quote-summary__item-tcv-label">Total Contract Value</span>
-                  <span class="cz-quote-summary__item-tcv-value">{formatPrice(totalContractValue)}</span>
-                </div>
-              )}
             </li>
           );
         })}
@@ -159,14 +169,19 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
               <span class="cz-quote-summary__total-price">Contact Us</span>
             </>
           ) : hasMultiStreamItem ? (
-            // Phase 6: calcQuoteTotals' own Headline-cycle bucketing is
+            // Phase 6/7: calcQuoteTotals' own Headline-cycle bucketing is
             // untrustworthy once any item has more than one real payment
             // stream (see hasMultiStreamItem above) — never fall through to
             // its hasMixedCycles/singleCycle labels below in that case.
-            soleItemTotalContractValue !== null ? (
+            // combinedPrimaryTotalContractValue sums every primary item's
+            // own already-computed TCV (reducing to that single item's own
+            // TCV when there's only one) — only when EVERY primary item is
+            // finite; any ongoing primary, or no primary items at all,
+            // keeps the honest fallback instead of a fabricated number.
+            combinedPrimaryTotalContractValue !== null ? (
               <>
                 <span class="cz-quote-summary__total-label">Total Contract Value</span>
-                <span class="cz-quote-summary__total-price">{formatPrice(soleItemTotalContractValue)}</span>
+                <span class="cz-quote-summary__total-price">{formatPrice(combinedPrimaryTotalContractValue)}</span>
               </>
             ) : (
               <>

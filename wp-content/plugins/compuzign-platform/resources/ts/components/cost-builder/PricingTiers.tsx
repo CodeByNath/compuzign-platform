@@ -316,6 +316,30 @@ export function billingWording(cycle: string | null): string {
   return TIER_BILLING_WORDING[cycle] ?? `Billed ${cycle}`;
 }
 
+// Phase 7: full charge-type word for an order-summary-style layout where
+// the cycle is its own left-hand label ("Monthly  $157.00") — the OPPOSITE
+// convention from cycleSuffix() above (a slash suffix attached to the price
+// itself, "$157 / mo"). Never both on the same row: a caller using this
+// label never also appends cycleSuffix()/formatCycleLabel() to the price
+// beside it. "Yearly" (not Plan Details' "Annual" — see
+// PLAN_BILLING_CYCLE_LABELS in package-builder/commercialLegPresentation.ts)
+// matches the existing admin billing-cycle vocabulary already used for the
+// customer-facing word elsewhere (TierPricingRulesEditor.tsx/
+// TierEditionOverviewFields.tsx's own 'annually' -> 'Yearly' option label).
+const CHARGE_TYPE_LABELS: Record<string, string> = {
+  monthly: 'Monthly',
+  annual: 'Yearly',
+  annually: 'Yearly',
+  quarterly: 'Quarterly',
+  upfront: 'Upfront',
+  'one-time': 'One-time',
+};
+
+export function chargeTypeLabel(cycle: string | null): string {
+  if (cycle === null) return 'Payment';
+  return CHARGE_TYPE_LABELS[cycle] ?? 'Payment';
+}
+
 // Inline check glyph for Tier Inclusions rows — follows this codebase's
 // existing inline-SVG icon convention (viewBox 0 0 24 24, stroke-based,
 // currentColor, aria-hidden) rather than the CSS '✓' pseudo-element it
