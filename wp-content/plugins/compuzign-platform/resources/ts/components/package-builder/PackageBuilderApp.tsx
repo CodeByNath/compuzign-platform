@@ -133,6 +133,7 @@ export function PackageBuilderApp() {
               family={family}
               tiers={data.tiers}
               selectedTierId={primary?.tierId as TierId | null}
+              selectedTierEditionPlatformId={primary?.tierEditionPlatformId ?? null}
               selectedAddonTierIds={addonIds as TierId[]}
               onAdd={add}
               onRemovePrimary={removePrimary}

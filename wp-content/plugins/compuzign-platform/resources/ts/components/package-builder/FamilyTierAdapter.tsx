@@ -389,6 +389,14 @@ interface FamilyTierAdapterProps {
   family: PackageBuilderFamily;
   tiers: Tier[];
   selectedTierId: TierId | null;
+  // The quoted primary item's own tierEditionPlatformId (see itemFor() below)
+  // — null means the quote holds that Tier's Default declaration, a string
+  // means it holds that specific Edition. Exact quote identity is Tier +
+  // this, never Tier alone; used only inside the focused shell (Phase 2) to
+  // tell "this exact Default/Edition is the quoted one" from "some other
+  // variant of the same Tier is quoted" — the landing card's own isActive
+  // (PricingTiers.tsx) stays intentionally Tier-only, unchanged from Phase 1.
+  selectedTierEditionPlatformId: string | null;
   selectedAddonTierIds: TierId[];
   onAdd: (item: FamilyTierQuoteItem) => void;
   onRemovePrimary: () => void;
@@ -421,6 +429,7 @@ export function FamilyTierAdapter({
   family,
   tiers,
   selectedTierId,
+  selectedTierEditionPlatformId,
   selectedAddonTierIds,
   onAdd,
   onRemovePrimary,
@@ -706,6 +715,16 @@ export function FamilyTierAdapter({
     // - Plan billing: only AVAILABLE components (availableComponents()),
     //   first-seen billing-cycle order, never merged/summed/headline-only.
     const focusedDeclaredEffective = resolveEffectiveTierDisplay(focusedData, '', focusedEditionId);
+    // Phase 2: exact quote identity is Tier + Edition Platform ID (or null
+    // for Default), never Tier alone — focusedEditionId is only a selector
+    // key (never a Platform ID, per PricingEditionOption.id), so the
+    // comparison reads the currently-viewed variant's own RESOLVED
+    // edition_platform_id here, the same field itemFor() below already
+    // writes into the quote item at Add to Quote time. True only when this
+    // exact Default/Edition — not just this Tier — is the one already
+    // quoted.
+    const isExactQuotedOption = selectedTierId === focusedTier.id
+      && (focusedDeclaredEffective.selectedEdition?.edition_platform_id ?? null) === selectedTierEditionPlatformId;
     // Computed after focusedDeclaredEffective so the Bundle parity lookup
     // above has the normal card's own declared inclusion list to read from.
     const cardPeriodOverride = periodPriceOverride(selectedPeriod, focusedDeclaredEffective.inclusionItems);
@@ -976,7 +995,7 @@ export function FamilyTierAdapter({
               data={focusedData}
               isPopular={focusedTier.id === family.popular_tier}
               popularLabel={family.popular_label}
-              isActive={focusedTier.id === selectedTierId}
+              isActive={isExactQuotedOption}
               billingCycle=""
               addedLabel="✓ Selected"
               // Controlled by the top variant tab row above, so the card's
@@ -998,7 +1017,13 @@ export function FamilyTierAdapter({
               // selected-Tier view; removing an already-selected Tier is not
               // that action, so it stays here.
               onClick={(effective) => {
-                if (selectedTierId === focusedTier.id) {
+                // Exact identity, not just Tier: switching to a different
+                // Edition of an already-quoted Tier and clicking must
+                // replace the quote (commitSelection -> the existing
+                // replaceFamilyNormalQuoteItem path), never remove it —
+                // only clicking the exact already-quoted Default/Edition
+                // again is a removal.
+                if (isExactQuotedOption) {
                   onRemovePrimary();
                   setStagedTierId(null);
                   return;
