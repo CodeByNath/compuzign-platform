@@ -1048,6 +1048,13 @@ export function FamilyTierAdapter({
           onSelect={select}
           onToggleAddon={toggleAddon}
           recommendationsAside
+          // Phase 1: this staged card is a quoted landing card, not a
+          // separate view — it must keep the same focused-shell route the
+          // comparison grid already offers (Choose Option; the small
+          // Editions button itself hides via isActive, see PricingTiers.tsx).
+          // Omitting this here was why the staged card previously showed no
+          // route into the focused shell at all.
+          onChoosePlan={selectVariant}
         />
       </>
     );

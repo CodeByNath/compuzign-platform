@@ -473,7 +473,14 @@ export function TierCard({
               <span class="cz-cost-builder__tier-cycle">{suffix}</span>
             )}
           </div>
-          {!hideOverview && editionOptions.length >= 1 && (
+          {/* Once this card has a quote selection, Choose Option below
+              becomes the single route back into the focused shell — a
+              second Editions entry point into the same flow is redundant,
+              so this whole area (Default chip / Editions button / per-
+              Edition chips alike) hides. Package Builder only: onChoosePlan
+              is never supplied by Cost Builder or add-on cards, so this is
+              a no-op there regardless of isActive. */}
+          {!hideOverview && editionOptions.length >= 1 && !(onChoosePlan && isActive) && (
             <div class="cz-cost-builder__tier-editions" role="group" aria-label={`${label} payment options`}>
               {!onChoosePlan && (
                 <button
@@ -589,7 +596,12 @@ export function TierCard({
             class={`cz-cost-builder__tier-choose${(isPopular || isEnterpriseView) ? ' cz-cost-builder__tier-choose--filled' : ''}`}
             onClick={() => onChoosePlan(null)}
           >
-            Choose Plan
+            {/* Once quoted, this is the ONLY route back into the focused
+                shell (the small Editions chip/button above hides in that
+                same state) — "Choose Option" says that plainly. Routing
+                itself is unchanged: still onChoosePlan(null), same handler,
+                same focused-shell entry point as before quoting. */}
+            {isActive ? 'Choose Option' : 'Choose Plan'}
           </button>
         )}
         <button
