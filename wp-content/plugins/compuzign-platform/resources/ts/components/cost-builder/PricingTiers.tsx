@@ -611,13 +611,19 @@ export function TierCard({
           <button
             type="button"
             class={`cz-cost-builder__tier-choose${(isPopular || isEnterpriseView) ? ' cz-cost-builder__tier-choose--filled' : ''}`}
-            onClick={() => onChoosePlan(null)}
+            onClick={() => onChoosePlan(selectedEditionId)}
           >
             {/* Once quoted, this is the ONLY route back into the focused
                 shell (the small Editions chip/button above hides in that
-                same state) — "Choose Option" says that plainly. Routing
-                itself is unchanged: still onChoosePlan(null), same handler,
-                same focused-shell entry point as before quoting. */}
+                same state) — "Choose Option" says that plainly.
+                Phase 4: routes to selectedEditionId — this card's own
+                resolved Edition selector key, which is the quoted
+                Default/Edition's own key when this card is externally
+                controlled (Phase 3's quotedEditionSelectorId), and stays
+                null pre-quote (the "Editions" chip below never calls
+                setSelectedEditionId, so an uncontrolled card's own
+                selectedEditionId can never be anything but null) — so
+                pre-quote Choose Plan still opens Default exactly as before. */}
             {isActive ? 'Choose Option' : 'Choose Plan'}
           </button>
         )}
