@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { cycleSuffix } from '@/components/cost-builder/PricingTiers';
+import { buildLegPaymentSummaries, computeTotalContractValue, cycleSuffix } from '@/components/cost-builder/PricingTiers';
+import type { LegPaymentSummary } from '@/components/cost-builder/PricingTiers';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem } from '@/api/types/cost-builder';
 import { availablePeriodComponents, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
 
@@ -88,123 +89,12 @@ function customerFacingRange(from: number, to: number | null): string {
   return `${startLabel}–${endLabel}`;
 }
 
-// One continuous Commercial Leg/payment stream's own resolved facts —
-// deduplicated by component.source across every Period it appears in (see
-// buildLegPaymentSummaries below). NOT a Period fragment: a Leg repeating
-// across two adjacent Periods (because a different Leg starts or stops)
-// collapses to exactly one of these.
-export interface LegPaymentSummary {
-  source: string;
-  billingCycle: string | null;
-  price: number | null;
-  startMonth: number;
-  // The Leg's own resolved last appearance's to_month, falling back to the
-  // Tier/Edition parent's own commitment when that appearance is open-ended
-  // (to_month === null) — see the Commitment cap note below. Still null when
-  // neither is available (genuinely open-ended, no commitment on file).
-  endMonth: number | null;
-  // True only for a RECURRING Leg (never one-time/upfront) whose endMonth is
-  // still null after the commitment fallback — genuinely open-ended, no
-  // numeric cap anywhere to project a finite schedule from. occurrenceMonths
-  // is empty and subtotal is null in this case: a single known first charge
-  // is not "1 occurrence" of a finite stream, and must never be presented as
-  // a finite Total Contract Value contributor.
-  isOngoing: boolean;
-  occurrenceMonths: number[];
-  subtotal: number | null;
-}
-
-const CADENCE_INTERVAL_MONTHS: Record<string, number> = {
-  monthly: 1,
-  quarterly: 3,
-  annual: 12,
-  annually: 12,
-};
-
 const CADENCE_WORD: Record<string, string> = {
   monthly: 'month',
   quarterly: 'quarter',
   annual: 'year',
   annually: 'year',
 };
-
-function isSingleOccurrenceCycle(cycle: string | null): boolean {
-  return cycle === 'one-time' || cycle === 'upfront';
-}
-
-// Only ever called with a genuinely finite effectiveEnd — an open-ended Leg
-// (effectiveEnd === null) is handled as isOngoing before this is reached,
-// never approximated as "1 occurrence" here.
-function buildOccurrenceMonths(start: number, effectiveEnd: number, cycle: string | null): number[] {
-  const interval = (cycle !== null ? CADENCE_INTERVAL_MONTHS[cycle] : undefined) ?? 1;
-  const months: number[] = [];
-  for (let m = start; m < effectiveEnd; m += interval) months.push(m);
-  return months.length > 0 ? months : [start];
-}
-
-// Periods explain coexistence, not restart: the same source repeating across
-// Periods (because some OTHER Leg started/stopped) is one continuous payment
-// stream, never counted twice. Periods are assumed chronologically ordered
-// (the same assumption the timeline above already renders under) — a
-// source's LAST appearance in that order is read as its true end, so a
-// later re-appearance's to_month always wins over an earlier one.
-//
-// Commitment cap: a Leg's own last appearance can be open-ended
-// (to_month === null) purely because nothing else was scheduled to end its
-// Period — the Tier/Edition parent's own commitment is the real commercial
-// cap in that case, never an assumption that the payment continues forever.
-// When commercial_legs already closes the final Period at the commitment
-// (the common case), this fallback is a no-op — the numeric to_month is
-// used as-is either way, never re-derived from raw commercial_legs (which,
-// per PricingTierData/PricingEditionOption, IS this same Periods array; the
-// frontend has no separate raw per-Leg start/end source to prefer instead).
-export function buildLegPaymentSummaries(
-  periods: CommercialLegPeriod[],
-  commitmentMonths: number | null,
-): LegPaymentSummary[] {
-  const order: string[] = [];
-  const bySource = new Map<string, { billingCycle: string | null; price: number | null; start: number; end: number | null }>();
-  for (const period of periods) {
-    for (const component of availablePeriodComponents(period)) {
-      const existing = bySource.get(component.source);
-      if (!existing) {
-        order.push(component.source);
-        bySource.set(component.source, {
-          billingCycle: component.billing_cycle,
-          price: component.price,
-          start: period.from_month,
-          end: period.to_month,
-        });
-      } else {
-        existing.end = period.to_month;
-      }
-    }
-  }
-  return order.map((source) => {
-    const entry = bySource.get(source)!;
-    const effectiveEnd = entry.end ?? commitmentMonths;
-    const singleOccurrence = isSingleOccurrenceCycle(entry.billingCycle);
-    const isOngoing = !singleOccurrence && effectiveEnd === null;
-    const occurrenceMonths = singleOccurrence
-      ? [entry.start]
-      : isOngoing
-        ? []
-        : buildOccurrenceMonths(entry.start, effectiveEnd as number, entry.billingCycle);
-    const subtotal = isOngoing
-      ? null
-      : (entry.price !== null ? entry.price * occurrenceMonths.length : null);
-    return {
-      source,
-      billingCycle: entry.billingCycle,
-      price: entry.price,
-      startMonth: entry.start,
-      endMonth: effectiveEnd,
-      isOngoing,
-      occurrenceMonths,
-      subtotal,
-    };
-  });
-}
 
 // Same payment/inclusion composition as another component of the SAME
 // source — billing_cycle, price, and every claimed item (id/quantity/unit
@@ -393,13 +283,11 @@ export function PlanDetailsModal({
   const commitmentMonths = commitmentUnit && /month/i.test(commitmentUnit) ? commitmentValue : null;
   const planStartMonth = periods[0]?.from_month ?? 0;
   const legSummaries = buildLegPaymentSummaries(periods, commitmentMonths);
-  // Phase 7D: a finite Total Contract Value is only meaningful when EVERY
-  // contributing Leg has one — an ongoing Leg (subtotal === null) makes the
-  // whole plan's total non-finite, never silently skipped/treated as 0
-  // while still producing a numeric sum from the other Legs.
-  const totalContractValue = legSummaries.some((s) => s.subtotal === null)
-    ? null
-    : legSummaries.reduce((sum, s) => sum + (s.subtotal ?? 0), 0);
+  // Phase 7D/Phase 5: Total Contract Value math itself now lives in
+  // computeTotalContractValue() (cost-builder/PricingTiers.tsx) so the quote
+  // panel (QuoteSummary.tsx) computes it identically, never a second
+  // re-derivation of the same "every Leg must be finite" rule.
+  const totalContractValue = computeTotalContractValue(legSummaries);
   const dueAtStart = legSummaries.reduce(
     (sum, s) => (s.startMonth === planStartMonth && s.price !== null ? sum + s.price : sum),
     0,

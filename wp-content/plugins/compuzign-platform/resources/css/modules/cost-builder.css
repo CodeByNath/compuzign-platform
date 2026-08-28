@@ -793,6 +793,23 @@
   white-space: nowrap;
 }
 
+/* Phase 5: a multi-stream quoted option (e.g. an upfront charge alongside a
+   separate recurring Leg) — one .cz-quote-summary__item-price per distinct
+   stream, stacked, never summed into one fake cycle total. */
+.cz-quote-summary__item-streams {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--cz-space-1);
+}
+
+.cz-quote-summary__item-tcv {
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  color: var(--cz-color-muted);
+  white-space: nowrap;
+}
+
 .cz-quote-summary__remove {
   display: flex;
   align-items: center;

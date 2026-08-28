@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
+import { cycleSuffix, computeTotalContractValue } from './PricingTiers';
 import type { CartItem } from './types';
 
 interface QuoteSummaryProps {
@@ -48,7 +49,19 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
 
       <ul class="cz-quote-summary__list">
         {items.map((item) => {
-          const cycleSuffix = formatCycleLabel(item.billingCycle);
+          const flatCycleSuffix = formatCycleLabel(item.billingCycle);
+          // Phase 5: this quoted option's own resolved commercial payment
+          // streams (buildLegPaymentSummaries(), captured at Add to Quote
+          // time — see FamilyTierAdapter.tsx's itemFor()). A single stream
+          // (or none, e.g. a Cost Builder QuoteItem, which never has this
+          // field) keeps today's one flat price/cycle line unchanged — only
+          // 2+ distinct streams switch to showing each its own amount, never
+          // summed into one fake cycle total (a real $160k upfront charge
+          // alongside a $16k/year Leg must never collapse into one "annual"
+          // number).
+          const streams = isFamilyTierQuoteItem(item) ? item.legPaymentSummaries : null;
+          const isMultiStream = !!streams && streams.length > 1;
+          const totalContractValue = isMultiStream ? computeTotalContractValue(streams!) : null;
           return (
             <li key={quoteItemKey(item)} class="cz-quote-summary__item">
               <div class="cz-quote-summary__item-info">
@@ -57,16 +70,34 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
                 {isFamilyTierQuoteItem(item) && <span class="cz-quote-summary__item-tier">{item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}{item.tierEditionPlatformId ? ` · ${item.tierEditionPlatformId}` : ''}</span>}
               </div>
               <div class="cz-quote-summary__item-right">
-                <span class="cz-quote-summary__item-price">
-                  {item.price !== null ? (
-                    <>
-                      {formatPrice(item.price)}
-                      {cycleSuffix && (
-                        <span class="cz-quote-summary__item-cycle">{' '}{cycleSuffix}</span>
-                      )}
-                    </>
-                  ) : 'Custom'}
-                </span>
+                {isMultiStream ? (
+                  <div class="cz-quote-summary__item-streams">
+                    {streams!.map((stream) => (
+                      <span key={stream.source} class="cz-quote-summary__item-price">
+                        {formatPrice(stream.price)}
+                        {cycleSuffix(stream.billingCycle) && (
+                          <span class="cz-quote-summary__item-cycle">{' '}{cycleSuffix(stream.billingCycle)}</span>
+                        )}
+                      </span>
+                    ))}
+                    {totalContractValue !== null && (
+                      <span class="cz-quote-summary__item-tcv">
+                        Total Contract Value: {formatPrice(totalContractValue)}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span class="cz-quote-summary__item-price">
+                    {item.price !== null ? (
+                      <>
+                        {formatPrice(item.price)}
+                        {flatCycleSuffix && (
+                          <span class="cz-quote-summary__item-cycle">{' '}{flatCycleSuffix}</span>
+                        )}
+                      </>
+                    ) : 'Custom'}
+                  </span>
+                )}
                 <button
                   type="button"
                   class="cz-quote-summary__remove"

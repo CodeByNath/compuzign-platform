@@ -1,4 +1,5 @@
 import type { TierId } from '@/api/types/cost-builder';
+import type { LegPaymentSummary } from './PricingTiers';
 
 // 'bundle' = recommended bundle; 'promotion' = active promotion tier offer
 export type QuoteItemTierId = TierId | 'bundle' | 'promotion';
@@ -65,6 +66,18 @@ export interface FamilyTierQuoteItem {
   // nothing derives price, term, or Edition meaning from this yet. Optional
   // because carts persisted before this field existed simply omit it.
   planDurationMonths?: number | null;
+  // Phase 5: the quoted Default/Edition's own resolved commercial payment
+  // streams — buildLegPaymentSummaries() over its commercial_legs, captured
+  // once at Add to Quote time (see FamilyTierAdapter.tsx's itemFor()), the
+  // same snapshot-at-selection treatment price/billingCycle above already
+  // get. price/billingCycle above stay the Headline-only card figure,
+  // unchanged; this is the full multi-Leg structure for the quote panel to
+  // show what price/billingCycle alone can't (e.g. a separate upfront charge
+  // alongside a recurring one). Null when the quoted option has no resolved
+  // commercial_legs at all (never configured, or a pre-Commercial-Legs
+  // Tier); optional because carts persisted before this field existed simply
+  // omit it — both cases mean "show today's single price/cycle line."
+  legPaymentSummaries?: LegPaymentSummary[] | null;
 }
 
 export type CartItem = QuoteItem | FamilyTierQuoteItem;
