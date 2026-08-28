@@ -22,6 +22,32 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
 
   const { unpricedItems, cycleEntries, hasMixedCycles, singleCycle } = calcQuoteTotals(items);
 
+  // Phase 6: calcQuoteTotals()'s own cycle-bucket math is untouched — it
+  // still only ever sees each item's single flat Headline price/cycle, so
+  // its "Est. X total" is only trustworthy when NO item actually has more
+  // than one real payment stream. Rather than teach that function a second,
+  // per-stream bucketing model (an invented cross-cycle summation this phase
+  // was told not to build), a multi-stream item's presence is classified
+  // here and the footer branches BEFORE reaching calcQuoteTotals' own
+  // labels at all.
+  const familyTierItems = items.filter(isFamilyTierQuoteItem);
+  const hasMultiStreamItem = familyTierItems.some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
+  // "One finite multi-stream primary offer": the cart's only priced line is
+  // that one multi-stream item — its own already-computed
+  // computeTotalContractValue() is reused as-is (never re-derived) as the
+  // footer's headline number. Two or more priced items (e.g. an add-on
+  // alongside it) can't be reduced to one truthful figure without summing
+  // across genuinely different offers, so that case — and an ongoing/
+  // unbounded stream with no finite total — falls through to the neutral
+  // "see pricing above" note instead of a fabricated aggregate.
+  const pricedItemCount = items.filter((item) => item.price !== null).length;
+  const soleMultiStreamItem = hasMultiStreamItem && pricedItemCount === 1
+    ? familyTierItems.find((item) => (item.legPaymentSummaries?.length ?? 0) > 1) ?? null
+    : null;
+  const soleItemTotalContractValue = soleMultiStreamItem
+    ? computeTotalContractValue(soleMultiStreamItem.legPaymentSummaries!)
+    : null;
+
   return (
     <div class="cz-quote-summary">
       <div class="cz-quote-summary__header">
@@ -64,28 +90,40 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
           const totalContractValue = isMultiStream ? computeTotalContractValue(streams!) : null;
           return (
             <li key={quoteItemKey(item)} class="cz-quote-summary__item">
+              {/* Phase 6: fixed top-right corner, independent of the content
+                  column's own height below (1 line for a simple item,
+                  several for a multi-stream one with its own Total Contract
+                  Value block) — never competing with price text for
+                  horizontal space. */}
+              <button
+                type="button"
+                class="cz-quote-summary__remove"
+                onClick={() => onRemove(item)}
+                aria-label={`Remove ${isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}`}
+              >
+                ×
+              </button>
               <div class="cz-quote-summary__item-info">
                 <span class="cz-quote-summary__item-title">{isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}</span>
                 <span class="cz-quote-summary__item-tier">{item.tierTitle}</span>
-                {isFamilyTierQuoteItem(item) && <span class="cz-quote-summary__item-tier">{item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}{item.tierEditionPlatformId ? ` · ${item.tierEditionPlatformId}` : ''}</span>}
+                {/* Phase 6: raw CZ Platform IDs (familyPlatformId,
+                    tierInstancePlatformId, tierPlatformId,
+                    tierEditionPlatformId) are deliberately not rendered here
+                    — customer-facing presentation only, human-readable
+                    hierarchy only. The IDs stay on the underlying quote item
+                    untouched (still read by quote capture/PDF/admin
+                    surfaces); this component simply stops printing them. */}
               </div>
-              <div class="cz-quote-summary__item-right">
+              <div class="cz-quote-summary__item-prices">
                 {isMultiStream ? (
-                  <div class="cz-quote-summary__item-streams">
-                    {streams!.map((stream) => (
-                      <span key={stream.source} class="cz-quote-summary__item-price">
-                        {formatPrice(stream.price)}
-                        {cycleSuffix(stream.billingCycle) && (
-                          <span class="cz-quote-summary__item-cycle">{' '}{cycleSuffix(stream.billingCycle)}</span>
-                        )}
-                      </span>
-                    ))}
-                    {totalContractValue !== null && (
-                      <span class="cz-quote-summary__item-tcv">
-                        Total Contract Value: {formatPrice(totalContractValue)}
-                      </span>
-                    )}
-                  </div>
+                  streams!.map((stream) => (
+                    <span key={stream.source} class="cz-quote-summary__item-price">
+                      {formatPrice(stream.price)}
+                      {cycleSuffix(stream.billingCycle) && (
+                        <span class="cz-quote-summary__item-cycle">{' '}{cycleSuffix(stream.billingCycle)}</span>
+                      )}
+                    </span>
+                  ))
                 ) : (
                   <span class="cz-quote-summary__item-price">
                     {item.price !== null ? (
@@ -98,15 +136,16 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
                     ) : 'Custom'}
                   </span>
                 )}
-                <button
-                  type="button"
-                  class="cz-quote-summary__remove"
-                  onClick={() => onRemove(item)}
-                  aria-label={`Remove ${isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}`}
-                >
-                  ×
-                </button>
               </div>
+              {/* Phase 6: Total Contract Value is its own labeled block,
+                  visually set apart from the payment-stream amounts above —
+                  never squeezed into the same line as a stream's own price. */}
+              {isMultiStream && totalContractValue !== null && (
+                <div class="cz-quote-summary__item-tcv">
+                  <span class="cz-quote-summary__item-tcv-label">Total Contract Value</span>
+                  <span class="cz-quote-summary__item-tcv-value">{formatPrice(totalContractValue)}</span>
+                </div>
+              )}
             </li>
           );
         })}
@@ -119,6 +158,24 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
               <span class="cz-quote-summary__total-label">Pricing on request</span>
               <span class="cz-quote-summary__total-price">Contact Us</span>
             </>
+          ) : hasMultiStreamItem ? (
+            // Phase 6: calcQuoteTotals' own Headline-cycle bucketing is
+            // untrustworthy once any item has more than one real payment
+            // stream (see hasMultiStreamItem above) — never fall through to
+            // its hasMixedCycles/singleCycle labels below in that case.
+            soleItemTotalContractValue !== null ? (
+              <>
+                <span class="cz-quote-summary__total-label">Total Contract Value</span>
+                <span class="cz-quote-summary__total-price">{formatPrice(soleItemTotalContractValue)}</span>
+              </>
+            ) : (
+              <>
+                <span class="cz-quote-summary__total-label">Multiple payment streams</span>
+                <span class="cz-quote-summary__custom-note">
+                  See pricing above for the full payment structure
+                </span>
+              </>
+            )
           ) : hasMixedCycles ? (
             <>
               <span class="cz-quote-summary__total-label">

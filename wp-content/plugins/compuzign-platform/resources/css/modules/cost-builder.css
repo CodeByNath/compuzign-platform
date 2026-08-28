@@ -743,12 +743,17 @@
   overflow-y: auto;
 }
 
+/* Phase 6: a stacked single-column card — title/tier, then price
+   stream(s), then (when present) a distinct Total Contract Value block —
+   with the remove control pinned to a fixed top-right corner (see
+   .cz-quote-summary__remove below) rather than sitting inline beside price
+   text of variable height. */
 .cz-quote-summary__item {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--cz-space-3);
-  padding: var(--cz-space-4) var(--cz-space-6);
+  padding: var(--cz-space-4) var(--cz-space-10) var(--cz-space-4) var(--cz-space-6);
   border-bottom: 1px solid var(--cz-color-line);
 }
 
@@ -779,11 +784,13 @@
   letter-spacing: 0.05em;
 }
 
-.cz-quote-summary__item-right {
+/* One or more payment-stream amounts, stacked — a multi-stream item (e.g.
+   an upfront charge alongside a separate recurring Leg) never sums unlike
+   cycles into one line; each keeps its own .cz-quote-summary__item-price. */
+.cz-quote-summary__item-prices {
   display: flex;
-  align-items: center;
-  gap: var(--cz-space-2);
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: var(--cz-space-1);
 }
 
 .cz-quote-summary__item-price {
@@ -793,24 +800,38 @@
   white-space: nowrap;
 }
 
-/* Phase 5: a multi-stream quoted option (e.g. an upfront charge alongside a
-   separate recurring Leg) — one .cz-quote-summary__item-price per distinct
-   stream, stacked, never summed into one fake cycle total. */
-.cz-quote-summary__item-streams {
+/* Total Contract Value: its own labeled block, set apart from the
+   payment-stream amounts above by a divider — never squeezed into the same
+   line as a stream's own price. */
+.cz-quote-summary__item-tcv {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: var(--cz-space-1);
+  gap: 2px;
+  padding-top: var(--cz-space-2);
+  border-top: 1px dashed var(--cz-color-line);
 }
 
-.cz-quote-summary__item-tcv {
+.cz-quote-summary__item-tcv-label {
   font-size: var(--cz-font-size-xs);
-  font-weight: 600;
   color: var(--cz-color-muted);
-  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
+.cz-quote-summary__item-tcv-value {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-accent);
+}
+
+/* Fixed top-right corner, independent of the content column's own height
+   (1 line for a simple item, several for a multi-stream one with its own
+   Total Contract Value block) — never competing with price text for
+   horizontal space. */
 .cz-quote-summary__remove {
+  position: absolute;
+  top: var(--cz-space-3);
+  right: var(--cz-space-3);
   display: flex;
   align-items: center;
   justify-content: center;
