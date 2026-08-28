@@ -615,21 +615,30 @@ export function TierCard({
           >
             {/* Once quoted, this is the ONLY route back into the focused
                 shell (the small Editions chip/button above hides in that
-                same state) — "Choose Option" says that plainly.
-                Phase 4: routes to selectedEditionId — this card's own
-                resolved Edition selector key, which is the quoted
-                Default/Edition's own key when this card is externally
-                controlled (Phase 3's quotedEditionSelectorId), and stays
-                null pre-quote (the "Editions" chip below never calls
-                setSelectedEditionId, so an uncontrolled card's own
-                selectedEditionId can never be anything but null) — so
-                pre-quote Choose Plan still opens Default exactly as before. */}
-            {isActive ? 'Choose Option' : 'Choose Plan'}
+                same state) — "View Plan" says that plainly (this card
+                already represents the exact quoted option, so the action is
+                reviewing it, not choosing among options anymore).
+                Routes via selectedEditionId — this card's own resolved
+                Edition selector key, which is the quoted Default/Edition's
+                own key when this card is externally controlled (Phase 3's
+                quotedEditionSelectorId), and stays null pre-quote (the
+                "Editions" chip below never calls setSelectedEditionId, so an
+                uncontrolled card's own selectedEditionId can never be
+                anything but null) — so pre-quote Choose Plan still opens
+                Default exactly as before. */}
+            {isActive ? 'View Plan' : 'Choose Plan'}
           </button>
         )}
         <button
           type="button"
-          class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}`}
+          // Add-on cards have no Choose Plan/View Plan action above them, so
+          // their one CTA carries that pair's stronger yellow-outline
+          // emphasis instead of the normal card's subdued default — see
+          // .cz-cost-builder__tier-action--addon in cost-builder.css.
+          // data?.is_addon is the same flag the Add-ons badge above already
+          // reads; normal Tier cards (is_addon false/undefined) are
+          // untouched.
+          class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}${data?.is_addon ? ' cz-cost-builder__tier-action--addon' : ''}`}
           onClick={() => onClick(effective)}
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}

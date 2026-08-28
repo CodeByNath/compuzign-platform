@@ -611,6 +611,23 @@
   color: var(--cz-color-danger);
 }
 
+/* Add-on cards have no Choose Plan/View Plan action, so their one Add to
+   Quote CTA carries the stronger secondary emphasis that pair would
+   otherwise provide — the same default-outline/hover-fill pair
+   .cz-cost-builder__tier-choose already uses, never solid by default.
+   is-selected/is-removing keep their own existing treatment unchanged
+   (Added state, hover-to-remove). */
+.cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing) {
+  border-color: var(--cz-color-accent);
+  color: var(--cz-color-accent);
+}
+
+.cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing):hover {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
 /* 7. Notes row — reserved for future Tier notes; no content renders into it
    yet (see TierCard's JSX comment). */
 .cz-cost-builder__tier-notes {
