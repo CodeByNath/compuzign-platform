@@ -254,6 +254,16 @@ interface PricingTiersProps {
   // the focused Tier shell on that Edition; Cost Builder passes nothing and
   // renders as before (chips stay a local, in-card swap).
   onChoosePlan?: (tierId: TierId, editionId: string | null) => void;
+  // Package Builder only, Phase 3. The primary quote item's own
+  // tierEditionPlatformId (see FamilyTierAdapter.tsx's itemFor()) — null
+  // means the quote holds that Tier's Default declaration, a string names a
+  // specific Edition. Applied only to whichever card's own tier.id matches
+  // selectedTierId (below), and only as this SAME card's existing
+  // selectedEditionId control — never a second/duplicate projection of
+  // price/inclusions/etc. Omitted (undefined) leaves every card exactly as
+  // uncontrolled as before, which is what Cost Builder keeps doing and what
+  // every card gets pre-quote.
+  quotedTierEditionPlatformId?: string | null;
   // Package Builder only. Places the Recommendations area beside the Tier
   // strip instead of below it — used once a Tier is selected and the strip
   // has been narrowed to that one Tier. Cost Builder passes nothing and keeps
@@ -397,7 +407,14 @@ export function TierCard({
   const suffix = cycleSuffix(effectiveBillingCycle);
   const billingWordingText = billingWording(effectiveBillingCycle);
 
-  const label = data?.label || tier.title;
+  // Overview name: the Tier's own permanent name in every existing case
+  // (Cost Builder's local Edition swap included — unchanged). Only when this
+  // card's Edition is externally controlled (Phase 3: the exact quoted
+  // Default/Edition, steered from FamilyTierAdapter/PricingTiers above) does
+  // the resolved variant's own label — the same field the focused shell's
+  // own heading already reads — stand in, so the quoted landing card names
+  // the option actually quoted rather than always this Tier's base name.
+  const label = (isControlledEdition && declaredEffective.selectedEdition?.label) || data?.label || tier.title;
 
   // Upfront Payment — see resolveUpfrontPayment() above; activeCommercialLegs
   // is already computed above, shared with the Headline lookup.
@@ -687,6 +704,7 @@ export function PricingTiers({
   onSelect,
   onToggleAddon,
   onChoosePlan,
+  quotedTierEditionPlatformId,
   recommendationsAside = false,
   isEnterpriseView = false,
 }: PricingTiersProps) {
@@ -803,21 +821,37 @@ export function PricingTiers({
           </button>
         </div>
         <div class="cz-cost-builder__tiers" ref={scrollRef}>
-          {normalTiers.map((tier) => (
-            <TierCard
-              key={tier.id}
-              tier={tier}
-              data={pricing.tiers[tier.id]}
-              isPopular={tier.id === popularTier}
-              popularLabel={popularLabel}
-              isActive={tier.id === selectedTierId}
-              billingCycle={billingCycle}
-              addedLabel="✓ Selected"
-              onClick={(effective) => onSelect(tier.id, effective)}
-              onChoosePlan={onChoosePlan && ((editionId) => onChoosePlan(tier.id, editionId))}
-              isEnterpriseView={isEnterpriseView}
-            />
-          ))}
+          {normalTiers.map((tier) => {
+            // Phase 3: this card's own controlled Edition, resolved by
+            // Platform ID match against ITS OWN edition_options — never a
+            // second projection, just steering the same
+            // resolveEffectiveTierDisplay() call TierCard already makes
+            // internally toward the exact quoted Default/Edition instead of
+            // its own uncontrolled (Default) internal state. Only the
+            // quoted Tier's own card gets a defined value here; every other
+            // card stays undefined -> fully uncontrolled, unchanged.
+            const quotedEditionSelectorId = tier.id === selectedTierId && quotedTierEditionPlatformId !== undefined
+              ? pricing.tiers[tier.id]?.edition_options?.find(
+                  (edition) => edition.edition_platform_id === quotedTierEditionPlatformId,
+                )?.id ?? null
+              : undefined;
+            return (
+              <TierCard
+                key={tier.id}
+                tier={tier}
+                data={pricing.tiers[tier.id]}
+                isPopular={tier.id === popularTier}
+                popularLabel={popularLabel}
+                isActive={tier.id === selectedTierId}
+                billingCycle={billingCycle}
+                addedLabel="✓ Selected"
+                onClick={(effective) => onSelect(tier.id, effective)}
+                onChoosePlan={onChoosePlan && ((editionId) => onChoosePlan(tier.id, editionId))}
+                isEnterpriseView={isEnterpriseView}
+                selectedEditionId={quotedEditionSelectorId}
+              />
+            );
+          })}
           {recommendationsShell}
         </div>
       </div>

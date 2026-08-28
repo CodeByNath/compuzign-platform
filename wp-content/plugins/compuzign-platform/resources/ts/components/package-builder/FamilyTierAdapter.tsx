@@ -1080,6 +1080,11 @@ export function FamilyTierAdapter({
           // Omitting this here was why the staged card previously showed no
           // route into the focused shell at all.
           onChoosePlan={selectVariant}
+          // Phase 3: steers this exact quoted Tier's own card to render the
+          // exact quoted Default/Edition (name, price, inclusions, Bundle
+          // expansion, etc. — all already resolved inside TierCard's own
+          // resolveEffectiveTierDisplay()), rather than always its Default.
+          quotedTierEditionPlatformId={selectedTierEditionPlatformId}
         />
       </>
     );
@@ -1113,6 +1118,12 @@ export function FamilyTierAdapter({
         onSelect={select}
         onToggleAddon={toggleAddon}
         onChoosePlan={selectVariant}
+        // Phase 3: same as the staged view above — only ever resolves to a
+        // defined value for whichever card's tier.id matches selectedTierId,
+        // so every other card in this grid stays fully uncontrolled/
+        // unaffected (and pre-quote, selectedTierId is null, so no card is
+        // affected at all).
+        quotedTierEditionPlatformId={selectedTierEditionPlatformId}
         isEnterpriseView={customerGroup === 'enterprise'}
       />
       </>
