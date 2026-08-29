@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
-import { chargeTypeLabel, computeTotalContractValue } from './PricingTiers';
+import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from './PricingTiers';
 import type { CartItem } from './types';
 
 interface QuoteSummaryProps {
@@ -53,6 +53,14 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
   const combinedPrimaryTotalContractValue = allPrimariesFinite
     ? primaryTotalContractValues.reduce((sum, value) => sum + (value as number), 0)
     : null;
+  // Phase 8B: what's due at each primary item's own plan start, summed
+  // across items by cycle only (never combining unlike cycles) — shown
+  // independently of whether a finite Total Contract Value exists, so a
+  // mixed finite+ongoing cart still reports something truthful instead of
+  // nothing. Does not touch/replace the TCV/fallback logic above.
+  const startingPayments = startingPaymentsByCycle(
+    primaryFamilyTierItems.map((item) => item.legPaymentSummaries ?? []),
+  );
 
   return (
     <div class="cz-quote-summary">
@@ -162,6 +170,25 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
       </ul>
 
       <div class="cz-quote-summary__footer">
+        {/* Phase 8B: a new, independent fact — deliberately a sibling of
+            .cz-quote-summary__total below, not nested inside its ternary,
+            so the existing TCV/fallback branches there stay byte-for-byte
+            untouched. Only shown once any item is multi-stream (the same
+            hasMultiStreamItem gate .total's own branch already uses) — a
+            simple single-stream cart's existing compact "Est. X total"
+            already answers this same question, so nothing new renders
+            there. */}
+        {hasMultiStreamItem && startingPayments.length > 0 && (
+          <div class="cz-quote-summary__starting-payments">
+            <span class="cz-quote-summary__total-label">Starting payments</span>
+            {startingPayments.map(([cycle, amount]) => (
+              <div key={cycle} class="cz-quote-summary__cycle-row">
+                <span class="cz-quote-summary__cycle-name">{chargeTypeLabel(cycle)}</span>
+                <span class="cz-quote-summary__cycle-amount">{formatPrice(amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div class="cz-quote-summary__total">
           {cycleEntries.length === 0 ? (
             <>
@@ -177,7 +204,9 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
             // own already-computed TCV (reducing to that single item's own
             // TCV when there's only one) — only when EVERY primary item is
             // finite; any ongoing primary, or no primary items at all,
-            // keeps the honest fallback instead of a fabricated number.
+            // means the cart's own contract length is genuinely unbounded,
+            // which Phase 8C states explicitly rather than falling back to
+            // a generic "Multiple payment streams" non-answer.
             combinedPrimaryTotalContractValue !== null ? (
               <>
                 <span class="cz-quote-summary__total-label">Total Contract Value</span>
@@ -185,9 +214,10 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
               </>
             ) : (
               <>
-                <span class="cz-quote-summary__total-label">Multiple payment streams</span>
+                <span class="cz-quote-summary__total-label">Contract Value</span>
+                <span class="cz-quote-summary__total-price">Ongoing</span>
                 <span class="cz-quote-summary__custom-note">
-                  See pricing above for the full payment structure
+                  Includes charges without a fixed end date.
                 </span>
               </>
             )

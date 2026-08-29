@@ -878,6 +878,16 @@
   border-top: 1px solid var(--cz-color-line);
 }
 
+/* Phase 8B: reuses .cz-quote-summary__total-label for its own heading and
+   .cz-quote-summary__cycle-row/-name/-amount (below) for each cycle row —
+   the exact same visual language the hasMixedCycles branch of .total
+   already uses for "distinct cycles, never summed together" rows. */
+.cz-quote-summary__starting-payments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+}
+
 .cz-quote-summary__total {
   display: flex;
   flex-direction: column;

@@ -271,6 +271,42 @@ export function computeTotalContractValue(summaries: LegPaymentSummary[]): numbe
   return summaries.reduce((sum, s) => sum + (s.subtotal ?? 0), 0);
 }
 
+// Phase 8B: what's due right now, across multiple quoted items, kept
+// strictly separate by billing cycle — never a cross-cycle sum (a $160,000
+// Upfront charge and a $156.50 Monthly charge both starting at their own
+// item's month 0 must never collapse into one number), but genuinely
+// same-cycle streams from DIFFERENT items DO add (two items each billing
+// Monthly from their own start is one real combined Monthly charge).
+//
+// Takes one stream list per item (never a FamilyTierQuoteItem itself, which
+// would pull a cost-builder/types.ts-shaped dependency in here) — a pure
+// function over the same LegPaymentSummary[] shape
+// buildLegPaymentSummaries()/computeTotalContractValue() already operate
+// on, so callers pass `item.legPaymentSummaries ?? []` per item.
+//
+// "Starting" is each item's OWN earliest resolved startMonth (never month 0
+// literally, never a shared/global start — two items added to the quote at
+// different times each have their own independent commercial timeline) —
+// only streams AT that minimum count; a stream beginning later within the
+// same item (e.g. a Leg that only starts in Month 6) is correctly excluded.
+export function startingPaymentsByCycle(itemStreams: LegPaymentSummary[][]): Array<[string, number]> {
+  const order: string[] = [];
+  const totals = new Map<string, number>();
+  for (const streams of itemStreams) {
+    if (streams.length === 0) continue;
+    const earliestStart = Math.min(...streams.map((s) => s.startMonth));
+    for (const stream of streams) {
+      if (stream.startMonth !== earliestStart || stream.price === null || stream.billingCycle === null) continue;
+      if (!totals.has(stream.billingCycle)) {
+        order.push(stream.billingCycle);
+        totals.set(stream.billingCycle, 0);
+      }
+      totals.set(stream.billingCycle, totals.get(stream.billingCycle)! + stream.price);
+    }
+  }
+  return order.map((cycle) => [cycle, totals.get(cycle)!]);
+}
+
 // Price-line suffix for the two cycles the shared formatCycleLabel()
 // (utils/format.ts) doesn't cover — 'upfront' isn't in its map at all, and
 // 'one-time' resolves to '' there. Kept local rather than extending that
