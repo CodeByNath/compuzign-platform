@@ -3,9 +3,9 @@
 ## Status
 - Phase 8G: `CLOSED` at `main@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`.
 - Phase 8H semantic value-state work: deployed and live semantic checks passed at `main@1a74e785627bfae8f051ffa32093029e978b2b6e`.
-- Live typography correction: `SOURCE PUSH APPROVED`.
-- Auditor verdict: `Proceed with safeguards`.
-- Accepted correction commit: `0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
+- Live typography correction: `PUSHED — exact accepted commit, fast-forward only`.
+- Auditor verdict: `Proceed with safeguards` — source pushed, deployment succeeded.
+- Production: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
 
 ## Locked Display Rules
 Bundle child Unit Price/Total = **Included**. Open-ended Charge Occurrences = **Until Canceled**. Open-ended known-rate Subtotal = formatted known Rate. Open-ended TCV = **Until Canceled** when rates are known. Missing/unresolved price = **To be confirmed**. Real numeric zero = **$0.00**. Finite minimum-term streams keep calculated occurrences/subtotals. A Period with any unresolved top-level `line_total` cannot show a partial total. Due at plan start cannot silently omit an unresolved starting rate.
@@ -39,3 +39,19 @@ Safeguard: the focused contract's print-block regex is not a substitute for live
 
 ## Final Gate
 Nath/ChatGPT must validate the deployed customer surface. Phase 8H closes only when pushed SHA, successful deployment, on-screen typography, and printable/PDF typography agree.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-30
+- Pre-push check: `origin/main` confirmed exactly `1a74e785627bfae8f051ffa32093029e978b2b6e` before push — matched, no divergence. Local `main` checked out fresh from `origin/main` (same SHA), then fast-forward merged to `phase-8h-plan-details-value-states@0c586deb...` (confirmed via `git ls-remote origin phase-8h-plan-details-value-states` to be the exact accepted SHA before merging) — no amend/rebuild/source changes, pure fast-forward.
+- Push output: `1a74e785..0c586deb  main -> main`
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `0c586debcccc5ee9eb850b8119200b31fe61b4ed` — equals the accepted SHA exactly.
+- GitHub Actions run: `33258359096` ("Deploy to Hostinger"), triggered by push on 2026-08-30
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33258359096` endpoint, polled until `status: completed` — `conclusion: success`)
+- Job/step-level results, all `success`: Set up job; Checkout repository; Setup Node.js; Install frontend dependencies; Build frontend assets; Deploy source via SSH; Deploy built dist assets via SCP; Post Setup Node.js; Post Checkout repository; Complete job.
+- Deployment result: workflow-reported success for deployed SHA `0c586debcccc5ee9eb850b8119200b31fe61b4ed`. Actual on-screen and printable/PDF typography not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath/ChatGPT performs this check per the Final Gate above, confirming both on-screen Review & Finalise Quote and printable/PDF proposal now show the token-sized total amount, for both the `Ongoing` case and a finite numeric total)
