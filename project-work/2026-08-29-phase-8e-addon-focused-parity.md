@@ -1,11 +1,10 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `READY FOR CLAUDE`
-- Verdict: `Proceed`
-- Production: `main@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
-- Accepted candidate: `phase-8e-addon-cta-review@cf650905d96b8fdee5c0032caefd7d5694fc51a9`
-- Source push: `APPROVED` for exactly `cf650905d96b8fdee5c0032caefd7d5694fc51a9`.
+- Status: `AWAITING LIVE VALIDATION`
+- Verdict: `Proceed` — source pushed, deployment succeeded
+- Production: `main@cf650905d96b8fdee5c0032caefd7d5694fc51a9`
+- Source push: `PUSHED — exact accepted commit, fast-forward only`
 
 ## Audit Result
 The previous concern about an add-on-only Quote Details overlay was based on an unreachable normal customer state and is withdrawn.
@@ -35,3 +34,17 @@ Proceed immediately:
 3. Record the deployment workflow run ID/status in this same file.
 4. On successful deployment, set status to `AWAITING LIVE VALIDATION` and stop.
 5. Do not mark `CLOSED` until the live customer check confirms add-on **View details** and the details overlay behavior.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Pre-push check: `origin/main` confirmed exactly `b7083c44cb23e0e005976687583d7fdf2b4f2a6d` before push — matched, no divergence. Local `main` was already at `cf650905` (identical to the accepted candidate), so the push was a plain fast-forward — no add/alter of source.
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `cf650905d96b8fdee5c0032caefd7d5694fc51a9`
+- GitHub Actions run: `33246121533` ("Deploy to Hostinger #905"), triggered by push on 2026-08-29 09:42 UTC
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33246121533` endpoint, polled until `status: completed` — `conclusion: success`)
+- Deployment result: workflow-reported success for deployed SHA `cf650905d96b8fdee5c0032caefd7d5694fc51a9`. Actual live site behavior not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above)
