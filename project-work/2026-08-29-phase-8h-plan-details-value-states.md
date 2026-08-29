@@ -2,9 +2,9 @@
 
 ## Status
 - Phase 8G: `CLOSED` at production `main@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`
-- Phase 8H: `AWAITING LIVE VALIDATION`
-- Source push: `PUSHED — exact accepted commit, fast-forward only`
-- Verdict: `Proceed` — source pushed, deployment succeeded
+- Phase 8H: `READY FOR CLAUDE` — live typography correction
+- Source push: `SOURCE PUSH NOT APPROVED`
+- Verdict: `Proceed with safeguards` — semantic states passed; proposal totals typography must return to the token scale
 - Production: `main@1a74e785627bfae8f051ffa32093029e978b2b6e`
 
 ## Approved Display Rules
@@ -55,4 +55,19 @@ Nath will perform the browser/customer-facing validation. Phase 8H remains open 
 - Deployment result: workflow-reported success for deployed SHA `1a74e785627bfae8f051ffa32093029e978b2b6e`. No customer/runtime mutations performed. Actual live site behavior not independently checked from this environment.
 
 ## Live Browser Validation
-- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Final Gate above, covering Plan Details' Bundle child "Included" cells, "Until Canceled" occurrences/TCV, and "$4,000.00" Subtotal for OMNIA Basic, plus no explanatory TCV note)
+- Semantic state result: PASS on production `main@1a74e785627bfae8f051ffa32093029e978b2b6e`.
+- OMNIA Basic confirmed Bundle children = `Included`; occurrences/TCV = `Until Canceled`; Subtotal/Due at start = `$4,000.00`; no explanatory TCV note; no browser console errors.
+- Visual result: CORRECTION REQUIRED. Review & Finalise Quote renders `Ongoing` and `$160,675` at 32px, the only proposal text above 22.4px, causing overflow/over-emphasis.
+
+## Live Typography Correction — Claude
+User evidence correctly identified made-up sizes instead of tokens. Live CSS and source both show:
+- `.cz-proposal__total-amount { font-size: 1.5rem; }`
+- `.cz-proposal__total-row--primary .cz-proposal__total-amount { font-size: 2rem; }`
+
+Implement the narrowest source correction in `resources/css/modules/cost-builder.css`:
+1. Base total amount: `font-size: var(--cz-font-size-lg)`.
+2. Primary total amount: `font-size: var(--cz-font-size-xl)`.
+3. Preserve weight, color, whitespace, labels, note copy, JSX, all arithmetic, and all semantic value-state behavior.
+4. Rebuild `dist/css/cost-builder.css`.
+5. Add/extend a focused contract rejecting literal `rem`/px sizes for these two rules and asserting the exact tokens.
+6. Validate focused contract, CSS contract, build, and concise full contract sweep. Record changed files, exact commit SHA, and results here; set `AWAITING CHATGPT REVIEW`. Do not push source to `main`.
