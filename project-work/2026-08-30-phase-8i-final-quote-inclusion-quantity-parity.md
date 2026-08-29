@@ -2,10 +2,10 @@
 
 ## Status
 - Phase 8H production baseline: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
-- Phase 8I: `SOURCE PUSH APPROVED`.
-- Source push: approved only for exact reviewed commit `eac4240a76215c701898526e70122041e656a319`.
-- Auditor verdict: `Proceed with safeguards` — source accepted; live screen/PDF validation remains required after deployment.
-- Reviewable candidate: `phase-8i-final-quote-inclusion-quantity-parity@eac4240a`, based on `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
+- Phase 8I: `AWAITING LIVE VALIDATION`.
+- Source push: `PUSHED — exact accepted commit, fast-forward only`.
+- Auditor verdict: `Proceed with safeguards` — source pushed, deployment succeeded; live screen/PDF validation remains required.
+- Production: `main@eac4240a76215c701898526e70122041e656a319`.
 
 ## Live Finding
 Review & Finalise Quote shows Family inclusion labels but omits their resolved quantities. The printable proposal/PDF reuses the same quantity-less Family inclusion presentation, so the omission carries into PDF.
@@ -105,3 +105,19 @@ The focused contract is partly structural, so live screen/PDF remains mandatory,
 3. Push `main` and allow the normal GitHub Actions Hostinger deployment.
 4. Record exact resulting main SHA and workflow run/status here.
 5. Set `AWAITING LIVE VALIDATION` and stop. Do not mutate customer/runtime records.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-30
+- Pre-push check: `origin/main` confirmed exactly `0c586debcccc5ee9eb850b8119200b31fe61b4ed` before push — matched, no divergence. Local `main` checked out fresh from `origin/main` (same SHA), then fast-forward merged to `phase-8i-final-quote-inclusion-quantity-parity@eac4240a...` (confirmed via `git ls-remote origin phase-8i-final-quote-inclusion-quantity-parity` to be the exact accepted SHA before merging) — no amend/rebuild/source changes, pure fast-forward.
+- Push output: `0c586deb..eac4240a  main -> main`
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `eac4240a76215c701898526e70122041e656a319` — equals the accepted SHA exactly.
+- GitHub Actions run: `33259764859` ("Deploy to Hostinger"), triggered by push on 2026-08-30
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33259764859` endpoint, polled until `status: completed` — `conclusion: success`)
+- Job/step-level results, all `success`: Set up job; Checkout repository; Setup Node.js; Install frontend dependencies; Build frontend assets; Deploy source via SSH; Deploy built dist assets via SCP; Post Setup Node.js; Post Checkout repository; Complete job.
+- Deployment result: workflow-reported success for deployed SHA `eac4240a76215c701898526e70122041e656a319`. No customer/runtime mutations performed. Actual on-screen and printable/PDF inclusion-quantity behavior not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath/ChatGPT performs this check per the Final Gate above: collapsed/expanded Review & Finalise Quote inclusion lists, full printable proposal, saved PDF, both a normal inclusion and a Bundle child, and a Family add-on where present)
