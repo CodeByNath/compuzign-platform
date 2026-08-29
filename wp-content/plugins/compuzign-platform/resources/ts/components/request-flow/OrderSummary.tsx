@@ -21,11 +21,24 @@ function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
       <ul class="cz-os__features">
         {item.inclusionItems.flatMap((inclusion, i) => [
           <li key={inclusion.id || i} class={`cz-os__feature${inclusion.bundle_id ? ' cz-os__feature--bundle' : ''}`}>
-            {inclusion.label}
+            {/* Phase 8I: a Bundle parent stays a quantity-less section
+                header (matches PricingTiers.tsx's own bundle_id treatment);
+                an ordinary inclusion shows its snapshot quantity, right-
+                aligned, using nullish semantics (`?? ''`) so a real 0
+                remains visible rather than reading as absent. */}
+            {inclusion.bundle_id ? inclusion.label : (
+              <span class="cz-os__feature-row">
+                <span class="cz-os__feature-label">{inclusion.label}</span>
+                <span class="cz-os__feature-qty">{inclusion.quantity ?? ''}</span>
+              </span>
+            )}
           </li>,
           ...(inclusion.includes ?? []).map((child, ci) => (
             <li key={`${inclusion.id || i}:child:${child.id || ci}`} class="cz-os__feature cz-os__feature--child">
-              {child.label}
+              <span class="cz-os__feature-row">
+                <span class="cz-os__feature-label">{child.label}</span>
+                <span class="cz-os__feature-qty">{child.quantity ?? ''}</span>
+              </span>
             </li>
           )),
         ])}

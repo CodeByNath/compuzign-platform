@@ -2599,6 +2599,23 @@
   padding-left: var(--cz-space-4);
 }
 
+/* Phase 8I: label/quantity split for an ordinary inclusion or Bundle child
+   row — quantity right-aligned in the same row, never concatenated into
+   one ambiguous string. A Bundle parent header has neither span (see
+   FamilyInclusionsList) so this never applies to it. */
+.cz-os__feature-row {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+  gap: var(--cz-space-2);
+  min-width: 0;
+}
+
+.cz-os__feature-qty {
+  flex-shrink: 0;
+  color: var(--cz-color-muted);
+}
+
 .cz-os__service-icon {
   display: flex;
   align-items: center;
@@ -3163,6 +3180,25 @@
 
 .cz-proposal__feature--child {
   padding-left: var(--cz-space-4);
+}
+
+/* Phase 8I: label/quantity split for an ordinary inclusion or Bundle child
+   row — quantity right-aligned in the same row, never concatenated into
+   one ambiguous string. A Bundle parent header has neither span (see
+   FamilyInclusionsList) so this never applies to it. Same shared markup
+   the printable/PDF proposal renders, so this print surface inherits it
+   with no separate print-only data path. */
+.cz-proposal__feature-row {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+  gap: var(--cz-space-2);
+  min-width: 0;
+}
+
+.cz-proposal__feature-qty {
+  flex-shrink: 0;
+  color: #888888;
 }
 
 .cz-proposal__addons {
