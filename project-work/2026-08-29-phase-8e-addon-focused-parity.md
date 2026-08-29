@@ -1,10 +1,11 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `SOURCE PUSH APPROVED`
-- Source push: `APPROVED`
+- Status: `AWAITING CHATGPT REVIEW`
+- Source push: `PUSHED`
 - Base: `main@7b4b78608d4a229209a1e9c89116334a1917f4bf`
 - Implemented locally: 2026-08-29
+- Pushed to main: 2026-08-29
 
 ## Objective
 Give add-on occupants the same full focused-shell experience primaries already get, reusing existing occupant/Edition/Commercial Leg/Plan Details paths. Add-ons remain independent quote items and must never replace/remove the family primary.
@@ -45,7 +46,16 @@ Unquoted add-on opens focus with no mutation; add/remove/switch is independent; 
 - Independent source-diff audit and live validation remain required after the pushed commit is visible. Approval to push is not final acceptance/closure.
 
 ## Production Push Record
-- Status: APPROVED, NOT YET PUSHED
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Full `main` commit SHA: `03b692202d52e4713040a36e7c6686fe3e0e5c28`
+- Complete commit message: "add-on focused occupant parity" (full body: focused-shell parity for add-on Tier occupants, reusing existing occupant/Edition/Commercial Leg/Plan Details/`itemFor()`/`onRemoveAddon()` paths; `FamilyTierAdapter` now receives `selectedAddonItems: FamilyTierQuoteItem[]` instead of bare tierIds so exact-match/selected-state logic works the same way it already does for the primary; Cost Builder's own `PricingTiersProps` contract/callers unchanged)
+- Files included: `wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx`, `.../package-builder/FamilyTierAdapter.tsx`, `.../package-builder/PackageBuilderApp.tsx`, `.../dist/js/cost-builder.js`
+- Push comments: pushed directly to `main` (previous tip `7b4b7860`, now `03b69220`) — fast-forward, no merge. `dist/css/cost-builder.css` was NOT touched this phase (no new CSS, only existing classes reused), matching the reported diff.
+- GitHub Actions run: not independently checked from this environment (no `gh` CLI/browser access here) — Nath/ChatGPT should confirm the workflow result on GitHub.
+- Workflow result: unknown from this environment, pending confirmation.
+- Deployment result: unknown from this environment, pending confirmation.
 
 ## Live Browser Validation
 - Status: NOT STARTED
