@@ -57,7 +57,7 @@ Nath will perform the browser/customer-facing validation. Phase 8H remains open 
 ## Live Browser Validation
 - Semantic state result: PASS on production `main@1a74e785627bfae8f051ffa32093029e978b2b6e`.
 - OMNIA Basic confirmed Bundle children = `Included`; occurrences/TCV = `Until Canceled`; Subtotal/Due at start = `$4,000.00`; no explanatory TCV note; no browser console errors.
-- Visual result: CORRECTION REQUIRED. Review & Finalise Quote renders `Ongoing` and `$160,675` at 32px, the only proposal text above 22.4px, causing overflow/over-emphasis.
+- Visual result: CORRECTION REQUIRED. Review & Finalise Quote renders both `Ongoing` and `$160,675` at 32px, the only proposal text above 22.4px, causing overflow/over-emphasis. The printable/PDF proposal reuses the same markup and its `@media print` block does not override this amount size, so both oversized values carry into the PDF.
 
 ## Live Typography Correction — Claude
 User evidence correctly identified made-up sizes instead of tokens. Live CSS and source both show:
@@ -70,4 +70,5 @@ Implement the narrowest source correction in `resources/css/modules/cost-builder
 3. Preserve weight, color, whitespace, labels, note copy, JSX, all arithmetic, and all semantic value-state behavior.
 4. Rebuild `dist/css/cost-builder.css`.
 5. Add/extend a focused contract rejecting literal `rem`/px sizes for these two rules and asserting the exact tokens.
-6. Validate focused contract, CSS contract, build, and concise full contract sweep. Record changed files, exact commit SHA, and results here; set `AWAITING CHATGPT REVIEW`. Do not push source to `main`.
+6. Validate the exact same token-sized hierarchy for both `Ongoing` and numeric amounts in the on-screen Review & Finalise Quote and the printable/PDF proposal; neither value may retain a literal-size print override.
+7. Validate focused contract, CSS contract, build, and concise full contract sweep. Record changed files, exact commit SHA, and results here; set `AWAITING CHATGPT REVIEW`. Do not push source to `main`.
