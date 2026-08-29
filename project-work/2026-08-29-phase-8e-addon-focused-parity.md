@@ -3,9 +3,10 @@
 ## Status
 - Phase 8E: `CLOSED` — live validation passed.
 - Production: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
-- Phase 8F: `READY FOR CLAUDE`
-- Verdict: `Proceed with safeguards — ONE REMAINING TOTALS CORRECTION`
-- Reviewed branch: `phase-8f-quote-review-pdf-parity@eba47dfd7a12a08a5ea7a9a8ccbf5b92017eb95f`
+- Phase 8F: `AWAITING CHATGPT REVIEW`
+- Verdict: `Proceed with safeguards` — double-count edge case corrected
+- Reviewed branch (superseded): `phase-8f-quote-review-pdf-parity@eba47dfd`
+- Corrected candidate: `phase-8f-quote-review-pdf-parity@5b972870`, still based on `main@b299563d264615d39b40a9a21e56e14edd0e1565`.
 - Source push: `NOT APPROVED`.
 
 ## Accepted So Far
@@ -43,3 +44,23 @@ Use explicit populations rather than stream-count overlap:
 6. Preserve all other accepted behavior and boundaries.
 
 Update this same file with revised SHA/tests, set `AWAITING CHATGPT REVIEW`, and stop before `main` push.
+
+## Claude Correction Report 2 — 2026-08-29 (`5b972870`, not pushed to main)
+
+Same branch `phase-8f-quote-review-pdf-parity`, new commit `5b972870` on top of `eba47dfd`.
+
+**Root cause confirmed:** the combined Family Contract Value block sums every primary Family item regardless of its own stream count (by design — a cart's Family TCV must include a single-stream primary too). Excluding only multi-stream items from general totals therefore still double-counted a single-stream primary once a *different* item triggered `hasMultiStreamItem`.
+
+**Fix applied (both `OrderSummary.tsx` and `QuoteProposalPreview.tsx`):** switched from a stream-count filter to a population split, exactly as requested:
+```
+const itemsForGeneralTotals = hasMultiStreamItem
+  ? items.filter((item) => !isFamilyTierQuoteItem(item))
+  : items;
+```
+Once the Family contract block is active, general/legacy totals cover non-Family items only — every Family item (primary or add-on, any stream count) is already either inside the combined Family sum or shown on its own per-item row, never in both places. With no multi-stream item anywhere, general totals cover every item exactly as before Phase 8F (unchanged simple/old-cart behavior, satisfying point 4). Point 3 (an old Family primary with no `legPaymentSummaries` must not silently count as zero) was already correct in the prior round — `familyPrimaryTotalContractValues` maps missing streams to `null` and `allFamilyPrimariesFinite` requires every value non-null, so one un-costed primary already forces "Contract Value: Ongoing" rather than a fabricated finite figure; confirmed unchanged, no further edit needed there.
+
+**New regression test** in `scripts/request-flow-family-tier-parity-contract.ts`: constructs a cart with one multi-stream Family primary (Upfront 200 + Monthly×12=1200), one single-stream Family primary (Monthly×12=960), and one legacy item ($50/mo). Replicates the exact `hasMultiStreamItem`/`itemsForGeneralTotals` logic (regex-verified to match the real source) against that cart and asserts: general totals population is exactly `[legacyItem]`, the resulting total is exactly `$50` (never `$50 + $80` headline), and the combined Family TCV is exactly `2360` (`200 + 1200 + 960`) — proving the single-stream primary's value is represented exactly once.
+
+**Tests:** `tsc --noEmit` clean, `npm run build` clean. Full contract sweep: only the three confirmed pre-existing failures remain (`admin-station-css`, `package-builder-flow`, `platform-identity-schema`) — no new regressions.
+
+Awaiting review of the actual `5b972870` diff before any `main` push.
