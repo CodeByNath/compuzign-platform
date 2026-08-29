@@ -1,61 +1,56 @@
 # Project Work Agent Rules
 
-This folder is the shared work handoff area for Nath, Claude, and ChatGPT on branch `Project-work-instructions`. It coordinates work only; it does not replace `AGENTS.md`, `docs/ai-index.md`, Code Maps, architecture docs, or authoritative source.
+This folder is the shared coordination/handoff area on branch `Project-work-instructions`. It is deliberately self-contained enough for a fresh AI agent/account to join the work without prior ChatGPT project instructions. It coordinates work only; platform architecture still comes from `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps, authoritative source, and approved work/history documents.
 
-## Entry rule
-Whenever an agent starts a new session, resumes work, begins an audit, or is asked to check project work:
+## Fresh-agent bootstrap
+On every new session/account/tool:
+1. Check `Project-work-instructions` first and sync/read the newest version.
+2. Read this file.
+3. Read the active work file for the relevant area and follow its status literally.
+4. Then read root `AGENTS.md` -> `docs/ai-index.md` -> relevant Code Map only -> authoritative source -> relevant history only if needed.
+5. Never rely on remembered chat state where the coordination branch can answer it.
 
-1. Check whether `Project-work-instructions` has changes not present locally.
-2. If it does, pull/sync it first.
-3. Read this file.
-4. Read the active work file for the relevant area.
-5. Follow that file's current status literally.
-6. Then continue normal repository reading: root instructions -> `docs/ai-index.md` -> relevant Code Map only -> authoritative source -> relevant history only if needed.
+## Role selection
+**Claude / implementation agent**
+- Claude in the local VS Code repository is the sole source-editing/implementation agent for this workflow.
+- Implement only when the active work file says Claude should act.
+- Report changed files, tests/contracts, exact SHAs, unresolved risks, and push/deployment state back into the same work file.
 
-If there is no active/new work instruction, continue normally from the user's chat prompt and standard repository read order.
+**ChatGPT / outside auditor agent**
+- Act as Nath's independent auditor, code reviewer, and devil's advocate.
+- Source repository is strictly read-only: never create/edit/delete/move/format/generate/patch/build/test/migrate/commit/push/deploy source content.
+- Read/search/audit source, Git history, commits, diffs, Actions/deployment evidence, and live customer behavior.
+- If implementation is needed, write the exact next instruction for Claude in the active work file; do not implement it yourself.
+- The only repository writes permitted for the auditor are coordination updates on `Project-work-instructions` inside `project-work/`.
+- Do not modify WordPress/runtime/platform records during live validation unless Nath separately authorizes that exact action.
+- Never assume local, pushed `main`, successful Actions, deployed Hostinger runtime, stored state, and live customer behavior are identical.
+- Give one audit verdict per round: `Proceed`, `Proceed with safeguards`, or `Stop — architectural risk`.
+
+If an outside agent cannot operate under the auditor boundary above, it must stop rather than act as an implementation agent.
 
 ## Work-file rule
-- One area of work stays in one Markdown file until that work is closed.
-- Do not create a new file for every review round, correction, implementation pass, source push, deployment check, or browser audit of the same work.
+- One area of work stays in one Markdown file until closed; corrections/reviews stay in that same file.
 - New unrelated work gets a new file.
-- Keep each work file normally at or below 600 words.
-- Record only decisions, scope, evidence, SHAs, files changed, validation, risks, review findings, approvals, deployment evidence, and closure state. Do not paste long transcripts or full diffs.
+- Keep work files concise, normally <=600 words.
+- Record decisions, scope, evidence, SHAs, files changed, validation, risks, approvals, deployment evidence, and closure state; do not paste long transcripts/full diffs.
 
 ## Status behavior
-- `READY FOR CLAUDE`: Claude proceeds immediately. Do not ask whether to start.
-- `AWAITING CLAUDE RESPONSE`: Claude answers the recorded review items, updates the same file, pushes the coordination update, then follows the resulting status.
-- `SOURCE PUSH NOT APPROVED`: implementation may remain local; do not push source to `main`.
-- `SOURCE PUSH APPROVED`: Claude may push only the approved source work, then records the exact production SHA and deployment evidence in the same work file.
-- `AWAITING CHATGPT REVIEW`: Claude stops source work. ChatGPT audits the report/evidence and records approval, safeguards, questions, or corrections through the coordination workflow.
-- `AWAITING LIVE VALIDATION`: source/deployment has been independently reviewed; ChatGPT performs read-only live validation where relevant.
-- `CLOSED`: work is accepted and immutable. Do not reopen it; later work gets a new file.
+- `READY FOR CLAUDE`: Claude proceeds immediately.
+- `AWAITING CLAUDE RESPONSE`: Claude answers recorded review items in the same work file.
+- `SOURCE PUSH NOT APPROVED`: do not push source to `main`.
+- `SOURCE PUSH APPROVED`: Claude may push only the explicitly approved source work.
+- `AWAITING CHATGPT REVIEW`: source work stops; auditor inspects actual branch/commit/diff and records the verdict/next action.
+- `AWAITING LIVE VALIDATION`: auditor performs read-only live validation when browser access is available.
+- `CLOSED`: accepted and immutable; later work gets a new file.
 
-## Before implementation or audit
-Read the active work file first. Confirm the production/base SHA, scope, hard non-change boundary, relevant Code Map, and authoritative source before judging or changing anything. Never rely on remembered chat state instead of the coordination branch.
+## Review and deployment chain
+Before judging work, confirm the production/base SHA, scope, non-change boundary, relevant architecture/source, and active work status. After Claude implementation, independently inspect the actual pushed review/main commit rather than accepting the report alone.
 
-## After Claude work
-Claude updates the same work file with a concise report: files changed, behavior implemented, identity/persistence/mutation path where relevant, validation performed, unresolved risks/questions, local/source SHA state, and current status. Push the coordination-file update to `Project-work-instructions` so ChatGPT can independently review it.
+After a production push, record exact `main` SHA and GitHub Actions/deployment evidence. When live validation is required, do not mark `CLOSED` until customer behavior matches the accepted architecture/source. A browser/tool outage is infrastructure failure, not product failure; keep live validation pending rather than requesting a source change.
 
-## After ChatGPT audit
-Record one clear result for the current round: `Proceed`, `Proceed with safeguards`, or `Stop — architectural risk`, plus only the evidence/corrections needed for Claude. Keep source push blocked unless explicitly approved by Nath.
-
-## Live browser responsibility
-- Live customer validation is ChatGPT's responsibility whenever the active work reaches `AWAITING LIVE VALIDATION`; do not ask Nath or Claude to perform or relay it.
-- After every live check, ChatGPT updates the same active work file directly with the observed behavior, evidence, verdict, status, and Claude's next action.
-- A failed product check is recorded for Claude as a precise correction; Nath is not used as the messenger.
-- A browser-control or security-policy outage is not a product failure. Use the Browser skill's prescribed recovery path, retry safely, and never bypass browser security controls or substitute an indirect browser surface when the user selected Browser.
-- If the browser remains unavailable after recovery, keep `AWAITING LIVE VALIDATION`, record the infrastructure block, request no source change, and retry on the next work cycle.
-- Never mark work `CLOSED` without an actual successful live check when live validation is required.
-
-## After production push
-Record the exact `main` commit SHA, workflow/deployment evidence, and any divergence discovered between local, GitHub, deployment, stored runtime state, and live customer behavior. These states are never assumed identical.
-
-## Closure
-Close only when required architecture, source, tests/contracts, deployment, stored runtime state, and live behavior agree for the approved scope. Mark `CLOSED` in the same file and leave it as history.
-
-## Required root startup line
-Claude must add one concise line to the first repository-wide Markdown startup instruction read by agents so future sessions check this coordination branch before normal repository reading. Keep it to this meaning only:
+## Required root pointer
+The repository-wide startup file must retain this concise pointer:
 
 > Before normal repository startup, check `Project-work-instructions`; if it has newer changes, sync it and read `project-work/AGENTS.md` plus the active work file first.
 
-Do not duplicate these rules into root instructions; the root file only needs that pointer.
+Do not duplicate these coordination rules into root instructions.
