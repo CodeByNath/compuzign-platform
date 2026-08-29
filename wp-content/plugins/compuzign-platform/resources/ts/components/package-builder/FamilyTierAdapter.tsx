@@ -567,16 +567,41 @@ export function FamilyTierAdapter({
   // uses — no second/parallel focus mechanism. Consumed via
   // onExternalFocusConsumed immediately so this never re-fires on a
   // later, unrelated re-render (e.g. switching Family again).
+  //
+  // ChatGPT Review (fail-closed correction): the exact quoted identity
+  // requirement means a resolution failure must never silently fall back
+  // to Default — that would open the WRONG plan and look like a genuine
+  // match. Every failure path below consumes the request WITHOUT calling
+  // selectVariant at all, so nothing opens rather than something wrong
+  // opening.
   useEffect(() => {
     if (!externalFocusRequest) return;
     const { tierId, tierEditionPlatformId } = externalFocusRequest;
     const tierData = family.pricing.tiers[tierId];
-    const editionId = tierEditionPlatformId
-      ? (tierData?.edition_options ?? []).find(
-          (option) => option.edition_platform_id === tierEditionPlatformId,
-        )?.id ?? null
-      : null;
-    selectVariant(tierId, editionId);
+    if (!tierData) {
+      // This Tier doesn't exist on the (now-active) Family at all — stale
+      // or malformed request. Consume and do nothing, never Default.
+      onExternalFocusConsumed?.();
+      return;
+    }
+    if (tierEditionPlatformId === null) {
+      // Default is the genuinely quoted identity here — a real match, not
+      // a fallback.
+      selectVariant(tierId, null);
+      onExternalFocusConsumed?.();
+      return;
+    }
+    const edition = (tierData.edition_options ?? []).find(
+      (option) => option.edition_platform_id === tierEditionPlatformId,
+    );
+    if (!edition) {
+      // The quoted Edition Platform ID no longer resolves (stale/removed/
+      // mismatched) — consume and do nothing rather than silently opening
+      // Default, which would misrepresent which plan is being viewed.
+      onExternalFocusConsumed?.();
+      return;
+    }
+    selectVariant(tierId, edition.id);
     onExternalFocusConsumed?.();
   }, [externalFocusRequest]);
 

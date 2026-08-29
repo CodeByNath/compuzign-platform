@@ -60,9 +60,41 @@ check(
   /externalFocusRequest\?:\s*\{\s*tierId:\s*TierId;\s*tierEditionPlatformId:\s*string \| null\s*\}\s*\|\s*null/.test(familyTierAdapterSource),
   'FamilyTierAdapter accepts an external focus request carrying exact Tier + Edition Platform ID identity',
 );
+
+// ── Fail-closed exact identity (ChatGPT correction): a resolution failure
+//    must never fall back to Default — it must consume the request and
+//    open nothing. Isolate the effect body itself so these checks can't
+//    accidentally match an unrelated part of the file. ──────────────────
+
+const focusEffectMatch = familyTierAdapterSource.match(
+  /useEffect\(\(\) => \{\s*\n\s*if \(!externalFocusRequest\) return;[\s\S]*?\}, \[externalFocusRequest\]\);/,
+);
+check(focusEffectMatch !== null, 'the external focus request effect exists');
+const focusEffectBody = focusEffectMatch![0];
+
 check(
-  /selectVariant\(tierId, editionId\);\s*\n\s*onExternalFocusConsumed\?\.\(\);/.test(familyTierAdapterSource),
-  'an external focus request opens the SAME selectVariant() focused shell every other entry point uses, then is consumed (one-shot, never re-fires)',
+  /if \(!tierData\) \{\s*\n[\s\S]*?onExternalFocusConsumed\?\.\(\);\s*\n\s*return;\s*\n\s*\}/.test(focusEffectBody),
+  'a requested tierId that does not exist on the active Family consumes the request and returns WITHOUT calling selectVariant (never Default)',
+);
+check(
+  /if \(tierEditionPlatformId === null\) \{\s*\n[\s\S]*?selectVariant\(tierId, null\);/.test(focusEffectBody),
+  'tierEditionPlatformId === null is treated as a genuine Default match, not a fallback',
+);
+check(
+  /if \(!edition\) \{\s*\n[\s\S]*?onExternalFocusConsumed\?\.\(\);\s*\n\s*return;\s*\n\s*\}/.test(focusEffectBody),
+  'a non-null tierEditionPlatformId that matches no real Edition consumes the request and returns WITHOUT calling selectVariant (never Default)',
+);
+check(
+  /selectVariant\(tierId, edition\.id\);/.test(focusEffectBody),
+  'a matched Edition opens exactly that Edition, never a re-derived or fallback identity',
+);
+check(
+  !/\?\.id \?\? null/.test(focusEffectBody),
+  'the old fail-open pattern (a missing Edition match silently resolving to Default via ?? null) is gone',
+);
+check(
+  (focusEffectBody.match(/selectVariant\(/g) ?? []).length === 2,
+  'selectVariant is called from exactly the two genuine-match branches (Default-is-quoted, Edition-matched) and nowhere else in this effect',
 );
 
 check(
