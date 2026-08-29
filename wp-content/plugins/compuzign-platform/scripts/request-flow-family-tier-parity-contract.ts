@@ -40,11 +40,30 @@ for (const file of [order, proposal]) {
   check(streamOccurrences === 2, 'renders per-item finite Total for both familyMainItems and familyAddonItems rows');
 }
 
-// Legacy/simple QuoteItem, bundle, promotion path stays on calcQuoteTotals()
-// and its own rendering — untouched by the Family-specific branch.
+// Legacy/simple QuoteItem, bundle, promotion path stays represented and its
+// own rendering is untouched by the Family-specific branch.
 for (const file of [order, proposal]) {
-  check(file.includes('calcQuoteTotals(items)'), 'legacy calcQuoteTotals() call retained for non-family cycle totals');
+  check(file.includes('calcQuoteTotals(itemsForGeneralTotals)'), 'general totals are derived from itemsForGeneralTotals, not calcQuoteTotals(items) unconditionally');
   check(file.includes('mainItems.map') && file.includes('bundleItems.map') && file.includes('tierAddonItems.map'), 'legacy Service/bundle/tier-addon rendering paths retained');
+}
+
+// Mixed-cart regression guard: the general totals block (legacy items) must
+// never be nested inside — or otherwise made conditional on — the
+// hasMultiStreamItem branch. A prior draft branched the ENTIRE Totals
+// section on hasMultiStreamItem, which silently dropped legacy Service/
+// bundle/tier-addon totals from view whenever any Family item had 2+
+// payment streams. The fix: itemsForGeneralTotals excludes ONLY a
+// multi-stream Family item (never all Family items, never conditioned on
+// hasMultiStreamItem itself), and its own render gate is
+// itemsForGeneralTotals.length > 0 — independent of, and rendered
+// alongside, the Family Contract Value block.
+for (const file of [order, proposal]) {
+  check(
+    /itemsForGeneralTotals = items\.filter\(\(item\) => !isFamilyTierQuoteItem\(item\)\s*\n\s*\|\| \(item\.legPaymentSummaries\?\.length \?\? 0\) <= 1\)/.test(file),
+    'itemsForGeneralTotals excludes only a multi-stream (>1 stream) Family item, keeping legacy items and single/no-stream Family items in the general totals',
+  );
+  check(file.includes('itemsForGeneralTotals.length > 0'), 'general totals block renders whenever there is a non-multi-stream item to represent, independent of hasMultiStreamItem');
+  check(!/hasMultiStreamItem \? \(/.test(file), 'the Totals section must not branch as a single hasMultiStreamItem ternary — the Family block and general block render as independent siblings');
 }
 
 // Print/PDF clone target must survive untouched.

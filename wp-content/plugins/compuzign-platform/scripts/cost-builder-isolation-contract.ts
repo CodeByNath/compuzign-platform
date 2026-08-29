@@ -75,7 +75,11 @@ const quoteFlowSource = readFileSync(
   resolve(root, 'resources/ts/components/request-flow/QuoteCartFlow.tsx'),
   'utf8',
 );
-check(proposalSource.includes('calcQuoteTotals(items)'), 'print/PDF proposal keeps the shared quote calculation');
+// Phase 8F: the proposal now scopes this call to itemsForGeneralTotals (a
+// filtered subset of items — see request-flow-family-tier-parity-contract.ts
+// for the exact exclusion rule) rather than passing items directly, so this
+// checks for the shared helper call itself, not one specific argument name.
+check(proposalSource.includes('calcQuoteTotals('), 'print/PDF proposal keeps the shared quote calculation');
 check(modalSource.includes("querySelector<HTMLElement>('.cz-proposal')"), 'print/PDF flow keeps cloning the proposal');
 check(quoteFlowSource.includes('window.print()'), 'print/PDF flow remains connected to browser print');
 

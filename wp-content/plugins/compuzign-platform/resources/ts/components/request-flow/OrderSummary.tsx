@@ -50,17 +50,28 @@ export function OrderSummary({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
-  const totals = calcQuoteTotals(items);
+
+  // Phase 8F (corrected): a Family item's flat price/billingCycle is only
+  // trustworthy when it has at most one real payment stream — with 2+
+  // streams (Upfront + recurring, etc.) that single headline figure
+  // misrepresents the plan and is instead represented by the dedicated
+  // Contract Value/Initial Payment block below. So the general/legacy
+  // totals block below is derived from every item EXCEPT a multi-stream
+  // Family one (never all items unconditionally, and never Family items
+  // wholesale) — this is what keeps legacy Service/bundle/tier-addon totals
+  // visible in a mixed cart instead of the whole totals section flipping to
+  // Family-only, and keeps a multi-stream Family plan's headline price from
+  // being double-counted alongside its own Contract Value figure.
+  const hasMultiStreamItem = items.filter(isFamilyTierQuoteItem)
+    .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
+  const itemsForGeneralTotals = items.filter((item) => !isFamilyTierQuoteItem(item)
+    || (item.legPaymentSummaries?.length ?? 0) <= 1);
+  const totals = calcQuoteTotals(itemsForGeneralTotals);
 
   // Phase 8F: same primary-only Total Contract Value / Initial Payment
   // semantics as QuoteSummary.tsx's footer — reusing the exact same
-  // primitives, never a second re-derivation. calcQuoteTotals()'s own
-  // cycle-bucket math (totals above) stays untouched for legacy items, but
-  // is untrustworthy for a multi-stream Family plan (see hasMultiStreamItem
-  // below), so this branches the Totals section instead of feeding
-  // legPaymentSummaries into calcQuoteTotals.
-  const hasMultiStreamItem = items.filter(isFamilyTierQuoteItem)
-    .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
+  // primitives, never a second re-derivation. Family add-ons never enter
+  // this combined sum (see familyMainItems below, primary-only).
   const familyPrimaryTotalContractValues = familyMainItems.map((item) =>
     item.legPaymentSummaries && item.legPaymentSummaries.length > 0
       ? computeTotalContractValue(item.legPaymentSummaries)
@@ -300,7 +311,10 @@ export function OrderSummary({
 
       {/* ── Totals ── */}
       <div class="cz-os__total">
-        {hasMultiStreamItem ? (
+        {/* Multi-stream Family Contract Value/Initial Payment — sits ALONGSIDE
+            the general totals block below, never replacing it, so a mixed
+            cart's legacy Service/bundle/tier-addon totals stay visible. */}
+        {hasMultiStreamItem && (
           combinedFamilyTotalContractValue !== null ? (
             <div class="cz-os__total-row">
               <p class="cz-os__total-label">Total Contract Value</p>
@@ -315,39 +329,46 @@ export function OrderSummary({
               <p class="cz-os__contract-note">Includes charges without a fixed end date.</p>
             </>
           )
-        ) : totals.cycleEntries.length === 0 ? (
-          <div class="cz-os__total-row">
-            <p class="cz-os__total-label">Total</p>
-            <span class="cz-os__total-amount">On request</span>
-          </div>
-        ) : totals.hasMixedCycles ? (
-          totals.cycleEntries.map(([cycle, amount]) => {
-            const suffix = formatCycleLabel(cycle);
-            return (
-              <div key={cycle} class="cz-os__total-row">
-                <p class="cz-os__total-label">Estimated {cycle} total</p>
-                <span class="cz-os__total-amount">
-                  {formatPrice(amount)}
-                  {suffix && <span class="cz-os__total-cycle">{' '}{suffix}</span>}
-                </span>
-              </div>
-            );
-          })
-        ) : (
-          <div class="cz-os__total-row">
-            <p class="cz-os__total-label">
-              Estimated {totals.singleCycle![0]} total
-              {totals.unpricedItems.length > 0 ? ' (some items on request)' : ''}
-            </p>
-            <span class="cz-os__total-amount">
-              {formatPrice(totals.singleCycle![1])}
-              {formatCycleLabel(totals.singleCycle![0]) && (
-                <span class="cz-os__total-cycle">
-                  {' '}{formatCycleLabel(totals.singleCycle![0])}
-                </span>
-              )}
-            </span>
-          </div>
+        )}
+        {/* General totals — every item except a multi-stream Family one (see
+            itemsForGeneralTotals above); hidden only when nothing is left to
+            represent here (a cart made entirely of multi-stream Family
+            items, already fully covered by the block above). */}
+        {itemsForGeneralTotals.length > 0 && (
+          totals.cycleEntries.length === 0 ? (
+            <div class="cz-os__total-row">
+              <p class="cz-os__total-label">Total</p>
+              <span class="cz-os__total-amount">On request</span>
+            </div>
+          ) : totals.hasMixedCycles ? (
+            totals.cycleEntries.map(([cycle, amount]) => {
+              const suffix = formatCycleLabel(cycle);
+              return (
+                <div key={cycle} class="cz-os__total-row">
+                  <p class="cz-os__total-label">Estimated {cycle} total</p>
+                  <span class="cz-os__total-amount">
+                    {formatPrice(amount)}
+                    {suffix && <span class="cz-os__total-cycle">{' '}{suffix}</span>}
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div class="cz-os__total-row">
+              <p class="cz-os__total-label">
+                Estimated {totals.singleCycle![0]} total
+                {totals.unpricedItems.length > 0 ? ' (some items on request)' : ''}
+              </p>
+              <span class="cz-os__total-amount">
+                {formatPrice(totals.singleCycle![1])}
+                {formatCycleLabel(totals.singleCycle![0]) && (
+                  <span class="cz-os__total-cycle">
+                    {' '}{formatCycleLabel(totals.singleCycle![0])}
+                  </span>
+                )}
+              </span>
+            </div>
+          )
         )}
         {hasMultiStreamItem && familyStartingPayments.length > 0 && (
           <div class="cz-os__total-row">

@@ -21,13 +21,28 @@ export function QuoteProposalPreview({
   quoteRef,
 }: QuoteProposalPreviewProps) {
   const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
-  const totals = calcQuoteTotals(items);
+
+  // Phase 8F (corrected): a Family item's flat price/billingCycle is only
+  // trustworthy when it has at most one real payment stream — with 2+
+  // streams that single headline figure misrepresents the plan and is
+  // instead represented by the dedicated Contract Value/Initial Payment
+  // block below. So the general/legacy totals block is derived from every
+  // item EXCEPT a multi-stream Family one (never all items unconditionally,
+  // and never Family items wholesale) — this keeps legacy Service/bundle/
+  // tier-addon totals visible in a mixed cart instead of the whole totals
+  // section flipping to Family-only, and avoids double-counting a
+  // multi-stream Family plan's headline price alongside its own Contract
+  // Value figure.
+  const hasMultiStreamItem = items.filter(isFamilyTierQuoteItem)
+    .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
+  const itemsForGeneralTotals = items.filter((item) => !isFamilyTierQuoteItem(item)
+    || (item.legPaymentSummaries?.length ?? 0) <= 1);
+  const totals = calcQuoteTotals(itemsForGeneralTotals);
 
   // Phase 8F: same primary-only Total Contract Value / Initial Payment
   // semantics as QuoteSummary.tsx/OrderSummary.tsx — reusing the exact same
-  // primitives, never a second re-derivation.
-  const hasMultiStreamItem = items.filter(isFamilyTierQuoteItem)
-    .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
+  // primitives, never a second re-derivation. Family add-ons never enter
+  // this combined sum (see familyMainItems below, primary-only).
   const familyPrimaryTotalContractValues = familyMainItems.map((item) =>
     item.legPaymentSummaries && item.legPaymentSummaries.length > 0
       ? computeTotalContractValue(item.legPaymentSummaries)
@@ -280,7 +295,11 @@ export function QuoteProposalPreview({
 
       {/* ── Totals ── */}
       <div class="cz-proposal__totals">
-        {hasMultiStreamItem ? (
+        {/* Multi-stream Family Contract Value/Initial Payment — sits
+            ALONGSIDE the general totals block below, never replacing it, so
+            a mixed cart's legacy Service/bundle/tier-addon totals stay
+            visible in the printed proposal. */}
+        {hasMultiStreamItem && (
           combinedFamilyTotalContractValue !== null ? (
             <div class="cz-proposal__total-row cz-proposal__total-row--primary">
               <span class="cz-proposal__total-label">Total Contract Value</span>
@@ -295,44 +314,54 @@ export function QuoteProposalPreview({
               <p class="cz-proposal__contract-note">Includes charges without a fixed end date.</p>
             </>
           )
-        ) : totals.cycleEntries.length === 0 ? (
-          <div class="cz-proposal__total-row">
-            <span class="cz-proposal__total-label">Pricing on request</span>
-            <span class="cz-proposal__total-amount">Contact Us</span>
-          </div>
-        ) : totals.hasMixedCycles ? (
-          <>
-            <p class="cz-proposal__total-note-top">
-              Estimated totals
-              {totals.unpricedItems.length > 0 ? ' — custom pricing applies to some items' : ''}
-            </p>
-            {totals.cycleEntries.map(([cycle, amount]) => {
-              const suffix = formatCycleLabel(cycle);
-              return (
-                <div key={cycle} class="cz-proposal__total-row">
-                  <span class="cz-proposal__total-cycle-name">{cycle}</span>
-                  <span class="cz-proposal__total-amount">
-                    {formatPrice(amount)}{suffix ? ` ${suffix}` : ''}
+        )}
+        {/* General totals — every item except a multi-stream Family one (see
+            itemsForGeneralTotals above); hidden only when nothing is left to
+            represent here (a cart made entirely of multi-stream Family
+            items, already fully covered by the block above). Drops its own
+            --primary (largest) sizing once the Family block above is also
+            showing, so the document has one clear headline figure rather
+            than two competing ones. */}
+        {itemsForGeneralTotals.length > 0 && (
+          totals.cycleEntries.length === 0 ? (
+            <div class="cz-proposal__total-row">
+              <span class="cz-proposal__total-label">Pricing on request</span>
+              <span class="cz-proposal__total-amount">Contact Us</span>
+            </div>
+          ) : totals.hasMixedCycles ? (
+            <>
+              <p class="cz-proposal__total-note-top">
+                Estimated totals
+                {totals.unpricedItems.length > 0 ? ' — custom pricing applies to some items' : ''}
+              </p>
+              {totals.cycleEntries.map(([cycle, amount]) => {
+                const suffix = formatCycleLabel(cycle);
+                return (
+                  <div key={cycle} class="cz-proposal__total-row">
+                    <span class="cz-proposal__total-cycle-name">{cycle}</span>
+                    <span class="cz-proposal__total-amount">
+                      {formatPrice(amount)}{suffix ? ` ${suffix}` : ''}
+                    </span>
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <div class={`cz-proposal__total-row${hasMultiStreamItem ? '' : ' cz-proposal__total-row--primary'}`}>
+              <span class="cz-proposal__total-label">
+                Estimated {totals.singleCycle![0]} total
+                {totals.unpricedItems.length > 0 ? ' (custom pricing applies)' : ''}
+              </span>
+              <span class="cz-proposal__total-amount">
+                {formatPrice(totals.singleCycle![1])}
+                {formatCycleLabel(totals.singleCycle![0]) && (
+                  <span class="cz-proposal__total-cycle">
+                    {' '}{formatCycleLabel(totals.singleCycle![0])}
                   </span>
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          <div class="cz-proposal__total-row cz-proposal__total-row--primary">
-            <span class="cz-proposal__total-label">
-              Estimated {totals.singleCycle![0]} total
-              {totals.unpricedItems.length > 0 ? ' (custom pricing applies)' : ''}
-            </span>
-            <span class="cz-proposal__total-amount">
-              {formatPrice(totals.singleCycle![1])}
-              {formatCycleLabel(totals.singleCycle![0]) && (
-                <span class="cz-proposal__total-cycle">
-                  {' '}{formatCycleLabel(totals.singleCycle![0])}
-                </span>
-              )}
-            </span>
-          </div>
+                )}
+              </span>
+            </div>
+          )
         )}
 
         {hasMultiStreamItem && familyStartingPayments.length > 0 && (
@@ -342,7 +371,7 @@ export function QuoteProposalPreview({
           </div>
         )}
 
-        {!hasMultiStreamItem && totals.unpricedItems.length > 0 && (
+        {totals.unpricedItems.length > 0 && (
           <p class="cz-proposal__total-custom-note">
             + {totals.unpricedItems.length} item{totals.unpricedItems.length === 1 ? '' : 's'} priced on request — we'll include a full breakdown in our response.
           </p>
