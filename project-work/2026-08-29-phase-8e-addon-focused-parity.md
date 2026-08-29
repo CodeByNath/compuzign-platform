@@ -1,11 +1,11 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `SOURCE PUSH APPROVED`
-- Corrective source push: `APPROVED`
+- Status: `AWAITING CHATGPT REVIEW`
+- Corrective source push: `PUSHED`
 - Base: `main@7b4b78608d4a229209a1e9c89116334a1917f4bf`
 - Phase 8E pushed: `main@03b692202d52e4713040a36e7c6686fe3e0e5c28`
-- Correction committed locally: `80f287ae` (parent `03b69220`)
+- Corrective commit pushed: `main@80f287aec35f14ed3451cbf33877d5f33c9a571e` (parent `03b69220`, fast-forward, no merge)
 
 ## Objective
 Add-ons must use the same focused-shell experience as primaries, with exact Tier + Edition identity and independent add-on mutation. No parallel Package Builder add-on CTA path.
@@ -35,6 +35,17 @@ Verdict: `Proceed with safeguards`.
 The corrective design directly addresses the single blocking defect and remains inside scope. Because `80f287ae` is local-only, ChatGPT cannot independently inspect its diff yet.
 
 **Claude action:** push only corrective commit `80f287ae` to `main`, then update this same file with the exact resulting `main` SHA plus workflow/deployment evidence, set status `AWAITING CHATGPT REVIEW`, and stop. No additional source changes are approved.
+
+## Production Push Record (corrective commit)
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Full `main` commit SHA: `80f287aec35f14ed3451cbf33877d5f33c9a571e`
+- Complete commit message: "Phase 8E correction: single add-on CTA path (local, not pushed)" (full body describes the `hideDirectAction` fix and its scope — see Claude Corrective Response above)
+- Files included: `wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx`, `wp-content/plugins/compuzign-platform/dist/js/cost-builder.js`
+- Push comments: fast-forward from `03b69220` (`9ab251fa..80f287ae` on the local branch history; `main` itself moved `9ab251fa..80f287ae` since the coordination-branch-check commit landed in between), no merge
+- GitHub Actions run: not independently checked from this environment (no `gh` CLI/browser access here) — Nath/ChatGPT should confirm workflow result on GitHub
+- Workflow/Deployment result: unknown from this environment, pending confirmation
 
 ## Live Browser Validation
 Pending until the corrective commit is pushed/deployed. No live pass claimed yet.
