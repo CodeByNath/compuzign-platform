@@ -3,11 +3,44 @@ import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/components/cost-builder/PricingTiers';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
-import type { CartItem } from '@/components/cost-builder/types';
+import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
 
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
+
+// Phase 8G: renders the Family item's exact selection-time
+// effective.inclusionItems snapshot (Bundle parents with their `includes`
+// children nested beneath, matching the focused card's own
+// inclusionItems.flatMap treatment in PricingTiers.tsx) when present, or
+// the flat features[] list for an old cart entry that predates this field.
+// Never re-resolved from live Family/Tier catalog data — snapshot only.
+function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
+  if (item.inclusionItems && item.inclusionItems.length > 0) {
+    return (
+      <ul class="cz-os__features">
+        {item.inclusionItems.flatMap((inclusion, i) => [
+          <li key={inclusion.id || i} class={`cz-os__feature${inclusion.bundle_id ? ' cz-os__feature--bundle' : ''}`}>
+            {inclusion.label}
+          </li>,
+          ...(inclusion.includes ?? []).map((child, ci) => (
+            <li key={child.id || `${inclusion.id}-${ci}`} class="cz-os__feature cz-os__feature--child">
+              {child.label}
+            </li>
+          )),
+        ])}
+      </ul>
+    );
+  }
+  if (item.features.length > 0) {
+    return (
+      <ul class="cz-os__features">
+        {item.features.map((feature, index) => <li key={index} class="cz-os__feature">{feature}</li>)}
+      </ul>
+    );
+  }
+  return null;
+}
 
 interface OrderSummaryProps {
   items: CartItem[];
@@ -223,6 +256,7 @@ export function OrderSummary({
                     {item.price !== null && cycleSuffix && <span class="cz-os__service-price-cycle"> {cycleSuffix}</span>}
                   </div>
                 )}
+                <FamilyInclusionsList item={item} />
               </div>
             );
           })}
@@ -293,6 +327,7 @@ export function OrderSummary({
                 ) : (
                   <span class="cz-os__addon-price">{item.price !== null ? `${formatPrice(item.price)}${cycleSuffix ? ` ${cycleSuffix}` : ''}` : 'TBC'}</span>
                 )}
+                <FamilyInclusionsList item={item} />
               </div>
             );
           })}

@@ -622,6 +622,7 @@ export function FamilyTierAdapter({
       price: effective.price,
       billingCycle: effective.billingCycle,
       features: effective.inclusionLabels,
+      inclusionItems: effective.inclusionItems,
       isAddon,
       minimumTermValue: effective.minimumTermValue,
       minimumTermUnit: effective.minimumTermUnit,

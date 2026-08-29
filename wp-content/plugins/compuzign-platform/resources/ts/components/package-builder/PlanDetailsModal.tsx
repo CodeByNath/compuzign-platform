@@ -218,14 +218,29 @@ function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]
             </tr>
           </thead>
           <tbody>
-            {items.map((item, i) => (
+            {items.flatMap((item, i) => [
               <tr key={`${item.item_id}-${i}`}>
                 <td>{item.label}</td>
                 <td>{item.quantity}</td>
                 <td>{formatMoney(item.unit_price)}</td>
                 <td>{formatMoney(item.line_total)}</td>
-              </tr>
-            ))}
+              </tr>,
+              /* Bundle supplied content (Phase 8G): display-only rows
+                 immediately below their priced parent — mirrors the focused
+                 card's own inclusionItems.flatMap treatment of `includes`
+                 (PricingTiers.tsx) exactly, just in this table's own priced
+                 column shape. Never separately priced/selectable, never
+                 folded into `total` above (still summed from `items` only,
+                 never these). */
+              ...(item.includes ?? []).map((child, ci) => (
+                <tr key={`${item.item_id}-child-${child.item_id}-${ci}`} class="cz-package-builder__details-table-row--child">
+                  <td class="cz-package-builder__details-table-child-label">{child.label}</td>
+                  <td>{child.quantity}</td>
+                  <td>—</td>
+                  <td>—</td>
+                </tr>
+              )),
+            ])}
           </tbody>
         </table>
       </div>

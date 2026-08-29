@@ -1,7 +1,7 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/components/cost-builder/PricingTiers';
-import type { CartItem } from '@/components/cost-builder/types';
+import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
 
@@ -11,6 +11,39 @@ interface QuoteProposalPreviewProps {
   contact: ContactFormValues;
   quoteDate: string;
   quoteRef: string;
+}
+
+// Phase 8G: renders the Family item's exact selection-time
+// effective.inclusionItems snapshot (Bundle parents with their `includes`
+// children nested beneath, matching the focused card's own
+// inclusionItems.flatMap treatment in PricingTiers.tsx) when present, or
+// the flat features[] list for an old cart entry that predates this field.
+// Never re-resolved from live Family/Tier catalog data — snapshot only.
+function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
+  if (item.inclusionItems && item.inclusionItems.length > 0) {
+    return (
+      <ul class="cz-proposal__features">
+        {item.inclusionItems.flatMap((inclusion, i) => [
+          <li key={inclusion.id || i} class={`cz-proposal__feature${inclusion.bundle_id ? ' cz-proposal__feature--bundle' : ''}`}>
+            {inclusion.label}
+          </li>,
+          ...(inclusion.includes ?? []).map((child, ci) => (
+            <li key={child.id || `${inclusion.id}-${ci}`} class="cz-proposal__feature cz-proposal__feature--child">
+              {child.label}
+            </li>
+          )),
+        ])}
+      </ul>
+    );
+  }
+  if (item.features.length > 0) {
+    return (
+      <ul class="cz-proposal__features">
+        {item.features.map((feature, index) => <li key={index} class="cz-proposal__feature">{feature}</li>)}
+      </ul>
+    );
+  }
+  return null;
 }
 
 export function QuoteProposalPreview({
@@ -179,7 +212,7 @@ export function QuoteProposalPreview({
                   )}
                 </div>
               </div>
-              {item.features.length > 0 && <ul class="cz-proposal__features">{item.features.map((feature, index) => <li key={index} class="cz-proposal__feature">{feature}</li>)}</ul>}
+              <FamilyInclusionsList item={item} />
             </div>
           );
         })}
@@ -291,6 +324,7 @@ export function QuoteProposalPreview({
                 ) : (
                   <span class="cz-proposal__addon-price">{item.price !== null ? formatPrice(item.price) : 'Contact for pricing'}</span>
                 )}
+                <FamilyInclusionsList item={item} />
               </div>
             );
           })}

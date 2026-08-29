@@ -1,4 +1,4 @@
-import type { TierId } from '@/api/types/cost-builder';
+import type { ServiceInclusion, TierId } from '@/api/types/cost-builder';
 import type { LegPaymentSummary } from './PricingTiers';
 
 // 'bundle' = recommended bundle; 'promotion' = active promotion tier offer
@@ -63,6 +63,15 @@ export interface FamilyTierQuoteItem {
   price: number | null;
   billingCycle: string;
   features: string[];
+  // Phase 8G: the exact resolved effective.inclusionItems structure at
+  // Add-to-Quote time (see FamilyTierAdapter.tsx's itemFor()) — a Bundle
+  // parent's own `includes` children travel with it here, which the flat
+  // `features: string[]` labels above cannot carry. Additive alongside
+  // features (never replacing it — old carts and any caller still reading
+  // features keep working unchanged); customer-facing surfaces render this
+  // when present and fall back to `features` when it is absent (a
+  // pre-Phase-8G cart entry). Never re-resolved from live catalog data.
+  inclusionItems?: ServiceInclusion[];
   isAddon: boolean;
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
