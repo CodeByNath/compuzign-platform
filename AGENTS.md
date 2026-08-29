@@ -12,6 +12,10 @@ This file is the single source of truth for repository-wide guidance for human c
 - Directory-local `CLAUDE.md` files contain only local ownership, entry points, boundaries, links, and validation.
 - [`docs/project-history/`](docs/project-history/000-README.md) contains immutable architectural and milestone history.
 
+## Coordination branch check
+
+Before normal repository startup, check `Project-work-instructions`; if it has newer changes, sync it and read `project-work/AGENTS.md` plus the active work file first.
+
 ## Repository workflow
 
 Follow this path, omitting the Claude-specific startup step in tools that do not support it:
