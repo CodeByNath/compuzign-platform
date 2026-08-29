@@ -2,9 +2,10 @@
 
 ## Status
 - Phase 8H production baseline: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
-- Phase 8I: `READY FOR CLAUDE`.
+- Phase 8I: `AWAITING CHATGPT REVIEW`.
 - Source push: `SOURCE PUSH NOT APPROVED`.
-- Auditor verdict: `Proceed with safeguards`.
+- Auditor verdict: `Proceed with safeguards` — implemented and pushed to review branch, not main.
+- Reviewable candidate: `phase-8i-final-quote-inclusion-quantity-parity@eac4240a`, based on `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
 
 ## Live Finding
 Review & Finalise Quote shows Family inclusion labels but omits their resolved quantities. The printable proposal/PDF reuses the same quantity-less Family inclusion presentation, so the omission carries into PDF.
@@ -52,3 +53,32 @@ After independent source review and approved deployment, live validation must co
 - a Family add-on where present.
 
 Phase 8I remains open until screen and PDF agree with the snapshot.
+
+## Claude Report — 2026-08-30 (pushed to review branch, not to main)
+
+Branch `phase-8i-final-quote-inclusion-quantity-parity` @ `eac4240a`, based on `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`. Pushed directly to that non-production branch — `main` untouched — per the lesson from the last two phases (a local-only commit blocks review).
+
+**Files changed:**
+- `request-flow/OrderSummary.tsx` + `request-flow/QuoteProposalPreview.tsx`: `FamilyInclusionsList` now branches on `inclusion.bundle_id` — the Bundle-parent branch renders only `inclusion.label` (still a quantity-less section header, matching `PricingTiers.tsx`), the ordinary-inclusion branch renders a `cz-os__feature-row`/`cz-proposal__feature-row` span pair (`-label` + `-qty`, `quantity ?? ''`). Every Bundle child row gets the identical label/qty span pair. The `features[]` fallback for a pre-Phase-8G cart entry is untouched (label-only, no quantity field exists to invent). Applied to both `familyMainItems` and `familyAddonItems` rows in both files (same `<FamilyInclusionsList item={item} />` call sites, unchanged count of 2 per file). `QuoteProposalPreview.tsx` is the exact markup `RequestFlowModal.tsx` clones for print, so no separate print-only path was added or needed.
+- `resources/css/modules/cost-builder.css`: new `.cz-os__feature-row`/`.cz-os__feature-qty` and `.cz-proposal__feature-row`/`.cz-proposal__feature-qty` rules (flex row, `justify-content: space-between`, quantity muted/right-aligned/`flex-shrink: 0`). No existing rule's declarations changed.
+- `scripts/quote-inclusion-quantity-parity-contract.ts` (new, `contract:quote-inclusion-quantity-parity`): for both files — ordinary inclusion shows `quantity ?? ''`; Bundle-parent branch never references `quantity`; Bundle child shows `quantity ?? ''`; dedicated label/qty spans used; `features[]` fallback never references `quantity`; `FamilyInclusionsList` usage count is 2 (primary + add-on parity). Plus a runtime proof that `quantity ?? ''` renders a real `0` as `0` (not blank) — the nullish-vs-truthy distinction the display rules require.
+- `dist/css/cost-builder.css`, `dist/js/cost-builder.js`, `package.json`: rebuilt/updated to match.
+
+No changes to `FamilyTierAdapter.itemFor()`, `cost-builder/types.ts`, arithmetic, Bundle composition, identity, persistence, routing, or resolver code — the audit's own conclusion (this is display loss, not missing data) held, so the existing `inclusionItems` snapshot was reused exactly as instructed.
+
+**Tests:** `tsc --noEmit` clean. `npm run build` clean. Full contract sweep (every registered `contract:*`): only `admin-station-css`, `package-builder-flow`, `platform-identity-schema` fail — the same three confirmed pre-existing/unrelated failures from every prior round. `contract:quote-inclusion-quantity-parity`, `contract:package-builder-bundle-inclusion-parity`, `contract:request-flow-family-tier-parity`, `contract:package-family-request-flow`, `contract:package-builder-regression-lock`, `contract:cost-builder-isolation`, `contract:quote-proposal-total-typography`, `contract:plan-details-value-states` all pass.
+
+**Diff:**
+```
+ dist/css/cost-builder.css                                    |  2 +-
+ dist/js/cost-builder.js                                      |  2 +-
+ package.json                                                 |  1 +
+ resources/css/modules/cost-builder.css                       | 36 +++++++++++
+ resources/ts/components/request-flow/OrderSummary.tsx        | 17 +++++-
+ resources/ts/components/request-flow/QuoteProposalPreview.tsx| 17 +++++-
+ scripts/quote-inclusion-quantity-parity-contract.ts          | 71 ++++++++++++++++++++++
+ 7 files changed, 140 insertions(+), 6 deletions(-)
+```
+(paths relative to `wp-content/plugins/compuzign-platform/`)
+
+Awaiting review of the actual `eac4240a` diff before any push to `main`.
