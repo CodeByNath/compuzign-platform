@@ -1,40 +1,41 @@
-# Phase 8E / 8F — Add-on Parity → Quote Review/PDF Parity
+# Phase 8E / 8F / 8G — Quote Presentation Parity
 
 ## Status
-- Phase 8E: `CLOSED` — live validation passed.
-- Phase 8F: `CLOSED` — source, deployment, and live validation accepted.
-- Verdict: `Proceed`
-- Production: `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`
-- Source push: `PUSHED — exact accepted commit, fast-forward only`
+- Phase 8E: `CLOSED`
+- Phase 8F: `CLOSED` at production `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`
+- Phase 8G: `READY FOR CLAUDE`
+- Source push: `SOURCE PUSH NOT APPROVED`
+- Verdict: `Proceed with safeguards`
 
-## Accepted Source and Deployment
-Independent review verified the Phase 8F implementation and two corrections:
-- selection-time `tierEditionTitle` snapshot; no live-catalog display resolution in request flow;
-- human Family/Tier/Edition labels and no raw CZ Platform IDs;
-- existing `legPaymentSummaries`, charge labels, Contract Value, and Initial Payment primitives reused;
-- Family primary totals remain primary-only; add-ons retain row-level stream presentation;
-- mixed-cart population split prevents both lost legacy totals and Family double-counting;
-- old items without Leg snapshots cannot fabricate a finite combined TCV;
-- `.cz-proposal`, `beforeprint` clone, and `window.print()` path retained;
-- no schema/storage, submit/email, routing, admin, persistence, quote mutation, or pricing-resolver changes.
+## Phase 8G Finding — Bundle Children Disappear
+Live production evidence on OMNIA Basic shows the focused right-side card correctly expands **Foundation Bundle** into its child inclusions, but Plan Details → Billing Breakdown renders only the priced bundle parent. The omission then survives the cart-level View details overlay and the Family quote snapshot used by Review & Finalise Quote / printable proposal.
 
-Production push was recorded by Claude on 2026-08-29. The exact accepted three-commit fast-forward moved `main` from `b299563d...` to `5b972870...`. GitHub Actions run `33250719157` (`Deploy to Hostinger`) completed successfully, including checkout, frontend build, SSH source deployment, and SCP dist deployment. Connector reinspection confirmed the production commit and correction diff.
+Independent source audit:
+- backend `CommercialLegPricedItem.includes` already carries bundle children; no resolver/schema change is needed;
+- `PlanDetailsModal.tsx::ItemBreakdownTable()` renders only `component.items` top-level rows and ignores each item’s `includes`;
+- `FamilyTierAdapter.itemFor()` snapshots only `effective.inclusionLabels` into `features: string[]`, discarding the already-resolved structured `effective.inclusionItems`;
+- `OrderSummary.tsx` and `QuoteProposalPreview.tsx` therefore cannot render bundle hierarchy;
+- focused-card `TierCard` is the established correct bundle presentation path.
 
-Reported verification: `tsc --noEmit` and build clean. Full contract sweep retained only three established baseline failures: `admin-station-css`, `package-builder-flow`, and `platform-identity-schema`. The new mixed-cart contract covers multi-stream Family + single-stream Family + legacy totals.
+## Claude — Implement Phase 8G Only
+Production baseline: `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`.
 
-## Live Browser Validation — 2026-08-29
-Read-only production validation passed at `https://compuzign.weerax.com/pricing/`.
+1. In Plan Details, render each `CommercialLegPricedItem.includes` child beneath its bundle-parent row in Billing Breakdown. Preserve the bundle as one commercial/priced row. Children are display-only: never add their prices/totals, never flatten them into the component total, and never change Contract Value, Initial Payment, occurrence, or Leg math.
+2. Extend `FamilyTierQuoteItem` with an optional structured selection-time inclusion snapshot (use the existing `ServiceInclusion[]` shape). Populate it in `FamilyTierAdapter.itemFor()` from the exact resolved `effective.inclusionItems`; do not re-resolve from live catalog data later. Keep `features` unchanged for compatibility.
+3. Use that snapshot for Family primary and add-on inclusion presentation in:
+   - cart-level View details via the shared `PlanDetailsContent` fix;
+   - Review & Finalise Quote;
+   - View full quote / printable proposal.
+   Render bundle parents with indented child inclusions, matching the focused card’s semantics. Old cart items without the new field must fall back to `features`.
+4. Do not alter Package/Rate Sheet resolution, identity, pricing, quote totals, mutation/routing, request submission, persistence, admin, or legacy Service/bundle/tier-add-on paths. The known request-persistence gap remains deferred.
+5. Add focused contracts proving:
+   - Plan Details consumes `CommercialLegPricedItem.includes`;
+   - bundle children never enter arithmetic;
+   - `itemFor()` snapshots structured inclusions;
+   - review and proposal render nested children with old-cart fallback;
+   - Family add-ons follow the same rule;
+   - no raw platform IDs appear.
+6. Run type-check, build, the new contract, request-flow Family parity, Package Builder regression/isolation contracts, and report exact changed files/results. Commit locally and update this file with the SHA/diff summary. Do not push source.
 
-Validated a mixed quote containing:
-- OMNIA — Banking / Omnia Basic: Monthly $4,000;
-- KAIROS — IaaS / Starter Cloud / Edition 2: Monthly $20 and Yearly $20.
-
-Passed:
-- **Review & Finalise Quote:** human Family/Tier/Edition labels, distinct stream rows, no raw platform IDs, Contract Value `Ongoing`, Initial Payment `$4,020`.
-- **View full quote:** printable proposal matched the review values and identity; no raw platform IDs.
-- **Print / Save as PDF:** action invoked successfully from the live multi-stream proposal and the page remained responsive.
-
-No contact details were entered, no quote was submitted, and no WordPress, pricing, package, user, storage, or runtime record was changed.
-
-## Known Deferred Gap
-`RequestSchema::sanitizeItems()` still drops `legPaymentSummaries`, and the Edition display snapshot is not yet persisted. This remains deferred to later admin/user-manager quote-request persistence work and was intentionally outside Phase 8F.
+## Acceptance
+OMNIA Basic must show Foundation Bundle’s children in Plan Details, cart View details, review, expanded proposal, and Print/Save-as-PDF, while Foundation Bundle remains priced exactly once at $4,000/month and all existing totals remain unchanged.
