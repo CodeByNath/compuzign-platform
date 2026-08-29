@@ -618,6 +618,7 @@ export function FamilyTierAdapter({
       tierEditionPlatformId: effective.selectedEdition?.edition_platform_id ?? null,
       tierId,
       tierTitle: tierData?.label || tier?.title || tierId,
+      tierEditionTitle: effective.selectedEdition?.label ?? null,
       price: effective.price,
       billingCycle: effective.billingCycle,
       features: effective.inclusionLabels,

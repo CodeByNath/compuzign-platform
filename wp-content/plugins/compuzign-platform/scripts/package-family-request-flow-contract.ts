@@ -30,8 +30,16 @@ const root = resolve(import.meta.dirname, '..');
 const order = readFileSync(resolve(root, 'resources/ts/components/request-flow/OrderSummary.tsx'), 'utf8');
 const proposal = readFileSync(resolve(root, 'resources/ts/components/request-flow/QuoteProposalPreview.tsx'), 'utf8');
 const packageApp = readFileSync(resolve(root, 'resources/ts/components/package-builder/PackageBuilderApp.tsx'), 'utf8');
-check(order.includes('familyPlatformId') && order.includes('tierPlatformId'), 'review summary prints Family and Tier business identifiers');
-check(proposal.includes('tierInstancePlatformId') && proposal.includes('tierEditionPlatformId'), 'proposal prints Tier Instance and Edition business identifiers');
+// Phase 8F: raw CZ Platform IDs are customer-facing defects, not business
+// facts a customer document should print — review/proposal must never
+// reference these fields at all (human labels like tierTitle/familyTitle/
+// tierEditionTitle stand in for them).
+for (const rawIdField of ['familyPlatformId', 'tierInstancePlatformId', 'tierPlatformId', 'tierEditionPlatformId', 'tierOccupantId']) {
+  check(!order.includes(rawIdField), `review summary must not print raw Platform ID field ${rawIdField}`);
+  check(!proposal.includes(rawIdField), `proposal must not print raw Platform ID field ${rawIdField}`);
+}
+check(order.includes('tierEditionTitle') && proposal.includes('tierEditionTitle'), 'review and proposal use the human-readable Edition snapshot label');
+check(order.includes('legPaymentSummaries') && proposal.includes('legPaymentSummaries'), 'review and proposal render the resolved multi-stream commercial payment summaries, not just flat price/billingCycle');
 check(packageApp.includes('<RequestFlowModal'), 'Package builder hands its shared cart to the existing Request Flow');
 
 console.log('Package Family request flow contract passed.');

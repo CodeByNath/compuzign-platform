@@ -53,6 +53,13 @@ export interface FamilyTierQuoteItem {
   tierEditionPlatformId: string | null;
   tierId: TierId;
   tierTitle: string;
+  // Human-readable Edition label at the moment of selection (e.g.
+  // effective.selectedEdition?.label), for customer-facing review/PDF
+  // surfaces that must never resolve display text from live catalog data —
+  // see FamilyTierAdapter.tsx's itemFor(). Null for a Default (no Edition)
+  // selection; optional because carts persisted before this field existed
+  // simply omit it, in which case callers fall back to tierTitle.
+  tierEditionTitle?: string | null;
   price: number | null;
   billingCycle: string;
   features: string[];

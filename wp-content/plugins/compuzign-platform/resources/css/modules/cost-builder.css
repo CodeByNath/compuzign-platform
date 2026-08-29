@@ -2623,6 +2623,47 @@
   color: var(--cz-color-muted);
 }
 
+/* Phase 8F: multi-stream commercial-Leg breakdown for a Family Tier/Edition
+   row — mirrors .cz-quote-summary__stream-row exactly (own charge-type
+   label left, price right, dashed-divider Total row) so the review panel
+   never invents a second presentation for the same data. */
+.cz-os__service-streams {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  text-align: right;
+}
+
+.cz-os__stream-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cz-space-3);
+}
+
+.cz-os__stream-label {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+}
+
+.cz-os__stream-value {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-text);
+  white-space: nowrap;
+}
+
+.cz-os__stream-row--total {
+  margin-top: 2px;
+  padding-top: var(--cz-space-2);
+  border-top: 1px dashed var(--cz-color-line);
+}
+
+.cz-os__stream-row--total .cz-os__stream-label {
+  font-weight: 600;
+  color: var(--cz-color-text);
+}
+
 /* Add-on row — inset within the floating card */
 .cz-os__addon {
   display: flex;
@@ -2665,6 +2706,21 @@
   color: var(--cz-color-text);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* Phase 8F: same multi-stream breakdown as .cz-os__service-streams, scaled
+   down to the add-on row's smaller type. */
+.cz-os__addon-streams {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.cz-os__addon-streams .cz-os__stream-label,
+.cz-os__addon-streams .cz-os__stream-value {
+  font-size: 10px;
 }
 
 /* Full quote expansion */
@@ -2716,6 +2772,16 @@
 
 .cz-os__total-note {
   margin: 0;
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted-2);
+  line-height: 1.5;
+}
+
+/* Phase 8F: "Includes charges without a fixed end date" — kept distinct
+   from .cz-os__total-note (the always-present disclaimer) so both can
+   render together without one overwriting the other's meaning. */
+.cz-os__contract-note {
+  margin: 0 0 var(--cz-space-2);
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted-2);
   line-height: 1.5;
@@ -2962,6 +3028,47 @@
   color: #888888;
 }
 
+/* Phase 8F: multi-stream commercial-Leg breakdown — same data/shape as
+   .cz-quote-summary__stream-row and .cz-os__stream-row, restyled for the
+   printable document's own palette (plain black/grey, no accent color). */
+.cz-proposal__service-streams {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  align-items: flex-end;
+}
+
+.cz-proposal__stream-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cz-space-3);
+  width: 100%;
+}
+
+.cz-proposal__stream-label {
+  font-size: var(--cz-font-size-xs);
+  color: #888888;
+}
+
+.cz-proposal__stream-value {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: #111111;
+  white-space: nowrap;
+}
+
+.cz-proposal__stream-row--total {
+  margin-top: 2px;
+  padding-top: var(--cz-space-2);
+  border-top: 1px dashed #dddddd;
+}
+
+.cz-proposal__stream-row--total .cz-proposal__stream-label {
+  font-weight: 600;
+  color: #111111;
+}
+
 .cz-proposal__features {
   list-style: none;
   margin: 0;
@@ -3052,6 +3159,21 @@
   color: #888888;
 }
 
+/* Phase 8F: same multi-stream breakdown as .cz-proposal__service-streams,
+   scaled to the add-on row. */
+.cz-proposal__addon-streams {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.cz-proposal__addon-streams .cz-proposal__stream-label,
+.cz-proposal__addon-streams .cz-proposal__stream-value {
+  font-size: var(--cz-font-size-xs);
+}
+
 .cz-proposal__totals {
   border-top: 2px solid #111111;
   padding-top: var(--cz-space-5);
@@ -3101,6 +3223,15 @@
   font-size: var(--cz-font-size-xs);
   color: #888888;
   font-style: italic;
+  margin: var(--cz-space-1) 0 0;
+}
+
+/* Phase 8F: "Includes charges without a fixed end date" — kept distinct
+   from .cz-proposal__total-custom-note (the unpriced-items note) since the
+   two can appear in unrelated total states. */
+.cz-proposal__contract-note {
+  font-size: var(--cz-font-size-xs);
+  color: #888888;
   margin: var(--cz-space-1) 0 0;
 }
 

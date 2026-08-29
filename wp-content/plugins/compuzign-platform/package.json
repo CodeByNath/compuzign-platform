@@ -26,6 +26,7 @@
     "contract:tier-system-drawer": "tsx scripts/tier-system-drawer-contract.ts",
     "contract:platform-identity-schema": "tsx scripts/platform-identity-schema-contract.ts",
     "contract:quote-cart-addon": "tsx scripts/quote-cart-addon-contract.ts",
+    "contract:request-flow-family-tier-parity": "tsx scripts/request-flow-family-tier-parity-contract.ts",
     "contract:tier-addon-flow": "tsx scripts/tier-addon-flow-contract.ts",
     "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",
     "contract:rate-sheet-row-platform-identity": "tsx scripts/rate-sheet-row-platform-identity-contract.ts",

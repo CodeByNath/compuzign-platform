@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
-import { calcQuoteTotals, classifyQuoteItems, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, classifyQuoteItems, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
+import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/components/cost-builder/PricingTiers';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
 import type { CartItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
@@ -50,6 +51,30 @@ export function OrderSummary({
 
   const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
   const totals = calcQuoteTotals(items);
+
+  // Phase 8F: same primary-only Total Contract Value / Initial Payment
+  // semantics as QuoteSummary.tsx's footer — reusing the exact same
+  // primitives, never a second re-derivation. calcQuoteTotals()'s own
+  // cycle-bucket math (totals above) stays untouched for legacy items, but
+  // is untrustworthy for a multi-stream Family plan (see hasMultiStreamItem
+  // below), so this branches the Totals section instead of feeding
+  // legPaymentSummaries into calcQuoteTotals.
+  const hasMultiStreamItem = items.filter(isFamilyTierQuoteItem)
+    .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
+  const familyPrimaryTotalContractValues = familyMainItems.map((item) =>
+    item.legPaymentSummaries && item.legPaymentSummaries.length > 0
+      ? computeTotalContractValue(item.legPaymentSummaries)
+      : null,
+  );
+  const allFamilyPrimariesFinite = familyMainItems.length > 0
+    && familyPrimaryTotalContractValues.every((value) => value !== null);
+  const combinedFamilyTotalContractValue = allFamilyPrimariesFinite
+    ? familyPrimaryTotalContractValues.reduce((sum, value) => sum + (value as number), 0)
+    : null;
+  const familyStartingPayments = startingPaymentsByCycle(
+    familyMainItems.map((item) => item.legPaymentSummaries ?? []),
+  );
+  const familyInitialPaymentTotal = familyStartingPayments.reduce((sum, [, amount]) => sum + amount, 0);
 
   const findService = (id: number) => services.find((s) => s.id === Math.abs(id));
 
@@ -149,6 +174,9 @@ export function OrderSummary({
 
           {familyMainItems.map((item) => {
             const cycleSuffix = formatCycleLabel(item.billingCycle);
+            const streams = item.legPaymentSummaries;
+            const hasStreams = !!streams && streams.length > 0;
+            const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
             return (
               <div key={quoteItemKey(item)} class="cz-os__service">
                 <span class="cz-os__service-icon" aria-hidden="true">{item.familyTitle.charAt(0).toUpperCase()}</span>
@@ -156,14 +184,30 @@ export function OrderSummary({
                   <p class="cz-os__service-name">{item.familyTitle}</p>
                   <div class="cz-os__service-tags">
                     <span class="cz-os__service-tag">{item.tierTitle}</span>
-                    <span class="cz-os__service-tag">{item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}</span>
-                    {item.tierEditionPlatformId && <span class="cz-os__service-tag">Edition {item.tierEditionPlatformId}</span>}
+                    {item.tierEditionTitle && <span class="cz-os__service-tag">{item.tierEditionTitle}</span>}
                   </div>
                 </div>
-                <div class="cz-os__service-price">
-                  <span class="cz-os__service-price-amount">{item.price !== null ? formatPrice(item.price) : 'TBC'}</span>
-                  {item.price !== null && cycleSuffix && <span class="cz-os__service-price-cycle"> {cycleSuffix}</span>}
-                </div>
+                {hasStreams ? (
+                  <div class="cz-os__service-streams">
+                    {streams!.map((stream) => (
+                      <div key={stream.source} class="cz-os__stream-row">
+                        <span class="cz-os__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                        <span class="cz-os__stream-value">{formatPrice(stream.price)}</span>
+                      </div>
+                    ))}
+                    {totalContractValue !== null && (
+                      <div class="cz-os__stream-row cz-os__stream-row--total">
+                        <span class="cz-os__stream-label">Total</span>
+                        <span class="cz-os__stream-value">{formatPrice(totalContractValue)}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div class="cz-os__service-price">
+                    <span class="cz-os__service-price-amount">{item.price !== null ? formatPrice(item.price) : 'TBC'}</span>
+                    {item.price !== null && cycleSuffix && <span class="cz-os__service-price-cycle"> {cycleSuffix}</span>}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -204,13 +248,36 @@ export function OrderSummary({
 
           {familyAddonItems.map((item) => {
             const cycleSuffix = formatCycleLabel(item.billingCycle);
+            const streams = item.legPaymentSummaries;
+            const hasStreams = !!streams && streams.length > 0;
+            const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
             return (
               <div key={quoteItemKey(item)} class="cz-os__addon">
                 <div class="cz-os__addon-info">
                   <p class="cz-os__addon-name">{item.tierTitle}</p>
-                  <p class="cz-os__addon-label">Optional add-on · {item.familyTitle} · {item.familyPlatformId} · {item.tierInstancePlatformId} · {item.tierPlatformId}</p>
+                  <p class="cz-os__addon-label">
+                    Optional add-on · {item.familyTitle}
+                    {item.tierEditionTitle ? ` · ${item.tierEditionTitle}` : ''}
+                  </p>
                 </div>
-                <span class="cz-os__addon-price">{item.price !== null ? `${formatPrice(item.price)}${cycleSuffix ? ` ${cycleSuffix}` : ''}` : 'TBC'}</span>
+                {hasStreams ? (
+                  <div class="cz-os__addon-streams">
+                    {streams!.map((stream) => (
+                      <div key={stream.source} class="cz-os__stream-row">
+                        <span class="cz-os__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                        <span class="cz-os__stream-value">{formatPrice(stream.price)}</span>
+                      </div>
+                    ))}
+                    {totalContractValue !== null && (
+                      <div class="cz-os__stream-row cz-os__stream-row--total">
+                        <span class="cz-os__stream-label">Total</span>
+                        <span class="cz-os__stream-value">{formatPrice(totalContractValue)}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span class="cz-os__addon-price">{item.price !== null ? `${formatPrice(item.price)}${cycleSuffix ? ` ${cycleSuffix}` : ''}` : 'TBC'}</span>
+                )}
               </div>
             );
           })}
@@ -233,7 +300,22 @@ export function OrderSummary({
 
       {/* ── Totals ── */}
       <div class="cz-os__total">
-        {totals.cycleEntries.length === 0 ? (
+        {hasMultiStreamItem ? (
+          combinedFamilyTotalContractValue !== null ? (
+            <div class="cz-os__total-row">
+              <p class="cz-os__total-label">Total Contract Value</p>
+              <span class="cz-os__total-amount">{formatPrice(combinedFamilyTotalContractValue)}</span>
+            </div>
+          ) : (
+            <>
+              <div class="cz-os__total-row">
+                <p class="cz-os__total-label">Contract Value</p>
+                <span class="cz-os__total-amount">Ongoing</span>
+              </div>
+              <p class="cz-os__contract-note">Includes charges without a fixed end date.</p>
+            </>
+          )
+        ) : totals.cycleEntries.length === 0 ? (
           <div class="cz-os__total-row">
             <p class="cz-os__total-label">Total</p>
             <span class="cz-os__total-amount">On request</span>
@@ -265,6 +347,12 @@ export function OrderSummary({
                 </span>
               )}
             </span>
+          </div>
+        )}
+        {hasMultiStreamItem && familyStartingPayments.length > 0 && (
+          <div class="cz-os__total-row">
+            <p class="cz-os__total-label">Initial Payment</p>
+            <span class="cz-os__total-amount">{formatPrice(familyInitialPaymentTotal)}</span>
           </div>
         )}
         <p class="cz-os__total-note">
