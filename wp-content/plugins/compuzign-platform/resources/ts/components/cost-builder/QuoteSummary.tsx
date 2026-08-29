@@ -18,9 +18,17 @@ interface QuoteSummaryProps {
   // caller opens its overlay on a Total Commitment-style view); a specific
   // item means "open on that item's own details".
   onOpenDetails?: (item: FamilyTierQuoteItem | null) => void;
+  // Live-validation correction: a quoted add-on has no Quote Details tab of
+  // its own (onOpenDetails/QuoteDetailsOverlay above is primary-only, by
+  // design — see its own primaryFamilyTierItems gating) — it instead gets
+  // a "View Plan" route back into the real Package Builder focused shell
+  // for its own exact quoted Tier/Edition. Optional for the same reason
+  // onOpenDetails is: CostBuilderApp.tsx has no focused-shell concept at
+  // all, so omitting this simply hides the affordance there.
+  onOpenAddonFocus?: (item: FamilyTierQuoteItem) => void;
 }
 
-export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails }: QuoteSummaryProps) {
+export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails, onOpenAddonFocus }: QuoteSummaryProps) {
   const [clearPending, setClearPending] = useState(false);
 
   const handleClear = () => {
@@ -152,6 +160,22 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
                     onClick={() => onOpenDetails(item)}
                   >
                     View details
+                  </button>
+                )}
+                {/* Live-validation correction: a quoted add-on gets its own
+                    "View Plan" route back into the real Package Builder
+                    focused shell for its exact quoted Tier/Edition — never
+                    the Quote Details overlay above (that stays
+                    primary-only), and never a new/parallel presentation
+                    system. Same wording TierCard's own "View Plan" already
+                    uses for an already-quoted occupant. */}
+                {onOpenAddonFocus && isFamilyTierQuoteItem(item) && item.isAddon && (
+                  <button
+                    type="button"
+                    class="cz-quote-summary__view-details"
+                    onClick={() => onOpenAddonFocus(item)}
+                  >
+                    View Plan
                   </button>
                 )}
                 {/* Phase 6: raw CZ Platform IDs (familyPlatformId,

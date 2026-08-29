@@ -659,6 +659,13 @@
    after .tier-choose/--filled so it wins the cascade on an add-on card
    regardless of isPopular/isEnterpriseView. */
 .cz-cost-builder__tier-choose--addon {
+  /* Live-validation correction: .tier-action-row is a flex column in DOM
+     order Choose Plan then Add to Quote (same order every card uses) —
+     on an add-on card specifically, the primary Add to Quote must render
+     ABOVE this secondary button. Pure ordering: the primary button (no
+     order set, defaults to 0) still sorts before this order:2, without
+     touching JSX render order or any other card's layout. */
+  order: 2;
   background: transparent;
   border-color: var(--cz-color-line);
   color: var(--cz-color-muted);

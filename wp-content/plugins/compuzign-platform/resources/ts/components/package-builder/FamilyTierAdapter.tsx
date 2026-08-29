@@ -408,6 +408,17 @@ interface FamilyTierAdapterProps {
   onAdd: (item: FamilyTierQuoteItem) => void;
   onRemovePrimary: () => void;
   onRemoveAddon: (tierPlatformId: string) => void;
+  // Live-validation correction: a quoted add-on's own cart row needs a
+  // "View Plan" route into THIS exact focused shell (selectVariant below)
+  // — never the separate Phase 8D QuoteDetailsOverlay, which is a
+  // different presentation system built for primaries. The parent
+  // (PackageBuilderApp) owns switching the active Family to this add-on's
+  // own family first (this component only ever renders one Family at a
+  // time), then hands the exact quoted identity here as a one-shot
+  // request; resolved to an editionId against THIS family's own data and
+  // consumed immediately so it never re-fires on an unrelated re-render.
+  externalFocusRequest?: { tierId: TierId; tierEditionPlatformId: string | null } | null;
+  onExternalFocusConsumed?: () => void;
 }
 
 const CUSTOMER_GROUPS = [
@@ -441,6 +452,8 @@ export function FamilyTierAdapter({
   onAdd,
   onRemovePrimary,
   onRemoveAddon,
+  externalFocusRequest = null,
+  onExternalFocusConsumed,
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
@@ -543,6 +556,29 @@ export function FamilyTierAdapter({
     const periods = periodsForVariant(family, tierId, editionId);
     setSelectedPeriodFromMonth(periods[0]?.from_month ?? null);
   };
+
+  // Live-validation correction: a quoted add-on's cart "View Plan" route.
+  // The parent already switched `family` to this add-on's own Family
+  // before setting externalFocusRequest (see PackageBuilderApp.tsx), so
+  // tierEditionPlatformId resolves against THIS component's own family
+  // data — the exact same Platform-ID-to-selector-key lookup
+  // PricingTiers.tsx already uses for the primary's quotedTierEditionPlatformId.
+  // selectVariant() opens the SAME focused shell every other entry point
+  // uses — no second/parallel focus mechanism. Consumed via
+  // onExternalFocusConsumed immediately so this never re-fires on a
+  // later, unrelated re-render (e.g. switching Family again).
+  useEffect(() => {
+    if (!externalFocusRequest) return;
+    const { tierId, tierEditionPlatformId } = externalFocusRequest;
+    const tierData = family.pricing.tiers[tierId];
+    const editionId = tierEditionPlatformId
+      ? (tierData?.edition_options ?? []).find(
+          (option) => option.edition_platform_id === tierEditionPlatformId,
+        )?.id ?? null
+      : null;
+    selectVariant(tierId, editionId);
+    onExternalFocusConsumed?.();
+  }, [externalFocusRequest]);
 
   // Sticky close (X) button elevation — stronger shadow once the page has
   // scrolled, subtle otherwise. Listener only attaches while a Tier is
