@@ -2,10 +2,11 @@
 
 ## Status
 - Phase 8H production baseline: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
-- Phase 8I: `READY FOR CLAUDE` — add-on proposal/PDF alignment correction.
+- Phase 8I: `AWAITING CHATGPT REVIEW` — add-on proposal/PDF alignment correction implemented.
 - Source push: `SOURCE PUSH NOT APPROVED`.
-- Auditor verdict: `Proceed with safeguards` — quantities are correct; add-on inclusion shell/column alignment must match primary plans.
-- Production: `main@eac4240a76215c701898526e70122041e656a319`.
+- Auditor verdict: `Proceed with safeguards` — implemented and pushed to review branch, not main.
+- Production (unchanged): `main@eac4240a76215c701898526e70122041e656a319`.
+- Reviewable candidate: `phase-8i-final-quote-inclusion-quantity-parity@6736d45d` (pushed, 1 commit on top of the already-deployed `eac4240a`).
 
 ## Live Finding
 Review & Finalise Quote shows Family inclusion labels but omits their resolved quantities. The printable proposal/PDF reuses the same quantity-less Family inclusion presentation, so the omission carries into PDF.
@@ -159,3 +160,30 @@ Source cause is confirmed:
 
 ## Revised Final Gate
 After deployment, confirm the add-on inclusion shell and quantity column align with primary plan inclusions in both the expanded proposal and saved PDF. Phase 8I remains open.
+
+## Claude Report — 2026-08-30 (pushed to review branch, not to main)
+
+Same branch `phase-8i-final-quote-inclusion-quantity-parity`, new commit `6736d45d` on top of the already-deployed `eac4240a`. Pushed directly to that non-production branch — `main` untouched.
+
+**Root cause confirmed exactly as diagnosed:** `.cz-proposal__service` (primary) carries zero own padding — its `.cz-proposal__service-row` and `.cz-proposal__features` children each carry their own matching horizontal inset, so they align at the same card edge. `.cz-proposal__addon` carries its own padding on every side; nesting `.cz-proposal__features` (which keeps its own horizontal padding for label/quantity breathing room) directly inside produced a doubled horizontal inset plus a visible gap before the add-on's bottom edge. Print inherited the mismatch since nothing made the add-on's print padding explicit — it fell through to the unscoped screen token.
+
+**Fix applied** (`resources/css/modules/cost-builder.css`, direct-child selector only — the base `.cz-proposal__features` rule primary plans also use was never touched):
+- `.cz-proposal__addon > .cz-proposal__features` gained `margin: 0 calc(var(--cz-space-5) * -1) calc(var(--cz-space-4) * -1)` — cancels exactly the parent's own horizontal/bottom padding using the parent's own tokens. Top untouched (that's the flex row's own intentional gap, not a double inset).
+- New explicit `#cz-print-root .cz-proposal__addon { padding: 0.25cm 0.4cm !important }` — the exact rhythm `.cz-proposal__service-row` already uses in print, made explicit instead of relying on an inherited var()-token value that might not equal it.
+- New `#cz-print-root .cz-proposal__addon > .cz-proposal__features { margin: 0 -0.4cm -0.25cm !important }` — cancels exactly that now-explicit print padding.
+- `.cz-proposal__service`/`-row` and the base `.cz-proposal__features` rule are completely untouched. No JSX, quantity data/markup, typography, Bundle semantics, page-break rules, or header/price row changed.
+
+**Contract extended** (`quote-inclusion-quantity-parity-contract.ts`): confirms the direct-child selector (never the base rule); screen offsets use the parent's own `--cz-space-5`/`--cz-space-4` tokens; base `.cz-proposal__features` padding is untouched; explicit print padding/cancellation use the exact `0.25cm`/`0.4cm` values already established; `.cz-proposal__service-row`'s own print padding is unchanged.
+
+**Tests:** `tsc --noEmit` clean, `npm run build` clean. Full contract sweep: only the three confirmed pre-existing failures remain (`admin-station-css`, `package-builder-flow`, `platform-identity-schema`).
+
+**Diff:**
+```
+ dist/css/cost-builder.css                                    |  2 +-
+ resources/css/modules/cost-builder.css                       | 30 ++++++++++++--
+ scripts/quote-inclusion-quantity-parity-contract.ts           | 43 ++++++++++++++++++++
+ 3 files changed, 73 insertions(+), 2 deletions(-)
+```
+(paths relative to `wp-content/plugins/compuzign-platform/`)
+
+Awaiting review of the actual `6736d45d` diff before any push to `main`.
