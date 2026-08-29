@@ -2,9 +2,9 @@
 
 ## Status
 - Phase 8H production baseline: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
-- Phase 8I: `AWAITING LIVE VALIDATION`.
+- Phase 8I: `AWAITING LIVE PDF VALIDATION`.
 - Source push: `PUSHED — exact accepted commit, fast-forward only`.
-- Auditor verdict: `Proceed with safeguards` — source pushed, deployment succeeded; live screen/PDF validation remains required.
+- Auditor verdict: `Proceed with safeguards` — compact and expanded browser surfaces passed; saved PDF remains the final gate.
 - Production: `main@eac4240a76215c701898526e70122041e656a319`.
 
 ## Live Finding
@@ -120,4 +120,13 @@ The focused contract is partly structural, so live screen/PDF remains mandatory,
 - Deployment result: workflow-reported success for deployed SHA `eac4240a76215c701898526e70122041e656a319`. No customer/runtime mutations performed. Actual on-screen and printable/PDF inclusion-quantity behavior not independently checked from this environment.
 
 ## Live Browser Validation
-- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath/ChatGPT performs this check per the Final Gate above: collapsed/expanded Review & Finalise Quote inclusion lists, full printable proposal, saved PDF, both a normal inclusion and a Bundle child, and a Family add-on where present)
+- Production under test: `main@eac4240a76215c701898526e70122041e656a319`.
+- Compact Review & Finalise Quote: PASS.
+  - KAIROS Business Pro ordinary inclusions show resolved quantities (for example 4 vCPU = 2, Block Storage = 500, Advanced Monitoring = 12).
+  - OMNIA Foundation Bundle remains a quantity-less header; all three Bundle children show quantity 1.
+  - Backup & DR Shield Family add-on shows its quantities (5, 1000, 500, 500, 1).
+- Expanded full printable proposal: PASS for the same ordinary, Bundle-child, and add-on rows.
+- Layout: quantities are separate right-aligned cells; no inspected row overflowed.
+- Browser console errors: none.
+- Print / Save as PDF invoked; native preview is outside the controllable page DOM, so saved-PDF pixels remain unverified.
+- Final status: `AWAITING LIVE PDF VALIDATION`. Nath must confirm the saved PDF contains the same quantities before Phase 8I closes.
