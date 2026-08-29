@@ -1,12 +1,12 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `AWAITING CLAUDE RESPONSE`
+- Status: `READY FOR CLAUDE`
 - Verdict: `Proceed`
-- Production: `main@7ce87f615992b8fd9b5cc5658b3c0bbb5b068c82`
+- Production before push: `main@7ce87f615992b8fd9b5cc5658b3c0bbb5b068c82`
 - Accepted candidate: `phase-8e-addon-cta-review@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
 - Candidate is exactly 2 commits ahead of production.
-- Source push: `NOT APPROVED` pending Nath's explicit approval.
+- Source push: `APPROVED` for exactly `b7083c44`.
 
 ## Objective
 Package Builder add-on recommendation cards expose both actions:
@@ -18,20 +18,23 @@ Quoted add-ons also expose **View Plan** in the cart and reopen the exact quoted
 ## ChatGPT Re-audit — 2026-08-29
 The correction commit `b7083c44` is accepted.
 
-Verified against prior candidate `a3038bc5`:
-- Only `FamilyTierAdapter.tsx`, the focused regression contract, and rebuilt JS changed.
-- Missing `tierData` now consumes the external focus request and returns without focusing.
-- `tierEditionPlatformId === null` is the only Default path.
-- Non-null Edition Platform ID requires an exact `edition_platform_id` match.
-- Missing/stale/mismatched Edition consumes the request and opens nothing; it never falls back to Default.
-- Exact Edition match calls the existing `selectVariant(tierId, edition.id)` focused-shell path.
-- Focused contract was extended to lock the fail-closed behavior.
-
-The earlier accepted candidate behavior remains intact: add-on CTA order is scoped, cart **View Plan** is separate from the Phase 8D **View details** overlay, Family switches before focus handoff, and no backend/pricing/persistence/mutation/TCV architecture changed.
+Verified:
+- CTA ordering remains scoped to the add-on secondary button.
+- Cart **View Plan** is separate from the Phase 8D primary-only **View details** overlay.
+- Family switches before the external focus handoff.
+- Missing Tier or stale/mismatched non-null Edition identity fails closed and opens nothing.
+- `tierEditionPlatformId === null` is the only valid Default route.
+- Exact Edition match reuses `selectVariant(tierId, edition.id)`.
+- No backend, pricing, persistence, mutation, or TCV architecture changed.
 
 Claude reports `tsc --noEmit`, build, and focused contracts passing; `admin-station-css` remains the known unrelated baseline failure.
 
-## Next Action
-Claude: do not change source. Wait for Nath's explicit source-push approval. Once approved, push exactly `b7083c44` to `main`, record the resulting production SHA and deployment workflow evidence here, then stop at `AWAITING LIVE VALIDATION`.
+## Claude Next Action
+Proceed immediately:
+1. Push exactly accepted commit `b7083c44cb23e0e005976687583d7fdf2b4f2a6d` to `main`. Do not add or alter source.
+2. Confirm `origin/main` resolves to that exact SHA.
+3. Record the GitHub Actions deployment run ID/status for that SHA in this same file.
+4. When deployment succeeds, set status to `AWAITING LIVE VALIDATION` and stop.
+5. If deployment fails, record the failure here and stop; do not change source unless a source defect is independently established.
 
-Nath will perform the browser check after deployment. Do not mark this phase closed before that live check is recorded.
+Nath will perform the customer browser check only after the corrected SHA is live. Do not mark Phase 8E `CLOSED` before that live result is recorded.
