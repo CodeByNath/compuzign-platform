@@ -2,10 +2,11 @@
 
 ## Status
 - Phase 8G: `CLOSED` at production `main@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`
-- Phase 8H: `READY FOR CLAUDE` — live typography correction
+- Phase 8H: `AWAITING CHATGPT REVIEW` — live typography correction implemented
 - Source push: `SOURCE PUSH NOT APPROVED`
-- Verdict: `Proceed with safeguards` — semantic states passed; proposal totals typography must return to the token scale
-- Production: `main@1a74e785627bfae8f051ffa32093029e978b2b6e`
+- Verdict: `Proceed with safeguards` — implemented on the same review branch, pushed there only
+- Production (unchanged): `main@1a74e785627bfae8f051ffa32093029e978b2b6e`
+- Reviewable candidate: `phase-8h-plan-details-value-states@0c586deb` (pushed, 1 commit on top of the already-deployed `1a74e785`)
 
 ## Approved Display Rules
 Bundle child Unit Price/Total = **Included**. Open-ended Charge Occurrences = **Until Canceled**. Open-ended Subtotal = formatted known Rate. Open-ended TCV = **Until Canceled** when rates are known. Missing/unresolved price = **To be confirmed**. Real numeric zero = **$0.00**. No explanatory TCV note. Finite minimum-term streams retain calculated occurrences/subtotals. A Period with any unresolved top-level `line_total` cannot show a partial total. Due at plan start cannot silently omit an unresolved starting rate.
@@ -72,3 +73,32 @@ Implement the narrowest source correction in `resources/css/modules/cost-builder
 5. Add/extend a focused contract rejecting literal `rem`/px sizes for these two rules and asserting the exact tokens.
 6. Validate the exact same token-sized hierarchy for both `Ongoing` and numeric amounts in the on-screen Review & Finalise Quote and the printable/PDF proposal; neither value may retain a literal-size print override.
 7. Validate focused contract, CSS contract, build, and concise full contract sweep. Record changed files, exact commit SHA, and results here; set `AWAITING CHATGPT REVIEW`. Do not push source to `main`.
+
+## Claude Report — 2026-08-30 (pushed to review branch, not to main)
+
+Same branch `phase-8h-plan-details-value-states`, new commit `0c586deb` on top of the already-deployed `1a74e785`. Pushed directly to that non-production branch (learned from this same phase's earlier round: a local-only commit blocks review) — `main` untouched.
+
+**Root cause confirmed:** `.cz-proposal__total-amount { font-size: 1.5rem; }` and `.cz-proposal__total-row--primary .cz-proposal__total-amount { font-size: 2rem; }` were literal sizes, never tied to the design-token scale every other proposal text element (labels, cycle suffixes, notes) already uses. `2rem` renders at 32px against a ~14px document baseline — the only proposal text above the token ceiling. The printable/PDF proposal reuses this exact `.cz-proposal` markup (`RequestFlowModal.tsx` clones it for print); its `@media print` block only sets a base `font-size: 9.5pt` on the whole document, which a `rem`-sized child rule ignores entirely — so the oversized text carried straight into the PDF too.
+
+**Fix applied** (`resources/css/modules/cost-builder.css`, only these two declarations changed):
+```
+.cz-proposal__total-amount { font-size: var(--cz-font-size-lg); ... }
+.cz-proposal__total-row--primary .cz-proposal__total-amount { font-size: var(--cz-font-size-xl); }
+```
+Confirmed no existing `@media print` rule targets `.cz-proposal__total-amount` (none needed to be removed or added — the token switch alone fixes both surfaces, since they share the identical class/markup). Confirmed in `QuoteProposalPreview.tsx` that both the `Ongoing` text (line 350) and every numeric amount (Total Contract Value, Estimated total, Initial Payment) render through this same `.cz-proposal__total-amount` class, and both the `Ongoing` row and the finite-TCV row carry `.cz-proposal__total-row--primary` — so the identical token hierarchy now applies to both value types, on screen and in the PDF, with a single CSS change. Nothing else (weight, color, white-space, labels, note copy, JSX, arithmetic, semantic value-state behavior from the earlier Phase 8H round) touched.
+
+**New contract** `scripts/quote-proposal-total-typography-contract.ts` (`contract:quote-proposal-total-typography`): asserts both rules use the exact tokens, rejects any literal `rem`/`px`/`pt`/`em` font-size on either rule (regression guard), confirms no `@media print` override targets this class, and confirms `font-weight`/`color`/`white-space` survive untouched.
+
+**Tests:** `tsc --noEmit` clean. `npm run build` clean. `contract:quote-proposal-total-typography` passes. Full contract sweep: only the three confirmed pre-existing unrelated failures remain (`admin-station-css`, `package-builder-flow`, `platform-identity-schema`).
+
+**Diff:**
+```
+ dist/css/cost-builder.css                                    |  2 +-
+ package.json                                                 |  1 +
+ resources/css/modules/cost-builder.css                       |  4 +--
+ scripts/quote-proposal-total-typography-contract.ts          | 42 ++++++++++++++++++++++
+ 4 files changed, 46 insertions(+), 3 deletions(-)
+```
+(paths relative to `wp-content/plugins/compuzign-platform/`)
+
+Awaiting review of the actual `0c586deb` diff before any push to `main`.
