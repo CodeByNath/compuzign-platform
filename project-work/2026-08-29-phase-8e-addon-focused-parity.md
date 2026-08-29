@@ -1,58 +1,39 @@
 # Phase 8E / 8F — Add-on Parity → Quote Review/PDF Parity
 
 ## Status
-- Phase 8E: `CLOSED` — live customer validation passed.
-- Production baseline: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
-- Phase 8F: `AWAITING CHATGPT REVIEW`
-- Verdict: `Proceed with safeguards` — implemented on review branch, not on main
-- Source push: `NOT APPROVED`
-- Review branch: `phase-8f-quote-review-pdf-parity` @ `482929e2` (based on `main@b299563d264615d39b40a9a21e56e14edd0e1565`, not pushed to `main`)
+- Phase 8E: `CLOSED` — live validation passed.
+- Production: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
+- Phase 8F: `READY FOR CLAUDE`
+- Verdict: `Proceed with safeguards — CORRECTION REQUIRED`
+- Reviewed candidate: `phase-8f-quote-review-pdf-parity@482929e2d22d6913c05af139314f68bc83899547`
+- Candidate is exactly 1 commit ahead / 0 behind production.
+- Source push: `NOT APPROVED`.
 
-## Phase 8F Objective
-Bring the corrected Package Builder cart/commercial presentation into the existing **Review & Finalise Quote** right panel and existing **View full quote** / printable `.cz-proposal` document. This is wiring/presentation, not a new quote, PDF, request, routing, email, or admin system.
+## What Passed Review
+Actual diff confirms:
+- optional selection-time `tierEditionTitle` snapshot added/populated correctly;
+- request-flow does not resolve Edition display from live catalog data;
+- raw CZ Platform IDs removed from visible review/PDF text;
+- Family primary/add-on rows use `legPaymentSummaries`, charge labels and finite per-item Total with old-cart fallback;
+- `.cz-proposal` root and existing print/PDF mechanism remain untouched;
+- no RequestSchema/storage/routing/email/admin/pricing-resolver change.
 
-## Audit Accepted
-Verified path:
-`FamilyTierAdapter.itemFor() → CartItem[] → RequestFlowContext.items → OrderSummary + QuoteProposalPreview → RequestFlowModal beforeprint clone → window.print()/PDF`.
+## Blocking Finding — Mixed Cart Totals
+Both `OrderSummary.tsx` and `QuoteProposalPreview.tsx` currently branch the **entire totals section** on `hasMultiStreamItem`.
 
-`QuoteCartFlow.handleSubmit()` posts `context.items`, but `RequestSchema::sanitizeItems()` currently drops `legPaymentSummaries`; this persistence gap is real but **not part of this customer review/PDF phase**. Record it for later admin/user-manager work. Do not change request schema now.
+If any Family item has >1 stream, the existing `calcQuoteTotals()` display is completely suppressed and replaced by Family-only TCV/Initial Payment. That means a mixed cart containing legacy/simple QuoteItems plus a multi-stream Family plan visually loses the legacy/service totals from the review and PDF.
 
-Confirmed customer defects:
-- review and proposal/PDF expose raw CZ Platform IDs;
-- Package Family rows use Headline-only `price`/`billingCycle` instead of `legPaymentSummaries`;
-- `calcQuoteTotals()` is insufficient for multi-stream Family plans;
-- review/PDF omit stream rows, per-item finite Total, primary cart TCV/Contract Value and Initial Payment.
+This contradicts the approved safeguard: legacy/simple QuoteItem behavior must remain represented, and the Family contract summary must sit **alongside, not replace**, legacy totals.
 
-## Critical Safeguard — Edition Display
-Do **not** make request-flow components resolve Edition labels from live Package Family data. `RequestFlowContext` carries items/services, not families/tiers, and quote documents should represent the selection-time snapshot rather than later live catalog state.
+The source calculations are still present, but their customer-visible totals become unreachable in this valid mixed-cart state. Do not push this candidate.
 
-`FamilyTierQuoteItem.tierTitle` currently snapshots the Tier occupant label only. Add one optional human-readable selection-time field (e.g. `tierEditionTitle?: string | null`) in the cart item and populate it in `FamilyTierAdapter.itemFor()` from `effective.selectedEdition?.label ?? null`. Use that display snapshot in review/PDF; keep Platform IDs underneath for identity but never render them to customers. This is data wiring only, not selection/routing behavior.
+## Claude Correction
+Make the narrowest correction on the same review branch:
+1. Preserve the existing legacy/simple totals block for the legacy populations (`mainItems`, `bundleItems`, `tierAddonItems`) even when Family multi-stream items exist.
+2. Keep Family multi-stream contract presentation as a separate block: primary-only **Total Contract Value / Contract Value: Ongoing** plus **Initial Payment**.
+3. Do not double-count Family headline `price` values inside the legacy totals when a Family commercial block is shown. Derive the legacy totals from the non-Family items only (or an equivalent existing helper-compatible subset), rather than using `calcQuoteTotals(items)` for that displayed legacy block.
+4. Family add-ons remain excluded from combined primary TCV/Initial Payment exactly as already implemented.
+5. Preserve all other accepted candidate behavior and non-change boundaries.
+6. Extend the focused contract with a mixed-cart case/structural assertion proving legacy totals remain visible beside the Family contract block and Family headline values are not double-counted.
 
-## Claude Implementation Scope
-1. `FamilyTierQuoteItem`: add optional Edition-title display snapshot; populate it at Add-to-Quote time. Preserve old carts when absent.
-2. `OrderSummary.tsx`: Family primary/add-on rows mirror corrected cart semantics: human Family/Tier/Edition labels; each `legPaymentSummaries` stream; finite per-item **Total**; fallback to flat price/cycle when streams absent. Remove raw CZ IDs from visible text.
-3. `QuoteProposalPreview.tsx`: same commercial presentation and labels. Preserve `.cz-proposal` root exactly so existing print/PDF cloning remains unchanged.
-4. Cart-level Family contract summary in both surfaces must reuse `computeTotalContractValue()`, `startingPaymentsByCycle()`, `chargeTypeLabel()` and the same primary-only TCV semantics as `QuoteSummary`: add-ons may show their own stream/finite Total but do not enter combined primary TCV/Initial Payment.
-5. Legacy/simple `QuoteItem`, bundle, promotion and non-family behavior stays unchanged. `calcQuoteTotals()` may remain for those paths; do not represent multi-stream Family totals with it.
-6. Do not touch request routing/modal/steps, contact/submit/email, RequestSchema/storage, print portal, PDF mechanism, admin routing, pricing resolver, quote mutation, or persistence.
-
-Add focused contracts for: no customer-visible Platform IDs; optional Edition-title snapshot/fallback; stream + finite Total rendering in review and proposal; primary-only TCV/Initial Payment; legacy path retained; `.cz-proposal` root retained.
-
-Implement on a review branch, report exact diff/tests in this file, set `AWAITING CHATGPT REVIEW`, and stop before `main` push.
-
-## Claude Report — 2026-08-29 (implemented, not pushed to main)
-
-Branch `phase-8f-quote-review-pdf-parity` @ `482929e2`, based on `main@b299563d264615d39b40a9a21e56e14edd0e1565`.
-
-**Files changed:**
-- `cost-builder/types.ts`: `FamilyTierQuoteItem` gains optional `tierEditionTitle?: string | null` — selection-time human Edition label.
-- `package-builder/FamilyTierAdapter.tsx`: `itemFor()` populates `tierEditionTitle: effective.selectedEdition?.label ?? null`. No other behavior touched.
-- `request-flow/OrderSummary.tsx` + `request-flow/QuoteProposalPreview.tsx`: Family primary/add-on rows now show `familyTitle`/`tierTitle`/`tierEditionTitle` only (zero raw Platform ID fields — verified via grep, zero matches). Each row with `legPaymentSummaries` renders its stream rows + a finite per-item Total (`computeTotalContractValue`), falling back to flat `price`/`billingCycle` when absent — same shape `QuoteSummary.tsx` already uses. Totals section branches on `hasMultiStreamItem`: when true, shows a primary-only combined Total Contract Value (or "Contract Value: Ongoing") + Initial Payment block, reusing `computeTotalContractValue()`/`startingPaymentsByCycle()`/`chargeTypeLabel()` exactly as `QuoteSummary.tsx`'s footer does — add-ons never enter that combined sum. Legacy `mainItems`/`bundleItems`/`tierAddonItems` rendering and `calcQuoteTotals()` are byte-for-byte untouched. `.cz-proposal` root class retained for `RequestFlowModal`'s print clone.
-- `resources/css/modules/cost-builder.css`: new `.cz-os__stream-row`/`.cz-os__service-streams`/`.cz-os__addon-streams`/`.cz-os__contract-note` and `.cz-proposal__stream-row`/`.cz-proposal__service-streams`/`.cz-proposal__addon-streams`/`.cz-proposal__contract-note` rules, styled to match each surface's existing palette. No existing rule edited.
-- `scripts/package-family-request-flow-contract.ts`: this pre-existing contract had asserted the raw-Platform-ID behavior as *correct* (`order.includes('familyPlatformId') ...`). Since that behavior is the defect this phase fixes, updated the assertion to the opposite (no raw ID field anywhere in either file) plus `tierEditionTitle`/`legPaymentSummaries` usage checks. This is a requirements-direction change (approved above), not a weakened assertion around unfixed code.
-- `scripts/request-flow-family-tier-parity-contract.ts` (new, `contract:request-flow-family-tier-parity`): Edition-title fallback + no live-catalog resolution in request-flow; reused primitives present; combined TCV/Initial Payment excludes add-ons; per-item stream+Total rendering count; legacy rendering/`calcQuoteTotals()` retained; `.cz-proposal` root retained.
-- `dist/css/cost-builder.css`, `dist/js/cost-builder.js`, `package.json`: rebuilt/updated to match.
-
-**Tests:** `tsc --noEmit` clean. `npm run build` clean. Full contract sweep (every registered `contract:*`) run on this branch: only `admin-station-css`, `package-builder-flow`, `platform-identity-schema` fail — confirmed via `git stash` + baseline run against `main@b299563d` that all three already fail there too (unrelated: `package-builder-flow` references a missing `FullBuildDetail.tsx`; `platform-identity-schema` fails on pre-existing rate-sheet-bundle entries; `admin-station-css` is the previously-documented unrelated baseline failure). No new regressions.
-
-Awaiting review of the actual pushed branch diff before any `main` push.
+Report the revised branch SHA + diff/tests here, set `AWAITING CHATGPT REVIEW`, and stop. No `main` push.
