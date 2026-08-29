@@ -831,9 +831,17 @@ export function TierCard({
           type="button"
           // data?.is_addon is the same flag the Add-ons badge above already
           // reads; normal Tier cards (is_addon false/undefined) are
-          // untouched. This is the card's primary quick-sale action
-          // regardless of whether Choose Plan is also present above it.
-          class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}${data?.is_addon ? ' cz-cost-builder__tier-action--addon' : ''}`}
+          // untouched — --addon alone (plain Cost Builder's own add-on
+          // cards, which never supply onChoosePlan) keeps its original
+          // outline/fill-on-hover treatment unchanged. The solid PRIMARY
+          // treatment is a SEPARATE modifier, --addon-primary, gated on
+          // onChoosePlan too — it only ever applies to an add-on offered
+          // inside Package Builder's focused shell, never leaking into
+          // plain Cost Builder's own add-on rendering (ChatGPT Review 4
+          // finding: the original single --addon class was unconditional
+          // on data?.is_addon and so changed Cost Builder's own appearance
+          // too when its default styling was changed to solid).
+          class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}${data?.is_addon ? ' cz-cost-builder__tier-action--addon' : ''}${data?.is_addon && onChoosePlan ? ' cz-cost-builder__tier-action--addon-primary' : ''}`}
           onClick={() => onClick(effective)}
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}

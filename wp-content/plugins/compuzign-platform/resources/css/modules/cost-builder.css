@@ -611,21 +611,42 @@
   color: var(--cz-color-danger);
 }
 
-/* Phase 8E live-validation correction: Add to Quote is the add-on card's
-   visible PRIMARY quick-sale CTA (an add-on now also offers a secondary
-   Choose Plan/View Plan below — see --addon on .tier-choose further down),
-   so this carries the same solid-by-default/outline-on-hover emphasis
-   .tier-choose--filled uses for a popular/Enterprise card's own Choose
-   Plan — never just the outline-then-fill pair, which would read as equal
-   weight to the secondary button beside it. is-selected/is-removing keep
-   their own existing treatment unchanged (Added state, hover-to-remove). */
+/* Add-on cards with no Choose Plan/View Plan action (plain Cost Builder —
+   ServiceCard.tsx never supplies onChoosePlan) have their one Add to Quote
+   CTA carry the stronger secondary emphasis that pair would otherwise
+   provide — the same default-outline/hover-fill pair .tier-choose already
+   uses, never solid by default. Unchanged since before Phase 8E.
+   is-selected/is-removing keep their own existing treatment unchanged
+   (Added state, hover-to-remove). */
 .cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing) {
+  border-color: var(--cz-color-accent);
+  color: var(--cz-color-accent);
+}
+
+.cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing):hover {
   background: var(--cz-color-accent);
   border-color: var(--cz-color-accent);
   color: #000;
 }
 
-.cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing):hover {
+/* Phase 8E live-validation correction, SCOPED (ChatGPT Review 4): an
+   add-on offered inside Package Builder's focused shell (data?.is_addon
+   AND onChoosePlan — never plain Cost Builder, which doesn't supply
+   onChoosePlan) has Add to Quote as its visible PRIMARY quick-sale CTA
+   beside the secondary Choose Plan/View Plan (--addon on .tier-choose
+   further down) — solid-by-default/outline-on-hover, the same emphasis
+   .tier-choose--filled uses for a popular/Enterprise card's own Choose
+   Plan. This is a SEPARATE modifier from --addon above specifically so
+   plain Cost Builder's own add-on cards (which only ever get --addon,
+   never --addon-primary) are completely unaffected by this treatment.
+   Placed after --addon so it wins the cascade wherever both apply. */
+.cz-cost-builder__tier-action--addon-primary:not(.is-selected):not(.is-removing) {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-cost-builder__tier-action--addon-primary:not(.is-selected):not(.is-removing):hover {
   background: transparent;
   color: var(--cz-color-accent);
 }
