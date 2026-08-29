@@ -28,7 +28,7 @@ function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
             {inclusion.label}
           </li>,
           ...(inclusion.includes ?? []).map((child, ci) => (
-            <li key={child.id || `${inclusion.id}-${ci}`} class="cz-proposal__feature cz-proposal__feature--child">
+            <li key={`${inclusion.id || i}:child:${child.id || ci}`} class="cz-proposal__feature cz-proposal__feature--child">
               {child.label}
             </li>
           )),

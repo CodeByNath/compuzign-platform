@@ -57,7 +57,29 @@ for (const file of [order, proposal]) {
   check(file.includes('item.features.length > 0') && file.includes('item.features.map'), 'falls back to the flat features[] list for an old cart entry without inclusionItems');
   const usageCount = (file.match(/<FamilyInclusionsList item=\{item\} \/>/g) ?? []).length;
   check(usageCount === 2, 'FamilyInclusionsList is used for both Family primary and Family add-on rows');
+  // Regression: a child row's list key must NEVER be the bare child.id —
+  // when two different Bundle parents supply a child with the same id, that
+  // would produce duplicate keys among siblings in the same <ul>, which can
+  // reconcile incorrectly (stale/moved/missing rows) after a cart change.
+  check(!/key=\{child\.id \|\|/.test(file), 'child row key must not fall back to a bare, unscoped child.id');
+  check(/key=\{`\$\{inclusion\.id \|\| i\}:child:\$\{child\.id \|\| ci\}`\}/.test(file), 'child row key is unconditionally parent-scoped (inclusion identity : child identity)');
 }
+
+// Runtime uniqueness proof: two different Bundle parents supplying a child
+// with the SAME child.id must still produce distinct keys once run through
+// the real key expression above.
+function childKey(inclusion: { id: string }, i: number, child: { id: string }, ci: number): string {
+  return `${inclusion.id || i}:child:${child.id || ci}`;
+}
+const bundleA: ServiceInclusion = { id: 'bundle_a', label: 'Bundle A', bundle_id: 'rs_a', includes: [{ id: 'shared_child', label: 'Shared Child' }] };
+const bundleB: ServiceInclusion = { id: 'bundle_b', label: 'Bundle B', bundle_id: 'rs_b', includes: [{ id: 'shared_child', label: 'Shared Child' }] };
+const inclusionItemsWithSharedChild: ServiceInclusion[] = [bundleA, bundleB];
+const generatedKeys = inclusionItemsWithSharedChild.flatMap((inclusion, i) => [
+  `${inclusion.id || i}`,
+  ...(inclusion.includes ?? []).map((child, ci) => childKey(inclusion, i, child, ci)),
+]);
+check(new Set(generatedKeys).size === generatedKeys.length, 'two Bundle parents sharing the same child.id still produce unique keys once parent-scoped');
+check(generatedKeys.includes('bundle_a:child:shared_child') && generatedKeys.includes('bundle_b:child:shared_child'), 'both parent-scoped shared-child keys are present and distinct from each other');
 
 // 6. No raw CZ Platform IDs anywhere in review/proposal — same boundary
 // Phase 8F established, re-verified here since this contract's own mandate
