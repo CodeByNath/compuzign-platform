@@ -2,10 +2,10 @@
 
 ## Status
 - Phase 8G: `CLOSED` at production `main@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`
-- Phase 8H: `READY FOR CLAUDE`
-- Source push: `SOURCE PUSH APPROVED`
-- Verdict: `Proceed`
-- Accepted candidate: `phase-8h-plan-details-value-states@1a74e785627bfae8f051ffa32093029e978b2b6e`
+- Phase 8H: `AWAITING LIVE VALIDATION`
+- Source push: `PUSHED — exact accepted commit, fast-forward only`
+- Verdict: `Proceed` — source pushed, deployment succeeded
+- Production: `main@1a74e785627bfae8f051ffa32093029e978b2b6e`
 
 ## Approved Display Rules
 Bundle child Unit Price/Total = **Included**. Open-ended Charge Occurrences = **Until Canceled**. Open-ended Subtotal = formatted known Rate. Open-ended TCV = **Until Canceled** when rates are known. Missing/unresolved price = **To be confirmed**. Real numeric zero = **$0.00**. No explanatory TCV note. Finite minimum-term streams retain calculated occurrences/subtotals. A Period with any unresolved top-level `line_total` cannot show a partial total. Due at plan start cannot silently omit an unresolved starting rate.
@@ -40,3 +40,19 @@ The focused contract directly exercises all approved semantic states, including 
 
 ## Final Gate
 Nath will perform the browser/customer-facing validation. Phase 8H remains open until the pushed `main` SHA, deployment result, and Nath's live result agree with the accepted source.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Pre-push check: `origin/main` confirmed exactly `41c31b41ba51d594f1a4896c2a9ab7175b3f02cc` before push — matched, no divergence. Local `main` checked out fresh from `origin/main` (same SHA), then fast-forward merged to `phase-8h-plan-details-value-states@1a74e785...` (confirmed via `git ls-remote origin phase-8h-plan-details-value-states` to be the exact accepted SHA before merging) — no amend/rebuild/source changes, pure fast-forward.
+- Push output: `41c31b41..1a74e785  main -> main`
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `1a74e785627bfae8f051ffa32093029e978b2b6e` — equals the accepted SHA exactly.
+- GitHub Actions run: `33256312318` ("Deploy to Hostinger"), triggered by push on 2026-08-29
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33256312318` endpoint, polled until `status: completed` — `conclusion: success`)
+- Job/step-level results, all `success`: Set up job; Checkout repository; Setup Node.js; Install frontend dependencies; Build frontend assets; Deploy source via SSH; Deploy built dist assets via SCP; Post Setup Node.js; Post Checkout repository; Complete job.
+- Deployment result: workflow-reported success for deployed SHA `1a74e785627bfae8f051ffa32093029e978b2b6e`. No customer/runtime mutations performed. Actual live site behavior not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Final Gate above, covering Plan Details' Bundle child "Included" cells, "Until Canceled" occurrences/TCV, and "$4,000.00" Subtotal for OMNIA Basic, plus no explanatory TCV note)
