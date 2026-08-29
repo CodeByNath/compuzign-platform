@@ -58,9 +58,19 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
   // independently of whether a finite Total Contract Value exists, so a
   // mixed finite+ongoing cart still reports something truthful instead of
   // nothing. Does not touch/replace the TCV/fallback logic above.
+  // startingPaymentsByCycle() itself is untouched — still the same per-cycle
+  // derivation over each item's own earliest resolved month. What changed
+  // (presentation-only, per the customer-facing footer redesign) is the
+  // LAST step: this footer's own single "Initial Payment" figure answers
+  // one question only — the combined amount due when the quoted plans
+  // start — so it deliberately collapses every cycle bucket into one sum
+  // here. The individual quote-item rows above keep their own real
+  // cycle-specific labels (Upfront/Monthly/Yearly) untouched; only this
+  // cart-level summary number stops describing which Leg types make it up.
   const startingPayments = startingPaymentsByCycle(
     primaryFamilyTierItems.map((item) => item.legPaymentSummaries ?? []),
   );
+  const initialPaymentTotal = startingPayments.reduce((sum, [, amount]) => sum + amount, 0);
 
   return (
     <div class="cz-quote-summary">
@@ -170,25 +180,6 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
       </ul>
 
       <div class="cz-quote-summary__footer">
-        {/* Phase 8B: a new, independent fact — deliberately a sibling of
-            .cz-quote-summary__total below, not nested inside its ternary,
-            so the existing TCV/fallback branches there stay byte-for-byte
-            untouched. Only shown once any item is multi-stream (the same
-            hasMultiStreamItem gate .total's own branch already uses) — a
-            simple single-stream cart's existing compact "Est. X total"
-            already answers this same question, so nothing new renders
-            there. */}
-        {hasMultiStreamItem && startingPayments.length > 0 && (
-          <div class="cz-quote-summary__starting-payments">
-            <span class="cz-quote-summary__total-label">Starting payments</span>
-            {startingPayments.map(([cycle, amount]) => (
-              <div key={cycle} class="cz-quote-summary__cycle-row">
-                <span class="cz-quote-summary__cycle-name">{chargeTypeLabel(cycle)}</span>
-                <span class="cz-quote-summary__cycle-amount">{formatPrice(amount)}</span>
-              </div>
-            ))}
-          </div>
-        )}
         <div class="cz-quote-summary__total">
           {cycleEntries.length === 0 ? (
             <>
@@ -196,7 +187,7 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
               <span class="cz-quote-summary__total-price">Contact Us</span>
             </>
           ) : hasMultiStreamItem ? (
-            // Phase 6/7: calcQuoteTotals' own Headline-cycle bucketing is
+            // Phase 6/7/9: calcQuoteTotals' own Headline-cycle bucketing is
             // untrustworthy once any item has more than one real payment
             // stream (see hasMultiStreamItem above) — never fall through to
             // its hasMixedCycles/singleCycle labels below in that case.
@@ -206,16 +197,21 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
             // finite; any ongoing primary, or no primary items at all,
             // means the cart's own contract length is genuinely unbounded,
             // which Phase 8C states explicitly rather than falling back to
-            // a generic "Multiple payment streams" non-answer.
+            // a generic "Multiple payment streams" non-answer. Phase 9:
+            // this block now sits ABOVE the Initial Payment figure below it
+            // (dedicated contract-value-label/-amount classes, deliberately
+            // NOT the shared total-label/total-price the simple-cart
+            // branches below still use) — useful context, lower visual
+            // weight than the final number the customer actually pays now.
             combinedPrimaryTotalContractValue !== null ? (
               <>
-                <span class="cz-quote-summary__total-label">Total Contract Value</span>
-                <span class="cz-quote-summary__total-price">{formatPrice(combinedPrimaryTotalContractValue)}</span>
+                <span class="cz-quote-summary__contract-value-label">Total Contract Value</span>
+                <span class="cz-quote-summary__contract-value-amount">{formatPrice(combinedPrimaryTotalContractValue)}</span>
               </>
             ) : (
               <>
-                <span class="cz-quote-summary__total-label">Contract Value</span>
-                <span class="cz-quote-summary__total-price">Ongoing</span>
+                <span class="cz-quote-summary__contract-value-label">Contract Value</span>
+                <span class="cz-quote-summary__contract-value-amount">Ongoing</span>
                 <span class="cz-quote-summary__custom-note">
                   Includes charges without a fixed end date.
                 </span>
@@ -265,6 +261,25 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
             </>
           )}
         </div>
+
+        {/* Phase 9: the final, strongest number in the footer — deliberately
+            last, directly above the CTA, since "what do I pay right now" is
+            the most immediate checkout fact. A cart-level presentation
+            label only: collapses every startingPaymentsByCycle() bucket
+            into ONE combined figure (initialPaymentTotal above) — the
+            underlying per-cycle math/derivation is untouched, and each
+            quote item's own row above still shows its own real
+            Upfront/Monthly/Yearly labels; only this summary number stops
+            describing which Leg types make it up. Same hasMultiStreamItem
+            gate as .total's own multi-stream branch — a simple
+            single-stream cart's existing compact "Est. X total" already
+            answers this question, so nothing new renders there. */}
+        {hasMultiStreamItem && startingPayments.length > 0 && (
+          <div class="cz-quote-summary__initial-payment">
+            <span class="cz-quote-summary__initial-payment-label">Initial Payment</span>
+            <span class="cz-quote-summary__initial-payment-amount">{formatPrice(initialPaymentTotal)}</span>
+          </div>
+        )}
 
         <button
           type="button"

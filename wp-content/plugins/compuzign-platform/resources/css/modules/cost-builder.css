@@ -878,16 +878,6 @@
   border-top: 1px solid var(--cz-color-line);
 }
 
-/* Phase 8B: reuses .cz-quote-summary__total-label for its own heading and
-   .cz-quote-summary__cycle-row/-name/-amount (below) for each cycle row —
-   the exact same visual language the hasMixedCycles branch of .total
-   already uses for "distinct cycles, never summed together" rows. */
-.cz-quote-summary__starting-payments {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cz-space-1);
-}
-
 .cz-quote-summary__total {
   display: flex;
   flex-direction: column;
@@ -900,6 +890,46 @@
 }
 
 .cz-quote-summary__total-price {
+  font-size: var(--cz-font-size-xl);
+  font-weight: 700;
+  color: var(--cz-color-accent);
+}
+
+/* Phase 9: Contract Value — dedicated classes (not the shared
+   total-label/total-price above, which stay reserved for the simple-cart
+   "Est. X total"/"Pricing on request" branches, untouched) so this block
+   can carry deliberately LOWER emphasis than the Initial Payment figure
+   below it — useful context, not the number the eye should land on last. */
+.cz-quote-summary__contract-value-label {
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+}
+
+.cz-quote-summary__contract-value-amount {
+  font-size: var(--cz-font-size-lg);
+  font-weight: 700;
+  color: var(--cz-color-accent);
+}
+
+/* Phase 9: Initial Payment — the final, strongest figure in the footer,
+   directly above the CTA. A top border acts as the separator from the
+   Contract Value block above it (mirrors the per-item Total row's own
+   divider treatment, .cz-quote-summary__stream-row--total). */
+.cz-quote-summary__initial-payment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  padding-top: var(--cz-space-4);
+  border-top: 1px solid var(--cz-color-line);
+}
+
+.cz-quote-summary__initial-payment-label {
+  font-size: var(--cz-font-size-sm);
+  font-weight: 700;
+  color: var(--cz-color-text);
+}
+
+.cz-quote-summary__initial-payment-amount {
   font-size: var(--cz-font-size-xl);
   font-weight: 700;
   color: var(--cz-color-accent);
