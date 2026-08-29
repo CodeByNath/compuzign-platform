@@ -1,11 +1,12 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `READY FOR CLAUDE`
-- Verdict: `Proceed with safeguards — LIVE REGRESSION CORRECTION REQUIRED`
-- Production: `main@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
-- Deployment: run `33245001288`, `SUCCESS`
-- Source push: `NOT APPROVED` for the next correction until ChatGPT reviews it.
+- Status: `AWAITING CHATGPT REVIEW`
+- Verdict: `Proceed with safeguards — LIVE REGRESSION CORRECTION REQUIRED` (correction implemented, pushed for review)
+- Production (unchanged, `main` not touched): `main@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
+- Deployment (unchanged): run `33245001288`, `SUCCESS`
+- Source push: `NOT APPROVED`
+- Review branch (advanced): `phase-8e-addon-cta-review` → `cf650905d96b8fdee5c0032caefd7d5694fc51a9` (parent `b7083c44cb23e0e005976687583d7fdf2b4f2a6d`), pushed to `origin`
 
 ## Live Validation — 2026-08-29
 Nath confirmed the recommendation-card button order is correct.
@@ -35,3 +36,22 @@ Make the narrowest correction only:
 - Add/update focused regression coverage for add-on **View details** and exact add-on detail resolution.
 
 Implement locally, push only to the existing review branch, update this same work file with changed files/tests/diff summary, then set `AWAITING CHATGPT REVIEW`. Do not push `main` yet.
+
+## Claude Corrective Response — 2026-08-29
+
+**1. Cart affordance restored to "View details"** — `QuoteSummary.tsx`: removed `onOpenAddonFocus` prop/callback and its "View Plan" button entirely. The existing "View details" button (`onOpenDetails`) now renders for every `family_tier` item — dropped the `!item.isAddon` exclusion. Cart-total/TCV math (`primaryFamilyTierItems`) is untouched, still primary-only by design (per requirement #23 in this file).
+
+**2. QuoteDetailsOverlay extended, not bypassed** — added `allFamilyTierItems = items.filter(isFamilyTierQuoteItem)` (every quoted plan) driving the tab list and active-tab resolution; `primaryFamilyTierItems` is now derived from it (`.filter((item) => !item.isAddon)`) and still exclusively feeds the Total Commitment tab — no add-on TCV math invented. An add-on's own tab reuses `resolvePlanDetails()` verbatim, same as a primary's.
+
+**3. Fail-closed exact identity** — `resolvePlanDetails()` had the SAME fail-open bug FamilyTierAdapter's own resolver had (fixed in the prior round): a non-null `tierEditionPlatformId` with no matching Edition silently fell back to Default via `?.id ?? null`. Fixed to return `null` in that case (the overlay's existing fallback already renders "Details unavailable" — no new UI needed).
+
+**4. Bottom action into focused shell** — per requirement #5 ("if that action already exists in the details flow"): confirmed `PlanDetailsContent` has no such action for ANY plan today (primary or add-on) — it's read-only content only. Per the "if it already exists" phrasing, nothing was added; inventing one would be scope creep beyond the narrowest correction.
+
+**5. Now-unneeded plumbing removed** — grep confirmed `externalFocusRequest`/`onExternalFocusConsumed` (FamilyTierAdapter) and `openAddonFocus`/`addonFocusRequest` (PackageBuilderApp) had no consumer left once the cart route reverted; removed entirely from both files.
+
+**Regression coverage rewritten** (`package-builder-addon-focus-contract.ts`): CTA-order checks kept as-is (untouched this round); new checks confirm the removed plumbing is gone from all three files, `QuoteSummary`'s "View details" gate has no `isAddon` exclusion, `QuoteDetailsOverlay`'s tab population/active-item resolution covers every quoted plan while Total Commitment stays primary-only, and `resolvePlanDetails()` fails closed on an unmatched Edition.
+
+- Files changed: `resources/ts/components/cost-builder/QuoteSummary.tsx`, `resources/ts/components/package-builder/FamilyTierAdapter.tsx`, `resources/ts/components/package-builder/PackageBuilderApp.tsx`, `resources/ts/components/package-builder/QuoteDetailsOverlay.tsx`, `scripts/package-builder-addon-focus-contract.ts`, `dist/js/cost-builder.js`. No CSS changes — CTA order preserved exactly.
+- Tests/build: `tsc --noEmit` clean; `npm run build` succeeded; contracts passed — the rewritten `package-builder-addon-focus`, `package-builder-regression-lock`, `cost-builder-isolation`, `package-family-cart`, `quote-cart-addon`, `tier-addon-flow`, `package-builder-customer-tabs`, `tier-edition-switch`. `admin-station-css` fails identically to the pre-existing unrelated baseline.
+- Source state: committed locally on `main` (`cf650905`, parent `b7083c44`), **not pushed to `origin/main`**. Same commit pushed to `phase-8e-addon-cta-review` (advancing it from `b7083c44`). `origin/main` confirmed unmoved before and after.
+- Questions for approval: none.
