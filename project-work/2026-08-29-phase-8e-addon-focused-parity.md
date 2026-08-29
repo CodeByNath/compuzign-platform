@@ -1,50 +1,42 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `AWAITING LIVE VALIDATION`
-- Verdict: `Proceed` — source pushed, deployment succeeded
+- Status: `READY FOR CLAUDE`
+- Verdict: `Proceed with safeguards — ONE PRESENTATION REFINEMENT BEFORE LIVE VALIDATION`
 - Production: `main@cf650905d96b8fdee5c0032caefd7d5694fc51a9`
-- Source push: `PUSHED — exact accepted commit, fast-forward only`
+- Deployment: run `33246121533`, `SUCCESS`
+- Source push: `NOT APPROVED` for this refinement until ChatGPT reviews it.
 
-## Audit Result
-The previous concern about an add-on-only Quote Details overlay was based on an unreachable normal customer state and is withdrawn.
+## Accepted Behavior Already Live
+- Recommendation CTA order is correct.
+- Add-on cart/details support is restored through the existing Quote Details overlay.
+- Add-on detail identity fails closed on invalid Edition resolution.
+- Total Commitment remains primary-only.
 
-Repository evidence:
-- `FamilyTierAdapter` only exposes Recommendations/add-on cards in the selected-primary staged view: `stagedTier` exists only when `stagedTierId === selectedTierId` and that selected Tier is a normal Tier.
-- `PackageBuilderApp.removePrimary()` calls `removeFamilyTierSystemQuoteItems(...)`.
-- `removeFamilyTierSystemQuoteItems()` removes every `family_tier` item for that Family + Tier Instance, not just the primary, so removing the primary removes its add-ons from the cart as well.
-- The cart remove path for a primary uses the same whole-Tier-System removal helper.
+## Nath Refinement Before Browser Validation
+There must not be 2–3 separate **View details** links in the cart.
 
-Therefore the customer cannot normally retain/open an add-on without its primary. No new Total Commitment visibility guard is required for this Phase 8E correction.
+Use one single cart-level **View details** control only — the existing footer control beside/below the summary area near **Initial Payment**.
 
-## Accepted Candidate Behavior
-- Add-on cart action is restored to **View details**.
-- It opens the existing Quote Details overlay.
-- Add-ons receive their own detail tabs/content using the existing plan-details resolver.
-- Exact Edition resolution fails closed instead of falling back to Default.
-- Total Commitment aggregation remains primary-only.
-- Obsolete direct add-on focus plumbing is removed.
-- Recommendation CTA order remains unchanged.
-- No backend, pricing, persistence, mutation, or TCV architecture change.
+Required behavior:
+1. Remove the per-item **View details** buttons from each quoted plan row.
+2. Keep one footer **View details** button only.
+3. Clicking that one button opens the existing Quote Details overlay on the **first quoted plan tab**, not Total Commitment.
+4. Overlay tab order must follow cart order from top to bottom: first quoted plan, next quoted plan/add-on(s), then **Total Commitment** last.
+5. The customer can move through all plan/add-on detail tabs and finally Total Commitment from that one overlay.
+6. Left-align the single footer **View details** control in the quote footer/summary area.
+
+## Source Shape Already Supports This
+`QuoteDetailsOverlay` already builds plan tabs from `allFamilyTierItems` in item/cart order and appends **Total Commitment** last. The refinement should reuse that order rather than introduce a new sorter or navigation model.
+
+`QuoteSummary` currently renders both per-item detail buttons and one cart-level footer detail button. Its footer button currently calls `onOpenDetails(null)`, which opens the overlay on Total Commitment. Change only this presentation/entry behavior so the single footer control targets the first quoted `family_tier` item.
 
 ## Claude Next Action
-Proceed immediately:
-1. Push exactly `cf650905d96b8fdee5c0032caefd7d5694fc51a9` to `main` as a fast-forward only. Do not add or alter source.
-2. Confirm `origin/main` resolves to that exact SHA.
-3. Record the deployment workflow run ID/status in this same file.
-4. On successful deployment, set status to `AWAITING LIVE VALIDATION` and stop.
-5. Do not mark `CLOSED` until the live customer check confirms add-on **View details** and the details overlay behavior.
+Make the narrowest source change:
+- Remove row-level **View details** rendering.
+- Keep the footer **View details** control and open the overlay on the first quoted `family_tier` item.
+- Preserve existing overlay tabs/content, add-on details, exact identity behavior, Total Commitment math, quote ordering, pricing, persistence, mutation, and Cost Builder isolation.
+- Add/update focused regression coverage for exactly one cart **View details** entry, first-plan default tab, cart-order tabs, and Total Commitment last.
+- Adjust only the required CSS to left-align that footer detail control.
 
-## Production Push Record
-
-- Status: PUSHED
-- Pushed by: Claude Code
-- Pushed at: 2026-08-29
-- Pre-push check: `origin/main` confirmed exactly `b7083c44cb23e0e005976687583d7fdf2b4f2a6d` before push — matched, no divergence. Local `main` was already at `cf650905` (identical to the accepted candidate), so the push was a plain fast-forward — no add/alter of source.
-- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `cf650905d96b8fdee5c0032caefd7d5694fc51a9`
-- GitHub Actions run: `33246121533` ("Deploy to Hostinger #905"), triggered by push on 2026-08-29 09:42 UTC
-- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33246121533` endpoint, polled until `status: completed` — `conclusion: success`)
-- Deployment result: workflow-reported success for deployed SHA `cf650905d96b8fdee5c0032caefd7d5694fc51a9`. Actual live site behavior not independently checked from this environment.
-
-## Live Browser Validation
-- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above)
+Implement locally, push only to the existing review branch, update this same file, and set `AWAITING CHATGPT REVIEW`. Do not push `main` yet.
