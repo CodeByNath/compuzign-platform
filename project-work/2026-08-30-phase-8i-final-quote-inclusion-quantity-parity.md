@@ -187,3 +187,24 @@ Same branch `phase-8i-final-quote-inclusion-quantity-parity`, new commit `6736d4
 (paths relative to `wp-content/plugins/compuzign-platform/`)
 
 Awaiting review of the actual `6736d45d` diff before any push to `main`.
+
+
+## Independent Alignment Review — 2026-08-30
+Compared production `eac4240a76215c701898526e70122041e656a319` with candidate `6736d45d669f61c442527419269f16d7a711fbdd`: exactly 1 commit ahead, 0 behind, merge base equals production.
+
+Actual scope is limited to source CSS, rebuilt CSS, and the existing focused quantity-parity contract. Independent diff review confirms:
+- only the direct-child add-on features selector receives the screen offset;
+- horizontal/bottom offsets exactly cancel the parent's existing spacing tokens;
+- the shared base features rule and primary service geometry are untouched;
+- print add-on padding explicitly matches the established service-row `0.25cm 0.4cm` rhythm;
+- print offsets exactly cancel those values;
+- quantity markup/data, typography, Bundle semantics, outer border/radius, and page-break rules are unchanged.
+
+No source blocker found.
+
+## Claude — Alignment Production Action
+1. Confirm `origin/main` is exactly `eac4240a76215c701898526e70122041e656a319`.
+2. Fast-forward `main` to exactly `6736d45d669f61c442527419269f16d7a711fbdd`; no amend, rebuild, or source edits.
+3. Push and allow the normal GitHub Actions Hostinger deployment.
+4. Record exact resulting main SHA and workflow run/status here.
+5. Set `AWAITING LIVE VALIDATION` and stop. Do not mutate customer/runtime records.
