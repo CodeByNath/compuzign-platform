@@ -1,12 +1,10 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `READY FOR CLAUDE`
-- Verdict: `Proceed`
-- Production before push: `main@7ce87f615992b8fd9b5cc5658b3c0bbb5b068c82`
-- Accepted candidate: `phase-8e-addon-cta-review@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
-- Candidate is exactly 2 commits ahead of production.
-- Source push: `APPROVED` for exactly `b7083c44`.
+- Status: `AWAITING LIVE VALIDATION`
+- Verdict: `Proceed` — source pushed, deployment succeeded
+- Production: `main@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
+- Source push: `PUSHED — exact accepted commit, fast-forward only`
 
 ## Objective
 Package Builder add-on recommendation cards expose both actions:
@@ -38,3 +36,17 @@ Proceed immediately:
 5. If deployment fails, record the failure here and stop; do not change source unless a source defect is independently established.
 
 Nath will perform the customer browser check only after the corrected SHA is live. Do not mark Phase 8E `CLOSED` before that live result is recorded.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Pre-push check: `origin/main` confirmed exactly `7ce87f615992b8fd9b5cc5658b3c0bbb5b068c82` before push — matched, no divergence. Local `main` was already at `b7083c44` (identical to the accepted candidate), so the push was a plain fast-forward — no add/alter of source.
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
+- GitHub Actions run: `33245001288` ("Deploy to Hostinger #904"), attempt 1, triggered by push on 2026-08-29 09:13 UTC
+- Workflow result: `SUCCESS`, completed in 30s (confirmed via the public `api.github.com/repos/.../actions/runs/33245001288` endpoint — `status: completed`, `conclusion: success`)
+- Deployment result: workflow-reported success for deployed SHA `b7083c44cb23e0e005976687583d7fdf2b4f2a6d`. Actual live site behavior not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above)
