@@ -3,8 +3,9 @@
 ## Status
 - Phase 8G: `CLOSED` at `main@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`.
 - Phase 8H semantic value-state work: deployed and live semantic checks passed at `main@1a74e785627bfae8f051ffa32093029e978b2b6e`.
-- Live typography correction: `PUSHED — exact accepted commit, fast-forward only`.
-- Auditor verdict: `Proceed with safeguards` — source pushed, deployment succeeded.
+- Live typography correction: `AWAITING LIVE PDF VALIDATION`.
+- Source/deployment: `PUSHED — exact accepted commit, fast-forward only`; workflow succeeded.
+- Auditor verdict: `Proceed with safeguards` — on-screen correction passed; native PDF preview remains the final gate.
 - Production: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
 
 ## Locked Display Rules
@@ -54,4 +55,8 @@ Nath/ChatGPT must validate the deployed customer surface. Phase 8H closes only w
 - Deployment result: workflow-reported success for deployed SHA `0c586debcccc5ee9eb850b8119200b31fe61b4ed`. Actual on-screen and printable/PDF typography not independently checked from this environment.
 
 ## Live Browser Validation
-- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath/ChatGPT performs this check per the Final Gate above, confirming both on-screen Review & Finalise Quote and printable/PDF proposal now show the token-sized total amount, for both the `Ongoing` case and a finite numeric total)
+- On-screen Review & Finalise Quote: PASS on production `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
+- Expanded full quote confirmed both `Ongoing` and `$160,675` at `22.4px` = `var(--cz-font-size-xl)`, weight 800 and nowrap preserved; neither value overflows its totals block.
+- Browser console errors: none.
+- Print / Save as PDF was invoked. The browser handed off to its native print preview, which is outside the controllable page DOM; rendered PDF pixels could not be independently inspected from this environment.
+- Final status: `AWAITING LIVE PDF VALIDATION`. Nath must confirm the native preview/saved PDF shows both values at the corrected restrained size. Do not close Phase 8H until that result is recorded.
