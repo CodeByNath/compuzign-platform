@@ -3283,14 +3283,14 @@
 }
 
 .cz-proposal__total-amount {
-  font-size: 1.5rem;
+  font-size: var(--cz-font-size-lg);
   font-weight: 800;
   color: #111111;
   white-space: nowrap;
 }
 
 .cz-proposal__total-row--primary .cz-proposal__total-amount {
-  font-size: 2rem;
+  font-size: var(--cz-font-size-xl);
 }
 
 .cz-proposal__total-cycle {
