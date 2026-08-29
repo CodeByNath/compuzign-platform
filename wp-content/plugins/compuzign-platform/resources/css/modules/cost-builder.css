@@ -868,8 +868,13 @@
   opacity: 0.85;
 }
 
+/* Nath refinement: left-aligned now that it's the ONE cart-level entry
+   point into the quote-details overlay (the per-item buttons that used
+   to sit above it are gone) — matches .cz-quote-summary__view-details'
+   own default flex-start alignment instead of the earlier centered
+   treatment. */
 .cz-quote-summary__view-details--cart {
-  align-self: center;
+  align-self: flex-start;
   margin: 0 0 var(--cz-space-2);
 }
 

@@ -52,9 +52,34 @@ check(
   !/onOpenAddonFocus/.test(quoteSummarySource),
   'the removed onOpenAddonFocus callback/prop is gone from QuoteSummary',
 );
+
+// ── Single consolidated cart-level entry point (Nath refinement): no
+//    per-item "View details" buttons — exactly one footer control,
+//    opening on the FIRST quoted plan (cart order), never Total
+//    Commitment. ─────────────────────────────────────────────────────
+
 check(
-  /onOpenDetails && isFamilyTierQuoteItem\(item\) && \(/.test(quoteSummarySource),
-  'the "View details" affordance is gated on isFamilyTierQuoteItem only — no !item.isAddon exclusion (note: !item.isAddon legitimately still appears elsewhere in this file for the cart-total/TCV math, which stays primary-only by design)',
+  (quoteSummarySource.match(/cz-quote-summary__view-details/g) ?? []).length === 2,
+  'exactly one "View details" button remains: the class name substring appears exactly twice (once as the base class, once as a prefix of its own --cart modifier, both inside that ONE button\'s single class attribute) — a per-item button creeping back in would add more occurrences',
+);
+check(
+  !/onOpenDetails\(item\)/.test(quoteSummarySource),
+  'no per-item button calls onOpenDetails(item) inside the cart list anymore',
+);
+check(
+  /onOpenDetails && familyTierItems\.length > 0/.test(quoteSummarySource),
+  'the one footer "View details" button is gated on any quoted family_tier item existing (not primaryFamilyTierItems — an add-on can never exist without its own primary, so this is exactly "is there a plan to show")',
+);
+check(
+  /onClick=\{\(\) => onOpenDetails\(familyTierItems\[0\]\)\}/.test(quoteSummarySource),
+  'the one footer button opens on the FIRST quoted plan (cart order) — never onOpenDetails(null)/Total Commitment',
+);
+
+const cartViewDetailsCssMatch = cssSource.match(/\.cz-quote-summary__view-details--cart\s*\{([^}]*)\}/);
+check(cartViewDetailsCssMatch !== null, '.cz-quote-summary__view-details--cart rule exists');
+check(
+  /align-self:\s*flex-start\s*;/.test(cartViewDetailsCssMatch![1]),
+  'the single cart-level "View details" control is left-aligned (flex-start), not centered',
 );
 
 check(
