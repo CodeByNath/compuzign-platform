@@ -2,9 +2,9 @@
 
 ## Status
 - Phase 8H production baseline: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
-- Phase 8I: `AWAITING LIVE PDF VALIDATION`.
-- Source push: `PUSHED — exact accepted commit, fast-forward only`.
-- Auditor verdict: `Proceed with safeguards` — compact and expanded browser surfaces passed; saved PDF remains the final gate.
+- Phase 8I: `READY FOR CLAUDE` — add-on proposal/PDF alignment correction.
+- Source push: `SOURCE PUSH NOT APPROVED`.
+- Auditor verdict: `Proceed with safeguards` — quantities are correct; add-on inclusion shell/column alignment must match primary plans.
 - Production: `main@eac4240a76215c701898526e70122041e656a319`.
 
 ## Live Finding
@@ -130,3 +130,32 @@ The focused contract is partly structural, so live screen/PDF remains mandatory,
 - Browser console errors: none.
 - Print / Save as PDF invoked; native preview is outside the controllable page DOM, so saved-PDF pixels remain unverified.
 - Final status: `AWAITING LIVE PDF VALIDATION`. Nath must confirm the saved PDF contains the same quantities before Phase 8I closes.
+
+
+## Live PDF/Layout Finding — Add-on Double Inset
+
+User PDF/print evidence shows the Family add-on inclusion shell and its quantity column inset farther than the primary Family plan above.
+
+Source cause is confirmed:
+- primary `.cz-proposal__features` is a sibling of the padded `.cz-proposal__service-row`, so the shell spans the service card width;
+- add-on `.cz-proposal__features` is a child of `.cz-proposal__addon`, which already has `var(--cz-space-5)` horizontal and `var(--cz-space-4)` vertical padding;
+- the shared features rule then adds its own horizontal padding, producing a double inset and a different right edge for quantities;
+- print overrides the features padding but does not remove the parent add-on inset, so the mismatch survives into PDF.
+
+## Claude — Alignment Correction
+1. Keep the Phase 8I quantity markup/data unchanged.
+2. Make only the Family add-on's direct child `.cz-proposal__features` full-bleed within its add-on row: cancel the parent add-on's horizontal inset and bottom inset so the inclusion shell meets the same card edges as a primary plan's shell.
+3. Preserve the inclusion list's own padding; that padding owns label/quantity breathing room.
+4. Add an explicit `#cz-print-root` rule using the existing print dimensions so the saved PDF has the same geometry. Do not rely on screen variable margins accidentally matching cm-based print padding.
+5. The add-on header/title/price row, outer card border/radius, section heading, feature typography, quantity values, Bundle semantics, and page-break avoidance remain unchanged.
+6. Use existing spacing tokens for screen and the existing `0.25cm 0.4cm` print rhythm; no new literal px/rem sizes.
+7. Extend `quote-inclusion-quantity-parity-contract.ts` to lock:
+   - direct-child add-on selector only;
+   - full-bleed screen offsets use the parent padding tokens;
+   - explicit print offsets match the print add-on/features padding;
+   - primary service inclusion geometry is untouched.
+8. Rebuild `dist/css/cost-builder.css`; run focused/relevant contracts, typecheck/build if required by the repository workflow, then one concise full sweep.
+9. Record exact diff, commit SHA, and validation here; set `AWAITING CHATGPT REVIEW`. Do not push to `main`.
+
+## Revised Final Gate
+After deployment, confirm the add-on inclusion shell and quantity column align with primary plan inclusions in both the expanded proposal and saved PDF. Phase 8I remains open.
