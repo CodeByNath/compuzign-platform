@@ -28,6 +28,7 @@
     "contract:quote-cart-addon": "tsx scripts/quote-cart-addon-contract.ts",
     "contract:request-flow-family-tier-parity": "tsx scripts/request-flow-family-tier-parity-contract.ts",
     "contract:package-builder-bundle-inclusion-parity": "tsx scripts/package-builder-bundle-inclusion-parity-contract.ts",
+    "contract:plan-details-value-states": "tsx scripts/plan-details-value-states-contract.ts",
     "contract:tier-addon-flow": "tsx scripts/tier-addon-flow-contract.ts",
     "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",
     "contract:rate-sheet-row-platform-identity": "tsx scripts/rate-sheet-row-platform-identity-contract.ts",

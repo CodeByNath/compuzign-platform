@@ -43,7 +43,7 @@ const FOCUSABLE_SELECTOR =
 // round to $0 under that helper, misstating a real line item — so this is a
 // second formatter covering a different display need, not a duplicate of
 // the same one.
-function formatMoney(value: number | null): string {
+export function formatMoney(value: number | null): string {
   if (value === null) return '—';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -128,6 +128,71 @@ function frequencyLabel(cycle: string | null): string {
   return cycle !== null ? (PLAN_BILLING_CYCLE_LABELS[cycle] ?? 'Payment') : 'Payment';
 }
 
+// Phase 8H: three distinct value states a resolved commercial amount can be
+// in — a genuinely known finite number (formatMoney handles this, including
+// a real zero as "$0.00" via its own `!== null` check), a real known rate
+// with no fixed number of occurrences (open-ended, never a fabricated
+// finite total), and a price that hasn't been resolved at all. These three
+// helpers are for the specific Summary/Total Contract Value cells the
+// approved display rules name — formatMoney()'s own generic '—' for null
+// stays correct everywhere else (e.g. a top-level priced item's own Unit
+// Price/Total, never asked to change here).
+
+// Charge Occurrences cell: "Until Canceled" for an open-ended stream, never
+// the old generic "Ongoing" wording — a finite stream keeps its existing
+// calculated occurrence count untouched.
+export function occurrencesCell(s: LegPaymentSummary, label: string): string {
+  if (s.isOngoing) return 'Until Canceled';
+  return `${s.occurrenceMonths.length} ${label.toLowerCase()} charge${s.occurrenceMonths.length === 1 ? '' : 's'}`;
+}
+
+// Subtotal cell: an open-ended stream with a known rate repeats that same
+// Rate figure here (never a lifetime multiplication — see the work item's
+// own "Open-ended Subtotal = Rate" clarification); an open-ended stream
+// with no known rate, or a finite stream whose own calculated subtotal is
+// still null (unresolved pricing), reads as "To be confirmed" rather than
+// a bare dash. A finite stream's own calculated subtotal is untouched.
+export function subtotalCell(s: LegPaymentSummary): string {
+  if (s.isOngoing) return s.price !== null ? formatMoney(s.price) : 'To be confirmed';
+  return s.subtotal !== null ? formatMoney(s.subtotal) : 'To be confirmed';
+}
+
+// Total Contract Value cell: a finite computed value is untouched. When
+// null, the reason matters — every subtotal-null contributor being an
+// open-ended stream with a KNOWN rate means the plan is genuinely
+// open-ended, never a data gap ("Until Canceled"); any contributor with an
+// unresolved price (ongoing or not) means the total is actually unknown
+// ("To be confirmed"). No explanatory note is rendered in either case.
+export function totalContractValueCell(summaries: LegPaymentSummary[], totalContractValue: number | null): string {
+  if (totalContractValue !== null) return formatMoney(totalContractValue);
+  const unresolved = summaries.filter((s) => s.subtotal === null);
+  const allOpenEndedWithKnownRate = unresolved.length > 0 && unresolved.every((s) => s.isOngoing && s.price !== null);
+  return allOpenEndedWithKnownRate ? 'Until Canceled' : 'To be confirmed';
+}
+
+// Period breakdown total display: a null top-level line_total means that
+// item's price is genuinely unresolved — never silently skip it into a
+// partial sum that reads as the real total. Any such item makes the whole
+// Period's total "To be confirmed" instead.
+export function periodItemsTotalDisplay(items: CommercialLegPricedItem[]): string {
+  const hasUnresolvedItem = items.some((item) => item.line_total === null);
+  if (hasUnresolvedItem) return 'To be confirmed';
+  const total = items.reduce((sum, item) => sum + (item.line_total ?? 0), 0);
+  return formatMoney(total);
+}
+
+// Due-at-plan-start display: a null price on a stream starting at plan
+// start means that charge is genuinely unresolved — never silently skip it
+// into a sum that could read as a false "$0.00" when it was the only
+// starting stream.
+export function dueAtPlanStartDisplay(summaries: LegPaymentSummary[], planStartMonth: number): string {
+  const startingStreams = summaries.filter((s) => s.startMonth === planStartMonth);
+  const hasUnresolvedStartingPrice = startingStreams.some((s) => s.price === null);
+  if (hasUnresolvedStartingPrice) return 'To be confirmed';
+  const dueAtStart = startingStreams.reduce((sum, s) => sum + (s.price ?? 0), 0);
+  return formatMoney(dueAtStart);
+}
+
 // Phase 7C: Payment Category — the exact same billing_cycle-derived
 // synthesis the admin Pricing Rules/Edition editors already use
 // (paymentCategoryOf() in TierPricingRulesEditor.tsx /
@@ -204,7 +269,7 @@ function paymentTimingSentence(
 
 function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]; cycle: string | null }) {
   const totalLabel = cycle !== null ? `${frequencyLabel(cycle)} total` : 'Total';
-  const total = items.reduce((sum, item) => (item.line_total !== null ? sum + item.line_total : sum), 0);
+  const totalDisplay = periodItemsTotalDisplay(items);
   return (
     <>
       <div class="cz-package-builder__details-table-wrap">
@@ -236,15 +301,15 @@ function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]
                 <tr key={`${item.item_id}-child-${child.item_id}-${ci}`} class="cz-package-builder__details-table-row--child">
                   <td class="cz-package-builder__details-table-child-label">{child.label}</td>
                   <td>{child.quantity}</td>
-                  <td>—</td>
-                  <td>—</td>
+                  <td>Included</td>
+                  <td>Included</td>
                 </tr>
               )),
             ])}
           </tbody>
         </table>
       </div>
-      <p class="cz-package-builder__details-table-total">{totalLabel}: {formatMoney(total)}</p>
+      <p class="cz-package-builder__details-table-total">{totalLabel}: {totalDisplay}</p>
     </>
   );
 }
@@ -264,10 +329,7 @@ export function PlanDetailsContent({
   // panel (QuoteSummary.tsx) computes it identically, never a second
   // re-derivation of the same "every Leg must be finite" rule.
   const totalContractValue = computeTotalContractValue(legSummaries);
-  const dueAtStart = legSummaries.reduce(
-    (sum, s) => (s.startMonth === planStartMonth && s.price !== null ? sum + s.price : sum),
-    0,
-  );
+  const dueAtStartDisplay = dueAtPlanStartDisplay(legSummaries, planStartMonth);
 
   // Available components of the IMMEDIATELY PRECEDING Period only, keyed by
   // source — never any earlier Period, never a running "ever seen" set. A
@@ -381,18 +443,14 @@ export function PlanDetailsContent({
                         <td>{customerFacingRange(s.startMonth, s.endMonth)}</td>
                         <td>{label}</td>
                         <td>{formatMoney(s.price)}</td>
-                        <td>
-                          {s.isOngoing
-                            ? 'Ongoing'
-                            : `${s.occurrenceMonths.length} ${label.toLowerCase()} charge${s.occurrenceMonths.length === 1 ? '' : 's'}`}
-                        </td>
-                        <td>{s.isOngoing ? '—' : formatMoney(s.subtotal)}</td>
+                        <td>{occurrencesCell(s, label)}</td>
+                        <td>{subtotalCell(s)}</td>
                       </tr>
                     );
                   })}
                   <tr class="cz-package-builder__details-summary-total">
                     <td colSpan={4}>Total Contract Value</td>
-                    <td>{formatMoney(totalContractValue)}</td>
+                    <td>{totalContractValueCell(legSummaries, totalContractValue)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -402,7 +460,7 @@ export function PlanDetailsContent({
           <section class="cz-package-builder__details-section">
             <h4 class="cz-package-builder__details-heading">Payment Timing</h4>
             <ul class="cz-package-builder__details-timing-list">
-              <li><strong>Due at plan start:</strong> {formatMoney(dueAtStart)}</li>
+              <li><strong>Due at plan start:</strong> {dueAtStartDisplay}</li>
               {legSummaries.map((s) => (
                 <li key={s.source}>{paymentTimingSentence(s, planStartMonth, commitmentValue, commitmentUnit)}</li>
               ))}

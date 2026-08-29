@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { formatMoney, periodItemsTotalDisplay } from '../resources/ts/components/package-builder/PlanDetailsModal';
 import type { CommercialLegPricedItem, ServiceInclusion } from '../resources/ts/api/types/cost-builder';
 
 function check(condition: unknown, message: string): asserts condition {
@@ -20,15 +21,15 @@ const itemBreakdownBody = planDetails.match(/function ItemBreakdownTable[\s\S]*?
 check(!!itemBreakdownBody, 'ItemBreakdownTable is present');
 check(itemBreakdownBody![0].includes('item.includes ?? []'), 'ItemBreakdownTable renders each item\'s Bundle-supplied includes children');
 
-// 2. Bundle children never enter arithmetic — the `total` reduction must
-// still only sum over the top-level `items` parameter, never a flattened
-// array that would double-count a Bundle's own children.
-check(
-  itemBreakdownBody![0].includes("items.reduce((sum, item) => (item.line_total !== null ? sum + item.line_total : sum), 0)"),
-  'total is still reduced from items only, never a children-flattened array',
-);
+// 2. Bundle children never enter arithmetic — the table total must still
+// only be derived from the top-level `items` parameter (via the exported
+// periodItemsTotalDisplay(), see plan-details-value-states-contract.ts for
+// its own full unresolved-price coverage), never a flattened array that
+// would double-count a Bundle's own children.
+check(itemBreakdownBody![0].includes('periodItemsTotalDisplay(items)'), 'total is still derived from items only, via the shared periodItemsTotalDisplay(), never a children-flattened array');
 // Runtime proof: construct a Bundle parent with priced children and confirm
-// the exact reduce expression above ignores the children's own line_total.
+// the real periodItemsTotalDisplay() ignores the children's own line_total
+// entirely (they are never part of the `items` array it receives).
 const bundleParent: CommercialLegPricedItem = {
   item_id: 'parent_1', label: 'Foundation Bundle', quantity: 1,
   price_option_id: null, unit_price: 4000, line_total: 4000, available: true,
@@ -38,8 +39,7 @@ const bundleParent: CommercialLegPricedItem = {
   ],
 };
 const items: CommercialLegPricedItem[] = [bundleParent];
-const total = items.reduce((sum, item) => (item.line_total !== null ? sum + item.line_total : sum), 0);
-check(total === 4000, 'Bundle parent stays priced exactly once ($4000) — children\'s own line_total never adds to the table total');
+check(periodItemsTotalDisplay(items) === formatMoney(4000), 'Bundle parent stays priced exactly once ($4000) — children\'s own line_total never adds to the table total');
 
 // 3. FamilyTierQuoteItem carries an optional structured inclusion snapshot,
 // populated at Add-to-Quote time from effective.inclusionItems (never
