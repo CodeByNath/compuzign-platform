@@ -1,10 +1,11 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `READY FOR CLAUDE`
+- Status: `AWAITING CHATGPT REVIEW`
 - Source push: `NOT APPROVED`
 - Base: `main@7b4b78608d4a229209a1e9c89116334a1917f4bf` (add tabbed quote details overlay)
 - Instruction recorded: 2026-08-29
+- Implemented locally: 2026-08-29
 
 ## Background
 Live Phase 8D audit found a real defect: an ongoing add-on (KAIROS `Backup & DR Shield`, $580/mo) was excluded from Initial Payment, Contract Value, Total Commitment, and Plan Details — a mixed finite+ongoing cart wrongly showed a finite TCV instead of `Ongoing`. That defect is evidence, not the fix target: Quote Summary totals and Quote Details math are out of scope here. The root cause it exposes: `is_addon` is a commercial-role flag only — an add-on is a real Tier occupant with full Commercial Leg/Edition capability, but the frontend currently treats it as second-class (bypasses focus entirely via `onToggleAddon()`).
@@ -40,7 +41,17 @@ Quote Summary totals, Total Contract Value, Initial Payment, `QuoteDetailsOverla
 15–16: Relevant contracts pass; production frontend build passes.
 
 ## Claude Report
-(pending)
+- Root cause: `renderAddonTierCard()` (PricingTiers.tsx) never received `onChoosePlan`, so add-ons bypassed focus entirely via `onToggleAddon()`; `PackageBuilderApp` only supplied `selectedAddonTierIds: TierId[]` (Tier-only), which couldn't represent an add-on's exact quoted Edition even if focus were reachable.
+- Files changed: `FamilyTierAdapter.tsx`, `PricingTiers.tsx`, `PackageBuilderApp.tsx`, `dist/js/cost-builder.js`.
+- Behavior implemented: add-on cards now get the same `onChoosePlan` wiring normal Tier cards already have (~5 lines in `renderAddonTierCard`) — Choose Plan/an Edition chip opens the SAME focused shell used for primaries (same `TierCard`, timeline, Plan Details), driven by the existing `resolveEffectiveTierDisplay()`/`periodsForVariant()`/`itemFor()`. `FamilyTierAdapterProps.selectedAddonTierIds: TierId[]` became `selectedAddonItems: FamilyTierQuoteItem[]` (full quoted add-on items); `selectedAddonTierIds` is now derived locally, so every pre-existing Tier-level usage (outer "Added" badge, `toggleAddon()`) is unchanged. `isExactQuotedOption` now branches on `focusedData?.is_addon` (canonical pricing data, not entry point): for an add-on it checks `selectedAddonItems` for a Tier+Edition-exact match instead of the primary's `selectedTierId`/`selectedTierEditionPlatformId` pair — same 4-row truth table, generalized. The focused card's Add-to-Quote/Remove handler branches the same way: an add-on click calls `onAdd(itemFor(..., true))` or `onRemoveAddon(tierPlatformId)` (existing independent add-on paths — `upsertFamilyAddonQuoteItem` already replaces-by-`tierPlatformId` regardless of Edition, so switching Edition A→B naturally replaces only that add-on) and closes focus, leaving `stagedTierId` untouched — lands back on the primary's staged view with Recommendations. A primary click is byte-for-byte the previous path.
+- Existing behavior preserved: Cost Builder's own `PricingTiersProps.selectedAddonTierIds` contract, and every Cost Builder caller (`CostBuilderApp`/`ServiceGrid`/`ServiceCard`), untouched; primary replacement/removal path unchanged; no references added to `QuoteDetailsOverlay`/Total Commitment/Initial Payment/TCV (grep-confirmed).
+- Exact add-on identity path: `FamilyTierQuoteItem.tierId` + `tierEditionPlatformId` from `selectedAddonItems`, the same fields `itemFor()` already writes.
+- Primary/add-on mutation separation: add-on branch never calls `commitSelection`/`onRemovePrimary`/`setStagedTierId`; primary branch unchanged.
+- Tests/build: `tsc --noEmit` clean; `npm run build` succeeded; contracts passed — package-builder-regression-lock, cost-builder-isolation, package-family-cart, quote-cart-addon, tier-addon-flow, package-builder-customer-tabs, tier-edition-switch.
+- Unresolved risks: not yet exercised in a live browser (no live env available here) — recommend walking the 16 acceptance tests live before approving source push.
+- Questions for approval: none.
+- Source state: LOCAL ONLY — uncommitted working-tree changes, not pushed to `main`, not committed to `Project-work-instructions` (only this report file is pushed here).
+- Local commit, if any: none yet.
 
 ## Review Rounds
 (none yet)
