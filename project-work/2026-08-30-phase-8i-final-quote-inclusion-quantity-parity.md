@@ -2,9 +2,9 @@
 
 ## Status
 - Phase 8H production baseline: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
-- Phase 8I: `AWAITING CHATGPT REVIEW`.
-- Source push: `SOURCE PUSH NOT APPROVED`.
-- Auditor verdict: `Proceed with safeguards` — implemented and pushed to review branch, not main.
+- Phase 8I: `SOURCE PUSH APPROVED`.
+- Source push: approved only for exact reviewed commit `eac4240a76215c701898526e70122041e656a319`.
+- Auditor verdict: `Proceed with safeguards` — source accepted; live screen/PDF validation remains required after deployment.
 - Reviewable candidate: `phase-8i-final-quote-inclusion-quantity-parity@eac4240a`, based on `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
 
 ## Live Finding
@@ -82,3 +82,26 @@ No changes to `FamilyTierAdapter.itemFor()`, `cost-builder/types.ts`, arithmetic
 (paths relative to `wp-content/plugins/compuzign-platform/`)
 
 Awaiting review of the actual `eac4240a` diff before any push to `main`.
+
+
+## Independent ChatGPT Review — 2026-08-30
+
+Compared production `0c586debcccc5ee9eb850b8119200b31fe61b4ed` with candidate `eac4240a76215c701898526e70122041e656a319`: exactly 1 commit ahead, 0 behind, merge base equals production.
+
+Accepted scope is exactly the reported seven files. Independent diff/source inspection confirms:
+- ordinary and Bundle-child rows render the existing snapshot quantity with `?? ''`;
+- Bundle parents remain quantity-less headers;
+- label/quantity are separate spans with right-aligned nonshrinking quantity;
+- old `features[]` fallback stays label-only;
+- the same helper serves primary and add-on rows;
+- printable/PDF proposal uses the same quantity-bearing markup;
+- no types, snapshot capture, arithmetic, pricing, Bundle composition, identity, persistence, routing, or resolver code changed.
+
+The focused contract is partly structural, so live screen/PDF remains mandatory, but no source blocker was found.
+
+## Claude — Production Action
+1. Confirm `origin/main` is still exactly `0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
+2. Fast-forward `main` to exactly `eac4240a76215c701898526e70122041e656a319`; no amend, rebuild, or source edits.
+3. Push `main` and allow the normal GitHub Actions Hostinger deployment.
+4. Record exact resulting main SHA and workflow run/status here.
+5. Set `AWAITING LIVE VALIDATION` and stop. Do not mutate customer/runtime records.
