@@ -1,52 +1,37 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `AWAITING LIVE VALIDATION`
-- Verdict: `Proceed` — source pushed, deployment succeeded
+- Status: `READY FOR CLAUDE`
+- Verdict: `Proceed with safeguards — LIVE REGRESSION CORRECTION REQUIRED`
 - Production: `main@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
-- Source push: `PUSHED — exact accepted commit, fast-forward only`
+- Deployment: run `33245001288`, `SUCCESS`
+- Source push: `NOT APPROVED` for the next correction until ChatGPT reviews it.
 
-## Objective
-Package Builder add-on recommendation cards expose both actions:
-- **Add to Quote** — primary quick-sale CTA, visually above.
-- **Choose Plan/View Plan** — secondary focused-shell route.
+## Live Validation — 2026-08-29
+Nath confirmed the recommendation-card button order is correct.
 
-Quoted add-ons also expose **View Plan** in the cart and reopen the exact quoted add-on Tier + Edition in the existing focused shell. Add/remove identity and mutation remain independent of the primary package.
+A regression remains in the cart behavior. ChatGPT previously instructed Claude to replace the add-on cart's existing **View details** behavior with **View Plan** routing directly into the focused Tier shell. That instruction was wrong and must be reversed.
 
-## ChatGPT Re-audit — 2026-08-29
-The correction commit `b7083c44` is accepted.
+## Required Customer Behavior
+For a quoted add-on cart row:
+1. The link text is **View details**.
+2. Clicking it opens the existing quote/details prompt/overlay.
+3. That overlay must include the selected add-on's own plan details, not exclude add-ons.
+4. The add-on details must resolve from the exact quoted Family + Tier + Edition identity.
+5. The existing details experience should provide the bottom action that can take the customer into that exact add-on's focused Tier/Edition state, if that action already exists in the details flow. Do not bypass the details overlay from the cart row.
 
-Verified:
-- CTA ordering remains scoped to the add-on secondary button.
-- Cart **View Plan** is separate from the Phase 8D primary-only **View details** overlay.
-- Family switches before the external focus handoff.
-- Missing Tier or stale/mismatched non-null Edition identity fails closed and opens nothing.
-- `tierEditionPlatformId === null` is the only valid Default route.
-- Exact Edition match reuses `selectVariant(tierId, edition.id)`.
-- No backend, pricing, persistence, mutation, or TCV architecture changed.
+Primary quote rows keep their existing **View details** behavior. Total Commitment must keep its existing primary-plan aggregation unless there is already an established add-on rule; do not invent add-on TCV math.
 
-Claude reports `tsc --noEmit`, build, and focused contracts passing; `admin-station-css` remains the known unrelated baseline failure.
+## Source Audit Finding
+Current `QuoteDetailsOverlay.tsx` explicitly filters `primaryFamilyTierItems = ...filter((item) => !item.isAddon)` and its comments state add-ons never receive tabs. Current `QuoteSummary.tsx` instead routes add-ons through a separate `onOpenAddonFocus` / **View Plan** path. These are the behaviors to correct.
 
 ## Claude Next Action
-Proceed immediately:
-1. Push exactly accepted commit `b7083c44cb23e0e005976687583d7fdf2b4f2a6d` to `main`. Do not add or alter source.
-2. Confirm `origin/main` resolves to that exact SHA.
-3. Record the GitHub Actions deployment run ID/status for that SHA in this same file.
-4. When deployment succeeds, set status to `AWAITING LIVE VALIDATION` and stop.
-5. If deployment fails, record the failure here and stop; do not change source unless a source defect is independently established.
+Make the narrowest correction only:
+- Restore add-on cart affordance to **View details** using the existing quote-details overlay callback, not a parallel direct-focus callback.
+- Extend `QuoteDetailsOverlay` so an add-on can be the initial/active detail target and receive its own detail tab/content using the same `resolvePlanDetails()` path, with exact Edition identity and fail-closed behavior where resolution is invalid.
+- Preserve the current Total Commitment population/math unless source already defines add-on commitment handling.
+- Remove the now-unneeded add-on-only direct-focus plumbing if it has no other valid consumer.
+- Preserve recommendation CTA order, add/remove independence, quote capture, pricing, persistence, primary behavior, and Cost Builder isolation.
+- Add/update focused regression coverage for add-on **View details** and exact add-on detail resolution.
 
-Nath will perform the customer browser check only after the corrected SHA is live. Do not mark Phase 8E `CLOSED` before that live result is recorded.
-
-## Production Push Record
-
-- Status: PUSHED
-- Pushed by: Claude Code
-- Pushed at: 2026-08-29
-- Pre-push check: `origin/main` confirmed exactly `7ce87f615992b8fd9b5cc5658b3c0bbb5b068c82` before push — matched, no divergence. Local `main` was already at `b7083c44` (identical to the accepted candidate), so the push was a plain fast-forward — no add/alter of source.
-- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
-- GitHub Actions run: `33245001288` ("Deploy to Hostinger #904"), attempt 1, triggered by push on 2026-08-29 09:13 UTC
-- Workflow result: `SUCCESS`, completed in 30s (confirmed via the public `api.github.com/repos/.../actions/runs/33245001288` endpoint — `status: completed`, `conclusion: success`)
-- Deployment result: workflow-reported success for deployed SHA `b7083c44cb23e0e005976687583d7fdf2b4f2a6d`. Actual live site behavior not independently checked from this environment.
-
-## Live Browser Validation
-- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above)
+Implement locally, push only to the existing review branch, update this same work file with changed files/tests/diff summary, then set `AWAITING CHATGPT REVIEW`. Do not push `main` yet.
