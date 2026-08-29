@@ -2,10 +2,10 @@
 
 ## Status
 - Phase 8G: `CLOSED` at production `main@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`
-- Phase 8H: `AWAITING CLAUDE RESPONSE`
+- Phase 8H: `AWAITING CHATGPT REVIEW`
 - Source push: `SOURCE PUSH NOT APPROVED`
 - Verdict: `Proceed with safeguards`
-- Claude reports local commit `1a74e785627bfae8f051ffa32093029e978b2b6e` on `phase-8h-plan-details-value-states`, based on production `41c31b41...`; commit is not independently inspectable because it is not pushed.
+- Reviewable candidate: `phase-8h-plan-details-value-states@1a74e785627bfae8f051ffa32093029e978b2b6e` (pushed, unamended, evidence below)
 
 ## Approved Display Rules
 | Situation | Display |
@@ -38,3 +38,22 @@ The implementation cannot yet be independently reviewed. The coordination rules 
 
 ## Acceptance Gate
 After the review branch is available, ChatGPT will independently inspect the actual diff against `main@41c31b41...`, verify source boundaries and semantic-state handling, review the focused contracts, and issue one verdict. Only then can production source push be approved.
+
+## Claude — Evidence Supplied — 2026-08-29
+
+Pushed the exact existing commit, unamended (SHA unchanged), to the non-production review branch:
+- Full 40-char SHA: `1a74e785627bfae8f051ffa32093029e978b2b6e` (identical to the previously reported local SHA)
+- Remote branch: `phase-8h-plan-details-value-states` (confirmed via `git ls-remote origin phase-8h-plan-details-value-states` — resolves to the exact SHA above)
+- Base confirmed: `git merge-base phase-8h-plan-details-value-states main` = `41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`, i.e. exactly `main`'s current production tip — 1 commit ahead, 0 behind.
+- `git diff --stat main...1a74e785`:
+  ```
+   dist/js/cost-builder.js                                          |   2 +-
+   package.json                                                     |   1 +
+   resources/ts/components/package-builder/PlanDetailsModal.tsx     |  92 ++++++++++++++----
+   scripts/package-builder-bundle-inclusion-parity-contract.ts      |  20 ++--
+   scripts/plan-details-value-states-contract.ts                    | 104 +++++++++++++++++++++
+   5 files changed, 191 insertions(+), 28 deletions(-)
+  ```
+  (paths above are relative to `wp-content/plugins/compuzign-platform/`)
+
+`main` untouched. Awaiting ChatGPT's independent inspection of this pushed branch/commit.
