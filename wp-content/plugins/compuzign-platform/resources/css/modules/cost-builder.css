@@ -3233,9 +3233,22 @@
    drops onto its own full-width row below the price line, rather than
    trying to fit beside it — .cz-proposal__addon only wraps when this
    actually renders (FamilyInclusionsList returns null otherwise), so a
-   plain add-on with no inclusions keeps today's single-row layout. */
+   plain add-on with no inclusions keeps today's single-row layout.
+   Phase 8I: unlike a primary plan (.cz-proposal__service has NO own
+   padding — its .cz-proposal__service-row and .cz-proposal__features
+   children each carry their own matching horizontal inset, so they align),
+   .cz-proposal__addon DOES carry its own padding on every side. Nesting
+   .cz-proposal__features (which keeps its own horizontal padding for
+   label/quantity breathing room — untouched) directly inside that already
+   produces a doubled horizontal inset, and a visible gap before the
+   add-on's own bottom edge. Cancel exactly the parent's own horizontal and
+   bottom padding here (the same tokens the parent itself uses) so the
+   inclusion shell reaches the same card edges a primary plan's shell
+   does — top stays untouched; that gap is the flex row's own intentional
+   gap, not a double inset. */
 .cz-proposal__addon > .cz-proposal__features {
   flex: 1 1 100%;
+  margin: 0 calc(var(--cz-space-5) * -1) calc(var(--cz-space-4) * -1);
 }
 
 .cz-proposal__addon:last-child {
@@ -3517,6 +3530,21 @@
 
   #cz-print-root .cz-proposal__features {
     padding: 0.15cm 0.4cm !important;
+  }
+
+  /* Phase 8I: the screen fix above cancels .cz-proposal__addon's own
+     var()-token padding — print must not rely on that screen value
+     happening to equal a matching cm figure. Made explicit here using the
+     SAME 0.25cm/0.4cm print rhythm .cz-proposal__service-row already uses,
+     then cancelled by an exact matching negative margin on the direct-
+     child features shell, giving both surfaces identical, deterministic
+     geometry in the saved PDF. */
+  #cz-print-root .cz-proposal__addon {
+    padding: 0.25cm 0.4cm !important;
+  }
+
+  #cz-print-root .cz-proposal__addon > .cz-proposal__features {
+    margin: 0 -0.4cm -0.25cm !important;
   }
 
   #cz-print-root .cz-proposal__service,

@@ -68,4 +68,47 @@ check(quantityCell(0) === 0, 'a real quantity of 0 renders as 0, not blank (null
 check(quantityCell(4) === 4, 'a real quantity renders as its own number');
 check(quantityCell(undefined) === '', 'an absent quantity renders as an empty cell, never a fabricated number');
 
+// Phase 8I add-on alignment correction: a Family add-on's own
+// .cz-proposal__features shell must be pulled flush to the card edges
+// (unlike a primary plan's, which never needed this — .cz-proposal__service
+// itself carries no padding of its own), using the SAME tokens the parent
+// add-on's own padding uses, never a divergent selector or new literal.
+const css = readFileSync(resolve(root, 'resources/css/modules/cost-builder.css'), 'utf8');
+
+// Direct-child selector only — never widened to every .cz-proposal__features
+// (that would also touch a primary plan's untouched geometry).
+const addonFeaturesScreenRule = css.match(/\.cz-proposal__addon > \.cz-proposal__features\s*\{[^}]*\}/);
+check(!!addonFeaturesScreenRule, '.cz-proposal__addon > .cz-proposal__features (direct-child only) rule is present');
+check(addonFeaturesScreenRule![0].includes('flex: 1 1 100%'), 'the existing full-width flex sizing is retained');
+check(
+  /margin:\s*0\s+calc\(var\(--cz-space-5\)\s*\*\s*-1\)\s+calc\(var\(--cz-space-4\)\s*\*\s*-1\)/.test(addonFeaturesScreenRule![0]),
+  'screen offsets cancel the parent .cz-proposal__addon padding using its own tokens (--cz-space-5 horizontal, --cz-space-4 bottom), never a new literal size',
+);
+
+// The base .cz-proposal__features rule (shared by primary and add-on) must
+// keep its own padding untouched — that's what owns label/quantity
+// breathing room and must not be zeroed to compensate.
+const baseFeaturesRule = css.match(/(?<!> )\.cz-proposal__features\s*\{[^}]*\}/);
+check(!!baseFeaturesRule, 'the base .cz-proposal__features rule is present');
+check(baseFeaturesRule![0].includes('padding: var(--cz-space-3) var(--cz-space-5)'), 'the base .cz-proposal__features padding is untouched');
+
+// Explicit print geometry — never left to an inherited var()-token value
+// that might not equal the print rhythm the sibling rules already use.
+const printAddonRule = css.match(/#cz-print-root \.cz-proposal__addon\s*\{[^}]*\}/);
+check(!!printAddonRule, 'an explicit #cz-print-root .cz-proposal__addon padding rule is present');
+check(printAddonRule![0].includes('padding: 0.25cm 0.4cm !important'), '.cz-proposal__addon\'s print padding matches the existing 0.25cm/0.4cm rhythm .cz-proposal__service-row already uses, made explicit rather than inherited');
+
+const printAddonFeaturesRule = css.match(/#cz-print-root \.cz-proposal__addon > \.cz-proposal__features\s*\{[^}]*\}/);
+check(!!printAddonFeaturesRule, 'an explicit #cz-print-root .cz-proposal__addon > .cz-proposal__features cancellation rule is present');
+check(
+  /margin:\s*0\s+-0\.4cm\s+-0\.25cm\s*!important/.test(printAddonFeaturesRule![0]),
+  'print offsets exactly cancel the explicit 0.4cm horizontal / 0.25cm bottom add-on padding above — matching values, not a guess',
+);
+
+// Primary service inclusion geometry must be completely untouched by this
+// correction — its own print padding rule still carries its original,
+// unmodified value.
+const serviceRowPrintRule = css.match(/#cz-print-root \.cz-proposal__service-row\s*\{[^}]*\}/);
+check(!!serviceRowPrintRule && serviceRowPrintRule[0].includes('0.25cm 0.4cm'), '.cz-proposal__service-row keeps its original 0.25cm/0.4cm print padding, unchanged by this correction');
+
 console.log('Quote inclusion quantity parity contract passed.');
