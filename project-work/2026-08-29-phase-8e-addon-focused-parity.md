@@ -2,44 +2,39 @@
 
 ## Status
 - Phase 8E: `CLOSED` — live validation passed.
-- Production baseline: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
-- Phase 8F: `AWAITING LIVE VALIDATION`
-- Verdict: `Proceed` — source pushed, deployment succeeded
+- Phase 8F: `CLOSED` — source, deployment, and live validation accepted.
+- Verdict: `Proceed`
 - Production: `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`
 - Source push: `PUSHED — exact accepted commit, fast-forward only`
 
-## ChatGPT Review — 2026-08-29
-Independent review completed against production and the two correction commits.
+## Accepted Source and Deployment
+Independent review verified the Phase 8F implementation and two corrections:
+- selection-time `tierEditionTitle` snapshot; no live-catalog display resolution in request flow;
+- human Family/Tier/Edition labels and no raw CZ Platform IDs;
+- existing `legPaymentSummaries`, charge labels, Contract Value, and Initial Payment primitives reused;
+- Family primary totals remain primary-only; add-ons retain row-level stream presentation;
+- mixed-cart population split prevents both lost legacy totals and Family double-counting;
+- old items without Leg snapshots cannot fabricate a finite combined TCV;
+- `.cz-proposal`, `beforeprint` clone, and `window.print()` path retained;
+- no schema/storage, submit/email, routing, admin, persistence, quote mutation, or pricing-resolver changes.
 
-Verified:
-- candidate is 3 commits ahead / 0 behind `main@b299563d...`;
-- selection-time `tierEditionTitle` snapshot is added without changing selection/routing behavior;
-- review and printable proposal no longer render raw CZ Platform IDs;
-- Family primary/add-on rows use `legPaymentSummaries` with existing charge labels and finite per-item Total, with old-cart flat price/cycle fallback;
-- Family Contract Value / Initial Payment uses existing trusted pricing primitives and remains primary-only;
-- mixed-cart totals are now split correctly: when Family contract mode is active, general totals use non-Family items only; when it is not active, existing general totals still use the full cart;
-- this removes both failure classes found in prior reviews: legacy totals disappearing and single-stream Family primaries being double-counted;
-- an old Family primary with missing Leg snapshots still prevents a fabricated finite combined TCV;
-- Family add-ons remain outside combined TCV/Initial Payment as approved, while retaining their own row-level stream/Total presentation;
-- `.cz-proposal` root and existing `beforeprint` clone / `window.print()` PDF path are unchanged;
-- no RequestSchema/storage, submit/email, routing/modal, admin, persistence, quote mutation, or pricing-resolver changes are included.
+Production push was recorded by Claude on 2026-08-29. The exact accepted three-commit fast-forward moved `main` from `b299563d...` to `5b972870...`. GitHub Actions run `33250719157` (`Deploy to Hostinger`) completed successfully, including checkout, frontend build, SSH source deployment, and SCP dist deployment. Connector reinspection confirmed the production commit and correction diff.
 
-Claude reports `tsc --noEmit` and build clean. Full contract sweep has only the three already-confirmed baseline failures: `admin-station-css`, `package-builder-flow`, `platform-identity-schema`. New mixed-cart contract directly checks multi-stream Family + single-stream Family + legacy item population and totals.
-
-## Known Deferred Gap
-`RequestSchema::sanitizeItems()` still drops `legPaymentSummaries` (and the new display snapshot is not yet part of request persistence). That belongs to later admin/user-manager quote-request persistence work and is intentionally not changed in Phase 8F.
-
-## Production Push Record
-- Status: PUSHED by Claude Code on 2026-08-29.
-- Pre-push: `origin/main@b299563d264615d39b40a9a21e56e14edd0e1565`, no divergence.
-- Production: `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`, exact accepted fast-forward.
-- GitHub Actions: run `33250719157`, `Deploy to Hostinger`.
-- Independent connector check: deploy job completed `success`; checkout, frontend build, SSH source deployment, and SCP dist deployment all succeeded.
+Reported verification: `tsc --noEmit` and build clean. Full contract sweep retained only three established baseline failures: `admin-station-css`, `package-builder-flow`, and `platform-identity-schema`. The new mixed-cart contract covers multi-stream Family + single-stream Family + legacy totals.
 
 ## Live Browser Validation — 2026-08-29
-- Status: BLOCKED BY BROWSER INFRASTRUCTURE; Phase 8F remains `AWAITING LIVE VALIDATION`.
-- ChatGPT attempted the open in-app Browser tab at `https://compuzign.weerax.com/pricing/` twice.
-- Both read-only attempts were denied because the browser could not verify the admin-enforced security policy for the domain.
-- This is not product-failure evidence. No source, WordPress, pricing, package, user, storage, or runtime state was changed.
-- Required validation remains: Review & Finalise Quote, View full quote, and Print/Save-as-PDF presentation.
-- Next action: retry with functioning browser policy verification; close Phase 8F only after those three live checks pass.
+Read-only production validation passed at `https://compuzign.weerax.com/pricing/`.
+
+Validated a mixed quote containing:
+- OMNIA — Banking / Omnia Basic: Monthly $4,000;
+- KAIROS — IaaS / Starter Cloud / Edition 2: Monthly $20 and Yearly $20.
+
+Passed:
+- **Review & Finalise Quote:** human Family/Tier/Edition labels, distinct stream rows, no raw platform IDs, Contract Value `Ongoing`, Initial Payment `$4,020`.
+- **View full quote:** printable proposal matched the review values and identity; no raw platform IDs.
+- **Print / Save as PDF:** action invoked successfully from the live multi-stream proposal and the page remained responsive.
+
+No contact details were entered, no quote was submitted, and no WordPress, pricing, package, user, storage, or runtime record was changed.
+
+## Known Deferred Gap
+`RequestSchema::sanitizeItems()` still drops `legPaymentSummaries`, and the Edition display snapshot is not yet persisted. This remains deferred to later admin/user-manager quote-request persistence work and was intentionally outside Phase 8F.
