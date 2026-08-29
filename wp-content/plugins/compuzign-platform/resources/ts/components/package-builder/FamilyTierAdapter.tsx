@@ -397,7 +397,14 @@ interface FamilyTierAdapterProps {
   // variant of the same Tier is quoted" — the landing card's own isActive
   // (PricingTiers.tsx) stays intentionally Tier-only, unchanged from Phase 1.
   selectedTierEditionPlatformId: string | null;
-  selectedAddonTierIds: TierId[];
+  // Phase 8E: the full quoted add-on items (not just their tierIds) — an
+  // add-on's exact quoted identity is Tier + Edition, same as the primary's
+  // selectedTierEditionPlatformId above, and there can be several
+  // independently-quoted add-ons at once, each with its own Edition. A flat
+  // TierId[] (the pre-Phase-8E shape) cannot represent that, so the focused
+  // shell's own isExactQuotedOption (below) can resolve an add-on's exact
+  // match the same way it already does for the primary.
+  selectedAddonItems: FamilyTierQuoteItem[];
   onAdd: (item: FamilyTierQuoteItem) => void;
   onRemovePrimary: () => void;
   onRemoveAddon: (tierPlatformId: string) => void;
@@ -430,7 +437,7 @@ export function FamilyTierAdapter({
   tiers,
   selectedTierId,
   selectedTierEditionPlatformId,
-  selectedAddonTierIds,
+  selectedAddonItems,
   onAdd,
   onRemovePrimary,
   onRemoveAddon,
@@ -556,6 +563,11 @@ export function FamilyTierAdapter({
   // have Add-ons" is answered by the Tier System offering any at all.
   const normalTiers = visibleTiers.filter((tier) => !family.pricing.tiers[tier.id]?.is_addon);
   const addonTiers = visibleTiers.filter((tier) => family.pricing.tiers[tier.id]?.is_addon);
+  // Tier-level presence only — the outer/unfocused add-on card's own
+  // "Added" state stays exactly as it already was (unchanged scope this
+  // phase); selectedAddonItems above is what the FOCUSED shell reads for
+  // Tier+Edition exactness.
+  const selectedAddonTierIds = selectedAddonItems.map((item) => item.tierId);
 
   // The selected-Tier view both Add to Quote entry points land in: the chosen
   // Tier alone, with its Add-ons revealed. Derived against the live selection
@@ -740,8 +752,20 @@ export function FamilyTierAdapter({
     // writes into the quote item at Add to Quote time. True only when this
     // exact Default/Edition — not just this Tier — is the one already
     // quoted.
-    const isExactQuotedOption = selectedTierId === focusedTier.id
-      && (focusedDeclaredEffective.selectedEdition?.edition_platform_id ?? null) === selectedTierEditionPlatformId;
+    // Phase 8E: add-on status is read from canonical Tier pricing data
+    // (is_addon) — never card position, label, or which entry point was
+    // used to focus it. An add-on's own exact match looks at
+    // selectedAddonItems (there can be several, each independently
+    // Tier+Edition-identified) instead of the single primary
+    // selectedTierId/selectedTierEditionPlatformId pair — same exactness
+    // rule, generalized to every occupant.
+    const focusedIsAddon = !!focusedData?.is_addon;
+    const focusedEditionPlatformId = focusedDeclaredEffective.selectedEdition?.edition_platform_id ?? null;
+    const isExactQuotedOption = focusedIsAddon
+      ? selectedAddonItems.some((item) =>
+          item.tierId === focusedTier.id && (item.tierEditionPlatformId ?? null) === focusedEditionPlatformId,
+        )
+      : selectedTierId === focusedTier.id && focusedEditionPlatformId === selectedTierEditionPlatformId;
     // Computed after focusedDeclaredEffective so the Bundle parity lookup
     // above has the normal card's own declared inclusion list to read from.
     const cardPeriodOverride = periodPriceOverride(selectedPeriod, focusedDeclaredEffective.inclusionItems);
@@ -1033,7 +1057,31 @@ export function FamilyTierAdapter({
               // Quote leaves the focused presentation and lands in the
               // selected-Tier view; removing an already-selected Tier is not
               // that action, so it stays here.
+              //
+              // Phase 8E: an add-on's own mutation is independent of the
+              // primary's — it must never replace/remove the primary
+              // occupant, so it never calls commitSelection/onRemovePrimary
+              // (those are primary-only paths that also drive stagedTierId).
+              // Instead it uses the SAME independent upsert/remove path the
+              // outer add-on card's own Add to Quote button already uses
+              // (onAdd(itemFor(..., true)) / onRemoveAddon by stable Tier
+              // Platform ID) and simply closes focus afterward — leaving
+              // stagedTierId untouched returns the customer to the
+              // selected-primary staged view with Recommendations, exactly
+              // as closing focus without acting already does.
               onClick={(effective) => {
+                if (focusedIsAddon) {
+                  if (isExactQuotedOption) {
+                    onRemoveAddon(focusedData?.tier_platform_id ?? '');
+                  } else {
+                    onAdd(itemFor(focusedTier.id, effective, true));
+                  }
+                  setFocusedTierId(null);
+                  setFocusedEditionId(null);
+                  setSelectedPeriodFromMonth(null);
+                  setPlanDetailsTarget(null);
+                  return;
+                }
                 // Exact identity, not just Tier: switching to a different
                 // Edition of an already-quoted Tier and clicking must
                 // replace the quote (commitSelection -> the existing

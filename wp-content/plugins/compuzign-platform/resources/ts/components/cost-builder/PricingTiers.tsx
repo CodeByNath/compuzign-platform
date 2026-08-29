@@ -436,9 +436,11 @@ interface PricingTiersProps {
   onSelect: (tierId: TierId, effective: EffectiveTierDisplay) => void;
   onToggleAddon: (tierId: TierId, effective: EffectiveTierDisplay) => void;
   // Package Builder only. Supplying it adds a "Choose Plan" action to each
-  // normal Tier card and turns each Edition chip into an entry point into
-  // the focused Tier shell on that Edition; Cost Builder passes nothing and
-  // renders as before (chips stay a local, in-card swap).
+  // Tier card — normal AND add-on alike (Phase 8E: an add-on is a real Tier
+  // occupant with the same focused-shell capability, is_addon describes its
+  // commercial role only) — and turns each Edition chip into an entry point
+  // into the focused Tier shell on that Edition; Cost Builder passes
+  // nothing and renders as before (chips stay a local, in-card swap).
   onChoosePlan?: (tierId: TierId, editionId: string | null) => void;
   // Package Builder only, Phase 3. The primary quote item's own
   // tierEditionPlatformId (see FamilyTierAdapter.tsx's itemFor()) — null
@@ -934,6 +936,12 @@ export function PricingTiers({
       billingCycle={billingCycle}
       addedLabel="✓ Added"
       onClick={(effective) => onToggleAddon(tier.id, effective)}
+      // Phase 8E: the exact same focused-shell entry point normalTiers'
+      // own cards already get below — an add-on card's own direct Add to
+      // Quote button (onClick above) is untouched and still works exactly
+      // as before; this only ADDS the "Choose Plan"/Editions route, never
+      // replaces the quick toggle.
+      onChoosePlan={onChoosePlan && ((editionId) => onChoosePlan(tier.id, editionId))}
     />
   );
 

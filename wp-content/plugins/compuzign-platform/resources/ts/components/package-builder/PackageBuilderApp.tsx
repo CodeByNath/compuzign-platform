@@ -75,7 +75,11 @@ export function PackageBuilderApp() {
       && item.tierInstanceId === family.tier_instance_id,
   );
   const primary = familyItems.find((item) => !item.isAddon) ?? null;
-  const addonIds = familyItems.filter((item) => item.isAddon).map((item) => item.tierId);
+  // Phase 8E: the full quoted add-on items, not just their tierIds — an
+  // add-on's exact quoted identity (Tier + Edition) is what the focused
+  // shell's own exactness check needs, the same as the primary's own
+  // tierEditionPlatformId below.
+  const addonItems = familyItems.filter((item) => item.isAddon);
 
   const add = (item: FamilyTierQuoteItem) => setItems((current) => item.isAddon
     ? upsertFamilyAddonQuoteItem(current, item)
@@ -143,7 +147,7 @@ export function PackageBuilderApp() {
               tiers={data.tiers}
               selectedTierId={primary?.tierId as TierId | null}
               selectedTierEditionPlatformId={primary?.tierEditionPlatformId ?? null}
-              selectedAddonTierIds={addonIds as TierId[]}
+              selectedAddonItems={addonItems}
               onAdd={add}
               onRemovePrimary={removePrimary}
               onRemoveAddon={removeAddon}
