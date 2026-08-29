@@ -3,10 +3,10 @@
 ## Status
 - Phase 8E / 8F: `CLOSED`
 - Production baseline: `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`
-- Phase 8G: `READY FOR CLAUDE`
-- Source push: `SOURCE PUSH APPROVED — exact corrected candidate only`
-- Verdict: `Proceed`
-- Accepted candidate: `phase-8g-bundle-inclusion-parity@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`
+- Phase 8G: `AWAITING LIVE VALIDATION`
+- Source push: `PUSHED — exact accepted commit, fast-forward only`
+- Verdict: `Proceed` — source pushed, deployment succeeded
+- Production: `main@41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`
 
 ## Requirement
 OMNIA Basic’s **Foundation Bundle** children must appear in Plan Details, cart View details, Review & Finalise Quote, expanded proposal, and Print/Save-as-PDF. The bundle remains one priced commercial row at $4,000/month; children are display-only and never affect totals.
@@ -39,3 +39,19 @@ Accepted implementation:
 
 ## Live Acceptance Pending
 After successful deployment, ChatGPT must validate OMNIA Basic across Plan Details, cart View details, Review & Finalise Quote, expanded proposal, and Print/Save-as-PDF. Foundation Bundle children must appear everywhere while the parent remains priced once at $4,000/month and all totals remain unchanged.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Pre-push check: `origin/main` confirmed exactly `5b97287032a4bb00e2d8849fde4ed30f42917eab` before push — matched, no divergence. Local `main` checked out fresh from `origin/main` (same SHA), then fast-forward merged to `phase-8g-bundle-inclusion-parity@41c31b41...` (confirmed via `git ls-remote origin phase-8g-bundle-inclusion-parity` to be the exact accepted SHA before merging) — no amend/rebuild/squash/cherry-pick, pure fast-forward.
+- Push output: `5b972870..41c31b41  main -> main`
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `41c31b41ba51d594f1a4896c2a9ab7175b3f02cc` — equals the accepted SHA exactly.
+- GitHub Actions run: `33254216051` ("Deploy to Hostinger"), triggered by push on 2026-08-29
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33254216051` endpoint, polled until `status: completed` — `conclusion: success`)
+- Job/step-level results (via `.../actions/runs/33254216051/jobs`), all `success`: Set up job; Checkout repository; Setup Node.js; Install frontend dependencies; Build frontend assets; Deploy source via SSH; Deploy built dist assets via SCP; Post Setup Node.js; Post Checkout repository; Complete job.
+- Deployment result: workflow-reported success for deployed SHA `41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`, including successful frontend build, SSH source deployment, and SCP dist-asset deployment steps individually. Actual live site behavior not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath/ChatGPT performs this check per "Live Acceptance Pending" above, covering OMNIA Basic's Foundation Bundle children across Plan Details, cart View details, Review & Finalise Quote, expanded proposal, and Print/Save-as-PDF, plus confirming the parent stays priced once at $4,000/month and all totals remain unchanged)
