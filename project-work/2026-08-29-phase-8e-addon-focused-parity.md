@@ -1,51 +1,41 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `AWAITING CHATGPT REVIEW`
-- Corrective source push: `PUSHED`
+- Status: `AWAITING CLAUDE RESPONSE`
+- Verdict: `Proceed with safeguards`
 - Base: `main@7b4b78608d4a229209a1e9c89116334a1917f4bf`
-- Phase 8E pushed: `main@03b692202d52e4713040a36e7c6686fe3e0e5c28`
-- Corrective commit pushed: `main@80f287aec35f14ed3451cbf33877d5f33c9a571e` (parent `03b69220`, fast-forward, no merge)
+- Phase 8E: `main@03b692202d52e4713040a36e7c6686fe3e0e5c28`
+- Correction: `main@80f287aec35f14ed3451cbf33877d5f33c9a571e`
+- Deployment: `FAILED`
+- Live validation: `BLOCKED`
 
 ## Objective
-Add-ons must use the same focused-shell experience as primaries, with exact Tier + Edition identity and independent add-on mutation. No parallel Package Builder add-on CTA path.
+Package Builder add-ons use the same focused shell as primaries, with exact Tier + Edition identity and independent add-on mutation. No parallel Package Builder add-on CTA path.
 
 ## Hard Non-Change Boundary
-Quote totals/TCV/Initial Payment, `QuoteDetailsOverlay`, Total Commitment tabs, request/review, backend resolvers, WP persistence, admin, Commercial Leg schemas, primary replacement, Cost Builder behavior, focused visual design, customer terminology.
+Quote totals/TCV/Initial Payment, Quote Details, request/review, backend resolvers, persistence, admin, Commercial Leg schemas, primary replacement, Cost Builder behavior, focused visual design, and customer terminology.
 
-## Phase 8E Implementation
-`03b69220` added add-on focused-shell parity using canonical `is_addon`, full quoted add-on items, exact Tier + Edition matching, and existing `itemFor(..., true)` / `onRemoveAddon(tierPlatformId)` mutation paths. Primary mutation and Cost Builder contracts remained unchanged.
+## Independent Review 4 — 2026-08-29
+ChatGPT independently inspected the actual pushed `main` commit `80f287ae`.
 
-## Review 2 Finding
-The pushed source still rendered both `Choose Plan/View Plan` and the old direct `Add to Quote/Remove` CTA for Package Builder add-ons, allowing focus bypass.
+The correction is scope-safe:
+- `TierCard.hideDirectAction` defaults to `false`.
+- Package Builder add-on cards set it only when `onChoosePlan` exists.
+- Their direct Add to Quote/Remove button is then omitted, leaving Choose Plan/View Plan as the sole card action.
+- Normal Tier cards and plain Cost Builder add-ons retain existing behavior.
+- The commit changes only `PricingTiers.tsx` and compiled `dist/js/cost-builder.js`.
+- GitHub Actions independently rebuilt the frontend successfully.
 
-## Claude Corrective Response
-- Added `TierCard.hideDirectAction?: boolean`, default `false`.
-- `renderAddonTierCard()` passes `hideDirectAction={!!onChoosePlan}`.
-- Package Builder add-ons therefore expose only `Choose Plan/View Plan`; add/remove/switch occurs inside focus.
-- Normal Tier cards are unchanged.
-- Cost Builder add-on cards remain unchanged because Cost Builder does not supply `onChoosePlan`.
-- Files changed: `PricingTiers.tsx`, compiled `dist/js/cost-builder.js`.
-- Reported validation clean: `tsc --noEmit`, `npm run build`, package-builder-regression-lock, cost-builder-isolation, package-family-cart, quote-cart-addon, tier-addon-flow, package-builder-customer-tabs, tier-edition-switch.
-- Corrective commit is local only: `80f287ae`; not yet pushed.
+Source correction verdict: **accepted**.
 
-## Review 3 — 2026-08-29
-Verdict: `Proceed with safeguards`.
+Deployment is not accepted. GitHub Actions run `33238449426` completed with failure:
+- Checkout, dependency installation, and frontend build succeeded.
+- `Deploy source via SSH` failed after 30 seconds: `dial tcp …: i/o timeout`.
+- `Deploy built dist assets via SCP` was skipped.
+- Therefore Hostinger cannot be assumed to contain `80f287ae`, and live validation must not begin.
 
-The corrective design directly addresses the single blocking defect and remains inside scope. Because `80f287ae` is local-only, ChatGPT cannot independently inspect its diff yet.
+## Claude Action
+Do not change or repush source. Investigate/confirm Hostinger SSH reachability, then rerun the failed deployment for exact commit `80f287ae`. Update this same file with the rerun ID, conclusion, and deployed SHA/evidence.
 
-**Claude action:** push only corrective commit `80f287ae` to `main`, then update this same file with the exact resulting `main` SHA plus workflow/deployment evidence, set status `AWAITING CHATGPT REVIEW`, and stop. No additional source changes are approved.
-
-## Production Push Record (corrective commit)
-- Status: PUSHED
-- Pushed by: Claude Code
-- Pushed at: 2026-08-29
-- Full `main` commit SHA: `80f287aec35f14ed3451cbf33877d5f33c9a571e`
-- Complete commit message: "Phase 8E correction: single add-on CTA path (local, not pushed)" (full body describes the `hideDirectAction` fix and its scope — see Claude Corrective Response above)
-- Files included: `wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx`, `wp-content/plugins/compuzign-platform/dist/js/cost-builder.js`
-- Push comments: fast-forward from `03b69220` (`9ab251fa..80f287ae` on the local branch history; `main` itself moved `9ab251fa..80f287ae` since the coordination-branch-check commit landed in between), no merge
-- GitHub Actions run: not independently checked from this environment (no `gh` CLI/browser access here) — Nath/ChatGPT should confirm workflow result on GitHub
-- Workflow/Deployment result: unknown from this environment, pending confirmation
-
-## Live Browser Validation
-Pending until the corrective commit is pushed/deployed. No live pass claimed yet.
+- If deployment succeeds: set `AWAITING LIVE VALIDATION` and stop.
+- If it fails: keep `AWAITING CLAUDE RESPONSE`, record the exact failing step/error, and stop.
