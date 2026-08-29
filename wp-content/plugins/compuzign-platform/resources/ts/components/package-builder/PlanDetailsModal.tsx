@@ -25,6 +25,14 @@ interface PlanDetailsModalProps {
   periods: CommercialLegPeriod[];
 }
 
+// Phase 8D: the modal's own content (Plan Overview / Billing Breakdown by
+// Period / Your Plan Summary / Payment Timing), split out from the chrome
+// below (backdrop/close/focus-trap) so a tabbed multi-plan overlay
+// (QuoteDetailsOverlay.tsx) can render this SAME content per tab without a
+// second details calculator — the chrome-only PlanDetailsModal below is
+// unchanged and keeps rendering this as its one body.
+export type PlanDetailsContentProps = Omit<PlanDetailsModalProps, 'onClose'>;
+
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -226,60 +234,13 @@ function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]
   );
 }
 
-export function PlanDetailsModal({
-  onClose,
+export function PlanDetailsContent({
   familyTitle,
   planLabel,
   commitmentValue,
   commitmentUnit,
   periods,
-}: PlanDetailsModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  // Same scroll-lock/ESC/focus-trap pattern as PdfModal.tsx (cost-builder's
-  // own existing modal) — reused verbatim rather than a second
-  // implementation of the same behavior. Phase 7E: runs once on mount and
-  // cleans up once on unmount (empty dependency array) — this component is
-  // only ever mounted while open (see the caller's key-based fresh-mount
-  // above), so there is no separate "isOpen toggled while still mounted"
-  // transition to react to; mount/unmount IS the open/close signal.
-  useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const getFocusable = () =>
-      Array.from(modalRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []);
-    getFocusable()[0]?.focus();
-
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key === 'Tab') {
-        const els = getFocusable();
-        if (els.length === 0) return;
-        const first = els[0];
-        const last = els[els.length - 1];
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, []);
-
+}: PlanDetailsContentProps) {
   const commitmentMonths = commitmentUnit && /month/i.test(commitmentUnit) ? commitmentValue : null;
   const planStartMonth = periods[0]?.from_month ?? 0;
   const legSummaries = buildLegPaymentSummaries(periods, commitmentMonths);
@@ -301,36 +262,7 @@ export function PlanDetailsModal({
   // composition all read as "not continuing" and get their own breakdown.
 
   return (
-    <div class="cz-package-builder__details-backdrop" role="presentation" onClick={onClose}>
-      {/* Positioning wrapper only — the close button and the scrolling
-          dialog are SIBLINGS here, not parent/child, so the button sits
-          outside the panel's own scrolling content and never scrolls with
-          it (no sticky trick needed: it simply isn't inside the scrollable
-          box at all). */}
-      <div class="cz-package-builder__details-panel">
-        {/* Same circular X pattern as the focused shell's own exit control
-            (.cz-package-builder__focused-close / -close-x in
-            FamilyTierAdapter.tsx) — positioned outside the panel's own
-            top-right edge instead of the sticky page column that button
-            lives in elsewhere; visual treatment (border/background/glyph)
-            unchanged. */}
-        <button
-          type="button"
-          class="cz-package-builder__details-close"
-          aria-label="Close plan details"
-          onClick={onClose}
-        >
-          <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
-        </button>
-        <div
-          class="cz-package-builder__details-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Plan details"
-          ref={modalRef}
-          onClick={(e) => e.stopPropagation()}
-        >
-        <div class="cz-package-builder__details-body">
+    <div class="cz-package-builder__details-body">
           <section class="cz-package-builder__details-section">
             <h4 class="cz-package-builder__details-heading">Plan Overview</h4>
             <dl class="cz-package-builder__details-overview">
@@ -461,7 +393,106 @@ export function PlanDetailsModal({
               ))}
             </ul>
           </section>
-        </div>
+    </div>
+  );
+}
+
+// Phase 7E's chrome (backdrop/close/focus-trap), unchanged behavior — the
+// only difference from before Phase 8D is that its body is now
+// PlanDetailsContent above instead of inline markup, so the single-target
+// "View plan details" trigger in FamilyTierAdapter.tsx (its only caller)
+// keeps working exactly as it did.
+export function PlanDetailsModal({
+  onClose,
+  familyTitle,
+  planLabel,
+  commitmentValue,
+  commitmentUnit,
+  periods,
+}: PlanDetailsModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Same scroll-lock/ESC/focus-trap pattern as PdfModal.tsx (cost-builder's
+  // own existing modal) — reused verbatim rather than a second
+  // implementation of the same behavior. Phase 7E: runs once on mount and
+  // cleans up once on unmount (empty dependency array) — this component is
+  // only ever mounted while open (see the caller's key-based fresh-mount
+  // above), so there is no separate "isOpen toggled while still mounted"
+  // transition to react to; mount/unmount IS the open/close signal.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const getFocusable = () =>
+      Array.from(modalRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []);
+    getFocusable()[0]?.focus();
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const els = getFocusable();
+        if (els.length === 0) return;
+        const first = els[0];
+        const last = els[els.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, []);
+
+  return (
+    <div class="cz-package-builder__details-backdrop" role="presentation" onClick={onClose}>
+      {/* Positioning wrapper only — the close button and the scrolling
+          dialog are SIBLINGS here, not parent/child, so the button sits
+          outside the panel's own scrolling content and never scrolls with
+          it (no sticky trick needed: it simply isn't inside the scrollable
+          box at all). */}
+      <div class="cz-package-builder__details-panel">
+        {/* Same circular X pattern as the focused shell's own exit control
+            (.cz-package-builder__focused-close / -close-x in
+            FamilyTierAdapter.tsx) — positioned outside the panel's own
+            top-right edge instead of the sticky page column that button
+            lives in elsewhere; visual treatment (border/background/glyph)
+            unchanged. */}
+        <button
+          type="button"
+          class="cz-package-builder__details-close"
+          aria-label="Close plan details"
+          onClick={onClose}
+        >
+          <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
+        </button>
+        <div
+          class="cz-package-builder__details-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Plan details"
+          ref={modalRef}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <PlanDetailsContent
+            familyTitle={familyTitle}
+            planLabel={planLabel}
+            commitmentValue={commitmentValue}
+            commitmentUnit={commitmentUnit}
+            periods={periods}
+          />
         </div>
       </div>
     </div>

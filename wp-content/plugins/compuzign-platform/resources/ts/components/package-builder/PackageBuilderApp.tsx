@@ -17,6 +17,7 @@ import {
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { TierId } from '@/api/types/cost-builder';
 import { FamilyTierAdapter } from './FamilyTierAdapter';
+import { QuoteDetailsOverlay } from './QuoteDetailsOverlay';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 
 const SUMMARY_ID = 'cz-package-builder-quote-summary';
@@ -43,6 +44,14 @@ export function PackageBuilderApp() {
   const [activeFamilyId, setActiveFamilyId] = useState<string | null>(null);
   const [items, setItems] = useState<CartItem[]>(() => loadCart());
   const [isFlowOpen, setIsFlowOpen] = useState(false);
+  // Phase 8D: the quote-details overlay's own target identity — null means
+  // closed, 'cart' means opened at the cart level (Total Commitment tab),
+  // a FamilyTierQuoteItem means opened directly on that item's own plan
+  // tab. Owned here (not inside QuoteSummary/FamilyTierAdapter) because
+  // resolving an arbitrary quoted item's Plan Details requires the FULL
+  // families list (data.families) — a cart item can belong to a Family
+  // other than whichever one FamilyTierAdapter currently has open.
+  const [quoteDetailsTarget, setQuoteDetailsTarget] = useState<FamilyTierQuoteItem | 'cart' | null>(null);
 
   useEffect(() => {
     if (items.length === 0) clearCart();
@@ -142,7 +151,15 @@ export function PackageBuilderApp() {
           </Card>
         </main>
         <aside class="cz-cost-builder__sidebar" id={SUMMARY_ID}>
-          {items.length > 0 && <QuoteSummary items={items} onRemove={removeItem} onClear={() => setItems([])} onOpenReview={() => setIsFlowOpen(true)} />}
+          {items.length > 0 && (
+            <QuoteSummary
+              items={items}
+              onRemove={removeItem}
+              onClear={() => setItems([])}
+              onOpenReview={() => setIsFlowOpen(true)}
+              onOpenDetails={(item) => setQuoteDetailsTarget(item ?? 'cart')}
+            />
+          )}
         </aside>
       </div>
       <MobileQuoteBar items={items} summaryId={SUMMARY_ID} />
@@ -155,6 +172,15 @@ export function PackageBuilderApp() {
           setItems([]);
         }}
       />
+      {quoteDetailsTarget && (
+        <QuoteDetailsOverlay
+          items={items}
+          families={data.families}
+          tiers={data.tiers}
+          initialTarget={quoteDetailsTarget}
+          onClose={() => setQuoteDetailsTarget(null)}
+        />
+      )}
     </div>
   );
 }

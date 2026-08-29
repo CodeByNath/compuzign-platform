@@ -32,7 +32,7 @@ interface PlanDetailsTarget {
 // never a frontend reconstruction. See PackageManagerSchema::
 // resolveCommercialLegTimeline(); Period itself carries no Platform ID, only
 // the component(s) inside it do.
-function periodsForVariant(
+export function periodsForVariant(
   family: PackageBuilderFamily,
   tierId: TierId,
   editionId: string | null,

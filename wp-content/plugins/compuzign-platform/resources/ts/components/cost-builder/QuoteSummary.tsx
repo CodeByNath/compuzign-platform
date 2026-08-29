@@ -3,16 +3,24 @@ import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from './PricingTiers';
-import type { CartItem } from './types';
+import type { CartItem, FamilyTierQuoteItem } from './types';
 
 interface QuoteSummaryProps {
   items: CartItem[];
   onRemove: (item: CartItem) => void;
   onClear: () => void;
   onOpenReview: () => void;
+  // Phase 8D: optional so this component's other caller (CostBuilderApp.tsx,
+  // which has no Package Family/Plan Details concept at all) is completely
+  // unaffected — omitting this prop simply hides the "View details"
+  // affordance below, never importing anything package-builder-specific
+  // into this cost-builder-layer component. `null` means "cart-level" (the
+  // caller opens its overlay on a Total Commitment-style view); a specific
+  // item means "open on that item's own details".
+  onOpenDetails?: (item: FamilyTierQuoteItem | null) => void;
 }
 
-export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSummaryProps) {
+export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails }: QuoteSummaryProps) {
   const [clearPending, setClearPending] = useState(false);
 
   const handleClear = () => {
@@ -131,6 +139,21 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
               <div class="cz-quote-summary__item-info">
                 <span class="cz-quote-summary__item-title">{isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}</span>
                 <span class="cz-quote-summary__item-tier">{item.tierTitle}</span>
+                {/* Phase 8D: only a PRIMARY family_tier item ever gets its own
+                    tab in the quote-details overlay (add-ons and plain
+                    QuoteItems have no canonical Plan Details data source) —
+                    so the affordance only renders where it can actually open
+                    something. Opens on THIS item's own tab, never Total
+                    Commitment. */}
+                {onOpenDetails && isFamilyTierQuoteItem(item) && !item.isAddon && (
+                  <button
+                    type="button"
+                    class="cz-quote-summary__view-details"
+                    onClick={() => onOpenDetails(item)}
+                  >
+                    View details
+                  </button>
+                )}
                 {/* Phase 6: raw CZ Platform IDs (familyPlatformId,
                     tierInstancePlatformId, tierPlatformId,
                     tierEditionPlatformId) are deliberately not rendered here
@@ -279,6 +302,22 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview }: QuoteSu
             <span class="cz-quote-summary__initial-payment-label">Initial Payment</span>
             <span class="cz-quote-summary__initial-payment-amount">{formatPrice(initialPaymentTotal)}</span>
           </div>
+        )}
+
+        {/* Phase 8D: cart-level entry point into the same quote-details
+            overlay the per-item "View details" links above open — this one
+            opens on the Total Commitment tab (onOpenDetails(null)) rather
+            than a specific plan's tab. Gated on there being at least one
+            primary family_tier item, the same population Total Commitment
+            itself covers — nothing to show otherwise. */}
+        {onOpenDetails && primaryFamilyTierItems.length > 0 && (
+          <button
+            type="button"
+            class="cz-quote-summary__view-details cz-quote-summary__view-details--cart"
+            onClick={() => onOpenDetails(null)}
+          >
+            View details
+          </button>
         )}
 
         <button
