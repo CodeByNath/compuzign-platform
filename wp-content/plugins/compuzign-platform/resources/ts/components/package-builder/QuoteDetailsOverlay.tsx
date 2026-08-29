@@ -14,12 +14,19 @@ import { PlanDetailsContent } from './PlanDetailsModal';
 
 // Phase 8D: one overlay covering every quoted plan in the cart, tabbed by
 // plan, plus a final "Total Commitment" tab — replacing the idea of a
-// separate modal per cart row. Only PRIMARY family_tier items (never
-// add-ons) get their own tab here, matching the exact population
+// separate modal per cart row.
+//
+// Live-validation correction: EVERY quoted family_tier item — primary AND
+// add-on alike — gets its own plan tab (an earlier round excluded add-ons
+// here and routed them into a separate direct-focus shortcut instead;
+// that bypassed this overlay entirely and was reversed). Total
+// Commitment stays PRIMARY-only, matching the exact population
 // QuoteSummary.tsx's own Contract Value / Initial Payment math already
 // restricts itself to (no canonical finite-contract math exists for
-// add-ons yet — see QuoteSummary.tsx) — so a plan tab and the Total
-// Commitment tab are never describing two different sets of items.
+// add-ons yet) — so the plan tabs and the Total Commitment tab can
+// legitimately describe different populations: every quoted plan has its
+// own Details tab, but only primaries roll up into the cart-level
+// commitment figure.
 
 interface QuoteDetailsOverlayProps {
   items: CartItem[];
@@ -42,13 +49,25 @@ const TOTAL_COMMITMENT_KEY = '__total_commitment__';
 // (usePackageBuilder's own data.families), so an item quoted from a
 // Family that isn't the one currently open in the builder still resolves
 // against its own real data.
+//
+// Fail-closed exact identity: a resolution failure returns null (the
+// caller shows "Details unavailable") rather than silently substituting
+// Default for a stale/mismatched Edition Platform ID — the same
+// correction FamilyTierAdapter's own external-focus resolver applies.
+// Showing the wrong plan's details would be worse than showing none.
 function resolvePlanDetails(item: FamilyTierQuoteItem, families: PackageBuilderFamily[], tiers: Tier[]) {
   const family = families.find((candidate) => candidate.family_id === item.familyId);
   if (!family) return null;
   const tierData = family.pricing.tiers[item.tierId];
-  const editionId = item.tierEditionPlatformId
-    ? (tierData?.edition_options ?? []).find((option) => option.edition_platform_id === item.tierEditionPlatformId)?.id ?? null
-    : null;
+  if (!tierData) return null;
+  let editionId: string | null = null;
+  if (item.tierEditionPlatformId !== null) {
+    const edition = (tierData.edition_options ?? []).find(
+      (option) => option.edition_platform_id === item.tierEditionPlatformId,
+    );
+    if (!edition) return null;
+    editionId = edition.id;
+  }
   const effective = resolveEffectiveTierDisplay(tierData, '', editionId);
   const tier = tiers.find((candidate) => candidate.id === item.tierId);
   const planLabel = effective.selectedEdition?.label ?? tierData?.label ?? tier?.title ?? item.tierId;
@@ -141,7 +160,10 @@ function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuote
 }
 
 export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onClose }: QuoteDetailsOverlayProps) {
-  const primaryFamilyTierItems = items.filter(isFamilyTierQuoteItem).filter((item) => !item.isAddon);
+  // Every quoted plan — primary and add-on alike — gets its own tab.
+  const allFamilyTierItems = items.filter(isFamilyTierQuoteItem);
+  // Total Commitment stays primary-only — see the file header comment.
+  const primaryFamilyTierItems = allFamilyTierItems.filter((item) => !item.isAddon);
 
   const [activeKey, setActiveKey] = useState<string>(
     initialTarget === 'cart' ? TOTAL_COMMITMENT_KEY : quoteItemKey(initialTarget),
@@ -188,7 +210,7 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
     };
   }, []);
 
-  const activeItem = primaryFamilyTierItems.find((item) => quoteItemKey(item) === activeKey) ?? null;
+  const activeItem = allFamilyTierItems.find((item) => quoteItemKey(item) === activeKey) ?? null;
   const activeResolved = activeItem ? resolvePlanDetails(activeItem, families, tiers) : null;
 
   return (
@@ -211,7 +233,7 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
           onClick={(e) => e.stopPropagation()}
         >
           <div class="cz-package-builder__details-tabs" role="tablist" aria-label="Quoted plans">
-            {primaryFamilyTierItems.map((item) => {
+            {allFamilyTierItems.map((item) => {
               const key = quoteItemKey(item);
               const resolved = resolvePlanDetails(item, families, tiers);
               const planLabel = resolved?.planLabel ?? item.tierTitle;

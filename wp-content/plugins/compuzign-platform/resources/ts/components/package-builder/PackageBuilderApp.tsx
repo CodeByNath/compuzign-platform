@@ -52,20 +52,6 @@ export function PackageBuilderApp() {
   // families list (data.families) — a cart item can belong to a Family
   // other than whichever one FamilyTierAdapter currently has open.
   const [quoteDetailsTarget, setQuoteDetailsTarget] = useState<FamilyTierQuoteItem | 'cart' | null>(null);
-  // Live-validation correction: a quoted add-on's cart "View Plan" route
-  // targets FamilyTierAdapter's own focused shell, not the Quote Details
-  // overlay above — but FamilyTierAdapter only ever renders ONE Family at
-  // a time (the active one), so opening an add-on from a DIFFERENT Family
-  // than whichever is currently showing needs both: switching the active
-  // Family first, and a one-shot identity handed down once that Family is
-  // showing. familyId here is what gates the request to the RIGHT
-  // FamilyTierAdapter render (see externalFocusRequest prop below) —
-  // never applied while the wrong Family is still active mid-switch.
-  const [addonFocusRequest, setAddonFocusRequest] = useState<{ familyId: string; tierId: TierId; tierEditionPlatformId: string | null } | null>(null);
-  const openAddonFocus = (item: FamilyTierQuoteItem) => {
-    setActiveFamilyId(item.familyId);
-    setAddonFocusRequest({ familyId: item.familyId, tierId: item.tierId, tierEditionPlatformId: item.tierEditionPlatformId });
-  };
 
   useEffect(() => {
     if (items.length === 0) clearCart();
@@ -165,12 +151,6 @@ export function PackageBuilderApp() {
               onAdd={add}
               onRemovePrimary={removePrimary}
               onRemoveAddon={removeAddon}
-              externalFocusRequest={
-                addonFocusRequest && addonFocusRequest.familyId === family.family_id
-                  ? { tierId: addonFocusRequest.tierId, tierEditionPlatformId: addonFocusRequest.tierEditionPlatformId }
-                  : null
-              }
-              onExternalFocusConsumed={() => setAddonFocusRequest(null)}
             />
           </Card>
         </main>
@@ -182,7 +162,6 @@ export function PackageBuilderApp() {
               onClear={() => setItems([])}
               onOpenReview={() => setIsFlowOpen(true)}
               onOpenDetails={(item) => setQuoteDetailsTarget(item ?? 'cart')}
-              onOpenAddonFocus={openAddonFocus}
             />
           )}
         </aside>
