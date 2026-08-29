@@ -7,49 +7,46 @@
 - Verdict: `Proceed with safeguards`
 
 ## Finding
-Plan Details currently uses an em dash for unrelated states:
-1. Bundle children are supplied inside one priced parent.
-2. A recurring stream with no fixed end date has no finite subtotal or Total Contract Value.
-3. Pricing data may genuinely be unresolved.
+Plan Details uses dashes for values whose meaning is already known. Bundle children are included inside one priced parent, while an uncapped recurring stream has a known rate but no fixed number of occurrences.
 
-Those meanings must not share one symbol. “Ongoing” is also rejected here: it reads as a post-contract status, not a pre-contract quote value.
-
-## Approved Customer Language
+## Approved Display Rules
 | Situation | Display |
 |---|---|
 | Bundle child Unit Price | **Included** |
 | Bundle child Total | **Included** |
-| Open-ended recurring stream Subtotal | **Until Canceled** |
-| Total Contract Value containing an open-ended stream | **Until Canceled** |
-| Missing/unresolved price or finite subtotal | **To be confirmed** |
-| Real numeric zero | formatted **$0.00** |
+| Open-ended Charge Occurrences | **Until Canceled** |
+| Open-ended Subtotal | the stream’s formatted **Rate** amount |
+| Open-ended Total Contract Value | **Until Canceled** |
+| Missing/unresolved price | **To be confirmed** |
+| Real numeric zero | **$0.00** |
 
-For a non-finite Total Contract Value, add: **“Recurring charges continue until canceled, subject to any minimum commitment.”**
+Do not add an explanatory note beneath Total Contract Value.
 
-Why “Until Canceled”: the rate and cadence are known, while the duration is customer-dependent. “To be confirmed” would falsely imply missing pricing, and “Ongoing” reads as a post-contract/service-status state.
-
-Never use “Included” for a top-level priced item, never turn an open-ended value into $0, and never call unresolved pricing “Until Canceled.”
+“Open-ended Subtotal = Rate” means the cell repeats the same known amount shown in Rate (for OMNIA Basic, Rate `$4,000.00` and Subtotal `$4,000.00`). It is not a lifetime multiplication. When admin later supplies a finite minimum term and the existing Leg logic derives finite charge occurrences, show the existing calculated occurrence count and calculated subtotal instead.
 
 ## Claude — Implement Phase 8H Only
 Production baseline: `41c31b41ba51d594f1a4896c2a9ab7175b3f02cc`.
 
-1. Change only Plan Details’ shared `PlanDetailsContent` / `ItemBreakdownTable` presentation, so the focused modal and cart View details remain identical.
-2. Bundle child rows: keep real quantity; render **Included** in Unit Price and Total. Children remain display-only and excluded from every calculation.
-3. Summary table:
-   - `s.isOngoing` subtotal → **Until Canceled**;
-   - finite numeric subtotal → formatted money;
+1. Change only the shared `PlanDetailsContent` / `ItemBreakdownTable` presentation so focused Plan Details and cart View details stay identical.
+2. Bundle child rows: keep real quantity; render **Included** in Unit Price and Total. Children remain display-only and excluded from arithmetic.
+3. Summary rows:
+   - `s.isOngoing` Charge Occurrences → **Until Canceled**;
+   - `s.isOngoing` Subtotal with a numeric `s.price` → `formatMoney(s.price)`;
+   - `s.isOngoing` with null price → **To be confirmed**;
+   - finite streams keep their existing calculated occurrence count and formatted subtotal;
    - non-ongoing null subtotal → **To be confirmed**.
 4. Total Contract Value:
    - finite number → formatted money;
-   - null because at least one stream is open-ended → **Until Canceled** plus the approved quote note;
-   - null without an open-ended stream → **To be confirmed**.
-5. Audit the same component’s other partial-sum hazards:
-   - period total must not sum past a top-level null `line_total`; show **To be confirmed** instead of an understated partial total;
-   - Due at plan start must show **To be confirmed** if any starting stream has a null price, not silently sum it as zero.
-6. Keep `formatMoney(0)` as `$0.00`. Do not globally replace all null formatting; choose copy from the semantic state at each call site.
-7. Do not change pricing/resolvers, Leg summaries, occurrence math, Contract Value math, bundle structure, quote snapshots, review/PDF, CSS layout, persistence, identity, routing, or admin behavior.
-8. Add a focused contract with runtime fixtures proving all six states above, including mixed finite+null period items (no partial total) and null starting price (no false $0).
-9. Run type-check, build, the new contract, Phase 8G bundle parity, request-flow Family parity, and relevant Package Builder regression/isolation contracts. Commit locally, report the exact SHA/diff/tests here, and do not push source.
+   - null because at least one stream is open-ended and all applicable rates are known → **Until Canceled**;
+   - null because pricing is unresolved → **To be confirmed**;
+   - render no explanatory note.
+5. Prevent partial-sum misrepresentation:
+   - a Period with any top-level null `line_total` shows **To be confirmed**, never a partial total;
+   - Due at plan start shows **To be confirmed** if any starting stream has null price, never false `$0.00`.
+6. Keep a real zero formatted as `$0.00`. Do not globally replace `formatMoney(null)`; select language from each value’s semantic state.
+7. Do not change pricing/resolvers, Leg summary/occurrence/Contract Value math, bundle structure, quote snapshots, review/PDF, CSS layout, persistence, identity, routing, or admin behavior.
+8. Add a focused contract with runtime fixtures proving: Included child cells; Until Canceled occurrences; open-ended subtotal equals numeric rate; finite minimum-term subtotal remains calculated; unresolved price is To be confirmed; mixed finite+null Period never shows a partial total; null starting rate never becomes $0.
+9. Run type-check, build, the new contract, Phase 8G bundle parity, request-flow Family parity, and relevant Package Builder regression/isolation contracts. Commit locally, report exact SHA/diff/tests here, and do not push source.
 
 ## Acceptance
-OMNIA Basic shows **Included** in all six bundle-child price cells, **Until Canceled** for its stream subtotal and Total Contract Value, the quote-specific explanatory note, and unchanged $4,000/month pricing. Other plans use **To be confirmed** only for genuinely unresolved values and never display a misleading partial sum.
+OMNIA Basic shows **Included** in all six bundle-child price cells, **Until Canceled** under Charge Occurrences, `$4,000.00` under Subtotal, and **Until Canceled** for Total Contract Value. Its monthly rate and all pricing math remain unchanged. A plan with a finite admin-configured minimum term continues to show calculated occurrences and a finite calculated subtotal.
