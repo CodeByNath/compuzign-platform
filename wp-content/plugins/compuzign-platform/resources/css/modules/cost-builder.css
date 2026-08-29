@@ -611,21 +611,57 @@
   color: var(--cz-color-danger);
 }
 
-/* Add-on cards have no Choose Plan/View Plan action, so their one Add to
-   Quote CTA carries the stronger secondary emphasis that pair would
-   otherwise provide — the same default-outline/hover-fill pair
-   .cz-cost-builder__tier-choose already uses, never solid by default.
-   is-selected/is-removing keep their own existing treatment unchanged
-   (Added state, hover-to-remove). */
+/* Phase 8E live-validation correction: Add to Quote is the add-on card's
+   visible PRIMARY quick-sale CTA (an add-on now also offers a secondary
+   Choose Plan/View Plan below — see --addon on .tier-choose further down),
+   so this carries the same solid-by-default/outline-on-hover emphasis
+   .tier-choose--filled uses for a popular/Enterprise card's own Choose
+   Plan — never just the outline-then-fill pair, which would read as equal
+   weight to the secondary button beside it. is-selected/is-removing keep
+   their own existing treatment unchanged (Added state, hover-to-remove). */
 .cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing) {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
+}
+
+.cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing):hover {
+  background: transparent;
+  color: var(--cz-color-accent);
+}
+
+/* Choose Plan/View Plan on an add-on card is the SECONDARY action beside
+   the primary Add to Quote button above (--addon on .tier-action) — a
+   plain muted outline, never the accent-outline .tier-choose already uses
+   by default for a normal Tier card, so the two buttons on one add-on card
+   read as primary/secondary rather than two equally-weighted CTAs. Placed
+   after .tier-choose/--filled so it wins the cascade on an add-on card
+   regardless of isPopular/isEnterpriseView. */
+.cz-cost-builder__tier-choose--addon {
+  background: transparent;
+  border-color: var(--cz-color-line);
+  color: var(--cz-color-muted);
+}
+
+.cz-cost-builder__tier-choose--addon:hover {
+  background: transparent;
   border-color: var(--cz-color-accent);
   color: var(--cz-color-accent);
 }
 
-.cz-cost-builder__tier-action--addon:not(.is-selected):not(.is-removing):hover {
-  background: var(--cz-color-accent);
+/* Once a quoted add-on's own Choose Plan reads "View Plan" (isActive),
+   .tier--selected .tier-choose above would otherwise win on specificity
+   and restore the accent color it has for a normal Tier card in that same
+   state — re-assert the muted secondary treatment here so a quoted add-on
+   keeps the same primary/secondary pairing as an unquoted one. */
+.cz-cost-builder__tier--selected .cz-cost-builder__tier-choose--addon {
+  color: var(--cz-color-muted);
+}
+
+.cz-cost-builder__tier--selected .cz-cost-builder__tier-choose--addon:hover {
+  background: transparent;
   border-color: var(--cz-color-accent);
-  color: #000;
+  color: var(--cz-color-accent);
 }
 
 /* 7. Notes row — reserved for future Tier notes; no content renders into it
