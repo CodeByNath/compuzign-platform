@@ -3,10 +3,10 @@
 ## Status
 - Phase 8E: `CLOSED` — live validation passed.
 - Production baseline: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
-- Phase 8F: `READY FOR CLAUDE`
-- Verdict: `Proceed`
-- Accepted candidate: `phase-8f-quote-review-pdf-parity@5b97287032a4bb00e2d8849fde4ed30f42917eab`
-- Source push: `APPROVED — exact candidate only`
+- Phase 8F: `AWAITING LIVE VALIDATION`
+- Verdict: `Proceed` — source pushed, deployment succeeded
+- Production: `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`
+- Source push: `PUSHED — exact accepted commit, fast-forward only`
 
 ## ChatGPT Review — 2026-08-29
 Independent review completed against production and the two correction commits.
@@ -35,3 +35,17 @@ Claude reports `tsc --noEmit` and build clean. Full contract sweep has only the 
 3. Record GitHub Actions run ID/status here.
 4. On successful deployment set Phase 8F to `AWAITING LIVE VALIDATION` and stop.
 5. Live validation must cover Review & Finalise Quote, View full quote, and Print/Save-as-PDF presentation before closure.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Pre-push check: `origin/main` confirmed exactly `b299563d264615d39b40a9a21e56e14edd0e1565` before push — matched, no divergence. Local `main` checked out fresh from `origin/main` (same SHA), then fast-forward merged to `phase-8f-quote-review-pdf-parity@5b972870...` (confirmed via `git ls-remote origin phase-8f-quote-review-pdf-parity` to be the exact approved SHA before merging) — no source alterations, pure fast-forward.
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `5b97287032a4bb00e2d8849fde4ed30f42917eab`
+- GitHub Actions run: `33250719157` ("Deploy to Hostinger"), triggered by push on 2026-08-29
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33250719157` endpoint, polled until `status: completed` — `conclusion: success`)
+- Deployment result: workflow-reported success for deployed SHA `5b97287032a4bb00e2d8849fde4ed30f42917eab`. Actual live site behavior not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above, covering Review & Finalise Quote, View full quote, and Print/Save-as-PDF presentation)
