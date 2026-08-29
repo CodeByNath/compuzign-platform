@@ -2,11 +2,10 @@
 
 ## Status
 - Phase 8H production baseline: `main@0c586debcccc5ee9eb850b8119200b31fe61b4ed`.
-- Phase 8I: `AWAITING CHATGPT REVIEW` — add-on proposal/PDF alignment correction implemented.
-- Source push: `SOURCE PUSH NOT APPROVED`.
-- Auditor verdict: `Proceed with safeguards` — implemented and pushed to review branch, not main.
-- Production (unchanged): `main@eac4240a76215c701898526e70122041e656a319`.
-- Reviewable candidate: `phase-8i-final-quote-inclusion-quantity-parity@6736d45d` (pushed, 1 commit on top of the already-deployed `eac4240a`).
+- Phase 8I: `AWAITING LIVE VALIDATION` — add-on proposal/PDF alignment correction deployed.
+- Source push: `PUSHED — exact accepted commit, fast-forward only`.
+- Auditor verdict: `Proceed with safeguards` — source pushed, deployment succeeded.
+- Production: `main@6736d45d669f61c442527419269f16d7a711fbdd`.
 
 ## Live Finding
 Review & Finalise Quote shows Family inclusion labels but omits their resolved quantities. The printable proposal/PDF reuses the same quantity-less Family inclusion presentation, so the omission carries into PDF.
@@ -208,3 +207,19 @@ No source blocker found.
 3. Push and allow the normal GitHub Actions Hostinger deployment.
 4. Record exact resulting main SHA and workflow run/status here.
 5. Set `AWAITING LIVE VALIDATION` and stop. Do not mutate customer/runtime records.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-30
+- Pre-push check: `origin/main` confirmed exactly `eac4240a76215c701898526e70122041e656a319` before push — matched, no divergence. Local `main` checked out fresh from `origin/main` (same SHA), then fast-forward merged to `phase-8i-final-quote-inclusion-quantity-parity@6736d45d...` (confirmed via `git ls-remote origin phase-8i-final-quote-inclusion-quantity-parity` to be the exact accepted SHA before merging) — no amend/rebuild/source changes, pure fast-forward.
+- Push output: `eac4240a..6736d45d  main -> main`
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `6736d45d669f61c442527419269f16d7a711fbdd` — equals the accepted SHA exactly.
+- GitHub Actions run: `33260733474` ("Deploy to Hostinger"), triggered by push on 2026-08-30
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33260733474` endpoint, polled until `status: completed` — `conclusion: success`)
+- Job/step-level results, all `success`: Set up job; Checkout repository; Setup Node.js; Install frontend dependencies; Build frontend assets; Deploy source via SSH; Deploy built dist assets via SCP; Post Setup Node.js; Post Checkout repository; Complete job.
+- Deployment result: workflow-reported success for deployed SHA `6736d45d669f61c442527419269f16d7a711fbdd`. No customer/runtime mutations performed. Actual add-on alignment in the expanded proposal and saved PDF not independently checked from this environment.
+
+## Live Browser Validation (Alignment Correction)
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath/ChatGPT performs this check per the Revised Final Gate above: confirm the Family add-on inclusion shell and quantity column align with primary plan inclusions in both the expanded proposal and saved PDF)
