@@ -1,12 +1,10 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `READY FOR CLAUDE`
-- Verdict: `Proceed`
-- Production: `main@cf650905d96b8fdee5c0032caefd7d5694fc51a9`
-- Accepted candidate: `phase-8e-addon-cta-review@b299563d264615d39b40a9a21e56e14edd0e1565`
-- Candidate is exactly 1 commit ahead of production.
-- Source push: `APPROVED` for exactly `b299563d264615d39b40a9a21e56e14edd0e1565`.
+- Status: `AWAITING LIVE VALIDATION`
+- Verdict: `Proceed` — source pushed, deployment succeeded
+- Production: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
+- Source push: `PUSHED — exact accepted commit, fast-forward only`
 
 ## ChatGPT Review — 2026-08-29
 The refinement is accepted.
@@ -32,3 +30,17 @@ Proceed immediately:
 3. Record the GitHub Actions deployment run ID/status in this same file.
 4. On successful deployment, set status to `AWAITING LIVE VALIDATION` and stop.
 5. Do not mark Phase 8E `CLOSED` until the live customer check confirms the single left-aligned **View details** entry and first-plan-to-Total-Commitment overlay flow.
+
+## Production Push Record
+
+- Status: PUSHED
+- Pushed by: Claude Code
+- Pushed at: 2026-08-29
+- Pre-push check: `origin/main` confirmed exactly `cf650905d96b8fdee5c0032caefd7d5694fc51a9` before push — matched, no divergence. Local `main` was already at `b299563d` (identical to the accepted candidate), so the push was a plain fast-forward — no add/alter of source.
+- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `b299563d264615d39b40a9a21e56e14edd0e1565`
+- GitHub Actions run: `33247214316` ("Deploy to Hostinger"), triggered by push on 2026-08-29
+- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33247214316` endpoint, polled until `status: completed` — `conclusion: success`)
+- Deployment result: workflow-reported success for deployed SHA `b299563d264615d39b40a9a21e56e14edd0e1565`. Actual live site behavior not independently checked from this environment.
+
+## Live Browser Validation
+- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above)
