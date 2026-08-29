@@ -39,6 +39,14 @@ Claude updates the same work file with a concise report: files changed, behavior
 ## After ChatGPT audit
 Record one clear result for the current round: `Proceed`, `Proceed with safeguards`, or `Stop — architectural risk`, plus only the evidence/corrections needed for Claude. Keep source push blocked unless explicitly approved by Nath.
 
+## Live browser responsibility
+- Live customer validation is ChatGPT's responsibility whenever the active work reaches `AWAITING LIVE VALIDATION`; do not ask Nath or Claude to perform or relay it.
+- After every live check, ChatGPT updates the same active work file directly with the observed behavior, evidence, verdict, status, and Claude's next action.
+- A failed product check is recorded for Claude as a precise correction; Nath is not used as the messenger.
+- A browser-control or security-policy outage is not a product failure. Use the Browser skill's prescribed recovery path, retry safely, and never bypass browser security controls or substitute an indirect browser surface when the user selected Browser.
+- If the browser remains unavailable after recovery, keep `AWAITING LIVE VALIDATION`, record the infrastructure block, request no source change, and retry on the next work cycle.
+- Never mark work `CLOSED` without an actual successful live check when live validation is required.
+
 ## After production push
 Record the exact `main` commit SHA, workflow/deployment evidence, and any divergence discovered between local, GitHub, deployment, stored runtime state, and live customer behavior. These states are never assumed identical.
 
