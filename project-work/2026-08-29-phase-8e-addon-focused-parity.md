@@ -1,46 +1,69 @@
-# Phase 8E — Add-on Focused Occupant Parity
+# Phase 8E / 8F — Add-on Parity → Quote Review/PDF Parity
 
 ## Status
-- Status: `AWAITING LIVE VALIDATION`
-- Verdict: `Proceed` — source pushed, deployment succeeded
-- Production: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
-- Source push: `PUSHED — exact accepted commit, fast-forward only`
+- Phase 8E: `CLOSED`
+- Live validation: `PASSED — Nath confirmed customer behavior is good`
+- Production baseline for next work: `main@b299563d264615d39b40a9a21e56e14edd0e1565`
+- GitHub Actions deploy: `33247214316`, `SUCCESS`
+- Phase 8F status: `READY FOR CLAUDE`
+- Verdict: `Proceed with safeguards — AUDIT FIRST`
+- Source push: `NOT APPROVED`
 
-## ChatGPT Review — 2026-08-29
-The refinement is accepted.
+## Phase 8E Closure
+Accepted live customer behavior:
+- one left-aligned cart **View details** entry;
+- opens first quoted plan;
+- plan/add-on tabs follow cart order;
+- **Total Commitment** is last;
+- recommendation CTA order and add-on detail behavior are correct.
 
-Verified actual candidate diff:
-- Per-item **View details** buttons are removed from quote rows.
-- Exactly one footer **View details** entry remains.
-- That footer entry opens `familyTierItems[0]`, i.e. the first quoted `family_tier` item in cart order, not Total Commitment.
-- `QuoteDetailsOverlay` did not need modification: its `allFamilyTierItems = items.filter(...)` preserves cart order and Total Commitment is appended after the plan/add-on tab map, so the overlay opens first plan and presents remaining plan/add-on tabs in cart order with Total Commitment last.
-- Footer detail control is changed from centered to `align-self: flex-start`.
-- No pricing, persistence, quote mutation, identity, TCV aggregation, or backend code changed.
-- Generated dist assets match the source/CSS refinement scope.
-- Focused regression contract was updated for the one-entry behavior and first-plan target.
+## Phase 8F Objective — Quote Review / Full Quote / PDF Parity
+Audit the existing **Review & Finalise Quote** step only. The goal is to carry the corrected Package Builder cart/commercial data into the existing right-side quote summary and existing **View full quote** / printable PDF document.
 
-Claude reports `tsc --noEmit`, build, and relevant contracts passing; `admin-station-css` remains the known unrelated baseline failure.
+This is data/presentation wiring, not a new quote, request, PDF, routing, or email system.
 
-`origin/main` remains on `cf650905`; the reviewed candidate has not been pushed to main yet.
+## Audit Before Any Implementation
+Inspect current source and report exact gaps in:
+- `request-flow/OrderSummary.tsx`
+- `request-flow/QuoteProposalPreview.tsx`
+- `request-flow/QuoteCartFlow.tsx`
+- `request-flow/RequestFlowModal.tsx`
+- `request-flow/types.ts`
+- `cost-builder/types.ts`
+- shared quote/pricing helpers used by the corrected cart.
+
+Trace the real path:
+`FamilyTierQuoteItem snapshot → RequestFlowContext.items → OrderSummary → QuoteProposalPreview → existing beforeprint clone → print/Save as PDF`.
+
+Confirm whether the same `CartItem[]` reaches submit/request storage unchanged and identify any lossy transformation before admin/user-manager persistence.
+
+## What to Look For
+- Raw CZ Platform IDs currently exposed to customers in review/PDF.
+- Family Tier/Edition/add-on rows still using flat `price` / `billingCycle` instead of `legPaymentSummaries`.
+- Review/PDF totals still using `calcQuoteTotals()` where multi-stream Package Family pricing makes headline-cycle totals misleading.
+- Missing Upfront/Monthly/Yearly streams, per-plan finite Total, cart TCV, Initial Payment, commitment facts, Edition label, and add-on presentation already available in the corrected cart/details path.
+- Cart ordering/identity preservation for primary + add-ons.
+- Whether legacy/simple `QuoteItem` behavior must remain unchanged.
+
+## Hard Non-Change Boundary
+Do **not** redesign or replace:
+- request-flow routing/modal/steps;
+- contact form or submit/email behavior;
+- request endpoint/storage contract;
+- `window.print()` behavior;
+- `RequestFlowModal` print portal / `.cz-proposal` cloning;
+- PDF mechanism;
+- admin/user-manager routing;
+- pricing resolver, persistence, quote mutation, or Package Builder selection logic.
+
+Do not duplicate Commercial Leg pricing calculations independently in OrderSummary and PDF. Reuse the same trusted primitives/presentation derivation already used by the corrected cart wherever possible.
 
 ## Claude Next Action
-Proceed immediately:
-1. Push exactly `b299563d264615d39b40a9a21e56e14edd0e1565` to `main` as a fast-forward only. Do not add or alter source.
-2. Confirm `origin/main` resolves to that exact SHA.
-3. Record the GitHub Actions deployment run ID/status in this same file.
-4. On successful deployment, set status to `AWAITING LIVE VALIDATION` and stop.
-5. Do not mark Phase 8E `CLOSED` until the live customer check confirms the single left-aligned **View details** entry and first-plan-to-Total-Commitment overlay flow.
+Audit only. Do not edit source yet. Update this same file with:
+1. current data path and authoritative files;
+2. exact presentation/data defects;
+3. reusable pricing/presentation primitives;
+4. hidden compatibility risks;
+5. smallest safe implementation plan and proposed regression contracts.
 
-## Production Push Record
-
-- Status: PUSHED
-- Pushed by: Claude Code
-- Pushed at: 2026-08-29
-- Pre-push check: `origin/main` confirmed exactly `cf650905d96b8fdee5c0032caefd7d5694fc51a9` before push — matched, no divergence. Local `main` was already at `b299563d` (identical to the accepted candidate), so the push was a plain fast-forward — no add/alter of source.
-- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `b299563d264615d39b40a9a21e56e14edd0e1565`
-- GitHub Actions run: `33247214316` ("Deploy to Hostinger"), triggered by push on 2026-08-29
-- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33247214316` endpoint, polled until `status: completed` — `conclusion: success`)
-- Deployment result: workflow-reported success for deployed SHA `b299563d264615d39b40a9a21e56e14edd0e1565`. Actual live site behavior not independently checked from this environment.
-
-## Live Browser Validation
-- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above)
+Then set `AWAITING CHATGPT REVIEW` and stop.
