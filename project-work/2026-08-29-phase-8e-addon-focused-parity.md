@@ -1,61 +1,47 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `AWAITING CHATGPT REVIEW`
-- Source push: `PUSHED`
+- Status: `AWAITING CLAUDE RESPONSE`
+- Corrective source push: `NOT APPROVED`
 - Base: `main@7b4b78608d4a229209a1e9c89116334a1917f4bf`
-- Implemented locally: 2026-08-29
-- Pushed to main: 2026-08-29
+- Phase 8E pushed: `main@03b692202d52e4713040a36e7c6686fe3e0e5c28`
 
 ## Objective
-Give add-on occupants the same full focused-shell experience primaries already get, reusing existing occupant/Edition/Commercial Leg/Plan Details paths. Add-ons remain independent quote items and must never replace/remove the family primary.
+Give add-on occupants the same full focused-shell experience as primaries, reusing existing occupant/Edition/Commercial Leg/Plan Details paths. Add-ons remain independent quote items and never replace/remove the family primary.
 
 ## Required Behavior
 1. Add-on cards enter the normal focused shell without mutating the quote.
-2. Reuse shared `TierCard`, `resolveEffectiveTierDisplay()`, `periodsForVariant()`, Commercial Leg presentation, Plan Details, and `itemFor()`; no parallel add-on UI/resolver.
-3. Determine add-on role from canonical `is_addon` pricing data.
+2. Reuse shared `TierCard`, `resolveEffectiveTierDisplay()`, `periodsForVariant()`, Commercial Leg presentation, Plan Details, and `itemFor()`; no parallel add-on UI/resolver/CTA path.
+3. Determine add-on role from canonical `is_addon` data.
 4. Carry exact quoted add-on identity including Edition Platform ID.
-5. Add focused Default/Edition with `itemFor(..., true)` through the existing add-on upsert path.
-6. Remove/switch only that add-on by stable Tier Platform ID; primary remains untouched.
-7. Closing/completing returns to selected-primary staged view + Recommendations.
-8. Primary and Cost Builder behavior remain unchanged.
+5. Add/remove/switch only that add-on through existing independent add-on mutation paths.
+6. Closing/completing returns to selected-primary staged view + Recommendations.
+7. Primary and Cost Builder behavior remain unchanged.
 
 ## Hard Non-Change Boundary
-Quote Summary totals, Total Contract Value, Initial Payment, `QuoteDetailsOverlay`, Total Commitment tabs, request/review flow, backend resolvers, WordPress persistence, admin behavior, Commercial Leg schemas, primary replacement behavior, Cost Builder behavior, focused visual design, customer terminology.
-
-## Acceptance Intent
-Unquoted add-on opens focus with no mutation; add/remove/switch is independent; exact Default/Edition selected state is preserved; multiple add-ons remain independent; normal Legs/Periods/inclusions/Plan Details paths are used; primary and Cost Builder behavior remain unchanged; relevant contracts and production frontend build pass.
+Quote Summary totals, TCV, Initial Payment, `QuoteDetailsOverlay`, Total Commitment tabs, request/review, backend resolvers, WP persistence, admin, Commercial Leg schemas, primary replacement, Cost Builder, focused visual design, customer terminology.
 
 ## Claude Report
-- Root cause: `renderAddonTierCard()` lacked `onChoosePlan`; `PackageBuilderApp` exposed only Tier-level selected add-on IDs.
-- Files changed locally: `FamilyTierAdapter.tsx`, `PricingTiers.tsx`, `PackageBuilderApp.tsx`, `dist/js/cost-builder.js`.
-- Add-ons now enter the same focused shell as primaries.
-- `selectedAddonItems: FamilyTierQuoteItem[]` carries Tier + Edition identity; Tier IDs are derived locally for existing Tier-level UI behavior.
-- Exact selected state branches on canonical `focusedData?.is_addon` and matches Tier + Edition identity.
-- Add-on mutation calls existing `onAdd(itemFor(..., true))` / `onRemoveAddon(tierPlatformId)` paths; primary mutation path remains unchanged.
-- Cost Builder callers/contracts remain unchanged.
-- Validation reported clean: `tsc --noEmit`, `npm run build`, package-builder-regression-lock, cost-builder-isolation, package-family-cart, quote-cart-addon, tier-addon-flow, package-builder-customer-tabs, tier-edition-switch.
-- Source remained local/uncommitted at report time; live browser validation not yet performed.
-
-## Review Rounds
-### 2026-08-29 — ChatGPT Review 1
-- Verdict: `Proceed with safeguards`.
-- Nath explicitly approves source push for this completed Phase 8E implementation.
-- Claude may now commit and push only the reported Phase 8E source changes to `main`.
-- After push, record the exact production commit SHA and deployment/workflow evidence here, set status `AWAITING CHATGPT REVIEW`, and stop.
-- Independent source-diff audit and live validation remain required after the pushed commit is visible. Approval to push is not final acceptance/closure.
+Changed `PricingTiers.tsx`, `FamilyTierAdapter.tsx`, `PackageBuilderApp.tsx`, compiled `dist/js/cost-builder.js`. Full quoted add-on items now carry Tier + Edition identity into the focused shell. Focused add-on mutation uses existing `itemFor(..., true)` / `onRemoveAddon(tierPlatformId)` paths. Reported `tsc --noEmit`, production build, and relevant contracts clean.
 
 ## Production Push Record
-- Status: PUSHED
-- Pushed by: Claude Code
-- Pushed at: 2026-08-29
-- Full `main` commit SHA: `03b692202d52e4713040a36e7c6686fe3e0e5c28`
-- Complete commit message: "add-on focused occupant parity" (full body: focused-shell parity for add-on Tier occupants, reusing existing occupant/Edition/Commercial Leg/Plan Details/`itemFor()`/`onRemoveAddon()` paths; `FamilyTierAdapter` now receives `selectedAddonItems: FamilyTierQuoteItem[]` instead of bare tierIds so exact-match/selected-state logic works the same way it already does for the primary; Cost Builder's own `PricingTiersProps` contract/callers unchanged)
-- Files included: `wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx`, `.../package-builder/FamilyTierAdapter.tsx`, `.../package-builder/PackageBuilderApp.tsx`, `.../dist/js/cost-builder.js`
-- Push comments: pushed directly to `main` (previous tip `7b4b7860`, now `03b69220`) — fast-forward, no merge. `dist/css/cost-builder.css` was NOT touched this phase (no new CSS, only existing classes reused), matching the reported diff.
-- GitHub Actions run: not independently checked from this environment (no `gh` CLI/browser access here) — Nath/ChatGPT should confirm the workflow result on GitHub.
-- Workflow result: unknown from this environment, pending confirmation.
-- Deployment result: unknown from this environment, pending confirmation.
+- Pushed directly to `main`: `03b692202d52e4713040a36e7c6686fe3e0e5c28`
+- Fast-forward from `7b4b7860`.
+- GitHub combined-status endpoint currently exposes no status checks for this commit.
+
+## Review Rounds
+### 2026-08-29 — Review 1
+Verdict: `Proceed with safeguards`; Nath approved initial Phase 8E source push so the actual diff could be audited.
+
+### 2026-08-29 — Review 2 — pushed diff audit
+Verdict: `Stop — architectural/customer-flow mismatch`.
+
+The exact identity/mutation implementation is structurally aligned: canonical `is_addon`, Tier+Edition matching, existing add-on upsert/remove, primary path preserved.
+
+**Blocking defect:** `PricingTiers.renderAddonTierCard()` now passes `onChoosePlan` while retaining the old direct `onClick -> onToggleAddon` action. `TierCard` therefore renders both `Choose Plan/View Plan` and `Add to Quote/Remove` for an add-on. Source comments explicitly say the quick toggle is intentionally preserved. That creates two customer mutation/entry paths and violates this phase's requirement for normal focused-shell parity with no parallel add-on CTA path. The add-on can still bypass focus and mutate directly.
+
+**Claude action:** make the Package Builder add-on customer path use the same single focused-shell route as normal occupants. Preserve plain Cost Builder behavior and existing independent add-on mutation inside the focused shell. Do not redesign the shell or touch totals/TCV/overlay. Update the same work file with the exact corrective diff, tests, and source state; do not push corrective source until approved.
 
 ## Live Browser Validation
-- Status: NOT STARTED
+- Status: BLOCKED/PENDING.
+- `https://compuzign.weerax.com/pricing/` is not fetchable from ChatGPT's current web environment (`Cache miss`), so no live pass is claimed.
