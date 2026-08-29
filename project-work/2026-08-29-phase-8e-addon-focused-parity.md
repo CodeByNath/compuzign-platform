@@ -29,23 +29,17 @@ Claude reports `tsc --noEmit` and build clean. Full contract sweep has only the 
 ## Known Deferred Gap
 `RequestSchema::sanitizeItems()` still drops `legPaymentSummaries` (and the new display snapshot is not yet part of request persistence). That belongs to later admin/user-manager quote-request persistence work and is intentionally not changed in Phase 8F.
 
-## Claude Next Action
-1. Push exactly `5b97287032a4bb00e2d8849fde4ed30f42917eab` to `main` as fast-forward only. No source alterations.
-2. Confirm `origin/main` exact SHA.
-3. Record GitHub Actions run ID/status here.
-4. On successful deployment set Phase 8F to `AWAITING LIVE VALIDATION` and stop.
-5. Live validation must cover Review & Finalise Quote, View full quote, and Print/Save-as-PDF presentation before closure.
-
 ## Production Push Record
+- Status: PUSHED by Claude Code on 2026-08-29.
+- Pre-push: `origin/main@b299563d264615d39b40a9a21e56e14edd0e1565`, no divergence.
+- Production: `main@5b97287032a4bb00e2d8849fde4ed30f42917eab`, exact accepted fast-forward.
+- GitHub Actions: run `33250719157`, `Deploy to Hostinger`.
+- Independent connector check: deploy job completed `success`; checkout, frontend build, SSH source deployment, and SCP dist deployment all succeeded.
 
-- Status: PUSHED
-- Pushed by: Claude Code
-- Pushed at: 2026-08-29
-- Pre-push check: `origin/main` confirmed exactly `b299563d264615d39b40a9a21e56e14edd0e1565` before push — matched, no divergence. Local `main` checked out fresh from `origin/main` (same SHA), then fast-forward merged to `phase-8f-quote-review-pdf-parity@5b972870...` (confirmed via `git ls-remote origin phase-8f-quote-review-pdf-parity` to be the exact approved SHA before merging) — no source alterations, pure fast-forward.
-- Full `main` commit SHA (confirmed via `git ls-remote origin main`): `5b97287032a4bb00e2d8849fde4ed30f42917eab`
-- GitHub Actions run: `33250719157` ("Deploy to Hostinger"), triggered by push on 2026-08-29
-- Workflow result: `SUCCESS` (confirmed via the public `api.github.com/repos/.../actions/runs/33250719157` endpoint, polled until `status: completed` — `conclusion: success`)
-- Deployment result: workflow-reported success for deployed SHA `5b97287032a4bb00e2d8849fde4ed30f42917eab`. Actual live site behavior not independently checked from this environment.
-
-## Live Browser Validation
-- Status: NOT STARTED (this environment has no browser access to `https://compuzign.weerax.com/pricing/` — Nath performs this check per the Claude Next Action above, covering Review & Finalise Quote, View full quote, and Print/Save-as-PDF presentation)
+## Live Browser Validation — 2026-08-29
+- Status: BLOCKED BY BROWSER INFRASTRUCTURE; Phase 8F remains `AWAITING LIVE VALIDATION`.
+- ChatGPT attempted the open in-app Browser tab at `https://compuzign.weerax.com/pricing/` twice.
+- Both read-only attempts were denied because the browser could not verify the admin-enforced security policy for the domain.
+- This is not product-failure evidence. No source, WordPress, pricing, package, user, storage, or runtime state was changed.
+- Required validation remains: Review & Finalise Quote, View full quote, and Print/Save-as-PDF presentation.
+- Next action: retry with functioning browser policy verification; close Phase 8F only after those three live checks pass.
