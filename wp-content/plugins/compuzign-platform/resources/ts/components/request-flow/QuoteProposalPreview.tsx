@@ -22,21 +22,25 @@ export function QuoteProposalPreview({
 }: QuoteProposalPreviewProps) {
   const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
 
-  // Phase 8F (corrected): a Family item's flat price/billingCycle is only
-  // trustworthy when it has at most one real payment stream — with 2+
-  // streams that single headline figure misrepresents the plan and is
-  // instead represented by the dedicated Contract Value/Initial Payment
-  // block below. So the general/legacy totals block is derived from every
-  // item EXCEPT a multi-stream Family one (never all items unconditionally,
-  // and never Family items wholesale) — this keeps legacy Service/bundle/
-  // tier-addon totals visible in a mixed cart instead of the whole totals
-  // section flipping to Family-only, and avoids double-counting a
-  // multi-stream Family plan's headline price alongside its own Contract
-  // Value figure.
+  // Phase 8F (corrected twice): whenever ANY Family item has 2+ payment
+  // streams, the Family Contract Value block below sums EVERY primary
+  // Family item (see familyPrimaryTotalContractValues below — that sum was
+  // never limited to just the multi-stream ones). So excluding only the
+  // multi-stream items from general totals was still wrong: a single-stream
+  // Family primary would be counted once there AND again in
+  // calcQuoteTotals(). The correct, double-count-proof split is by
+  // population, not by stream count: once the Family contract block is
+  // active, general/legacy totals cover non-Family items ONLY — every
+  // Family item (primary or add-on, any stream count) is already either
+  // inside the combined Family sum or shown on its own per-item row above,
+  // never both there and inside this general figure too. With no
+  // multi-stream item at all, nothing needs excluding — general totals
+  // cover every item exactly as before Phase 8F.
   const hasMultiStreamItem = items.filter(isFamilyTierQuoteItem)
     .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
-  const itemsForGeneralTotals = items.filter((item) => !isFamilyTierQuoteItem(item)
-    || (item.legPaymentSummaries?.length ?? 0) <= 1);
+  const itemsForGeneralTotals = hasMultiStreamItem
+    ? items.filter((item) => !isFamilyTierQuoteItem(item))
+    : items;
   const totals = calcQuoteTotals(itemsForGeneralTotals);
 
   // Phase 8F: same primary-only Total Contract Value / Initial Payment
