@@ -1,32 +1,37 @@
 # Phase 8E — Add-on Focused Occupant Parity
 
 ## Status
-- Status: `AWAITING CLAUDE RESPONSE`
-- Verdict: `Proceed with safeguards — ONE LIVE-EXPOSURE CORRECTION REQUIRED`
+- Status: `READY FOR CLAUDE`
+- Verdict: `Proceed`
 - Production: `main@b7083c44cb23e0e005976687583d7fdf2b4f2a6d`
-- Candidate: `phase-8e-addon-cta-review@cf650905d96b8fdee5c0032caefd7d5694fc51a9`
-- Source push: `NOT APPROVED`
+- Accepted candidate: `phase-8e-addon-cta-review@cf650905d96b8fdee5c0032caefd7d5694fc51a9`
+- Source push: `APPROVED` for exactly `cf650905d96b8fdee5c0032caefd7d5694fc51a9`.
+
+## Audit Result
+The previous concern about an add-on-only Quote Details overlay was based on an unreachable normal customer state and is withdrawn.
+
+Repository evidence:
+- `FamilyTierAdapter` only exposes Recommendations/add-on cards in the selected-primary staged view: `stagedTier` exists only when `stagedTierId === selectedTierId` and that selected Tier is a normal Tier.
+- `PackageBuilderApp.removePrimary()` calls `removeFamilyTierSystemQuoteItems(...)`.
+- `removeFamilyTierSystemQuoteItems()` removes every `family_tier` item for that Family + Tier Instance, not just the primary, so removing the primary removes its add-ons from the cart as well.
+- The cart remove path for a primary uses the same whole-Tier-System removal helper.
+
+Therefore the customer cannot normally retain/open an add-on without its primary. No new Total Commitment visibility guard is required for this Phase 8E correction.
 
 ## Accepted Candidate Behavior
 - Add-on cart action is restored to **View details**.
-- It opens the existing Quote Details overlay, not a direct focused-shell shortcut.
-- Add-ons now receive their own detail tabs/content through the existing `resolvePlanDetails()` path.
+- It opens the existing Quote Details overlay.
+- Add-ons receive their own detail tabs/content using the existing plan-details resolver.
 - Exact Edition resolution fails closed instead of falling back to Default.
-- Primary-only Total Commitment math remains unchanged.
-- The obsolete add-on direct-focus plumbing was removed.
-- Recommendation-card CTA order remains untouched.
-
-## Blocking Safeguard
-The overlay now becomes reachable from an add-on even when the cart has **no primary plan**. `QuoteDetailsOverlay` still always renders the **Total Commitment** tab. With `primaryFamilyTierItems.length === 0`, that tab would newly expose a primary-only summary with an empty population and can display misleading `Contract Value: Ongoing` despite there being no primary contract to summarize.
-
-This state was not previously reachable because add-ons could not open this overlay.
+- Total Commitment aggregation remains primary-only.
+- Obsolete direct add-on focus plumbing is removed.
+- Recommendation CTA order remains unchanged.
+- No backend, pricing, persistence, mutation, or TCV architecture change.
 
 ## Claude Next Action
-Make one narrow correction only:
-1. Render the **Total Commitment** tab only when `primaryFamilyTierItems.length > 0`.
-2. Keep the existing cart-level Total Commitment route unchanged; `QuoteSummary` already gates that route on there being a primary item.
-3. Do not add add-ons into TCV/Initial Payment aggregation.
-4. Extend the focused contract to lock that an add-on-only details overlay has no Total Commitment tab.
-5. Change nothing else in `cf650905`.
-
-Update the same review branch and this file, then set `AWAITING CHATGPT REVIEW`. Do not push `main` yet.
+Proceed immediately:
+1. Push exactly `cf650905d96b8fdee5c0032caefd7d5694fc51a9` to `main` as a fast-forward only. Do not add or alter source.
+2. Confirm `origin/main` resolves to that exact SHA.
+3. Record the deployment workflow run ID/status in this same file.
+4. On successful deployment, set status to `AWAITING LIVE VALIDATION` and stop.
+5. Do not mark `CLOSED` until the live customer check confirms add-on **View details** and the details overlay behavior.
