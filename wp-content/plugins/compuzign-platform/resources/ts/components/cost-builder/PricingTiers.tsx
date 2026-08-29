@@ -486,6 +486,7 @@ export function TierCard({
   periodOverride = null,
   extensionsContent = null,
   relatedInclusionIds = null,
+  hideDirectAction = false,
 }: {
   tier: Tier;
   data: PricingTierData | undefined;
@@ -528,6 +529,14 @@ export function TierCard({
   // Bundle child rows) whose own id isn't a member. Omitted by every other
   // caller, so normal/front/staged cards never render is-dimmed at all.
   relatedInclusionIds?: Set<string> | null;
+  // Phase 8E correction: an add-on card offered inside the focused shell
+  // (onChoosePlan supplied) must route every mutation through that ONE
+  // entry point — never a second, parallel direct toggle sitting beside
+  // it. True only from renderAddonTierCard() below when onChoosePlan is
+  // present; every other caller (normal Tier cards, and add-on cards in
+  // plain Cost Builder where onChoosePlan is never supplied) omits it and
+  // keeps rendering the direct action button exactly as before.
+  hideDirectAction?: boolean;
 }) {
   const [isHovering, setIsHovering] = useState(false);
   const isRemoving = isActive && isHovering;
@@ -817,22 +826,28 @@ export function TierCard({
             {isActive ? 'View Plan' : 'Choose Plan'}
           </button>
         )}
-        <button
-          type="button"
-          // Add-on cards have no Choose Plan/View Plan action above them, so
-          // their one CTA carries that pair's stronger yellow-outline
-          // emphasis instead of the normal card's subdued default — see
-          // .cz-cost-builder__tier-action--addon in cost-builder.css.
-          // data?.is_addon is the same flag the Add-ons badge above already
-          // reads; normal Tier cards (is_addon false/undefined) are
-          // untouched.
-          class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}${data?.is_addon ? ' cz-cost-builder__tier-action--addon' : ''}`}
-          onClick={() => onClick(effective)}
-          onMouseEnter={() => setIsHovering(true)}
-          onMouseLeave={() => setIsHovering(false)}
-        >
-          {isRemoving ? '× Remove' : isActive ? addedLabel : 'Add to Quote'}
-        </button>
+        {/* Phase 8E correction: an add-on card offered inside the focused
+            shell (hideDirectAction, set only from renderAddonTierCard()
+            when onChoosePlan is present) must route every mutation through
+            that ONE entry point — Choose Plan/View Plan above is then the
+            card's only clickable action; this direct toggle never renders
+            alongside it. Plain Cost Builder add-on cards (no onChoosePlan,
+            hideDirectAction never set) keep this exactly as before — their
+            one CTA still carries the stronger yellow-outline emphasis (see
+            .cz-cost-builder__tier-action--addon in cost-builder.css);
+            normal Tier cards (is_addon false/undefined) are untouched
+            either way. */}
+        {!hideDirectAction && (
+          <button
+            type="button"
+            class={`cz-cost-builder__tier-action${isActive ? ' is-selected' : ''}${isRemoving ? ' is-removing' : ''}${data?.is_addon ? ' cz-cost-builder__tier-action--addon' : ''}`}
+            onClick={() => onClick(effective)}
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+          >
+            {isRemoving ? '× Remove' : isActive ? addedLabel : 'Add to Quote'}
+          </button>
+        )}
       </div>
 
       {/* 7. Notes — Tier notes. No content today; the row is created and
@@ -937,11 +952,15 @@ export function PricingTiers({
       addedLabel="✓ Added"
       onClick={(effective) => onToggleAddon(tier.id, effective)}
       // Phase 8E: the exact same focused-shell entry point normalTiers'
-      // own cards already get below — an add-on card's own direct Add to
-      // Quote button (onClick above) is untouched and still works exactly
-      // as before; this only ADDS the "Choose Plan"/Editions route, never
-      // replaces the quick toggle.
+      // own cards already get below.
       onChoosePlan={onChoosePlan && ((editionId) => onChoosePlan(tier.id, editionId))}
+      // Phase 8E correction: once this card has that focused-shell entry
+      // point (Package Builder), the direct Add to Quote toggle (onClick
+      // above) must NOT also render beside it — one occupant, one customer
+      // mutation path, matching the phase's own "no parallel add-on CTA
+      // path" requirement. Plain Cost Builder never supplies onChoosePlan,
+      // so this stays `false` there and its add-on cards are unaffected.
+      hideDirectAction={!!onChoosePlan}
     />
   );
 
