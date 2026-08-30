@@ -1,0 +1,123 @@
+// Contract: CRM-1B's Requests destination reuses the established Admin
+// Station navigation, list, and drawer systems — it registers through the
+// same Station Manager registries every other station uses, renders through
+// the shared `cz-station-list` system (no second table/list system), and its
+// drawer content is plain DrawerContentProps + the shared ReadBlock (no
+// second drawer host). It also ships no mutation entry point: the surface
+// binding declares only a `view` intent, and the drawer template supports
+// only `view` — Approve/Cancel are CRM-1C's to add, not implied here. And
+// the backend list/detail routes never read the quote transient — durable
+// RequestRepository is the sole source, matching
+// tests/admin-requests-durable-surface.php's dynamic coverage of the same
+// boundary from the PHP side.
+
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+function check(condition: unknown, message: string): asserts condition {
+  if (!condition) throw new Error(`Requests Admin Station surface contract: ${message}`);
+}
+
+const root = resolve(import.meta.dirname, '..');
+const read = (path: string): string => readFileSync(resolve(root, path), 'utf8');
+
+const registerSource = read('resources/ts/admin-station/register.ts');
+const kitSource = read('resources/ts/admin-station/stations/requests/RequestsCatalogueKit.tsx');
+const drawerSource = read('resources/ts/admin-station/stations/requests/RequestDrawerHost.tsx');
+const dataSourceSource = read('resources/ts/admin-station/stations/requests/useRequestsCatalogue.ts');
+const controllerSource = read('src/Modules/Admin/Http/AdminRequestsController.php');
+
+// ── Registration uses the shared Station Manager registries ────────────────
+
+check(
+  /registerNavItems\(\[[\s\S]*?id:\s*'requests'/.test(registerSource),
+  'Requests registers a navigation item through the shared navigation registry',
+);
+check(
+  /registerDestinations\(\[[\s\S]*?id:\s*'requests'[\s\S]*?stationId:\s*'requests'/.test(registerSource),
+  'Requests registers a destination through the shared destination registry',
+);
+check(
+  registerSource.includes("'requests-catalogue': useRequestsCatalogue"),
+  'Requests registers its data source through the shared data-source registry',
+);
+check(
+  registerSource.includes("'requests-catalogue': RequestsCatalogueKit"),
+  'Requests registers its list through the shared template-kit registry',
+);
+
+// ── The drawer template is view-only — CRM-1B ships no mutation entry point ─
+
+const drawerTemplateMatch = registerSource.match(
+  /key:\s*'request',[\s\S]*?supportedModes:\s*(\[[^\]]*\])[\s\S]*?content:\s*RequestDrawerHost/,
+);
+check(drawerTemplateMatch !== null, 'the request drawer template is registered with a supportedModes array');
+check(
+  drawerTemplateMatch![1].replace(/\s/g, '') === "['view']",
+  `the request drawer template supports view only, not edit — got ${drawerTemplateMatch?.[1]}`,
+);
+
+const bindingMatch = registerSource.match(
+  /stationId:\s*'requests',[\s\S]*?actionIntents:\s*\[([\s\S]*?)\]/,
+);
+check(bindingMatch !== null, 'the requests surface binding declares its actionIntents');
+check(
+  !/mode:\s*'edit'/.test(bindingMatch![1]),
+  'the requests surface binding declares no edit-mode intent — Approve/Cancel are CRM-1C\'s to add',
+);
+
+// ── The list reuses the shared station list system, not a second table ─────
+
+check(
+  kitSource.includes('cz-station-list') && kitSource.includes('cz-station-list__cell'),
+  'the Requests catalogue renders through the shared station list system',
+);
+check(
+  kitSource.includes("cz-station-list__row--requests"),
+  "the Requests catalogue declares its own row template modifier, not a shared one it does not own",
+);
+check(!/<table/.test(kitSource), 'the Requests catalogue introduces no second table markup');
+
+// ── The drawer content is plain DrawerContentProps + the shared ReadBlock ──
+
+check(
+  drawerSource.includes("from '@/station-manager/drawerTypes'") && drawerSource.includes('DrawerContentProps'),
+  'the Request drawer content is a plain DrawerContentProps consumer, addressed by the one shared drawer host',
+);
+check(
+  drawerSource.includes("from '@/drawer-kit/ReadBlock'"),
+  'Request drawer sections render through the shared drawer-kit ReadBlock, not a second card/section system',
+);
+check(
+  !drawerSource.includes('cz-station-drawer-layer') && !drawerSource.includes('role="dialog"'),
+  'the Request drawer content never reimplements the shared drawer host\'s own chrome',
+);
+check(
+  !drawerSource.includes('setFooter(') && !drawerSource.includes('setCloseGuard('),
+  'the read-only Request drawer publishes no footer and no close guard — there is nothing to save or guard',
+);
+
+// ── The data source calls the durable-backed endpoint ───────────────────────
+
+check(
+  dataSourceSource.includes('fetchAdminRequests'),
+  'the Requests data source calls the admin requests endpoint',
+);
+
+// ── The backend list/detail routes never read the quote transient ──────────
+
+check(
+  !controllerSource.includes('get_transient') && !controllerSource.includes('set_transient'),
+  'AdminRequestsController never reads or writes the cz_quote_* transient — RequestRepository is the sole source',
+);
+check(
+  controllerSource.includes('RequestRepository') && controllerSource.includes('findAll()') && controllerSource.includes('findByRef('),
+  'AdminRequestsController reads the durable RequestRepository for both list and detail',
+);
+// view_secret_hash's absence from the actual response allow-list — not merely
+// from this file's text, which legitimately documents it in prose — is
+// proven dynamically by tests/admin-requests-durable-surface.php, including
+// the defense-in-depth case where a stored snapshot is deliberately poisoned
+// with the key and the projection still excludes it.
+
+console.log('Requests Admin Station surface contract checks passed.');

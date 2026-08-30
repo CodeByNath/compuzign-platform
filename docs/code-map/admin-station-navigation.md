@@ -6,7 +6,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/station-manager/regist
 
 ## Registration and boot
 
-`navigation.ts` defines `StationNavItem` and accepts rows through `registerNavItems()`. Each row includes identity, label, Admin-owned icon capability, activation key, header/menu visibility, and order. Service, Package, and Admin currently register `services` at 10, `packages` at 20, and `promotions` at 30.
+`navigation.ts` defines `StationNavItem` and accepts rows through `registerNavItems()`. Each row includes identity, label, Admin-owned icon capability, activation key, header/menu visibility, and order. Service, Package, and Admin currently register `services` at 10, `packages` at 20, `promotions` at 30, and (CRM-1B) `requests` at 40.
 
 `destinations.ts` registers `StationDestination` records and resolves an activation key to:
 
@@ -14,7 +14,7 @@ Root: `wp-content/plugins/compuzign-platform/resources/ts/station-manager/regist
 { id, stationId, surfaceId, placement, mode, conditions? }
 ```
 
-All three current destinations declare `surfaceId: 'catalog'`, `placement: 'body'`, `mode: 'table'`, and `conditions.scope: 'current'`. They are navigation declarations; current visible content is composed independently from presentation bindings.
+All four current destinations declare `surfaceId: 'catalog'`, `placement: 'body'`, `mode: 'table'`, and `conditions.scope: 'current'`. They are navigation declarations; current visible content is composed independently from presentation bindings.
 
 Registration rejects duplicate navigation ids, destination ids, and identical destination projections. `finalizeStationRegistry()` locks registration, builds stable order-sorted header and menu arrays, and asserts that every navigation activation key names a registered destination. Public navigation and destination resolvers throw before finalization. `resolveDestination()` returns `null` for a null or unmapped activation.
 
@@ -29,7 +29,7 @@ header or slide-menu row
   → presentation bindings for that station
 ```
 
-With no selection or an unmapped key, the body uses the registered default home, `services`. Services renders Package Families followed by the Service Catalogue; Packages renders the Tier Workspace; Promotions currently renders the neutral no-presentation-content state.
+With no selection or an unmapped key, the body uses the registered default home, `services`. Services renders Package Families followed by the Service Catalogue; Packages renders the Tier Workspace; Promotions currently renders the neutral no-presentation-content state; Requests (CRM-1B) renders the durable Request list, read-only.
 
 There is no URL router in this chain. An activation key is not a route. Destination resolution and surface-binding resolution are separate axes: the former chooses a station context; the latter chooses ordered live presentation surfaces.
 

@@ -62,7 +62,9 @@ export interface StationDef {
   parent?: StationId;
 }
 
-// ── Requests river types ─────────────────────────────────────────────────────
+// ── Requests (CRM-1B: durable RequestRepository, not a quote transient) ──────
+
+export type RequestStatus = 'pending' | 'approved' | 'cancelled';
 
 export interface RequestLine {
   serviceId: number;
@@ -77,6 +79,8 @@ export interface RequestLine {
 
 export interface RequestEntry {
   quote_ref: string;
+  platform_id: string;
+  status: RequestStatus;
   type: string;
   contact: string;
   company: string;
@@ -90,17 +94,15 @@ export interface RequestEntry {
 
 export interface RequestSummary {
   quote_ref: string;
+  platform_id: string;
+  status: RequestStatus;
   type?: string;
   contact: string;
   company: string;
   email: string;
-  phone: string;
-  category?: string;
   submitted: string;
   item_count: number;
   total: number | null;
-  // Additive — Phase 1B: true when a Water record exists for this intake item.
-  is_accepted?: boolean;
 }
 
 // ── Promotion tier types ──────────────────────────────────────────────────────

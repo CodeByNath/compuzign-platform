@@ -9,9 +9,12 @@ import {
 import { registerTemplateKits } from '@/station-manager/registry/templateKits';
 import { CategoryGroupCardsKit } from './presentation/category-groups/CategoryGroupCardsKit';
 import { ServiceCategoryCarousel } from './presentation/service-categories/ServiceCategoryCarousel';
-import { PromotionsIcon } from './shell/icons';
+import { PromotionsIcon, RequestsIcon } from './shell/icons';
 import { CategoryDrawerHost } from './stations/serviceCategory/CategoryDrawerHost';
 import { useServiceCategoryCards } from './stations/serviceCategory/useServiceCategoryCards';
+import { RequestDrawerHost } from './stations/requests/RequestDrawerHost';
+import { RequestsCatalogueKit } from './stations/requests/RequestsCatalogueKit';
+import { useRequestsCatalogue } from './stations/requests/useRequestsCatalogue';
 
 export function registerAdminStation(): void {
   registerNavItems([
@@ -24,6 +27,15 @@ export function registerAdminStation(): void {
       showInMenu: true,
       order: 30,
     },
+    {
+      id: 'requests',
+      label: 'Requests',
+      icon: RequestsIcon,
+      activationKey: 'requests',
+      showInHeader: true,
+      showInMenu: true,
+      order: 40,
+    },
   ]);
 
   registerDestinations([
@@ -35,15 +47,25 @@ export function registerAdminStation(): void {
       mode: 'table',
       conditions: { scope: 'current' },
     },
+    {
+      id: 'requests',
+      stationId: 'requests',
+      surfaceId: 'catalog',
+      placement: 'body',
+      mode: 'table',
+      conditions: { scope: 'current' },
+    },
   ]);
 
   registerDataSources({
     'service-categories': useServiceCategoryCards,
+    'requests-catalogue': useRequestsCatalogue,
   });
 
   registerTemplateKits({
     'category-group-cards': CategoryGroupCardsKit,
     'service-category-carousel': ServiceCategoryCarousel,
+    'requests-catalogue': RequestsCatalogueKit,
   });
 
   registerDrawerTemplates([
@@ -52,6 +74,16 @@ export function registerAdminStation(): void {
       title: 'Category',
       supportedModes: ['view', 'edit'],
       content: CategoryDrawerHost,
+    },
+    // CRM-1B: the first single-mode drawer template — 'view' only, no Edit.
+    // The generic drawer contract already supports this (AdminStationDrawer
+    // clamps a requested mode to what the template declares); Requests
+    // simply never registers an 'edit' actionIntent to reach it.
+    {
+      key: 'request',
+      title: 'Request',
+      supportedModes: ['view'],
+      content: RequestDrawerHost,
     },
   ]);
 }
@@ -158,6 +190,22 @@ export function registerPresentationPolicy(): void {
         { id: 'edit-connected-group', target: 'drawer', mode: 'edit', drawerTemplateKey: 'tier-rate-sheet-group' },
         { id: 'view-connected-rate-sheet', target: 'drawer', mode: 'view', drawerTemplateKey: 'tier-rate-sheet' },
         { id: 'edit-connected-rate-sheet', target: 'drawer', mode: 'edit', drawerTemplateKey: 'tier-rate-sheet' },
+      ],
+    },
+    // CRM-1B: read-only durable Request list -> read-only Request drawer.
+    // No 'edit' intent — Approve/Cancel are CRM-1C's own registered intents
+    // against this same drawer key, not introduced here.
+    {
+      stationId: 'requests',
+      surfaceId: 'requests-catalogue',
+      placement: 'presentation',
+      order: 0,
+      dataSourceKey: 'requests-catalogue',
+      templateKitKey: 'requests-catalogue',
+      conditions: { scope: 'current' },
+      drawerTemplateKey: 'request',
+      actionIntents: [
+        { id: 'view', target: 'drawer', mode: 'view' },
       ],
     },
   ]);

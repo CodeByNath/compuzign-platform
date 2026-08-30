@@ -33,70 +33,42 @@ class AdminRequestsController
         ]);
     }
 
-    // ── Intake list ───────────────────────────────────────────────────────────
+    // ── CRM-1B: durable list/detail ──────────────────────────────────────────
+    //
+    // CRM-1A made every validated submission durable and identified
+    // immediately, so the 7-day cz_quote_* transient is no longer the CRM
+    // queue authority — RequestRepository is. Both routes below read it
+    // exclusively; neither scans or reads a quote transient. Every projection
+    // is an explicit allow-list, so a field neither route names (in
+    // particular, view_secret_hash — transient-only security plumbing, never
+    // written to durable data by CRM-1A, but never trusted here either) can
+    // never reach the response.
 
-    /**
-     * GET /admin/requests
-     *
-     * Returns the River intake queue from transients. Additive-only change:
-     * each item gains is_accepted (bool) derived from a single Water query.
-     * The response envelope and all pre-existing fields are unchanged.
-     */
+    /** GET /admin/requests — durable Requests, newest first. */
     public function listRequests(\WP_REST_Request $request): \WP_REST_Response
     {
-        global $wpdb;
-
-        $rows = $wpdb->get_col(
-            "SELECT option_name FROM {$wpdb->options}
-             WHERE option_name LIKE '_transient_cz_quote_%'
-               AND option_name NOT LIKE '_transient_timeout_cz_quote_%'
-             ORDER BY option_id DESC
-             LIMIT 200"
-        );
-
-        // Load all accepted refs in one query; flip for O(1) lookup.
-        $repository   = new RequestRepository();
-        $acceptedRefs = array_flip($repository->findAllAcceptedRefs());
-
-        $results = [];
-
-        foreach ($rows as $optionName) {
-            $transientKey = str_replace('_transient_', '', $optionName);
-            $data         = get_transient($transientKey);
-
-            if (!is_array($data)) {
-                continue;
-            }
-
-            $summary               = $this->summarize($data);
-            $summary['is_accepted'] = isset($acceptedRefs[$summary['quote_ref']]);
-            $results[]             = $summary;
-        }
+        $repository = new RequestRepository();
+        $records    = $repository->findAll();
 
         return rest_ensure_response([
             'success'  => true,
-            'requests' => $results,
-            'total'    => count($results),
+            'requests' => array_map([$this, 'summarize'], $records),
+            'total'    => count($records),
         ]);
     }
 
-    // ── Intake detail ─────────────────────────────────────────────────────────
-
-    /**
-     * GET /admin/requests/{ref}
-     *
-     * Returns the raw intake transient payload. Unchanged from Phase 0.
-     */
+    /** GET /admin/requests/{ref} — one durable Request's CRM identity/status plus its immutable submitted snapshot. */
     public function getRequest(\WP_REST_Request $request): \WP_REST_Response
     {
-        $ref  = $request->get_param('ref');
-        $data = get_transient('cz_quote_' . $ref);
+        $ref        = (string) $request->get_param('ref');
+        $repository = new RequestRepository();
+        $record     = $repository->findByRef($ref);
 
-        if (!is_array($data)) {
+        if ($record === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Request not found.'], 404);
         }
 
-        return rest_ensure_response(['success' => true, 'request' => $data]);
+        return rest_ensure_response(['success' => true, 'request' => $this->detail($record)]);
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────
@@ -106,8 +78,18 @@ class AdminRequestsController
         return current_user_can(\CompuZign\Platform\Core\PlatformAccess::CAP);
     }
 
-    private function summarize(array $data): array
+    /**
+     * The list row projection — native/customer reference, CZR, lifecycle
+     * status, request type, submitted timestamp, contact/company/email, and
+     * a concise item count/value summary. Explicit allow-list; the stored
+     * snapshot's own keys are never spread wholesale into the response.
+     *
+     * @param  array{quote_ref: string, platform_id: string, status: string, data: array<string, mixed>} $record
+     * @return array<string, mixed>
+     */
+    private function summarize(array $record): array
     {
+        $data     = $record['data'];
         $items    = $data['items'] ?? [];
         $total    = 0.0;
         $hasPrice = false;
@@ -120,16 +102,45 @@ class AdminRequestsController
         }
 
         return [
-            'quote_ref'  => $data['quote_ref'] ?? '',
-            'type'       => $data['type'] ?? 'quote_cart',
-            'contact'    => $data['contact'] ?? '',
-            'company'    => $data['company'] ?? '',
-            'email'      => $data['email'] ?? '',
-            'phone'      => $data['phone'] ?? '',
-            'category'   => $data['category'] ?? '',
-            'submitted'  => $data['submitted'] ?? '',
-            'item_count' => count($items),
-            'total'      => $hasPrice ? round($total, 2) : null,
+            'quote_ref'   => $record['quote_ref'],
+            'platform_id' => $record['platform_id'],
+            'status'      => $record['status'],
+            'type'        => $data['type'] ?? 'quote_cart',
+            'contact'     => $data['contact'] ?? '',
+            'company'     => $data['company'] ?? '',
+            'email'       => $data['email'] ?? '',
+            'submitted'   => $data['submitted'] ?? '',
+            'item_count'  => count($items),
+            'total'       => $hasPrice ? round($total, 2) : null,
+        ];
+    }
+
+    /**
+     * The detail projection — CRM identity/status plus the immutable
+     * submitted snapshot's customer-facing fields. Explicit allow-list, same
+     * discipline as summarize(): a stored key not named here (view_secret_hash
+     * included) never reaches this response even if it were ever present.
+     *
+     * @param  array{quote_ref: string, platform_id: string, status: string, data: array<string, mixed>} $record
+     * @return array<string, mixed>
+     */
+    private function detail(array $record): array
+    {
+        $data = $record['data'];
+
+        return [
+            'quote_ref'   => $record['quote_ref'],
+            'platform_id' => $record['platform_id'],
+            'status'      => $record['status'],
+            'type'        => $data['type'] ?? 'quote_cart',
+            'contact'     => $data['contact'] ?? '',
+            'company'     => $data['company'] ?? '',
+            'email'       => $data['email'] ?? '',
+            'phone'       => $data['phone'] ?? '',
+            'notes'       => $data['notes'] ?? '',
+            'category'    => $data['category'] ?? '',
+            'items'       => $data['items'] ?? [],
+            'submitted'   => $data['submitted'] ?? '',
         ];
     }
 }

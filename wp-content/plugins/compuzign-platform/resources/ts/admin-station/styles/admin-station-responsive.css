@@ -131,7 +131,8 @@
     content: none;
   }
 
-  .cz-tier-deck__row-actions {
+  .cz-tier-deck__row-actions,
+  .cz-requests-deck__row-actions {
     justify-content: flex-start;
   }
 }

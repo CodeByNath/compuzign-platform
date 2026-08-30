@@ -14,7 +14,7 @@ CRM-1A: `/requests/submit` creates the durable `cz_request` (`pending`, new `CZR
 
 - [RequestFlowModal.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/RequestFlowModal.tsx) selects the request-flow variant and supplies modal overlay, close behavior, and context.
 - [QuoteCartFlow.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteCartFlow.tsx) contains contact/review steps, validation, Back/Continue/Submit/Print actions, success/error states, reference generation, and submission.
-- The admin request-review surface was hosted in the retired Command Centre and removed; it is to be rebuilt in the Admin Station (CRM-1B/1C/1D). The redundant `/accept` bridge and its unused frontend caller were removed in CRM-1A.
+- The admin request-review surface was hosted in the retired Command Centre and removed; CRM-1B rebuilt it read-only in the Admin Station (mutation is CRM-1C/1D). The redundant `/accept` bridge and its unused frontend caller were removed in CRM-1A.
 
 ## UI and State
 

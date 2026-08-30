@@ -1,8 +1,8 @@
 # Admin Station Drawer
 
-The host participates in the locked [Station and Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md): it transports native identity and the mounted footer slot, while the owning Station performs every create, save, settle, activate, mask, travel, and delete operation.
+The host participates in the locked [Station and Drawer Lifecycle Contract](../architecture/StationDrawerLifecycleContract-v1.md): it transports native identity and the mounted footer slot; the owning Station performs every create, save, settle, activate, mask, travel, and delete operation.
 
-Admin Station owns one entity-agnostic drawer shell. Station Manager resolves registrations; the owning Station supplies its adapter, composition, state, validation, and saves. Hosting never transfers authority.
+Admin Station owns one entity-agnostic drawer shell. Station Manager resolves registrations; the owning Station supplies its adapter, composition, state, validation, saves. Hosting never transfers authority.
 
 ## Registration and runtime
 
@@ -20,12 +20,13 @@ Registration ownership is:
 | `rate-sheet` | Package Station | Package Station | normal (view) / extra-wide (edit) | view, edit |
 | `tier-rate-sheet` | Package Station | Package Station | extra-wide | view, edit |
 | `tier-rate-sheet-group` | Package Station | Package Station | wide | view, edit |
+| `request` | Admin Station | Admin Station Requests host adapter | normal | view |
 
-`DrawerMode` is `'view' | 'edit'`; there is no `create` mode. Family, Service, Category use a stable `'new'` sentinel, while Tier uses its registration address. Each resolves to `null`, never a fabricated identity, and its station holds pending state locally. Service and Category Overview Save create and hand off Pending records; Service child actions lock until then, and Publish settles and activates them.
+`DrawerMode` is `'view' | 'edit'`; there is no `create` mode. `request` (CRM-1B) is the first registration declaring only `view` — the existing clamp-to-supported-modes contract needed no shell change; Requests simply registers no `edit` intent. Family, Service, Category use a stable `'new'` sentinel, while Tier uses its registration address. Each resolves to `null`, never a fabricated identity, and its station holds pending state locally. Service and Category Overview Save create and hand off Pending records; Service child actions lock until then, and Publish settles and activates them.
 
 ## Drawer size
 
-`DrawerSize` is `'normal' | 'wide' | 'extra-wide'`. A registration declares either one size for every mode, or a `DrawerSizeByMode` map (a size per `DrawerMode`) for content that needs more room in one mode than another — a mode the map omits, like an entirely absent `size`, resolves to `normal`. `AdminStationDrawer` resolves the declared size against the mode that will actually render (clamped to the template's supported modes, exactly as content rendering is) and turns it into a CSS modifier; the generic shell never branches on entity type, and wide drawers still yield to the viewport. `rate-sheet` is the one mode-keyed registration today: its View mounts a compact overview at the normal record-drawer width, while Edit — the pricing grid, whether opened focused, via `'new'`, or as the whole collection — needs the wider table room.
+`DrawerSize` is `'normal' | 'wide' | 'extra-wide'`. A registration declares one size for every mode, or a `DrawerSizeByMode` map (a size per `DrawerMode`) for content needing more room in one mode than another — an omitted mode, like an absent `size`, resolves to `normal`. `AdminStationDrawer` resolves the declared size against the mode that will render (clamped to supported modes, exactly as content rendering is) into a CSS modifier; the shell never branches on entity type, and wide drawers still yield to the viewport. `rate-sheet` is the one mode-keyed registration today: View mounts a compact overview at normal width, while Edit — the pricing grid — needs the wider table room.
 
 The runtime chain is:
 
@@ -41,7 +42,7 @@ kit action with native record id
 
 `shell/drawer/AdminStationDrawer.tsx` owns chrome, close guards, scroll lock, focus restoration, and the optional footer. It never switches on entity type.
 
-`AdminStationDrawerContext.tsx` keeps one open drawer and preserves identity across mode changes. Closing clears both state and the originating-wall refetch handle; a late save then cannot refresh a wall the user has left.
+`AdminStationDrawerContext.tsx` keeps one open drawer and preserves identity across mode changes. Closing clears both state and the originating-wall refetch handle; a late save cannot refresh a wall the user has left.
 
 ## Owning compositions
 
@@ -49,12 +50,11 @@ kit action with native record id
 - `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity, or the stable `'new'` sentinel resolved to `service: null`, and mounts the SAME composition either way.
 - `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id`, or the stable `'new'` sentinel to a local empty record, and mounts the SAME Package Family composition either way.
 - `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id`, whole-instance, fixed-slot, and Tier registration identities, and rejects foreign identity shapes.
+- `admin-station/stations/requests/RequestDrawerHost.tsx` (CRM-1B) resolves string `quote_ref` against `RequestRepository`; read-only, mounts no editor, publishes no footer.
 
-Package Family and Tier rows above are pending the locked lifecycle migration;
-the host transports their identities but does not make their current
-source-specific creation/travel rules conform.
+Package Family and Tier rows above are pending the locked lifecycle migration; the host transports their identities but does not make their current source-specific creation/travel rules conform.
 
-Each composition uses the shared `drawer-kit`; Category, Service, Package Family, and Tier writes remain in their owning hooks. Presentation components call no endpoints.
+Each composition uses the shared `drawer-kit`; Category, Service, Package Family, Tier writes remain in their owning hooks. Presentation components call no endpoints.
 
 ## Invariants
 

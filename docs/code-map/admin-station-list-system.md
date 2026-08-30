@@ -7,7 +7,7 @@ One record-list surface for the whole Admin Station, declared in `resources/ts/a
 ## The two shapes
 
 - **Table** — the Service Catalogue, `resources/ts/service-station/presentation/ServiceCatalogue.tsx`. Its `<thead>` supplies the column labels, so its cells carry none.
-- **List** — the Package Station lower deck's Details, Connections and Settings lanes, `resources/ts/package-station/presentation/package-tier-workspace/`, and Service Home's own Connections and Settings lanes, `resources/ts/service-station/presentation/ServiceConnectionsLane.tsx` and `ServiceSettingsLane.tsx`. A list has no header row, so each cell carries its own label through `.cz-tier-deck__field-label` (Package) or `.cz-service-deck__field-label` (Service).
+- **List** — the Package Station lower deck's Details, Connections and Settings lanes, `resources/ts/package-station/presentation/package-tier-workspace/`; Service Home's own Connections and Settings lanes, `resources/ts/service-station/presentation/ServiceConnectionsLane.tsx` and `ServiceSettingsLane.tsx`; and (CRM-1B) the Requests catalogue, `resources/ts/admin-station/stations/requests/RequestsCatalogueKit.tsx`. A list has no header row, so each cell carries its own label through `.cz-tier-deck__field-label` (Package), `.cz-service-deck__field-label` (Service), or `.cz-requests-deck__field-label` (Requests).
 
 A list stays a list. No table markup crosses into the lower deck, and nothing that is not already a list is turned into one.
 
@@ -23,7 +23,7 @@ Declared once, in the blocks the catalogue's table selectors and the `cz-station
 Declared apart, because each shape needs its own:
 
 - the layout engine — `border-collapse` / `border-spacing` for the table, `display: flex` with a token `gap` for the list;
-- the column template each list owns: `.cz-station-list__row--details`, `--connection`, `--settings` (Package's own column counts), and `--service-connections`, `--service-settings` (Service's own, a different column count — a surface adds a selector to this family, it does not reuse another surface's template).
+- the column template each list owns: `.cz-station-list__row--details`, `--connection`, `--settings` (Package's own column counts); `--service-connections`, `--service-settings` (Service's own, a different column count); and `--requests` (CRM-1B, Requests' own six-column row) — a surface adds a selector to this family, it does not reuse another surface's template.
 
 Every value is a `--station-*` token. A surface that needs the list adds its selector to these blocks; it does not author a second family.
 
@@ -46,7 +46,7 @@ The lower deck's parallel `cz-tier-deck__list`, `__list--compact`, `__row`, `__r
 
 ## Validation
 
-Run `npm run contract:admin-station-css` (every declared class is emitted, and feature CSS paints no control), `npm run contract:package-tier-workspace-shell` (the deck's three lanes use the shared classes, bring across no table, and cannot reintroduce the retired names), `npm run contract:station-tabset` (Service Home's own Connections/Settings lanes use the shared classes and import no Package presentation), `npm run build`, and `npm run docs:check` from the plugin root. Browser inspection when a WordPress runtime is available.
+Run `npm run contract:admin-station-css` (every declared class is emitted, and feature CSS paints no control), `npm run contract:package-tier-workspace-shell` (the deck's three lanes use the shared classes, bring across no table, and cannot reintroduce the retired names), `npm run contract:station-tabset` (Service Home's own Connections/Settings lanes use the shared classes and import no Package presentation), `npm run contract:requests-admin-station-surface` (Requests' list uses the shared classes and introduces no table), `npm run build`, and `npm run docs:check` from the plugin root. Browser inspection when a WordPress runtime is available.
 
 ## Related Code Maps
 

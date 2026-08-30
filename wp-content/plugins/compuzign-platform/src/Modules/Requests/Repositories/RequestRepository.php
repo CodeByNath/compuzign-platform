@@ -276,34 +276,6 @@ class RequestRepository
         return bin2hex(random_bytes(16)) . '|' . time();
     }
 
-    /**
-     * Return all quote_ref values that have a corresponding Water record.
-     *
-     * Used by the intake list to derive is_accepted per item without N+1 queries.
-     * Single JOIN query across postmeta + posts.
-     *
-     * @return string[]
-     */
-    public function findAllAcceptedRefs(): array
-    {
-        global $wpdb;
-
-        $refs = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT pm.meta_value
-                 FROM {$wpdb->postmeta} pm
-                 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-                 WHERE p.post_type = %s
-                   AND p.post_status = 'publish'
-                   AND pm.meta_key = %s",
-                self::POST_TYPE,
-                self::META_REF
-            )
-        );
-
-        return array_values(array_filter((array) $refs));
-    }
-
     /** Exact-match lookup by cz_request_ref meta. Returns post ID or null. */
     public function findPostIdByRef(string $ref): ?int
     {
