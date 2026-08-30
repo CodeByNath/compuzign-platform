@@ -22,9 +22,9 @@ Read-only check at `https://compuzign.weerax.com/studio/`, Packages > Tier Works
 This reproduces browser comments 1–6 and demonstrates cross-surface disagreement for the same selected Tier/family/group.
 
 ## Required behavior
-1. Trace the canonical identity/assignment chain used by **Package Omnia Basic** from Tier selection through Package Family, Family Group, Tier Group/Rate Group, Service, inclusion, and Rate Sheet row.
-2. Repair the narrow projection/resolution defect so valid existing assignments resolve by stable platform/entity identity and are not dropped because one surface uses a legacy/local ID or a mismatched field.
-3. Render the actual selected inclusion(s) in **Details > Focused inclusions**, including the normal inclusion row content/filters.
+1. Trace the canonical identity/assignment chain used by **Package Omnia Basic** from Tier selection through Package Family, Family Group, Tier Group/Rate Group, Service, inclusion, and Rate Sheet row. Establish the actual root cause from source/persisted projection evidence before changing code; do not assume the defect is necessarily a legacy/local-ID mismatch.
+2. Repair only the narrow authoritative projection/resolution defect that causes valid existing relationships to be dropped. Preserve current ownership: Package Station owns Family/Tier/workspace reads, assignment resolution, fixed-slot projection, connection navigation, inclusion resolution, and Rate Sheet access.
+3. Render the actual selected inclusion(s) in **Details > Focused inclusions**, including the normal inclusion row content/filters, from the same resolved source used by the Tier rather than a second bespoke projection.
 4. Make all derived counts agree with the canonical resolved data:
    - Tier included-features count;
    - Package Family Services and Inclusions;
@@ -34,10 +34,11 @@ This reproduces browser comments 1–6 and demonstrates cross-surface disagreeme
 6. Ensure the same resolver/projection rules work for other package families and survive reload.
 
 ## Hard non-change boundary
-Do not redesign or restyle the Tier Workspace, cards, tabs, filters, labels, ordering, responsive layout, or empty states. Do not change pricing, billing cadence, Rate Sheet amounts, Package/Tier/Service/Inclusion authoring semantics, persistence schemas, unrelated customer UI, Quote Builder, or existing KAIROS/APTOS data. Avoid data migration/backfill unless evidence proves persisted identity is invalid; report that finding before expanding scope.
+Do not redesign or restyle the Tier Workspace, cards, tabs, filters, labels, ordering, responsive layout, or empty states. Do not change pricing, billing cadence, Rate Sheet amounts, Package/Tier/Service/Inclusion authoring semantics, persistence schemas, unrelated customer UI, Quote Builder, or existing KAIROS/APTOS data. Avoid data migration/backfill unless evidence proves persisted identity/data is invalid; if so, stop and report that evidence before expanding scope. Do not create a second resolver or presentation-owned relationship model.
 
 ## Acceptance
-- Add focused regression coverage for mixed stable/legacy identity resolution and cross-surface count parity.
-- Verify existing empty-state cases remain zero.
-- Report root cause, changed files, tests/contracts, exact commit SHA, deployment state, and before/after browser evidence in this file.
-- After implementation set **AWAITING CHATGPT REVIEW**; do not push source to `main` without Nath’s explicit approval.
+- Add focused regression coverage for the proven root cause and cross-surface count parity; if mixed stable/legacy identity is involved, cover that specifically rather than assuming it upfront.
+- Verify existing empty-state cases remain zero and KAIROS/APTOS remain unchanged.
+- Update only affected current-state Code Map(s) if responsibility/path/behavior documentation changes, and run docs link/check validation required by repository instructions.
+- Report root cause, changed files, tests/contracts, exact review-branch commit SHA, deployment state, and before/after evidence in this file.
+- Push implementation only to a review branch, then set **AWAITING CHATGPT REVIEW** and stop. Do not push source to `main` without explicit approval recorded here.
