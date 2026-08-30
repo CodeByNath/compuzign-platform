@@ -14,7 +14,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { requestItemDisplay } from '../resources/ts/admin-station/stations/requests/requestItemDisplay';
-import type { RequestLine } from '../resources/ts/api/types/admin';
+import { deriveRequestSummaryMetrics } from '../resources/ts/admin-station/stations/requests/requestSummaryMetrics';
+import type { RequestLine, RequestSummary } from '../resources/ts/api/types/admin';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Requests Admin Station surface contract: ${message}`);
@@ -188,5 +189,43 @@ check(legacyDisplay.subtitle === 'Cloud · IaaS Starter Cloud', 'a legacy line\'
 for (const value of Object.values(familyDisplay)) {
   check(!String(value).startsWith('CZPG') && !String(value).startsWith('CZT'), 'the family_tier display never surfaces a raw per-item Platform ID');
 }
+
+// ── Summary cards: display-only, reuses the shared StationMetricBlock ──────
+// The auditor's correction: is_today is a per-row server-derived field
+// (AdminRequestsController::summarize()), not a new top-level API envelope
+// field threaded through SurfaceCollection/TemplateKitProps, which are
+// closed generic contracts shared by every station.
+
+const summaryCardsSource = read('resources/ts/admin-station/stations/requests/RequestsSummaryCards.tsx');
+check(
+  kitSource.includes('RequestsSummaryCards') && kitSource.includes('<RequestsSummaryCards'),
+  'the Requests catalogue mounts the summary cards above its list',
+);
+check(
+  summaryCardsSource.includes("from '@/admin-station/presentation/StationMetricBlock'"),
+  'the summary cards reuse the shared StationMetricBlock primitive directly, not a bespoke card',
+);
+check(
+  !summaryCardsSource.includes('onClick') && !summaryCardsSource.includes('onIntent'),
+  'the summary cards are numbers only — no click handler, no intent dispatch',
+);
+check(
+  controllerSource.includes("'is_today'") && controllerSource.includes("current_time('Y-m-d')"),
+  'AdminRequestsController derives is_today server-side from current_time, matching how `submitted` is itself stamped',
+);
+
+const summaryFixture: RequestSummary[] = [
+  { quote_ref: 'CZ-A', platform_id: 'CZR00001', status: 'pending', contact: '', company: '', email: '', submitted: '', is_today: true, item_count: 1, total: 10 },
+  { quote_ref: 'CZ-B', platform_id: 'CZR00002', status: 'approved', contact: '', company: '', email: '', submitted: '', is_today: true, item_count: 1, total: 10 },
+  { quote_ref: 'CZ-C', platform_id: 'CZR00003', status: 'pending', contact: '', company: '', email: '', submitted: '', is_today: false, item_count: 1, total: 10 },
+  { quote_ref: 'CZ-D', platform_id: 'CZR00004', status: 'cancelled', contact: '', company: '', email: '', submitted: '', is_today: false, item_count: 1, total: 10 },
+];
+const metrics = deriveRequestSummaryMetrics(summaryFixture);
+const byId = Object.fromEntries(metrics.map((metric) => [metric.id, metric.value]));
+check(byId.all === 4, `All Requests counts every row regardless of status — got ${byId.all}`);
+check(byId.today === 2, `New Today counts only is_today rows — got ${byId.today}`);
+check(byId.pending === 2, `Pending counts lifecycle status pending only — got ${byId.pending}`);
+check(byId.approved === 1, `Approved counts lifecycle status approved only — got ${byId.approved}`);
+check(deriveRequestSummaryMetrics([]).every((metric) => metric.value === 0), 'an empty Requests list derives all-zero counts, not an error');
 
 console.log('Requests Admin Station surface contract checks passed.');

@@ -151,6 +151,10 @@ export interface RequestSummary {
   company: string;
   email: string;
   submitted: string;
+  // Site-local "submitted today" — derived server-side from `submitted`
+  // against current_time('Y-m-d'), for the Requests summary cards' "New
+  // Today" count. Display-only; never a filter or lifecycle status.
+  is_today: boolean;
   item_count: number;
   total: number | null;
 }

@@ -17,6 +17,13 @@ declare(strict_types=1);
 
 function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
 function current_user_can(string $cap): bool { return true; }
+// Fixed "today" so is_today assertions below are deterministic: every record
+// seeded via seedDurable() (and the poisoned-snapshot fixture) stamps this
+// same site-local date, matching RequestSchema's own bare current_time('mysql').
+function current_time(string $type, int|bool $gmt = 0): string
+{
+    return $type === 'mysql' ? '2026-08-30 00:00:00' : '2026-08-30';
+}
 function rest_ensure_response(mixed $value): WP_REST_Response
 {
     return $value instanceof WP_REST_Response ? $value : new WP_REST_Response($value, 200);
@@ -146,8 +153,9 @@ check_admin_requests($row['platform_id'] === $ref1['platform_id'], 'the row carr
 check_admin_requests($row['status'] === RequestLifecycle::STATUS_PENDING, 'a fresh durable Request lists as pending');
 check_admin_requests($row['contact'] === 'Jane Doe' && $row['company'] === 'Acme Co', 'contact/company summarize correctly');
 check_admin_requests($row['item_count'] === 2 && $row['total'] === 150.0, 'item count/value summary is correct');
+check_admin_requests($row['is_today'] === true, 'a Request submitted on the current site-local day is flagged is_today');
 check_admin_requests(
-    array_keys($row) === ['quote_ref', 'platform_id', 'status', 'type', 'contact', 'company', 'email', 'submitted', 'item_count', 'total'],
+    array_keys($row) === ['quote_ref', 'platform_id', 'status', 'type', 'contact', 'company', 'email', 'submitted', 'is_today', 'item_count', 'total'],
     'the list row is an explicit allow-list — no other field, no view_secret_hash, no raw snapshot dump'
 );
 
@@ -200,6 +208,7 @@ $listAfterLegacy = $controller->listRequests(new WP_REST_Request())->get_data();
 check_admin_requests(count($listAfterLegacy['requests']) === 3, 'the list now contains all three durable records');
 $legacyRow = array_values(array_filter($listAfterLegacy['requests'], fn (array $r) => $r['quote_ref'] === 'CZ-ADM003'))[0] ?? null;
 check_admin_requests($legacyRow !== null && $legacyRow['status'] === RequestLifecycle::STATUS_PENDING, 'the legacy record also lists as pending, not new');
+check_admin_requests($legacyRow['is_today'] === false, 'a Request submitted on a past site-local day is not flagged is_today');
 
 // ── A family_tier item's full snapshot passes through unchanged ────────────
 //

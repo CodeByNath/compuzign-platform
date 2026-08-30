@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from 'preact/hooks';
 import { RequestsIcon, ViewIcon, SearchIcon } from '@/admin-station/shell/icons';
+import { RequestsSummaryCards } from './RequestsSummaryCards';
 import type { RequestSummary } from '@/api/types/admin';
 import type { TemplateKitProps } from '@/station-manager/registry/templateKits';
 
@@ -48,6 +49,8 @@ export function RequestsCatalogueKit({ items, loading, error, onIntent }: Templa
 
   return (
     <div class="cz-requests-catalogue">
+      <RequestsSummaryCards requests={requests} />
+
       <div class="cz-requests-catalogue__toolbar" role="search" aria-label="Search Requests">
         <label class="cz-tf-control cz-requests-catalogue__search">
           <span class="cz-station-visually-hidden">Search Requests</span>

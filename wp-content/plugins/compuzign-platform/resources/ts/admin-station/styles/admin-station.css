@@ -1573,6 +1573,27 @@ button.cz-station-status-pill {
   color: var(--station-text);
 }
 
+/* ── Requests Summary Cards ────────────────────────────────────────────── */
+
+/* Display-only count strip above the list. Each card reuses the shared
+   .cz-station-metric row layout as-is; only this small box/grid wrapper is
+   Requests-owned. Same border/radius/background language as .cz-cg-card,
+   so it reads as the same "small detail card" family without importing
+   Category Group's own grid/subgrid machinery, which this single-row strip
+   does not need. */
+.cz-requests-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--station-card-gap);
+}
+
+.cz-requests-summary__card {
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+}
+
 /* ── Requests Catalogue ────────────────────────────────────────────────── */
 
 .cz-requests-catalogue {

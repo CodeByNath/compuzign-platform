@@ -110,6 +110,11 @@ class AdminRequestsController
             'company'     => $data['company'] ?? '',
             'email'       => $data['email'] ?? '',
             'submitted'   => $data['submitted'] ?? '',
+            // Derived display-only flag for the Requests summary cards' "New
+            // Today" count — site-local day-prefix match against `submitted`
+            // (itself stamped by a bare current_time('mysql'), see
+            // RequestSchema::validate()), never persisted, never a filter.
+            'is_today'    => substr((string) ($data['submitted'] ?? ''), 0, 10) === current_time('Y-m-d'),
             'item_count'  => count($items),
             'total'       => $hasPrice ? round($total, 2) : null,
         ];
