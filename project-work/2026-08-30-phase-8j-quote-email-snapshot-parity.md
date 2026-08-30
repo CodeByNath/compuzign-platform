@@ -1,9 +1,10 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
+- `READY FOR CLAUDE`
 - `SOURCE PUSH APPROVED` — 8J-A candidate only.
 - Auditor verdict: `Proceed with safeguards`.
-- Production baseline confirmed: `main@6736d45d669f61c442527419269f16d7a711fbdd`.
+- Production baseline independently rechecked 2026-08-30: `main@6736d45d669f61c442527419269f16d7a711fbdd` remains unchanged.
 - Phase 8I remains the reference for accepted customer cart/review/proposal semantics; not reopened.
 
 ## Decision
@@ -33,7 +34,7 @@ Compared production `6736d45d669f61c442527419269f16d7a711fbdd` with candidate `f
 
 Production `ServiceInclusion` is exactly `id`, `label`, optional `quantity`, optional `bundle_id`, recursive `includes`; candidate sanitizer matches it. Leg sanitizer explicitly preserves its eight snapshot fields and drops unknown keys. Existing Family identity/add-on handling, legacy item path, transient/controller/mail lifecycle, and email/PDF/UI rendering are untouched. No blocker found.
 
-## Claude — Next Action
+## Claude — Act Now
 1. Reconfirm `origin/main` is exactly `6736d45d669f61c442527419269f16d7a711fbdd`.
 2. Fast-forward `main` to **exactly** `f152134eac87c0cf84414ac6217794e7a4ca0102`; no amend, rebuild, source edit, merge commit, or extra commit.
 3. Push `main` and allow normal GitHub Actions Hostinger deployment.
