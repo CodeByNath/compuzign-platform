@@ -247,14 +247,17 @@ class RequestRepository
         return $newValue;
     }
 
-    /** Bounded poll for a durable Request created by whoever currently holds the creation lock. */
-    public function awaitCreatedPost(string $quoteRef, ?int $maxAttempts = null): ?int
+    /**
+     * Bounded poll for a READY durable Request — post existence alone is not
+     * enough (see findReadyPostIdByRef()'s docblock for why).
+     */
+    public function awaitReadyPost(string $quoteRef, ?int $maxAttempts = null): ?int
     {
         $attempts = $maxAttempts ?? self::LOCK_POLL_ATTEMPTS;
 
         for ($i = 0; $i < $attempts; $i++) {
             usleep(self::LOCK_POLL_MICROS);
-            $found = $this->findPostIdByRef($quoteRef);
+            $found = $this->findReadyPostIdByRef($quoteRef);
             if ($found !== null) {
                 return $found;
             }
@@ -321,6 +324,50 @@ class RequestRepository
         ]);
 
         return !empty($posts) ? (int) $posts[0]->ID : null;
+    }
+
+    /**
+     * A post existing is not the same as a durable Request being joinable.
+     * `createOwned()` inserts the post — making it visible to
+     * findPostIdByRef() — strictly before `assignIdentifier()` binds its
+     * CZR; a caller joining on bare post existence could regenerate the
+     * quote-view transient/email for a Request whose identity assignment
+     * then fails and rolls the post back. "Ready" means either a bound
+     * `cz_platform_id`, or a pre-CRM-1A legacy record (raw stored status
+     * `new`, no CZR by design — see isLegacyUnidentified()) — never a bare
+     * post with neither.
+     */
+    public function findReadyPostIdByRef(string $ref): ?int
+    {
+        $postId = $this->findPostIdByRef($ref);
+        if ($postId === null) {
+            return null;
+        }
+
+        if ($this->platformId($postId) !== '') {
+            return $postId;
+        }
+
+        return $this->isLegacyUnidentified($postId) ? $postId : null;
+    }
+
+    /**
+     * True only for a genuine pre-CRM-1A record: raw stored status is
+     * literally the old `new` value (written by the retired admin /accept
+     * bridge, never by createOwned(), which always writes STATUS_PENDING)
+     * and it has no CZR. Distinguishes an intentionally-unidentified legacy
+     * record (complete, joinable, never getting a CZR — no backfill) from an
+     * in-flight or orphaned CRM-1A post (STATUS_PENDING/APPROVED/CANCELLED,
+     * temporarily or permanently missing its CZR because its creator is
+     * still assigning it or crashed before finishing).
+     */
+    public function isLegacyUnidentified(int $postId): bool
+    {
+        if ($this->platformId($postId) !== '') {
+            return false;
+        }
+
+        return (string) get_post_meta($postId, self::META_STATUS, true) === 'new';
     }
 
     /** Build the normalized record shape from a cz_request post. */

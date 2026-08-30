@@ -17,7 +17,7 @@ declare(strict_types=1);
 // winner's fresh claim).
 
 // usleep() can't be redeclared in the global namespace (it's a real PHP
-// builtin) — RequestRepository::awaitCreatedPost() is the only caller, so
+// builtin) — RequestRepository::awaitReadyPost() is the only caller, so
 // shadow it only in that namespace (PHP resolves an unqualified function
 // call there first, falling back to the global one only if not found).
 namespace CompuZign\Platform\Modules\Requests\Repositories {
@@ -41,6 +41,7 @@ $__submittedSeq = 0;
 $__deletedPostIds       = [];
 $__beforeLockClaim      = null;
 $__beforeTakeoverUpdate = null;
+$__afterStatusWrite     = null;
 $__poisonPlatformIdClaim = false;
 
 // ── WordPress function stubs ────────────────────────────────────────────────
@@ -164,8 +165,19 @@ function get_post(int $id): ?WP_Post
 
 function update_post_meta(int $id, string $key, mixed $value): bool
 {
-    global $__postMeta;
+    global $__postMeta, $__afterStatusWrite;
+
     $__postMeta[$id][$key] = $value;
+
+    // Fires the instant a post is fully "existing" (ref+data+status all
+    // written by createOwned()) but strictly before assignIdentifier() has
+    // run — the exact window the completion-readiness fix targets.
+    if ($key === 'cz_request_status' && is_callable($__afterStatusWrite)) {
+        $hook = $__afterStatusWrite;
+        $__afterStatusWrite = null;
+        $hook($id);
+    }
+
     return true;
 }
 
@@ -531,6 +543,77 @@ $__beforeTakeoverUpdate = function () use ($controller, $ref10): void {
 $respA10 = $controller->submitRequest(requestFor($ref10, 'takeoverwinner@example.com'));
 check($respA10->get_status() === 200, 'the losing takeover attempt still converges onto the winner\'s durable Request');
 check(count(get_posts(['meta_query' => [['key' => 'cz_request_ref', 'value' => $ref10]]])) === 1, 'exactly one durable Request exists after the takeover race');
+
+// ── 11. Post existence is not readiness (the exact race an audit found) ────
+
+echo "\nPost existence is not readiness (mid-flight window)\n";
+freshIp();
+$ref11 = 'CZ-INFLT1';
+$__afterStatusWrite = function (int $postId) use ($requests, $ref11): void {
+    check($requests->findPostIdByRef($ref11) === $postId, 'the post is already visible to a raw lookup mid-flight, before identity assignment');
+    check($requests->findReadyPostIdByRef($ref11) === null, 'the same post is NOT ready yet — no CZR bound at this exact moment');
+};
+$resp11 = $controller->submitRequest(requestFor($ref11, 'inflight@example.com'));
+check($resp11->get_status() === 200, 'the submission completes normally once assignment runs after the hook');
+check($requests->findReadyPostIdByRef($ref11) !== null, 'the post is ready once the call has finished');
+
+// ── 12. A concurrent loser observing the mid-flight window fails closed ────
+
+echo "\nConcurrent loser during the mid-flight window emits nothing\n";
+freshIp();
+$ref12 = 'CZ-INFLT2';
+$mailCountBefore12 = count($__mailLog);
+$__afterStatusWrite = function () use ($controller, $ref12, $mailCountBefore12): void {
+    $respLoser = $controller->submitRequest(requestFor($ref12, 'inflight-loser@example.com'));
+    check($respLoser->get_status() === 503, 'a concurrent loser observing the post mid-flight fails closed rather than falsely joining an unidentified post');
+    check(count($GLOBALS['__mailLog']) === $mailCountBefore12, 'the loser emitted no email while the winner\'s post was still unidentified');
+};
+$respWinner12 = $controller->submitRequest(requestFor($ref12, 'inflight-winner@example.com'));
+check($respWinner12->get_status() === 200, 'the winner still completes successfully despite the concurrent loser probing mid-flight');
+check($requests->findByRef($ref12)['data']['email'] === 'inflight-winner@example.com', 'the durable Request reflects only the winner\'s payload');
+check(($__transients['cz_quote_' . $ref12]['email'] ?? null) === 'inflight-winner@example.com', 'the quote-view transient reflects only the winner\'s payload');
+
+// ── 13. Orphaned in-flight post (crashed prior winner) is resumed ──────────
+
+echo "\nOrphaned in-flight post (crashed prior winner) is resumed, not duplicated\n";
+freshIp();
+$ref13 = 'CZ-ORPHN1';
+// Key order matches RequestSchema::validate()'s own construction exactly —
+// payloadsMatch() uses ===, which for arrays is order-sensitive; a real
+// stored payload always comes from that one call site, so this is only a
+// fixture-construction detail here, not a source concern.
+$orphanPayload = [
+    'type' => 'free_it_assessment', 'quote_ref' => $ref13, 'contact' => 'Jordan Buyer', 'company' => 'Acme Co',
+    'email' => 'orphan@example.com', 'phone' => '555-0100', 'notes' => 'Please call', 'category' => '', 'items' => [],
+    'submitted' => '2026-08-30 00:00:00',
+];
+$orphanOutcome = $requests->createOwned($orphanPayload); // simulates a crashed winner: post inserted, never identified, lock never held here
+$orphanPostId  = $orphanOutcome['post_id'];
+check($requests->platformId($orphanPostId) === '', 'the simulated orphan has no CZR yet, matching a crashed winner');
+check(!$requests->isLegacyUnidentified($orphanPostId), 'the orphan is not mistaken for a legacy pre-CRM-1A record');
+
+$resp13 = $controller->submitRequest(requestFor($ref13, 'orphan@example.com'));
+check($resp13->get_status() === 200, 'a later submission resumes the orphaned post rather than failing or duplicating');
+check($requests->findPostIdByRef($ref13) === $orphanPostId, 'the same post is reused — no duplicate durable Request is created');
+check($requests->platformId($orphanPostId) !== '', 'the orphaned post now has a bound CZR');
+check(count(get_posts(['meta_query' => [['key' => 'cz_request_ref', 'value' => $ref13]]])) === 1, 'exactly one durable Request exists for the ref after resume');
+
+// ── 14. A legacy pre-CRM-1A record stays immediately joinable, never resumed ─
+
+echo "\nA legacy record is immediately ready and never gets a backfilled CZR\n";
+freshIp();
+$ref14 = 'CZ-LEG002';
+$legacyOutcome14 = $requests->createOwned([
+    'type' => 'free_it_assessment', 'quote_ref' => $ref14, 'contact' => 'Jordan Buyer', 'company' => 'Acme Co',
+    'email' => 'legacy14@example.com', 'phone' => '555-0100', 'notes' => 'Please call', 'category' => '', 'items' => [],
+    'submitted' => '2020-01-01 00:00:00',
+]);
+update_post_meta($legacyOutcome14['post_id'], 'cz_request_status', 'new');
+check($requests->findReadyPostIdByRef($ref14) === $legacyOutcome14['post_id'], 'a legacy new record is immediately ready with no assignment work');
+
+$resp14 = $controller->submitRequest(requestFor($ref14, 'legacy14@example.com'));
+check($resp14->get_status() === 200, 'a submission against a legacy ref joins it directly');
+check($requests->platformId($legacyOutcome14['post_id']) === '', 'the legacy record still has no CZR — no backfill was attempted');
 
 echo "\nAll durable-submission checks passed.\n";
 

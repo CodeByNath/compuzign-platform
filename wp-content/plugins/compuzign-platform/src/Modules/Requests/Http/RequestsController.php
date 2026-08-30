@@ -201,7 +201,12 @@ class RequestsController
      */
     private function acquireOrJoinDurableRequest(string $quoteRef, array $payload): array
     {
-        $existing = $this->requests->findPostIdByRef($quoteRef);
+        // Readiness, not bare existence: a post can exist (visible to
+        // findPostIdByRef()) strictly before its CZR is bound. Joining on
+        // that window would let a loser regenerate the quote-view
+        // transient/email for a Request whose identity assignment then
+        // fails and rolls the post back — see findReadyPostIdByRef().
+        $existing = $this->requests->findReadyPostIdByRef($quoteRef);
         if ($existing !== null) {
             return ['post_id' => $existing, 'created_by_this_call' => false];
         }
@@ -209,8 +214,8 @@ class RequestsController
         $myLockValue = $this->requests->claimCreationLock($quoteRef);
 
         if ($myLockValue === null) {
-            // Someone else holds it — poll for their post before considering takeover.
-            $found = $this->requests->awaitCreatedPost($quoteRef);
+            // Someone else holds it — poll for their post to become ready before considering takeover.
+            $found = $this->requests->awaitReadyPost($quoteRef);
             if ($found !== null) {
                 return ['post_id' => $found, 'created_by_this_call' => false];
             }
@@ -225,7 +230,7 @@ class RequestsController
             }
 
             if ($myLockValue === null) {
-                $found = $this->requests->awaitCreatedPost($quoteRef, 20);
+                $found = $this->requests->awaitReadyPost($quoteRef, 20);
                 if ($found !== null) {
                     return ['post_id' => $found, 'created_by_this_call' => false];
                 }
@@ -236,9 +241,22 @@ class RequestsController
 
         // We hold the lock now — either a fresh claim or a won CAS takeover.
         try {
-            $existing = $this->requests->findPostIdByRef($quoteRef);
+            // Ready first (covers both a genuinely bound CZR and a legacy
+            // record) — join it directly, no assignment work. Only if
+            // nothing ready exists do we fall back to the RAW lookup: any
+            // post at all — ready or not — means we must never insert a
+            // second one. An unready, non-legacy post found there is an
+            // orphan from a prior lock-holder that crashed mid-assignment
+            // (the lock is free again, or we just took it over); resume its
+            // identity assignment instead of duplicating it.
+            $existing = $this->requests->findReadyPostIdByRef($quoteRef);
             if ($existing !== null) {
                 return ['post_id' => $existing, 'created_by_this_call' => false];
+            }
+
+            $orphaned = $this->requests->findPostIdByRef($quoteRef);
+            if ($orphaned !== null) {
+                return $this->resumeDurableRequest($orphaned);
             }
 
             return $this->createDurableRequest($payload);
@@ -287,6 +305,39 @@ class RequestsController
         }
 
         return ['post_id' => $postId, 'created_by_this_call' => true];
+    }
+
+    /**
+     * Resume identity assignment onto a post this call did not insert (an
+     * orphaned CRM-1A record left by a prior lock-holder that crashed
+     * between createOwned() and assignIdentifier()). Only ever reached while
+     * holding the exclusive per-ref creation lock, so there is no concurrent
+     * writer to race. Never deletes the post on failure — this call did not
+     * create it, so it is not this call's to remove (the same rule
+     * createDurableRequest()'s rollback already follows); a later resume
+     * attempt, bounded by the same lock mechanism, tries again.
+     *
+     * @return array{post_id: int|null, created_by_this_call: bool}
+     */
+    private function resumeDurableRequest(int $postId): array
+    {
+        try {
+            $reservation = $this->platformIdentifiers->reserve(
+                PlatformIdentifierPolicy::REQUEST,
+                fn(string $platformId): bool => $this->requests->platformIdExists($platformId)
+            );
+        } catch (\Throwable) {
+            return ['post_id' => null, 'created_by_this_call' => false];
+        }
+
+        try {
+            $this->assignIdentifier($reservation, $postId);
+        } catch (\Throwable) {
+            $this->retireReservation($reservation, $postId);
+            return ['post_id' => null, 'created_by_this_call' => false];
+        }
+
+        return ['post_id' => $postId, 'created_by_this_call' => false];
     }
 
     private function assignIdentifier(
