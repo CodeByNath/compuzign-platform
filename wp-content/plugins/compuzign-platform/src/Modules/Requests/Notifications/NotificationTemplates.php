@@ -31,52 +31,79 @@ class NotificationTemplates
      * Builds the <tr> rows for the service table used in both email
      * templates — legacy/non-Family lines only (normal Tier/promotion,
      * legacy recommended bundle, Tier add-on). Family lines have their own
-     * dedicated renderer (see emailFamilyRows()) since Phase 8J-B, so this
+     * dedicated renderer (see emailFamilyRow()) since Phase 8J-B, so this
      * never receives an item with offer_type === 'family_tier'.
      *
      * @param array<int, array<string, mixed>> $items
      */
     public static function emailServiceRows(array $items): string
     {
-        $html = '';
+        return implode('', array_map([self::class, 'emailServiceRow'], $items));
+    }
 
-        foreach ($items as $item) {
-            $price   = $item['price'] !== null
-                ? '$' . number_format((float) $item['price'], 2)
-                : 'Custom pricing';
-            $cycle   = $item['billingCycle'] !== '' ? ' / ' . ucfirst((string) $item['billingCycle']) : '';
-            $isAddon = !empty($item['isAddon']) || (int) ($item['serviceId'] ?? 0) < 0;
-            $isPromo = ($item['offer_type'] ?? '') === 'promotion_tier';
-            $badge   = $isAddon
-                ? ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>'
-                : '';
-            $title   = esc_html((string) ($item['serviceTitle'] ?? ''));
-            $tier    = esc_html((string) $item['tierTitle']);
+    /**
+     * One legacy/non-Family item's own <tr> — extracted from emailServiceRows()
+     * so buildQuoteSections() can insert an emailItemDivider() between
+     * top-level items regardless of which category built each one.
+     *
+     * @param array<string, mixed> $item
+     */
+    private static function emailServiceRow(array $item): string
+    {
+        $price   = $item['price'] !== null
+            ? '$' . number_format((float) $item['price'], 2)
+            : 'Custom pricing';
+        $cycle   = $item['billingCycle'] !== '' ? ' / ' . ucfirst((string) $item['billingCycle']) : '';
+        $isAddon = !empty($item['isAddon']) || (int) ($item['serviceId'] ?? 0) < 0;
+        $isPromo = ($item['offer_type'] ?? '') === 'promotion_tier';
+        $badge   = $isAddon
+            ? ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>'
+            : '';
+        $title   = esc_html((string) ($item['serviceTitle'] ?? ''));
+        $tier    = esc_html((string) $item['tierTitle']);
 
-            if ($isPromo) {
-                $billingLabel = esc_html((string) ($item['billing_label'] ?? $item['billingCycle'] ?? ''));
-                $tierLine     = $billingLabel !== '' ? "{$tier} &nbsp;·&nbsp; {$billingLabel}" : $tier;
-                $promoBadge   = ' <span style="font-size:10px;background:#fff8d6;padding:1px 6px;border-radius:8px;color:#7a5d00;">promo</span>';
-            } else {
-                $billing  = $item['billingCycle'] !== '' ? 'Billed ' . esc_html(ucfirst((string) $item['billingCycle'])) : '';
-                $tierLine = $tier !== '' ? "{$tier} tier &nbsp;·&nbsp; {$billing}" : $billing;
-                $promoBadge = '';
-            }
-
-            $html .= "
-              <tr>
-                <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;\">
-                  <div style=\"font-size:13px;font-weight:600;color:#111;\">{$title}{$badge}{$promoBadge}</div>
-                  <div style=\"font-size:11px;color:#999;margin-top:2px;\">{$tierLine}</div>
-                </td>
-                <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;\">
-                  <span style=\"font-size:14px;font-weight:700;color:#111;\">{$price}</span>
-                  <span style=\"font-size:11px;color:#999;\">{$cycle}</span>
-                </td>
-              </tr>";
+        if ($isPromo) {
+            $billingLabel = esc_html((string) ($item['billing_label'] ?? $item['billingCycle'] ?? ''));
+            $tierLine     = $billingLabel !== '' ? "{$tier} &nbsp;·&nbsp; {$billingLabel}" : $tier;
+            $promoBadge   = ' <span style="font-size:10px;background:#fff8d6;padding:1px 6px;border-radius:8px;color:#7a5d00;">promo</span>';
+        } else {
+            $billing  = $item['billingCycle'] !== '' ? 'Billed ' . esc_html(ucfirst((string) $item['billingCycle'])) : '';
+            $tierLine = $tier !== '' ? "{$tier} tier &nbsp;·&nbsp; {$billing}" : $billing;
+            $promoBadge = '';
         }
 
-        return $html;
+        return "
+          <tr>
+            <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;\">
+              <div style=\"font-size:13px;font-weight:600;color:#111;\">{$title}{$badge}{$promoBadge}</div>
+              <div style=\"font-size:11px;color:#999;margin-top:2px;\">{$tierLine}</div>
+            </td>
+            <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;\">
+              <span style=\"font-size:14px;font-weight:700;color:#111;\">{$price}</span>
+              <span style=\"font-size:11px;color:#999;\">{$cycle}</span>
+            </td>
+          </tr>";
+    }
+
+    /**
+     * The divider between two adjacent top-level billed item blocks — never
+     * before the first item or after the last, and never between an item's
+     * own inclusion rows (buildQuoteSections() inserts this only between
+     * whole per-item blocks, each already including its own inclusion rows).
+     * A nested single-cell table carries the actual line (the standard
+     * "bulletproof" email HR, more reliably rendered across clients than a
+     * bare <div> border) so the outer <td>'s padding gives even spacing
+     * above and below it, rather than the border sitting flush against one
+     * edge of the cell.
+     */
+    private static function emailItemDivider(): string
+    {
+        return '
+          <tr><td colspan="2" style="padding:10px 14px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+              <td style="border-top:1px solid #e3e3e3;font-size:0;line-height:0;">&nbsp;</td>
+            </tr></table>
+          </td></tr>';
     }
 
     /**
@@ -428,19 +455,6 @@ class NotificationTemplates
     }
 
     /**
-     * @param array<int, array<string, mixed>> $items
-     */
-    private static function emailFamilyRows(array $items, bool $isAddon, bool $includeInternalIds): string
-    {
-        $html = '';
-        foreach ($items as $item) {
-            $html .= self::emailFamilyRow($item, $isAddon, $includeInternalIds);
-        }
-
-        return $html;
-    }
-
-    /**
      * The combined "Total Contract Value" (every primary Family item's own
      * Leg-stream total resolves finitely) or "Contract Value: Ongoing" block
      * — OrderSummary.tsx's/QuoteProposalPreview.tsx's Phase 8F semantics,
@@ -539,11 +553,26 @@ class NotificationTemplates
     {
         $classified = self::classifyQuoteItems($items);
 
-        $rows = self::emailServiceRows($classified['mainItems'])
-            . self::emailFamilyRows($classified['familyMainItems'], false, $includeInternalIds)
-            . self::emailServiceRows($classified['bundleItems'])
-            . self::emailServiceRows($classified['tierAddonItems'])
-            . self::emailFamilyRows($classified['familyAddonItems'], true, $includeInternalIds);
+        // One block per top-level billed item — each already includes its
+        // own inclusion rows (emailFamilyRow() appends them) — joined by
+        // emailItemDivider() so the separator sits only between whole items,
+        // never before the first, after the last, or inside one item's own
+        // inclusion list. Order matches OrderSummary.tsx's own section order.
+        $blocks = array_merge(
+            array_map([self::class, 'emailServiceRow'], $classified['mainItems']),
+            array_map(
+                fn (array $item) => self::emailFamilyRow($item, false, $includeInternalIds),
+                $classified['familyMainItems']
+            ),
+            array_map([self::class, 'emailServiceRow'], $classified['bundleItems']),
+            array_map([self::class, 'emailServiceRow'], $classified['tierAddonItems']),
+            array_map(
+                fn (array $item) => self::emailFamilyRow($item, true, $includeInternalIds),
+                $classified['familyAddonItems']
+            ),
+        );
+
+        $rows = implode(self::emailItemDivider(), $blocks);
 
         $hasMultiStreamItem = false;
         foreach (array_merge($classified['familyMainItems'], $classified['familyAddonItems']) as $familyItem) {
