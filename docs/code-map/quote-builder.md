@@ -43,7 +43,7 @@ Cost Builder opens the modal with a cart snapshot. The flow validates contact da
 
 ## Validation
 
-From the plugin root: `php tests/request-schema-is-addon.php`, `php tests/request-schema-minimum-term.php`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/request-schema-is-addon.php`, `php tests/request-schema-minimum-term.php`, `php tests/request-schema-family-quote-snapshot.php`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npm run contract:request-flow-family-tier-parity`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

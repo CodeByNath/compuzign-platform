@@ -145,6 +145,17 @@ class RequestSchema
                 $item['tierOccupantId'] = sanitize_text_field((string) ($raw['tierOccupantId'] ?? ''));
                 $item['tierPlatformId'] = sanitize_text_field((string) ($raw['tierPlatformId'] ?? ''));
                 $item['tierEditionPlatformId'] = sanitize_text_field((string) ($raw['tierEditionPlatformId'] ?? ''));
+                // Phase 8J-A: the already-snapshotted fields the accepted
+                // customer cart/review/proposal/email surfaces read (see
+                // FamilyTierAdapter.tsx's itemFor()) that this sanitiser was
+                // previously dropping — never re-resolved from live catalog
+                // data, only carried through from what the browser already
+                // captured at Add to Quote time.
+                $item['tierEditionTitle'] = isset($raw['tierEditionTitle']) && $raw['tierEditionTitle'] !== null
+                    ? sanitize_text_field((string) $raw['tierEditionTitle'])
+                    : null;
+                $item['inclusionItems'] = self::sanitizeInclusionItems($raw['inclusionItems'] ?? null);
+                $item['legPaymentSummaries'] = self::sanitizeLegPaymentSummaries($raw['legPaymentSummaries'] ?? null);
                 if ($item['familyId'] === ''
                     || $item['familyPlatformId'] === ''
                     || $item['tierInstanceId'] === ''
@@ -161,6 +172,116 @@ class RequestSchema
         }
 
         return $items;
+    }
+
+    /**
+     * Sanitise a snapshot `inclusionItems` list (Phase 8G structure) — the
+     * exact resolved effective.inclusionItems the browser captured at Add to
+     * Quote time (see FamilyTierAdapter.tsx's itemFor()), including a
+     * Bundle parent's own `includes` children and each item's `quantity`.
+     * Explicit per-field allow-list; unknown nested keys are never carried
+     * through, and this same allow-list is applied recursively so a Bundle
+     * child's `includes` (unused today, but the same shape) gets no looser
+     * treatment than the top level.
+     *
+     * @param  mixed $raw
+     * @return array<int, array<string, mixed>>|null
+     */
+    private static function sanitizeInclusionItems($raw): ?array
+    {
+        if (!is_array($raw) || $raw === []) {
+            return null;
+        }
+
+        $items = [];
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $id = sanitize_text_field((string) ($entry['id'] ?? ''));
+            if ($id === '') {
+                continue;
+            }
+
+            $item = [
+                'id'    => $id,
+                'label' => sanitize_text_field((string) ($entry['label'] ?? '')),
+            ];
+
+            if (isset($entry['quantity']) && $entry['quantity'] !== null && $entry['quantity'] !== '') {
+                $item['quantity'] = intval($entry['quantity']);
+            }
+
+            if (!empty($entry['bundle_id'])) {
+                $item['bundle_id'] = sanitize_text_field((string) $entry['bundle_id']);
+            }
+
+            $children = self::sanitizeInclusionItems($entry['includes'] ?? null);
+            if ($children !== null) {
+                $item['includes'] = $children;
+            }
+
+            $items[] = $item;
+        }
+
+        return $items === [] ? null : $items;
+    }
+
+    /**
+     * Sanitise a snapshot `legPaymentSummaries` list (Phase 5 structure) —
+     * the quoted option's own resolved commercial payment streams the
+     * browser captured once at Add to Quote time (see
+     * FamilyTierAdapter.tsx's itemFor() / buildLegPaymentSummaries()).
+     * Preserves every field the TS `LegPaymentSummary` type declares;
+     * unknown nested keys are never carried through.
+     *
+     * @param  mixed $raw
+     * @return array<int, array<string, mixed>>|null
+     */
+    private static function sanitizeLegPaymentSummaries($raw): ?array
+    {
+        if (!is_array($raw) || $raw === []) {
+            return null;
+        }
+
+        $summaries = [];
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $source = sanitize_text_field((string) ($entry['source'] ?? ''));
+            if ($source === '') {
+                continue;
+            }
+
+            $occurrenceMonths = [];
+            if (isset($entry['occurrenceMonths']) && is_array($entry['occurrenceMonths'])) {
+                $occurrenceMonths = array_values(array_map('intval', $entry['occurrenceMonths']));
+            }
+
+            $summaries[] = [
+                'source'           => $source,
+                'billingCycle'     => isset($entry['billingCycle']) && $entry['billingCycle'] !== null
+                    ? sanitize_text_field((string) $entry['billingCycle'])
+                    : null,
+                'price'            => isset($entry['price']) && $entry['price'] !== null
+                    ? floatval($entry['price'])
+                    : null,
+                'startMonth'       => intval($entry['startMonth'] ?? 0),
+                'endMonth'         => isset($entry['endMonth']) && $entry['endMonth'] !== null
+                    ? intval($entry['endMonth'])
+                    : null,
+                'isOngoing'        => !empty($entry['isOngoing']),
+                'occurrenceMonths' => $occurrenceMonths,
+                'subtotal'         => isset($entry['subtotal']) && $entry['subtotal'] !== null
+                    ? floatval($entry['subtotal'])
+                    : null,
+            ];
+        }
+
+        return $summaries === [] ? null : $summaries;
     }
 
     /**
@@ -240,6 +361,36 @@ class RequestSchema
                         'tierOccupantId'   => ['type' => 'string'],
                         'tierPlatformId'   => ['type' => 'string'],
                         'tierEditionPlatformId' => ['type' => ['string', 'null']],
+                        'tierEditionTitle' => ['type' => ['string', 'null']],
+                        'inclusionItems'   => [
+                            'type'  => 'array',
+                            'items' => [
+                                'type'       => 'object',
+                                'properties' => [
+                                    'id'        => ['type' => 'string'],
+                                    'label'     => ['type' => 'string'],
+                                    'quantity'  => ['type' => 'integer'],
+                                    'bundle_id' => ['type' => 'string'],
+                                    'includes'  => ['type' => 'array'],
+                                ],
+                            ],
+                        ],
+                        'legPaymentSummaries' => [
+                            'type'  => ['array', 'null'],
+                            'items' => [
+                                'type'       => 'object',
+                                'properties' => [
+                                    'source'           => ['type' => 'string'],
+                                    'billingCycle'     => ['type' => ['string', 'null']],
+                                    'price'            => ['type' => ['number', 'null']],
+                                    'startMonth'       => ['type' => 'integer'],
+                                    'endMonth'         => ['type' => ['integer', 'null']],
+                                    'isOngoing'        => ['type' => 'boolean'],
+                                    'occurrenceMonths' => ['type' => 'array', 'items' => ['type' => 'integer']],
+                                    'subtotal'         => ['type' => ['number', 'null']],
+                                ],
+                            ],
+                        ],
                     ],
                 ],
             ],
