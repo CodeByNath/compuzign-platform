@@ -43,7 +43,7 @@ final class Plugin
         (new PromotionsModule())->register();
         (new CostBuilderModule())->register();
         (new HomepageModule())->register();
-        (new RequestsModule())->register();
+        (new RequestsModule($platformIdentifiers))->register();
         (new ServiceModule($platformIdentifiers))->register();
         (new AdminModule($platformIdentifiers))->register();
         (new AdminStationModule())->register();

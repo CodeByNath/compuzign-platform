@@ -221,15 +221,6 @@ export interface PromotionTierPayload {
   metadata?: Record<string, string>;
 }
 
-export interface AcceptIntakeResponse {
-  success: boolean;
-  post_id: number;
-  quote_ref: string;
-  status: string;
-  accepted_at: string;
-  already_accepted: boolean;
-}
-
 export interface AdminRequestsResponse {
   success: boolean;
   requests: RequestSummary[];

@@ -3,7 +3,6 @@
 namespace CompuZign\Platform\Modules\Admin\Http;
 
 use CompuZign\Platform\Modules\Requests\Repositories\RequestRepository;
-use CompuZign\Platform\Modules\Requests\Support\RequestLifecycle;
 
 class AdminRequestsController
 {
@@ -23,23 +22,6 @@ class AdminRequestsController
         register_rest_route('compuzign/v1', '/admin/requests/(?P<ref>[A-Z0-9\-]+)', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getRequest'],
-            'permission_callback' => [$this, 'requireAdmin'],
-            'args'                => [
-                'ref' => [
-                    'type'              => 'string',
-                    'required'          => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-            ],
-        ]);
-
-        // ── Intake Acceptance Bridge ───────────────────────────────────────────
-        // POST /admin/requests/{ref}/accept
-        // Accepts a transient intake request into persistent Water storage.
-        // Idempotent: repeated calls for the same ref return the existing record.
-        register_rest_route('compuzign/v1', '/admin/requests/(?P<ref>[A-Z0-9\-]+)/accept', [
-            'methods'             => 'POST',
-            'callback'            => [$this, 'acceptRequest'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args'                => [
                 'ref' => [
@@ -115,69 +97,6 @@ class AdminRequestsController
         }
 
         return rest_ensure_response(['success' => true, 'request' => $data]);
-    }
-
-    // ── Intake Acceptance Bridge ───────────────────────────────────────────────
-
-    /**
-     * POST /admin/requests/{ref}/accept
-     *
-     * Accepts a transient intake request into the Water layer as a managed
-     * cz_request post with lifecycle status = new.
-     *
-     * Idempotency: if the ref already has a Water record, returns the existing
-     * record with already_accepted = true. No duplicate is created.
-     *
-     * The intake transient is NOT modified or deleted — it remains the source
-     * of truth for the River layer until it expires naturally.
-     */
-    public function acceptRequest(\WP_REST_Request $request): \WP_REST_Response
-    {
-        $ref  = $request->get_param('ref');
-        $data = get_transient('cz_quote_' . $ref);
-
-        if (!is_array($data)) {
-            return new \WP_REST_Response(
-                ['success' => false, 'message' => 'Intake request not found or has expired.'],
-                404
-            );
-        }
-
-        $repository = new RequestRepository();
-        $existing   = $repository->findByRef($ref);
-
-        // Already accepted — return existing Water record, no mutation.
-        if ($existing !== null) {
-            return rest_ensure_response([
-                'success'          => true,
-                'post_id'          => $existing['post_id'],
-                'quote_ref'        => $ref,
-                'status'           => $existing['status'],
-                'accepted_at'      => $existing['accepted_at'],
-                'already_accepted' => true,
-            ]);
-        }
-
-        // Fresh acceptance — create the Water record from the intake payload.
-        $postId = $repository->create($data);
-
-        if ($postId === 0) {
-            return new \WP_REST_Response(
-                ['success' => false, 'message' => 'Failed to create managed request.'],
-                500
-            );
-        }
-
-        $record = $repository->findByRef($ref);
-
-        return rest_ensure_response([
-            'success'          => true,
-            'post_id'          => $postId,
-            'quote_ref'        => $ref,
-            'status'           => $record['status']      ?? RequestLifecycle::STATUS_NEW,
-            'accepted_at'      => $record['accepted_at'] ?? '',
-            'already_accepted' => false,
-        ]);
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────

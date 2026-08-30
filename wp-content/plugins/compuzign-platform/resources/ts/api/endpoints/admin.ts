@@ -1,6 +1,5 @@
 import { apiClient } from '../client';
 import type {
-  AcceptIntakeResponse,
   AdminOverview,
   AdminRequestsResponse,
   ServicePromotionStationResponse,
@@ -289,8 +288,4 @@ export function fetchAdminRequests(): Promise<AdminRequestsResponse> {
 
 export function fetchAdminRequest(ref: string): Promise<{ success: boolean; request: RequestEntry }> {
   return apiClient.get<{ success: boolean; request: RequestEntry }>(`admin/requests/${ref}`);
-}
-
-export function acceptIntakeRequest(ref: string): Promise<AcceptIntakeResponse> {
-  return apiClient.post<AcceptIntakeResponse>(`admin/requests/${ref}/accept`);
 }

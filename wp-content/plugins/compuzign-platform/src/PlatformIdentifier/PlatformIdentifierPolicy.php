@@ -31,6 +31,7 @@ final class PlatformIdentifierPolicy
     public const PACKAGE_RATE_CARD_BUNDLE_ITEM = 'package_rate_card_bundle_item';
     public const PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION = 'package_rate_card_bundle_item_option';
     public const PACKAGE_RATE_CARD_BUNDLE_OPTION      = 'package_rate_card_bundle_option';
+    public const REQUEST                  = 'request';
 
     public const ALPHABET    = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
     public const SUFFIX_LENGTH = 5;
@@ -73,6 +74,7 @@ final class PlatformIdentifierPolicy
         // (CZPRCB), not of one of its rows. 'O' is outside the suffix alphabet,
         // so this can never be read as CZPRCB + suffix.
         self::PACKAGE_RATE_CARD_BUNDLE_OPTION      => 'CZPRCBO',
+        self::REQUEST                  => 'CZR',
     ];
 
     /** @return array<string, string> */

@@ -4,7 +4,9 @@ namespace CompuZign\Platform\Modules\Requests;
 
 use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\Modules\Requests\Http\RequestsController;
+use CompuZign\Platform\Modules\Requests\Repositories\RequestRepository;
 use CompuZign\Platform\Modules\Requests\Support\RequestMetaSchema;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 class RequestsModule
 {
@@ -16,9 +18,13 @@ class RequestsModule
      */
     public const QUOTE_VIEW_PATH = '/compuzign-quote-view/';
 
+    public function __construct(private PlatformIdentifierStation $platformIdentifiers)
+    {
+    }
+
     public function register(): void
     {
-        (new RequestsController())->register();
+        (new RequestsController($this->platformIdentifiers, new RequestRepository()))->register();
         (new RequestMetaSchema())->register();
 
         add_action('template_redirect', [$this, 'maybeRenderQuoteView']);

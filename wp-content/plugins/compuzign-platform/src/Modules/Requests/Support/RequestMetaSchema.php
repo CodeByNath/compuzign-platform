@@ -31,7 +31,15 @@ class RequestMetaSchema
         register_post_meta('cz_request', 'cz_request_status', [
             'type'         => 'string',
             'single'       => true,
-            'default'      => RequestLifecycle::STATUS_NEW,
+            'default'      => RequestLifecycle::STATUS_PENDING,
+            'show_in_rest' => false,
+        ]);
+
+        // Permanent Platform identity (CZR). Output-only — never REST-writable.
+        register_post_meta('cz_request', 'cz_platform_id', [
+            'type'         => 'string',
+            'single'       => true,
+            'default'      => '',
             'show_in_rest' => false,
         ]);
     }

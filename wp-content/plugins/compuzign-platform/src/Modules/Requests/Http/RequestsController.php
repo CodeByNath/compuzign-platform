@@ -3,13 +3,24 @@
 namespace CompuZign\Platform\Modules\Requests\Http;
 
 use CompuZign\Platform\Modules\Requests\Notifications\NotificationTemplates;
+use CompuZign\Platform\Modules\Requests\Repositories\RequestRepository;
 use CompuZign\Platform\Modules\Requests\RequestsModule;
 use CompuZign\Platform\Modules\Requests\Support\QuoteViewAccess;
 use CompuZign\Platform\Modules\Requests\Support\QuoteViewSecret;
 use CompuZign\Platform\Modules\Requests\Support\RequestSchema;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierBinding;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 class RequestsController
 {
+    public function __construct(
+        private PlatformIdentifierStation $platformIdentifiers,
+        private RequestRepository $requests
+    ) {
+    }
+
     public function register(): void
     {
         add_action('rest_api_init', [$this, 'registerRoutes']);
@@ -90,12 +101,44 @@ class RequestsController
         $payload  = $validated['data'];
         $quoteRef = $payload['quote_ref'];
 
-        // ── Phase 8J-C1: view secret; only the one-way hash is persisted. ────
-        $viewSecret                  = QuoteViewSecret::generate();
-        $payload['view_secret_hash'] = QuoteViewSecret::hash($viewSecret);
+        // ── CRM-1A: the durable Request is authoritative and must exist,
+        //    identified, before any customer-facing side effect. Fails closed:
+        //    no transient, no email, if this doesn't succeed.
+        $acquired = $this->acquireOrJoinDurableRequest($quoteRef, $payload);
 
-        // ── Persist to transient (7 days) ────────────────────────────────────
-        set_transient('cz_quote_' . $quoteRef, $payload, 7 * DAY_IN_SECONDS);
+        if ($acquired['post_id'] === null) {
+            return new \WP_REST_Response(
+                ['success' => false, 'message' => 'Please try again in a moment.'],
+                503
+            );
+        }
+
+        if ($acquired['created_by_this_call'] !== true) {
+            // A durable Request for this ref already existed (a sequential
+            // retry, or this call converged onto a concurrent winner's post).
+            // The stored durable payload is authoritative — never regenerate
+            // the quote-view transient/email from unverified incoming data.
+            $stored       = $this->requests->findByRef($quoteRef);
+            $storedPayload = is_array($stored) ? ($stored['data'] ?? []) : [];
+
+            if (!self::payloadsMatch($storedPayload, $payload)) {
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'This quote reference was already submitted with different details. Please start a new request.',
+                ], 409);
+            }
+
+            $payload = $storedPayload;
+        }
+
+        // ── Phase 8J-C1: view secret; only the one-way hash is persisted, and
+        //    only in the transient — never merged into the durable snapshot.
+        $viewSecret        = QuoteViewSecret::generate();
+        $transientPayload  = $payload;
+        $transientPayload['view_secret_hash'] = QuoteViewSecret::hash($viewSecret);
+
+        // ── Persist to transient (7 days) — secure quote-view storage only. ──
+        set_transient('cz_quote_' . $quoteRef, $transientPayload, 7 * DAY_IN_SECONDS);
 
         // ── Phase 8J-C3: the raw secret lives only in this local variable for
         //    the remainder of this one request — used to build the customer
@@ -142,6 +185,170 @@ class RequestsController
             'quote_id' => $quoteRef,
             'message'  => 'Your quote request has been received. We will be in touch within one business day.',
         ], 200);
+    }
+
+    /**
+     * Establish (or join) the one durable Request for $quoteRef.
+     *
+     * Returns ['post_id' => int|null, 'created_by_this_call' => bool].
+     * post_id is null only when this call could neither find nor create a
+     * durable record within its bounded attempts (submitRequest() returns
+     * 503 in that case) — never a signal to fall back to transient-only
+     * behavior.
+     *
+     * @param  array<string, mixed> $payload
+     * @return array{post_id: int|null, created_by_this_call: bool}
+     */
+    private function acquireOrJoinDurableRequest(string $quoteRef, array $payload): array
+    {
+        $existing = $this->requests->findPostIdByRef($quoteRef);
+        if ($existing !== null) {
+            return ['post_id' => $existing, 'created_by_this_call' => false];
+        }
+
+        $myLockValue = $this->requests->claimCreationLock($quoteRef);
+
+        if ($myLockValue === null) {
+            // Someone else holds it — poll for their post before considering takeover.
+            $found = $this->requests->awaitCreatedPost($quoteRef);
+            if ($found !== null) {
+                return ['post_id' => $found, 'created_by_this_call' => false];
+            }
+
+            // At most one takeover attempt, CAS-only against the exact value
+            // observed — never a blind delete-then-add. A failed takeover
+            // (null) means a concurrent taker won the race; this call must
+            // never touch what it now holds.
+            $observed = $this->requests->observeLockValue($quoteRef);
+            if ($observed !== null && $this->requests->isLockStale($observed)) {
+                $myLockValue = $this->requests->takeoverStaleLock($quoteRef, $observed);
+            }
+
+            if ($myLockValue === null) {
+                $found = $this->requests->awaitCreatedPost($quoteRef, 20);
+                if ($found !== null) {
+                    return ['post_id' => $found, 'created_by_this_call' => false];
+                }
+
+                return ['post_id' => null, 'created_by_this_call' => false];
+            }
+        }
+
+        // We hold the lock now — either a fresh claim or a won CAS takeover.
+        try {
+            $existing = $this->requests->findPostIdByRef($quoteRef);
+            if ($existing !== null) {
+                return ['post_id' => $existing, 'created_by_this_call' => false];
+            }
+
+            return $this->createDurableRequest($payload);
+        } finally {
+            $this->requests->releaseCreationLock($quoteRef, $myLockValue);
+        }
+    }
+
+    /**
+     * Reserve a CZR identity, insert the durable post, and bind them —
+     * rolling back both on any failure. Called only while this instance
+     * holds the exclusive per-quote_ref creation lock, so the post this
+     * method inserts (if any) has no possible other owner.
+     *
+     * @param  array<string, mixed> $payload
+     * @return array{post_id: int|null, created_by_this_call: bool}
+     */
+    private function createDurableRequest(array $payload): array
+    {
+        try {
+            $reservation = $this->platformIdentifiers->reserve(
+                PlatformIdentifierPolicy::REQUEST,
+                fn(string $platformId): bool => $this->requests->platformIdExists($platformId)
+            );
+        } catch (\Throwable) {
+            return ['post_id' => null, 'created_by_this_call' => false];
+        }
+
+        $outcome = $this->requests->createOwned($payload);
+        if (!$outcome['created_by_this_call']) {
+            $this->retireReservation($reservation);
+            return ['post_id' => null, 'created_by_this_call' => false];
+        }
+
+        $postId = $outcome['post_id'];
+
+        try {
+            $this->assignIdentifier($reservation, $postId);
+        } catch (\Throwable) {
+            $stored = $this->requests->platformId($postId);
+            if ($stored === '' || $stored === $reservation->platformId()) {
+                $this->requests->deleteOwned($postId);
+            }
+            $this->retireReservation($reservation, $postId);
+            return ['post_id' => null, 'created_by_this_call' => false];
+        }
+
+        return ['post_id' => $postId, 'created_by_this_call' => true];
+    }
+
+    private function assignIdentifier(
+        PlatformIdentifierReservation $reservation,
+        int $postId
+    ): PlatformIdentifierBinding {
+        return $this->platformIdentifiers->assign(
+            $reservation,
+            $postId,
+            fn(int|string $nativeReference): string => $this->requests->platformId((int) $nativeReference),
+            fn(int|string $nativeReference, string $platformId): bool => $this->requests->claimPlatformId(
+                (int) $nativeReference,
+                $platformId
+            )
+        );
+    }
+
+    /** Mirrors AdminCategoriesController::retireReservation() for the Request/CZR entity type. */
+    private function retireReservation(
+        PlatformIdentifierReservation $reservation,
+        ?int $nativeReference = null
+    ): void {
+        if ($nativeReference !== null) {
+            try {
+                $reverse = $this->platformIdentifiers->lookupNative(
+                    PlatformIdentifierPolicy::REQUEST,
+                    $nativeReference
+                );
+                if ($reverse?->platformId() === $reservation->platformId()) {
+                    return;
+                }
+            } catch (\Throwable) {
+                // Continue to inspect the reservation's own forward record.
+            }
+        }
+
+        try {
+            $forward = $this->platformIdentifiers->resolve($reservation->platformId());
+            if ($forward?->status() === PlatformIdentifierStation::STATUS_RESERVED) {
+                $this->platformIdentifiers->retire($reservation);
+            }
+        } catch (\Throwable) {
+            // Preserve the first failure; never recycle an uncertain claim.
+        }
+    }
+
+    /**
+     * Exact-match comparison for retry/collision detection, ignoring only
+     * `submitted` — the one field RequestSchema::validate() stamps fresh
+     * (current_time('mysql')) on every call, guaranteed to differ between
+     * two otherwise-identical resubmissions. Deliberately strict rather than
+     * a semantic diff: a false "same" would regenerate the quote-view
+     * transient/email from data the durable Request never actually stored.
+     *
+     * @param  array<string, mixed> $stored
+     * @param  array<string, mixed> $incoming
+     */
+    private static function payloadsMatch(array $stored, array $incoming): bool
+    {
+        unset($stored['submitted'], $incoming['submitted']);
+
+        return $stored === $incoming;
     }
 
     /**
