@@ -697,7 +697,15 @@ HTML;
     }
 
     /** @param array<string, mixed> $data */
-    public static function buildCustomerHtmlEmail(array $data, string $siteTitle): string
+    /**
+     * @param string $quoteViewLink Phase 8J-C3: the secure quote-reload link
+     *   (RequestsModule::quoteViewUrl() plus the raw view secret as a URL
+     *   fragment — see RequestsController::submitRequest()'s docblock).
+     *   Rendered only for a quote_cart email; a free_it_assessment
+     *   submission has no reloadable quote, so this parameter is accepted
+     *   uniformly but ignored on that branch.
+     */
+    public static function buildCustomerHtmlEmail(array $data, string $siteTitle, string $quoteViewLink = ''): string
     {
         if (($data['type'] ?? '') === 'free_it_assessment') {
             return self::buildAssessmentCustomerEmail($data, $siteTitle);
@@ -712,6 +720,19 @@ HTML;
         $contact   = esc_html((string) $data['contact']);
         $quoteRef  = esc_html((string) $data['quote_ref']);
         $siteLabel = esc_html($siteTitle);
+
+        // Phase 8J-C3: both the href attribute and, defensively, the link
+        // text are escaped — esc_url() also strips anything that isn't a
+        // well-formed URL, so a malformed/empty $quoteViewLink degrades to
+        // an inert '#' rather than a broken or unsafe attribute.
+        $viewQuoteBlock = $quoteViewLink !== ''
+            ? '<tr><td style="padding:0 28px 24px;text-align:center;">
+                <a href="' . esc_url($quoteViewLink) . '"
+                   style="display:inline-block;background:#0f0f0f;color:#FFDA17;font-size:14px;
+                          font-weight:700;text-decoration:none;padding:14px 32px;border-radius:6px;">'
+              . esc_html('View / Print Quote') . '</a>
+              </td></tr>'
+            : '';
 
         $notesBlock = $data['notes'] !== ''
             ? '<tr><td style="padding:0 28px 20px;">
@@ -785,6 +806,9 @@ HTML;
 
     <!-- TOTALS -->
     {$totalsBlock}
+
+    <!-- VIEW / PRINT QUOTE (conditional — quote_cart only) -->
+    {$viewQuoteBlock}
 
     <!-- NOTES (conditional) -->
     {$notesBlock}

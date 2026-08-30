@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Modules\Requests\Http;
 
 use CompuZign\Platform\Modules\Requests\Notifications\NotificationTemplates;
+use CompuZign\Platform\Modules\Requests\RequestsModule;
 use CompuZign\Platform\Modules\Requests\Support\QuoteViewAccess;
 use CompuZign\Platform\Modules\Requests\Support\QuoteViewSecret;
 use CompuZign\Platform\Modules\Requests\Support\RequestSchema;
@@ -23,11 +24,11 @@ class RequestsController
             'args'                => RequestSchema::restArgs(),
         ]);
 
-        // Phase 8J-C1: the secure read boundary only — no customer page or
-        // email link consumes this yet (see project-work/2026-08-30-phase-8j-
-        // quote-email-snapshot-parity.md). Public (no nonce/login) because the
-        // eventual caller is an emailed link, not an authenticated session;
-        // access is instead gated entirely by the view secret.
+        // Phase 8J-C1: the secure read boundary — the "View / Print Quote"
+        // link in the customer email (Phase 8J-C3, see submitRequest()) is
+        // this route's caller. Public (no nonce/login) because that caller is
+        // an emailed link, not an authenticated session; access is instead
+        // gated entirely by the view secret.
         //
         // The secret is deliberately NOT a REST 'args' entry: it travels only
         // in the X-Quote-View-Secret request header (see getQuote()), never a
@@ -89,13 +90,22 @@ class RequestsController
         $payload  = $validated['data'];
         $quoteRef = $payload['quote_ref'];
 
-        // ── Phase 8J-C1: view secret (boundary only — not yet surfaced to any
-        //    caller; only the one-way hash is persisted). ──────────────────
-        $viewSecret                    = QuoteViewSecret::generate();
-        $payload['view_secret_hash']   = QuoteViewSecret::hash($viewSecret);
+        // ── Phase 8J-C1: view secret; only the one-way hash is persisted. ────
+        $viewSecret                  = QuoteViewSecret::generate();
+        $payload['view_secret_hash'] = QuoteViewSecret::hash($viewSecret);
 
         // ── Persist to transient (7 days) ────────────────────────────────────
         set_transient('cz_quote_' . $quoteRef, $payload, 7 * DAY_IN_SECONDS);
+
+        // ── Phase 8J-C3: the raw secret lives only in this local variable for
+        //    the remainder of this one request — used to build the customer
+        //    email link below, then discarded. Never added to $payload
+        //    (already persisted above without it), never part of this
+        //    method's own JSON response (see the return statement at the
+        //    bottom), never logged. RequestsModule::quoteViewUrl() is the
+        //    single URL-building contract; the secret is appended here only,
+        //    as a URL fragment — never a query/path segment.
+        $quoteViewLink = RequestsModule::quoteViewUrl($quoteRef) . '#' . $viewSecret;
 
         // ── Email notifications ──────────────────────────────────────────────
         $adminEmail = (string) get_option('admin_email');
@@ -123,7 +133,7 @@ class RequestsController
         wp_mail(
             $email,
             $customerSubject,
-            NotificationTemplates::buildCustomerHtmlEmail($payload, $siteTitle),
+            NotificationTemplates::buildCustomerHtmlEmail($payload, $siteTitle, $quoteViewLink),
             $headers
         );
 
