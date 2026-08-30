@@ -1,26 +1,38 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `AWAITING CHATGPT REVIEW` — the full C1+C2+C3 chain is on `main` and independently confirmed deployed.
-- `main` is `195896e0376c5b4988c4337f0ded769fb0c3bc09` (confirmed via `origin/main`).
-- GitHub Actions "Deploy to Hostinger" run [#33296070898](https://github.com/CodeByNath/compuzign-platform/actions/runs/33296070898), `head_sha` = `195896e0376c5b4988c4337f0ded769fb0c3bc09`. The first attempt (`run_attempt: 1`) failed at "Deploy source via SSH" — the first deployment failure in this repo's history, and infrastructure-side (the prior "Build frontend assets" step succeeded; every one of the prior 10 deploys back through `b299563d` had succeeded). Nath re-ran the job manually; `run_attempt: 2` shows every step, including "Deploy source via SSH" and "Deploy built dist assets via SCP", `completed`/`success`, independently re-verified against the GitHub Actions API job list.
-- Deployment is confirmed complete. Live browser validation (customer email -> secure reload -> proposal parity -> Print / Save as PDF) is the one remaining step before this phase can close, and per standing instruction is not something Claude performs unprompted (mutates live transient/mail state).
+- `AWAITING LIVE VALIDATION` — source/deployment chain accepted; only the customer end-to-end flow remains.
+- Production `main` = `195896e0376c5b4988c4337f0ded769fb0c3bc09`.
+- Auditor verdict: `Proceed with safeguards`.
 
 ## Locked Architecture
-Keep `/requests/submit`, `cz_quote_<ref>`, transient storage and **7-day expiry**. Stored submitted snapshot is authoritative; never rebuild from current catalog/pricing. Customer journey: email -> secure quote view -> exact stored snapshot -> existing proposal -> Print / Save as PDF. WordPress remains runtime/host/storage only.
+Keep `/requests/submit`, `cz_quote_<ref>`, transient storage and **7-day expiry**. Stored submitted snapshot is authoritative; never rebuild from current catalog/pricing. Customer journey: email -> secure quote view -> exact stored snapshot -> existing proposal -> Print / Save as PDF. WordPress is runtime/host/storage only.
 
-## Accepted C1–C3 Chain
-**C1:** 32-byte CSPRNG view secret; only SHA-256 hash persisted; `hash_equals`; public read boundary requires `X-Quote-View-Secret`; uniform non-disclosing failures; explicit response allow-list; no query-string credential.
+## Accepted C1–C3
+**C1:** 32-byte CSPRNG view secret; only SHA-256 hash persisted; `hash_equals`; public read boundary requires `X-Quote-View-Secret`; uniform non-disclosing failures; response allow-list; no query-string credential.
 
-**C2:** code-owned `/compuzign-quote-view/` entrypoint via `RequestsModule::quoteViewUrl()`; fragment is read client-side and sent as the C1 header; proposal/print renderer reused; no live catalog re-resolution. Legacy Service/Bundle descriptions required for parity are captured only into the submitted snapshot, sanitized, and rendered from there.
+**C2:** code-owned `/compuzign-quote-view/` entrypoint via `RequestsModule::quoteViewUrl()`; fragment secret is sent client-side as the C1 header; proposal/print renderer reused; no live catalog re-resolution. Legacy Service/Bundle descriptions are captured only into the submitted snapshot and sanitized.
 
-**C3:** independently audited commit `195896e...` is one commit on accepted C2. `submitRequest()` builds the link from `RequestsModule::quoteViewUrl($quoteRef) . '#' . $viewSecret`; raw secret stays local, is not persisted or returned, and customer `quote_cart` email alone receives the escaped View / Print Quote action. Admin and assessment email behavior remain unchanged.
+**C3:** customer `quote_cart` email alone receives the escaped View / Print Quote action. Link is `RequestsModule::quoteViewUrl($quoteRef) . '#' . $viewSecret`; raw secret is not persisted, returned, logged, or sent to admin/assessment emails.
 
-## Next Action
-Production push and deployment are both done and independently confirmed. Remaining: ChatGPT's post-deployment source review, then live browser validation of the end-to-end customer journey. Do not perform live quote submission on ChatGPT's behalf — that requires explicit user authorization or user action.
+## Independent Production Audit
+GitHub `main` independently resolves to the exact accepted review head `195896e0376c5b4988c4337f0ded769fb0c3bc09`; no extra source commit was inserted.
+
+GitHub Actions **Deploy to Hostinger** run `33296070898` / run number `915` is `completed/success`, attempt 2, with exact `head_sha=195896e0376c5b4988c4337f0ded769fb0c3bc09`. Independent job inspection confirms `Build frontend assets`, `Deploy source via SSH`, and `Deploy built dist assets via SCP` all completed successfully. Source/deployment boundary is accepted.
+
+## Live Validation Required
+Do not close 8J until a real customer quote submission confirms:
+- customer email shows the expected quote snapshot and View / Print Quote action;
+- link opens `/compuzign-quote-view/?ref=<quote_ref>#<secret>` and reload succeeds;
+- rendered proposal matches the submitted snapshot, including legacy descriptions where applicable and accepted Family commercial/inclusion semantics;
+- Print / Save as PDF works;
+- customer view exposes no raw CZ Platform IDs;
+- invalid/missing secret produces the generic failure state.
+
+A real submission mutates transient/mail state. ChatGPT must not submit one without Nath's explicit authorization. Nath may submit it himself and open/share the resulting email/link for read-only validation.
 
 ## Request Platform ID — Deferred
-Do not add Platform identity in 8J. First durable CRM Request phase owns proposed `request` / `CZRxxxxx`, native reference `quote_ref`, through the existing Platform Identifier Station. No separate Quote identity.
+First durable CRM Request phase owns proposed `request` / `CZRxxxxx`, native reference `quote_ref`, through the existing Platform Identifier Station. No separate Quote identity.
 
 ## Next Work
-After deployment is independently verified and the end-to-end customer email -> secure reload -> proposal -> print flow is live-validated, close 8J. Only then plan the small CRM Station handoff phase.
+After live validation passes, mark 8J `CLOSED`, then plan the small CRM Station handoff phase. No CRM implementation before closure.
