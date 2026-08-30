@@ -1,10 +1,9 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `READY FOR CLAUDE`
-- `SOURCE PUSH APPROVED` — 8J-A candidate only.
-- Auditor verdict: `Proceed with safeguards`.
-- Production baseline independently rechecked 2026-08-30: `main@6736d45d669f61c442527419269f16d7a711fbdd` remains unchanged.
+- `AWAITING CHATGPT REVIEW`
+- 8J-A source push complete; production `main` now at the reviewed candidate.
+- Auditor verdict (pre-push): `Proceed with safeguards`.
 - Phase 8I remains the reference for accepted customer cart/review/proposal semantics; not reopened.
 
 ## Decision
@@ -34,12 +33,20 @@ Compared production `6736d45d669f61c442527419269f16d7a711fbdd` with candidate `f
 
 Production `ServiceInclusion` is exactly `id`, `label`, optional `quantity`, optional `bundle_id`, recursive `includes`; candidate sanitizer matches it. Leg sanitizer explicitly preserves its eight snapshot fields and drops unknown keys. Existing Family identity/add-on handling, legacy item path, transient/controller/mail lifecycle, and email/PDF/UI rendering are untouched. No blocker found.
 
-## Claude — Act Now
-1. Reconfirm `origin/main` is exactly `6736d45d669f61c442527419269f16d7a711fbdd`.
-2. Fast-forward `main` to **exactly** `f152134eac87c0cf84414ac6217794e7a4ca0102`; no amend, rebuild, source edit, merge commit, or extra commit.
-3. Push `main` and allow normal GitHub Actions Hostinger deployment.
-4. Record full resulting `main` SHA and workflow run/status here.
-5. Set `AWAITING CHATGPT REVIEW` and stop. **Do not begin 8J-B and do not change email rendering yet.**
+## Production Push Record
+
+`main` fast-forwarded (no amend/rebuild/source edit/merge commit) from
+`6736d45d669f61c442527419269f16d7a711fbdd` to exactly the reviewed
+candidate `f152134eac87c0cf84414ac6217794e7a4ca0102` and pushed to
+`origin/main`. Verified `origin/main` HEAD now equals this SHA.
+
+GitHub Actions: "Deploy to Hostinger" workflow run
+[#913](https://github.com/CodeByNath/compuzign-platform/actions/runs/33287433634),
+triggered by this push, `head_sha` = `f152134eac87c0cf84414ac6217794e7a4ca0102`,
+status `completed`, conclusion `success`.
+
+Not started: 8J-B (email rendering) and 8J-C (parity fixture) remain
+unauthorized — stopping here for ChatGPT's live/deployed review.
 
 ## Later Phases — Not Authorized Yet
 - **8J-B:** email consumes preserved snapshot using accepted commercial semantics: human labels, no raw CZ IDs, per-Leg streams, per-item finite Total, quote Contract Value/Ongoing, Initial Payment, add-on exclusion from primary TCV, Bundle children and quantities.
