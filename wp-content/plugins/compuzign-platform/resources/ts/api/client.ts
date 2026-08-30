@@ -43,7 +43,7 @@ export class ApiTimeoutError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
   const { apiRoot, nonce } = getConfig();
   const url = apiRoot.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
 
@@ -58,6 +58,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       headers: {
         'Content-Type': 'application/json',
         'X-WP-Nonce': nonce,
+        ...extraHeaders,
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller.signal,
@@ -80,7 +81,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const apiClient = {
-  get: <T>(path: string): Promise<T> => request<T>('GET', path),
+  // extraHeaders is additive only (e.g. Phase 8J-C2's X-Quote-View-Secret) —
+  // never a substitute for the standard Content-Type/X-WP-Nonce pair above.
+  get: <T>(path: string, extraHeaders?: Record<string, string>): Promise<T> => request<T>('GET', path, undefined, extraHeaders),
   post: <T>(path: string, body?: unknown): Promise<T> => request<T>('POST', path, body),
   // PUT/PATCH serve the Category station family. Some hosts block these verbs;
   // if Hostinger rejects them, switch these two to POST + an
