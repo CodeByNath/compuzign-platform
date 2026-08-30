@@ -1,38 +1,34 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `AWAITING CHATGPT REVIEW` — 8J-C3 candidate pushed (final chain candidate).
-- 8J-A accepted/deployed at `main@f152134e...`; 8J-B accepted/deployed at `main@c8a0f2b...`.
+- `SOURCE PUSH APPROVED` — full 8J-C1+C2+C3 review chain accepted for one production push.
+- Production base remains `main@c8a0f2b43b94631232fa5befcb2b1d679f295a9b`.
+- Accepted review head: `195896e0376c5b4988c4337f0ded769fb0c3bc09` (6 commits ahead of production).
+- Auditor verdict: `Proceed with safeguards`.
 
 ## Locked Architecture
-Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry**. Submitted snapshot is authoritative; never rebuild from current catalog/pricing state. Target journey: customer email -> secure quote view -> stored submitted snapshot -> accepted proposal / Print / Save as PDF. No second PDF renderer.
+Keep `/requests/submit`, `cz_quote_<ref>`, transient storage and **7-day expiry**. Stored submitted snapshot is authoritative; never rebuild from current catalog/pricing. Customer journey: email -> secure quote view -> exact stored snapshot -> existing proposal -> Print / Save as PDF. WordPress remains runtime/host/storage only.
 
-WordPress is runtime/host/storage only. CompuZign owns public quote-view behavior and identity.
+## Accepted C1–C3 Chain
+**C1:** 32-byte CSPRNG view secret; only SHA-256 hash persisted; `hash_equals`; public read boundary requires `X-Quote-View-Secret`; uniform non-disclosing failures; explicit response allow-list; no query-string credential.
 
-## 8J-C1 — Accepted on Review Chain
-Accepted at `b122eb777cd8517324212a29fba7ea692ca984b9`; do not deploy alone. Secret is 32-byte CSPRNG, only its SHA-256 hash is persisted, verification uses `hash_equals`, and transport is fragment -> `X-Quote-View-Secret` header with uniform non-disclosing failures.
+**C2:** code-owned `/compuzign-quote-view/` entrypoint via `RequestsModule::quoteViewUrl()`; fragment is read client-side and sent as the C1 header; proposal/print renderer reused; no live catalog re-resolution. Legacy Service/Bundle descriptions required for parity are captured only into the submitted snapshot, sanitized, and rendered from there.
 
-## 8J-C2 — Accepted on Review Chain
-Candidate correction head `da3fc0cf87eb0f4d9ae439012a9daa320e248ad2` is accepted. Independent compare confirms one correction commit on prior C2. The stable CompuZign-owned runtime entrypoint is `/compuzign-quote-view/` via `RequestsModule::quoteViewUrl()`, with no manually-authored WP Page dependency. Legacy Service/Bundle descriptions are now captured only into the outgoing submitted snapshot, sanitized, and reused by `QuoteProposalPreview`; Family commercial behavior is untouched. Reported focused PHP/contracts, all 53 npm contracts, `tsc`, build and docs checks passed.
+**C3:** independently audited commit `195896e...` is one commit on accepted C2. `submitRequest()` builds the link from `RequestsModule::quoteViewUrl($quoteRef) . '#' . $viewSecret`; raw secret stays local, is not persisted or returned, and customer `quote_cart` email alone receives the escaped View / Print Quote action. Admin and assessment email behavior remain unchanged. Focused contract exercises real submit flow and asserts fragment-only transport, no raw-secret persistence/response leak, and no link in admin/assessment emails.
 
-## Request Platform ID — Deferred to CRM Durable-Record Phase
-Claude correctly stopped because `PlatformIdentifierPolicy` has no Request entity/prefix. Deeper auditor review found a more important boundary: Platform IDs are permanent owner-backed identities with reservation/binding/tombstone semantics, while the current quote snapshot is an automatically expiring 7-day transient. Minting and binding `CZRxxxxx` to the transient now would leave a permanent bound identity after owner storage silently expires, unless we also redesign persistence/lifecycle — outside 8J and contrary to the narrow scope.
+Cumulative compare from production to `195896e...` is exactly the reviewed six-commit 8J chain. `main` was independently confirmed still at `c8a0f2b...`; no premature C1/C2 deployment occurred.
 
-Therefore do **not** add Request Platform ID in 8J. Lock the proposal for the first durable CRM Request phase: entity `request`, proposed prefix `CZR`, native reference `quote_ref`, using the existing shared Platform Identifier Station when the durable Request record becomes authoritative. No separate Quote identity is needed. `quote_ref` remains customer reference; view secret remains authorization; WP IDs/transient keys remain storage details.
+## Claude — Production Push Now
+Push the **accepted cumulative review head `195896e0376c5b4988c4337f0ded769fb0c3bc09`** to `main` using the normal project workflow. Do not add or amend source while pushing. After push:
+1. record the exact resulting `main` SHA;
+2. record the GitHub Actions deployment run ID/status/head SHA;
+3. verify the deployed workflow targets that exact main SHA;
+4. set this file to `AWAITING CHATGPT REVIEW` and stop.
 
-## Phase 8J-C3 — Claude Report
+Do not perform live quote submission on ChatGPT's behalf. Final customer validation requires a real submission/email and therefore mutates transient/mail state; it will be done only with explicit user authorization or by the user.
 
-Branch: `phase-8j-c1-quote-view-boundary`, head `195896e0376c5b4988c4337f0ded769fb0c3bc09`. Not on `main`.
+## Request Platform ID — Deferred
+Do not add Platform identity in 8J. First durable CRM Request phase owns proposed `request` / `CZRxxxxx`, native reference `quote_ref`, through the existing Platform Identifier Station. No separate Quote identity.
 
-1. `RequestsController::submitRequest()` builds `$quoteViewLink = RequestsModule::quoteViewUrl($quoteRef) . '#' . $viewSecret` in a local variable, after `$payload` (without it) is already persisted — never added to `$payload`, never in the REST JSON response, never logged.
-2. `NotificationTemplates::buildCustomerHtmlEmail()` gained an optional `$quoteViewLink` param, rendered (href + text both escaped via `esc_url()`/`esc_html()`) only on the `quote_cart` branch, right after the Reference Badge. The `free_it_assessment` branch ignores the parameter entirely — verified directly by passing a non-empty forced link into that branch and asserting it never appears. Admin email untouched (no link, no signature change).
-3. Escaping confirmed above; no persistence/response leak confirmed by test below.
-4. No changes to email arithmetic elsewhere, the quote-view read API, transient expiry, cart/PDF UI, pricing/resolvers, or CRM.
-5. New `tests/quote-view-email-link.php` runs the real `submitRequest()` end to end (stubbed WP surface): stored transient never carries a raw `view_secret` key; REST response has only its 3 documented fields; customer email's link is fragment-only (`#`, never `?secret=`/`&secret=`) and its base exactly equals `RequestsModule::quoteViewUrl($quoteRef)`; admin email never carries the action; assessment customer email never carries it; the raw secret appears exactly once in the customer email body (no accidental duplication).
-
-Tests/checks (all passed): the new test plus every existing Requests-module PHP test, the 7 other focused contracts, full sweep of all 53 `npm run contract:*`, `tsc`, `build` (no dist change — no frontend files touched), `docs:check`.
-
-After this review, the whole C1+C2+C3 chain may be approved for one production push/deploy, followed by one end-to-end live validation: submit quote -> customer email -> secure reload -> proposal parity -> Print / Save as PDF.
-
-## Next Work — CRM Station
-After 8J closes, plan CRM properly. First handoff phase stays small: Station list/view for requests with Pending / Approved / Cancelled, client contact and first-email/work handling. That durable Request phase is where `CZR` Platform identity should be integrated.
+## Next Work
+After deployment is independently verified and the end-to-end customer email -> secure reload -> proposal -> print flow is live-validated, close 8J. Only then plan the small CRM Station handoff phase.
