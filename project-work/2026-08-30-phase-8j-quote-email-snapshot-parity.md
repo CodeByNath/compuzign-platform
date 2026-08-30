@@ -1,42 +1,37 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `READY FOR CLAUDE — 8J-B correction`
-- `SOURCE PUSH NOT APPROVED`
+- `SOURCE PUSH APPROVED` — exact 8J-B candidate only.
 - 8J-A accepted/deployed at `main@f152134eac87c0cf84414ac6217794e7a4ca0102`.
 - Auditor verdict: `Proceed with safeguards`.
-- Phase 8I remains the accepted cart/review/proposal reference; do not reopen it.
+- Phase 8I remains the accepted cart/review/proposal reference; do not reopen or improve its semantics here.
 
 ## Locked Architecture
 Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry** unchanged.
 
-`resolved customer selection -> FamilyTierQuoteItem snapshot -> server validation/sanitisation -> 7-day transient snapshot -> email`
-
-Never re-resolve live pricing/catalog state. Family add-ons remain separate from the primary Family TCV/Initial Payment calculation exactly as the accepted quote surfaces do.
+Existing flow stays intact: the same submitted quote payload feeds the existing admin notification and customer email builders. 8J only wires the richer Family snapshot already established by the accepted cart/review/PDF work into that existing notification path. Do not invent a new quote engine, identity model, persistence model, resolver, or commercial rule.
 
 ## Phase 8J-A — Accepted
-`main@f152134eac87c0cf84414ac6217794e7a4ca0102`; Hostinger workflow #913 succeeded.
+`main@f152134eac87c0cf84414ac6217794e7a4ca0102`; Hostinger workflow #913 succeeded. RequestSchema now preserves the Family snapshot fields the final quote surfaces already use.
 
-## 8J-B Candidate Review
-Claude review branch `phase-8j-b-quote-email-parity`, candidate `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`, is exactly one commit ahead of accepted main. Diff scope is four files: `NotificationTemplates.php`, new focused email parity test, updated package-family notification test, and quote-builder code map.
+## Phase 8J-B — Independent Re-audit
+Review branch `phase-8j-b-quote-email-parity`; candidate `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`; exactly one commit ahead of accepted main. Four-file scope only: `NotificationTemplates.php`, focused email parity test, existing Family notification test, quote-builder Code Map.
 
-Most of the implementation is directionally correct: Family emails consume only the preserved snapshot, render separate Leg streams, Edition/inclusion/Bundle quantities, suppress raw IDs only for customer email while retaining them for admin, and preserve legacy fallback.
+### Correction to prior auditor finding
+The previous instruction claiming a Family add-on must not trigger enhanced Family summary mode was **wrong and is withdrawn**. Source-first re-audit of the accepted Phase 8I implementation confirms both `OrderSummary.tsx` and `QuoteProposalPreview.tsx` deliberately compute `hasMultiStreamItem` across **all Family items**, then exclude all Family items from general totals while primary-only `familyMainItems` feed combined Contract Value/Initial Payment. Candidate 8J-B reproduces that exact established behavior. Do not “fix” or reinterpret it in email work.
 
-### Blocking correctness finding
-`buildQuoteSections()` currently sets `$hasMultiStreamItem` by scanning **both** `familyMainItems` and `familyAddonItems`. That flag then:
-- removes **all Family items** from the old general-cycle totals;
-- emits `familyContractValueBlock()` and `familyInitialPaymentRow()` using **primary Family items only**.
+The existing notification architecture also already has separate public `buildAdminHtmlEmail()` and `buildCustomerHtmlEmail()` entry points while sharing row/totals helpers. Candidate keeps that flow and only adds Family-aware rendering from the submitted snapshot. Admin retains operational CZ IDs; customer output suppresses them to match accepted customer quote surfaces. Legacy/non-Family fallback remains.
 
-This violates the locked add-on exclusion boundary. Example: a legacy/single-stream primary Family item plus a multi-stream Family add-on. The add-on alone flips the quote into enhanced Family-summary mode, the primary legacy Family line is removed from general totals, and `familyContractValueBlock()` sees no primary Leg summaries and reports `Contract Value: Ongoing`. The add-on has incorrectly changed the primary quote summary even though it must not enter primary TCV/Initial Payment.
+### Audit verdict
+`Proceed with safeguards.` No architectural blocker found in candidate `c8a0f2b...`. The email must mirror the existing accepted cart/PDF behavior even where a hypothetical alternative rule might seem preferable; parity is the requirement for this phase.
 
-## Claude — Correct 8J-B on Same Review Branch
-1. Make the enhanced Family TCV/Initial-Payment mode eligibility derive from **primary `familyMainItems` only**. A Family add-on must never trigger, suppress, or alter the primary Family summary mode.
-2. Keep each add-on's own snapshotted Leg streams/per-item Total rendering unchanged.
-3. Preserve correct handling of mixed legacy/non-Family totals. Do not broadly hide Family headline totals merely because an add-on is multi-stream.
-4. Add a focused regression fixture: primary Family item with no `legPaymentSummaries` (legacy/single-stream fallback) + Family add-on with multi-stream/ongoing summaries. Assert the add-on does **not** trigger `Contract Value: Ongoing`, does not remove/suppress the primary's legacy cycle total, and does not enter Initial Payment/primary TCV.
-5. Retain the existing customer-ID suppression/admin-ID split and all other accepted 8J-B behavior.
-6. Do not change RequestSchema, pricing/resolvers, snapshot construction, 7-day lifecycle, controller flow, cart/review/PDF, or catalog state.
-7. Run focused email tests plus relevant existing contracts/checks. Commit/push the correction to the **same non-production review branch**, record new SHA/tests here, set `AWAITING CHATGPT REVIEW`, and stop. Do not push `main`.
+## Claude — Production Action
+1. **Do not implement the previously requested add-on correction.** If any uncommitted/local correction work was started after coordination commit `9003d867...`, discard only that 8J-B correction work and return the review branch to exact candidate `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`.
+2. Reconfirm `origin/main` is exactly `f152134eac87c0cf84414ac6217794e7a4ca0102`.
+3. Fast-forward `main` to **exactly** `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`; no amend, new source commit, merge commit, or extra cleanup.
+4. Push `main` and allow normal GitHub Actions Hostinger deployment.
+5. Record resulting full `main` SHA and workflow run/status here; set `AWAITING CHATGPT REVIEW`; stop.
+6. Do not begin 8J-C or make further email/cart/PDF changes.
 
 ## Phase 8J-C — Not Authorized
-Cross-boundary/live validation follows only after corrected 8J-B source review and production approval.
+Post-deployment cross-boundary/customer-email validation follows only after the exact 8J-B production push is independently verified.
