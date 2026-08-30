@@ -1,11 +1,9 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `READY FOR CLAUDE` — Phase 8J-C1 only.
-- `SOURCE PUSH NOT APPROVED`.
+- `AWAITING CHATGPT REVIEW` — 8J-C1 candidate ready for independent audit.
 - 8J-A accepted/deployed at `main@f152134eac87c0cf84414ac6217794e7a4ca0102`.
 - 8J-B accepted/deployed at `main@c8a0f2b43b94631232fa5befcb2b1d679f295a9b`; Hostinger run #914 succeeded.
-- Auditor verdict: `Proceed with safeguards`.
 
 ## Locked Architecture
 Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry**. The submitted snapshot remains authoritative; never rebuild a submitted quote from live Rate Sheets/Tiers/Legs/catalog state.
@@ -15,18 +13,52 @@ Existing admin/customer notification flow remains. The next customer feature is 
 ## 8J-A / 8J-B — Accepted
 RequestSchema preserves the richer Family snapshot and the existing notification builders now render it with accepted cart/PDF semantics. Customer email hides raw CZ IDs; admin keeps operational identity.
 
-## Phase 8J-C1 — Secure Quote Retrieval Boundary Only
-Implement only the secure read boundary. Do **not** build the customer page or add the email button/link yet.
+## Phase 8J-C1 — Claude Report
 
-1. Audit `RequestsController`, request schema, request-flow API/bootstrap, and existing WordPress routing conventions first.
-2. On successful quote submission, create a **cryptographically strong unguessable view secret server-side**. The current short `CZ-xxxxxx` quote reference is identification only and must never be sufficient to retrieve customer quote data.
-3. Keep the existing `cz_quote_<ref>` transient and 7-day lifetime. Store only what is necessary to verify the view secret with that snapshot; prefer storing a one-way hash rather than the raw bearer secret when practical.
-4. Add a public read endpoint for one stored quote that requires both quote reference and valid view secret. No WordPress-login/REST nonce requirement for the email recipient, but invalid/missing secret, missing/expired transient, or malformed reference must return a non-disclosing failure. Use constant-time secret comparison.
-5. Returned data must come **only from the stored submitted snapshot**. Do not query current catalog/pricing state.
-6. Do not expose server-only verification material in the response. Return only the fields needed by the future customer quote renderer; do not broaden PII beyond what the accepted proposal needs.
-7. Do not change current email content, customer UI, cart/PDF, notification arithmetic, quote-ref format, CRM storage, or transient expiry.
-8. Add focused contracts for valid access, wrong secret, missing/expired quote, no quote-ref-only access, and no secret/hash leakage.
-9. Commit/push to a non-production review branch, record exact SHA/files/tests here, set `AWAITING CHATGPT REVIEW`, and stop. Do not push main.
+Branch: `phase-8j-c1-quote-view-boundary` (from `main@c8a0f2b4`), pushed to
+`origin/phase-8j-c1-quote-view-boundary`. Not pushed to `main`.
+
+Commit: `c147050cbe072369dbc99e19b6e820230ccef3ad`.
+
+Design: on submission, generate a 32-byte CSPRNG secret
+(`QuoteViewSecret::generate()`, `bin2hex(random_bytes(32))`); persist only
+its SHA-256 hash as a new `view_secret_hash` key on the existing
+`cz_quote_<ref>` transient payload (key/7-day lifetime unchanged). The raw
+secret is not yet surfaced anywhere (no email/UI wiring — deferred to
+8J-C3) — this phase is the read boundary only, exactly as scoped.
+
+New `GET /requests/quote/{ref}?secret=...` route (public, no nonce).
+`QuoteViewAccess::resolve()` is the pure resolver (no transient/REST calls,
+so contracts exercise it directly, mirroring `RequestSchema::validate()`'s
+own separation from its WP-REST caller): malformed ref, no/wrong secret,
+missing/expired quote, and a legacy snapshot with no stored hash all return
+one identical `['ok' => false]`; the controller renders one generic 404 for
+all of them. Verification uses `hash_equals()` (constant-time). The
+returned quote is an explicit 8-field allow-list (quote_ref, type, contact,
+company, email, phone, submitted, items) — never the raw payload, never the
+hash. `RequestSchema::QUOTE_REF_PATTERN` extracted as a shared constant so
+the read boundary reuses the exact reference shape rather than a second
+regex literal.
+
+Files: `RequestsController.php` (new route + `getQuote()`, secret
+generation wired into `submitRequest()`), `RequestSchema.php`
+(`QUOTE_REF_PATTERN` constant), `QuoteViewSecret.php` (new),
+`QuoteViewAccess.php` (new), `tests/quote-view-access-boundary.php` (new —
+generation/hash sanity, valid access, wrong secret, no-secret,
+missing/expired, malformed ref, legacy-no-hash, non-string-hash,
+non-array-payload), `docs/code-map/quote-builder.md`.
+
+Tests/checks (all passed): the new contract plus every existing
+Requests-module PHP test; `contract:quote-cart-addon`,
+`contract:tier-addon-flow`, `contract:tier-edition-switch`,
+`contract:request-flow-family-tier-parity`; full sweep of all 50
+`npm run contract:*`; `npx tsc --noEmit`; `npm run build`;
+`npm run docs:check`.
+
+No changes to email content, customer UI, cart/PDF, notification
+arithmetic, quote-ref format, CRM storage, or transient expiry.
+
+Unresolved: none for this scope. 8J-C2/8J-C3 remain unauthorized.
 
 ## Later — Not Authorized Yet
 - **8J-C2:** customer quote-view route/page reusing the accepted proposal rendering and Print / Save as PDF from the stored snapshot.
