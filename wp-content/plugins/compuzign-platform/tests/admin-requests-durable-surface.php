@@ -201,4 +201,39 @@ check_admin_requests(count($listAfterLegacy['requests']) === 3, 'the list now co
 $legacyRow = array_values(array_filter($listAfterLegacy['requests'], fn (array $r) => $r['quote_ref'] === 'CZ-ADM003'))[0] ?? null;
 check_admin_requests($legacyRow !== null && $legacyRow['status'] === RequestLifecycle::STATUS_PENDING, 'the legacy record also lists as pending, not new');
 
+// ── A family_tier item's full snapshot passes through unchanged ────────────
+//
+// RequestSchema::sanitizeItems() unsets serviceTitle/categoryName for a
+// family_tier line and stores familyTitle/tierTitle/tierEditionTitle/
+// inclusionItems/legPaymentSummaries/Platform IDs instead. detail()'s own
+// allow-list only ever assigns 'items' => $data['items'] wholesale — it must
+// never re-shape or drop fields from an individual line, whatever offer_type
+// it carries.
+$familyItem = [
+    'offer_type' => 'family_tier',
+    'tierTitle' => 'Omnia Basic',
+    'tierId' => 'basic',
+    'price' => 200,
+    'billingCycle' => 'monthly',
+    'features' => [],
+    'isAddon' => false,
+    'familyId' => 'pcg_omnia',
+    'familyPlatformId' => 'CZPG-OMNIA001',
+    'familyTitle' => 'OMNIA',
+    'tierInstanceId' => 'ti_omnia',
+    'tierInstancePlatformId' => 'CZTG-OMNIA001',
+    'tierOccupantId' => 'occ_basic',
+    'tierPlatformId' => 'CZT-OMNIA0001',
+    'tierEditionPlatformId' => 'CZTE-OMNIA001',
+    'tierEditionTitle' => 'Annual',
+    'inclusionItems' => null,
+    'legPaymentSummaries' => null,
+];
+$familyOutcome = seedDurable($requests, 'CZ-ADM004', 'Family Buyer', [$familyItem]);
+
+$familyDetail = $controller->getRequest(new WP_REST_Request(['ref' => 'CZ-ADM004']))->get_data()['request'];
+check_admin_requests(count($familyDetail['items']) === 1, 'the family_tier item survives detail projection');
+check_admin_requests($familyDetail['items'][0] === $familyItem, 'the family_tier item passes through byte-for-byte — no field dropped or reshaped by the allow-list');
+check_admin_requests(!array_key_exists('serviceTitle', $familyDetail['items'][0]), 'a family_tier item still carries no serviceTitle — nothing backfills it server-side either');
+
 echo "Admin requests durable surface checks passed.\n";

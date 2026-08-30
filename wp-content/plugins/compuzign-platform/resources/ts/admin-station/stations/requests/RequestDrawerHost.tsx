@@ -17,8 +17,9 @@
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { fetchAdminRequest } from '@/api/endpoints/admin';
 import { useApi } from '@/hooks/useApi';
+import { requestItemDisplay } from './requestItemDisplay';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
-import type { RequestEntry, RequestLine } from '@/api/types/admin';
+import type { RequestEntry } from '@/api/types/admin';
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
   quote_cart: 'Quote request',
@@ -30,12 +31,6 @@ const REQUEST_STATUS_LABELS: Record<string, string> = {
   approved: 'Approved',
   cancelled: 'Cancelled',
 };
-
-function formatPrice(item: RequestLine): string {
-  if (item.price === null) return 'Custom pricing';
-  const cycle = item.billingCycle ? ` / ${item.billingCycle}` : '';
-  return `$${item.price.toFixed(2)}${cycle}`;
-}
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -82,18 +77,21 @@ export function RequestDrawerHost({ recordId }: DrawerContentProps) {
           <p class="cz-station-empty">No cart items — this is a {REQUEST_TYPE_LABELS[request.type] ?? request.type}.</p>
         ) : (
           <ul class="cz-requests-drawer__items">
-            {request.items.map((item, index) => (
-              // The submitted snapshot carries no stable per-line id — it is an
-              // immutable array from the customer's own submission, never
-              // reordered or mutated after the fact, so a positional key is safe.
-              <li key={index} class="cz-requests-drawer__item">
-                <span class="cz-requests-drawer__item-copy">
-                  <strong>{item.serviceTitle}</strong>
-                  <small>{[item.categoryName, item.tierTitle].filter(Boolean).join(' · ')}</small>
-                </span>
-                <span class="cz-requests-drawer__item-price">{formatPrice(item)}</span>
-              </li>
-            ))}
+            {request.items.map((item, index) => {
+              const display = requestItemDisplay(item);
+              return (
+                // The submitted snapshot carries no stable per-line id — it is
+                // an immutable array from the customer's own submission, never
+                // reordered or mutated after the fact, so a positional key is safe.
+                <li key={index} class="cz-requests-drawer__item">
+                  <span class="cz-requests-drawer__item-copy">
+                    <strong>{display.title}</strong>
+                    {display.subtitle !== '' && <small>{display.subtitle}</small>}
+                  </span>
+                  <span class="cz-requests-drawer__item-price">{display.price}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </ReadBlock>

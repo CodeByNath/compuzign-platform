@@ -13,6 +13,8 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { requestItemDisplay } from '../resources/ts/admin-station/stations/requests/requestItemDisplay';
+import type { RequestLine } from '../resources/ts/api/types/admin';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Requests Admin Station surface contract: ${message}`);
@@ -119,5 +121,64 @@ check(
 // proven dynamically by tests/admin-requests-durable-surface.php, including
 // the defense-in-depth case where a stored snapshot is deliberately poisoned
 // with the key and the projection still excludes it.
+
+// ── Correction: a family_tier line renders a non-blank identity ────────────
+// RequestSchema::sanitizeItems() unsets serviceTitle/categoryName for a
+// family_tier line and stores familyTitle/tierTitle/tierEditionTitle instead
+// — the exact Package Family/Tier requests CRM most needs to review must not
+// show a blank primary item name.
+
+const familyLine: RequestLine = {
+  offer_type: 'family_tier',
+  tierTitle: 'Omnia Basic',
+  tierId: 'basic',
+  price: 200,
+  billingCycle: 'monthly',
+  features: [],
+  isAddon: false,
+  familyId: 'pcg_omnia',
+  familyPlatformId: 'CZPG-OMNIA001',
+  familyTitle: 'OMNIA',
+  tierInstanceId: 'ti_omnia',
+  tierInstancePlatformId: 'CZTG-OMNIA001',
+  tierOccupantId: 'occ_basic',
+  tierPlatformId: 'CZT-OMNIA0001',
+  tierEditionPlatformId: 'CZTE-OMNIA001',
+  tierEditionTitle: 'Annual',
+  inclusionItems: null,
+  legPaymentSummaries: null,
+};
+
+const familyDisplay = requestItemDisplay(familyLine);
+check(familyDisplay.title === 'OMNIA', `a family_tier line's title is its familyTitle, not a blank serviceTitle — got '${familyDisplay.title}'`);
+check(
+  familyDisplay.subtitle === 'Omnia Basic · Annual',
+  `a family_tier line's subtitle is Tier · Edition, not a blank categoryName pairing — got '${familyDisplay.subtitle}'`,
+);
+check(familyDisplay.price === '$200.00 / monthly', 'the price shown is the line\'s own stored headline snapshot, never a computed total');
+
+// The legacy Service/Bundle display shape is unchanged by this correction.
+const legacyLine: RequestLine = {
+  offer_type: 'tier',
+  tierTitle: 'IaaS Starter Cloud',
+  tierId: 'starter',
+  price: 100,
+  billingCycle: 'monthly',
+  features: [],
+  isAddon: false,
+  serviceId: 1,
+  serviceTitle: 'KAIROS',
+  categoryName: 'Cloud',
+};
+const legacyDisplay = requestItemDisplay(legacyLine);
+check(legacyDisplay.title === 'KAIROS', 'a legacy line\'s title remains its serviceTitle, unchanged by the family_tier correction');
+check(legacyDisplay.subtitle === 'Cloud · IaaS Starter Cloud', 'a legacy line\'s subtitle remains Category · Tier, unchanged');
+
+// No per-item Platform ID (familyPlatformId, tierPlatformId, etc.) is ever
+// exposed by the display projection — only the Request's own CZR (rendered
+// separately, from RequestEntry.platform_id) is intended plumbing.
+for (const value of Object.values(familyDisplay)) {
+  check(!String(value).startsWith('CZPG') && !String(value).startsWith('CZT'), 'the family_tier display never surfaces a raw per-item Platform ID');
+}
 
 console.log('Requests Admin Station surface contract checks passed.');

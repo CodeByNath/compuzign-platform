@@ -66,15 +66,60 @@ export interface StationDef {
 
 export type RequestStatus = 'pending' | 'approved' | 'cancelled';
 
+// One inclusion snapshot row (RequestSchema::sanitizeInclusionItems()) — a
+// Bundle parent carries no quantity and nests its real children in `includes`.
+export interface RequestInclusionItem {
+  id: string;
+  label: string;
+  quantity?: number;
+  bundle_id?: string;
+  includes?: RequestInclusionItem[];
+}
+
+// One Leg payment stream snapshot (RequestSchema::sanitizeLegPaymentSummaries()).
+export interface RequestLegPaymentSummary {
+  source: string;
+  billingCycle: string | null;
+  price: number | null;
+  startMonth: number;
+  endMonth: number | null;
+  isOngoing: boolean;
+  occurrenceMonths: number[];
+  subtotal: number | null;
+}
+
+// Matches RequestSchema::sanitizeItems()'s real stored shape exactly: a
+// legacy Service/Bundle/Tier-add-on line and a `family_tier` line share only
+// tierTitle/tierId/price/billingCycle/features/offer_type/isAddon — every
+// other field is present on exactly one of the two branches, never both
+// (the legacy branch's serviceTitle/categoryName are explicitly unset for
+// `family_tier`, and vice versa for serviceId/serviceDescription).
 export interface RequestLine {
-  serviceId: number;
-  serviceTitle: string;
-  categoryName: string;
+  offer_type: string;
   tierTitle: string;
   tierId: string;
   price: number | null;
   billingCycle: string;
   features: string[];
+  isAddon: boolean;
+  // Legacy Service/Bundle/Tier-add-on lines only.
+  serviceId?: number;
+  serviceTitle?: string;
+  categoryName?: string;
+  serviceDescription?: string | null;
+  bundleDescription?: string | null;
+  // `family_tier` lines only (Phase 8J-A/8J-B snapshot fields).
+  familyId?: string;
+  familyPlatformId?: string;
+  familyTitle?: string;
+  tierInstanceId?: string;
+  tierInstancePlatformId?: string;
+  tierOccupantId?: string;
+  tierPlatformId?: string;
+  tierEditionPlatformId?: string;
+  tierEditionTitle?: string | null;
+  inclusionItems?: RequestInclusionItem[] | null;
+  legPaymentSummaries?: RequestLegPaymentSummary[] | null;
 }
 
 export interface RequestEntry {
