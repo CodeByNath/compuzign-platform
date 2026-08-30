@@ -4,6 +4,11 @@ namespace CompuZign\Platform\Modules\Requests\Support;
 
 class RequestSchema
 {
+    /** The one client-or-minted quote reference shape — reused wherever a
+     *  reference needs validating (e.g. QuoteViewAccess's read boundary)
+     *  rather than a second/diverging pattern literal. */
+    public const QUOTE_REF_PATTERN = '/^CZ-[A-Z0-9]{6}$/';
+
     /**
      * Validate and sanitise a quote-cart submission request.
      *
@@ -73,7 +78,7 @@ class RequestSchema
      */
     public static function resolveQuoteRef(string $raw): string
     {
-        if (preg_match('/^CZ-[A-Z0-9]{6}$/', $raw)) {
+        if (preg_match(self::QUOTE_REF_PATTERN, $raw)) {
             return $raw;
         }
 

@@ -3,6 +3,8 @@
 namespace CompuZign\Platform\Modules\Requests\Http;
 
 use CompuZign\Platform\Modules\Requests\Notifications\NotificationTemplates;
+use CompuZign\Platform\Modules\Requests\Support\QuoteViewAccess;
+use CompuZign\Platform\Modules\Requests\Support\QuoteViewSecret;
 use CompuZign\Platform\Modules\Requests\Support\RequestSchema;
 
 class RequestsController
@@ -19,6 +21,21 @@ class RequestsController
             'callback'            => [$this, 'submitRequest'],
             'permission_callback' => [$this, 'verifyNonce'],
             'args'                => RequestSchema::restArgs(),
+        ]);
+
+        // Phase 8J-C1: the secure read boundary only — no customer page or
+        // email link consumes this yet (see project-work/2026-08-30-phase-8j-
+        // quote-email-snapshot-parity.md). Public (no nonce/login) because the
+        // eventual caller is an emailed link, not an authenticated session;
+        // access is instead gated entirely by the view secret.
+        register_rest_route('compuzign/v1', '/requests/quote/(?P<ref>[A-Za-z0-9-]+)', [
+            'methods'             => 'GET',
+            'callback'            => [$this, 'getQuote'],
+            'permission_callback' => '__return_true',
+            'args'                => [
+                'ref'    => ['type' => 'string', 'required' => true],
+                'secret' => ['type' => 'string', 'required' => true],
+            ],
         ]);
     }
 
@@ -65,6 +82,11 @@ class RequestsController
         $payload  = $validated['data'];
         $quoteRef = $payload['quote_ref'];
 
+        // ── Phase 8J-C1: view secret (boundary only — not yet surfaced to any
+        //    caller; only the one-way hash is persisted). ──────────────────
+        $viewSecret                    = QuoteViewSecret::generate();
+        $payload['view_secret_hash']   = QuoteViewSecret::hash($viewSecret);
+
         // ── Persist to transient (7 days) ────────────────────────────────────
         set_transient('cz_quote_' . $quoteRef, $payload, 7 * DAY_IN_SECONDS);
 
@@ -103,6 +125,28 @@ class RequestsController
             'quote_id' => $quoteRef,
             'message'  => 'Your quote request has been received. We will be in touch within one business day.',
         ], 200);
+    }
+
+    /**
+     * Phase 8J-C1: the secure read boundary. Every failure path (malformed
+     * reference, missing secret, wrong secret, missing/expired transient, a
+     * pre-8J-C1 snapshot with no stored hash) returns the identical
+     * non-disclosing 404 — see QuoteViewAccess's docblock for why a
+     * distinguishing message is never safe here.
+     */
+    public function getQuote(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $ref    = (string) $request->get_param('ref');
+        $secret = (string) $request->get_param('secret');
+
+        $stored = get_transient('cz_quote_' . $ref);
+        $result = QuoteViewAccess::resolve($stored, $ref, $secret);
+
+        if (!$result['ok']) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Quote not found.'], 404);
+        }
+
+        return new \WP_REST_Response(['success' => true, 'quote' => $result['quote']], 200);
     }
 
 }
