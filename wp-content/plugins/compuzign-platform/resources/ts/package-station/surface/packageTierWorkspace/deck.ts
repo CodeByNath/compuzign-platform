@@ -56,13 +56,18 @@ export interface DeckSelection {
 }
 
 /**
- * A selection is an Inclusion either the ordinary way (Manager `source_type`)
- * or because it IS a self-priced Bundle row — the exact combination the
- * Tier's own deck already prices and counts as one included Feature. Shared
- * by every lane below so "what counts as an inclusion" is decided once.
+ * How many Inclusions one resolved selection contributes. A Bundle row is
+ * the Tier's commercial selection/pricing vehicle ONLY — never itself an
+ * Inclusion, the same split the customer Cost Builder already applies
+ * (`PricingTiers.tsx`'s `TierCard`: the Bundle row renders as a non-
+ * checkable section header, never counted, while its own `includes[]`
+ * render as the real checkable inclusion rows beneath it). What a Bundle
+ * counts as here is exactly what it supplies, never a hardcoded number.
+ * Shared by every lane below so "how many inclusions" is decided once.
  */
-function isInclusionSelection(selection: DeckSelection): boolean {
-  return selection.source_type === 'inclusion' || !!selection.bundle_id;
+function inclusionCountFor(selection: DeckSelection): number {
+  if (selection.bundle_id) return selection.includes?.length ?? 0;
+  return selection.source_type === 'inclusion' ? 1 : 0;
 }
 
 /** A relationship carrying the admin-read-model source categories for a row. */
@@ -199,29 +204,48 @@ export function buildRateItemCategoryMap(
  * selections appear (FAQs are not inclusions); each carries its Service-resolved
  * identity and its Rate Sheet-derived pricing exactly as the Tier already holds
  * them. Ordering follows the Tier's own selection order.
+ *
+ * A Bundle-backed selection is never rendered as its own row here — it is the
+ * Tier's commercial selection/pricing vehicle, not an Inclusion (the same
+ * split the customer Cost Builder already applies). It EXPANDS into the real
+ * supplied inclusion rows its `includes[]` names, each shown exactly like an
+ * ordinary directly-selected inclusion; a Bundle compiling nothing shows
+ * nothing, never a placeholder for the shell itself. Per-child pricing is
+ * never invented: a Bundle's own commercial price is independent of what its
+ * ingredients would sum to (see PackageManagerSchema's Bundle pricing rule),
+ * so a supplied child carries no unit price/per/line total of its own.
  */
 export function projectTierInclusions(
   selections: readonly DeckSelection[],
   categoryByRateItem: ReadonlyMap<string, string[]>,
 ): DeckInclusion[] {
-  return selections
-    .filter(isInclusionSelection)
-    .map((selection) => ({
+  return selections.flatMap((selection): DeckInclusion[] => {
+    if (selection.bundle_id) {
+      return (selection.includes ?? []).map((child) => ({
+        itemId:     child.item_id,
+        sourceId:   null,
+        name:       child.label,
+        categories: categoryByRateItem.get(child.item_id) ?? [],
+        quantity:   child.quantity,
+        unitPrice:  null,
+        per:        null,
+        lineTotal:  null,
+        resolved:   true,
+      }));
+    }
+    if (selection.source_type !== 'inclusion') return [];
+    return [{
       itemId:     selection.item_id,
       sourceId:   selection.source_id ?? null,
       name:       selection.label,
-      // A Bundle row carries no Manager source of its own to look up by
-      // `item_id` — its categories are the union of what it actually
-      // compiles, resolved the same way an ordinary row's own is.
-      categories: selection.bundle_id
-        ? [...new Set((selection.includes ?? []).flatMap((entry) => categoryByRateItem.get(entry.item_id) ?? []))]
-        : categoryByRateItem.get(selection.item_id) ?? [],
+      categories: categoryByRateItem.get(selection.item_id) ?? [],
       quantity:   selection.quantity,
       unitPrice:  selection.unit_price,
       per:        selection.per,
       lineTotal:  selection.line_total,
       resolved:   selection.resolved,
-    }));
+    }];
+  });
 }
 
 /**
@@ -251,7 +275,7 @@ export function projectTierRateSheetGroups(
     const bucket = buckets.get(groupId) ?? { connectedRows: 0, coverage: 0, connectedInclusions: 0 };
     bucket.connectedRows += 1;
     bucket.coverage += selection.quantity;
-    if (isInclusionSelection(selection)) bucket.connectedInclusions += 1;
+    bucket.connectedInclusions += inclusionCountFor(selection);
     buckets.set(groupId, bucket);
   }
 
@@ -299,7 +323,7 @@ export function projectTierRateSheet(
   for (const selection of selections) {
     if (!selection.resolved) continue;
     connectedRows += 1;
-    if (isInclusionSelection(selection)) connectedInclusions += 1;
+    connectedInclusions += inclusionCountFor(selection);
   }
   return {
     rateSheetId: rateSheet.rate_sheet_id,

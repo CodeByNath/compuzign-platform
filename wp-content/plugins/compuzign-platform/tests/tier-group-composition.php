@@ -316,19 +316,23 @@ check_composition(
     'a Tier Group with no occupants composes zeros, never the station\'s Rate Sheet inventory'
 );
 
-// ── A self-priced Bundle row is a real Inclusion, not a dropped one ──────────
+// ── A self-priced Bundle row expands into its real Inclusions ────────────────
 //
-// The live OMNIA — Banking defect: a Tier selecting only a Bundle-backed row
-// composed to zero everywhere, because the row carries no Manager
-// `source_item_id`/`source_type` of its own for the ordinary inclusion
-// lookup to find. The Tier's own pricing already treats a self-priced row as
-// resolved (`projectTierRateSheetWith`); the Tier Group's composition must
-// agree rather than silently drop it.
+// The live OMNIA — Banking defect, in two stages. First: a Tier selecting
+// only a Bundle-backed row composed to zero everywhere, because the row
+// carries no Manager `source_item_id`/`source_type` of its own for the
+// ordinary inclusion lookup to find. Second (live validation correction): a
+// naive fix that stopped dropping the row instead made the BUNDLE SHELL
+// ITSELF the one counted/displayed Inclusion — still wrong, since a Bundle
+// is the Tier's commercial selection/pricing vehicle, never an Inclusion in
+// its own right (the same split the customer Cost Builder already applies).
+// The correct composition is the real rows it supplies: SOC + Desk, counted
+// and deduped by THEIR OWN identity, never the combination row's.
 
 check_composition($omnia['tiers'] === 1, 'omnia registers its one occupant');
 check_composition(
-    $omnia['inclusions'] === 1,
-    'the self-priced Bundle row itself counts as ONE inclusion — the same combination the Tier prices, not the zero a Manager source_type lookup finds for it'
+    $omnia['inclusions'] === 2,
+    'a self-priced Bundle row is never itself counted as an Inclusion — its two REAL supplied rows (SOC + Desk) are, individually'
 );
 check_composition(
     $omnia['services'] === 2,
@@ -338,6 +342,24 @@ check_composition(
     $omnia['service_categories'] === 2,
     'the Bundle\'s Categories are likewise resolved from what it compiles, not from the combination row'
 );
+
+// A Tier directly selecting row_soc TOO — the same real row the Bundle
+// already compiles — must not double-count it: genuine dedup by the
+// supplied row's own identity, not suppression of a legitimately distinct
+// selection. Reverted immediately after so later sections see the
+// original one-occupant ti_omnia unchanged.
+$beforeOverlap = get_option('cz_package_station');
+$withDirectOverlap = $beforeOverlap;
+$withDirectOverlap['tier_instances'][3]['tiers']['standard'] =
+    composition_occupant('occ_o_standard', 'rs_shared', ['row_soc']);
+update_option('cz_package_station', $withDirectOverlap);
+$overlapRepository = new PackageRepository();
+$omniaOverlap = $overlapRepository->tierGroupProjection(PackagePlatformNativeReference::tierGroup('ti_omnia'))['composition'];
+check_composition(
+    $omniaOverlap['tiers'] === 2 && $omniaOverlap['inclusions'] === 2,
+    'row_soc reached both directly and via the Bundle is ONE inclusion, not two — dedup is by the real row\'s own identity'
+);
+update_option('cz_package_station', $beforeOverlap);
 
 // ── Derived, never persisted ────────────────────────────────────────────────
 
@@ -409,8 +431,8 @@ check_composition(
     'the batch returns exactly what the canonical CZTG read returns for the same group'
 );
 check_composition(
-    $batch['ti_omnia'] === ['tiers' => 1, 'service_categories' => 2, 'services' => 2, 'inclusions' => 1],
-    'the batch form (the Family card wall\'s own read) resolves the Bundle-backed row identically to the canonical CZTG read — the exact wall that read zero live'
+    $batch['ti_omnia'] === ['tiers' => 1, 'service_categories' => 2, 'services' => 2, 'inclusions' => 2],
+    'the batch form (the Family card wall\'s own read) resolves the Bundle\'s real supplied rows identically to the canonical CZTG read — the exact wall that read zero live'
 );
 check_composition(
     $batch['ti_aptos']['inclusions'] === 2 && $batch['ti_aptos']['services'] === 2,
