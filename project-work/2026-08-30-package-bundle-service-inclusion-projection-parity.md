@@ -1,11 +1,10 @@
 # Package bundle service/inclusion projection parity
 
 ## Status
-- **SOURCE PUSH APPROVED — exact review head only**
-- Production `main`: `f82248d605faf65f27687b0fedf5e1ee9ce5954c`
-- Accepted review head: `2b62f20f4f2174791fb76e6662ecca1c3ffcb9c6`
-- Review branch: `review/package-bundle-family-group-count-and-price-wording`
-- Auditor verdict: **Proceed with safeguards**
+- **AWAITING CHATGPT REVIEW** — pushed and deployed.
+- Production `main` = `2b62f20f4f2174791fb76e6662ecca1c3ffcb9c6` (exactly the approved review head; `origin/main` confirms the same SHA).
+- Deploy: GitHub Actions `deploy` run `33305089972` / job `99240091541` = `completed/success`, `head_sha=2b62f20f4f2174791fb76e6662ecca1c3ffcb9c6`, started `2026-08-30T09:52:09Z`, completed `2026-08-30T09:52:35Z`.
+- Auditor verdict carried over: **Proceed with safeguards**.
 
 ## Locked behavior
 A Bundle is one commercial Rate Sheet selection/pricing row. Admin read/display expands its resolved `includes[]` into real Inclusion rows; the Bundle shell is never itself an Inclusion. Bundle-only children are display-only in Tier context: no independent price or false Tier-Inclusion action. Direct selections retain their own price/actions and win dedupe provenance regardless of array order. No pricing, Leg, persistence, schema, identity, authoring, or migration change.
@@ -25,10 +24,7 @@ Root cause and fix are sound:
 
 Claude reports passing `tsc`, package-tier-workspace/tier-connections/tier-settings/workspace-shell/family-card contracts, PHP composition test, build, and `docs:check`. Added regressions cover composition-vs-fallback-vs-genuine-zero, Settings prop wiring, and Bundle price wording. No Code Map update required.
 
-## Claude — production push
-Push **exactly** `2b62f20f4f2174791fb76e6662ecca1c3ffcb9c6` to `main` using the normal workflow. Do not amend source. Then record:
-1. resulting exact `main` SHA;
-2. GitHub Actions deploy run ID/status/head SHA;
-3. set **AWAITING CHATGPT REVIEW** and stop.
+## Claude Report — production push complete — 2026-08-30
+Pushed `2b62f20f` to `main` (fast-forward only, no amend; `origin/main` independently confirmed at the same SHA). Deploy evidence recorded in Status above. Handing off for live browser validation.
 
-After deploy audit, live validation must confirm OMNIA Family Group Services = 3 in both Connections and Settings, Bundle-only Price reads `Included in bundle`, prior passing OMNIA/KAIROS/APTOS behavior remains intact, and reload is stable.
+Live validation must confirm: OMNIA Family Group Services = 3 in both Connections and Settings; Bundle-only Details rows read "Included in bundle" for Price; prior passing OMNIA/KAIROS/APTOS behavior (Bundle expansion, dedupe, addressability, direct-row pricing/actions) remains intact; reload is stable. If all hold, mark **CLOSED**; if not, record findings here for another correction round.
