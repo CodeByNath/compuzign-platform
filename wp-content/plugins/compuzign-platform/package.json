@@ -55,6 +55,7 @@
     "contract:tier-lifecycle-menu": "tsx scripts/tier-lifecycle-menu-contract.ts",
     "contract:api-client-timeout": "tsx scripts/api-client-timeout-contract.ts",
     "contract:quote-view": "tsx scripts/quote-view-contract.ts",
+    "contract:quote-view-print-portal": "tsx scripts/quote-view-print-portal-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
     "regression:entity-action-footer-menu-only": "node scripts/entity-action-footer-menu-only-regression.mjs",
     "regression:tier-occupant-lifecycle": "node scripts/tier-occupant-lifecycle-regression.mjs",

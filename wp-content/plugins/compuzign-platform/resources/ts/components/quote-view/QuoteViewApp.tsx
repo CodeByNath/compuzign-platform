@@ -14,8 +14,7 @@ import type { ContactFormValues } from '@/components/request-flow/types';
  * proxy, unlike a query parameter (see RequestsController's docblock for
  * why the secret is a header, never a query param, on the API side too).
  * Read once per page load; never written to local/session storage.
- */
-/**
+ *
  * Exported (not just used internally) so the focused contract
  * (scripts/quote-view-contract.ts) can verify fragment/query parsing
  * directly against fake location values — no browser/DOM needed.
@@ -53,39 +52,49 @@ export function toContact(quote: QuoteViewData): ContactFormValues {
  * into a direct <body> child so the print stylesheet's
  * `body.cz-printing > *:not(#cz-print-root)` rule can remove every other
  * page element from print layout) — never a second renderer, never new print
- * CSS. Kept local rather than extracted into a shared hook: it is small,
- * self-contained, and this keeps the change from touching the unrelated,
- * already-working modal component.
+ * CSS.
+ *
+ * Extracted as a plain DOM function (not left inline in the hook below) so
+ * scripts/quote-view-contract.ts can exercise the actual clone/class-toggle
+ * mechanics against a real `happy-dom` document, independent of Preact
+ * rendering. Kept local to this component rather than a shared hook with
+ * RequestFlowModal.tsx: it is small and self-contained, and this avoids
+ * touching that unrelated, already-working modal component.
+ *
+ * @returns a cleanup function that removes the listeners and the print root.
  */
+export function installPrintPortal(doc: Document, win: Pick<Window, 'addEventListener' | 'removeEventListener'>): () => void {
+  const printRoot = doc.createElement('div');
+  printRoot.id = 'cz-print-root';
+  doc.body.appendChild(printRoot);
+
+  const beforePrint = () => {
+    const proposal = doc.querySelector<HTMLElement>('.cz-quote-view .cz-proposal');
+    if (proposal) {
+      printRoot.innerHTML = '';
+      printRoot.appendChild(proposal.cloneNode(true));
+    }
+    doc.body.classList.add('cz-printing');
+  };
+  const afterPrint = () => {
+    doc.body.classList.remove('cz-printing');
+    printRoot.innerHTML = '';
+  };
+  win.addEventListener('beforeprint', beforePrint);
+  win.addEventListener('afterprint', afterPrint);
+
+  return () => {
+    win.removeEventListener('beforeprint', beforePrint);
+    win.removeEventListener('afterprint', afterPrint);
+    doc.body.classList.remove('cz-printing');
+    printRoot.remove();
+  };
+}
+
 function usePrintPortal(active: boolean): void {
   useEffect(() => {
     if (!active) return;
-
-    const printRoot = document.createElement('div');
-    printRoot.id = 'cz-print-root';
-    document.body.appendChild(printRoot);
-
-    const beforePrint = () => {
-      const proposal = document.querySelector<HTMLElement>('.cz-quote-view .cz-proposal');
-      if (proposal) {
-        printRoot.innerHTML = '';
-        printRoot.appendChild(proposal.cloneNode(true));
-      }
-      document.body.classList.add('cz-printing');
-    };
-    const afterPrint = () => {
-      document.body.classList.remove('cz-printing');
-      printRoot.innerHTML = '';
-    };
-    window.addEventListener('beforeprint', beforePrint);
-    window.addEventListener('afterprint', afterPrint);
-
-    return () => {
-      window.removeEventListener('beforeprint', beforePrint);
-      window.removeEventListener('afterprint', afterPrint);
-      document.body.classList.remove('cz-printing');
-      printRoot.remove();
-    };
+    return installPrintPortal(document, window);
   }, [active]);
 }
 
