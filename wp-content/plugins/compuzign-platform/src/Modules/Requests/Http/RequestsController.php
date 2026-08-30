@@ -28,13 +28,20 @@ class RequestsController
         // quote-email-snapshot-parity.md). Public (no nonce/login) because the
         // eventual caller is an emailed link, not an authenticated session;
         // access is instead gated entirely by the view secret.
+        //
+        // The secret is deliberately NOT a REST 'args' entry: it travels only
+        // in the X-Quote-View-Secret request header (see getQuote()), never a
+        // query parameter — a query string lands in server/proxy access logs
+        // and browser history, a header does not. Declaring it here would also
+        // let WordPress's own arg-validation reject a missing header with its
+        // own distinct response before getQuote() runs, defeating the single
+        // non-disclosing failure path every other rejection reason shares.
         register_rest_route('compuzign/v1', '/requests/quote/(?P<ref>[A-Za-z0-9-]+)', [
             'methods'             => 'GET',
             'callback'            => [$this, 'getQuote'],
             'permission_callback' => '__return_true',
             'args'                => [
-                'ref'    => ['type' => 'string', 'required' => true],
-                'secret' => ['type' => 'string', 'required' => true],
+                'ref' => ['type' => 'string', 'required' => true],
             ],
         ]);
     }
@@ -129,15 +136,17 @@ class RequestsController
 
     /**
      * Phase 8J-C1: the secure read boundary. Every failure path (malformed
-     * reference, missing secret, wrong secret, missing/expired transient, a
+     * reference, missing header, wrong secret, missing/expired transient, a
      * pre-8J-C1 snapshot with no stored hash) returns the identical
      * non-disclosing 404 — see QuoteViewAccess's docblock for why a
-     * distinguishing message is never safe here.
+     * distinguishing message is never safe here, and registerRoutes()'s
+     * docblock for why the secret arrives as a header rather than an 'args'
+     * entry (no framework-level rejection to converge with, by construction).
      */
     public function getQuote(\WP_REST_Request $request): \WP_REST_Response
     {
         $ref    = (string) $request->get_param('ref');
-        $secret = (string) $request->get_param('secret');
+        $secret = (string) $request->get_header('X-Quote-View-Secret');
 
         $stored = get_transient('cz_quote_' . $ref);
         $result = QuoteViewAccess::resolve($stored, $ref, $secret);
