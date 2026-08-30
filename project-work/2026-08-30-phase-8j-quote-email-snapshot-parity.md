@@ -1,10 +1,10 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `READY FOR CLAUDE` — Phase 8J-B only.
+- `AWAITING CHATGPT REVIEW`
 - 8J-A accepted/deployed at `main@f152134eac87c0cf84414ac6217794e7a4ca0102`.
-- Auditor verdict: `Proceed with safeguards`.
-- Phase 8I remains the accepted cart/review/proposal reference; do not reopen it.
+- 8J-B candidate ready for independent audit on review branch (not pushed to main).
+- Phase 8I remains the accepted cart/review/proposal reference; not reopened.
 
 ## Locked Architecture
 Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry** unchanged.
@@ -36,6 +36,63 @@ Make the **existing admin/customer quote email renderer consume the preserved Fa
 8. Do not change RequestSchema, resolver/pricing arithmetic, quote snapshot construction, transient lifecycle/key, quote-ref generation, controller submission flow, browser cart/review/PDF UI, or Rate Sheet/catalog state.
 9. Add focused contracts for representative KAIROS primary + add-on + OMNIA Edition/multi-stream email semantics, Bundle/quantity rendering, customer-ID suppression, legacy fallback, and summary parity. No live email send is required on the review branch.
 10. Run focused/relevant contracts, type/build/docs checks as repository rules require; commit/push to a **non-production review branch**, record exact SHA/files/tests here, set `AWAITING CHATGPT REVIEW`, and stop. **Do not push to main.**
+
+## Claude Report — 8J-B
+
+Branch: `phase-8j-b-quote-email-parity` (from `main@f152134e`), pushed to
+`origin/phase-8j-b-quote-email-parity`. Not pushed to `main`.
+
+Commit: `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`.
+
+**Audit finding (item 7):** `emailServiceRows()`/`calcTotals()` were the
+literal single renderer for BOTH admin and customer emails — the pre-8J-B
+code already put raw Family CZ Platform IDs in the customer email too, not
+only admin. Resolution: split Family rendering into a dedicated path
+parameterised by `$includeInternalIds` (admin=true, customer=false); every
+other rendering/summary rule stays identical for both audiences. Reporting
+this here per item 7 rather than resolving it silently.
+
+Files changed:
+- `NotificationTemplates.php` — new private helpers ported 1:1 from
+  `quote.ts`/`PricingTiers.tsx`: `classifyQuoteItems`, `chargeTypeLabel`,
+  `computeTotalContractValue`, `startingPaymentsByCycle`,
+  `familyDisplayInclusions` (features[] fallback), `emailInclusionItemsList`,
+  `emailFamilyStreamsBlock`, `emailFamilyRow(s)`,
+  `familyContractValueBlock`, `familyInitialPaymentRow`,
+  `buildQuoteSections` (assembles rows in main→familyMain→bundle→
+  tierAddon→familyAddon order, matching `OrderSummary.tsx`). Family items
+  removed from `emailServiceRows()` (dead branch deleted, function now
+  legacy/non-Family only). `buildAdminHtmlEmail`/`buildCustomerHtmlEmail`
+  call `buildQuoteSections()` with `$includeInternalIds` true/false.
+- `tests/notification-templates-family-quote-parity.php` (new) — KAIROS
+  primary (multi-stream, one open-ended → Ongoing, not fabricated finite
+  TCV) + Bundle/quantity inclusions + OMNIA add-on (own finite Total,
+  excluded from combined TCV/Initial Payment) + legacy non-Family item
+  (still counted in general totals) + a pre-Phase-5/8G Family item with the
+  new keys entirely absent (fallback safety). Asserts every admin-visible
+  Platform ID is absent from the customer email.
+- `tests/package-family-notification.php` — updated: now exercises the two
+  public builders (Family rendering moved off `emailServiceRows()`), keeps
+  its original no-`serviceId`-dependency assertion, adds the same ID-
+  suppression check.
+- `docs/code-map/quote-builder.md` — added `NotificationTemplates.php`
+  entry, corrected the stale "notification email renders IDs" line, added
+  new tests to Validation.
+
+No changes to `RequestSchema`, resolver/pricing arithmetic, quote snapshot
+construction, transient lifecycle/key, quote-ref generation, controller
+submission flow, or browser cart/review/PDF UI.
+
+Tests/checks run (all passed): the 2 new/updated PHP tests above, plus
+`request-schema-is-addon.php`/`request-schema-minimum-term.php`/
+`request-schema-family-quote-snapshot.php`; `contract:quote-cart-addon`,
+`contract:tier-addon-flow`, `contract:tier-edition-switch`,
+`contract:request-flow-family-tier-parity`; full sweep of all 50
+`npm run contract:*` scripts; `npx tsc --noEmit`; `npm run build`;
+`npm run docs:check`. No live email send performed (per item 9).
+
+Unresolved: none for 8J-B's scope. 8J-C (cross-boundary parity/live
+validation) remains unauthorized.
 
 ## Phase 8J-C — Not Authorized
 Cross-boundary parity/live validation follows only after 8J-B source review and production approval.
