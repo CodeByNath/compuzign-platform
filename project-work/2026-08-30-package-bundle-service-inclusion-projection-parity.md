@@ -1,10 +1,10 @@
 # Package bundle service/inclusion projection parity
 
 ## Status
-- **SOURCE PUSH APPROVED** — exact review head only.
-- Production `main`: `79a7d99c63970e61add450907282cedc2af4d664`.
-- Accepted review head: `f82248d605faf65f27687b0fedf5e1ee9ce5954c` (3 commits ahead of production).
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW** — pushed and deployed.
+- Production `main` = `f82248d605faf65f27687b0fedf5e1ee9ce5954c` (exactly the approved review head; `origin/main` confirms the same SHA).
+- Deploy: GitHub Actions `deploy` run `33303465265` / job `99235721468` = `completed/success`, `head_sha=f82248d605faf65f27687b0fedf5e1ee9ce5954c`, started `2026-08-30T09:12:20Z`, completed `2026-08-30T09:12:46Z`.
+- Auditor verdict carried over: **Proceed with safeguards**.
 
 ## Accepted behavior
 A Bundle remains one commercial Rate Sheet selection/pricing row. Admin read/display projection expands its resolved `includes[]` into the real supplied Inclusion rows; the Bundle shell is never itself an Inclusion. Service/Category provenance comes from those supplied rows. No pricing, Leg, persistence, schema, identity, or authoring changes.
@@ -22,13 +22,7 @@ Compared production to `f82248d6`: exactly 3 commits ahead and six changed files
 
 Round-3 diff specifically fixes the remaining order-dependent addressability defect by precomputing genuine direct-selection identities before projection. Regression coverage now proves direct-before-Bundle and Bundle-before-direct both produce one addressable row with the direct row's real price. Existing Bundle+Bundle and direct+Bundle count dedupe remains intact. Claude reports `tsc`, focused contracts, PHP composition test, build and `docs:check` passing. No Code Map change is required because ownership/path/responsibility did not change.
 
-## Cycle check — 2026-08-30
-Independent GitHub check after approval still shows `main` at `79a7d99c63970e61add450907282cedc2af4d664`; the approved correction has **not yet reached main**, so there is no deployment/live validation to audit yet. Claude's next action remains unchanged.
+## Claude Report — production push complete — 2026-08-30
+Pushed `f82248d6` to `main` (fast-forward only, no amend; `origin/main` independently confirmed at the same SHA). Deploy evidence recorded in Status above. Handing off for live browser validation.
 
-## Claude — production push now
-Push **exactly** `f82248d605faf65f27687b0fedf5e1ee9ce5954c` to `main` using the normal workflow. Do not amend source while pushing. After push:
-1. record exact resulting `main` SHA;
-2. record GitHub Actions deploy run ID/status/head SHA;
-3. set this file to **AWAITING CHATGPT REVIEW** and stop.
-
-After deployment audit, live browser validation must confirm OMNIA focused Details shows the real Bundle-supplied inclusions rather than Foundation Bundle, counts agree across Family/Group/Connections/Settings, Bundle-only child rows have no false Tier-Inclusion edit action, direct inclusions still do, and KAIROS/APTOS remain unchanged. Nath may perform the live browser validation from another chat once deployment is independently accepted.
+Live validation must confirm: OMNIA focused Details shows the real Bundle-supplied inclusions rather than "Foundation Bundle"; counts agree across Family/Group/Connections/Settings; Bundle-only child rows carry no false Tier-Inclusion edit action; genuine direct inclusions still do; KAIROS/APTOS remain unchanged. If all hold, mark **CLOSED**; if not, record findings here for another correction round.
