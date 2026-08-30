@@ -1,10 +1,8 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `READY FOR CLAUDE` — 8J-C3 only.
-- `SOURCE PUSH NOT APPROVED`.
+- `AWAITING CHATGPT REVIEW` — 8J-C3 candidate pushed (final chain candidate).
 - 8J-A accepted/deployed at `main@f152134e...`; 8J-B accepted/deployed at `main@c8a0f2b...`.
-- Auditor verdict: `Proceed with safeguards`.
 
 ## Locked Architecture
 Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry**. Submitted snapshot is authoritative; never rebuild from current catalog/pricing state. Target journey: customer email -> secure quote view -> stored submitted snapshot -> accepted proposal / Print / Save as PDF. No second PDF renderer.
@@ -22,16 +20,19 @@ Claude correctly stopped because `PlatformIdentifierPolicy` has no Request entit
 
 Therefore do **not** add Request Platform ID in 8J. Lock the proposal for the first durable CRM Request phase: entity `request`, proposed prefix `CZR`, native reference `quote_ref`, using the existing shared Platform Identifier Station when the durable Request record becomes authoritative. No separate Quote identity is needed. `quote_ref` remains customer reference; view secret remains authorization; WP IDs/transient keys remain storage details.
 
-## Phase 8J-C3 — Email Link + Final Review Candidate
-Implement only:
-1. Use the existing raw per-submission `$viewSecret` **in memory only** to build the customer quote link from `RequestsModule::quoteViewUrl($quoteRef)` plus the secret as a URL **fragment**, never query/path/server storage/logging/response.
-2. Add a clear `View / Print Quote` action to the existing **customer quote email only**. Do not add it to assessment emails. Keep admin notification identity/content otherwise unchanged.
-3. Escape the rendered href/content. Do not persist the raw secret or return it from `/requests/submit`.
-4. Keep accepted email arithmetic/content, quote-view API, 7-day expiry, cart/PDF, pricing/resolvers and CRM untouched.
-5. Add focused contracts proving fragment-only secret placement, no raw-secret persistence/response, customer quote email link present, assessment path unchanged, and URL uses the single `quoteViewUrl()` contract.
-6. Re-run relevant PHP/contracts/tsc/build/docs. Push only to the same review branch, record exact SHA/files/tests here, set `AWAITING CHATGPT REVIEW`, and stop. Do not push `main`.
+## Phase 8J-C3 — Claude Report
 
-After C3 review, the whole C1+C2+C3 chain may be approved for one production push/deploy, followed by one end-to-end live validation: submit quote -> customer email -> secure reload -> proposal parity -> Print / Save as PDF.
+Branch: `phase-8j-c1-quote-view-boundary`, head `195896e0376c5b4988c4337f0ded769fb0c3bc09`. Not on `main`.
+
+1. `RequestsController::submitRequest()` builds `$quoteViewLink = RequestsModule::quoteViewUrl($quoteRef) . '#' . $viewSecret` in a local variable, after `$payload` (without it) is already persisted — never added to `$payload`, never in the REST JSON response, never logged.
+2. `NotificationTemplates::buildCustomerHtmlEmail()` gained an optional `$quoteViewLink` param, rendered (href + text both escaped via `esc_url()`/`esc_html()`) only on the `quote_cart` branch, right after the Reference Badge. The `free_it_assessment` branch ignores the parameter entirely — verified directly by passing a non-empty forced link into that branch and asserting it never appears. Admin email untouched (no link, no signature change).
+3. Escaping confirmed above; no persistence/response leak confirmed by test below.
+4. No changes to email arithmetic elsewhere, the quote-view read API, transient expiry, cart/PDF UI, pricing/resolvers, or CRM.
+5. New `tests/quote-view-email-link.php` runs the real `submitRequest()` end to end (stubbed WP surface): stored transient never carries a raw `view_secret` key; REST response has only its 3 documented fields; customer email's link is fragment-only (`#`, never `?secret=`/`&secret=`) and its base exactly equals `RequestsModule::quoteViewUrl($quoteRef)`; admin email never carries the action; assessment customer email never carries it; the raw secret appears exactly once in the customer email body (no accidental duplication).
+
+Tests/checks (all passed): the new test plus every existing Requests-module PHP test, the 7 other focused contracts, full sweep of all 53 `npm run contract:*`, `tsc`, `build` (no dist change — no frontend files touched), `docs:check`.
+
+After this review, the whole C1+C2+C3 chain may be approved for one production push/deploy, followed by one end-to-end live validation: submit quote -> customer email -> secure reload -> proposal parity -> Print / Save as PDF.
 
 ## Next Work — CRM Station
 After 8J closes, plan CRM properly. First handoff phase stays small: Station list/view for requests with Pending / Approved / Cancelled, client contact and first-email/work handling. That durable Request phase is where `CZR` Platform identity should be integrated.
