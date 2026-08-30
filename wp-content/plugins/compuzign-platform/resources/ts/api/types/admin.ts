@@ -89,8 +89,9 @@ export interface RequestLegPaymentSummary {
 }
 
 // Matches RequestSchema::sanitizeItems()'s real stored shape exactly: a
-// legacy Service/Bundle/Tier-add-on line and a `family_tier` line share only
-// tierTitle/tierId/price/billingCycle/features/offer_type/isAddon — every
+// legacy Service/Bundle/Tier-add-on line and a `family_tier` line share
+// tierTitle/tierId/price/billingCycle/features/offer_type/isAddon/
+// promotion_id/billing_label/minimumTermValue/minimumTermUnit — every
 // other field is present on exactly one of the two branches, never both
 // (the legacy branch's serviceTitle/categoryName are explicitly unset for
 // `family_tier`, and vice versa for serviceId/serviceDescription).
@@ -102,6 +103,10 @@ export interface RequestLine {
   billingCycle: string;
   features: string[];
   isAddon: boolean;
+  promotion_id: string;
+  billing_label: string;
+  minimumTermValue: number | null;
+  minimumTermUnit: string | null;
   // Legacy Service/Bundle/Tier-add-on lines only.
   serviceId?: number;
   serviceTitle?: string;
