@@ -1,10 +1,10 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `READY FOR CLAUDE`
+- `AWAITING CHATGPT REVIEW`
 - Auditor verdict: `Proceed with safeguards`
-- Production baseline to confirm before work: `main@6736d45d669f61c442527419269f16d7a711fbdd`.
-- Phase 8I remains the reference for the accepted customer cart/review/proposal semantics; do not reopen that architecture.
+- Production baseline confirmed before work: `main@6736d45d669f61c442527419269f16d7a711fbdd` (local `main`/`origin/main` matched).
+- Phase 8I remains the reference for the accepted customer cart/review/proposal semantics; not reopened.
 
 ## Decision
 Keep the existing request lifecycle exactly as-is: `/requests/submit`, WordPress transient storage, `cz_quote_<ref>`, and the current **7-day expiry** remain unchanged. Do not introduce durable quote records in this phase.
@@ -30,6 +30,48 @@ Repair the **submission/snapshot contract only**. Do not change email presentati
 6. Include a negative assertion that unknown nested fields are not blindly retained.
 7. Run the repository-required type/build checks plus focused/relevant request-flow contracts and one concise full contract sweep.
 8. Commit and push to a non-production review branch, record exact SHA/files/tests here, set `AWAITING CHATGPT REVIEW`, and stop. **Do not push to `main`.**
+
+## Claude Report — 8J-A
+
+Branch: `phase-8j-a-quote-snapshot-parity` (from `main@6736d45d`), pushed to
+`origin/phase-8j-a-quote-snapshot-parity`. Not pushed to `main`.
+
+Commit: `f152134eac87c0cf84414ac6217794e7a4ca0102` — "Phase 8J-A: preserve
+Family quote snapshot fields through request boundary".
+
+Files changed:
+- `wp-content/plugins/compuzign-platform/src/Modules/Requests/Support/RequestSchema.php` —
+  `sanitizeItems()`'s `family_tier` branch now also sanitises
+  `tierEditionTitle` (string|null), `inclusionItems` (via new private
+  `sanitizeInclusionItems()`, recursive for Bundle `includes`, per-field
+  allow-list, preserves `quantity`/`bundle_id`), and `legPaymentSummaries`
+  (via new private `sanitizeLegPaymentSummaries()`, all 8
+  `LegPaymentSummary` fields). `restArgs()` extended to declare all three.
+  No changes to arithmetic, resolvers, `FamilyTierAdapter.itemFor()`, quote
+  ref generation, transient key/lifetime, controller mail flow, or
+  UI/PDF/email rendering.
+- `wp-content/plugins/compuzign-platform/tests/request-schema-family-quote-snapshot.php` (new) —
+  focused contract: a representative Family line (Edition, 2-stream Leg
+  summary incl. one ongoing/open-ended stream, ordinary quantified
+  inclusion, Bundle parent + 2 children with per-child quantity, add-on
+  marker, all identity fields) survives the PHP boundary intact; a legacy
+  pre-Phase-5/8G line defaults all three new fields to `null` (never `[]`);
+  an injected unknown nested field (`evil_field`) is dropped; `restArgs()`
+  declares all three keys.
+- `docs/code-map/quote-builder.md` — Validation line updated to list the
+  new test plus `contract:request-flow-family-tier-parity`.
+
+Tests/checks run (all passed):
+- `php tests/request-schema-family-quote-snapshot.php` (new)
+- `php tests/request-schema-is-addon.php`, `php tests/request-schema-minimum-term.php`
+- `npm run contract:quote-cart-addon`, `contract:tier-addon-flow`,
+  `contract:tier-edition-switch`, `contract:request-flow-family-tier-parity`
+- Full sweep: all 50 `npm run contract:*` scripts (exit 0)
+- `npx tsc --noEmit`, `npm run build`, `npm run docs:check`
+
+Unresolved risks: none identified for 8J-A's narrow scope (sanitiser-only).
+8J-B (email/PDF consuming this snapshot) and 8J-C (cross-boundary parity
+fixture) remain unauthorized and untouched.
 
 ## Later Phases — Not Authorized Yet
 - **8J-B:** make admin/customer email consume the preserved snapshot using the same accepted commercial semantics: human labels, no raw CZ IDs, per-Leg streams, per-item finite Total, quote Contract Value/Ongoing, Initial Payment, add-on exclusion from primary TCV, Bundle children and quantities.
