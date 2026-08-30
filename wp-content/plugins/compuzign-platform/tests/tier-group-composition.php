@@ -152,6 +152,33 @@ function composition_row(string $itemId, string $sourceItemId): array
     ];
 }
 
+/**
+ * A self-priced Bundle row: no `source_item_id` of its own, standing behind
+ * itself. `self_priced`/`includes` are not set here — like a live Bundle,
+ * they are DERIVED read-time (`PackageManagerSchema::projectRateSheets()`)
+ * from the sheet's own `bundles[].supplied_content`, never trusted from the
+ * row directly.
+ */
+function composition_bundle_row(string $itemId, string $bundleId): array
+{
+    return [
+        'item_id' => $itemId, 'source_item_id' => '', 'bundle_id' => $bundleId,
+        'unit_price' => 10, 'per' => 'Per month', 'quantity' => 1,
+        'group_id' => null, 'sort_order' => 0, 'price_options' => [],
+    ];
+}
+
+/** One Bundle's live reference to the exact Rate Sheet row it compiles. */
+function composition_bundle_reference(string $sheetId, string $itemId): array
+{
+    return ['source_rate_sheet_id' => $sheetId, 'source_item_id' => $itemId];
+}
+
+function composition_bundle(string $bundleId, array $suppliedContent): array
+{
+    return ['bundle_id' => $bundleId, 'status' => 'active', 'supplied_content' => $suppliedContent];
+}
+
 function composition_occupant(string $occupantId, string $rateSheetId, array $itemIds): array
 {
     return ['current_occupant' => [
@@ -189,6 +216,16 @@ $sharedRows = [
     composition_row('row_pilot',   composition_source(105, 'inc-pilot')),
     // A FAQ-sourced row: real, priced, and NOT an inclusion.
     composition_row('row_faq',     PackageManagerSchema::deriveItemId('faq', 'service:101:faq-1')),
+    // A self-priced Bundle row compiling two of the ordinary rows above —
+    // the OMNIA — Banking live defect fixture: a Tier selecting only this
+    // row must not compose to zero.
+    composition_bundle_row('row_bundle', 'bndl_1'),
+];
+$sharedBundles = [
+    composition_bundle('bndl_1', [
+        composition_bundle_reference('rs_shared', 'row_soc'),
+        composition_bundle_reference('rs_shared', 'row_desk'),
+    ]),
 ];
 
 $station = [
@@ -204,7 +241,7 @@ $station = [
             array_keys(COMPOSITION_SERVICES)
         ),
         'rate_sheets' => [
-            ['rate_sheet_id' => 'rs_shared', 'title' => 'Shared', 'status' => 'active', 'groups' => [], 'items' => $sharedRows],
+            ['rate_sheet_id' => 'rs_shared', 'title' => 'Shared', 'status' => 'active', 'groups' => [], 'items' => $sharedRows, 'bundles' => $sharedBundles],
             // Same row id, different sheet — a genuinely different row.
             ['rate_sheet_id' => 'rs_other', 'title' => 'Other', 'status' => 'active', 'groups' => [],
              'items' => [composition_row('row_compute', composition_source(101, 'inc-compute'))]],
@@ -223,6 +260,10 @@ $station = [
             'basic' => composition_occupant('occ_a_basic', 'rs_shared', ['row_desk', 'row_pilot', 'row_faq', 'row_ghost']),
         ]),
         composition_instance('ti_empty', []),
+        // Selects ONLY the self-priced Bundle row — nothing else.
+        composition_instance('ti_omnia', [
+            'basic' => composition_occupant('occ_o_basic', 'rs_shared', ['row_bundle']),
+        ]),
     ],
     'tier_assignments' => [],
 ];
@@ -239,6 +280,7 @@ $compose = static function (string $instanceId) use ($repository): array {
 $kairos = $compose('ti_kairos');
 $aptos  = $compose('ti_aptos');
 $empty  = $compose('ti_empty');
+$omnia  = $compose('ti_omnia');
 
 // ── The Tier Group composes exactly its own downstream structure ─────────────
 
@@ -272,6 +314,29 @@ check_composition(
 check_composition(
     $empty === ['tiers' => 0, 'service_categories' => 0, 'services' => 0, 'inclusions' => 0],
     'a Tier Group with no occupants composes zeros, never the station\'s Rate Sheet inventory'
+);
+
+// ── A self-priced Bundle row is a real Inclusion, not a dropped one ──────────
+//
+// The live OMNIA — Banking defect: a Tier selecting only a Bundle-backed row
+// composed to zero everywhere, because the row carries no Manager
+// `source_item_id`/`source_type` of its own for the ordinary inclusion
+// lookup to find. The Tier's own pricing already treats a self-priced row as
+// resolved (`projectTierRateSheetWith`); the Tier Group's composition must
+// agree rather than silently drop it.
+
+check_composition($omnia['tiers'] === 1, 'omnia registers its one occupant');
+check_composition(
+    $omnia['inclusions'] === 1,
+    'the self-priced Bundle row itself counts as ONE inclusion — the same combination the Tier prices, not the zero a Manager source_type lookup finds for it'
+);
+check_composition(
+    $omnia['services'] === 2,
+    'the Bundle\'s Services are what it actually compiles (SOC + Desk) — the combination row itself carries no Manager source of its own'
+);
+check_composition(
+    $omnia['service_categories'] === 2,
+    'the Bundle\'s Categories are likewise resolved from what it compiles, not from the combination row'
 );
 
 // ── Derived, never persisted ────────────────────────────────────────────────
@@ -331,10 +396,10 @@ update_option('cz_package_station', $restored);
 
 $batchRepository = new PackageRepository();
 $derivations = $batchRepository->tierGroupDerivations([
-    'ti_kairos', 'ti_aptos', 'ti_empty', 'ti_unidentified', 'ti_missing', '',
+    'ti_kairos', 'ti_aptos', 'ti_empty', 'ti_omnia', 'ti_unidentified', 'ti_missing', '',
 ]);
 $batch = $batchRepository->tierGroupCompositions([
-    'ti_kairos', 'ti_aptos', 'ti_empty', 'ti_unidentified', 'ti_missing', '',
+    'ti_kairos', 'ti_aptos', 'ti_empty', 'ti_omnia', 'ti_unidentified', 'ti_missing', '',
 ]);
 
 check_composition(
@@ -342,6 +407,10 @@ check_composition(
         PackagePlatformNativeReference::tierGroup('ti_kairos')
     )['composition'],
     'the batch returns exactly what the canonical CZTG read returns for the same group'
+);
+check_composition(
+    $batch['ti_omnia'] === ['tiers' => 1, 'service_categories' => 2, 'services' => 2, 'inclusions' => 1],
+    'the batch form (the Family card wall\'s own read) resolves the Bundle-backed row identically to the canonical CZTG read — the exact wall that read zero live'
 );
 check_composition(
     $batch['ti_aptos']['inclusions'] === 2 && $batch['ti_aptos']['services'] === 2,

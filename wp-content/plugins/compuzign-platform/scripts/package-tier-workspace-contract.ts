@@ -337,6 +337,42 @@ const deck = projectTierDeck(deckSelections, categoryByRateItem, rateSheet);
 check(deck.categories.join(',') === 'Cloud Infrastructure,Managed Services', 'lower-deck category filter remains distinct and sorted');
 check(deck.rateSheet !== null && deck.groups.length === 1, 'the deck carries the Rate Sheet and group connections it renders');
 
+// The OMNIA — Banking live defect: a self-priced Bundle-backed selection
+// carries no Manager `source_type` of its own (it stands behind itself), so
+// it must still be recognised as an Inclusion everywhere the ordinary
+// `source_type === 'inclusion'` check used to be the only rule — the exact
+// gap that silently zeroed every cross-surface count for a Tier whose only
+// selection was a Bundle.
+const bundleSelection: DeckSelection = {
+  item_id: 'rate_bundle', source_type: null, source_id: null, quantity: 1,
+  resolved: true, label: 'Foundation Bundle', unit_price: 300, per: 'Per Module',
+  line_total: 300, group_id: 'grp', bundle_id: 'rsb_1',
+  includes: [{ item_id: 'rate_inc_a', source_rate_sheet_id: 'rs_kairos', source_item_id: 'rel_infra', label: 'Cloud', quantity: 1 }],
+};
+const selectionsWithBundle = [...deckSelections, bundleSelection];
+
+const inclusionsWithBundle = projectTierInclusions(selectionsWithBundle, categoryByRateItem);
+check(
+  inclusionsWithBundle.length === 4 && inclusionsWithBundle.some((row) => row.itemId === 'rate_bundle'),
+  'a self-priced Bundle-backed selection is a real Inclusion, not a dropped one — Details > Focused inclusions must show it',
+);
+check(
+  JSON.stringify(inclusionsWithBundle.find((row) => row.itemId === 'rate_bundle')?.categories) === JSON.stringify(['Cloud Infrastructure']),
+  'a Bundle inclusion\'s categories are the union of what it actually compiles, resolved the same way an ordinary row\'s is',
+);
+
+const groupConnectionsWithBundle = projectTierRateSheetGroups(selectionsWithBundle, rateSheet);
+check(
+  groupConnectionsWithBundle[0].connectedRows === 4 && groupConnectionsWithBundle[0].connectedInclusions === 3,
+  'a Bundle-backed selection counts toward its group\'s connectedInclusions, matching the Tier\'s own included-Features count',
+);
+
+const sheetConnectionWithBundle = projectTierRateSheet(selectionsWithBundle, rateSheet);
+check(
+  sheetConnectionWithBundle !== null && sheetConnectionWithBundle.connectedInclusions === 3,
+  'a Bundle-backed selection counts toward the Rate Sheet connection\'s connectedInclusions too',
+);
+
 const unresolvedSheet = projectTierRateSheet(deckSelections, null, 'rs_missing');
 check(
   unresolvedSheet?.rateSheetId === 'rs_missing'

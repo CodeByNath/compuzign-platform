@@ -491,6 +491,26 @@ class PackageRepository
         $services = [];
         $categories = [];
 
+        // Tallies one inclusion-sourced Manager item's Service/Category
+        // provenance into the running sets. Shared by an ordinary row's own
+        // source and, below, by each real row a self-priced Bundle compiles —
+        // one fact, counted the same way regardless of which row carries it.
+        $tallyInclusionSource = static function (?array $source) use (&$services, &$categories): void {
+            if (!is_array($source) || ($source['source_type'] ?? null) !== 'inclusion') {
+                return;
+            }
+            $serviceId = (int) ($source['source_service_id'] ?? 0);
+            if ($serviceId > 0) {
+                $services[$serviceId] = true;
+            }
+            foreach (is_array($source['source_category_term_ids'] ?? null) ? $source['source_category_term_ids'] : [] as $categoryTermId) {
+                $categoryTermId = (int) $categoryTermId;
+                if ($categoryTermId > 0) {
+                    $categories[$categoryTermId] = true;
+                }
+            }
+        };
+
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
             $slot = is_array($instance['tiers'][$tierId] ?? null) ? $instance['tiers'][$tierId] : [];
             $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : [];
@@ -514,13 +534,23 @@ class PackageRepository
                     continue;
                 }
                 $row = $rowsBySheet[$sheetId][$itemId] ?? null;
-                $source = is_array($row) ? ($sourceByItemId[(string) ($row['source_item_id'] ?? '')] ?? null) : null;
-                // Only an inclusion-sourced, resolving row is an Inclusion — an
-                // unresolved selection references no live row, and a FAQ row is
-                // not an inclusion. Same rule the Tier's own deck applies, and
-                // it is applied BEFORE the row is recorded so a skipped row can
-                // never occupy the identity of a real one.
-                if (!is_array($source) || ($source['source_type'] ?? null) !== 'inclusion') {
+                if (!is_array($row)) {
+                    continue; // unresolved selection references no live row
+                }
+
+                // A self-priced (Bundle-backed) row stands behind itself, the
+                // same rule `projectTierRateSheetWith()` already applies: it
+                // carries no Manager `source_item_id` of its own, so it is
+                // never itself a Manager-sourced Inclusion, but it is still a
+                // real, resolving selection — the exact combination the Tier's
+                // own deck already counts as one included Feature.
+                $selfPriced = !empty($row['self_priced']);
+                $source = $selfPriced ? null : ($sourceByItemId[(string) ($row['source_item_id'] ?? '')] ?? null);
+                // Only an inclusion-sourced, resolving row (ordinary or
+                // Bundle-backed) is an Inclusion — a FAQ row is not. Applied
+                // BEFORE the row is recorded so a skipped row can never occupy
+                // the identity of a real one.
+                if (!$selfPriced && (!is_array($source) || ($source['source_type'] ?? null) !== 'inclusion')) {
                     continue;
                 }
 
@@ -533,15 +563,26 @@ class PackageRepository
                 }
                 $seenRows[$rowKey] = true;
 
-                $serviceId = (int) ($source['source_service_id'] ?? 0);
-                if ($serviceId > 0) {
-                    $services[$serviceId] = true;
+                if (!$selfPriced) {
+                    $tallyInclusionSource($source);
+                    continue;
                 }
-                foreach (is_array($source['source_category_term_ids'] ?? null) ? $source['source_category_term_ids'] : [] as $categoryTermId) {
-                    $categoryTermId = (int) $categoryTermId;
-                    if ($categoryTermId > 0) {
-                        $categories[$categoryTermId] = true;
+
+                // A Bundle's own Services/Categories are what it actually
+                // compiles — the same live references its "Includes:" list
+                // resolves — never the combination row itself, which carries
+                // no Service/Category provenance of its own.
+                foreach (is_array($row['includes'] ?? null) ? $row['includes'] : [] as $reference) {
+                    if (!is_array($reference)) {
+                        continue;
                     }
+                    $refSheetId = (string) ($reference['source_rate_sheet_id'] ?? '');
+                    $refItemId  = (string) ($reference['item_id'] ?? '');
+                    $refRow = $rowsBySheet[$refSheetId][$refItemId] ?? null;
+                    $refSource = is_array($refRow)
+                        ? ($sourceByItemId[(string) ($refRow['source_item_id'] ?? '')] ?? null)
+                        : null;
+                    $tallyInclusionSource($refSource);
                 }
             }
         }

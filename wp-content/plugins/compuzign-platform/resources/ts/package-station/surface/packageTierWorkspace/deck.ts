@@ -48,6 +48,21 @@ export interface DeckSelection {
   per:          string | null;
   line_total:   number | null;             // already-derived unit_price × quantity
   group_id:     string | null;             // Rate Sheet group the row belongs to
+  // Set only when this selection IS a Bundle's commercial row: it stands
+  // behind itself rather than a Manager `source_type`, the same rule
+  // `PackageRepository::composeTierGroup()` applies server-side.
+  bundle_id?:   string;
+  includes?:    { item_id: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
+}
+
+/**
+ * A selection is an Inclusion either the ordinary way (Manager `source_type`)
+ * or because it IS a self-priced Bundle row — the exact combination the
+ * Tier's own deck already prices and counts as one included Feature. Shared
+ * by every lane below so "what counts as an inclusion" is decided once.
+ */
+function isInclusionSelection(selection: DeckSelection): boolean {
+  return selection.source_type === 'inclusion' || !!selection.bundle_id;
 }
 
 /** A relationship carrying the admin-read-model source categories for a row. */
@@ -190,12 +205,17 @@ export function projectTierInclusions(
   categoryByRateItem: ReadonlyMap<string, string[]>,
 ): DeckInclusion[] {
   return selections
-    .filter((selection) => selection.source_type === 'inclusion')
+    .filter(isInclusionSelection)
     .map((selection) => ({
       itemId:     selection.item_id,
       sourceId:   selection.source_id ?? null,
       name:       selection.label,
-      categories: categoryByRateItem.get(selection.item_id) ?? [],
+      // A Bundle row carries no Manager source of its own to look up by
+      // `item_id` — its categories are the union of what it actually
+      // compiles, resolved the same way an ordinary row's own is.
+      categories: selection.bundle_id
+        ? [...new Set((selection.includes ?? []).flatMap((entry) => categoryByRateItem.get(entry.item_id) ?? []))]
+        : categoryByRateItem.get(selection.item_id) ?? [],
       quantity:   selection.quantity,
       unitPrice:  selection.unit_price,
       per:        selection.per,
@@ -231,7 +251,7 @@ export function projectTierRateSheetGroups(
     const bucket = buckets.get(groupId) ?? { connectedRows: 0, coverage: 0, connectedInclusions: 0 };
     bucket.connectedRows += 1;
     bucket.coverage += selection.quantity;
-    if (selection.source_type === 'inclusion') bucket.connectedInclusions += 1;
+    if (isInclusionSelection(selection)) bucket.connectedInclusions += 1;
     buckets.set(groupId, bucket);
   }
 
@@ -279,7 +299,7 @@ export function projectTierRateSheet(
   for (const selection of selections) {
     if (!selection.resolved) continue;
     connectedRows += 1;
-    if (selection.source_type === 'inclusion') connectedInclusions += 1;
+    if (isInclusionSelection(selection)) connectedInclusions += 1;
   }
   return {
     rateSheetId: rateSheet.rate_sheet_id,
