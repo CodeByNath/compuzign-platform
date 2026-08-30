@@ -34,6 +34,19 @@ export interface QuoteItem {
   // silently lose by re-reading a label.
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
+  // Phase 8J-C2 correction: the live catalog's own short description
+  // (mainItems) / recommended-Bundle description (bundleItems, negative
+  // serviceId) — normally re-resolved from the `services` prop at render
+  // time via findService(item.serviceId) (see OrderSummary.tsx's/
+  // QuoteProposalPreview.tsx's own `desc`/`bundleDesc`). Absent for every
+  // cart item during normal interactive use; populated ONLY on the outgoing
+  // submission payload (QuoteCartFlow.tsx's handleSubmit(), never mutating
+  // the live cart item itself) so the secure quote-view reload page — which
+  // never re-resolves live catalog data — can render the same optional text
+  // straight from the stored snapshot. Never used for Family items, whose
+  // own inclusionItems/features already fully describe them.
+  serviceDescription?: string;
+  bundleDescription?: string;
 }
 
 /**

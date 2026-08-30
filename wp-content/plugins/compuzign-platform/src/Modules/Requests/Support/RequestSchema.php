@@ -172,6 +172,19 @@ class RequestSchema
                 }
             } else {
                 $item['serviceId'] = intval($raw['serviceId'] ?? 0);
+                // Phase 8J-C2 correction: the live catalog's own short
+                // description / recommended-Bundle description, captured by
+                // the browser at submission time (see QuoteCartFlow.tsx's
+                // withSubmissionDescriptions()) — never re-resolved here or
+                // by the secure quote-view reload page, which has no live
+                // catalog access. Family items never carry these; their own
+                // inclusionItems/features already fully describe them.
+                $item['serviceDescription'] = !empty($raw['serviceDescription'])
+                    ? sanitize_text_field((string) $raw['serviceDescription'])
+                    : null;
+                $item['bundleDescription'] = !empty($raw['bundleDescription'])
+                    ? sanitize_text_field((string) $raw['bundleDescription'])
+                    : null;
             }
             $items[] = $item;
         }
@@ -355,6 +368,8 @@ class RequestSchema
                         'billingCycle' => ['type' => 'string'],
                         'features'     => ['type' => 'array', 'items' => ['type' => 'string']],
                         'isAddon'      => ['type' => 'boolean'],
+                        'serviceDescription' => ['type' => ['string', 'null']],
+                        'bundleDescription'  => ['type' => ['string', 'null']],
                         'minimumTermValue' => ['type' => ['number', 'null']],
                         'minimumTermUnit'  => ['type' => ['string', 'null']],
                         'offer_type'       => ['type' => 'string'],

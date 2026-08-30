@@ -143,7 +143,13 @@ export function QuoteProposalPreview({
       <div class="cz-proposal__services">
         {mainItems.map((item) => {
           const service    = findService(item.serviceId);
-          const desc       = service?.meta?.short_description || service?.excerpt || '';
+          // Phase 8J-C2 correction: the stored submission snapshot's own
+          // captured description takes priority — set only once a request
+          // has actually been submitted (see types.ts's QuoteItem
+          // docblock), so this is always absent during normal interactive
+          // use and the live `services` lookup below behaves exactly as it
+          // always did.
+          const desc       = item.serviceDescription || service?.meta?.short_description || service?.excerpt || '';
           const cycleSuffix = formatCycleLabel(item.billingCycle);
 
           return (
@@ -237,7 +243,8 @@ export function QuoteProposalPreview({
           <h4 class="cz-proposal__addons-heading">Recommended Add-ons</h4>
           {bundleItems.map((item) => {
             const service     = findService(item.serviceId);
-            const bundleDesc  = service?.pricing?.bundle?.description ?? '';
+            // Same stored-snapshot-first priority as mainItems' `desc` above.
+            const bundleDesc  = item.bundleDescription || service?.pricing?.bundle?.description || '';
             const cycleSuffix = formatCycleLabel(item.billingCycle);
 
             return (

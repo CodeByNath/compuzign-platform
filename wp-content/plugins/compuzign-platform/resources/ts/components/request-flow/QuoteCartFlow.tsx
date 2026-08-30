@@ -1,9 +1,12 @@
 import { useState } from 'preact/hooks';
 import { submitRequest } from '@/api/endpoints/requests';
+import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { ContactForm } from './ContactForm';
 import { OrderSummary } from './OrderSummary';
 import { StepIndicator } from './StepIndicator';
 import type { ContactFormValues, RequestFlowContext } from './types';
+import type { CartItem } from '@/components/cost-builder/types';
+import type { ServiceItem } from '@/api/types/cost-builder';
 
 interface QuoteCartFlowProps {
   context:          Extract<RequestFlowContext, { type: 'quote_cart' }>;
@@ -31,6 +34,40 @@ const EMPTY_CONTACT: ContactFormValues = {
 
 function makeRef() {
   return 'CZ-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+/**
+ * Phase 8J-C2 correction: the secure quote-view reload page never
+ * re-resolves live catalog data (see RequestsModule.php's docblock), but
+ * QuoteProposalPreview.tsx's mainItems/bundleItems rendering has always
+ * optionally shown a Service short description / recommended-Bundle
+ * description looked up from the live `services` catalog at render time.
+ * Captured here, once, at the moment of submission — the only point where
+ * both the exact submitted item and the live catalog are simultaneously
+ * available — and sanitised through RequestSchema on the way in, so reload
+ * can render the same optional text straight from the stored snapshot.
+ * Returns a new array; never mutates `items` (the live cart state, and
+ * anything already rendered from it, are untouched). Family items pass
+ * through unchanged — their own inclusionItems/features already fully
+ * describe them.
+ */
+export function withSubmissionDescriptions(items: CartItem[], services: ServiceItem[]): CartItem[] {
+  return items.map((item) => {
+    if (isFamilyTierQuoteItem(item)) return item;
+
+    const service = services.find((s) => s.id === Math.abs(item.serviceId));
+    if (!service) return item;
+
+    const serviceDescription = service.meta?.short_description || service.excerpt || '';
+    const bundleDescription  = service.pricing?.bundle?.description || '';
+    if (!serviceDescription && !bundleDescription) return item;
+
+    return {
+      ...item,
+      ...(serviceDescription ? { serviceDescription } : {}),
+      ...(bundleDescription ? { bundleDescription } : {}),
+    };
+  });
 }
 
 function makeDate() {
@@ -106,7 +143,7 @@ export function QuoteCartFlow({ context, onClose, onSubmitSuccess }: QuoteCartFl
         email:     contact.email,
         phone:     contact.phone,
         notes:     contact.notes,
-        items:     context.items,
+        items:     withSubmissionDescriptions(context.items, context.services),
         quote_ref: quoteRef,
       });
       setSubmitState('success');
