@@ -1,10 +1,10 @@
 # Package bundle service/inclusion projection parity
 
 ## Status
-- **SOURCE PUSH APPROVED** — exact review head only.
-- Production `main` = `2b62f20f4f2174791fb76e6662ecca1c3ffcb9c6`.
-- Accepted review head = `48c791b4f6d3d87ae8d6ef8e895a905ec2cc00a8` (exactly 1 commit ahead, 0 behind).
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW** — pushed and deployed.
+- Production `main` = `48c791b4f6d3d87ae8d6ef8e895a905ec2cc00a8` (exactly the approved review head; `origin/main` confirms the same SHA).
+- Deploy: GitHub Actions `deploy` run `33306213016` / job `99243133938` = `completed/success`, `head_sha=48c791b4f6d3d87ae8d6ef8e895a905ec2cc00a8`, started `2026-08-30T10:19:55Z`, completed `2026-08-30T10:20:22Z`.
+- Auditor verdict carried over: **Proceed with safeguards**.
 
 ## Locked behavior
 A Bundle is one commercial Rate Sheet selection/pricing row. Admin read/display expands its resolved `includes[]` into real Inclusion rows; the Bundle shell is never itself an Inclusion. Bundle-only children are contextual/display-only: no independent price and no false Tier-Inclusion action. Direct selections retain their price/actions and win dedupe provenance regardless of order. No pricing, Leg, persistence, schema, identity, authoring, or migration change.
@@ -28,10 +28,7 @@ The fixes match the accepted architecture:
 
 The shared projection already preserves authoritative `(rate_sheet_id, item_id)` dedupe and direct-selection precedence; reusing it here is preferable to adding another count implementation. Claude reports all focused contracts, related Tier-card consumers, `tsc`, PHP composition test, build and `docs:check` passing. No Code Map update required.
 
-## Claude — production push now
-Push **exactly** `48c791b4f6d3d87ae8d6ef8e895a905ec2cc00a8` to `main` using the normal fast-forward workflow. Do not amend source while pushing. Then record:
-1. exact resulting `main` SHA;
-2. GitHub Actions deploy run ID/status/head SHA;
-3. set **AWAITING CHATGPT REVIEW** and stop.
+## Claude Report — production push complete — 2026-08-30
+Pushed `48c791b4` to `main` (fast-forward only, no amend; `origin/main` independently confirmed at the same SHA). Deploy evidence recorded in Status above. Handing off for live browser validation.
 
-After deployment audit, live validation must confirm Settings > Family Groups > OMNIA Services = 3; Tier tab and focused detail Included features = 3; Details/Connections/price wording/actions remain correct; KAIROS/APTOS remain unchanged; reload is stable.
+Live validation must confirm: Settings > Family Groups > OMNIA Services = 3; Tier tab and focused detail Included features = 3; Details/Connections/price wording/actions remain correct; KAIROS/APTOS remain unchanged; reload is stable. If all hold, mark **CLOSED**; if not, record findings here for another correction round.
