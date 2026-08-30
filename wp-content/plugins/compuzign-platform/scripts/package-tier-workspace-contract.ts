@@ -435,6 +435,36 @@ check(
   'the Rate Sheet connection dedupes the same way as the group and Details lanes',
 );
 
+// Addressability must not depend on which occurrence the array happens to
+// list first — a genuine direct Tier selection always wins, whether the
+// overlapping Bundle sits BEFORE or AFTER it (audit round 3: a naive
+// first-occurrence-wins dedupe let a Bundle processed first permanently
+// suppress the later real direct selection's own addressable row).
+check(
+  inclusionsWithOverlap.find((row) => row.itemId === 'rate_inc_a')?.addressable === true
+    && inclusionsWithOverlap.find((row) => row.itemId === 'rate_inc_a')?.unitPrice === 70,
+  'direct selection BEFORE its Bundle overlap: the deduped row is addressable and carries the direct selection\'s real price, not the Bundle child\'s null',
+);
+
+// The same overlap, but with the Bundle occurrence placed FIRST in the
+// array and the genuine direct selection second.
+const bundleBeforeDirect: DeckSelection = {
+  item_id: 'rate_bundle_4', source_type: null, source_id: null, quantity: 1,
+  resolved: true, label: 'Overlap Bundle C', unit_price: 60, per: 'Per Module',
+  line_total: 60, group_id: 'grp', bundle_id: 'rsb_4',
+  // Reaches `rate_inc_b`, whose OWN direct selection sits LATER in
+  // `deckSelections` below.
+  includes: [{ item_id: 'rate_inc_b', source_rate_sheet_id: 'rs_kairos', source_item_id: 'rel_ops', label: 'Operations', quantity: 1 }],
+};
+const selectionsWithBundleFirst = [bundleBeforeDirect, ...deckSelections];
+const inclusionsWithBundleFirst = projectTierInclusions(selectionsWithBundleFirst, categoryByRateItem, rateSheet.rate_sheet_id);
+check(
+  inclusionsWithBundleFirst.filter((row) => row.itemId === 'rate_inc_b').length === 1
+    && inclusionsWithBundleFirst.find((row) => row.itemId === 'rate_inc_b')?.addressable === true
+    && inclusionsWithBundleFirst.find((row) => row.itemId === 'rate_inc_b')?.unitPrice === 208,
+  'Bundle overlap BEFORE the genuine direct selection: still ONE row, still addressable, still the direct selection\'s real price — order in the array has zero effect on addressability',
+);
+
 const unresolvedSheet = projectTierRateSheet(deckSelections, null, 'rs_missing');
 check(
   unresolvedSheet?.rateSheetId === 'rs_missing'

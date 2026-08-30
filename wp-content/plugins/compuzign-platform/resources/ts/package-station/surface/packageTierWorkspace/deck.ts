@@ -245,21 +245,38 @@ export function buildRateItemCategoryMap(
  * DEDUPE: the same real row reached twice — directly AND through a Bundle,
  * or through two different Bundles — is ONE Inclusion, by its own
  * authoritative `(rate_sheet_id, item_id)` identity, the same rule
- * `PackageRepository::composeTierGroup()` applies server-side. First
- * occurrence wins (stable selection order), matching the backend's dedup.
+ * `PackageRepository::composeTierGroup()` applies server-side.
+ *
+ * ADDRESSABILITY IS NOT ORDER-DEPENDENT: which selection happens to sit
+ * first in the Tier's own array is incidental, but whether a row is a
+ * genuine direct Tier selection is not. A first PASS collects every
+ * identity a genuine direct selection reaches, from the WHOLE list —
+ * before any row is built — so a Bundle occurrence of that same row,
+ * wherever it sits, always defers to the direct selection's own row
+ * (real pricing, `addressable: true`) rather than emitting a non-
+ * addressable Bundle-child stub that a later direct occurrence can no
+ * longer un-suppress. A row reached ONLY via Bundle(s) still emits once,
+ * `addressable: false`, from wherever it first occurs.
  */
 export function projectTierInclusions(
   selections: readonly DeckSelection[],
   categoryByRateItem: ReadonlyMap<string, string[]>,
   boundRateSheetId: string | null = null,
 ): DeckInclusion[] {
+  const directlySelected = new Set<string>();
+  for (const selection of selections) {
+    if (!selection.bundle_id && selection.source_type === 'inclusion') {
+      directlySelected.add(inclusionKey(boundRateSheetId, selection.item_id));
+    }
+  }
+
   const seen = new Set<string>();
   const rows: DeckInclusion[] = [];
   for (const selection of selections) {
     if (selection.bundle_id) {
       for (const child of selection.includes ?? []) {
         const key = inclusionKey(child.source_rate_sheet_id, child.item_id);
-        if (seen.has(key)) continue;
+        if (seen.has(key) || directlySelected.has(key)) continue;
         seen.add(key);
         rows.push({
           itemId:      child.item_id,
