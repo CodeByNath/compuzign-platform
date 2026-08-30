@@ -14,6 +14,7 @@
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import { TIER_LABELS } from '../../vocabulary';
 import type { PackageStationTierView } from '../../usePackageStation';
+import { projectTierInclusions } from '../packageTierWorkspace/deck';
 import { TiersIcon, ViewIcon, PackagesIcon, RateSheetIcon } from '@/admin-station/shell/icons';
 import type {
   CategoryGroupCardItem,
@@ -31,6 +32,10 @@ export function toTierCardStatus(status: string): CategoryGroupStatus {
     default:             return 'pending-dim';
   }
 }
+
+// No category enrichment is needed for a bare count — the shared object
+// avoids allocating a new empty Map on every card projection.
+const NO_CATEGORIES = new Map<string, string[]>();
 
 export interface TierOccupantCardInput {
   occupantId: string;
@@ -50,7 +55,16 @@ export function toTierOccupantCard({
 }: TierOccupantCardInput): CategoryGroupCardItem {
   const detail     = view?.detail;
   const price      = detail?.price ?? null;
-  const inclusions = detail?.inclusions_override.length ?? 0;
+  // The card/detail metric counts the same REAL, deduped Inclusions the
+  // Details lane shows — a Bundle-backed selection expands into what it
+  // actually supplies, never counted as one raw commercial row (the same
+  // rule composeTierGroup() already applies server-side). This is
+  // deliberately NOT `inclusions_override.length`, which is the occupant's
+  // own Features EDITOR module (its Bundle row is one editable/selectable
+  // unit there, on purpose — Publish completeness reads it, untouched).
+  const inclusions = detail
+    ? projectTierInclusions(detail.rate_sheet_selections, NO_CATEGORIES, detail.rate_sheet_id).length
+    : 0;
   const faqs       = detail?.faq_refs.length ?? 0;
   const isAddon    = detail?.is_addon ?? false;
 

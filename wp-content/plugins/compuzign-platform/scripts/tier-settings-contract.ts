@@ -204,6 +204,20 @@ check(
   'the Summary panel\'s own familyComposition reaches Settings > Family Groups through one unbroken prop chain, never a second fetch or a stale fallback',
 );
 
+// Live defect (round 5): round 4 only fixed the 'focused' filter's row
+// (`connectedFamilyRow`) — but Family Groups defaults to the 'all' filter,
+// whose OWN separate `projectFamilyConnectionRows(candidate)` call (inside
+// the pool flatMap) still carried no composition at all, for ANY filter
+// value. OMNIA kept reporting Services 0 in Settings even after
+// Connections and the Summary both correctly read 3. The pool projection
+// must pass composition for the one candidate that actually has a loaded
+// composition (the focused Family) — every other pool row has none to
+// reuse and correctly falls back.
+check(
+  /projectFamilyConnectionRows\(candidate, candidate\.id === family\?\.id \? familyComposition : null\)/.test(settingsSource),
+  'the "all"/status-filtered Family Groups pool (the default view) passes the focused Family\'s own composition to its matching row, not just the separate \'focused\'-filter row — the exact path that stayed on Services 0 after round 4',
+);
+
 // Tier Groups follows Family Groups' exact cleaning: its Connected
 // sub-section carries no kicker, heading, or description above it, and the
 // bottom Pool leaf is gone — its launcher moved into the top toolbar too.

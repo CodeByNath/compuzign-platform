@@ -169,8 +169,15 @@ export function TierSystemSettings({
     const ordered = focusedId
       ? [...pool].sort((a, b) => (a.id === focusedId ? -1 : b.id === focusedId ? 1 : 0))
       : pool;
-    return ordered.flatMap((candidate) => projectFamilyConnectionRows(candidate));
-  }, [connectedFamilyRow, family, familyGroupFilter, families]);
+    // Only the FOCUSED candidate has a loaded composition to reuse (the
+    // workspace resolves one Tier Group's composition at a time); every
+    // other pool row falls back to `dependents.services` — the same
+    // honest "no composition available" rule `projectFamilyConnectionRows`
+    // already applies, never a second fetch for the whole pool.
+    return ordered.flatMap((candidate) =>
+      projectFamilyConnectionRows(candidate, candidate.id === family?.id ? familyComposition : null),
+    );
+  }, [connectedFamilyRow, family, familyComposition, familyGroupFilter, families]);
   const [tierGroupFilter, setTierGroupFilter] = useState<TierGroupFilter>('all');
   // The Tier Groups list: the parent Tier Group / Tier System records themselves,
   // narrowed by their own lifecycle state, with the focused system — when it is

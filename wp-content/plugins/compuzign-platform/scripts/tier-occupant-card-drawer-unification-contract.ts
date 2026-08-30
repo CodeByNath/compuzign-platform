@@ -74,4 +74,59 @@ for (const isAddon of [false, true]) {
   }
 }
 
+// Live defect (round 5): the card's "Included features" metric and the
+// focused Tier detail panel (TierDetailPanel.tsx, which renders this SAME
+// card item) both counted `inclusions_override.length` — the occupant's
+// OWN raw commercial selection rows, where a Bundle-backed selection is
+// one row. A Tier whose only selection is a Bundle compiling 3 real
+// inclusions showed "1 included feature" everywhere, while Details >
+// Focused inclusions (the accepted display projection) correctly showed
+// the 3 real rows. The metric must count the SAME deduped real Inclusion
+// projection Details uses — never the raw selection list, never a
+// hardcoded number.
+const bundleOnlyDetail = detail({
+  rate_sheet_id: 'rs_omnia',
+  rate_sheet_selections: [{
+    item_id: 'row_bundle', quantity: 1, resolved: true, label: 'Foundation Bundle',
+    unit_price: 300, per: 'Per Module', line_total: 300, group_id: null,
+    bundle_id: 'rsb_1',
+    includes: [
+      { item_id: 'row_a', source_rate_sheet_id: 'rs_omnia', source_item_id: 'rel_a', label: 'Website Revamp', quantity: 1 },
+      { item_id: 'row_b', source_rate_sheet_id: 'rs_omnia', source_item_id: 'rel_b', label: 'Online Banking', quantity: 1 },
+      { item_id: 'row_c', source_rate_sheet_id: 'rs_omnia', source_item_id: 'rel_c', label: 'Wire Transfer', quantity: 1 },
+    ],
+  }],
+}, false);
+const bundleOnlyCard = toTierOccupantCard({
+  occupantId: 'occ_bundle', slotId: 'basic', view: viewFrom(bundleOnlyDetail), platformStatus: 'active',
+});
+check(
+  bundleOnlyCard.metrics.find((metric) => metric.id === 'features')?.value === 3,
+  'a Tier whose only selection is a Bundle compiling 3 real rows reports 3 included features, not 1 (the raw commercial selection count) and not a hardcoded number',
+);
+
+const directOnlyDetail = detail({
+  rate_sheet_id: 'rs_kairos',
+  rate_sheet_selections: [
+    { item_id: 'row_x', quantity: 1, resolved: true, label: 'Compute', source_type: 'inclusion', source_id: 'inc-x', unit_price: 10, per: 'Per month', line_total: 10, group_id: null },
+    { item_id: 'row_y', quantity: 1, resolved: true, label: 'Storage', source_type: 'inclusion', source_id: 'inc-y', unit_price: 5, per: 'Per month', line_total: 5, group_id: null },
+  ],
+}, false);
+const directOnlyCard = toTierOccupantCard({
+  occupantId: 'occ_direct', slotId: 'basic', view: viewFrom(directOnlyDetail), platformStatus: 'active',
+});
+check(
+  directOnlyCard.metrics.find((metric) => metric.id === 'features')?.value === 2,
+  'a Tier with only ordinary direct selections still reports the real count (2) — the fix does not regress the already-correct non-Bundle case',
+);
+
+const emptyDetail = detail({ rate_sheet_id: null, rate_sheet_selections: [] }, false);
+const emptyCard = toTierOccupantCard({
+  occupantId: 'occ_empty', slotId: 'basic', view: viewFrom(emptyDetail), platformStatus: 'active',
+});
+check(
+  emptyCard.metrics.find((metric) => metric.id === 'features')?.value === 0,
+  'a Tier with no selections reports a genuine 0, never a fabricated count',
+);
+
 console.log('Tier occupant card/drawer unification contract checks passed.');
