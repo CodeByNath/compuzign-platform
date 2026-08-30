@@ -56,18 +56,36 @@ export interface DeckSelection {
 }
 
 /**
- * How many Inclusions one resolved selection contributes. A Bundle row is
- * the Tier's commercial selection/pricing vehicle ONLY — never itself an
- * Inclusion, the same split the customer Cost Builder already applies
- * (`PricingTiers.tsx`'s `TierCard`: the Bundle row renders as a non-
- * checkable section header, never counted, while its own `includes[]`
- * render as the real checkable inclusion rows beneath it). What a Bundle
- * counts as here is exactly what it supplies, never a hardcoded number.
- * Shared by every lane below so "how many inclusions" is decided once.
+ * The authoritative identity of one real supplied Inclusion row —
+ * `(rate_sheet_id, item_id)`, the same pair `PackageRepository::
+ * composeTierGroup()` dedupes by server-side. An ordinary directly-selected
+ * row lives on the Tier's own bound sheet; a Bundle's child names its OWN
+ * `source_rate_sheet_id` (a Bundle may compose across sheets), never the
+ * bound sheet's id.
  */
-function inclusionCountFor(selection: DeckSelection): number {
-  if (selection.bundle_id) return selection.includes?.length ?? 0;
-  return selection.source_type === 'inclusion' ? 1 : 0;
+function inclusionKey(rateSheetId: string | null, itemId: string): string {
+  return `${rateSheetId ?? ''}::${itemId}`;
+}
+
+/**
+ * Every real Inclusion identity one resolved selection contributes. A
+ * Bundle row is the Tier's commercial selection/pricing vehicle ONLY —
+ * never itself an Inclusion, the same split the customer Cost Builder
+ * already applies (`PricingTiers.tsx`'s `TierCard`: the Bundle row renders
+ * as a non-checkable section header, never counted, while its own
+ * `includes[]` render as the real checkable inclusion rows beneath it).
+ * What a Bundle contributes here is exactly what it supplies, never a
+ * hardcoded number. Shared by every lane below so "which real rows does
+ * this selection reach" is decided once — each lane then dedupes those
+ * identities in its own scope (a Bundle reached via two different
+ * selections, or a row reached both directly and via a Bundle, is ONE
+ * Inclusion, never two).
+ */
+function inclusionKeysFor(selection: DeckSelection, boundRateSheetId: string | null): string[] {
+  if (selection.bundle_id) {
+    return (selection.includes ?? []).map((child) => inclusionKey(child.source_rate_sheet_id, child.item_id));
+  }
+  return selection.source_type === 'inclusion' ? [inclusionKey(boundRateSheetId, selection.item_id)] : [];
 }
 
 /** A relationship carrying the admin-read-model source categories for a row. */
@@ -104,6 +122,13 @@ export interface DeckInclusion {
   // Honest status: a selection whose Rate Sheet row + Service source both resolve
   // is 'active'; one that does not is 'unresolved'. No Active/Draft is invented.
   resolved:   boolean;
+  // True for an ordinary row the Tier itself directly selected — `itemId` IS
+  // the Tier's own Rate Sheet selection key, safe to dispatch into the
+  // `tier-inclusion` drawer. False for a row a Bundle merely SUPPLIES: the
+  // Tier's actual selection is the Bundle shell, not this row, so `itemId`
+  // here resolves to no top-level selection and must never be dispatched as
+  // one — presentation omits row actions accordingly (`TierLowerDeck.tsx`).
+  addressable: boolean;
 }
 
 /**
@@ -213,39 +238,62 @@ export function buildRateItemCategoryMap(
  * nothing, never a placeholder for the shell itself. Per-child pricing is
  * never invented: a Bundle's own commercial price is independent of what its
  * ingredients would sum to (see PackageManagerSchema's Bundle pricing rule),
- * so a supplied child carries no unit price/per/line total of its own.
+ * so a supplied child carries no unit price/per/line total of its own, and
+ * `addressable: false` keeps it out of the `tier-inclusion` drawer address
+ * space it was never really a member of.
+ *
+ * DEDUPE: the same real row reached twice — directly AND through a Bundle,
+ * or through two different Bundles — is ONE Inclusion, by its own
+ * authoritative `(rate_sheet_id, item_id)` identity, the same rule
+ * `PackageRepository::composeTierGroup()` applies server-side. First
+ * occurrence wins (stable selection order), matching the backend's dedup.
  */
 export function projectTierInclusions(
   selections: readonly DeckSelection[],
   categoryByRateItem: ReadonlyMap<string, string[]>,
+  boundRateSheetId: string | null = null,
 ): DeckInclusion[] {
-  return selections.flatMap((selection): DeckInclusion[] => {
+  const seen = new Set<string>();
+  const rows: DeckInclusion[] = [];
+  for (const selection of selections) {
     if (selection.bundle_id) {
-      return (selection.includes ?? []).map((child) => ({
-        itemId:     child.item_id,
-        sourceId:   null,
-        name:       child.label,
-        categories: categoryByRateItem.get(child.item_id) ?? [],
-        quantity:   child.quantity,
-        unitPrice:  null,
-        per:        null,
-        lineTotal:  null,
-        resolved:   true,
-      }));
+      for (const child of selection.includes ?? []) {
+        const key = inclusionKey(child.source_rate_sheet_id, child.item_id);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push({
+          itemId:      child.item_id,
+          sourceId:    null,
+          name:        child.label,
+          categories:  categoryByRateItem.get(child.item_id) ?? [],
+          quantity:    child.quantity,
+          unitPrice:   null,
+          per:         null,
+          lineTotal:   null,
+          resolved:    true,
+          addressable: false,
+        });
+      }
+      continue;
     }
-    if (selection.source_type !== 'inclusion') return [];
-    return [{
-      itemId:     selection.item_id,
-      sourceId:   selection.source_id ?? null,
-      name:       selection.label,
-      categories: categoryByRateItem.get(selection.item_id) ?? [],
-      quantity:   selection.quantity,
-      unitPrice:  selection.unit_price,
-      per:        selection.per,
-      lineTotal:  selection.line_total,
-      resolved:   selection.resolved,
-    }];
-  });
+    if (selection.source_type !== 'inclusion') continue;
+    const key = inclusionKey(boundRateSheetId, selection.item_id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      itemId:      selection.item_id,
+      sourceId:    selection.source_id ?? null,
+      name:        selection.label,
+      categories:  categoryByRateItem.get(selection.item_id) ?? [],
+      quantity:    selection.quantity,
+      unitPrice:   selection.unit_price,
+      per:         selection.per,
+      lineTotal:   selection.line_total,
+      resolved:    selection.resolved,
+      addressable: true,
+    });
+  }
+  return rows;
 }
 
 /**
@@ -258,7 +306,10 @@ export function projectTierInclusions(
  * stores. A selection carrying no group, or one naming a group the sheet no
  * longer holds, contributes to the sheet connection but never mints a group
  * identity here. Counts are aggregations of the Tier's own selections, never a
- * re-derived price.
+ * re-derived price. `connectedInclusions` dedupes within each group's own
+ * bucket by the real row's authoritative identity — two selections filed
+ * under the SAME group that reach the same real row (directly + via a
+ * Bundle, or via two Bundles) contribute it once.
  */
 export function projectTierRateSheetGroups(
   selections: readonly DeckSelection[],
@@ -267,15 +318,15 @@ export function projectTierRateSheetGroups(
   if (rateSheet === null) return [];
   const groupById = new Map(rateSheet.groups.map((group) => [group.group_id, group]));
 
-  const buckets = new Map<string, { connectedRows: number; coverage: number; connectedInclusions: number }>();
+  const buckets = new Map<string, { connectedRows: number; coverage: number; seenInclusions: Set<string> }>();
   for (const selection of selections) {
     if (!selection.resolved) continue;
     const groupId = selection.group_id;
     if (groupId === null || !groupById.has(groupId)) continue;
-    const bucket = buckets.get(groupId) ?? { connectedRows: 0, coverage: 0, connectedInclusions: 0 };
+    const bucket = buckets.get(groupId) ?? { connectedRows: 0, coverage: 0, seenInclusions: new Set<string>() };
     bucket.connectedRows += 1;
     bucket.coverage += selection.quantity;
-    bucket.connectedInclusions += inclusionCountFor(selection);
+    for (const key of inclusionKeysFor(selection, rateSheet.rate_sheet_id)) bucket.seenInclusions.add(key);
     buckets.set(groupId, bucket);
   }
 
@@ -288,7 +339,7 @@ export function projectTierRateSheetGroups(
       status:        rateSheet.status,
       connectedRows: bucket.connectedRows,
       coverage:      bucket.coverage,
-      connectedInclusions: bucket.connectedInclusions,
+      connectedInclusions: bucket.seenInclusions.size,
     }))
     .sort((a, b) => {
       const aOrder = groupById.get(a.groupId)!.sort_order;
@@ -319,11 +370,11 @@ export function projectTierRateSheet(
     };
   }
   let connectedRows = 0;
-  let connectedInclusions = 0;
+  const seenInclusions = new Set<string>();
   for (const selection of selections) {
     if (!selection.resolved) continue;
     connectedRows += 1;
-    connectedInclusions += inclusionCountFor(selection);
+    for (const key of inclusionKeysFor(selection, boundRateSheetId)) seenInclusions.add(key);
   }
   return {
     rateSheetId: rateSheet.rate_sheet_id,
@@ -332,7 +383,7 @@ export function projectTierRateSheet(
     status:      rateSheet.status,
     resolved:    true,
     connectedRows,
-    connectedInclusions,
+    connectedInclusions: seenInclusions.size,
   };
 }
 
@@ -347,7 +398,7 @@ export function projectTierDeck(
   rateSheet: DeckRateSheet | null,
   boundRateSheetId: string | null = rateSheet?.rate_sheet_id ?? null,
 ): TierDeck {
-  const inclusions = projectTierInclusions(selections, categoryByRateItem);
+  const inclusions = projectTierInclusions(selections, categoryByRateItem, boundRateSheetId);
   const categories = [...new Set(inclusions.flatMap((inclusion) => inclusion.categories))].sort((a, b) =>
     a.localeCompare(b),
   );

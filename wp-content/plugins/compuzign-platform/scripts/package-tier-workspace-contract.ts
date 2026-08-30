@@ -287,11 +287,15 @@ const rateSheet: DeckRateSheet = {
   status: 'active',
   groups: [{ group_id: 'grp', label: 'Infrastructure', sort_order: 0, platform_id: 'CZPRCG_INFRA' }],
 };
-const inclusions = projectTierInclusions(deckSelections, categoryByRateItem);
+const inclusions = projectTierInclusions(deckSelections, categoryByRateItem, rateSheet.rate_sheet_id);
 check(inclusions.length === 3 && inclusions[0].lineTotal === 140, 'lower-deck inclusion projection remains unchanged');
 check(
   JSON.stringify(inclusions[0].categories) === JSON.stringify(['Cloud Infrastructure']),
   'the Details lane keeps its category names — genuine Tier-level display, not Family roll-up plumbing',
+);
+check(
+  inclusions[0].addressable === true,
+  'an ordinary directly-selected row is addressable — its itemId IS the Tier\'s own selection key',
 );
 
 // Connections: every summary resolves through a stored identity, never a label.
@@ -359,7 +363,7 @@ const bundleSelection: DeckSelection = {
 };
 const selectionsWithBundle = [...deckSelections, bundleSelection];
 
-const inclusionsWithBundle = projectTierInclusions(selectionsWithBundle, categoryByRateItem);
+const inclusionsWithBundle = projectTierInclusions(selectionsWithBundle, categoryByRateItem, rateSheet.rate_sheet_id);
 check(
   inclusionsWithBundle.length === 4
     && !inclusionsWithBundle.some((row) => row.itemId === 'rate_bundle')
@@ -374,6 +378,10 @@ check(
   inclusionsWithBundle.find((row) => row.itemId === 'rate_bundle_child')?.unitPrice === null,
   'a Bundle child carries no per-item price of its own — the Bundle\'s own commercial price is independent of what its ingredients would sum to',
 );
+check(
+  inclusionsWithBundle.find((row) => row.itemId === 'rate_bundle_child')?.addressable === false,
+  'a Bundle-supplied row is NOT addressable — the Tier selected the Bundle shell, not this row, so it must never be dispatched as a top-level selection',
+);
 
 const groupConnectionsWithBundle = projectTierRateSheetGroups(selectionsWithBundle, rateSheet);
 check(
@@ -385,6 +393,46 @@ const sheetConnectionWithBundle = projectTierRateSheet(selectionsWithBundle, rat
 check(
   sheetConnectionWithBundle !== null && sheetConnectionWithBundle.connectedInclusions === 3,
   'the Rate Sheet connection\'s connectedInclusions likewise counts a Bundle\'s real supplied children, never the shell',
+);
+
+// Dedup: the SAME real row reached directly AND through a Bundle, or through
+// TWO different Bundles, is ONE Inclusion everywhere — never counted or
+// shown twice, the same authoritative-identity rule
+// PackageRepository::composeTierGroup() applies server-side (audit
+// correction: a naive flatMap/sum let this reappear on the frontend even
+// after the backend already deduped it).
+const bundleSelectionDirectOverlap: DeckSelection = {
+  item_id: 'rate_bundle_2', source_type: null, source_id: null, quantity: 1,
+  resolved: true, label: 'Overlap Bundle A', unit_price: 50, per: 'Per Module',
+  line_total: 50, group_id: 'grp', bundle_id: 'rsb_2',
+  // Reaches the SAME real row `rate_inc_a` a direct selection already reaches.
+  includes: [{ item_id: 'rate_inc_a', source_rate_sheet_id: 'rs_kairos', source_item_id: 'rel_infra', label: 'Cloud', quantity: 1 }],
+};
+const bundleSelectionBundleOverlap: DeckSelection = {
+  item_id: 'rate_bundle_3', source_type: null, source_id: null, quantity: 1,
+  resolved: true, label: 'Overlap Bundle B', unit_price: 40, per: 'Per Module',
+  line_total: 40, group_id: 'grp', bundle_id: 'rsb_3',
+  // Reaches the SAME real row `bundleSelection` above already reaches.
+  includes: [{ item_id: 'rate_bundle_child', source_rate_sheet_id: 'rs_kairos', source_item_id: 'rel_bundle_child', label: 'Website Revamp', quantity: 1 }],
+};
+const selectionsWithOverlap = [...selectionsWithBundle, bundleSelectionDirectOverlap, bundleSelectionBundleOverlap];
+
+const inclusionsWithOverlap = projectTierInclusions(selectionsWithOverlap, categoryByRateItem, rateSheet.rate_sheet_id);
+check(
+  inclusionsWithOverlap.length === 4,
+  'the Details lane dedupes: rate_inc_a and rate_bundle_child each appear ONCE despite being reached twice (directly+Bundle, and Bundle+Bundle)',
+);
+
+const groupConnectionsWithOverlap = projectTierRateSheetGroups(selectionsWithOverlap, rateSheet);
+check(
+  groupConnectionsWithOverlap[0].connectedRows === 6 && groupConnectionsWithOverlap[0].connectedInclusions === 3,
+  'connectedRows counts every physical selection (6) but connectedInclusions dedupes to the 3 distinct real rows they collectively reach',
+);
+
+const sheetConnectionWithOverlap = projectTierRateSheet(selectionsWithOverlap, rateSheet);
+check(
+  sheetConnectionWithOverlap !== null && sheetConnectionWithOverlap.connectedInclusions === 3,
+  'the Rate Sheet connection dedupes the same way as the group and Details lanes',
 );
 
 const unresolvedSheet = projectTierRateSheet(deckSelections, null, 'rs_missing');

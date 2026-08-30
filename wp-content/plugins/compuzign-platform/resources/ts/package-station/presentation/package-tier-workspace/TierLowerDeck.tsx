@@ -29,7 +29,12 @@
 //   - Inclusion-scoped (`onInclusionIntent`) — a Details row addresses ONE
 //     inclusion, so it forwards its own `item_id` (the Tier's Rate Sheet
 //     selection key) and the orchestrator routes it to the registered
-//     `tier-inclusion` drawer.
+//     `tier-inclusion` drawer. Only an `addressable` row (`DeckInclusion`,
+//     deck.ts) does this — a Bundle-SUPPLIED row's `itemId` is a real Rate
+//     Sheet row, but not one the Tier itself selected (the Tier selected the
+//     Bundle shell), so it carries no actions: `resolveTierInclusion()`
+//     could never resolve it as a top-level selection, and it owns no
+//     independent quantity/mutation path to edit.
 //   - Connection-scoped (`onConnectionIntent`) — a typed target forwards the
 //     Package Family id, `(rate_sheet_id, group_id)`, or `rate_sheet_id` through
 //     the existing owning drawer route. Connections dispatches it for the
@@ -357,12 +362,18 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
       </span>
       <div class="cz-station-list__cell cz-tier-deck__row-actions">
         {/* The row closes over its OWN selection key, so the dispatched intent
-            addresses this inclusion rather than the focused Tier. */}
-        <StationSplitAction
-          actions={ROW_ACTIONS}
-          controlLabel={inclusion.name}
-          onAction={(actionId) => onInclusionIntent(inclusion.itemId, actionId as 'view' | 'edit')}
-        />
+            addresses this inclusion rather than the focused Tier. A
+            Bundle-supplied row (`addressable: false`) is not itself a Tier
+            selection — the Tier selected the Bundle shell — so it carries no
+            actions to falsely address it as one; the cell stays present but
+            empty, preserving the row's grid alignment. */}
+        {inclusion.addressable && (
+          <StationSplitAction
+            actions={ROW_ACTIONS}
+            controlLabel={inclusion.name}
+            onAction={(actionId) => onInclusionIntent(inclusion.itemId, actionId as 'view' | 'edit')}
+          />
+        )}
       </div>
     </li>
   );
