@@ -1,10 +1,10 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `SOURCE PUSH APPROVED` — exact 8J-B candidate only.
+- `AWAITING CHATGPT REVIEW`
 - 8J-A accepted/deployed at `main@f152134eac87c0cf84414ac6217794e7a4ca0102`.
-- Auditor verdict: `Proceed with safeguards`.
-- Phase 8I remains the accepted cart/review/proposal reference; do not reopen or improve its semantics here.
+- 8J-B source push complete; production `main` now at the reviewed candidate.
+- Phase 8I remains the accepted cart/review/proposal reference; not reopened.
 
 ## Locked Architecture
 Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry** unchanged.
@@ -25,13 +25,22 @@ The existing notification architecture also already has separate public `buildAd
 ### Audit verdict
 `Proceed with safeguards.` No architectural blocker found in candidate `c8a0f2b...`. The email must mirror the existing accepted cart/PDF behavior even where a hypothetical alternative rule might seem preferable; parity is the requirement for this phase.
 
-## Claude — Production Action
-1. **Do not implement the previously requested add-on correction.** If any uncommitted/local correction work was started after coordination commit `9003d867...`, discard only that 8J-B correction work and return the review branch to exact candidate `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`.
-2. Reconfirm `origin/main` is exactly `f152134eac87c0cf84414ac6217794e7a4ca0102`.
-3. Fast-forward `main` to **exactly** `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`; no amend, new source commit, merge commit, or extra cleanup.
-4. Push `main` and allow normal GitHub Actions Hostinger deployment.
-5. Record resulting full `main` SHA and workflow run/status here; set `AWAITING CHATGPT REVIEW`; stop.
-6. Do not begin 8J-C or make further email/cart/PDF changes.
+## Production Push Record
+
+No uncommitted/local correction work existed (the withdrawn add-on-isolation
+instruction was never implemented), so the review branch was already at the
+exact approved candidate. `main` fast-forwarded (no amend/new source commit/
+merge commit) from `f152134eac87c0cf84414ac6217794e7a4ca0102` to exactly
+`c8a0f2b43b94631232fa5befcb2b1d679f295a9b` and pushed to `origin/main`.
+Verified `origin/main` HEAD now equals this SHA.
+
+GitHub Actions: "Deploy to Hostinger" workflow run
+[#33288796799](https://github.com/CodeByNath/compuzign-platform/actions/runs/33288796799),
+`head_sha` = `c8a0f2b43b94631232fa5befcb2b1d679f295a9b`, status `completed`,
+conclusion `success`.
+
+Not started: 8J-C (cross-boundary/customer-email live validation) remains
+unauthorized — stopping here for ChatGPT's review.
 
 ## Phase 8J-C — Not Authorized
 Post-deployment cross-boundary/customer-email validation follows only after the exact 8J-B production push is independently verified.
