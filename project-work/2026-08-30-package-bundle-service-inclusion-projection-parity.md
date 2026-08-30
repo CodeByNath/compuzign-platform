@@ -1,35 +1,27 @@
 # Package bundle service/inclusion projection parity
 
 ## Status
-- **AWAITING LIVE VALIDATION** — source and deployment boundaries independently accepted.
-- Production `main` = `79a7d99c63970e61add450907282cedc2af4d664`.
-- Deploy run `33301750395` / run `916` = `completed/success`, exact `head_sha=79a7d99c63970e61add450907282cedc2af4d664`.
+- **AWAITING CLAUDE RESPONSE** — live validation failed; production source/deploy were correct but the read projection is still semantically wrong.
+- Production `main` = `79a7d99c63970e61add450907282cedc2af4d664`; deploy run `33301750395` succeeded.
+- Source push: **NOT APPROVED** for the correction until re-audited.
 - Auditor verdict: **Proceed with safeguards**.
 
-## Accepted root cause
-Live OMNIA — Banking selects one self-priced Bundle Rate Sheet row. The Tier/pricing path already resolved it, but Package Family/Tier Group composition and the focused lower-deck projections previously recognized only Manager rows with `source_type === 'inclusion'`. A Bundle commercial row carries no Manager source of its own, so it was dropped and the same valid relationship appeared as zero Services/Categories/Inclusions on other Package surfaces.
+## Confirmed root cause
+OMNIA — Banking selects one self-priced Bundle commercial Rate Sheet row. The previous patch correctly stopped dropping that row and correctly derives Services/Categories from `row.includes[]`, but it then made the Bundle shell itself the displayed/countable Inclusion.
 
-## Accepted fix
-- Backend `PackageRepository::composeTierGroup()` accepts a resolving self-priced Bundle row as one selected Inclusion and derives Service/Category provenance from the real compiled inclusion rows in `row.includes[]` through existing indexes.
-- Frontend `deck.ts` uses one shared inclusion-selection predicate for ordinary inclusion rows or Bundle rows; focused inclusions and Group/Rate Sheet inclusion counts therefore use the same rule.
-- No second resolver, schema change, identity change, persistence migration, pricing change, or authoring change.
-- Generated `dist/js/admin-station.js` rebuilt.
+## Live validation failure — 2026-08-30
+Nath validated production and confirmed it is **not fixed**: Focused inclusions renders the **Foundation Bundle as one Inclusion** instead of the real inclusions the Bundle supplies.
 
-## Independent source/deploy audit
-The approved review head was exactly one commit ahead of prior production and changed only the five reviewed files. After Nath's fast-forward push, GitHub `main` independently resolves to the exact approved SHA `79a7d99c63970e61add450907282cedc2af4d664` with parent `195896e...`; no extra source commit was inserted.
+This conflicts with established Bundle presentation semantics already used by the customer Cost Builder: the Bundle remains one commercial Rate Sheet row for pricing/selection, while its `includes[]` are expanded into the visible inclusion rows. `FamilyTierAdapter.tsx` explicitly preserves this split; do not redesign it.
 
-GitHub Actions **Deploy to Hostinger** run `33301750395` completed successfully on first attempt with that exact `head_sha`. Independent job inspection confirms `Build frontend assets`, `Deploy source via SSH`, and `Deploy built dist assets via SCP` all completed successfully.
+## Claude — correction required
+1. Re-read the existing Bundle-aware Cost Builder path and the existing admin Inclusion/Bundle drawer/projection behavior before editing. Reuse the established semantic rule; do not invent another Bundle model.
+2. Keep the Bundle shell as the Tier's **commercial selection/pricing row**. Do not split pricing, quantity ownership, Leg assignment, or persistence into child selections.
+3. For **read/display inclusion projection**, expand a selected Bundle through its already-resolved `includes[]` and show the real supplied inclusion rows. Do **not** render the Bundle shell as an Inclusion row.
+4. Inclusion counts on Package Family, Family Group, Group/Rate Sheet connection surfaces and focused Details must reflect the actual resolved inclusion children. For current OMNIA Foundation, derive the count from its live `includes[]`; never hard-code `3`.
+5. Ordinary non-Bundle inclusion rows remain one visible/countable inclusion. FAQ/non-inclusion rows remain excluded. Deduplicate only by the authoritative supplied row identity where the same inclusion is genuinely reached twice; do not suppress intentional cross-Leg/commercial duplication outside this admin projection.
+6. Preserve the previous correct Service/Category provenance fix from the compiled Bundle children.
+7. No schema migration, pricing change, Rate Sheet mutation, identity change, customer UI redesign, or persistence change.
 
-No Code Map update is required for this correction because no documented owner, path, endpoint, or responsibility changed.
-
-## Live validation now
-Read-only browser validation must confirm:
-- OMNIA Basic no longer shows `This Tier selects no inclusions`;
-- the Bundle-backed focused inclusion appears correctly;
-- OMNIA Package Family Services/Inclusions counts are non-zero and consistent;
-- Connections > Family Group and Group counts agree with the same resolved data;
-- Settings > Family Groups agrees with Connections;
-- KAIROS/APTOS remain unchanged;
-- reload preserves the corrected projection.
-
-If live behavior matches, mark **CLOSED** and only then return to unrelated Admin UI/UX or CRM work.
+## Acceptance
+Add focused regression coverage proving a Tier selecting only one Bundle commercial row projects its supplied inclusion children (not the Bundle shell), with counts derived from `includes[]`; ordinary inclusion and empty-state behavior must remain unchanged. Confirm KAIROS/APTOS unchanged. Update affected Code Map only if current documented behavior/responsibility needs correction. Push correction to a review branch, record exact SHA/tests/files here, set **AWAITING CHATGPT REVIEW**, and stop.
