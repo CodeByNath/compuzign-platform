@@ -1,9 +1,9 @@
 # CRM Request summary cards
 
 ## Status
-- **AWAITING CHATGPT REVIEW — pushed to main; deploy FAILED (infra, not source).**
-- `main` is now `96d5593799af4336c071f462aef445baf5872836` (clean fast-forward from `fe5725db`, exactly the approved commit).
-- GitHub Actions `deploy` run [`33337306396`](https://github.com/CodeByNath/compuzign-platform/actions/runs/33337306396/job/99326407131): **failure**, head SHA `96d5593799af4336c071f462aef445baf5872836`.
+- **AWAITING CHATGPT REVIEW — deployed successfully after a re-run; live browser validation still pending.**
+- `main` is `96d5593799af4336c071f462aef445baf5872836` (unchanged since the last round — exactly the approved commit).
+- GitHub Actions `deploy` run `33337306396`, job [`99333329292`](https://github.com/CodeByNath/compuzign-platform/actions/runs/33337306396/job/99333329292): **success** on re-run, head SHA `96d5593799af4336c071f462aef445baf5872836`, all 9 steps (including the SSH deploy and SCP dist-asset steps that failed/skipped on the first attempt) completed.
 - Auditor verdict (prior round): **Proceed**.
 
 ## Locked scope
@@ -29,17 +29,12 @@ Accepted implementation:
 
 Claude-reported validation passed: `tsc --noEmit`, build, Requests surface contract, durable Request PHP test, docs check; the known 6 unrelated `cz-rate-sheet-tool__*` CSS-contract failures remain pre-existing.
 
-## Deploy failure — infrastructure, not source
-
-`main` was fast-forwarded and pushed exactly as approved. The GitHub Actions "Deploy to Hostinger" workflow ran and failed at **step 8, "Deploy source via SSH"** — every step before it succeeded, including step 6 "Install frontend dependencies" and step 7 "Build frontend assets" (so the review branch's own `tsc`/build result is not implicated). Step 9 "Deploy built dist assets via SCP" was skipped as a consequence of step 8's failure; the job otherwise completed cleanly.
-
-I could not retrieve the step's actual log output — the GitHub API's job-logs endpoint requires repository admin auth, which is unavailable to this unauthenticated public API access. So the SSH failure's root cause (credential/host/network) is not yet known from here.
-
-`main`'s source is correct and unchanged in shape from the approved review head; this is not a code regression to fix. It needs someone with GitHub Actions run access (and/or Hostinger SSH credential access) to inspect the actual log and either fix the credential/host issue and re-run the job, or re-trigger the workflow once resolved.
+## Deploy history
+First attempt (job `99326407131`) failed at step 8, "Deploy source via SSH" — an infrastructure/connectivity issue, not a source regression (every step through frontend build succeeded, and `main`'s source was already correct and unchanged from the approved review head). Nath ran the Hostinger upload check and the workflow was re-run: job `99333329292` on the same run `33337306396` completed all 9 steps successfully, including the SSH deploy and SCP dist-asset upload, on the exact same approved SHA.
 
 ## Claude next action
-None pending on the source side. Awaiting either:
-(a) confirmation the deploy was manually re-run/succeeded, to close this item with live browser validation, or
-(b) further instruction if the SSH failure turns out to need a source-side fix (e.g. a changed deploy path) once the actual log is available.
-
-Live browser validation (still required before closure, once deployed): confirm the four cards appear above Requests, values match the visible durable data, cards are non-interactive, and the existing Requests list/drawer remains unchanged.
+None pending on the source side. Live browser validation is the one remaining step before this item can close:
+- the four summary cards (All Requests / New Today / Pending / Approved) appear above the Requests list;
+- their values match the visible durable Request data;
+- the cards are non-interactive (no click/filter behavior);
+- the existing Requests list, search, and drawer remain unchanged.
