@@ -29,7 +29,28 @@ function add_query_arg(string $key, string $value, string $url): string
     $separator = str_contains($url, '?') ? '&' : '?';
     return $url . $separator . $key . '=' . rawurlencode($value);
 }
-function get_option(string $key, mixed $default = false): mixed { return $key === 'admin_email' ? 'admin@cz-test.local' : $default; }
+$GLOBALS['cz_options'] = [];
+function get_option(string $key, mixed $default = false): mixed
+{
+    if ($key === 'admin_email') {
+        return 'admin@cz-test.local';
+    }
+    return $GLOBALS['cz_options'][$key] ?? $default;
+}
+function add_option(string $key, mixed $value, string $deprecated = '', string|bool $autoload = 'yes'): bool
+{
+    if (array_key_exists($key, $GLOBALS['cz_options'])) {
+        return false;
+    }
+    $GLOBALS['cz_options'][$key] = $value;
+    return true;
+}
+function update_option(string $key, mixed $value, string|bool|null $autoload = null): bool
+{
+    $GLOBALS['cz_options'][$key] = $value;
+    return true;
+}
+function wp_cache_delete(string $key, string $group = ''): bool { return true; }
 function get_bloginfo(string $key = ''): string { return 'CompuZign Test'; }
 
 $GLOBALS['cz_transients'] = [];
@@ -42,6 +63,118 @@ function wp_mail(string $to, string $subject, string $message, array $headers = 
     $GLOBALS['cz_sent_mail'][] = ['to' => $to, 'subject' => $subject, 'message' => $message];
     return true;
 }
+
+// ── CRM-1A: durable-Request post/identity storage — submitRequest() now
+//    creates the durable cz_request + CZR before any transient/email. ───────
+
+$GLOBALS['cz_posts']    = [];
+$GLOBALS['cz_postMeta'] = [];
+$GLOBALS['cz_nextPostId'] = 9000;
+
+function wp_insert_post(array $args, bool $wpError = false): int|WP_Error
+{
+    $id = $GLOBALS['cz_nextPostId']++;
+    $GLOBALS['cz_posts'][$id] = new WP_Post($id, (string) ($args['post_type'] ?? ''), (string) ($args['post_title'] ?? ''));
+    return $id;
+}
+function wp_delete_post(int $id, bool $force = false): bool
+{
+    if (!isset($GLOBALS['cz_posts'][$id])) {
+        return false;
+    }
+    unset($GLOBALS['cz_posts'][$id], $GLOBALS['cz_postMeta'][$id]);
+    return true;
+}
+function get_post(int $id): ?WP_Post { return $GLOBALS['cz_posts'][$id] ?? null; }
+function update_post_meta(int $id, string $key, mixed $value): bool
+{
+    $GLOBALS['cz_postMeta'][$id][$key] = $value;
+    return true;
+}
+function get_post_meta(int $id, string $key, bool $single = false): mixed
+{
+    $value = $GLOBALS['cz_postMeta'][$id][$key] ?? '';
+    return $single ? $value : ($value === '' ? [] : [$value]);
+}
+function add_post_meta(int $id, string $key, mixed $value, bool $unique = false): int|false
+{
+    if ($unique && array_key_exists($key, $GLOBALS['cz_postMeta'][$id] ?? [])) {
+        return false;
+    }
+    $GLOBALS['cz_postMeta'][$id][$key] = $value;
+    return 1;
+}
+function get_posts(array $args): array
+{
+    $matches = [];
+    foreach ($GLOBALS['cz_posts'] as $id => $post) {
+        $ok = true;
+        foreach ($args['meta_query'] ?? [] as $clause) {
+            if (($GLOBALS['cz_postMeta'][$id][$clause['key']] ?? null) !== $clause['value']) {
+                $ok = false;
+                break;
+            }
+        }
+        if (!$ok) {
+            continue;
+        }
+        $matches[] = ($args['fields'] ?? null) === 'ids' ? $id : $post;
+        if (count($matches) >= (int) ($args['numberposts'] ?? PHP_INT_MAX)) {
+            break;
+        }
+    }
+    return $matches;
+}
+function is_wp_error(mixed $value): bool { return $value instanceof WP_Error; }
+
+class WP_Post
+{
+    public function __construct(public int $ID, public string $post_type, public string $post_title) {}
+}
+class WP_Error
+{
+    public function __construct(private string $code = '', private string $message = '') {}
+    public function get_error_code(): string { return $this->code; }
+    public function get_error_message(): string { return $this->message; }
+}
+
+class FakeWpdb
+{
+    public string $options = 'wp_options';
+
+    public function prepare(string $query, mixed ...$args): string
+    {
+        $i = 0;
+        return preg_replace_callback('/%s/', function () use (&$i, $args): string {
+            return "'" . addslashes((string) $args[$i++]) . "'";
+        }, $query);
+    }
+
+    public function query(string $sql): int|false
+    {
+        if (preg_match("/UPDATE .* SET option_value = '(.*)' WHERE option_name = '(.*)' AND option_value = '(.*)'/s", $sql, $m)) {
+            $newValue = stripslashes($m[1]);
+            $key      = stripslashes($m[2]);
+            $oldValue = stripslashes($m[3]);
+            if (($GLOBALS['cz_options'][$key] ?? null) === $oldValue) {
+                $GLOBALS['cz_options'][$key] = $newValue;
+                return 1;
+            }
+            return 0;
+        }
+        if (preg_match("/DELETE FROM .* WHERE option_name = '(.*)' AND option_value = '(.*)'/s", $sql, $m)) {
+            $key   = stripslashes($m[1]);
+            $value = stripslashes($m[2]);
+            if (($GLOBALS['cz_options'][$key] ?? null) === $value) {
+                unset($GLOBALS['cz_options'][$key]);
+                return 1;
+            }
+            return 0;
+        }
+        return false;
+    }
+}
+$GLOBALS['wpdb'] = new FakeWpdb();
 
 class WP_REST_Request
 {
@@ -60,7 +193,9 @@ class WP_REST_Response
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use CompuZign\Platform\Modules\Requests\Http\RequestsController;
+use CompuZign\Platform\Modules\Requests\Repositories\RequestRepository;
 use CompuZign\Platform\Modules\Requests\RequestsModule;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 function check_quote_view_email_link(bool $condition, string $message): void
 {
@@ -81,7 +216,7 @@ function findMail(array $sent, string $subjectFragment): ?array
 
 // ── quote_cart submission ───────────────────────────────────────────────
 
-$controller = new RequestsController();
+$controller = new RequestsController(new PlatformIdentifierStation(), new RequestRepository());
 $request = new WP_REST_Request([
     'type' => 'quote_cart', 'contact' => 'Jane Doe', 'email' => 'jane@example.com',
     'company' => 'Acme Co', 'phone' => '555-0100', 'notes' => '', 'quote_ref' => '',

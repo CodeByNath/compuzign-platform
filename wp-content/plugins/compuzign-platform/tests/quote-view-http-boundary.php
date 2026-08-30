@@ -46,7 +46,9 @@ class WP_REST_Response
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use CompuZign\Platform\Modules\Requests\Http\RequestsController;
+use CompuZign\Platform\Modules\Requests\Repositories\RequestRepository;
 use CompuZign\Platform\Modules\Requests\Support\QuoteViewSecret;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 function check_quote_http_boundary(bool $condition, string $message): void
 {
@@ -55,7 +57,10 @@ function check_quote_http_boundary(bool $condition, string $message): void
     }
 }
 
-$controller = new RequestsController();
+// registerRoutes()/getQuote() (the only paths this file exercises) never
+// touch identity or durable-Request storage — real, unstubbed instances are
+// safe here since neither is ever called.
+$controller = new RequestsController(new PlatformIdentifierStation(), new RequestRepository());
 $controller->registerRoutes();
 
 // ── Route registration: the secret must never be a REST 'args' entry ──────
