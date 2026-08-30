@@ -1,53 +1,41 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `AWAITING CHATGPT REVIEW`
-- 8J-A source push complete; production `main` now at the reviewed candidate.
-- Auditor verdict (pre-push): `Proceed with safeguards`.
-- Phase 8I remains the reference for accepted customer cart/review/proposal semantics; not reopened.
+- `READY FOR CLAUDE` — Phase 8J-B only.
+- 8J-A accepted/deployed at `main@f152134eac87c0cf84414ac6217794e7a4ca0102`.
+- Auditor verdict: `Proceed with safeguards`.
+- Phase 8I remains the accepted cart/review/proposal reference; do not reopen it.
 
-## Decision
-Keep `/requests/submit`, WordPress transient storage, `cz_quote_<ref>`, and the current **7-day expiry** unchanged. Do not introduce durable quote records in this phase.
+## Locked Architecture
+Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry** unchanged.
 
-Locked architecture: `resolved customer selection -> FamilyTierQuoteItem snapshot -> server validation/sanitisation -> 7-day transient snapshot -> email`.
+`resolved customer selection -> FamilyTierQuoteItem snapshot -> server validation/sanitisation -> 7-day transient snapshot -> email`
 
-Never re-resolve Rate Sheets, Tiers, Editions, Commercial Legs, Bundles, quantities, or pricing from live catalog data during submission/email. Existing quotes represent what the customer selected at submission time.
+Never re-resolve Rate Sheets, Tiers, Editions, Commercial Legs, Bundles, quantities or pricing during submission/email. Email represents the submitted snapshot.
 
-## Phase 8J-A
-Repair the **submission/snapshot contract only**. Preserve `tierEditionTitle`, exact `legPaymentSummaries`, and structured `inclusionItems` including Bundle children/quantity through `RequestSchema`. Explicitly sanitise nested values. Preserve existing Family identity and legacy/non-Family behavior. Do not alter arithmetic, resolver behavior, `FamilyTierAdapter.itemFor()`, quote-ref generation, transient lifetime, controller mail flow, or customer UI/PDF/email rendering.
+## Phase 8J-A — Accepted
+Candidate `f152134eac87c0cf84414ac6217794e7a4ca0102` preserves/sanitises `tierEditionTitle`, recursive `inclusionItems`, and all eight Leg payment-summary fields through `RequestSchema`, with focused contract coverage.
 
-## Claude Report
-Review branch `phase-8j-a-quote-snapshot-parity`; candidate `f152134eac87c0cf84414ac6217794e7a4ca0102`, based on `main@6736d45d`, not pushed to main.
+Independent post-push audit confirmed:
+- `main` is exactly `f152134eac87c0cf84414ac6217794e7a4ca0102`, one commit ahead of prior production `6736d45d` and zero behind;
+- exact three-file reviewed diff only;
+- GitHub Actions **Deploy to Hostinger #913** has `head_sha=f152134e...`, completed successfully.
 
-Changed:
-- `src/Modules/Requests/Support/RequestSchema.php` — preserves/sanitises Edition title, recursive inclusion snapshot and all eight Leg summary fields; REST schema extended.
-- `tests/request-schema-family-quote-snapshot.php` — representative Family snapshot, legacy behavior and unknown-field rejection contract.
-- `docs/code-map/quote-builder.md` — validation list.
+No live UI validation is required for 8J-A because it intentionally changed only the server snapshot boundary and no customer rendering.
 
-Reported validation passed: focused PHP schema tests, relevant quote/add-on/Edition/request-flow contracts, all 50 registered contracts, TypeScript check, build and docs check.
+## Phase 8J-B — Claude Implementation Only
+Make the **existing admin/customer quote email renderer consume the preserved Family snapshot** so its commercial/customer representation matches the accepted Phase 8I quote surfaces.
 
-## Independent ChatGPT Review — 2026-08-30
-**Verdict: `Proceed with safeguards`.**
+1. Audit current `NotificationTemplates.php` against `OrderSummary.tsx`, `QuoteProposalPreview.tsx`, and their shared commercial-summary utilities before editing. Reuse their established semantics; do not invent parallel pricing rules.
+2. For Family quote lines, render human Family/Tier/Edition labels and **do not expose raw CZ Platform IDs in the customer email**.
+3. Render snapshotted `legPaymentSummaries` as separate payment streams/cycles; do not collapse them back to headline `price`/`billingCycle`.
+4. Render structured `inclusionItems` with ordinary quantities and Bundle parent/children quantities using the accepted Phase 8I vocabulary/presentation semantics.
+5. Email summary semantics must match the accepted proposal: finite per-item Total where applicable, quote Contract Value/Ongoing and Initial Payment, with Family add-ons excluded from primary TCV exactly as the existing accepted shared calculation does.
+6. Preserve backward compatibility: legacy/non-Family lines and older Family snapshots lacking the new fields must still render safely using existing fallback behavior.
+7. **Admin operational identity is a separate concern:** customer email must hide raw IDs; do not remove admin-email IDs unless current source architecture proves admin/customer share an inseparable renderer. If shared, report the conflict before broadening customer-driven changes into admin representation.
+8. Do not change RequestSchema, resolver/pricing arithmetic, quote snapshot construction, transient lifecycle/key, quote-ref generation, controller submission flow, browser cart/review/PDF UI, or Rate Sheet/catalog state.
+9. Add focused contracts for representative KAIROS primary + add-on + OMNIA Edition/multi-stream email semantics, Bundle/quantity rendering, customer-ID suppression, legacy fallback, and summary parity. No live email send is required on the review branch.
+10. Run focused/relevant contracts, type/build/docs checks as repository rules require; commit/push to a **non-production review branch**, record exact SHA/files/tests here, set `AWAITING CHATGPT REVIEW`, and stop. **Do not push to main.**
 
-Compared production `6736d45d669f61c442527419269f16d7a711fbdd` with candidate `f152134eac87c0cf84414ac6217794e7a4ca0102`: exactly one candidate commit and the reported three-file scope. Actual diff confirms new data is carried only from the submitted snapshot; no live Rate Sheet/Tier/Edition/Leg resolution is introduced.
-
-Production `ServiceInclusion` is exactly `id`, `label`, optional `quantity`, optional `bundle_id`, recursive `includes`; candidate sanitizer matches it. Leg sanitizer explicitly preserves its eight snapshot fields and drops unknown keys. Existing Family identity/add-on handling, legacy item path, transient/controller/mail lifecycle, and email/PDF/UI rendering are untouched. No blocker found.
-
-## Production Push Record
-
-`main` fast-forwarded (no amend/rebuild/source edit/merge commit) from
-`6736d45d669f61c442527419269f16d7a711fbdd` to exactly the reviewed
-candidate `f152134eac87c0cf84414ac6217794e7a4ca0102` and pushed to
-`origin/main`. Verified `origin/main` HEAD now equals this SHA.
-
-GitHub Actions: "Deploy to Hostinger" workflow run
-[#913](https://github.com/CodeByNath/compuzign-platform/actions/runs/33287433634),
-triggered by this push, `head_sha` = `f152134eac87c0cf84414ac6217794e7a4ca0102`,
-status `completed`, conclusion `success`.
-
-Not started: 8J-B (email rendering) and 8J-C (parity fixture) remain
-unauthorized — stopping here for ChatGPT's live/deployed review.
-
-## Later Phases — Not Authorized Yet
-- **8J-B:** email consumes preserved snapshot using accepted commercial semantics: human labels, no raw CZ IDs, per-Leg streams, per-item finite Total, quote Contract Value/Ongoing, Initial Payment, add-on exclusion from primary TCV, Bundle children and quantities.
-- **8J-C:** fixed KAIROS + add-on + OMNIA multi-stream cross-boundary parity fixture.
+## Phase 8J-C — Not Authorized
+Cross-boundary parity/live validation follows only after 8J-B source review and production approval.
