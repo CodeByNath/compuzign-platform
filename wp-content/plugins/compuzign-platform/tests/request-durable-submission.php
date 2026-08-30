@@ -573,6 +573,25 @@ check($respWinner12->get_status() === 200, 'the winner still completes successfu
 check($requests->findByRef($ref12)['data']['email'] === 'inflight-winner@example.com', 'the durable Request reflects only the winner\'s payload');
 check(($__transients['cz_quote_' . $ref12]['email'] ?? null) === 'inflight-winner@example.com', 'the quote-view transient reflects only the winner\'s payload');
 
+// ── 12b. A doomed winner's rollback cannot leave a concurrent loser's side effects ─
+
+echo "\nWinner assignment failure + concurrent loser probe: neither leaves side effects\n";
+freshIp();
+$ref12b = 'CZ-INFLT3';
+$mailCountBefore12b = count($__mailLog);
+$__afterStatusWrite = function () use ($controller, $ref12b, $mailCountBefore12b): void {
+    $respLoser = $controller->submitRequest(requestFor($ref12b, 'inflight-loser2@example.com'));
+    check($respLoser->get_status() === 503, 'a concurrent loser probing during a doomed winner\'s mid-flight window still fails closed');
+    check(count($GLOBALS['__mailLog']) === $mailCountBefore12b, 'the loser emits nothing even though the winner is about to fail');
+};
+$GLOBALS['__poisonPlatformIdClaim'] = true;
+$respWinner12b = $controller->submitRequest(requestFor($ref12b, 'inflight-winner2@example.com'));
+$GLOBALS['__poisonPlatformIdClaim'] = false;
+check($respWinner12b->get_status() >= 500, 'the doomed winner itself fails closed too');
+check($requests->findPostIdByRef($ref12b) === null, 'the winner\'s post is rolled back — nothing durable survives for either caller');
+check(count($__mailLog) === $mailCountBefore12b, 'neither caller ever sent an email for this ref');
+check(!isset($__transients['cz_quote_' . $ref12b]), 'neither caller ever set a quote-view transient for this ref');
+
 // ── 13. Orphaned in-flight post (crashed prior winner) is resumed ──────────
 
 echo "\nOrphaned in-flight post (crashed prior winner) is resumed, not duplicated\n";
