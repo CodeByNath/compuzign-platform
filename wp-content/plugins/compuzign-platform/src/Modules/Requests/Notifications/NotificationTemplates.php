@@ -28,7 +28,11 @@ class NotificationTemplates
     }
 
     /**
-     * Builds the <tr> rows for the service table used in both email templates.
+     * Builds the <tr> rows for the service table used in both email
+     * templates — legacy/non-Family lines only (normal Tier/promotion,
+     * legacy recommended bundle, Tier add-on). Family lines have their own
+     * dedicated renderer (see emailFamilyRows()) since Phase 8J-B, so this
+     * never receives an item with offer_type === 'family_tier'.
      *
      * @param array<int, array<string, mixed>> $items
      */
@@ -41,27 +45,15 @@ class NotificationTemplates
                 ? '$' . number_format((float) $item['price'], 2)
                 : 'Custom pricing';
             $cycle   = $item['billingCycle'] !== '' ? ' / ' . ucfirst((string) $item['billingCycle']) : '';
-            $isFamily = ($item['offer_type'] ?? '') === 'family_tier';
-            $isAddon = !empty($item['isAddon']) || (!$isFamily && (int) ($item['serviceId'] ?? 0) < 0);
+            $isAddon = !empty($item['isAddon']) || (int) ($item['serviceId'] ?? 0) < 0;
             $isPromo = ($item['offer_type'] ?? '') === 'promotion_tier';
             $badge   = $isAddon
                 ? ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>'
                 : '';
-            $title   = esc_html((string) ($isFamily ? ($item['familyTitle'] ?? '') : ($item['serviceTitle'] ?? '')));
+            $title   = esc_html((string) ($item['serviceTitle'] ?? ''));
             $tier    = esc_html((string) $item['tierTitle']);
 
-            if ($isFamily) {
-                $familyRef = esc_html((string) ($item['familyPlatformId'] ?? ''));
-                $instanceRef = esc_html((string) ($item['tierInstancePlatformId'] ?? ''));
-                $tierRef = esc_html((string) ($item['tierPlatformId'] ?? ''));
-                $editionRef = esc_html((string) ($item['tierEditionPlatformId'] ?? ''));
-                $refs = trim($familyRef . ' · ' . $instanceRef . ' · ' . $tierRef, ' ·');
-                if ($editionRef !== '') {
-                    $refs .= ' · Edition ' . $editionRef;
-                }
-                $tierLine = trim($tier . ($refs !== '' ? ' &nbsp;·&nbsp; ' . $refs : ''));
-                $promoBadge = '';
-            } elseif ($isPromo) {
+            if ($isPromo) {
                 $billingLabel = esc_html((string) ($item['billing_label'] ?? $item['billingCycle'] ?? ''));
                 $tierLine     = $billingLabel !== '' ? "{$tier} &nbsp;·&nbsp; {$billingLabel}" : $tier;
                 $promoBadge   = ' <span style="font-size:10px;background:#fff8d6;padding:1px 6px;border-radius:8px;color:#7a5d00;">promo</span>';
@@ -149,6 +141,441 @@ class NotificationTemplates
           </tr>";
     }
 
+    /**
+     * True for a Package Family quote line — no serviceId, keyed instead by
+     * Family/Tier Instance/occupant Platform IDs (see RequestSchema).
+     *
+     * @param array<string, mixed> $item
+     */
+    private static function isFamilyItem(array $item): bool
+    {
+        return ($item['offer_type'] ?? '') === 'family_tier';
+    }
+
+    /**
+     * The same five never-merged cart-line classifications
+     * quote.ts's classifyQuoteItems() defines for the browser (customer's
+     * one normal Tier/promotion per Service, the legacy recommended bundle,
+     * real Tier add-ons, and Family main/add-on lines) — reused here so the
+     * email groups and orders its sections identically to OrderSummary.tsx
+     * / QuoteProposalPreview.tsx, never a second/diverging classification.
+     *
+     * @param  array<int, array<string, mixed>> $items
+     * @return array{mainItems: array<int, array<string, mixed>>, bundleItems: array<int, array<string, mixed>>, tierAddonItems: array<int, array<string, mixed>>, familyMainItems: array<int, array<string, mixed>>, familyAddonItems: array<int, array<string, mixed>>}
+     */
+    private static function classifyQuoteItems(array $items): array
+    {
+        $serviceItems = array_values(array_filter($items, fn (array $item) => !self::isFamilyItem($item)));
+        $familyItems  = array_values(array_filter($items, fn (array $item) => self::isFamilyItem($item)));
+
+        return [
+            'mainItems'        => array_values(array_filter($serviceItems, fn (array $item) => (int) ($item['serviceId'] ?? 0) > 0 && empty($item['isAddon']))),
+            'bundleItems'      => array_values(array_filter($serviceItems, fn (array $item) => (int) ($item['serviceId'] ?? 0) < 0)),
+            'tierAddonItems'   => array_values(array_filter($serviceItems, fn (array $item) => !empty($item['isAddon']))),
+            'familyMainItems'  => array_values(array_filter($familyItems, fn (array $item) => empty($item['isAddon']))),
+            'familyAddonItems' => array_values(array_filter($familyItems, fn (array $item) => !empty($item['isAddon']))),
+        ];
+    }
+
+    /**
+     * PricingTiers.tsx's chargeTypeLabel() — the accepted human label for one
+     * Leg payment stream's billing cycle, reused verbatim rather than a
+     * second/diverging label map.
+     */
+    private static function chargeTypeLabel(?string $cycle): string
+    {
+        if ($cycle === null) {
+            return 'Payment';
+        }
+
+        $labels = [
+            'monthly'   => 'Monthly',
+            'annual'    => 'Yearly',
+            'annually'  => 'Yearly',
+            'quarterly' => 'Quarterly',
+            'upfront'   => 'Upfront',
+            'one-time'  => 'One-time',
+        ];
+
+        return $labels[$cycle] ?? 'Payment';
+    }
+
+    /**
+     * PricingTiers.tsx's computeTotalContractValue() — null the instant any
+     * stream's own subtotal is null (a genuinely open-ended stream), never
+     * approximated as a finite figure.
+     *
+     * @param array<int, array<string, mixed>> $summaries
+     */
+    private static function computeTotalContractValue(array $summaries): ?float
+    {
+        $total = 0.0;
+        foreach ($summaries as $summary) {
+            if ($summary['subtotal'] === null) {
+                return null;
+            }
+            $total += (float) $summary['subtotal'];
+        }
+
+        return $total;
+    }
+
+    /**
+     * PricingTiers.tsx's startingPaymentsByCycle() — each item's own earliest
+     * resolved startMonth, summed same-cycle across items, kept strictly
+     * separate across different cycles (never a cross-cycle sum).
+     *
+     * @param  array<int, array<int, array<string, mixed>>> $itemStreams
+     * @return array<int, array{0: string, 1: float}>
+     */
+    private static function startingPaymentsByCycle(array $itemStreams): array
+    {
+        $order  = [];
+        $totals = [];
+
+        foreach ($itemStreams as $streams) {
+            if ($streams === []) {
+                continue;
+            }
+            $earliestStart = min(array_map(fn (array $s) => (int) $s['startMonth'], $streams));
+            foreach ($streams as $stream) {
+                if ((int) $stream['startMonth'] !== $earliestStart || $stream['price'] === null || $stream['billingCycle'] === null) {
+                    continue;
+                }
+                $cycle = $stream['billingCycle'];
+                if (!isset($totals[$cycle])) {
+                    $order[]        = $cycle;
+                    $totals[$cycle] = 0.0;
+                }
+                $totals[$cycle] += (float) $stream['price'];
+            }
+        }
+
+        return array_map(fn (string $cycle) => [$cycle, $totals[$cycle]], $order);
+    }
+
+    /**
+     * OrderSummary.tsx's/QuoteProposalPreview.tsx's FamilyInclusionsList —
+     * the item's own snapshotted inclusionItems (Bundle parents with their
+     * `includes` children) when present, or a plain-label fallback built
+     * from `features` for a pre-Phase-8G Family snapshot that predates
+     * inclusionItems entirely. Never re-resolved from live catalog data.
+     *
+     * @param  array<string, mixed> $item
+     * @return array<int, array<string, mixed>>
+     */
+    private static function familyDisplayInclusions(array $item): array
+    {
+        $inclusionItems = $item['inclusionItems'] ?? null;
+        if (is_array($inclusionItems) && $inclusionItems !== []) {
+            return $inclusionItems;
+        }
+
+        $features = $item['features'] ?? [];
+        if (!is_array($features) || $features === []) {
+            return [];
+        }
+
+        return array_map(fn ($label) => ['id' => '', 'label' => (string) $label], $features);
+    }
+
+    /**
+     * The inclusion list rows beneath a Family service row — a Bundle parent
+     * stays a quantity-less section label (matches the accepted card/proposal
+     * treatment), an ordinary inclusion shows its snapshot quantity, and
+     * Bundle children render indented beneath their parent.
+     *
+     * @param array<int, array<string, mixed>> $inclusionItems
+     */
+    private static function emailInclusionItemsList(array $inclusionItems): string
+    {
+        if ($inclusionItems === []) {
+            return '';
+        }
+
+        $rows = '';
+        foreach ($inclusionItems as $inclusion) {
+            $label = esc_html((string) ($inclusion['label'] ?? ''));
+            if (!empty($inclusion['bundle_id'])) {
+                $rows .= "
+                    <tr><td colspan=\"2\" style=\"padding:4px 0 4px 14px;font-size:11px;font-weight:700;color:#666;\">{$label}</td></tr>";
+            } else {
+                $qty = isset($inclusion['quantity']) ? esc_html((string) $inclusion['quantity']) : '';
+                $rows .= "
+                    <tr>
+                      <td style=\"padding:3px 0 3px 14px;font-size:11px;color:#777;\">{$label}</td>
+                      <td style=\"padding:3px 0;font-size:11px;color:#777;text-align:right;\">{$qty}</td>
+                    </tr>";
+            }
+            foreach ($inclusion['includes'] ?? [] as $child) {
+                $childLabel = esc_html((string) ($child['label'] ?? ''));
+                $childQty   = isset($child['quantity']) ? esc_html((string) $child['quantity']) : '';
+                $rows .= "
+                    <tr>
+                      <td style=\"padding:3px 0 3px 28px;font-size:11px;color:#999;\">{$childLabel}</td>
+                      <td style=\"padding:3px 0;font-size:11px;color:#999;text-align:right;\">{$childQty}</td>
+                    </tr>";
+            }
+        }
+
+        return "
+          <tr><td colspan=\"2\" style=\"padding:0 14px 10px;\">
+            <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">{$rows}</table>
+          </td></tr>";
+    }
+
+    /**
+     * A Family item's own price cell — its snapshotted legPaymentSummaries
+     * rendered as separate payment streams plus a finite Total when every
+     * stream resolves one (OrderSummary.tsx's/QuoteProposalPreview.tsx's
+     * per-item stream block), or the plain headline price/billingCycle for
+     * an item with no streams at all (a pre-Phase-5 Family snapshot, or a
+     * quoted option with no resolved commercial_legs).
+     *
+     * @param array<string, mixed> $item
+     */
+    private static function emailFamilyStreamsBlock(array $item): string
+    {
+        $streams = $item['legPaymentSummaries'] ?? null;
+        if (!is_array($streams) || $streams === []) {
+            $price = $item['price'] !== null ? '$' . number_format((float) $item['price'], 2) : 'Custom pricing';
+            $cycle = $item['billingCycle'] !== '' ? ' / ' . ucfirst((string) $item['billingCycle']) : '';
+
+            return "<span style=\"font-size:14px;font-weight:700;color:#111;\">{$price}</span>"
+                . "<span style=\"font-size:11px;color:#999;\">{$cycle}</span>";
+        }
+
+        $rows = '';
+        foreach ($streams as $stream) {
+            $label = esc_html(self::chargeTypeLabel($stream['billingCycle']));
+            $value = $stream['price'] !== null ? '$' . number_format((float) $stream['price'], 2) : 'Custom pricing';
+            $rows .= "
+                <tr>
+                  <td style=\"padding:2px 0;font-size:11px;color:#999;text-align:right;\">{$label}</td>
+                  <td style=\"padding:2px 0 2px 8px;font-size:12px;font-weight:600;color:#111;text-align:right;\">{$value}</td>
+                </tr>";
+        }
+
+        $total = self::computeTotalContractValue($streams);
+        if ($total !== null) {
+            $rows .= "
+                <tr>
+                  <td style=\"padding:4px 0 0;font-size:11px;font-weight:700;color:#666;border-top:1px solid #eee;text-align:right;\">Total</td>
+                  <td style=\"padding:4px 0 0 8px;font-size:13px;font-weight:800;color:#111;border-top:1px solid #eee;text-align:right;\">\$" . number_format($total, 2) . "</td>
+                </tr>";
+        }
+
+        return "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-left:auto;\">{$rows}</table>";
+    }
+
+    /**
+     * One Family line's full <tr> (+ inclusion rows) — human Family/Tier/
+     * Edition labels always; snapshotted payment streams and structured
+     * inclusions when present; raw CZ Platform IDs only when
+     * $includeInternalIds is true (admin email — see buildAdminHtmlEmail()
+     * vs buildCustomerHtmlEmail()). A legacy Family snapshot missing
+     * tierEditionTitle/inclusionItems/legPaymentSummaries falls back to the
+     * same headline price/features rendering it always had.
+     *
+     * @param array<string, mixed> $item
+     */
+    private static function emailFamilyRow(array $item, bool $isAddon, bool $includeInternalIds): string
+    {
+        $familyTitle  = esc_html((string) ($item['familyTitle'] ?? ''));
+        $tierTitle    = esc_html((string) ($item['tierTitle'] ?? ''));
+        $editionTitle = !empty($item['tierEditionTitle']) ? esc_html((string) $item['tierEditionTitle']) : '';
+
+        $badge = $isAddon
+            ? ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>'
+            : '';
+
+        if ($isAddon) {
+            $title         = $tierTitle;
+            $subtitleParts = array_filter(['Optional add-on', $familyTitle, $editionTitle], fn ($v) => $v !== '');
+        } else {
+            $title         = $familyTitle;
+            $subtitleParts = array_filter([$tierTitle, $editionTitle], fn ($v) => $v !== '');
+        }
+        $subtitle = implode(' &nbsp;·&nbsp; ', $subtitleParts);
+
+        if ($includeInternalIds) {
+            $familyRef   = esc_html((string) ($item['familyPlatformId'] ?? ''));
+            $instanceRef = esc_html((string) ($item['tierInstancePlatformId'] ?? ''));
+            $tierRef     = esc_html((string) ($item['tierPlatformId'] ?? ''));
+            $editionRef  = esc_html((string) ($item['tierEditionPlatformId'] ?? ''));
+            $refs        = trim($familyRef . ' · ' . $instanceRef . ' · ' . $tierRef, ' ·');
+            if ($editionRef !== '') {
+                $refs .= ' · Edition ' . $editionRef;
+            }
+            if ($refs !== '') {
+                $subtitle .= '<br><span style="font-family:monospace;">' . $refs . '</span>';
+            }
+        }
+
+        $priceBlock    = self::emailFamilyStreamsBlock($item);
+        $inclusionRows = self::emailInclusionItemsList(self::familyDisplayInclusions($item));
+
+        return "
+          <tr>
+            <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;\">
+              <div style=\"font-size:13px;font-weight:600;color:#111;\">{$title}{$badge}</div>
+              <div style=\"font-size:11px;color:#999;margin-top:2px;\">{$subtitle}</div>
+            </td>
+            <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;vertical-align:top;\">
+              {$priceBlock}
+            </td>
+          </tr>{$inclusionRows}";
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $items
+     */
+    private static function emailFamilyRows(array $items, bool $isAddon, bool $includeInternalIds): string
+    {
+        $html = '';
+        foreach ($items as $item) {
+            $html .= self::emailFamilyRow($item, $isAddon, $includeInternalIds);
+        }
+
+        return $html;
+    }
+
+    /**
+     * The combined "Total Contract Value" (every primary Family item's own
+     * Leg-stream total resolves finitely) or "Contract Value: Ongoing" block
+     * — OrderSummary.tsx's/QuoteProposalPreview.tsx's Phase 8F semantics,
+     * primary Family items only; add-ons never enter this combined sum.
+     *
+     * @param array<int, array<string, mixed>> $familyMainItems
+     */
+    private static function familyContractValueBlock(array $familyMainItems): string
+    {
+        $values = array_map(function (array $item) {
+            $streams = $item['legPaymentSummaries'] ?? null;
+
+            return is_array($streams) && $streams !== [] ? self::computeTotalContractValue($streams) : null;
+        }, $familyMainItems);
+
+        $allFinite = $familyMainItems !== [] && !in_array(null, $values, true);
+
+        if ($allFinite) {
+            $combined = array_sum($values);
+
+            return "
+              <tr>
+                <td style=\"padding:0 28px 12px;\">
+                  <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"
+                         style=\"border-top:2px solid #111;padding-top:12px;\">
+                    <tr>
+                      <td style=\"font-size:13px;color:#666;\">Total Contract Value</td>
+                      <td style=\"text-align:right;font-size:22px;font-weight:800;color:#111;\">\$" . number_format($combined, 2) . "</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>";
+        }
+
+        return '
+          <tr>
+            <td style="padding:0 28px 12px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                     style="border-top:2px solid #111;padding-top:12px;">
+                <tr>
+                  <td style="font-size:13px;color:#666;">Contract Value</td>
+                  <td style="text-align:right;font-size:16px;font-weight:700;color:#111;">Ongoing</td>
+                </tr>
+              </table>
+              <p style="margin:6px 0 0;font-size:11px;color:#999;">Includes charges without a fixed end date.</p>
+            </td>
+          </tr>';
+    }
+
+    /**
+     * The combined "Initial Payment" row — every primary Family item's own
+     * earliest same-cycle streams, summed per cycle then across cycles
+     * (startingPaymentsByCycle() above); omitted entirely when no primary
+     * Family item has a priced stream to start from.
+     *
+     * @param array<int, array<string, mixed>> $familyMainItems
+     */
+    private static function familyInitialPaymentRow(array $familyMainItems): string
+    {
+        $itemStreams = array_map(
+            fn (array $item) => is_array($item['legPaymentSummaries'] ?? null) ? $item['legPaymentSummaries'] : [],
+            $familyMainItems
+        );
+        $startingPayments = self::startingPaymentsByCycle($itemStreams);
+        if ($startingPayments === []) {
+            return '';
+        }
+
+        $total = array_sum(array_map(fn (array $pair) => $pair[1], $startingPayments));
+
+        return '
+          <tr>
+            <td style="padding:0 28px 24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="font-size:13px;color:#666;">Initial Payment</td>
+                  <td style="text-align:right;font-size:16px;font-weight:700;color:#111;">$' . number_format($total, 2) . '</td>
+                </tr>
+              </table>
+            </td>
+          </tr>';
+    }
+
+    /**
+     * Assembles the Selected Services rows (main -> Family main -> bundle ->
+     * Tier add-on -> Family add-on, matching OrderSummary.tsx's own section
+     * order) and the combined totals block, shared by both admin and
+     * customer templates — the only difference between them is
+     * $includeInternalIds (raw CZ Platform IDs never reach the customer
+     * email; see buildCustomerHtmlEmail()).
+     *
+     * @param  array<int, array<string, mixed>> $items
+     * @return array{rows: string, totals: string}
+     */
+    private static function buildQuoteSections(array $items, bool $includeInternalIds): array
+    {
+        $classified = self::classifyQuoteItems($items);
+
+        $rows = self::emailServiceRows($classified['mainItems'])
+            . self::emailFamilyRows($classified['familyMainItems'], false, $includeInternalIds)
+            . self::emailServiceRows($classified['bundleItems'])
+            . self::emailServiceRows($classified['tierAddonItems'])
+            . self::emailFamilyRows($classified['familyAddonItems'], true, $includeInternalIds);
+
+        $hasMultiStreamItem = false;
+        foreach (array_merge($classified['familyMainItems'], $classified['familyAddonItems']) as $familyItem) {
+            $streams = $familyItem['legPaymentSummaries'] ?? null;
+            if (is_array($streams) && count($streams) > 1) {
+                $hasMultiStreamItem = true;
+                break;
+            }
+        }
+
+        // Once any Family item is multi-stream, every Family item (primary or
+        // add-on) is already represented either in the combined block below
+        // or on its own per-item row above — never both there and inside the
+        // general cycle totals too (see familyContractValueBlock()'s docblock).
+        $itemsForGeneralTotals = $hasMultiStreamItem
+            ? array_values(array_filter($items, fn (array $item) => !self::isFamilyItem($item)))
+            : $items;
+
+        $totals = '';
+        if ($hasMultiStreamItem) {
+            $totals .= self::familyContractValueBlock($classified['familyMainItems']);
+        }
+        if ($itemsForGeneralTotals !== []) {
+            $totals .= self::emailTotalsBlock(self::calcTotals($itemsForGeneralTotals));
+        }
+        if ($hasMultiStreamItem) {
+            $totals .= self::familyInitialPaymentRow($classified['familyMainItems']);
+        }
+
+        return ['rows' => $rows, 'totals' => $totals];
+    }
+
     /** @param array<string, mixed> $data */
     public static function buildAdminHtmlEmail(array $data): string
     {
@@ -156,9 +583,11 @@ class NotificationTemplates
             return self::buildAssessmentAdminEmail($data);
         }
 
-        $totals      = self::calcTotals($data['items'] ?? []);
-        $serviceRows = self::emailServiceRows($data['items'] ?? []);
-        $totalsBlock = self::emailTotalsBlock($totals);
+        // Admin retains raw CZ Platform IDs for operational identity — see
+        // buildQuoteSections()'s docblock.
+        $sections    = self::buildQuoteSections($data['items'] ?? [], true);
+        $serviceRows = $sections['rows'];
+        $totalsBlock = $sections['totals'];
 
         $contact   = esc_html((string) $data['contact']);
         $company   = esc_html($data['company'] !== '' ? (string) $data['company'] : '—');
@@ -274,9 +703,11 @@ HTML;
             return self::buildAssessmentCustomerEmail($data, $siteTitle);
         }
 
-        $totals      = self::calcTotals($data['items'] ?? []);
-        $serviceRows = self::emailServiceRows($data['items'] ?? []);
-        $totalsBlock = self::emailTotalsBlock($totals);
+        // Customer email hides raw CZ Platform IDs — see
+        // buildQuoteSections()'s docblock.
+        $sections    = self::buildQuoteSections($data['items'] ?? [], false);
+        $serviceRows = $sections['rows'];
+        $totalsBlock = $sections['totals'];
 
         $contact   = esc_html((string) $data['contact']);
         $quoteRef  = esc_html((string) $data['quote_ref']);
