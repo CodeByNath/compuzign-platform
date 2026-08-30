@@ -137,6 +137,14 @@ check(
   lowerDeckSource.includes('<TierTabSet') && settingsSource.includes('<TierAccordionSection'),
   'the deck lanes render through the shared tab contract, and Settings renders its groups through the shared accordion section',
 );
+// Live defect (round 4): a Bundle-supplied row's null lineTotal rendered as
+// the bare `money()` dash, reading as a missing/broken price rather than
+// explaining the Bundle's own pricing provenance.
+check(
+  lowerDeckSource.includes("!inclusion.addressable")
+    && lowerDeckSource.includes("'Included in bundle'"),
+  'a Bundle-supplied (non-addressable) row\'s Price cell explains its provenance ("Included in bundle") rather than reading as a missing price',
+);
 check(
   tabSetSource.includes('<StationTabSet')
     && !/role="tab(list|panel)?"/.test(tabSetSource)

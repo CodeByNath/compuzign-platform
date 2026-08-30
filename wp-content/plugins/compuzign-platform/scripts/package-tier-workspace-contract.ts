@@ -40,6 +40,7 @@ import {
 import type {
   PackageRateSheet,
   TierAssignment,
+  TierGroupComposition,
   TierInstanceRecord,
 } from '../resources/ts/package-station/types';
 import { TIER_KEYS } from '../resources/ts/package-station/vocabulary';
@@ -619,6 +620,53 @@ check(
     && connectionNavigation[1].tabs[0].rows[0]?.platformId === 'CZPRC_KAIROS',
   'the Family, Group, and Rate Sheet rows each carry their own owning record\'s Platform ID',
 );
+// Live defect (round 4): the Family Group card in Connections/Settings read
+// `family.dependents.services` — a DIFFERENT count (what the Family's
+// connected Services could supply across every Rate Sheet in the station,
+// per cardAdapter.ts) — while the Summary panel correctly read the same
+// composition composeTierGroup() produces. A Family with a Bundle-only
+// selection showed Services 3 in Summary but 0 in Connections/Settings.
+// `assignedServices` must come from the SAME canonical composition
+// everywhere, never a third path.
+const composedNavigation: TierGroupComposition = { tiers: 1, service_categories: 2, services: 3, inclusions: 4 };
+const withComposition = projectConnectionNavigation({
+  family: kairos,
+  familyComposition: composedNavigation,
+  groups: groupConnections,
+  rateSheet: sheetConnection,
+  hasFocusedTier: true,
+});
+const withCompositionFamilyRow = withComposition[0].tabs[0].rows[0];
+check(
+  withCompositionFamilyRow?.kind === 'family' && withCompositionFamilyRow.assignedServices === 3,
+  'the Family Group row\'s Services count reads the canonical composition (3), never dependents.services (1) — the exact defect that read 0 for OMNIA while Summary correctly read 3',
+);
+const withoutComposition = projectConnectionNavigation({
+  family: kairos,
+  familyComposition: null,
+  groups: groupConnections,
+  rateSheet: sheetConnection,
+  hasFocusedTier: true,
+});
+const withoutCompositionFamilyRow = withoutComposition[0].tabs[0].rows[0];
+check(
+  withoutCompositionFamilyRow?.kind === 'family' && withoutCompositionFamilyRow.assignedServices === kairos.dependents.services,
+  'with no composition available (unassigned Family, no CZTG, or not yet loaded) the row falls back to dependents.services rather than showing a fabricated zero',
+);
+const emptyComposition: TierGroupComposition = { tiers: 0, service_categories: 0, services: 0, inclusions: 0 };
+const withEmptyComposition = projectConnectionNavigation({
+  family: kairos,
+  familyComposition: emptyComposition,
+  groups: [],
+  rateSheet: null,
+  hasFocusedTier: true,
+});
+const withEmptyCompositionFamilyRow = withEmptyComposition[0].tabs[0].rows[0];
+check(
+  withEmptyCompositionFamilyRow?.kind === 'family' && withEmptyCompositionFamilyRow.assignedServices === 0,
+  'a genuinely empty composition (a real Tier Group reaching zero Services) reports 0, never falling back to a stale non-zero dependents count',
+);
+
 const emptyConnectionNavigation = projectConnectionNavigation({
   family: null,
   groups: [],

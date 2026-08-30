@@ -168,7 +168,7 @@ check(
 check(
   settingsSource.includes('projectFamilyConnectionRows,')
     && settingsSource.includes("} from '../../surface/packageTierWorkspace/connectionNavigation'")
-    && settingsSource.includes('projectFamilyConnectionRows(family)')
+    && settingsSource.includes('projectFamilyConnectionRows(family, familyComposition)')
     && familyGroupsBlock.includes('<ConnectedStationsSummary rows={familyRows} onIntent={onConnectionIntent} />')
     && familyGroupsBlock.includes("onPoolIntent('family')"),
   'Family Groups reports the connected Family Group from the shared projection through the shared connection dispatcher, and launches the Family pool creation',
@@ -179,8 +179,29 @@ const connectionNavigationSource = readFileSync(resolve(
 ), 'utf8');
 check(
   (connectionNavigationSource.match(/kind:\s+'family',/g) ?? []).length === 1
-    && connectionNavigationSource.includes('const familyRows = projectFamilyConnectionRows(family)'),
+    && connectionNavigationSource.includes('const familyRows = projectFamilyConnectionRows(family, familyComposition)'),
   'one derivation builds the connected Family row for both the Tier and the whole-focus scope',
+);
+
+// Live defect (round 4): Settings > Family Groups called
+// `projectFamilyConnectionRows(family)` with no composition at all — a
+// SEPARATE call site from Connections, reading a stale/synthetic count
+// even after Connections was fixed. Verify the whole prop chain carries
+// the same canonical composition all the way from the workspace's own
+// `tool.familyComposition` down into this exact call.
+const workspaceSourceForFamilyComposition = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx',
+), 'utf8');
+const lowerDeckSourceForFamilyComposition = readFileSync(resolve(
+  root,
+  'resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx',
+), 'utf8');
+check(
+  workspaceSourceForFamilyComposition.includes('familyComposition={tool.familyComposition}')
+    && lowerDeckSourceForFamilyComposition.includes('familyComposition={familyComposition}')
+    && settingsSource.includes('familyComposition,'),
+  'the Summary panel\'s own familyComposition reaches Settings > Family Groups through one unbroken prop chain, never a second fetch or a stale fallback',
 );
 
 // Tier Groups follows Family Groups' exact cleaning: its Connected

@@ -9,6 +9,7 @@ import type { CategoryGroupStatus } from '@/admin-station/presentation/category-
 import type {
   PackageRateSheet,
   PackageRateSheetStatus,
+  TierGroupComposition,
   TierInstanceRecord,
   TierInstanceStatus,
 } from '../../types';
@@ -138,6 +139,11 @@ export function flattenConnectionSections(
 
 export interface ConnectionNavigationInput {
   family: WorkspaceFamilyScope | null;
+  // The SAME canonical composition the Summary panel reads for this Family
+  // — see `projectFamilyConnectionRows()`. Optional/omittable so existing
+  // callers that genuinely have none (e.g. the unfocused empty-state
+  // navigation) are unaffected.
+  familyComposition?: TierGroupComposition | null;
   groups: readonly DeckRateSheetGroupConnection[];
   rateSheet: DeckRateSheetConnection | null;
   hasFocusedTier: boolean;
@@ -154,9 +160,21 @@ function countLabel(count: number, singular: string, plural = `${singular}s`): s
  * Tier's Connections lane, and the whole-focus Settings lane the Family Group
  * leads. Neither invents a second identity, status, count, target or action set
  * for the same record.
+ *
+ * `assignedServices` reads the SAME canonical `familyComposition` the
+ * Summary panel already shows (`PackageFamilySummary` / `familyComposition`
+ * in `usePackageTierWorkspace.ts`) — never `family.dependents.services`,
+ * which tallies a different question (what the Family's connected Services
+ * could supply across every Rate Sheet in the station, per
+ * `cardAdapter.ts`'s own doc) and does not know about a self-priced
+ * Bundle's real supplied Services. Falls back to `dependents.services`
+ * only when no composition is available at all (unassigned Family, no
+ * CZTG, or not yet loaded) — the same case the Summary panel shows "—"
+ * for — so an already-working reading never regresses to zero.
  */
 export function projectFamilyConnectionRows(
   family: WorkspaceFamilyScope | null,
+  familyComposition: TierGroupComposition | null = null,
 ): FamilyConnectionRow[] {
   return family === null ? [] : [{
     id:               family.id,
@@ -165,7 +183,7 @@ export function projectFamilyConnectionRows(
     reference:        family.id,
     status:           family.status,
     description:      family.description.trim(),
-    assignedServices: family.dependents.services,
+    assignedServices: familyComposition?.services ?? family.dependents.services,
     platformId:       family.platformId,
     target:           { kind: 'package-family', familyId: family.id },
     actions:          ['view', 'edit'],
@@ -257,11 +275,12 @@ export function projectRateSheetPoolRows(
 
 export function projectConnectionNavigation({
   family,
+  familyComposition = null,
   groups,
   rateSheet,
   hasFocusedTier,
 }: ConnectionNavigationInput): ConnectionNavigationCategory[] {
-  const familyRows = projectFamilyConnectionRows(family);
+  const familyRows = projectFamilyConnectionRows(family, familyComposition);
 
   const groupRows: GroupConnectionRow[] = groups.map((group) => ({
     id:            `${group.rateSheetId}:${group.groupId}`,

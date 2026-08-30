@@ -53,7 +53,7 @@ import type {
   TierDeck,
   DeckInclusion,
 } from '../../surface/packageTierWorkspace/deck';
-import type { PackageRateSheet, TierInstanceSummary } from '../../types';
+import type { PackageRateSheet, TierGroupComposition, TierInstanceSummary } from '../../types';
 import type {
   ConnectionNavigationCategory,
   ConnectionTarget,
@@ -81,6 +81,11 @@ interface Props {
   // system is being operated directly. Settings reports it as this focus's
   // connected Station; the deck derives no assignment of its own.
   family:     WorkspaceFamilyScope | null;
+  // The SAME canonical composition the focused Family's Summary panel reads
+  // (`PackageFamilySummary`) — forwarded to Settings so its Family Groups
+  // section reports the identical Services/Categories/Inclusions figures,
+  // never a second count path.
+  familyComposition: TierGroupComposition | null;
   families:   WorkspaceFamilyScope[];
   tierName:   string;
   deck:       TierDeck;
@@ -148,6 +153,7 @@ const ROW_ACTIONS = [
 export function TierLowerDeck({
   familyName,
   family,
+  familyComposition,
   families,
   tierName,
   deck,
@@ -215,6 +221,7 @@ export function TierLowerDeck({
               key={connectionScopeKey}
               tool={tierTool}
               family={family}
+              familyComposition={familyComposition}
               families={families}
               workspaceInstance={workspaceInstance}
               rateSheets={rateSheets}
@@ -334,9 +341,15 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
   onInclusionIntent: (itemId: string, actionId: 'view' | 'edit') => void;
 }): VNode {
   const meta = STATUS_META[inclusionStatus(inclusion)];
-  const priceLine = inclusion.resolved
-    ? `${money(inclusion.lineTotal)}${inclusion.per ? ` · ${inclusion.per}` : ''}`
-    : 'Pricing unavailable';
+  // A Bundle-supplied row's null lineTotal is not "unknown" or "unavailable"
+  // pricing — it genuinely has none of its own, by design (the Bundle's
+  // commercial price is independent of what its ingredients would sum to).
+  // Naming that provenance avoids reading as a missing/broken price.
+  const priceLine = !inclusion.addressable
+    ? 'Included in bundle'
+    : inclusion.resolved
+      ? `${money(inclusion.lineTotal)}${inclusion.per ? ` · ${inclusion.per}` : ''}`
+      : 'Pricing unavailable';
 
   return (
     <li class="cz-station-list__row cz-station-list__row--details">

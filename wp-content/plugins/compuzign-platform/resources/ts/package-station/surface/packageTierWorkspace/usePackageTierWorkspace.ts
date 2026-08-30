@@ -263,6 +263,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         decks[occupantId] = deck;
         connectionNavigation[occupantId] = projectConnectionNavigation({
           family: selectedFamily,
+          familyComposition,
           groups: deck.groups,
           rateSheet: deck.rateSheet,
           hasFocusedTier: true,
@@ -296,6 +297,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       connectionNavigation,
       emptyConnectionNavigation: projectConnectionNavigation({
         family: selectedFamily,
+        familyComposition,
         groups: [],
         rateSheet: null,
         hasFocusedTier: false,

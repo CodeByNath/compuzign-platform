@@ -18,7 +18,7 @@
 
 import { useMemo, useState } from 'preact/hooks';
 import type { VNode } from 'preact';
-import type { PackageRateSheet, TierInstanceSummary } from '../../types';
+import type { PackageRateSheet, TierGroupComposition, TierInstanceSummary } from '../../types';
 import type {
   ConnectionActionId,
   ConnectionTarget,
@@ -90,6 +90,10 @@ type RateSheetFilter = typeof RATE_SHEET_FILTERS[number]['id'];
 interface Props {
   tool: TierInstancesToolState;
   family: WorkspaceFamilyScope | null;
+  // The SAME canonical composition the Summary panel reads for this Family
+  // — see `projectFamilyConnectionRows()`. This section must never derive
+  // its own Services/Categories/Inclusions count.
+  familyComposition: TierGroupComposition | null;
   families: WorkspaceFamilyScope[];
   workspaceInstance: TierInstanceSummary | null;
   rateSheets: PackageRateSheet[];
@@ -134,6 +138,7 @@ interface SettingsGroup {
 export function TierSystemSettings({
   tool,
   family,
+  familyComposition,
   families,
   workspaceInstance,
   rateSheets,
@@ -144,7 +149,10 @@ export function TierSystemSettings({
 }: Props): VNode {
   // The connected Family Group is the workspace's own connection projection, so
   // Settings and Connections report one record, one status and one target.
-  const connectedFamilyRow = useMemo(() => projectFamilyConnectionRows(family), [family]);
+  const connectedFamilyRow = useMemo(
+    () => projectFamilyConnectionRows(family, familyComposition),
+    [family, familyComposition],
+  );
   const [familyGroupFilter, setFamilyGroupFilter] = useState<FamilyGroupFilter>('all');
   // The Family Groups list: Focused shows only the connected row above; every
   // other filter narrows the whole loaded Family pool by status, with the
