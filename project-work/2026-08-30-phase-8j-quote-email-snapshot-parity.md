@@ -1,61 +1,39 @@
 # Phase 8J — Submitted Quote / Email Parity
 
 ## Status
-- `AWAITING CHATGPT REVIEW` — 8J-C1 correction round pushed to review branch.
+- `READY FOR CLAUDE` — 8J-C2 only.
+- `SOURCE PUSH NOT APPROVED`.
 - 8J-A accepted/deployed at `main@f152134eac87c0cf84414ac6217794e7a4ca0102`.
 - 8J-B accepted/deployed at `main@c8a0f2b43b94631232fa5befcb2b1d679f295a9b`; Hostinger run #914 succeeded.
+- Auditor verdict: `Proceed with safeguards`.
 
 ## Locked Architecture
-Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry**. Submitted snapshot is authoritative; never rebuild from current Rate Sheets/Tiers/Legs/catalog state. Existing admin/customer notification flow remains.
+Keep `/requests/submit`, `cz_quote_<ref>`, WordPress transient storage and the **7-day expiry**. Submitted snapshot is authoritative; never rebuild a submitted quote from current Rate Sheets/Tiers/Legs/catalog state. Target journey: customer email -> secure quote view -> stored submitted snapshot -> accepted proposal / Print / Save as PDF. No second PDF renderer.
 
-Target journey remains: customer email -> secure quote view -> exact stored submitted snapshot -> accepted proposal/Print / Save as PDF experience. This is not a second PDF renderer.
+## 8J-C1 — Accepted on Review Chain
+Cumulative review head: `b122eb777cd8517324212a29fba7ea692ca984b9`, two commits ahead of production `c8a0f2b...`; not on `main`.
 
-## 8J-A / 8J-B — Accepted
-RequestSchema preserves the richer Family snapshot and notification builders consume it with accepted cart/PDF semantics. Customer email hides raw CZ IDs; admin keeps operational identity.
+Independent audit confirms the correction resolves both blockers:
+- bearer secret is read only from `X-Quote-View-Secret`, not query params;
+- missing/wrong secret, missing quote and malformed reference converge on the same controller 404 path; focused HTTP contract covers the actual route/controller boundary.
 
-## Phase 8J-C1 — Correction Round (Claude Response)
+Accepted safeguards remain: 32-byte CSPRNG secret, only SHA-256 hash persisted, `hash_equals`, explicit response allow-list, stored snapshot only, unchanged transient key/lifetime. **Do not deploy C1 alone** because the raw secret is intentionally not retained and C3 is what delivers it to the customer.
 
-Branch: `phase-8j-c1-quote-view-boundary`, correction commit
-`b122eb777cd8517324212a29fba7ea692ca984b9` (on top of the original
-`c147050c`, still exactly one review branch, not pushed to `main`).
+## Phase 8J-C2 — Customer Quote View
+Implement on the same review chain only. Do not touch email yet.
 
-**Issue 1 (query-param transmission) — fixed.** The secret now arrives only
-via an `X-Quote-View-Secret` request header, read in `getQuote()` via
-`$request->get_header(...)`. No query parameter, no URL/log/history
-exposure. Compatible with a future C2 fragment-based email link (fragment
-never reaches the server; client JS reads it and sends it as this header).
-
-**Issue 2 (non-uniform HTTP-boundary failure) — fixed.** `secret` removed
-from `registerRoutes()`'s REST `args` entirely (a header isn't validated by
-that mechanism, so this is resolved by construction, not a special case).
-`ref` keeps `required => true` — harmless, since the URL route pattern
-itself can't match without a `ref` segment, so it never produces a
-distinguishing rejection in practice.
-
-**Deployment sequencing — acknowledged, not engineered around.** No
-compatibility path was built for the current-transition gap (a quote
-submitted between a standalone C1 deploy and C3's email-link wiring would
-have an unrecoverable hash); manufacturing one would add scope/complexity
-this phase doesn't need. Per the guidance: **C1 stays on the review chain
-and is not pushed to `main` alone** — it waits for C2/C3 to be ready for one
-combined production push, or an explicit separate approval.
-
-New test `tests/quote-view-http-boundary.php`: exercises the real
-`registerRoutes()`/`getQuote()` (stubs `register_rest_route`,
-`get_transient`, `WP_REST_Request`/`WP_REST_Response`) — asserts `secret`
-is absent from the captured route's `args`, and that missing header, wrong
-secret, missing/expired quote, and malformed reference all return a
-byte-identical 404 body. `docs/code-map/quote-builder.md` updated.
-
-Tests/checks (all passed): the new HTTP-boundary contract plus every prior
-Requests-module PHP test (including the original `quote-view-access-
-boundary.php`, unaffected — it tests the transport-agnostic pure resolver);
-the same 4 focused npm contracts; full sweep of all 50 `npm run contract:*`;
-`npx tsc --noEmit`; `npm run build`; `npm run docs:check`.
+1. Audit existing public WordPress/frontend mounting and `QuoteProposalPreview.tsx` before choosing a route. Reuse established page/app conventions; no new SPA/router architecture.
+2. Build a customer quote-view entry that accepts a non-secret quote ref in the normal URL and the bearer secret in the URL **fragment** only. Client JS must read the fragment locally and call C1 using `X-Quote-View-Secret`; never send the secret in query/path/body or persist it to local/session storage.
+3. After reading the fragment, remove/neutralize it from the visible browser URL where practical without breaking refresh behavior. Do not expose the secret in DOM text, analytics, console output or errors.
+4. Reuse the accepted `QuoteProposalPreview` rendering and existing Print / Save as PDF behavior. Do not copy its commercial arithmetic or create a second renderer.
+5. **Snapshot-parity safeguard:** current `QuoteProposalPreview` still consults `services` for some legacy Service descriptions/bundle descriptions, while the stored request snapshot contains `items` but not the live `services` catalog. The secure view must not fetch/re-resolve current Service/catalog data. Audit this dependency first. If exact accepted rendering can be achieved from stored item data, do so. If required displayed legacy data is absent from the submitted snapshot, STOP and report the exact missing fields/affected surfaces in this file rather than silently dropping content or introducing live lookup.
+6. Loading/error/expired access must be generic and customer-safe; no distinction between wrong secret and missing/expired quote.
+7. Do not change notification email, C1 security model, pricing/resolver logic, transient lifetime, CRM storage or main.
+8. Add focused frontend/contracts for fragment handling, header transport, no secret leakage, valid stored quote render, generic failure, and print path. Run relevant existing quote/request contracts, tsc/build/docs.
+9. Push review commit, record exact SHA/files/tests here, set `AWAITING CHATGPT REVIEW`, stop.
 
 ## Later — Not Authorized Yet
-- **8J-C2:** customer quote-view route/page reusing accepted proposal rendering and Print / Save as PDF from stored snapshot.
-- **8J-C3:** add secure `View / Print Quote` link to customer email; then one combined live validation of email + reload + print.
+**8J-C3:** wire secure `View / Print Quote` link into customer email using the same per-submission raw secret, then one combined production push/deploy/live validation of email + reload + print.
 
 ## Next Work — CRM Station
-After 8J closes, plan CRM properly. First handoff phase stays small: Station list/view for client requests with Pending / Approved / Cancelled workflow, client contact and first-email/work handling. Broader CRM capabilities come later; the 7-day quote transient is not future durable CRM storage.
+After 8J closes, plan CRM properly. First handoff phase stays small: Station list/view for requests with Pending / Approved / Cancelled, client contact and first-email/work handling. Broader CRM comes later; the 7-day transient is not durable CRM storage.
