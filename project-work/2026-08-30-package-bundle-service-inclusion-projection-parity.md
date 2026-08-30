@@ -1,11 +1,11 @@
 # Package bundle service/inclusion projection parity
 
 ## Status
-- **READY FOR CLAUDE**
-- Production `main` = `f82248d605faf65f27687b0fedf5e1ee9ce5954c`.
-- Deploy run `33303465265` / run #917 = `completed/success`, exact `head_sha=f82248d605faf65f27687b0fedf5e1ee9ce5954c`.
+- **AWAITING CHATGPT REVIEW**
+- Production `main` = `f82248d605faf65f27687b0fedf5e1ee9ce5954c` (unchanged).
+- Review head: `2b62f20f4f2174791fb76e6662ecca1c3ffcb9c6` on new branch `review/package-bundle-family-group-count-and-price-wording` (branched from `main@f82248d6`, 1 commit ahead).
 - Source push: **NOT APPROVED**
-- Auditor verdict: **Proceed with safeguards — live parity remains incomplete**.
+- Auditor verdict carried over: **Proceed with safeguards — live parity remains incomplete**.
 
 ## Accepted behavior
 A Bundle remains one commercial Rate Sheet selection/pricing row. Admin read/display projection expands its resolved `includes[]` into real supplied Inclusion rows; the Bundle shell is never itself an Inclusion. Service/Category provenance comes from those supplied rows. No pricing, Leg, persistence, schema, identity, authoring, or migration change.
@@ -48,3 +48,75 @@ Add regressions proving:
 - genuinely empty groups remain 0.
 
 Report root cause, changed files, tests, review SHA, and deployment state here; then set **AWAITING CHATGPT REVIEW**. Do not push source to `main` without Nath’s explicit approval.
+
+## Claude Report — round 4 — 2026-08-30
+
+**Root cause 1 — Family Group Services.** `projectFamilyConnectionRows()`
+(`connectionNavigation.ts`) sourced `assignedServices` from
+`family.dependents.services` — a genuinely different metric per
+`cardAdapter.ts`'s own doc comment (what the Family's connected Services
+could supply across every Rate Sheet in the station, not what its Tiers
+actually compose), never the canonical `composeTierGroup()`-derived
+`familyComposition` the Summary panel already read correctly. Worse,
+Settings had its OWN separate, independently broken call site
+(`TierSystemSettings.tsx`'s `connectedFamilyRow`) calling
+`projectFamilyConnectionRows(family)` with **no composition argument at
+all** — a genuine second defect, not just the same one showing twice.
+
+**Fix 1.** Threaded the Summary panel's own `familyComposition` state
+(already computed in `usePackageTierWorkspace.ts`, unchanged) through one
+prop chain: `PackageTierWorkspace.tsx` → `TierLowerDeck.tsx` →
+`TierSystemSettings.tsx`, and into the existing Connections path via
+`projectConnectionNavigation()`. `projectFamilyConnectionRows()` now
+prefers `familyComposition.services`, falling back to
+`dependents.services` only when no composition is available at all
+(unassigned Family, no CZTG, or not yet loaded) — never inventing a zero
+for an already-working reading.
+
+**Root cause 2 — price wording.** A Bundle-supplied row's null
+`lineTotal` rendered through the plain `money()` formatter's `—` fallback
+— identical to a genuinely broken/missing price, with no way to tell them
+apart.
+
+**Fix 2.** `InclusionRow` (`TierLowerDeck.tsx`) now renders "Included in
+bundle" when `!inclusion.addressable`, before the existing
+resolved/unresolved price branches. Direct selections are completely
+unaffected (the `addressable` check gates before their branch runs).
+
+**Regression coverage.**
+- `scripts/package-tier-workspace-contract.ts`: three new cases on
+  `projectConnectionNavigation()` proving `assignedServices` reads
+  composition when available (3, not `dependents.services`'s 1), falls
+  back correctly when composition is null, and reports a genuine 0 for an
+  empty composition rather than a stale non-zero fallback.
+- `scripts/tier-settings-contract.ts`: a new full-chain check proving
+  `familyComposition` actually reaches Settings > Family Groups through
+  every link (workspace → lower deck → settings props) — this is what
+  would have caught the Settings-specific missing-argument defect before
+  it shipped. Two pre-existing assertions that matched the OLD
+  one-argument `projectFamilyConnectionRows(family)` call were updated to
+  the new, correct two-argument signature (they'd otherwise have failed
+  against the legitimate fix, not caught a regression).
+- `scripts/tier-connections-contract.ts`: asserts the Price cell wording
+  for a Bundle-supplied row.
+
+**Validated:** `npx tsc --noEmit`, `npm run contract:package-tier-workspace`,
+`npm run contract:tier-connections`, `npm run contract:tier-settings`,
+`npm run contract:package-tier-workspace-shell`,
+`npm run contract:package-family-card-metrics`,
+`php tests/tier-group-composition.php` (backend untouched, still green),
+`npm run build`, `npm run docs:check`, plus a repo-wide NUL-byte scan —
+all pass.
+
+**Files changed:** `dist/js/admin-station.js`,
+`resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx`,
+`resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx`,
+`resources/ts/package-station/presentation/package-tier-workspace/TierSystemSettings.tsx`,
+`resources/ts/package-station/surface/packageTierWorkspace/connectionNavigation.ts`,
+`resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts`,
+`scripts/package-tier-workspace-contract.ts`, `scripts/tier-connections-contract.ts`,
+`scripts/tier-settings-contract.ts` (all under
+`wp-content/plugins/compuzign-platform/`). No Code Map change — no
+documented owner/path/responsibility changed, only a wiring defect
+(composition never reached these two call sites) and a display-string
+correction.
