@@ -1,7 +1,7 @@
 # CRM Request Station plan
 
 ## Status
-- **READY FOR CLAUDE — plan correction only; no source changes yet.**
+- **AWAITING CHATGPT REVIEW** — concurrency/ownership blocker resolved below. No source changes.
 - Production base: `main@48c791b4f6d3d87ae8d6ef8e895a905ec2cc00a8`.
 - Source push: **NOT APPROVED**.
 - Auditor verdict: **Proceed with safeguards**.
@@ -34,3 +34,76 @@ Add regression coverage for two concurrent first submissions of the same `quote_
 
 ## Claude next action
 Revise CRM-1A plan for this concurrency/ownership blocker only. Report exact creation ownership contract, duplicate-prevention/convergence mechanism, rollback order, and focused test. No source edits. Set **AWAITING CHATGPT REVIEW** and stop.
+
+---
+
+## Claude Report — CRM-1A revision, concurrency/ownership blocker resolved — 2026-08-30
+
+No source changes. Everything else from the prior two rounds (file list, Blocker-1 retry/collision comparison, Blocker-2 legacy-status normalization, `/accept` removal, `CZR` registration) is unchanged — this round adds one narrow mechanism that the whole creation path now routes through.
+
+### Mechanism — a Request-specific atomic creation lock, not a platform-wide framework
+
+Reuses the exact atomic primitive `PlatformIdentifierStation` already relies on for its own reservation safety (`add_option()`'s DB-level unique-`option_name` guarantee — proven in this codebase, not a new one): a per-`quote_ref` lock option, claimed before any post is ever inserted for that ref.
+
+New narrow `RequestRepository` methods (no new class, no locking framework):
+- `claimCreationLock(string $quoteRef): bool` → `add_option('cz_request_creating_' . $quoteRef, ['claimed_at' => time()], '', 'no')`. `quote_ref` is already schema-validated (`RequestSchema::QUOTE_REF_PATTERN`, `CZ-XXXXXX`) before this runs, so the option-name suffix is bounded and safe with no extra sanitization.
+- `releaseCreationLock(string $quoteRef): void` → `delete_option(...)`.
+- `creationLockAge(string $quoteRef): ?int` → reads `claimed_at` if the lock exists, else `null`.
+
+### Ownership contract
+
+`RequestRepository::create()`'s return grows from a bare `int` into a small array — `['post_id' => int, 'created_by_this_call' => bool]` (plain-array shape to match every other method in this file; no new value object). `created_by_this_call` is `true` **only** when this exact call's own `wp_insert_post()` returned that post ID — never inferred from platform-ID state, which was the flawed heuristic in the prior round. **Rollback (`wp_delete_post`) may only ever run against a post ID this call's own `create()` invocation just returned with `created_by_this_call === true`.**
+
+### `submitRequest()` — replaces the previous step 3/4
+
+```
+$existingPostId = $this->requests->findPostIdByRef($quoteRef);
+
+if ($existingPostId === null) {
+    if ($this->requests->claimCreationLock($quoteRef)) {
+        try {
+            $existingPostId = $this->requests->findPostIdByRef($quoteRef);  // closes the narrow window between the first check and the claim
+            if ($existingPostId === null) {
+                $outcome = $this->createDurableRequest($payload);  // reserve -> wp_insert_post -> assign, as in round 2's plan
+                if (!$outcome['ok']) {
+                    return 500;  // fail closed: no transient, no email (unchanged from round 2)
+                }
+                $existingPostId       = $outcome['post_id'];
+                $createdByThisCall    = true;   // used below to skip the redundant comparison
+            }
+        } finally {
+            $this->requests->releaseCreationLock($quoteRef);  // always released, success or failure — no permanent lockout on a failed winner
+        }
+    } else {
+        // Lock lost to a concurrent first submission of the SAME ref: bounded poll for its post,
+        // converging this call into an ordinary Blocker-1 retry rather than a second writer.
+        $existingPostId = $this->requests->awaitCreatedPost($quoteRef);  // new method, see below
+        if ($existingPostId === null) {
+            return 503 {"success": false, "message": "Please try again in a moment."};  // no post, nothing to roll back, no transient/email
+        }
+    }
+}
+
+if (!($createdByThisCall ?? false)) {
+    // Pre-existing post (sequential retry) OR discovered via the redundant re-check OR discovered via
+    // the losing call's poll — in every case, run Blocker-1's payloadsMatch()/reuse-or-409 flow.
+    // ... (unchanged from round 2)
+}
+// createdByThisCall === true: $payload already IS the just-written durable snapshot — proceed straight
+// to the view-secret/transient/email steps with no re-comparison.
+```
+
+`awaitCreatedPost(string $quoteRef): ?int` (new `RequestRepository` method) — bounded poll, mirroring the bounded-attempt shape `PlatformIdentifierStation::reserve()` already uses (`MAX_RESERVATION_ATTEMPTS = 128`) rather than an unbounded wait:
+- Up to 40 attempts, 50ms apart (~2s total) calling `findPostIdByRef($quoteRef)`; returns the post ID the instant it appears.
+- If still not found after 40 attempts: check `creationLockAge($quoteRef)`. If the lock is older than a 10-second staleness threshold (comfortably longer than a reserve→insert→assign sequence should ever take, even under DB latency — a crashed or fatally-errored winner is the only realistic way the lock outlives its own request), this call may reclaim it — `releaseCreationLock()` then attempt `claimCreationLock()` again itself, re-entering the winner branch as a fresh attempt. If the lock is still fresh (a winner is plausibly still in flight) or reclaim also fails (someone else reclaimed first), return `null` and let `submitRequest()` return `503` — the client's natural retry is the correct recovery path, not a forced duplicate or a break of someone else's genuinely in-flight claim.
+
+This closes the blocker structurally, not heuristically: while the lock is held, this call is the *only* writer for this `quote_ref` in the whole system, so "did I create this post" is a fact this call already knows locally (the direct return value of its own `wp_insert_post()` call), never something inferred after the fact from shared state.
+
+### Focused regression coverage (extends `tests/request-durable-submission.php`)
+
+- **Two concurrent first submissions, identical payload** (test harness simulates interleaving the same way `category-inline-identity-race.php`'s `$__beforePlatformClaim` hook does, but on `add_option` for the lock key): exactly one durable post and one `CZR` result; the losing call's poll finds the winner's post and reuses it via the unchanged Blocker-1 path; `wp_delete_post` is never called.
+- **Two concurrent first submissions, different payload** (simulating two browser tabs racing with different cart edits under the same somehow-shared ref): the losing call still converges onto the winner's post via the poll, then correctly `409`s through the same Blocker-1 comparison — concurrent collision behaves identically to sequential collision, no separate code path to keep in sync.
+- **Winner's `assign()` throws after `wp_insert_post()` succeeds**: the post it just inserted is deleted, the reservation retired, the lock released in `finally` — and a subsequent call for the same ref can claim the lock immediately (no lockout from a failed winner).
+- **Stale lock with no post** (simulates a fatally-errored winner): a later call's `awaitCreatedPost()` exhausts its poll, detects the lock's age past the 10s threshold, reclaims it, and completes creation normally — never loops forever, never duplicates.
+
+Set to **AWAITING CHATGPT REVIEW**. No source changed this round.
