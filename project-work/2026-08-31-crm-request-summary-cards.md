@@ -1,10 +1,10 @@
 # CRM Request summary cards
 
 ## Status
-- **AWAITING CHATGPT REVIEW — deployed successfully after a re-run; live browser validation still pending.**
-- `main` is `96d5593799af4336c071f462aef445baf5872836` (unchanged since the last round — exactly the approved commit).
-- GitHub Actions `deploy` run `33337306396`, job [`99333329292`](https://github.com/CodeByNath/compuzign-platform/actions/runs/33337306396/job/99333329292): **success** on re-run, head SHA `96d5593799af4336c071f462aef445baf5872836`, all 9 steps (including the SSH deploy and SCP dist-asset steps that failed/skipped on the first attempt) completed.
-- Auditor verdict (prior round): **Proceed**.
+- **AWAITING LIVE VALIDATION**.
+- Production `main` = `96d5593799af4336c071f462aef445baf5872836`.
+- Deploy run `33337306396` / run #922 = `completed/success` on attempt 5, exact `head_sha=96d5593799af4336c071f462aef445baf5872836`.
+- Auditor verdict: **Proceed**.
 
 ## Locked scope
 Display-only metric strip above Requests list using shared `StationMetricBlock` visual language:
@@ -15,26 +15,23 @@ Display-only metric strip above Requests list using shared `StationMetricBlock` 
 
 No filters, buttons, links, lifecycle actions, pricing, transient scans, backfill, customer-flow changes, or `Expires Soon`.
 
-## Independent audit
-Compared production `fe5725db...` to review head `96d55937...`: exactly **1 commit ahead / 0 behind**, with 10 scoped files only.
+## Independent source/deploy audit
+Production `main` independently confirmed at the exact approved SHA `96d5593799af4336c071f462aef445baf5872836`; no extra source commit is present.
 
-Accepted implementation:
-- `AdminRequestsController::summarize()` adds derived, non-persisted `is_today` from the stored site-local `submitted` day against `current_time('Y-m-d')`.
-- `RequestSummary` carries `is_today: boolean`; generic Station data-source/template contracts are untouched.
-- `deriveRequestSummaryMetrics()` purely tallies the already-fetched rows.
-- `RequestsSummaryCards` reuses `StationMetricBlock` directly and is non-interactive.
-- `RequestsCatalogueKit` mounts the strip above the existing search/list without changing search behavior.
-- CSS adds only Requests-owned container/card layout; metric internals remain the shared `.cz-station-metric*` family.
-- focused PHP/TS contracts cover today/non-today counts, all four metrics, empty list, shared primitive reuse, and absence of click/intent behavior.
+GitHub Actions run `33337306396` independently confirmed `completed/success` for that exact SHA. The successful deployment is attempt 5 of the same run; earlier failures were deployment/connectivity infrastructure issues, not source changes.
 
-Claude-reported validation passed: `tsc --noEmit`, build, Requests surface contract, durable Request PHP test, docs check; the known 6 unrelated `cz-rate-sheet-tool__*` CSS-contract failures remain pre-existing.
+Accepted implementation remains unchanged:
+- `AdminRequestsController::summarize()` derives non-persisted `is_today` from site-local stored `submitted` against `current_time('Y-m-d')`;
+- generic Station data-source/template contracts are untouched;
+- `deriveRequestSummaryMetrics()` tallies the already-fetched rows only;
+- `RequestsSummaryCards` reuses `StationMetricBlock` directly and has no click/filter/intent behavior;
+- Requests search/list/drawer behavior is unchanged.
 
-## Deploy history
-First attempt (job `99326407131`) failed at step 8, "Deploy source via SSH" — an infrastructure/connectivity issue, not a source regression (every step through frontend build succeeded, and `main`'s source was already correct and unchanged from the approved review head). Nath ran the Hostinger upload check and the workflow was re-run: job `99333329292` on the same run `33337306396` completed all 9 steps successfully, including the SSH deploy and SCP dist-asset upload, on the exact same approved SHA.
+## Live acceptance required before closure
+Read-only browser validation only:
+1. Four cards appear above Requests: **All Requests / New Today / Pending / Approved**.
+2. Values match the durable Request rows/statuses and today's site-local submissions.
+3. Cards are non-interactive and do not filter or navigate.
+4. Existing Requests search, list, and read-only drawer still work unchanged.
 
-## Claude next action
-None pending on the source side. Live browser validation is the one remaining step before this item can close:
-- the four summary cards (All Requests / New Today / Pending / Approved) appear above the Requests list;
-- their values match the visible durable Request data;
-- the cards are non-interactive (no click/filter behavior);
-- the existing Requests list, search, and drawer remain unchanged.
+No source correction is requested. Close only after live validation passes.
