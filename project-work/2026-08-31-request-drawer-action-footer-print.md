@@ -6,42 +6,56 @@
 - Auditor verdict: **Proceed with safeguards**
 
 ## Objective
-Simplify the Admin Station Request drawer footer and repair **Print / Save PDF**. This is a new follow-up after closed CRM-1B; do not reopen or broaden CRM-1B.
+Simplify the Admin Station Request drawer actions and repair **Print / Save PDF**. This is a new follow-up after closed CRM-1B; do not reopen or broaden CRM-1B.
 
 ## Live browser evidence — 2026-08-31
-Pending Request `CZ-9GPG3T` shows header ×, Cancel split, footer Close, standalone Print split, and separate Approve. The footer is crowded and duplicates Close.
+Pending Request `CZ-9GPG3T` currently shows header × plus footer Cancel split, Close, standalone Print split, and Approve. The footer is crowded and duplicates Close.
 
-Browser reproduction:
+Print reproduction:
 1. Open Requests > first Pending Request.
 2. Click **Print / Save PDF**.
 3. No new tab, navigation, print/quote surface, or status change; drawer remains open.
-4. The application reports that the browser blocked the popup, but Nath confirms popups are not blocked. Treat that message as a false diagnosis, not a browser-setting problem.
+4. The app reports popup blocking, but Nath confirms popups are allowed. Treat this as a false diagnosis.
 5. Cancel and Approve were not triggered.
 
-## Required UX
-- Remove the footer **Close** button; retain header × plus existing Escape/backdrop closing.
-- Preserve **Cancel Request** as its destructive split action with existing lifecycle/confirmation behavior.
-- Replace standalone Print and Approve with one standard Station split button:
-  - main action: **Approve**;
-  - chevron menu action: **Print / Save PDF**.
-- Reuse established Station split-button sizing, focus, keyboard, menu, disabled, and loading behavior.
+## Required action layout
+Use the standard drawer header action area. On the right of the Request title, render three compact icon-only actions:
+1. **Print / Save PDF**
+2. **Cancel Request**
+3. **Close (×)**
 
-## Print behavior
-- Print is non-mutating and must open the existing authorized customer quote/print surface.
-- Diagnose the actual launch sequence. If the signed URL is obtained asynchronously, preserve the originating click’s user activation: open a safe blank/placeholder destination synchronously during the click, then navigate it only after the authorized URL resolves. If URL resolution fails, close the placeholder and show the real failure.
-- Do not call `window.open` only after an awaited request and then mislabel a lost user-activation failure as browser popup blocking.
-- Report “popup blocked” only when a synchronous open genuinely returns a blocked/null result. Otherwise show accurate request/URL/navigation failure feedback.
-- The resulting quote surface must expose an enabled **Print / Save as PDF** control.
+Exact visual order may follow the shared header-action convention, but Close remains the terminal/rightmost action. Each icon button must:
+- use an existing shared icon and icon-button primitive;
+- show its full action label on mouse hover and keyboard focus using the established tooltip;
+- have the same full accessible name/ARIA label;
+- preserve visible focus, touch target, disabled, busy, and contrast standards.
+
+Footer behavior:
+- remove footer **Close**, footer **Cancel Request**, and standalone footer **Print / Save PDF**;
+- keep **Approve** as the sole primary footer action for a Pending Request;
+- do not combine Approve and Print into a split button (this supersedes the earlier split-button direction).
+
+## Action semantics
+- Header Close retains existing ×, Escape, and backdrop behavior.
+- Header Cancel remains destructive and must preserve the existing confirmation, permissions, loading, success/failure, and lifecycle transition. An icon-only presentation must not weaken its warning/confirmation.
+- Header Print is non-mutating and opens the existing authorized customer quote/print surface.
+
+## Print repair
+If the signed URL resolves asynchronously, preserve the originating click’s user activation: synchronously open a safe placeholder destination, then navigate it after the authorized URL resolves. Close the placeholder and show the real error when resolution fails.
+- Do not defer `window.open` until after an awaited request and mislabel lost activation as popup blocking.
+- Report “popup blocked” only when a synchronous open genuinely returns blocked/null.
+- The opened quote must expose enabled **Print / Save as PDF**.
 - Never expose post IDs, meta keys, `view_secret_hash`, bearer tokens, signed URLs, or secret plumbing in visible UI/log/toast copy. Do not manufacture secrets client-side.
 
 ## Hard non-change boundary
-Do not change Request lifecycle states, Cancel/Approve semantics, confirmations, permissions, schema/persistence, quote pricing/content/rendering, other drawer sections, or unrelated Station footers. Print must not approve, mutate status, or close the drawer.
+Do not change Request states, Approve/Cancel semantics or confirmations, permissions, schema/persistence, quote pricing/content/rendering, drawer body, other drawers, or unrelated Station actions. Print must not mutate or close the Request.
 
 ## Acceptance
-- Pending footer: header ×, Cancel split, and one Approve split; no footer Close or standalone Print.
-- Approve path/confirmation remains unchanged.
-- Print menu action reliably opens the authorized print-capable quote when popups are allowed.
-- Async URL success, URL failure, genuine popup block, and navigation failure have distinct tested outcomes/messages.
-- Print never mutates lifecycle state; Approved/cancelled/non-printable states retain correct actions.
-- Add focused contracts for composition, keyboard/menu, synchronous user-activation preservation, success/failure, and lifecycle non-regression.
+- Pending drawer header has accessible icon-only Print, Cancel, and Close actions with hover/focus tooltips.
+- Pending footer contains only Approve.
+- Approve and Cancel confirmation/lifecycle paths remain unchanged.
+- Print reliably opens the authorized print-capable quote when popups are allowed.
+- Async success, URL failure, genuine popup block, and navigation failure have distinct tested outcomes/messages.
+- Approved/cancelled/non-printable states show only appropriate actions.
+- Add focused contracts for header composition/order, labels/tooltips, keyboard/focus, user-activation preservation, print outcomes, and lifecycle non-regression.
 - Report root cause, changed files, tests, review SHA, and browser evidence here; set **AWAITING CHATGPT REVIEW**. Do not push source to `main` without Nath’s explicit approval.
