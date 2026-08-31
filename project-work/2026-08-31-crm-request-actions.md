@@ -1,9 +1,10 @@
 # CRM Request actions — Approve / Cancel / Admin Print
 
 ## Status
-- **READY FOR CLAUDE — implement on a review branch only.**
+- **AWAITING CHATGPT REVIEW — Approve/Cancel implemented on a review branch; Print stopped and reported, not implemented.**
 - Production base: `main@96d5593799af4336c071f462aef445baf5872836`.
-- Source push: **NOT APPROVED**.
+- Review branch: `review/crm-1c-request-actions`, commit `7c9a0fee` (pushed).
+- Source push to `main`: **NOT APPROVED / NOT DONE**.
 - Auditor verdict: **Proceed with safeguards**.
 
 ## Locked scope
@@ -42,3 +43,30 @@ Before committing the print implementation, verify the bundle/style boundary. If
 - Run focused Request suites, TS compile/build, Station/drawer contracts, docs check; record pre-existing unrelated failures separately.
 
 Push review branch only, record exact SHA/files/tests and any print-boundary blocker, set **AWAITING CHATGPT REVIEW**, then stop.
+
+## Claude report — implemented on `review/crm-1c-request-actions` @ `7c9a0fee`
+
+### What shipped
+- `PATCH /admin/requests/{ref}/status` (enum `approved`/`cancelled` only) — 404 unknown ref, 409 rejected transition, 200 with the existing `detail()` allow-list on success (no raw post ID, no `view_secret_hash`, identical shape to `GET .../{ref}`).
+- `RequestRepository::updateStatus()` hardened to a real compare-and-swap: reads raw stored status, short-circuits same-target as idempotent success without a write, otherwise calls `update_post_meta($id, $key, $status, $observed)` (WordPress's 4-arg conditional-write form). On a lost race it re-reads once — same target as the winner resolves idempotently, opposite-terminal returns false (409). Legacy raw `new` transitions using its own raw value as the compare value, per spec.
+- Footer: `RequestDrawerFooter.tsx` via `SupportedActionFooter`/`EntityActionFooter` — pending shows Close + primary **Approve** + danger-toned split **Cancel Request** (single-split shape, no splitForward, no third shape). Both disable while the other is in flight. Approve fires directly (non-destructive); Cancel opens `RequestDrawerDialogs.tsx`, a confirm dialog following `CategoryDrawerDialogs`' own `cz-publish-confirm*` convention (matches its destructive/Trash confirm, since cancelled is terminal — never approvable afterward). `useRequestDrawerActions.ts` owns busy/error/dialog state and calls the endpoint directly (no `useApi`, matching Category's own mutation convention). On success the drawer takes the response's `request` object directly (no second GET) and calls `onSaved()` to refresh the originating Requests wall (list status + summary counts) — reusing the existing bridge, no new refresh plumbing. Approved/cancelled Requests currently render **Close only** (Print omitted, see below).
+- `RequestDrawerHost.tsx` now calls `setFooter`; still calls no `setCloseGuard` (neither action leaves unsaved state).
+
+### Print — stopped and reported per the auditor's own gate, not implemented
+`QuoteProposalPreview.tsx` imports `chargeTypeLabel`, `computeTotalContractValue`, `startingPaymentsByCycle` from `resources/ts/components/cost-builder/PricingTiers.tsx` (1088 lines, the customer-facing pricing UI) and uses all three pervasively — the Family contract-value and payment-cycle sections at lines ~98, ~106, ~203, ~218, ~320, ~333, not incidental. `QuoteProposalPreview`/`installPrintPortal` are mounted only from `modules/cost-builder.ts`, a separate Vite entry from `modules/admin-station.ts` (confirmed: `npm run build` before and after this change shows `cost-builder.js` unchanged at 98.85 kB, `admin-station.js` at 409.35→411.95 kB — nothing from cost-builder pulled in). Direct reuse as-is would import the whole cost-builder runtime into the admin bundle — exactly the stop condition in the auditor's decision. The sanctioned alternative (extracting the three pure calc functions out of `PricingTiers.tsx` into a neutral shared location, with a parity contract) touches a mature, locked customer-facing pricing file and is its own reviewable change, not something to fold into this branch unannounced — leaving it for an explicit follow-up decision.
+
+### Evidence run (from plugin root)
+- `php tests/request-status-transition.php` (new — auth, 404, both transitions, same-state idempotency, both opposite-terminal 409s, legacy `new` compare-value, concurrent-race winner/loser, allow-list shape) — pass.
+- `php tests/admin-requests-durable-surface.php` — pass, unaffected.
+- `npx tsc --noEmit` — clean.
+- `npm run build` — clean, 307 modules.
+- `npm run contract:requests-admin-station-surface` — pass.
+- `npm run contract:supported-action-footer` — pass.
+- `npm run contract:drawer-module-entry` — pass (15 shells, 6 entry states).
+- `npm run contract:station-tabset` — pass (98 checks).
+- `npm run docs:check` — pass (110 Markdown files, 39 Code Maps).
+- `npm run contract:admin-station-css` — **fails with 6 pre-existing findings, all `.cz-rate-sheet-tool__*` classes, confirmed identical on `main` before this branch's changes (reproduced by re-running the same script against `main`'s working tree)** — unrelated to this work, not touched by it.
+- Docs updated: `docs/code-map/admin-station-drawer.md`, `resources/ts/admin-station/CLAUDE.md`, `src/Modules/Admin/CLAUDE.md` (added the new test to its Validation list).
+- Not run: a live WordPress/browser session — this environment has no running WP install; all verification above is source-level (hand-stubbed PHP tests matching this repo's existing `tests/*.php` convention, `tsx`/Vite/`tsc` for TS). Flagging per the requirement not to claim runtime verification that wasn't performed.
+
+Set **AWAITING CHATGPT REVIEW**.
