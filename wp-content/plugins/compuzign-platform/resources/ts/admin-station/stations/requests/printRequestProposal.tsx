@@ -17,11 +17,28 @@
 //
 // No live catalog/pricing re-resolution, no quote-view secret — every value
 // rendered here comes straight from the already-fetched `RequestEntry`.
+//
+// CRM-1C audit correction (live browser failure): the original single
+// `async function printRequestProposal()` opened its window as the first
+// statement of an ASYNC function. That is synchronous by spec — no `await`
+// runs before it — but several browsers (Safari in particular) can drop
+// transient user activation the instant control enters a JS async function
+// at all, even before its first `await`, because of how the async-function
+// microtask wrapper interacts with activation consumption. Live testing
+// reproduced exactly that: `window.open()` returned null and the UI
+// reported a false "popup blocked", even with popups allowed. The fix is
+// to make the open step a genuinely plain (non-async) function, called
+// directly and synchronously from the click handler — see
+// useRequestDrawerActions.ts's `runPrint`, the only caller — with every
+// async step (Preact render, stylesheet wait, print()) moved into a
+// separate continuation that only ever runs after the window already
+// exists.
 
 import { render } from 'preact';
 import { QuoteProposalPreview } from '@/components/request-flow/QuoteProposalPreview';
 import { toCartItems } from './requestLineToCartItem';
 import { openIsolatedPrintDocument, waitForStylesheets } from './openIsolatedPrintDocument';
+import type { OpenIsolatedPrintDocumentResult } from './openIsolatedPrintDocument';
 import type { RequestEntry } from '@/api/types/admin';
 
 function formatSubmittedDate(mysqlDateTime: string): string {
@@ -30,17 +47,25 @@ function formatSubmittedDate(mysqlDateTime: string): string {
   return parsed.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export type PrintRequestProposalResult = 'printed' | 'popup-blocked' | 'config-missing';
+export type OpenRequestPrintWindowResult = OpenIsolatedPrintDocumentResult;
 
-export async function printRequestProposal(
+// Plain, non-async — call this directly and synchronously from the click
+// handler that triggers Print, with nothing awaited beforehand. Genuine
+// popup-blocking is reported only from this call's own `reason`.
+export function openRequestPrintWindow(
   request: RequestEntry,
   win: Pick<Window, 'open'> = window,
-): Promise<PrintRequestProposalResult> {
-  const opened = openIsolatedPrintDocument(window.CompuZignConfig, request.quote_ref, win);
-  if (!opened.ok) {
-    return opened.reason;
-  }
+): OpenRequestPrintWindowResult {
+  return openIsolatedPrintDocument(window.CompuZignConfig, request.quote_ref, win);
+}
 
+// Async continuation — call only once openRequestPrintWindow() has already
+// returned `ok: true`. Renders the stored snapshot into, waits for styles
+// in, and prints the window that is already open.
+export async function finishRequestPrint(
+  opened: Extract<OpenRequestPrintWindowResult, { ok: true }>,
+  request: RequestEntry,
+): Promise<void> {
   const { printWindow, mount, links } = opened;
 
   render(
@@ -59,6 +84,4 @@ export async function printRequestProposal(
   printWindow.addEventListener('afterprint', () => printWindow.close());
   printWindow.focus();
   printWindow.print();
-
-  return 'printed';
 }

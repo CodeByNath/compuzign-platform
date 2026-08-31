@@ -72,6 +72,16 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
     setHeaderHidden(false);
   }, [open.drawerTemplateKey, open.recordId]);
 
+  // Entity-supplied header action (optional — see setHeaderAction's own
+  // comment in drawerTypes.ts). Same guaranteed-reset reasoning as
+  // headerHidden above: it renders in shared shell chrome, not unmounted
+  // body content, so a content author who forgets cleanup can never leak
+  // one drawer's header action into a different record/drawer.
+  const [headerAction, setHeaderAction] = useState<ComponentChildren>(null);
+  useEffect(() => {
+    setHeaderAction(null);
+  }, [open.drawerTemplateKey, open.recordId]);
+
   // The single close path: honour the content's guard, then close. When the
   // guard returns false the content has raised its own blocking UI and drives
   // the close itself; the shell does nothing further.
@@ -136,6 +146,8 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
               setCloseGuard={setCloseGuard}
               headerHidden={headerHidden}
               setHeaderHidden={setHeaderHidden}
+              headerAction={headerAction}
+              setHeaderAction={setHeaderAction}
             />
           )
           : <UnresolvedDrawer onClose={requestClose} />}
@@ -155,6 +167,8 @@ function ResolvedDrawer({
   setCloseGuard,
   headerHidden,
   setHeaderHidden,
+  headerAction,
+  setHeaderAction,
 }: {
   open: OpenDrawerState;
   template: NonNullable<ReturnType<typeof resolveDrawerTemplate>>;
@@ -163,6 +177,8 @@ function ResolvedDrawer({
   setCloseGuard: (guard: (() => boolean) | null) => void;
   headerHidden: boolean;
   setHeaderHidden: (hidden: boolean) => void;
+  headerAction: ComponentChildren;
+  setHeaderAction: (action: ComponentChildren) => void;
 }) {
   const { setMode, notifySaved } = useAdminStationDrawer();
   const Content = template.content;
@@ -183,7 +199,10 @@ function ResolvedDrawer({
       {!headerHidden && (
         <header class="cz-station-drawer__head">
           <h2 class="cz-station-drawer__title">{template.title}</h2>
-          <button type="button" class="cz-station-drawer__close" aria-label="Close" onClick={onClose}>×</button>
+          <div class="cz-station-drawer__head-actions">
+            {headerAction}
+            <button type="button" class="cz-station-drawer__close" aria-label="Close" onClick={onClose}>×</button>
+          </div>
         </header>
       )}
 
@@ -200,6 +219,7 @@ function ResolvedDrawer({
           setFooter={setFooter}
           setCloseGuard={setCloseGuard}
           setHeaderHidden={setHeaderHidden}
+          setHeaderAction={setHeaderAction}
         />
       </div>
     </>

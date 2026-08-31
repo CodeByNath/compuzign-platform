@@ -182,3 +182,12 @@ export const RestoreIcon: ComponentType<IconProps> = (props) => (
     <path fillRule="evenodd" d="M9.53 2.47a.75.75 0 010 1.06L4.81 8.25H15a6.75 6.75 0 010 13.5h-3a.75.75 0 010-1.5h3a5.25 5.25 0 100-10.5H4.81l4.72 4.72a.75.75 0 11-1.06 1.06l-6-6a.75.75 0 010-1.06l6-6a.75.75 0 011.06 0z" clipRule="evenodd" />
   </Icon>
 );
+
+// Printer — CRM-1C's Request drawer header Print / Save PDF action.
+export const PrintIcon: ComponentType<IconProps> = (props) => (
+  <Icon {...props}>
+    <path fillRule="evenodd" d="M7.5 3.75A1.5 1.5 0 006 5.25V9h12V5.25a1.5 1.5 0 00-1.5-1.5h-9z" clipRule="evenodd" />
+    <path fillRule="evenodd" d="M4.5 10.5A1.5 1.5 0 003 12v4.5a1.5 1.5 0 001.5 1.5H6v-3a.75.75 0 01.75-.75h10.5a.75.75 0 01.75.75v3h1.5a1.5 1.5 0 001.5-1.5V12a1.5 1.5 0 00-1.5-1.5h-15z" clipRule="evenodd" />
+    <path fillRule="evenodd" d="M7.5 15.75a.75.75 0 01.75-.75h7.5a.75.75 0 01.75.75v4.5a.75.75 0 01-.75.75h-7.5a.75.75 0 01-.75-.75v-4.5z" clipRule="evenodd" />
+  </Icon>
+);

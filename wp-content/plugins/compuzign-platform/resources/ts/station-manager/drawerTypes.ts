@@ -62,6 +62,17 @@ export interface DrawerContentProps {
   // bundle (see docs/code-map/admin-station-drawer.md — the bundle boundary).
   setFooter?:     (footer: ComponentChildren) => void;
   setCloseGuard?: (guard: (() => boolean) | null) => void;
+  // Optional: content may publish one node of record-level chrome into the
+  // header, immediately beside the shell's own Close ×. For an icon-only
+  // action that isn't a whole-record mutation (CRM-1C's Print / Save PDF —
+  // Approve/Cancel stay in the footer), the header reads more naturally
+  // than a pinned-footer button. The shell resets this to `null` itself
+  // whenever the open drawer's content identity changes, the same
+  // guaranteed reset `setHeaderHidden` gets below, for the same reason: a
+  // header action is shell chrome, not body content a remount naturally
+  // clears via effect cleanup. Content that never calls this renders no
+  // header action — every existing template is unaffected.
+  setHeaderAction?: (action: ComponentChildren) => void;
   // Optional: content may ask the shell to hide its own header (title +
   // close) while an inline module editor already presents its own title,
   // back control, and Cancel/Save — the parent header would be redundant

@@ -5,7 +5,7 @@
 
 import { useState } from 'preact/hooks';
 import { updateRequestStatus } from '@/api/endpoints/admin';
-import { printRequestProposal } from './printRequestProposal';
+import { openRequestPrintWindow, finishRequestPrint } from './printRequestProposal';
 import type { RequestEntry } from '@/api/types/admin';
 
 export type RequestPendingAction = 'approve' | 'cancel' | null;
@@ -60,13 +60,24 @@ export function useRequestDrawerActions({ ref, onUpdated, onSaved }: UseRequestD
     }
   }
 
-  async function runPrint(request: RequestEntry): Promise<void> {
-    const result = await printRequestProposal(request);
-    if (result === 'popup-blocked') {
-      window.alert("Could not open the print window — check your browser's popup blocker.");
-    } else if (result === 'config-missing') {
-      window.alert('Print is unavailable right now — required asset configuration is missing.');
+  // Deliberately NOT async: openRequestPrintWindow() must run synchronously,
+  // in the same call as handlePrint below, with zero async-function frame
+  // between it and the click — see printRequestProposal.tsx's own comment
+  // on why. Only the continuation after a genuinely open window is async.
+  function runPrint(request: RequestEntry): void {
+    const opened = openRequestPrintWindow(request);
+    if (!opened.ok) {
+      if (opened.reason === 'popup-blocked') {
+        window.alert("Could not open the print window — check your browser's popup blocker.");
+      } else {
+        window.alert('Print is unavailable right now — required asset configuration is missing.');
+      }
+      return;
     }
+    finishRequestPrint(opened, request).catch(() => {
+      opened.printWindow.close();
+      window.alert('Could not prepare the print preview. Please try again.');
+    });
   }
 
   return {
@@ -77,6 +88,6 @@ export function useRequestDrawerActions({ ref, onUpdated, onSaved }: UseRequestD
     openCancelConfirm: () => setConfirmDialog('cancel'),
     handleConfirmCancel: () => { void transition('cancel', 'cancelled'); },
     closeConfirm: () => setConfirmDialog(null),
-    handlePrint: (request: RequestEntry) => { void runPrint(request); },
+    handlePrint: (request: RequestEntry) => runPrint(request),
   };
 }

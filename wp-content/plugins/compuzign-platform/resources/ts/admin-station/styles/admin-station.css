@@ -1162,6 +1162,13 @@ button.cz-station-status-pill {
   color: var(--station-text);
 }
 
+.cz-station-drawer__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
 .cz-station-drawer__close {
   display: inline-flex;
   align-items: center;
@@ -1180,6 +1187,64 @@ button.cz-station-status-pill {
 
 .cz-station-drawer__close:hover {
   background: var(--station-hover-bg);
+}
+
+.cz-icon-btn-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.cz-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--station-control-radius);
+  background: transparent;
+  color: var(--station-text-muted);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.cz-icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cz-icon-btn:hover:not(:disabled) {
+  background: var(--station-hover-bg);
+}
+
+.cz-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cz-icon-btn-tooltip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--station-text);
+  color: var(--station-surface);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 10;
+}
+
+.cz-icon-btn-wrap:hover .cz-icon-btn-tooltip,
+.cz-icon-btn:focus-visible ~ .cz-icon-btn-tooltip {
+  opacity: 1;
+  transform: translateY(0);
 }
 .cz-station-drawer__body {
   flex: 1 1 auto;

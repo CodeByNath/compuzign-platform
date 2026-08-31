@@ -6,11 +6,12 @@
 // declares and simply never receives an 'edit' intent here (register.ts
 // gives Requests only a `view` actionIntent).
 //
-// CRM-1C: this composition now calls setFooter — Approve/Cancel Request/
-// Print are whole-record actions, not module edits, so they belong in the
-// pinned footer per DrawerContentProps' own contract, never inside a
-// module. It still never calls setCloseGuard — none of the three actions
-// leave unsaved state to guard against.
+// CRM-1C: this composition calls setFooter for Approve/Cancel Request —
+// whole-record mutations, pending status only — and setHeaderAction for
+// Print / Save PDF (every status; not a mutation, so it lives beside the
+// header × rather than in the footer, audit correction after live review).
+// It still never calls setCloseGuard — none of these actions leave unsaved
+// state to guard against.
 //
 // Sections render through the shared drawer-kit ReadBlock (the same card
 // every module in every other drawer uses) with no `status` and no
@@ -21,6 +22,8 @@ import { useEffect, useState } from 'preact/hooks';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { fetchAdminRequest } from '@/api/endpoints/admin';
 import { useApi } from '@/hooks/useApi';
+import { IconButton } from '@/admin-station/shell/IconButton';
+import { PrintIcon } from '@/admin-station/shell/icons';
 import { requestItemDisplay } from './requestItemDisplay';
 import { useRequestDrawerActions } from './useRequestDrawerActions';
 import { RequestDrawerFooter } from './RequestDrawerFooter';
@@ -48,7 +51,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function RequestDrawerHost({ recordId, onClose, onSaved, setFooter }: DrawerContentProps) {
+export function RequestDrawerHost({ recordId, onSaved, setFooter, setHeaderAction }: DrawerContentProps) {
   const api = useApi(() => fetchAdminRequest(String(recordId)));
   // The status PATCH already returns the fresh detail projection — this
   // override lets the drawer reflect it immediately without a second GET
@@ -65,21 +68,36 @@ export function RequestDrawerHost({ recordId, onClose, onSaved, setFooter }: Dra
   useEffect(() => {
     if (!request) {
       setFooter?.(null);
+      setHeaderAction?.(null);
       return;
     }
-    setFooter?.(
-      <RequestDrawerFooter
-        status={request.status}
-        pendingAction={actions.pendingAction}
-        onClose={onClose}
-        onApprove={actions.handleApprove}
-        onCancelRequest={actions.openCancelConfirm}
-        onPrint={() => actions.handlePrint(request)}
-      />,
+    // Print / Save PDF is available for every status and never mutates —
+    // it still honors the same busy-state lock as Approve/Cancel so it
+    // can't fire mid-transition, matching the accepted action-lock contract.
+    setHeaderAction?.(
+      <IconButton label="Print / Save PDF" onClick={() => actions.handlePrint(request)} disabled={actions.pendingAction !== null}>
+        <PrintIcon />
+      </IconButton>,
     );
-    return () => setFooter?.(null);
+    // Approve/Cancel Request are whole-record mutations, reachable only
+    // while pending — a terminal Request has nothing to offer here.
+    setFooter?.(
+      request.status === 'pending'
+        ? (
+          <RequestDrawerFooter
+            pendingAction={actions.pendingAction}
+            onApprove={actions.handleApprove}
+            onCancelRequest={actions.openCancelConfirm}
+          />
+        )
+        : null,
+    );
+    return () => {
+      setFooter?.(null);
+      setHeaderAction?.(null);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request, actions.pendingAction, onClose]);
+  }, [request, actions.pendingAction]);
 
   if (api.loading && !api.data && !override) {
     return <div class="cz-station-drawer__state">Loading Request…</div>;

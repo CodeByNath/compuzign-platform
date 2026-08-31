@@ -97,42 +97,124 @@ check(
 );
 check(
   drawerSource.includes('setFooter?.('),
-  'CRM-1C: the Request drawer now publishes a pinned footer for Approve/Cancel/Print',
+  'the Request drawer publishes a pinned footer for Approve/Cancel Request',
+);
+check(
+  drawerSource.includes('setHeaderAction?.('),
+  'CRM-1C audit correction: the Request drawer publishes Print / Save PDF as a header action, not a footer action',
 );
 check(
   !drawerSource.includes('setCloseGuard('),
   'the Request drawer still calls no close guard — none of Approve/Cancel/Print leave unsaved state to guard against',
 );
 
-// ── CRM-1C: footer action visibility by status ──────────────────────────────
+// ── CRM-1C audit correction: header Print, footer Approve/Cancel only ──────
 //
-// Structural proof (not a rendered-output check — this repo's contract
-// scripts don't mount Preact) that the footer descriptor for `pending`
-// includes exactly Approve + Cancel Request + Print, and every other status
-// drops to Print + Close only — mirrors the drawer footer contract already
-// established by RequestDrawerFooter.tsx's own status branch.
+// Live browser review corrected the prior round's layout: Print moved out
+// of the footer into a header icon action (present for every status), and
+// the footer keeps only Approve/Cancel Request for a pending Request — no
+// footer Close, no footer Print, no split-button chevron for Cancel
+// Request. Structural proof (not a rendered-output check — this repo's
+// contract scripts don't mount Preact).
+
+check(
+  drawerSource.includes("request.status === 'pending'"),
+  'the Request drawer decides footer visibility by status: pending gets Approve/Cancel, every other status gets none',
+);
+const footerDecision = drawerSource.match(/setFooter\?\.\(\s*request\.status === 'pending'\s*\?([\s\S]*?)\)\s*;/);
+check(footerDecision !== null, 'setFooter is driven by a pending ? <RequestDrawerFooter/> : null ternary');
+check(
+  footerDecision !== null && /<RequestDrawerFooter/.test(footerDecision[0]) && /:\s*null/.test(footerDecision[0]),
+  'a terminal (approved/cancelled) Request publishes no footer at all — no mutation actions left to offer',
+);
+
+check(
+  drawerSource.includes('<IconButton') && drawerSource.includes('<PrintIcon') && drawerSource.includes("label=\"Print / Save PDF\""),
+  'the header action is an icon-only Print / Save PDF using the shared IconButton/PrintIcon primitives',
+);
+const headerActionBlock = drawerSource.match(/<IconButton[\s\S]*?<\/IconButton>/);
+check(
+  headerActionBlock !== null && headerActionBlock[0].includes('disabled={actions.pendingAction !== null}'),
+  'CRM-1C: the header Print action still honors the same busy-state action lock as Approve/Cancel',
+);
 
 const footerSource = read('resources/ts/admin-station/stations/requests/RequestDrawerFooter.tsx');
-check(footerSource.includes("status === 'pending'"), 'the footer branches on Request status');
-const pendingBranch = footerSource.match(/status === 'pending'\)\s*{([\s\S]*?)}\s*else\s*{([\s\S]*?)}/);
-check(pendingBranch !== null, 'the footer has a pending branch and a non-pending (else) branch');
-const [, pendingBlock, otherBlock] = pendingBranch!;
+// Strip // comments before scanning for code-level shape — this file's own
+// explanatory prose legitimately names SupportedActionFooter/EntityActionFooter/
+// status/Close/Print/placement to explain what it deliberately does NOT use,
+// which must not itself trip a check for their absence from actual code.
+const footerSourceNoComments = footerSource.replace(/\/\/.*$/gm, '');
 check(
-  /id:\s*'approve'/.test(pendingBlock) && /id:\s*'cancel-request'/.test(pendingBlock) && /id:\s*'print'/.test(pendingBlock),
-  'pending status offers Approve, Cancel Request, and Print',
+  !/\bstatus\b/.test(footerSourceNoComments),
+  'RequestDrawerFooter no longer branches on status — the host decides whether to render it at all',
 );
 check(
-  !/id:\s*'approve'/.test(otherBlock) && !/id:\s*'cancel-request'/.test(otherBlock) && /id:\s*'print'/.test(otherBlock),
-  'approved/cancelled status offers Print only (plus the always-present Close) — no opposite lifecycle action',
+  !footerSourceNoComments.includes('SupportedActionFooter') && !footerSourceNoComments.includes('EntityActionFooter'),
+  "the audit explicitly rules out the shared footer's Close-slot/split-button grammar for this two-plain-button shape",
+);
+check(
+  !/id:\s*'close'/.test(footerSourceNoComments) && !footerSourceNoComments.includes("'Close'")
+    && !/id:\s*'print'/.test(footerSourceNoComments) && !footerSourceNoComments.includes('placement'),
+  'the footer renders no Close button, no Print button, and no split-button placement — just Cancel Request and Approve',
+);
+check(
+  footerSourceNoComments.includes('cz-admin-btn--danger') && footerSourceNoComments.includes('cz-admin-btn--primary') && footerSourceNoComments.includes('cz-tf-footer__spacer'),
+  'Cancel Request (danger) sits left of the spacer and Approve (primary) sits right of it, the plain cz-admin-btn/cz-tf-footer grammar InlineEditorShell already establishes',
+);
+check(
+  (footerSourceNoComments.match(/disabled=\{busy\}/g) ?? []).length === 2,
+  'both Cancel Request and Approve disable while either mutation is in flight',
 );
 
-// CRM-1C audit correction: pending Print must honor the same busy-state
-// action lock as Approve/Cancel Request, not stay enabled during mutation.
-const pendingPrintAction = pendingBlock.match(/id:\s*'print'[\s\S]*?\n\s*},/);
-check(pendingPrintAction !== null, 'the pending branch has a print action descriptor');
+// ── CRM-1C audit correction: header icon/tooltip accessibility ─────────────
+
+const iconButtonSource = read('resources/ts/admin-station/shell/IconButton.tsx');
 check(
-  pendingPrintAction !== null && /disabled:\s*busy/.test(pendingPrintAction[0]),
-  'CRM-1C correction: pending Print action is disabled while an Approve/Cancel mutation is in flight',
+  iconButtonSource.includes('aria-label={label}') && iconButtonSource.includes('role="tooltip"'),
+  'IconButton exposes a full accessible name and a tooltip element carrying the same text',
+);
+const shellCssSource = read('resources/ts/admin-station/styles/admin-station.css');
+check(
+  shellCssSource.includes(':hover') && shellCssSource.includes(':focus-visible'),
+  'the icon-button tooltip shows on both hover and keyboard focus, not hover alone',
+);
+
+// ── CRM-1C audit correction: synchronous print-window activation ───────────
+//
+// Live review found window.open() reported as falsely "popup blocked"
+// because the prior single async printRequestProposal() opened it as the
+// first statement of an async function — some browsers drop transient user
+// activation the instant an async function is entered, before its first
+// await. The fix: openRequestPrintWindow() is a plain, non-async function,
+// called directly and synchronously from the click handler; only the
+// continuation after a real window exists is async.
+
+const printSource = read('resources/ts/admin-station/stations/requests/printRequestProposal.tsx');
+check(
+  /export function openRequestPrintWindow/.test(printSource) && !/export async function openRequestPrintWindow/.test(printSource),
+  'openRequestPrintWindow is a plain, non-async function — window.open() must never sit behind an async-function frame',
+);
+check(
+  /export async function finishRequestPrint/.test(printSource),
+  'finishRequestPrint is the async continuation — render, stylesheet wait, and print() all happen after the window already exists',
+);
+
+const drawerActionsSource = read('resources/ts/admin-station/stations/requests/useRequestDrawerActions.ts');
+check(
+  /function runPrint\(request: RequestEntry\): void \{/.test(drawerActionsSource),
+  'runPrint is a plain, non-async function, called directly (not awaited/void-wrapped) by handlePrint — the whole chain from click to openRequestPrintWindow() stays synchronous',
+);
+check(
+  drawerActionsSource.includes('handlePrint: (request: RequestEntry) => runPrint(request)'),
+  'handlePrint calls runPrint directly and synchronously, with no async wrapper reintroduced at the call site',
+);
+check(
+  /if \(opened\.reason === 'popup-blocked'\)/.test(drawerActionsSource),
+  'genuine popup-blocking is reported only from openRequestPrintWindow\'s own returned reason, never inferred elsewhere',
+);
+check(
+  drawerActionsSource.includes('finishRequestPrint(opened, request).catch(') && drawerActionsSource.includes('opened.printWindow.close()'),
+  'CRM-1C: a preparation failure (render/stylesheet error) closes the placeholder window and surfaces the real error, distinct from the popup-blocked message',
 );
 
 // ── The data source calls the durable-backed endpoint ───────────────────────
