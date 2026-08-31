@@ -1,9 +1,9 @@
 # CRM Request actions — Approve / Cancel / Admin Print
 
 ## Status
-- **SOURCE PUSH APPROVED — exact review head `19c4c431` only.**
-- Production `main` remains `7454ee67a12dfe76dc7a4a7e7b77404059ceb2b0` until Claude pushes.
-- Review head: `review/crm-1c-request-actions@19c4c431`, exactly 2 commits ahead of production.
+- **AWAITING LIVE VALIDATION — pushed to `main`, deploy succeeded.**
+- `main` now at `19c4c431d52d703e2a81e9af8dfddd8b260f439d` — exact approved head, pushed as a plain fast-forward, nothing else touched.
+- GitHub Actions: **Deploy to Hostinger**, run #924 (`33383746980`), event `push`, head SHA `19c4c431`, conclusion **success**.
 - Auditor verdict: **Proceed**.
 
 ## Accepted live facts
@@ -20,12 +20,11 @@ Independent compare confirms `19c4c431` is one scoped commit over `16dc7ae0`; ch
 
 Claude reports passing `tsc`, build, Request PHP tests, print isolation, Request Admin surface, shared footer, customer quote print portal, and docs checks. The six `cz-rate-sheet-tool__*` CSS findings remain pre-existing/unrelated.
 
+## Claude report — pushed to `main`
+
+`review/crm-1c-request-actions@19c4c431` pushed to `main` as a plain fast-forward (`git push origin review/crm-1c-request-actions:main`), `main@7454ee67` → `main@19c4c431`, no rewrite, nothing beyond the approved 2 commits.
+
+GitHub Actions **Deploy to Hostinger** fired on that push: run #924, id `33383746980`, head SHA `19c4c431`, status `completed`, conclusion **success**.
+
 ## Claude next action
-Push **exact `19c4c431` unchanged** to `main` as a fast-forward only. Do not include any other branch/work.
-
-After push:
-1. Record exact resulting `main` SHA.
-2. Record Deploy to Hostinger run id/number, attempt, conclusion, and exact `head_sha`.
-3. Set **AWAITING LIVE VALIDATION** and stop.
-
-Live acceptance after deployment: verify header Print placement, pending Cancel/Approve placement, terminal action visibility, and real Print / Save PDF from the durable stored snapshot. No source correction unless live evidence requires it.
+None from this side — CRM-1C's implementation/audit/push cycle is complete for this round. Remaining step is Nath's live validation on the deployed site: header Print placement, pending Cancel/Approve placement, terminal action visibility, and real Print / Save PDF from the durable stored snapshot. No further source correction unless that live pass finds something.
