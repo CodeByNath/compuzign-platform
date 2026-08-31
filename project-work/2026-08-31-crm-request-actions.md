@@ -1,39 +1,43 @@
 # CRM Request actions — Approve / Cancel / Admin Print
 
 ## Status
-- **AWAITING LIVE VALIDATION**.
+- **READY FOR CLAUDE**
 - Production `main` = `7454ee67a12dfe76dc7a4a7e7b77404059ceb2b0`.
-- Deploy run `33371342766` / #923 = `completed/success`, attempt 1, exact `head_sha=7454ee67a12dfe76dc7a4a7e7b77404059ceb2b0`.
-- Auditor verdict: **Proceed**.
+- Deploy run `33371342766` / #923 = `completed/success`, exact `head_sha=7454ee67a12dfe76dc7a4a7e7b77404059ceb2b0`.
+- Source push: **NOT APPROVED**
+- Auditor verdict: **Proceed with safeguards — CRM-1C live print/UX correction required**.
 
-## Accepted CRM-1C scope
-### Approve / Cancel
-- Authenticated `PATCH /admin/requests/{ref}/status`; write targets only `approved|cancelled`.
-- Durable `RequestRepository` remains authority; no transient/list-side authority.
-- CAS-protected lifecycle write: same-target idempotent, legacy raw `new` transitions correctly, concurrent opposite terminal actions cannot overwrite the winner.
-- 404 unknown ref; 409 rejected/opposite-terminal transition; response remains existing allow-listed Request detail only.
-- Pending drawer exposes Approve + Cancel Request + Print; approved/cancelled expose Print + Close.
-- Successful mutation refreshes drawer and originating Requests wall/summary.
+## Locked CRM-1C behavior
+Approve/Cancel use the authenticated, CAS-protected durable Request lifecycle. Print uses the stored submitted Request snapshot and existing `QuoteProposalPreview`; no customer quote secret, transient/catalog re-resolution, duplicate renderer, repricing, or security-plumbing exposure.
 
-### Admin Print
-- Uses existing `QuoteProposalPreview` from the durable submitted Request snapshot only.
-- No quote-view secret, transient lookup, catalog/API re-resolution, duplicate renderer, or global Admin frontend-style injection.
-- Isolated print window loads only code-owned `00-tokens.css`, `01-reset.css`, `02-base.css`, and `cost-builder.css`.
-- Payment-summary helpers were narrowly extracted to neutral `utils/paymentSummary.ts`; accepted parity contracts show no formula/label change.
-- Stylesheet waiting is bounded/race-safe; pending Print disables during lifecycle mutation.
+## Live browser validation — 2026-08-31
+Nath confirms Approve and Cancel actions work. Live Requests wall shows refreshed terminal Approved/Cancelled records and no opposite terminal action was tested/exposed.
 
-## Independent source/deploy audit
-Auditor independently confirmed `main` is the exact approved SHA `7454ee67a12dfe76dc7a4a7e7b77404059ceb2b0`; no extra product-source commit is present.
+Pending Request `CZ-9GPG3T` footer currently contains Cancel Request, redundant Close, Print / Save PDF, and Approve, while header already has ×.
 
-GitHub Actions run `33371342766` independently confirmed `completed/success` on attempt 1 for that exact SHA.
+Print failure independently reproduced:
+- clicking Print creates no new tab, navigation, proposal, or print surface;
+- Request remains unchanged;
+- app reports popup blocking, but Nath confirms popups are allowed;
+- treat this as an application launch/user-activation defect, not browser configuration.
 
-## Live acceptance required before closure
-Read-only live validation:
-1. Pending Request drawer shows **Approve**, **Cancel Request**, and **Print / Save PDF**.
-2. Approve changes `pending -> approved`; drawer/list/status card counts refresh; terminal drawer then shows Print + Close only.
-3. A separate pending Request can be cancelled `pending -> cancelled`; terminal drawer then shows Print + Close only.
-4. No opposite terminal action is exposed after transition.
-5. Print / Save PDF opens the stored submitted proposal, with expected Request customer/package/quote snapshot and totals, and print/save works without customer secret or live repricing.
-6. Existing Requests search/list/drawer and customer quote flow remain otherwise unchanged.
+## Required correction
+### Action placement
+- Header right: add one compact icon-only **Print / Save PDF** immediately beside the existing **Close ×**. Retain × unchanged.
+- Print icon uses shared icon/icon-button/tooltip primitives, with full **Print / Save PDF** accessible name plus hover and keyboard-focus tooltip.
+- Footer left: existing destructive **Cancel Request**, preserving its confirmation/lifecycle behavior.
+- Footer right: existing primary **Approve**, preserving its confirmation/lifecycle behavior.
+- Remove footer Close and footer Print. Do not use a split button. Do not add Cancel/Approve to the header.
+- Terminal drawer keeps only actions appropriate to its state: header Print + ×; no terminal mutation actions.
 
-No source correction requested. Close only after live validation passes.
+### Print repair
+Preserve the click’s user activation. If proposal preparation is asynchronous, synchronously open a safe placeholder window from the click, then render/navigate it after snapshot preparation. On preparation failure, close the placeholder and show the actual error.
+- Do not call `window.open` only after an awaited operation and mislabel lost activation as popup blocking.
+- Report popup blocking only when the synchronous open genuinely returns null/blocked.
+- Print must render the stored submitted proposal and expose working print/save without mutating status.
+- No post IDs, meta keys, customer `view_secret_hash`, bearer tokens, signed URLs, or secret plumbing may become visible or client-generated.
+
+## Non-change boundary and acceptance
+Do not change lifecycle authority/transitions, confirmations, permissions, schemas, Request body/list/search/counts, proposal data/formulas/styles, customer quote flow, or unrelated drawers.
+
+Add focused contracts for header/footer composition and state variants, tooltip/ARIA/focus, synchronous activation preservation, preparation failure, genuine popup block, successful stored-snapshot print, and lifecycle non-regression. Report root cause, changed files, tests, review SHA, and deployment state here; set **AWAITING CHATGPT REVIEW**. Do not push source to `main` without Nath’s explicit approval.
