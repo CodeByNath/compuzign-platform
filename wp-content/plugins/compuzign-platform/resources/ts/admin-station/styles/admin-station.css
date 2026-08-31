@@ -119,7 +119,8 @@
 .cz-station-pill:focus-visible,
 .cz-station-menu__item:focus-visible,
 .cz-station-tab:focus-visible,
-.cz-station-groups__panel:focus-visible {
+.cz-station-groups__panel:focus-visible,
+.cz-icon-btn:focus-visible {
   outline: 2px solid var(--station-focus-ring);
   outline-offset: 2px;
 }
@@ -1215,6 +1216,18 @@ button.cz-station-status-pill {
 
 .cz-icon-btn:hover:not(:disabled) {
   background: var(--station-hover-bg);
+}
+
+/* CRM-1C audit correction: default/hover/disabled already matched the
+   established Admin neutral tokens (see .cz-station-drawer__close above,
+   the same tokens); focus-visible and active/pressed did not have their
+   own rules and fell back to the browser's own default outline — read as
+   a borrowed non-Admin accent colour. Both now resolve through the exact
+   token family .cz-station-iconbtn (the canonical Admin header icon
+   pattern) already uses: the shared focus-ring rule above, and this same
+   neutral active-bg token for a momentary pressed state. */
+.cz-icon-btn:active:not(:disabled) {
+  background: var(--station-active-bg);
 }
 
 .cz-icon-btn:disabled {

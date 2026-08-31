@@ -179,6 +179,29 @@ check(
   'the icon-button tooltip shows on both hover and keyboard focus, not hover alone',
 );
 
+// ── CRM-1C audit correction: Print icon resolves through Admin tokens only,
+//    every visual state, never a raw/new/borrowed accent colour ───────────
+
+const iconBtnRuleBlocks = [...shellCssSource.matchAll(/([^{}]*\.cz-icon-btn[^{}]*)\{([^{}]*)\}/g)].map((m) => m[2]);
+check(iconBtnRuleBlocks.length > 0, 'admin-station.css declares at least one .cz-icon-btn rule');
+const iconBtnDeclarations = iconBtnRuleBlocks.join('\n');
+check(
+  !/#[0-9a-fA-F]{3,8}\b/.test(iconBtnDeclarations) && !/\b(rgb|rgba|hsl|hsla)\(/.test(iconBtnDeclarations),
+  'no .cz-icon-btn rule declares a raw hex/rgb/hsl colour literal — every colour/background/outline resolves through a var(--station-*) token',
+);
+check(
+  shellCssSource.includes('.cz-icon-btn:focus-visible') && /\.cz-icon-btn:focus-visible[\s\S]{0,120}?var\(--station-focus-ring\)/.test(shellCssSource),
+  'CRM-1C correction: .cz-icon-btn:focus-visible resolves through the same canonical --station-focus-ring token .cz-station-iconbtn (the Admin header icon pattern) already uses, not a browser default outline',
+);
+check(
+  /\.cz-icon-btn:active[^{]*\{[^}]*var\(--station-active-bg\)/.test(shellCssSource),
+  'CRM-1C correction: .cz-icon-btn:active resolves through the same neutral --station-active-bg token, not a new accent',
+);
+check(
+  /\.cz-icon-btn\s*\{[^}]*var\(--station-text-muted\)/.test(shellCssSource),
+  'the Print icon\'s default color matches the adjacent Close ×\'s own --station-text-muted token',
+);
+
 // ── CRM-1C audit correction: synchronous print-window activation ───────────
 //
 // Live review found window.open() reported as falsely "popup blocked"
