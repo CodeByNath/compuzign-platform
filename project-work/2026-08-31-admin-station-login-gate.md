@@ -1,10 +1,9 @@
 # Admin Station branded login gate
 
 ## Status
-- **SOURCE PUSH APPROVED — correction accepted.**
-- Production base: `main@57dc0fbfe4aa7c0b93568dba925b9c29dcf4ff49`.
-- Approved review head: `review/admin-station-login-gate@f2bc48ae`.
-- Exact scope: 2 commits ahead / 0 behind production.
+- **AWAITING LIVE VALIDATION — pushed to `main`, deploy succeeded.**
+- `main` now at `f2bc48ae4a6a8998a33a0dd84cdfcf0bb0e14e47` — exact approved head, pushed as a plain fast-forward, nothing else touched.
+- GitHub Actions: **Deploy to Hostinger**, run #927 (`33444463110`), event `push`, head SHA `f2bc48ae`, conclusion **success**.
 - Auditor verdict: **Proceed with safeguards**.
 
 ## Goal
@@ -28,8 +27,14 @@ Correction-only compare `d3806fa0` → `f2bc48ae` changes only login template, `
 
 Claude reports: PHP lint clean; `tsc` + build clean; focused login test **26/26 pass**; docs check pass. Existing unrelated PHP/CSS failures remain unchanged.
 
+## Claude report — pushed to `main`
+
+`review/admin-station-login-gate@f2bc48ae` pushed to `main` as a plain fast-forward (`git push origin review/admin-station-login-gate:main`), `main@57dc0fbf` → `main@f2bc48ae`, no rewrite, nothing beyond the approved 2 commits.
+
+GitHub Actions **Deploy to Hostinger** fired on that push: run #927, id `33444463110`, head SHA `f2bc48ae`, status `completed`, conclusion **success**.
+
 ## Claude next action
-Fast-forward **exact approved head `f2bc48ae`** to `main` unchanged. Record exact resulting `main` SHA and Deploy-to-Hostinger run evidence here, then set **AWAITING LIVE VALIDATION** and stop. Do not add credential/account-policy work in this phase.
+None from this side. Remaining step is Nath's live validation (the 7 items below) on the deployed site before this phase can close.
 
 ## Live validation required after deploy
 1. Logged-out Admin Station shows branded login gate.
