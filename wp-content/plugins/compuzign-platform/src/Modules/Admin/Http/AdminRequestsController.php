@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Modules\Admin\Http;
 
 use CompuZign\Platform\Modules\Requests\Repositories\RequestRepository;
+use CompuZign\Platform\Modules\Requests\Support\RequestLifecycle;
 
 class AdminRequestsController
 {
@@ -28,6 +29,26 @@ class AdminRequestsController
                     'type'              => 'string',
                     'required'          => true,
                     'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ],
+        ]);
+
+        // CRM-1C: the only two admin-driven lifecycle moves — pending is
+        // never a write target, only ever the starting state.
+        register_rest_route('compuzign/v1', '/admin/requests/(?P<ref>[A-Z0-9\-]+)/status', [
+            'methods'             => 'PATCH',
+            'callback'            => [$this, 'updateRequestStatus'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args'                => [
+                'ref' => [
+                    'type'              => 'string',
+                    'required'          => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'status' => [
+                    'type'     => 'string',
+                    'required' => true,
+                    'enum'     => [RequestLifecycle::STATUS_APPROVED, RequestLifecycle::STATUS_CANCELLED],
                 ],
             ],
         ]);
@@ -69,6 +90,33 @@ class AdminRequestsController
         }
 
         return rest_ensure_response(['success' => true, 'request' => $this->detail($record)]);
+    }
+
+    /**
+     * PATCH /admin/requests/{ref}/status — the only admin-driven lifecycle
+     * moves: pending -> approved, pending -> cancelled. Delegates the actual
+     * transition (including its compare-and-swap race protection) entirely
+     * to RequestRepository::updateStatus() — this controller adds no
+     * transition logic of its own.
+     */
+    public function updateRequestStatus(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $ref        = (string) $request->get_param('ref');
+        $status     = (string) $request->get_param('status');
+        $repository = new RequestRepository();
+        $record     = $repository->findByRef($ref);
+
+        if ($record === null) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Request not found.'], 404);
+        }
+
+        if (!$repository->updateStatus($record['post_id'], $status)) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'This status change is not allowed.'], 409);
+        }
+
+        $updated = $repository->findByRef($ref);
+
+        return rest_ensure_response(['success' => true, 'request' => $this->detail($updated)]);
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────

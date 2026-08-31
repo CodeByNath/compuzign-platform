@@ -16,6 +16,7 @@ import type {
   CategoryOverviewDraft,
   CategoryOverviewSaveResponse,
   RequestEntry,
+  RequestStatus,
 } from '../types/admin';
 import type { InclusionItem } from '../types/pools';
 
@@ -288,4 +289,13 @@ export function fetchAdminRequests(): Promise<AdminRequestsResponse> {
 
 export function fetchAdminRequest(ref: string): Promise<{ success: boolean; request: RequestEntry }> {
   return apiClient.get<{ success: boolean; request: RequestEntry }>(`admin/requests/${ref}`);
+}
+
+// CRM-1C: the only two admin-driven lifecycle moves — pending is never a
+// write target, only ever the starting state.
+export function updateRequestStatus(
+  ref: string,
+  status: Extract<RequestStatus, 'approved' | 'cancelled'>,
+): Promise<{ success: boolean; request: RequestEntry }> {
+  return apiClient.patch<{ success: boolean; request: RequestEntry }>(`admin/requests/${ref}/status`, { status });
 }

@@ -26,6 +26,7 @@ From the plugin root: `php tests/category-pending-lifecycle.php`,
 `php tests/category-inline-identity-race.php`,
 `php tests/category-create-group-id-payload-contract.php`,
 `php tests/admin-requests-durable-surface.php`,
+`php tests/request-status-transition.php`,
 `npm run regression:category-create`, `npm run contract:platform-identity-schema`,
 `npm run contract:requests-admin-station-surface`,
 `npx tsc --noEmit`, and `npm run docs:check`.

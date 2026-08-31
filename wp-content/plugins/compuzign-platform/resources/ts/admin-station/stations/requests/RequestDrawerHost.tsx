@@ -4,20 +4,27 @@
 // the generic AdminStationDrawer/DrawerContentProps contract already
 // supports without change: it clamps a requested mode to what the template
 // declares and simply never receives an 'edit' intent here (register.ts
-// gives Requests only a `view` actionIntent). This composition never calls
-// setFooter/setCloseGuard — there is nothing to save and nothing to guard —
-// so the shell renders its default close-only chrome, exactly as documented
-// for content that supplies neither.
+// gives Requests only a `view` actionIntent).
+//
+// CRM-1C: this composition now calls setFooter — Approve/Cancel Request are
+// whole-record actions, not module edits, so they belong in the pinned
+// footer per DrawerContentProps' own contract, never inside a module. It
+// still never calls setCloseGuard — neither action leaves unsaved state to
+// guard against.
 //
 // Sections render through the shared drawer-kit ReadBlock (the same card
 // every module in every other drawer uses) with no `status` and no
-// `actions` — a plain read card, no lifecycle pill, no footer — rather than
-// inventing a second card/section presentation for one read-only surface.
+// `actions` — a plain read card, no lifecycle pill — rather than inventing a
+// second card/section presentation for one read-only surface.
 
+import { useEffect, useState } from 'preact/hooks';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { fetchAdminRequest } from '@/api/endpoints/admin';
 import { useApi } from '@/hooks/useApi';
 import { requestItemDisplay } from './requestItemDisplay';
+import { useRequestDrawerActions } from './useRequestDrawerActions';
+import { RequestDrawerFooter } from './RequestDrawerFooter';
+import { RequestDrawerDialogs } from './RequestDrawerDialogs';
 import type { DrawerContentProps } from '@/station-manager/drawerTypes';
 import type { RequestEntry } from '@/api/types/admin';
 
@@ -41,60 +48,93 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function RequestDrawerHost({ recordId }: DrawerContentProps) {
+export function RequestDrawerHost({ recordId, onClose, onSaved, setFooter }: DrawerContentProps) {
   const api = useApi(() => fetchAdminRequest(String(recordId)));
+  // The status PATCH already returns the fresh detail projection — this
+  // override lets the drawer reflect it immediately without a second GET
+  // round trip through fetchAdminRequest().
+  const [override, setOverride] = useState<RequestEntry | null>(null);
+  const request: RequestEntry | null = override ?? api.data?.request ?? null;
 
-  if (api.loading && !api.data) {
+  const actions = useRequestDrawerActions({
+    ref: String(recordId),
+    onUpdated: setOverride,
+    onSaved,
+  });
+
+  useEffect(() => {
+    if (!request) {
+      setFooter?.(null);
+      return;
+    }
+    setFooter?.(
+      <RequestDrawerFooter
+        status={request.status}
+        pendingAction={actions.pendingAction}
+        onClose={onClose}
+        onApprove={actions.handleApprove}
+        onCancelRequest={actions.openCancelConfirm}
+      />,
+    );
+    return () => setFooter?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.status, actions.pendingAction, onClose]);
+
+  if (api.loading && !api.data && !override) {
     return <div class="cz-station-drawer__state">Loading Request…</div>;
   }
-  if (api.error || !api.data?.success) {
+  if ((api.error || !api.data?.success) && !override) {
     return <div class="cz-station-drawer__state" role="alert">This Request could not be loaded.</div>;
   }
-
-  const request: RequestEntry = api.data.request;
+  if (!request) {
+    return <></>;
+  }
 
   return (
-    <div class="cz-requests-drawer">
-      <ReadBlock title="Request identity">
-        <Fact label="Reference" value={request.quote_ref} />
-        <Fact label="Platform ID" value={request.platform_id || 'Not assigned'} />
-        <Fact label="Status" value={REQUEST_STATUS_LABELS[request.status] ?? request.status} />
-        <Fact label="Type" value={REQUEST_TYPE_LABELS[request.type] ?? request.type} />
-        <Fact label="Submitted" value={request.submitted} />
-      </ReadBlock>
+    <>
+      <div class="cz-requests-drawer">
+        <ReadBlock title="Request identity">
+          <Fact label="Reference" value={request.quote_ref} />
+          <Fact label="Platform ID" value={request.platform_id || 'Not assigned'} />
+          <Fact label="Status" value={REQUEST_STATUS_LABELS[request.status] ?? request.status} />
+          <Fact label="Type" value={REQUEST_TYPE_LABELS[request.type] ?? request.type} />
+          <Fact label="Submitted" value={request.submitted} />
+        </ReadBlock>
 
-      <ReadBlock title="Contact">
-        <Fact label="Contact" value={request.contact} />
-        <Fact label="Company" value={request.company || '—'} />
-        <Fact label="Email" value={request.email} />
-        <Fact label="Phone" value={request.phone || '—'} />
-        {request.category && <Fact label="Category" value={request.category} />}
-        {request.notes !== '' && <p class="cz-requests-drawer__notes">{request.notes}</p>}
-      </ReadBlock>
+        <ReadBlock title="Contact">
+          <Fact label="Contact" value={request.contact} />
+          <Fact label="Company" value={request.company || '—'} />
+          <Fact label="Email" value={request.email} />
+          <Fact label="Phone" value={request.phone || '—'} />
+          {request.category && <Fact label="Category" value={request.category} />}
+          {request.notes !== '' && <p class="cz-requests-drawer__notes">{request.notes}</p>}
+        </ReadBlock>
 
-      <ReadBlock title="Submitted items">
-        {request.items.length === 0 ? (
-          <p class="cz-station-empty">No cart items — this is a {REQUEST_TYPE_LABELS[request.type] ?? request.type}.</p>
-        ) : (
-          <ul class="cz-requests-drawer__items">
-            {request.items.map((item, index) => {
-              const display = requestItemDisplay(item);
-              return (
-                // The submitted snapshot carries no stable per-line id — it is
-                // an immutable array from the customer's own submission, never
-                // reordered or mutated after the fact, so a positional key is safe.
-                <li key={index} class="cz-requests-drawer__item">
-                  <span class="cz-requests-drawer__item-copy">
-                    <strong>{display.title}</strong>
-                    {display.subtitle !== '' && <small>{display.subtitle}</small>}
-                  </span>
-                  <span class="cz-requests-drawer__item-price">{display.price}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </ReadBlock>
-    </div>
+        <ReadBlock title="Submitted items">
+          {request.items.length === 0 ? (
+            <p class="cz-station-empty">No cart items — this is a {REQUEST_TYPE_LABELS[request.type] ?? request.type}.</p>
+          ) : (
+            <ul class="cz-requests-drawer__items">
+              {request.items.map((item, index) => {
+                const display = requestItemDisplay(item);
+                return (
+                  // The submitted snapshot carries no stable per-line id — it is
+                  // an immutable array from the customer's own submission, never
+                  // reordered or mutated after the fact, so a positional key is safe.
+                  <li key={index} class="cz-requests-drawer__item">
+                    <span class="cz-requests-drawer__item-copy">
+                      <strong>{display.title}</strong>
+                      {display.subtitle !== '' && <small>{display.subtitle}</small>}
+                    </span>
+                    <span class="cz-requests-drawer__item-price">{display.price}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </ReadBlock>
+      </div>
+      <RequestDrawerDialogs controller={actions} />
+    </>
   );
 }

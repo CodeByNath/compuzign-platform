@@ -108,8 +108,14 @@ class RequestRepository
      * Update the lifecycle status on a stored request.
      *
      * Status must be a value declared in RequestLifecycle::ACTIVE_STATUSES.
-     * Returns false when the post does not exist, is the wrong type, or the
-     * status value is not valid.
+     * Returns false when the post does not exist, is the wrong type, the
+     * status value is not valid, or the transition is rejected (invalid or
+     * lost to a concurrent writer — see below).
+     *
+     * CRM-1C: this is a compare-and-swap, not a blind read-then-write. A
+     * concurrent caller (double-click, two admin tabs) that observes the
+     * same starting status and writes first must not be silently overwritten
+     * by a second write that started from stale state.
      */
     public function updateStatus(int $postId, string $status): bool
     {
@@ -122,16 +128,43 @@ class RequestRepository
             return false;
         }
 
-        $storedStatus = (string) get_post_meta($postId, self::META_STATUS, true);
-        $current      = $storedStatus !== ''
-            ? RequestLifecycle::normalizeLegacy($storedStatus)
+        $observed = (string) get_post_meta($postId, self::META_STATUS, true);
+        $current  = $observed !== ''
+            ? RequestLifecycle::normalizeLegacy($observed)
             : RequestLifecycle::STATUS_PENDING;
 
         if (!RequestLifecycle::canTransition($current, $status)) {
             return false;
         }
 
-        return (bool) update_post_meta($postId, self::META_STATUS, $status);
+        // Idempotent same-state: the raw stored value already IS the
+        // requested status (normalizeLegacy is the identity for
+        // approved/cancelled, the only two write targets), so there is
+        // nothing to write. Returning early also avoids handing
+        // update_post_meta()'s 4-arg form a $prev_value equal to the new
+        // value, where WordPress's "nothing changed" false is
+        // indistinguishable from a lost compare-and-swap.
+        if ($current === $status) {
+            return true;
+        }
+
+        // Atomic compare-and-swap: WordPress only applies the UPDATE where
+        // the stored value still equals $observed (the exact raw value this
+        // call just read, legacy `new` included), so a concurrent writer
+        // that commits first cannot be overwritten by this call.
+        if (update_post_meta($postId, self::META_STATUS, $status, $observed)) {
+            return true;
+        }
+
+        // Lost the race. Re-read: if the winner wrote the SAME target this
+        // call wanted, resolve idempotently; only a genuine opposite-
+        // terminal winner is a real conflict.
+        $afterRaw = (string) get_post_meta($postId, self::META_STATUS, true);
+        $after    = $afterRaw !== ''
+            ? RequestLifecycle::normalizeLegacy($afterRaw)
+            : RequestLifecycle::STATUS_PENDING;
+
+        return $after === $status;
     }
 
     // ── Permanent Platform identity ─────────────────────────────────────────
