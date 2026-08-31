@@ -1,61 +1,41 @@
 # Admin Station branded login gate
 
 ## Status
-- **AWAITING CHATGPT REVIEW — required correction applied.**
-- Production base remains `main@57dc0fbfe4aa7c0b93568dba925b9c29dcf4ff49`.
-- Review head: `review/admin-station-login-gate@f2bc48ae`, pushed, 2 commits ahead of production.
-- Source push: **NOT APPROVED / NOT DONE**.
-- Auditor verdict on `d3806fa0`: **Proceed with safeguards — required correction (addressed below)**.
+- **SOURCE PUSH APPROVED — correction accepted.**
+- Production base: `main@57dc0fbfe4aa7c0b93568dba925b9c29dcf4ff49`.
+- Approved review head: `review/admin-station-login-gate@f2bc48ae`.
+- Exact scope: 2 commits ahead / 0 behind production.
+- Auditor verdict: **Proceed with safeguards**.
 
 ## Goal
-Admin Station URL → branded CompuZign login → WordPress auth/session underneath → `manage_compuzign` check → existing Admin Station. No visible WordPress login/dashboard journey for a platform tester; no Command Centre resurrection.
+Admin Station URL → branded CompuZign login → WordPress auth/session underneath → `manage_compuzign` check → existing Admin Station. No visible WordPress login/dashboard journey; no Command Centre resurrection.
 
-## Accepted from `d3806fa0`
-- Current `PlatformAccess` remains capability/account authority; no credential/provisioning change.
-- Logged-out Admin Station gets branded login; unauthorized logged-in user gets product-styled denied state.
-- `wp_signon()` runs before output; nonce + generic auth failure are present.
-- Current Admin Station field/button/token system is reused; no retired Command Centre assets/routes/components.
+## Accepted implementation
+- `PlatformAccess` remains capability/account authority; no credential/provisioning change.
+- Logged-out Admin Station renders branded login; unauthorized logged-in users render product-styled denied state.
+- `wp_signon()` runs at `template_redirect` before output; nonce is Admin-Station scoped; auth failures are generic.
+- Current Admin Station field/button/token system is reused; no retired Command Centre route/assets/components.
+- Login handler now processes only when the queried singular page actually contains `[compuzign_admin_station]`.
+- Client redirect authority is removed entirely: no redirect hidden field remains.
+- Return destination is derived server-side from the current Admin Station request, with stale `login_error` stripped.
+- Redirect validation uses an explicit `home_url('/')` fallback and does not call `wp_safe_redirect()` / `admin_url()`, so this flow cannot fall into the WP-admin journey.
 - No Station Manager, CRM, pricing, identity, persistence, quote/customer behavior change.
-- Diff is scoped to Admin Station auth/module/templates/styles, plugin registration, focused test, code map, generated CSS.
 
-## Required correction before approval
-The handler is currently registered globally on `template_redirect`, and it trusts a client-supplied hidden redirect field until `wp_safe_redirect()`. That is broader than the intended Admin-Station-only login boundary. Also, `wp_safe_redirect()` may fall back to the WordPress admin fallback when a submitted target is invalid, contrary to the requirement that this flow never expose the WP admin journey.
+## Independent audit
+Compared `main@57dc0fbf` → `f2bc48ae`: 2 commits ahead, 0 behind, scoped to Admin Station auth/module/templates/styles, plugin registration, focused test, code map, generated CSS.
 
-Claude must make the login POST boundary explicitly **Admin Station page only** and remove client authority over the return destination:
-1. Process login only when the current queried page is the page hosting `[compuzign_admin_station]` (or an equally source-grounded Admin Station page predicate). A matching nonce posted to any unrelated frontend page must be ignored.
-2. Do not trust a hidden/user-supplied redirect URL. Prefer removing `REDIRECT_FIELD` entirely. Since the form POSTs to itself, derive the return URL server-side from the current Admin Station request/page, strip `login_error`, and redirect only there.
-3. If a redirect validation helper is retained, its explicit fallback must be the current Admin Station page/site-safe URL — **never WordPress `admin_url()`**.
-4. Preserve generic invalid-credential feedback, nonce verification, `wp_signon()`, capability gate, no hardcoded credential changes, and all non-change boundaries.
-5. Extend the focused test to prove: an otherwise-valid login submission on a non-Admin-Station page is ignored; no client redirect field can alter destination; success/failure return to the exact Admin Station page; no path can fall back to `/wp-admin/` or `/wp-login.php`.
-6. Push only the correction to the existing review branch, record new exact SHA/files/tests here, set **AWAITING CHATGPT REVIEW**, and stop.
+Correction-only compare `d3806fa0` → `f2bc48ae` changes only login template, `AdminStationAuth`, `AdminStationModule`, and focused test. Source review confirms `is_singular()` + `has_shortcode(..., AdminStationModule::SHORTCODE)` page gating and server-derived redirect handling.
 
-## Historical references
-- `6b083e3f` frontend Command Centre login gate.
-- `cabf924b` branded single login UI.
-- `34b5858a` historical `wp_signon()` / platform-manager flow.
-- `34c8175b` deliberate Command Centre retirement.
+Claude reports: PHP lint clean; `tsc` + build clean; focused login test **26/26 pass**; docs check pass. Existing unrelated PHP/CSS failures remain unchanged.
 
-## Browser validation after source/deploy
-Required before closure: logged-out Admin Station gate, bad credentials generic error, valid platform-manager login to Admin Station, unauthorized account denied without WP admin, show/hide password, refresh/session persistence, and direct confirmation that no visible `/wp-login.php` or `/wp-admin/` navigation occurs.
+## Claude next action
+Fast-forward **exact approved head `f2bc48ae`** to `main` unchanged. Record exact resulting `main` SHA and Deploy-to-Hostinger run evidence here, then set **AWAITING LIVE VALIDATION** and stop. Do not add credential/account-policy work in this phase.
 
-## Claude report — `f2bc48ae`
-
-Both findings verified accurate against my own code before fixing (the global `template_redirect` registration with no page check was directly visible in the diff; `wp_safe_redirect()`'s own un-overridable `admin_url()` fallback is well-established WordPress core behavior — `wp_validate_redirect($location, admin_url())` inside `wp_safe_redirect()`'s implementation).
-
-### Correction, item by item
-1. `handleLoginRequest()` now takes an explicit `isAdminStationPage` boolean; a submission is ignored entirely unless true. `processLogin()` computes it via a new private `isAdminStationRequest()`: `is_singular() && has_shortcode($post->post_content, AdminStationModule::SHORTCODE)` — the same source-grounded pattern the retired Command Centre's own `addBodyClass()` used, never a hardcoded slug (the shortcode can still sit on any page).
-2. `REDIRECT_FIELD` and its hidden form input are removed entirely — grepped clean from both files. Since the form self-submits (`action=""`), the POST always lands back on the exact request it was rendered from; the destination is now derived server-side from that same current request at process time (`home_url(REQUEST_URI)`), never from any client-supplied value.
-3. `processLogin()` no longer calls `wp_safe_redirect()` at all. It calls `wp_validate_redirect($redirect, home_url('/'))` explicitly, then `wp_redirect()` — so the fallback is provably never `admin_url()`, structurally confirmed (`admin_url` does not appear anywhere in either file).
-4. Generic invalid-credential feedback, nonce verification, `wp_signon()`, the capability gate, and every non-change boundary (no `PlatformAccess::provisionDefaultUser()` touch, no lifecycle/pricing/identity/quote change) are all unchanged and re-verified this round.
-5. `tests/admin-station-login-gate.php` extended: an otherwise fully valid nonce+credentials submission is proven ignored when `isAdminStationPage` is false and processed when true; a client-supplied field of the old redirect-field name is proven to have zero effect on the destination; structural checks confirm `wp_safe_redirect`/`admin_url` are never referenced anywhere, `wp_validate_redirect` is called with a `home_url()`-based fallback, and the page predicate is `has_shortcode`-based. 26 checks total, all pass.
-6. Pushed only to the existing `review/admin-station-login-gate` branch (no new branch). Recording exact SHA/files/tests here now.
-
-### Evidence (from plugin root)
-- `php -l` on every changed PHP file — clean.
-- `npx tsc --noEmit`, `npm run build` — clean (no TS/CSS touched this round).
-- `php tests/admin-station-login-gate.php` — 26/26 pass.
-- Full PHP test sweep — the same 5 pre-existing failures reproduce identically, `admin-station-login-gate.php` not among them.
-- `npm run docs:check` — pass. No doc changes needed this round (no runtime-responsibility shift beyond what the code-map already records).
-
-### Not run
-Live WordPress/browser session — same disclosure as the prior round; no local WP environment exists here.
+## Live validation required after deploy
+1. Logged-out Admin Station shows branded login gate.
+2. Bad credentials show only generic error.
+3. Valid `cz_platform_manager` login returns directly to Admin Station.
+4. Unauthorized logged-in account sees access denied, never WP admin.
+5. Show/hide password works.
+6. Refresh keeps authenticated session.
+7. No visible `/wp-login.php` or `/wp-admin/` navigation occurs.
