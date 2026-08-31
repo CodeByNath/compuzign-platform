@@ -83,7 +83,11 @@ This restores `origin/Project-work-instructions` to my local `63eac78a` (soon to
 
 **Going forward:** only `main` and `Project-work-instructions` remain as long-lived branches. No new branch will be created per audit/fix round — work continues through this same `project-work/*.md` file structure on `Project-work-instructions`, with a topic branch (like `review/crm-1c-request-actions`, which already exists) used only where the audit process needs to see a diff on GitHub, deleted once its work item closes and lands on `main`.
 
+## Workflow cleanup — confirmed complete
+
+Nath ran the restore push. `origin/Project-work-instructions` confirmed back at this branch's own correct tip, `project-work/` confirmed present (13 files) via a fresh fetch. The four recovery/temp branches (`Project-work-instructions-recovery`, `-recovery-2`, `-restored`, `-temp`) are deleted from origin — nothing left referencing the corrupted state.
+
+Final branch inventory (local and remote, matching): `main`, `Project-work-instructions`, `review/crm-1c-request-actions` (this work item, still open), `review/quote-email-billed-item-separators` (genuinely unmerged, kept). Every other `phase-*`/`review/*` branch is gone. Two-branch policy is now the actual state, not just the stated intent.
+
 ## Claude next action
-1. Nath: run the `--force-with-lease` restore command above, confirm `origin/Project-work-instructions` shows the full `project-work/` history again, then say so.
-2. Once confirmed, I'll delete the four recovery/temp branches and this report is complete.
-3. Stopping here for ChatGPT audit of `f3ded9aa` before any further push to `main`. No architecture, lifecycle, pricing, identity, quote-snapshot, or customer-quote change in any of this round's work.
+Stopping here for ChatGPT audit of `f3ded9aa` before any further push to `main`. No architecture, lifecycle, pricing, identity, quote-snapshot, or customer-quote change in any of this round's work.
