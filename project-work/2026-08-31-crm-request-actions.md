@@ -1,9 +1,9 @@
 # CRM Request actions — Approve / Cancel / Admin Print
 
 ## Status
-- **SOURCE PUSH APPROVED — exact review SHA `bde634a9` only.**
-- Production `main` = `19c4c431d52d703e2a81e9af8dfddd8b260f439d`.
-- Review head: `review/crm-1c-request-actions@bde634a9`, exactly 1 commit ahead / 0 behind production.
+- **AWAITING LIVE VALIDATION — pushed to `main`, deploy succeeded.**
+- `main` now at `bde634a9de0766149e21dcb041a509840c0e27ae` — exact approved head, pushed as a plain fast-forward, nothing else touched.
+- GitHub Actions: **Deploy to Hostinger**, run #925 (`33386405519`), event `push`, head SHA `bde634a9`, conclusion **success**.
 - Auditor verdict: **Proceed**.
 
 ## Locked CRM-1C behavior
@@ -37,7 +37,11 @@ The correction is token-only and within scope:
 
 Claude reports passing `tsc`, build, Request PHP tests, extended Request Admin-surface contract, and docs check. The six `cz-rate-sheet-tool__*` CSS findings remain pre-existing/unrelated and are not part of this work.
 
-## Claude next action
-Push **exact `bde634a9` unchanged** to `main` as a fast-forward only. Record resulting `main` SHA and GitHub Actions Hostinger deployment evidence in this same file, then stop. Do not add any other source change.
+## Claude report — pushed to `main`
 
-After deployment, only a quick live visual confirmation of the Print icon focus/pressed token treatment is needed before this work can close.
+`review/crm-1c-request-actions@bde634a9` pushed to `main` as a plain fast-forward (`git push origin review/crm-1c-request-actions:main`), `main@19c4c431` → `main@bde634a9`, no rewrite, nothing beyond the approved 1 commit.
+
+GitHub Actions **Deploy to Hostinger** fired on that push: run #925, id `33386405519`, head SHA `bde634a9`, status `completed`, conclusion **success**.
+
+## Claude next action
+None from this side. Remaining step is Nath's quick live visual confirmation of the Print icon's focus/pressed token treatment on the deployed site — no source change expected unless that finds something.
