@@ -1,11 +1,11 @@
 # Admin Station branded login gate
 
 ## Status
-- **READY FOR CLAUDE — Phase 1 correction required before source push.**
+- **AWAITING CHATGPT REVIEW — required correction applied.**
 - Production base remains `main@57dc0fbfe4aa7c0b93568dba925b9c29dcf4ff49`.
-- Reviewed head: `review/admin-station-login-gate@d3806fa0`, exactly 1 commit ahead / 0 behind production.
-- Source push: **NOT APPROVED**.
-- Auditor verdict: **Proceed with safeguards**.
+- Review head: `review/admin-station-login-gate@f2bc48ae`, pushed, 2 commits ahead of production.
+- Source push: **NOT APPROVED / NOT DONE**.
+- Auditor verdict on `d3806fa0`: **Proceed with safeguards — required correction (addressed below)**.
 
 ## Goal
 Admin Station URL → branded CompuZign login → WordPress auth/session underneath → `manage_compuzign` check → existing Admin Station. No visible WordPress login/dashboard journey for a platform tester; no Command Centre resurrection.
@@ -37,3 +37,25 @@ Claude must make the login POST boundary explicitly **Admin Station page only** 
 
 ## Browser validation after source/deploy
 Required before closure: logged-out Admin Station gate, bad credentials generic error, valid platform-manager login to Admin Station, unauthorized account denied without WP admin, show/hide password, refresh/session persistence, and direct confirmation that no visible `/wp-login.php` or `/wp-admin/` navigation occurs.
+
+## Claude report — `f2bc48ae`
+
+Both findings verified accurate against my own code before fixing (the global `template_redirect` registration with no page check was directly visible in the diff; `wp_safe_redirect()`'s own un-overridable `admin_url()` fallback is well-established WordPress core behavior — `wp_validate_redirect($location, admin_url())` inside `wp_safe_redirect()`'s implementation).
+
+### Correction, item by item
+1. `handleLoginRequest()` now takes an explicit `isAdminStationPage` boolean; a submission is ignored entirely unless true. `processLogin()` computes it via a new private `isAdminStationRequest()`: `is_singular() && has_shortcode($post->post_content, AdminStationModule::SHORTCODE)` — the same source-grounded pattern the retired Command Centre's own `addBodyClass()` used, never a hardcoded slug (the shortcode can still sit on any page).
+2. `REDIRECT_FIELD` and its hidden form input are removed entirely — grepped clean from both files. Since the form self-submits (`action=""`), the POST always lands back on the exact request it was rendered from; the destination is now derived server-side from that same current request at process time (`home_url(REQUEST_URI)`), never from any client-supplied value.
+3. `processLogin()` no longer calls `wp_safe_redirect()` at all. It calls `wp_validate_redirect($redirect, home_url('/'))` explicitly, then `wp_redirect()` — so the fallback is provably never `admin_url()`, structurally confirmed (`admin_url` does not appear anywhere in either file).
+4. Generic invalid-credential feedback, nonce verification, `wp_signon()`, the capability gate, and every non-change boundary (no `PlatformAccess::provisionDefaultUser()` touch, no lifecycle/pricing/identity/quote change) are all unchanged and re-verified this round.
+5. `tests/admin-station-login-gate.php` extended: an otherwise fully valid nonce+credentials submission is proven ignored when `isAdminStationPage` is false and processed when true; a client-supplied field of the old redirect-field name is proven to have zero effect on the destination; structural checks confirm `wp_safe_redirect`/`admin_url` are never referenced anywhere, `wp_validate_redirect` is called with a `home_url()`-based fallback, and the page predicate is `has_shortcode`-based. 26 checks total, all pass.
+6. Pushed only to the existing `review/admin-station-login-gate` branch (no new branch). Recording exact SHA/files/tests here now.
+
+### Evidence (from plugin root)
+- `php -l` on every changed PHP file — clean.
+- `npx tsc --noEmit`, `npm run build` — clean (no TS/CSS touched this round).
+- `php tests/admin-station-login-gate.php` — 26/26 pass.
+- Full PHP test sweep — the same 5 pre-existing failures reproduce identically, `admin-station-login-gate.php` not among them.
+- `npm run docs:check` — pass. No doc changes needed this round (no runtime-responsibility shift beyond what the code-map already records).
+
+### Not run
+Live WordPress/browser session — same disclosure as the prior round; no local WP environment exists here.
