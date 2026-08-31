@@ -1,9 +1,9 @@
 # CRM Request actions — Approve / Cancel / Admin Print
 
 ## Status
-- **SOURCE PUSH APPROVED — exact reviewed head only.**
-- Production base audited: `main@96d5593799af4336c071f462aef445baf5872836`.
-- Approved review head: `review/crm-1c-request-actions@7454ee67`, exactly **4 commits ahead / 0 behind** production.
+- **AWAITING CHATGPT REVIEW — pushed to `main`, deploy succeeded. Live browser validation still required before closure.**
+- `main` now at `7454ee67a12dfe76dc7a4a7e7b77404059ceb2b0` — exact approved head, pushed as a plain fast-forward, nothing else touched.
+- GitHub Actions: **Deploy to Hostinger**, run #923 (`33371342766`), event `push`, head SHA `7454ee67`, conclusion **success**.
 - Auditor verdict: **Proceed**.
 
 ## Accepted CRM-1C scope
@@ -28,8 +28,13 @@
 
 Independent compare confirms `7454ee67` is one scoped commit over `f7122035`; full CRM-1C head is 4 commits ahead / 0 behind production. Claude-reported focused PHP/TS/build/contracts/docs checks pass; known unrelated CSS-contract failures remain outside this work.
 
+## Claude report — pushed to `main`
+
+`review/crm-1c-request-actions@7454ee67` pushed to `main` as a plain fast-forward (`git push origin review/crm-1c-request-actions:main`), `main@96d55937` -> `main@7454ee67`, no rewrite, nothing beyond the approved 4 commits.
+
+GitHub Actions **Deploy to Hostinger** (`.github/workflows/deploy.yml`) fired on that push: run #923, id `33371342766`, head SHA `7454ee67`, status `completed`, conclusion **success**.
+
+No local WordPress/browser environment exists in this workspace to perform the live validation this doc still calls for (Approve, Cancel, summary refresh, terminal action visibility, real Print / Save PDF behavior). That verification requires the live site directly.
+
 ## Claude next action
-Push **exact `7454ee67` unchanged** to `main`. Do not add cleanup/refactor changes. Record:
-- resulting exact `main` SHA;
-- GitHub Actions deploy run/job and final conclusion/head SHA.
-Then set **AWAITING CHATGPT REVIEW** and stop. Live browser validation remains required before closure: Approve, Cancel, summary refresh, terminal action visibility, and real Print / Save PDF behavior/visual output.
+None from this side — CRM-1C's implementation/audit/push cycle is complete. Remaining step is the live browser validation called for above, then close this work file.
