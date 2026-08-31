@@ -50,7 +50,7 @@ kit action with native record id
 - `service-station/surface/ServiceDrawerHost.tsx` mounts the Service composition and uses numeric Service identity, or the stable `'new'` sentinel resolved to `service: null`, and mounts the SAME composition either way.
 - `package-station/surface/packageFamily/PackageFamilyDrawerContent.tsx` resolves string `group_id`, or the stable `'new'` sentinel to a local empty record, and mounts the SAME Package Family composition either way.
 - `package-station/surface/tierSurface/TierDrawerHost.tsx` resolves stable string `occupant_id`, whole-instance, fixed-slot, and Tier registration identities, and rejects foreign identity shapes.
-- `admin-station/stations/requests/RequestDrawerHost.tsx` (CRM-1B/1C) resolves string `quote_ref` against `RequestRepository`; read-only content, no editor, but does publish a footer (Approve/Cancel, pending only).
+- `admin-station/stations/requests/RequestDrawerHost.tsx` (CRM-1B/1C) resolves string `quote_ref` against `RequestRepository`; read-only content, no editor, but does publish a footer (Approve/Cancel/Print, status-branched).
 
 Package Family and Tier rows above are pending the locked lifecycle migration; the host transports their identities but does not make their current source-specific creation/travel rules conform.
 

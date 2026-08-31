@@ -33,10 +33,16 @@ class AssetLoader
         wp_enqueue_script('compuzign-config');
 
         $config = wp_json_encode([
-            'apiRoot'        => esc_url_raw(rest_url('compuzign/v1/')),
-            'nonce'          => wp_create_nonce('wp_rest'),
-            'contactUrl'     => esc_url(apply_filters('compuzign_contact_url', home_url('/contact/'))),
-            'costBuilderUrl' => esc_url(apply_filters('compuzign_cost_builder_url', home_url('/pricing/'))),
+            'apiRoot'         => esc_url_raw(rest_url('compuzign/v1/')),
+            'nonce'           => wp_create_nonce('wp_rest'),
+            'contactUrl'      => esc_url(apply_filters('compuzign_contact_url', home_url('/contact/'))),
+            'costBuilderUrl'  => esc_url(apply_filters('compuzign_cost_builder_url', home_url('/pricing/'))),
+            // CRM-1C: lets Admin Station's Request print load the exact
+            // customer stylesheets (atomic-engine tokens + cost-builder.css)
+            // inside an isolated print window only — never as global Admin
+            // Station styles. Same base URLs this class already uses below.
+            'distUrl'         => esc_url_raw(COMPUZIGN_DIST_URL),
+            'atomicEngineUrl' => esc_url_raw(COMPUZIGN_ATOMIC_ENGINE_URL),
         ]);
 
         wp_add_inline_script('compuzign-config', 'window.CompuZignConfig = ' . $config . ';');

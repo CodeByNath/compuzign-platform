@@ -3,9 +3,9 @@
 // same Station Manager registries every other station uses, renders through
 // the shared `cz-station-list` system (no second table/list system), and its
 // drawer content is plain DrawerContentProps + the shared ReadBlock (no
-// second drawer host). It also ships no mutation entry point: the surface
-// binding declares only a `view` intent, and the drawer template supports
-// only `view` — Approve/Cancel are CRM-1C's to add, not implied here. And
+// second drawer host). The drawer template supports only `view` — CRM-1C's
+// Approve/Cancel/Print live as pinned-footer actions on that same `view`
+// drawer, never an `edit`-mode surface binding or a second drawer host. And
 // the backend list/detail routes never read the quote transient — durable
 // RequestRepository is the sole source, matching
 // tests/admin-requests-durable-surface.php's dynamic coverage of the same
@@ -96,8 +96,34 @@ check(
   'the Request drawer content never reimplements the shared drawer host\'s own chrome',
 );
 check(
-  !drawerSource.includes('setFooter(') && !drawerSource.includes('setCloseGuard('),
-  'the read-only Request drawer publishes no footer and no close guard — there is nothing to save or guard',
+  drawerSource.includes('setFooter?.('),
+  'CRM-1C: the Request drawer now publishes a pinned footer for Approve/Cancel/Print',
+);
+check(
+  !drawerSource.includes('setCloseGuard('),
+  'the Request drawer still calls no close guard — none of Approve/Cancel/Print leave unsaved state to guard against',
+);
+
+// ── CRM-1C: footer action visibility by status ──────────────────────────────
+//
+// Structural proof (not a rendered-output check — this repo's contract
+// scripts don't mount Preact) that the footer descriptor for `pending`
+// includes exactly Approve + Cancel Request + Print, and every other status
+// drops to Print + Close only — mirrors the drawer footer contract already
+// established by RequestDrawerFooter.tsx's own status branch.
+
+const footerSource = read('resources/ts/admin-station/stations/requests/RequestDrawerFooter.tsx');
+check(footerSource.includes("status === 'pending'"), 'the footer branches on Request status');
+const pendingBranch = footerSource.match(/status === 'pending'\)\s*{([\s\S]*?)}\s*else\s*{([\s\S]*?)}/);
+check(pendingBranch !== null, 'the footer has a pending branch and a non-pending (else) branch');
+const [, pendingBlock, otherBlock] = pendingBranch!;
+check(
+  /id:\s*'approve'/.test(pendingBlock) && /id:\s*'cancel-request'/.test(pendingBlock) && /id:\s*'print'/.test(pendingBlock),
+  'pending status offers Approve, Cancel Request, and Print',
+);
+check(
+  !/id:\s*'approve'/.test(otherBlock) && !/id:\s*'cancel-request'/.test(otherBlock) && /id:\s*'print'/.test(otherBlock),
+  'approved/cancelled status offers Print only (plus the always-present Close) — no opposite lifecycle action',
 );
 
 // ── The data source calls the durable-backed endpoint ───────────────────────

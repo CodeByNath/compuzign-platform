@@ -1,13 +1,10 @@
-// CRM-1C: the pending-only action set — Approve (prominent) and Cancel
-// Request (destructive) — reusing SupportedActionFooter/EntityActionFooter,
-// the same grammar Category/Service already use for record-level footers.
-// No third footer shape: this is the plain single-split shape (no
-// splitForward), same as every non-Tier drawer footer today.
-//
-// Print/Save PDF is deliberately not wired here — see the CRM-1C work file
-// (project-work/2026-08-31-crm-request-actions.md) for the bundle-boundary
-// finding that blocked it. Approved/cancelled Requests currently render
-// Close only.
+// CRM-1C: reuses SupportedActionFooter/EntityActionFooter, the same
+// grammar Category/Service already use for record-level footers — no third
+// footer shape. Pending uses the dual-independent-split shape (primary +
+// split + splitForward + close, the same shape Tier's own footer uses):
+// Approve (primary, prominent), Cancel Request (split, destructive, left),
+// Print / Save PDF (splitForward, secondary, right). Approved/cancelled
+// Requests drop to the plain single-action shape: Print (primary) + Close.
 
 import { SupportedActionFooter, type SupportedFooterAction } from '@/drawer-kit/SupportedActionFooter';
 import type { RequestPendingAction } from './useRequestDrawerActions';
@@ -19,9 +16,10 @@ interface RequestDrawerFooterProps {
   onClose: () => void;
   onApprove: () => void;
   onCancelRequest: () => void;
+  onPrint: () => void;
 }
 
-export function RequestDrawerFooter({ status, pendingAction, onClose, onApprove, onCancelRequest }: RequestDrawerFooterProps) {
+export function RequestDrawerFooter({ status, pendingAction, onClose, onApprove, onCancelRequest, onPrint }: RequestDrawerFooterProps) {
   const busy = pendingAction !== null;
 
   const actions: SupportedFooterAction[] = [
@@ -51,7 +49,24 @@ export function RequestDrawerFooter({ status, pendingAction, onClose, onApprove,
         busy: pendingAction === 'cancel',
         busyLabel: 'Cancelling…',
       },
+      {
+        id: 'print',
+        label: 'Print / Save PDF',
+        placement: 'split-forward',
+        tone: 'secondary',
+        overflow: [],
+        onSelect: onPrint,
+        // Printing doesn't mutate server state — it stays available even
+        // while an Approve/Cancel mutation is in flight.
+      },
     );
+  } else {
+    actions.push({
+      id: 'print',
+      label: 'Print / Save PDF',
+      placement: 'primary',
+      onSelect: onPrint,
+    });
   }
 
   return <SupportedActionFooter actions={actions} />;

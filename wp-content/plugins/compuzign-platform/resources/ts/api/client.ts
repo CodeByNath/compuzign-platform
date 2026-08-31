@@ -3,6 +3,13 @@ interface CompuZignConfig {
   nonce: string;
   contactUrl?: string;
   costBuilderUrl?: string;
+  // CRM-1C: the compiled dist/ and hand-authored atomic-engine/ base URLs —
+  // used only by Admin Station's Request print, to load the exact same
+  // stylesheets AssetLoader.php already registers for customer-facing
+  // pages, but inside an isolated print window rather than as global
+  // Admin Station styles. See printRequestProposal.tsx.
+  distUrl?: string;
+  atomicEngineUrl?: string;
 }
 
 interface CompuZignAdminConfig {

@@ -5,6 +5,7 @@
 
 import { useState } from 'preact/hooks';
 import { updateRequestStatus } from '@/api/endpoints/admin';
+import { printRequestProposal } from './printRequestProposal';
 import type { RequestEntry } from '@/api/types/admin';
 
 export type RequestPendingAction = 'approve' | 'cancel' | null;
@@ -18,6 +19,10 @@ export interface RequestDrawerController {
   openCancelConfirm: () => void;
   handleConfirmCancel: () => void;
   closeConfirm: () => void;
+  // Printing doesn't mutate server state, so it isn't part of the
+  // approve/cancel pendingAction machine above — it takes the full,
+  // currently-displayed Request directly rather than re-reading it.
+  handlePrint: (request: RequestEntry) => void;
 }
 
 interface UseRequestDrawerActionsArgs {
@@ -55,6 +60,15 @@ export function useRequestDrawerActions({ ref, onUpdated, onSaved }: UseRequestD
     }
   }
 
+  async function runPrint(request: RequestEntry): Promise<void> {
+    const result = await printRequestProposal(request);
+    if (result === 'popup-blocked') {
+      window.alert("Could not open the print window — check your browser's popup blocker.");
+    } else if (result === 'config-missing') {
+      window.alert('Print is unavailable right now — required asset configuration is missing.');
+    }
+  }
+
   return {
     pendingAction,
     confirmDialog,
@@ -63,5 +77,6 @@ export function useRequestDrawerActions({ ref, onUpdated, onSaved }: UseRequestD
     openCancelConfirm: () => setConfirmDialog('cancel'),
     handleConfirmCancel: () => { void transition('cancel', 'cancelled'); },
     closeConfirm: () => setConfirmDialog(null),
+    handlePrint: (request: RequestEntry) => { void runPrint(request); },
   };
 }

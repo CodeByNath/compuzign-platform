@@ -6,11 +6,11 @@
 // declares and simply never receives an 'edit' intent here (register.ts
 // gives Requests only a `view` actionIntent).
 //
-// CRM-1C: this composition now calls setFooter — Approve/Cancel Request are
-// whole-record actions, not module edits, so they belong in the pinned
-// footer per DrawerContentProps' own contract, never inside a module. It
-// still never calls setCloseGuard — neither action leaves unsaved state to
-// guard against.
+// CRM-1C: this composition now calls setFooter — Approve/Cancel Request/
+// Print are whole-record actions, not module edits, so they belong in the
+// pinned footer per DrawerContentProps' own contract, never inside a
+// module. It still never calls setCloseGuard — none of the three actions
+// leave unsaved state to guard against.
 //
 // Sections render through the shared drawer-kit ReadBlock (the same card
 // every module in every other drawer uses) with no `status` and no
@@ -74,11 +74,12 @@ export function RequestDrawerHost({ recordId, onClose, onSaved, setFooter }: Dra
         onClose={onClose}
         onApprove={actions.handleApprove}
         onCancelRequest={actions.openCancelConfirm}
+        onPrint={() => actions.handlePrint(request)}
       />,
     );
     return () => setFooter?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request?.status, actions.pendingAction, onClose]);
+  }, [request, actions.pendingAction, onClose]);
 
   if (api.loading && !api.data && !override) {
     return <div class="cz-station-drawer__state">Loading Request…</div>;
