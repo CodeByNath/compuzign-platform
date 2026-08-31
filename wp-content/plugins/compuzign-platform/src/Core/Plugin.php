@@ -3,6 +3,7 @@
 namespace CompuZign\Platform\Core;
 
 use CompuZign\Platform\Modules\Admin\AdminModule;
+use CompuZign\Platform\Modules\AdminStation\AdminStationAuth;
 use CompuZign\Platform\Modules\AdminStation\AdminStationModule;
 use CompuZign\Platform\Modules\CostBuilder\CostBuilderModule;
 use CompuZign\Platform\Modules\Homepage\HomepageModule;
@@ -47,6 +48,7 @@ final class Plugin
         (new ServiceModule($platformIdentifiers))->register();
         (new AdminModule($platformIdentifiers))->register();
         (new AdminStationModule())->register();
+        (new AdminStationAuth())->register();
 
         add_action('rest_api_init', [self::class, 'registerCoreRoutes']);
     }

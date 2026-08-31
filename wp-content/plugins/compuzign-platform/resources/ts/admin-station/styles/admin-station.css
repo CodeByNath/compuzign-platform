@@ -3792,3 +3792,108 @@ button.cz-station-status-pill {
 .cz-rate-sheet-tool__supplied-remove:hover {
   color: var(--station-text);
 }
+
+/* Admin Station login gate / access-denied — logged-out or unauthorized
+   visitor to the Admin Station shortcode. Field, button, and error chrome
+   reuses the drawer kit's own cz-tf- field system, cz-admin-btn buttons,
+   and cz-admin-error-msg; only the page-centering card and brand mark are
+   new here. */
+
+.cz-station-login-gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--station-space-x);
+  background: var(--station-surface);
+}
+
+.cz-station-login-gate__card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--station-card-bg);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  box-shadow: var(--station-shadow);
+  padding: 32px 28px;
+}
+
+.cz-station-login-gate__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.cz-station-login-gate__mark {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--station-control-radius);
+  background: var(--station-accent);
+  color: var(--station-accent-on);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.cz-station-login-gate__name {
+  margin: 0;
+  font-size: var(--station-text-lg);
+  font-weight: 700;
+  color: var(--station-text);
+}
+
+.cz-station-login-gate__sub {
+  margin: 0;
+  font-size: var(--station-text-sm);
+  color: var(--station-text-muted);
+}
+
+.cz-station-login-gate__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cz-station-login-gate__password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cz-station-login-gate__password-wrap .cz-tf-input {
+  width: 100%;
+  padding-right: 52px;
+}
+
+.cz-station-login-gate__toggle {
+  position: absolute;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--station-accent-fg);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--station-control-radius);
+}
+
+.cz-station-login-gate__toggle:hover {
+  background: var(--station-hover-bg);
+}
+
+.cz-station-login-gate__toggle:focus-visible {
+  outline: 2px solid var(--station-focus-ring);
+  outline-offset: 2px;
+}
+
+.cz-station-login-gate__submit {
+  width: 100%;
+  justify-content: center;
+}

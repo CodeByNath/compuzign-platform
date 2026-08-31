@@ -31,8 +31,12 @@ class AdminStationModule
             wp_enqueue_style('compuzign-admin-station');
         }
 
-        if (!is_user_logged_in() || !current_user_can(PlatformAccess::CAP)) {
-            return '<div class="cz-station-gate">The Admin Station is available to platform managers.</div>';
+        if (!is_user_logged_in()) {
+            return $this->renderLoginGate();
+        }
+
+        if (!current_user_can(PlatformAccess::CAP)) {
+            return $this->renderAccessDenied();
         }
 
         if (wp_script_is('compuzign-admin-station', 'registered')) {
@@ -46,6 +50,42 @@ class AdminStationModule
             include $template;
         } else {
             echo '<div id="' . esc_attr(self::MOUNT_ID) . '"></div>';
+        }
+        return ob_get_clean();
+    }
+
+    /**
+     * The branded, credential-free login form for a logged-out visitor.
+     * Authentication itself happens in AdminStationAuth, hooked earlier at
+     * template_redirect — this only renders the form and any prior failure.
+     */
+    private function renderLoginGate(): string
+    {
+        $hasError       = !empty($_GET['login_error']);
+        $nonce          = wp_create_nonce(AdminStationAuth::NONCE_ACTION);
+        $currentUrl     = esc_url_raw(home_url(wp_unslash($_SERVER['REQUEST_URI'] ?? '/')));
+        $redirectTarget = remove_query_arg('login_error', $currentUrl);
+
+        $template = COMPUZIGN_APP_PATH . 'modules/admin-station/templates/login-gate.php';
+
+        ob_start();
+        if (file_exists($template)) {
+            include $template;
+        }
+        return ob_get_clean();
+    }
+
+    /**
+     * A logged-in visitor who lacks PlatformAccess::CAP — a product-styled
+     * dead end, never the WP dashboard and never a silent redirect there.
+     */
+    private function renderAccessDenied(): string
+    {
+        $template = COMPUZIGN_APP_PATH . 'modules/admin-station/templates/access-denied.php';
+
+        ob_start();
+        if (file_exists($template)) {
+            include $template;
         }
         return ob_get_clean();
     }

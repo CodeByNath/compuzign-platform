@@ -39,12 +39,13 @@ Body/CSS wiring only after verified live completion; Promotion is excluded.
 
 ## Backend and assets
 
-- `src/Modules/AdminStation/AdminStationModule.php` owns the shortcode, capability gate, and health registration.
-- `app/modules/admin-station/templates/admin-station.php` supplies the mount element.
+- `src/Modules/AdminStation/AdminStationModule.php` owns the shortcode, capability gate, and health registration. A logged-out visitor renders the branded login gate; a logged-in visitor without `PlatformAccess::CAP` renders a product-styled access-denied state — never WP admin.
+- `src/Modules/AdminStation/AdminStationAuth.php` processes the login gate's POST submission on `template_redirect` (early enough for `wp_signon()`'s auth cookies), redirecting back to the same page it was submitted from — never a fixed slug. WordPress remains the auth/session host; this owns no role/capability/account provisioning (`Core\PlatformAccess`'s job).
+- `app/modules/admin-station/templates/admin-station.php`, `login-gate.php`, `access-denied.php` supply the mount element and the two gate states, sharing the drawer kit's `cz-tf-*` fields, `cz-admin-btn` buttons, and `cz-admin-error-msg`.
 - `src/Core/AssetLoader.php` registers the Admin Station and shared drawer assets.
 - `vite.config.ts` emits the Admin Station JavaScript and CSS bundles.
 
-The Station mounts only on its frontend shortcode page, not `/wp-admin/`.
+The Station mounts only on its frontend shortcode page, not `/wp-admin/` — including its login gate, which is not the retired Command Centre's fixed `/admin-command-centre/` page.
 
 ## Related Code Maps
 
