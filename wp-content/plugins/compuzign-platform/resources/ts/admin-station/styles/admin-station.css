@@ -120,7 +120,7 @@
 .cz-station-menu__item:focus-visible,
 .cz-station-tab:focus-visible,
 .cz-station-groups__panel:focus-visible,
-.cz-icon-btn:focus-visible {
+.cz-station-drawer-iconbtn:focus-visible {
   outline: 2px solid var(--station-focus-ring);
   outline-offset: 2px;
 }
@@ -1190,12 +1190,12 @@ button.cz-station-status-pill {
   background: var(--station-hover-bg);
 }
 
-.cz-icon-btn-wrap {
+.cz-station-drawer-iconbtn-wrap {
   position: relative;
   display: inline-flex;
 }
 
-.cz-icon-btn {
+.cz-station-drawer-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1209,12 +1209,12 @@ button.cz-station-status-pill {
   transition: background 140ms ease;
 }
 
-.cz-icon-btn svg {
+.cz-station-drawer-iconbtn svg {
   width: 18px;
   height: 18px;
 }
 
-.cz-icon-btn:hover:not(:disabled) {
+.cz-station-drawer-iconbtn:hover:not(:disabled) {
   background: var(--station-hover-bg);
 }
 
@@ -1226,16 +1226,16 @@ button.cz-station-status-pill {
    token family .cz-station-iconbtn (the canonical Admin header icon
    pattern) already uses: the shared focus-ring rule above, and this same
    neutral active-bg token for a momentary pressed state. */
-.cz-icon-btn:active:not(:disabled) {
+.cz-station-drawer-iconbtn:active:not(:disabled) {
   background: var(--station-active-bg);
 }
 
-.cz-icon-btn:disabled {
+.cz-station-drawer-iconbtn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.cz-icon-btn-tooltip {
+.cz-station-drawer-iconbtn-tooltip {
   position: absolute;
   top: 100%;
   right: 0;
@@ -1254,8 +1254,8 @@ button.cz-station-status-pill {
   z-index: 10;
 }
 
-.cz-icon-btn-wrap:hover .cz-icon-btn-tooltip,
-.cz-icon-btn:focus-visible ~ .cz-icon-btn-tooltip {
+.cz-station-drawer-iconbtn-wrap:hover .cz-station-drawer-iconbtn-tooltip,
+.cz-station-drawer-iconbtn:focus-visible ~ .cz-station-drawer-iconbtn-tooltip {
   opacity: 1;
   transform: translateY(0);
 }

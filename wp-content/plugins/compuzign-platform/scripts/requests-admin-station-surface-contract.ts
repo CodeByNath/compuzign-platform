@@ -11,7 +11,7 @@
 // tests/admin-requests-durable-surface.php's dynamic coverage of the same
 // boundary from the PHP side.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { requestItemDisplay } from '../resources/ts/admin-station/stations/requests/requestItemDisplay';
 import { deriveRequestSummaryMetrics } from '../resources/ts/admin-station/stations/requests/requestSummaryMetrics';
@@ -181,26 +181,55 @@ check(
 
 // ── CRM-1C audit correction: Print icon resolves through Admin tokens only,
 //    every visual state, never a raw/new/borrowed accent colour ───────────
+//
+// The class was originally named `cz-icon-btn` — an UNRELATED customer-
+// facing class of the exact same name already exists in
+// `atomic-engine/css/04-buttons.css` (`.cz-*` is shared platform-wide, not
+// Admin-exclusive), whose `:hover`/`:focus-visible` rules resolve through
+// `--cz-color-accent`. That stylesheet loads globally on every frontend
+// page, including the Admin Station shortcode's own page, so the name
+// collision silently won the cascade and painted the Print icon with the
+// customer brand accent. Renamed to `cz-station-drawer-iconbtn`, under the
+// same `cz-station-*` prefix every other Admin-only class already uses.
 
-const iconBtnRuleBlocks = [...shellCssSource.matchAll(/([^{}]*\.cz-icon-btn[^{}]*)\{([^{}]*)\}/g)].map((m) => m[2]);
-check(iconBtnRuleBlocks.length > 0, 'admin-station.css declares at least one .cz-icon-btn rule');
+const iconBtnRuleBlocks = [...shellCssSource.matchAll(/([^{}]*\.cz-station-drawer-iconbtn[^{}]*)\{([^{}]*)\}/g)].map((m) => m[2]);
+check(iconBtnRuleBlocks.length > 0, 'admin-station.css declares at least one .cz-station-drawer-iconbtn rule');
 const iconBtnDeclarations = iconBtnRuleBlocks.join('\n');
 check(
   !/#[0-9a-fA-F]{3,8}\b/.test(iconBtnDeclarations) && !/\b(rgb|rgba|hsl|hsla)\(/.test(iconBtnDeclarations),
-  'no .cz-icon-btn rule declares a raw hex/rgb/hsl colour literal — every colour/background/outline resolves through a var(--station-*) token',
+  'no .cz-station-drawer-iconbtn rule declares a raw hex/rgb/hsl colour literal — every colour/background/outline resolves through a var(--station-*) token',
 );
 check(
-  shellCssSource.includes('.cz-icon-btn:focus-visible') && /\.cz-icon-btn:focus-visible[\s\S]{0,120}?var\(--station-focus-ring\)/.test(shellCssSource),
-  'CRM-1C correction: .cz-icon-btn:focus-visible resolves through the same canonical --station-focus-ring token .cz-station-iconbtn (the Admin header icon pattern) already uses, not a browser default outline',
+  shellCssSource.includes('.cz-station-drawer-iconbtn:focus-visible') && /\.cz-station-drawer-iconbtn:focus-visible[\s\S]{0,120}?var\(--station-focus-ring\)/.test(shellCssSource),
+  'CRM-1C correction: .cz-station-drawer-iconbtn:focus-visible resolves through the same canonical --station-focus-ring token .cz-station-iconbtn (the Admin header icon pattern) already uses, not a browser default outline',
 );
 check(
-  /\.cz-icon-btn:active[^{]*\{[^}]*var\(--station-active-bg\)/.test(shellCssSource),
-  'CRM-1C correction: .cz-icon-btn:active resolves through the same neutral --station-active-bg token, not a new accent',
+  /\.cz-station-drawer-iconbtn:active[^{]*\{[^}]*var\(--station-active-bg\)/.test(shellCssSource),
+  'CRM-1C correction: .cz-station-drawer-iconbtn:active resolves through the same neutral --station-active-bg token, not a new accent',
 );
 check(
-  /\.cz-icon-btn\s*\{[^}]*var\(--station-text-muted\)/.test(shellCssSource),
+  /\.cz-station-drawer-iconbtn\s*\{[^}]*var\(--station-text-muted\)/.test(shellCssSource),
   'the Print icon\'s default color matches the adjacent Close ×\'s own --station-text-muted token',
 );
+// Strip // comments first — IconButton.tsx's own explanatory prose
+// legitimately names the retired cz-icon-btn class to document the
+// collision it caused, which must not itself trip this check.
+const iconButtonCodeOnly = iconButtonSource.replace(/\/\/.*$/gm, '');
+check(
+  !/\bclass="cz-icon-btn/.test(iconButtonCodeOnly) && !shellCssSource.includes('cz-icon-btn'),
+  'CRM-1C audit correction: the colliding customer-facing class name cz-icon-btn is never reintroduced in actual markup or CSS',
+);
+
+// Regression guard: prove the CHOSEN name has zero footprint in the
+// customer-facing atomic-engine stylesheets that load globally on every
+// frontend page — the exact collision that caused this correction.
+const atomicEngineCssDir = resolve(root, 'atomic-engine/css');
+const atomicEngineCssFiles = readdirSync(atomicEngineCssDir).filter((f) => f.endsWith('.css'));
+check(atomicEngineCssFiles.length > 0, 'atomic-engine/css exists and contains stylesheets to check against');
+for (const file of atomicEngineCssFiles) {
+  const source = readFileSync(resolve(atomicEngineCssDir, file), 'utf8');
+  check(!source.includes('cz-station-drawer-iconbtn'), `atomic-engine/css/${file} never defines .cz-station-drawer-iconbtn (no cross-stylesheet name collision)`);
+}
 
 // ── CRM-1C audit correction: synchronous print-window activation ───────────
 //

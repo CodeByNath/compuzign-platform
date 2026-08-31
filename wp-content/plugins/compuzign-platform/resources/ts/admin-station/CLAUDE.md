@@ -32,6 +32,8 @@ Package Station and Service Station legitimately import `admin-station/presentat
 
 `styles/admin-station-tokens.css` is the single token definition site for the Admin Station. Components reference tokens; they do not hard-code colour or shape.
 
+Every Admin-only class name is `cz-station-*` (`cz-station-iconbtn`, `cz-station-drawer__close`, `cz-station-drawer-iconbtn`, …) — never a bare `cz-*` name. The `cz-*` prefix is shared platform-wide: `atomic-engine/css/` defines customer-facing classes under it too (its own token family, `--cz-color-*`), loaded globally on every frontend page including the one hosting the Admin Station shortcode. A bare `cz-icon-btn` class here once collided with an identically-named customer button class and silently inherited its `--cz-color-accent` hover/focus styling — always grep `atomic-engine/css/` before naming a new class here.
+
 The shell sheet owns station layout, header, navigation, body, footer, slide menu, presentation surfaces, station tabs, the drawer layer, backdrop, drawer placement, drawer widths and station breakpoints.
 
 It does **not** own control appearance. Input, select, textarea, checkbox, label, hint, error, focus, disabled, readonly and field sizing belong to the drawer kit's field system (`cz-tf-*`). Feature CSS living in this sheet owns grids, rows, columns and domain-specific presentation only, and must not declare `border`, `border-radius`, `height`, `min-height`, `outline`, `box-shadow`, `background` or `color` on an `input`, `select`, `textarea`, `label` or a `cz-tf-*` class.
