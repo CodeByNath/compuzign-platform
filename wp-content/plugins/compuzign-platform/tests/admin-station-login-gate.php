@@ -2,21 +2,25 @@
 
 declare(strict_types=1);
 
-// Admin Station branded login gate (Phase 1): AdminStationAuth::handleLoginRequest()
-// is the pure decision core behind the template_redirect-hooked processLogin() —
-// this stub exercises it directly, without needing to mock process termination,
-// covering nonce/auth handling, safe-redirect target resolution, and that no
+// Admin Station branded login gate (Phase 1, audit-corrected): AdminStationAuth::
+// handleLoginRequest() is the pure decision core behind the template_redirect-
+// hooked processLogin() — this stub exercises it directly, without needing to
+// mock process termination, covering the page-scoped gate, nonce/auth handling,
+// server-derived (never client-trusted) redirect resolution, and that no
 // credential value or the underlying WP_Error's own distinguishing message ever
 // reaches the returned URL. A second block does structural source-text proof
 // (this repo's established convention for behavior these stubs can't otherwise
 // exercise) that no retired Command Centre routing/menu/redirect mechanism was
-// resurrected, and that AdminStationModule still gates on PlatformAccess::CAP.
+// resurrected, that AdminStationModule still gates on PlatformAccess::CAP, and
+// that the redirect never relies on wp_safe_redirect()'s own admin_url()
+// fallback.
 
 function sanitize_key(string $value): string { return strtolower(preg_replace('/[^a-z0-9_\-]/i', '', $value) ?? ''); }
 function sanitize_user(string $value): string { return trim(strip_tags($value)); }
 function wp_unslash(mixed $value): mixed { return is_string($value) ? stripslashes($value) : $value; }
 function is_ssl(): bool { return false; }
 function home_url(string $path = '/'): string { return 'https://cz-test.local' . $path; }
+function esc_url_raw(string $url): string { return $url; }
 
 function add_query_arg(string $key, string $value, string $url): string
 {
@@ -58,6 +62,9 @@ function wp_signon(array $credentials, bool $secureCookie = false): mixed
     return $__nextSignonResult;
 }
 
+// AdminStationModule.php is checked as source text only (section 6) — it is
+// never require_once'd or instantiated here, since its methods reference
+// Core\PlatformAccess/Health, which this stub deliberately does not define.
 require_once __DIR__ . '/../src/Modules/AdminStation/AdminStationAuth.php';
 
 use CompuZign\Platform\Modules\AdminStation\AdminStationAuth;
@@ -75,53 +82,79 @@ function check_login_gate(bool $condition, string $label, mixed $detail = null):
 }
 
 $auth = new AdminStationAuth();
+$onPage  = true;
+$offPage = false;
+$url     = 'https://cz-test.local/some-admin-station-page/';
 
-// ── 1) Requests that are not this form's submission are left alone ─────────
-echo "1) non-submissions of this form return null (page renders normally)\n";
+// ── 1) Off the Admin Station page, an otherwise-valid submission is ignored ──
+echo "1) processing is scoped to the Admin Station page itself\n";
 {
-    check_login_gate($auth->handleLoginRequest('GET', []) === null, 'a GET request is never processed');
+    global $__nextSignonResult;
+    $__nextSignonResult = (object) ['ID' => 1];
+
+    $ignoredElsewhere = $auth->handleLoginRequest('POST', [
+        AdminStationAuth::NONCE_FIELD => 'valid-nonce',
+        'cz_username'                 => 'nath',
+        'cz_password'                 => 'x',
+    ], $offPage, $url);
+    check_login_gate($ignoredElsewhere === null, 'an otherwise fully valid nonce+credentials POST is ignored when the current request is not the Admin Station page');
+
+    $processedOnPage = $auth->handleLoginRequest('POST', [
+        AdminStationAuth::NONCE_FIELD => 'valid-nonce',
+        'cz_username'                 => 'nath',
+        'cz_password'                 => 'x',
+    ], $onPage, $url);
+    check_login_gate($processedOnPage !== null, 'the identical submission is processed when the current request IS the Admin Station page');
+}
+
+// ── 2) Requests that are not this form's submission are left alone ─────────
+echo "\n2) non-submissions of this form return null (page renders normally)\n";
+{
+    check_login_gate($auth->handleLoginRequest('GET', [], $onPage, $url) === null, 'a GET request is never processed');
     check_login_gate(
-        $auth->handleLoginRequest('POST', ['cz_username' => 'x', 'cz_password' => 'y']) === null,
+        $auth->handleLoginRequest('POST', ['cz_username' => 'x', 'cz_password' => 'y'], $onPage, $url) === null,
         'a POST with no nonce field at all is never processed',
     );
     check_login_gate(
-        $auth->handleLoginRequest('POST', [AdminStationAuth::NONCE_FIELD => 'garbage', 'cz_username' => 'x']) === null,
+        $auth->handleLoginRequest('POST', [AdminStationAuth::NONCE_FIELD => 'garbage', 'cz_username' => 'x'], $onPage, $url) === null,
         'a POST with an invalid/stale nonce is never processed — same as no submission, no distinguishing error',
     );
 }
 
-// ── 2) A valid submission always calls wp_signon(), never an ad-hoc check ──
-echo "\n2) successful authentication redirects to the submitted same-page target\n";
+// ── 3) A valid submission redirects to the CURRENT request's own URL ───────
+echo "\n3) successful authentication redirects to the current request's own URL — never client input\n";
 {
     global $__nextSignonResult, $__lastSignonCredentials;
     $__nextSignonResult = (object) ['ID' => 42]; // any non-WP_Error value signals success
 
     $redirect = $auth->handleLoginRequest('POST', [
-        AdminStationAuth::NONCE_FIELD    => 'valid-nonce',
-        AdminStationAuth::REDIRECT_FIELD => 'https://cz-test.local/some-admin-station-page/',
-        'cz_username'                    => 'nath',
-        'cz_password'                    => 'correct horse battery staple',
-    ]);
+        AdminStationAuth::NONCE_FIELD => 'valid-nonce',
+        'cz_username'                 => 'nath',
+        'cz_password'                 => 'correct horse battery staple',
+        // An attacker-supplied field of this old name must have zero effect —
+        // there is no such parameter in the signature at all any more.
+        'cz_admin_station_redirect'   => 'https://evil.example/phish',
+    ], $onPage, $url);
 
-    check_login_gate($redirect === 'https://cz-test.local/some-admin-station-page/', 'redirects to the exact submitted page, unchanged, on success', $redirect);
+    check_login_gate($redirect === $url, 'redirects to exactly the current request URL, unchanged, on success', $redirect);
+    check_login_gate(!str_contains((string) $redirect, 'evil.example'), 'a client-supplied redirect-shaped field has zero effect on the destination');
     check_login_gate($__lastSignonCredentials['user_login'] === 'nath', 'the sanitized username reaches wp_signon()');
     check_login_gate($__lastSignonCredentials['user_password'] === 'correct horse battery staple', 'the raw password reaches wp_signon() unmodified (never sanitized/mangled)');
 }
 
-// ── 3) A failed attempt redirects back with a generic flag only ────────────
-echo "\n3) failed authentication redirects back with a generic error flag, never the WP_Error's own message\n";
+// ── 4) A failed attempt redirects back with a generic flag only ────────────
+echo "\n4) failed authentication redirects back with a generic error flag, never the WP_Error's own message\n";
 {
     global $__nextSignonResult;
     $__nextSignonResult = new WP_Error('incorrect_password', 'The password you entered is incorrect.');
 
     $redirect = $auth->handleLoginRequest('POST', [
-        AdminStationAuth::NONCE_FIELD    => 'valid-nonce',
-        AdminStationAuth::REDIRECT_FIELD => 'https://cz-test.local/some-admin-station-page/',
-        'cz_username'                    => 'nath',
-        'cz_password'                    => 'wrong-password-value',
-    ]);
+        AdminStationAuth::NONCE_FIELD => 'valid-nonce',
+        'cz_username'                 => 'nath',
+        'cz_password'                 => 'wrong-password-value',
+    ], $onPage, $url);
 
-    check_login_gate($redirect === 'https://cz-test.local/some-admin-station-page/?login_error=1', 'redirects to the same page with login_error=1', $redirect);
+    check_login_gate($redirect === $url . '?login_error=1', 'redirects to the same page with login_error=1', $redirect);
     check_login_gate(!str_contains((string) $redirect, 'incorrect_password'), 'the WP_Error code never reaches the redirect URL');
     check_login_gate(!str_contains((string) $redirect, 'password you entered'), 'the WP_Error message never reaches the redirect URL');
     check_login_gate(!str_contains((string) $redirect, 'wrong-password-value'), 'the submitted password value never reaches the redirect URL');
@@ -129,11 +162,10 @@ echo "\n3) failed authentication redirects back with a generic error flag, never
 
     $__nextSignonResult = new WP_Error('invalid_username', 'Unknown username.');
     $redirectUnknown = $auth->handleLoginRequest('POST', [
-        AdminStationAuth::NONCE_FIELD    => 'valid-nonce',
-        AdminStationAuth::REDIRECT_FIELD => 'https://cz-test.local/some-admin-station-page/',
-        'cz_username'                    => 'ghost',
-        'cz_password'                    => 'x',
-    ]);
+        AdminStationAuth::NONCE_FIELD => 'valid-nonce',
+        'cz_username'                 => 'ghost',
+        'cz_password'                 => 'x',
+    ], $onPage, $url);
     check_login_gate(
         $redirectUnknown === $redirect,
         'an unknown-username failure and a wrong-password failure produce the IDENTICAL redirect — no distinguishing feedback either way',
@@ -141,31 +173,24 @@ echo "\n3) failed authentication redirects back with a generic error flag, never
     );
 }
 
-// ── 4) Redirect-target resolution is a same-site default, error stripped ──
-echo "\n4) redirect target: sane default, and a stale login_error never survives a retry\n";
+// ── 5) A stale login_error on the current URL never survives a retry ───────
+echo "\n5) a stale login_error already on the current URL is stripped before a successful redirect\n";
 {
     global $__nextSignonResult;
     $__nextSignonResult = (object) ['ID' => 1];
 
-    $emptyTarget = $auth->handleLoginRequest('POST', [
-        AdminStationAuth::NONCE_FIELD    => 'valid-nonce',
-        AdminStationAuth::REDIRECT_FIELD => '',
-        'cz_username'                    => 'nath',
-        'cz_password'                    => 'x',
-    ]);
-    check_login_gate($emptyTarget === 'https://cz-test.local/', 'an empty/missing redirect field falls back to the site home, never an external default', $emptyTarget);
-
     $strippedError = $auth->handleLoginRequest('POST', [
-        AdminStationAuth::NONCE_FIELD    => 'valid-nonce',
-        AdminStationAuth::REDIRECT_FIELD => 'https://cz-test.local/admin-station/?login_error=1',
-        'cz_username'                    => 'nath',
-        'cz_password'                    => 'x',
-    ]);
-    check_login_gate($strippedError === 'https://cz-test.local/admin-station/', 'a stale login_error on the submitted target is stripped before a successful redirect', $strippedError);
+        AdminStationAuth::NONCE_FIELD => 'valid-nonce',
+        'cz_username'                 => 'nath',
+        'cz_password'                 => 'x',
+    ], $onPage, $url . '?login_error=1');
+    check_login_gate($strippedError === $url, 'a retry that succeeds redirects without the prior failure flag', $strippedError);
 }
 
-// ── 5) Structural proof: no retired Command Centre mechanism resurrected ──
-echo "\n5) no retired Command Centre routing/menu/redirect mechanism resurrected\n";
+// ── 6) Structural proof: no retired Command Centre mechanism resurrected,
+//      and the redirect never depends on wp_safe_redirect()'s own admin_url()
+//      fallback ───────────────────────────────────────────────────────────
+echo "\n6) no retired Command Centre mechanism resurrected; redirect never falls back to wp-admin\n";
 {
     // Strips // and /* */ comments via PHP's own tokenizer — these files'
     // own explanatory prose legitimately names every retired symbol below
@@ -197,14 +222,31 @@ echo "\n5) no retired Command Centre routing/menu/redirect mechanism resurrected
         'wpadminbar',
         'wp-toolbar',
         'install_plugins',
+        'admin_url',
     ];
     foreach ($forbidden as $symbol) {
-        check_login_gate(!str_contains($combined, $symbol), "neither AdminStationAuth.php nor AdminStationModule.php reference the retired Command Centre symbol '{$symbol}'");
+        check_login_gate(!str_contains($combined, $symbol), "neither AdminStationAuth.php nor AdminStationModule.php reference the retired/forbidden symbol '{$symbol}'");
     }
 
     check_login_gate(
+        !str_contains($authSource, 'wp_safe_redirect'),
+        'AdminStationAuth.php never calls wp_safe_redirect() — its own default fallback is admin_url(), which this must never depend on',
+    );
+    check_login_gate(
+        preg_match('/wp_validate_redirect\([^)]*home_url\(/', $authSource) === 1,
+        'the redirect is explicitly validated against a home_url()-based fallback, never left to a default',
+    );
+    check_login_gate(
         str_contains($authSource, "add_action('template_redirect'"),
         'auth processing hooks template_redirect (early enough for cookies), not admin_init or a custom router',
+    );
+    check_login_gate(
+        str_contains($authSource, 'has_shortcode(') && str_contains($authSource, 'AdminStationModule::SHORTCODE'),
+        'the Admin-Station-page predicate is source-grounded (checks the actual shortcode is present), not a hardcoded page slug',
+    );
+    check_login_gate(
+        !str_contains($authSource, 'cz_admin_station_redirect') && !str_contains($moduleSource, 'cz_admin_station_redirect'),
+        'no client-supplied redirect field exists anywhere in the form or its processing',
     );
     check_login_gate(
         str_contains($moduleSource, 'PlatformAccess::CAP'),

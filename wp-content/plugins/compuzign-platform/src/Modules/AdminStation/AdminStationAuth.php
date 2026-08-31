@@ -11,15 +11,26 @@ namespace CompuZign\Platform\Modules\AdminStation;
  * that stays with Core\PlatformAccess. It owns no page/route of its own:
  * unlike the retired Command Centre's AdminRouter (fixed /admin-command-
  * centre/ slug, WP-admin menu page, login_redirect/admin_init hooks), the
- * Admin Station shortcode can sit on any page, so the form itself carries
- * the page it was submitted from and this class only ever redirects back
- * to that same page — never a fixed slug, never wp-login.php, never wp-admin.
+ * Admin Station shortcode can sit on any page — so this only ever processes
+ * a submission made TO that same page (proven by the current queried post
+ * actually carrying the shortcode, not by trusting anything the client
+ * says), and only ever redirects back to that same page, server-derived —
+ * never a client-supplied destination, never wp-login.php, never wp-admin.
+ *
+ * Audit correction: template_redirect fired globally with no page check,
+ * and the return destination was a client-supplied hidden field trusted
+ * until wp_safe_redirect() — whose own default validation fallback is
+ * admin_url(), exactly the WP-admin journey this feature exists to avoid.
+ * Both are fixed here: processing is gated on isAdminStationRequest(), and
+ * the destination is derived from the current request itself (the form
+ * self-submits — action="" — so the POST always lands back on the same
+ * URL it was rendered from) and validated against an explicit non-admin
+ * fallback, never wp_safe_redirect()'s own default.
  */
 class AdminStationAuth
 {
-    public const NONCE_ACTION  = 'cz_admin_station_login';
-    public const NONCE_FIELD   = 'cz_admin_station_login_nonce';
-    public const REDIRECT_FIELD = 'cz_admin_station_redirect';
+    public const NONCE_ACTION = 'cz_admin_station_login';
+    public const NONCE_FIELD  = 'cz_admin_station_login_nonce';
 
     public function register(): void
     {
@@ -30,30 +41,40 @@ class AdminStationAuth
 
     public function processLogin(): void
     {
-        $redirect = $this->handleLoginRequest($_SERVER['REQUEST_METHOD'] ?? '', $_POST);
+        $redirect = $this->handleLoginRequest(
+            $_SERVER['REQUEST_METHOD'] ?? '',
+            $_POST,
+            $this->isAdminStationRequest(),
+            $this->currentRequestUrl(),
+        );
         if ($redirect === null) {
             return;
         }
-        wp_safe_redirect($redirect);
+        // Deliberately NOT wp_safe_redirect(): its own un-overridable
+        // fallback is admin_url(). Validate explicitly against a
+        // same-site, non-admin fallback instead, so no path here can
+        // ever land on /wp-admin/.
+        wp_redirect(wp_validate_redirect($redirect, home_url('/')));
         exit;
     }
 
     /**
-     * Pure(ish) decision core, kept separate from processLogin()'s exit so
-     * it is testable without needing to mock process termination.
+     * Pure(ish) decision core, kept separate from processLogin()'s exit and
+     * from every WordPress global-state read so it is directly testable.
      *
      * Returns the URL to redirect to, or null when this request is not a
-     * submission of this form at all (wrong method, no nonce field, stale/
-     * invalid nonce) — in which case the caller does nothing further and
-     * the page renders normally, which still shows the login form to a
-     * logged-out visitor. A stale/invalid nonce is treated identically to
-     * "not our form": no error is surfaced for it, matching the same
-     * generic-feedback posture as a genuine bad-credentials attempt.
+     * submission of this form on the Admin Station page itself — wrong
+     * page, wrong method, no nonce field, or a stale/invalid nonce are all
+     * treated identically: no error, no redirect, the page just renders
+     * normally (still showing the login form to a logged-out visitor).
      *
      * @param array<string, mixed> $post
      */
-    public function handleLoginRequest(string $method, array $post): ?string
+    public function handleLoginRequest(string $method, array $post, bool $isAdminStationPage, string $currentUrl): ?string
     {
+        if (!$isAdminStationPage) {
+            return null;
+        }
         if ($method !== 'POST' || empty($post[self::NONCE_FIELD])) {
             return null;
         }
@@ -61,7 +82,10 @@ class AdminStationAuth
             return null;
         }
 
-        $redirectTo = $this->sameSiteRedirectTarget((string) ($post[self::REDIRECT_FIELD] ?? ''));
+        // The only destination this ever returns to: wherever the request
+        // actually landed, with any stale prior-failure flag stripped so a
+        // retry never stacks/echoes it once it succeeds. Never client input.
+        $redirectTo = remove_query_arg('login_error', $currentUrl);
 
         $user = wp_signon([
             'user_login'    => sanitize_user(wp_unslash((string) ($post['cz_username'] ?? ''))),
@@ -79,16 +103,22 @@ class AdminStationAuth
     }
 
     /**
-     * The submitted page to return to, with any stale login_error stripped
-     * so a retry never stacks/echoes a prior failure once it succeeds.
-     * wp_safe_redirect() is the actual security boundary here — it refuses
-     * to redirect off-site regardless of what this returns — this just
-     * supplies a sane same-page default when the field is empty.
+     * Source-grounded Admin Station page predicate — the same shape the
+     * retired Command Centre's own addBodyClass() used (has_shortcode()
+     * against the queried post's content), not a hardcoded slug, since the
+     * shortcode can sit on any page.
      */
-    private function sameSiteRedirectTarget(string $submitted): string
+    private function isAdminStationRequest(): bool
     {
-        $submitted = trim($submitted);
-        $target    = $submitted !== '' ? $submitted : home_url('/');
-        return remove_query_arg('login_error', $target);
+        if (!is_singular()) {
+            return false;
+        }
+        $post = get_post();
+        return $post instanceof \WP_Post && has_shortcode((string) $post->post_content, AdminStationModule::SHORTCODE);
+    }
+
+    private function currentRequestUrl(): string
+    {
+        return esc_url_raw(home_url(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '/'))));
     }
 }

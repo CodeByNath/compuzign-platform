@@ -3,7 +3,6 @@
 /**
  * @var bool   $hasError
  * @var string $nonce
- * @var string $redirectTarget
  */
 ?>
 <div class="cz-station-login-gate">
@@ -16,7 +15,6 @@
 
     <form class="cz-station-login-gate__form" method="post" action="">
       <input type="hidden" name="<?php echo esc_attr(\CompuZign\Platform\Modules\AdminStation\AdminStationAuth::NONCE_FIELD); ?>" value="<?php echo esc_attr($nonce); ?>">
-      <input type="hidden" name="<?php echo esc_attr(\CompuZign\Platform\Modules\AdminStation\AdminStationAuth::REDIRECT_FIELD); ?>" value="<?php echo esc_attr($redirectTarget); ?>">
 
       <div class="cz-tf-field">
         <label class="cz-tf-label" for="cz_as_username">Username</label>

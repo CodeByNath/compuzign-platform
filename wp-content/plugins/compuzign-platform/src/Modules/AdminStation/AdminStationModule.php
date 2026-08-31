@@ -58,13 +58,14 @@ class AdminStationModule
      * The branded, credential-free login form for a logged-out visitor.
      * Authentication itself happens in AdminStationAuth, hooked earlier at
      * template_redirect — this only renders the form and any prior failure.
+     * The form self-submits (action="") and carries no redirect field:
+     * AdminStationAuth derives the return destination from the request
+     * itself, never from client input.
      */
     private function renderLoginGate(): string
     {
-        $hasError       = !empty($_GET['login_error']);
-        $nonce          = wp_create_nonce(AdminStationAuth::NONCE_ACTION);
-        $currentUrl     = esc_url_raw(home_url(wp_unslash($_SERVER['REQUEST_URI'] ?? '/')));
-        $redirectTarget = remove_query_arg('login_error', $currentUrl);
+        $hasError = !empty($_GET['login_error']);
+        $nonce    = wp_create_nonce(AdminStationAuth::NONCE_ACTION);
 
         $template = COMPUZIGN_APP_PATH . 'modules/admin-station/templates/login-gate.php';
 
