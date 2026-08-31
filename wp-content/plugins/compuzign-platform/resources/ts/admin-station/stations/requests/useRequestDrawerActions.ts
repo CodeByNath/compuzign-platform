@@ -60,10 +60,11 @@ export function useRequestDrawerActions({ ref, onUpdated, onSaved }: UseRequestD
     }
   }
 
-  // Deliberately NOT async: openRequestPrintWindow() must run synchronously,
-  // in the same call as handlePrint below, with zero async-function frame
-  // between it and the click — see printRequestProposal.tsx's own comment
-  // on why. Only the continuation after a genuinely open window is async.
+  // Deliberately NOT async: openRequestPrintWindow() runs synchronously, in
+  // the same call as handlePrint below. Only the continuation after a
+  // genuinely open window is async — see printRequestProposal.tsx's own
+  // comment (the actual CRM-1C print-activation defect was elsewhere, in
+  // openIsolatedPrintDocument.ts's window-feature string, not here).
   function runPrint(request: RequestEntry): void {
     const opened = openRequestPrintWindow(request);
     if (!opened.ok) {

@@ -46,9 +46,10 @@ async function main(): Promise<void> {
     parentDoc.head.innerHTML = '<link rel="stylesheet" href="/dist/css/admin-station.css">';
 
     const popupWin = new Window({ url: 'about:blank' });
-    const fakeOpen = (): Window => popupWin as unknown as Window;
+    let openCallArgs: unknown[] = [];
+    const fakeOpen = (...args: unknown[]): Window => { openCallArgs = args; return popupWin as unknown as Window; };
 
-    const result = openIsolatedPrintDocument(config, 'CZ-PRINT001', { open: fakeOpen });
+    const result = openIsolatedPrintDocument(config, 'CZ-PRINT001', { open: fakeOpen as Window['open'] });
     check('open succeeds', result.ok === true);
     if (result.ok) {
       const printDoc = result.printWindow.document;
@@ -59,6 +60,18 @@ async function main(): Promise<void> {
 
       const hrefsOnPrintWindow = [...printDoc.querySelectorAll('link[rel="stylesheet"]')].map((l) => (l as HTMLLinkElement).href);
       check('every stylesheet on the print window is one of the expected 4', hrefsOnPrintWindow.every((h) => stylesheetHrefsFor(config).some((expected) => h.includes(expected))), hrefsOnPrintWindow);
+
+      // CRM-1C audit correction: the window-feature string must never
+      // request noopener/noreferrer — per spec that forces window.open()
+      // to return null even on a genuine success, which is exactly the
+      // false "popup blocked" this correction removes. And the handle
+      // window.open() DID return must be the one actually used/returned —
+      // proven above (mount/links/title all read through result.printWindow) —
+      // with its own `.opener` severed instead, so the reverse reference is
+      // cut without losing our usable handle.
+      const featureString = String(openCallArgs[2] ?? '');
+      check('window.open() feature string requests neither noopener nor noreferrer', !/noopener|noreferrer/.test(featureString), featureString);
+      check('the returned handle has its own opener severed (defense-in-depth, without losing the usable handle)', result.printWindow.opener === null);
     }
 
     // The critical isolation proof: the PARENT document (standing in for
@@ -135,6 +148,14 @@ async function main(): Promise<void> {
     check(
       'waitForStylesheets() races every listener against a timeout so a missed/never-fired event cannot hang it',
       /setTimeout/.test(isolatedDocSource) && /clearTimeout/.test(isolatedDocSource),
+    );
+    check(
+      "CRM-1C audit correction: source never requests noopener/noreferrer on window.open() — that forces a null return even on success",
+      !/win\.open\([^)]*noopener/.test(isolatedDocSource) && !/win\.open\([^)]*noreferrer/.test(isolatedDocSource),
+    );
+    check(
+      "CRM-1C audit correction: the print window's own .opener is explicitly severed once a real handle exists",
+      isolatedDocSource.includes('.opener = null'),
     );
   }
 

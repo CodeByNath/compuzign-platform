@@ -38,9 +38,24 @@ export function openIsolatedPrintDocument(
     return { ok: false, reason: 'config-missing' };
   }
 
-  const printWindow = win.open('', '_blank', 'noopener,noreferrer,width=900,height=1000');
+  // CRM-1C audit correction: `noopener`/`noreferrer` in the feature string
+  // makes `window.open()` return null PER SPEC even when the window is
+  // genuinely created — the whole point of `noopener` is that the caller
+  // gets no reference back. That made every call here misreport as
+  // "popup blocked", since this code needs the returned handle to render
+  // and print into. Omit them and instead sever the reverse reference
+  // (the print window's own `.opener` pointing back here) once a real
+  // handle is in hand, below — same defense-in-depth, a usable handle.
+  const printWindow = win.open('', '_blank', 'width=900,height=1000');
   if (!printWindow) {
     return { ok: false, reason: 'popup-blocked' };
+  }
+  try {
+    printWindow.opener = null;
+  } catch {
+    // Non-fatal: some engines make `opener` non-configurable in some
+    // contexts. The print window only ever loads code-owned, same-origin
+    // content this function itself writes below, regardless.
   }
 
   const doc = printWindow.document;

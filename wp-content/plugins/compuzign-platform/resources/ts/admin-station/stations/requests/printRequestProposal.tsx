@@ -18,21 +18,23 @@
 // No live catalog/pricing re-resolution, no quote-view secret — every value
 // rendered here comes straight from the already-fetched `RequestEntry`.
 //
-// CRM-1C audit correction (live browser failure): the original single
-// `async function printRequestProposal()` opened its window as the first
-// statement of an ASYNC function. That is synchronous by spec — no `await`
-// runs before it — but several browsers (Safari in particular) can drop
-// transient user activation the instant control enters a JS async function
-// at all, even before its first `await`, because of how the async-function
-// microtask wrapper interacts with activation consumption. Live testing
-// reproduced exactly that: `window.open()` returned null and the UI
-// reported a false "popup blocked", even with popups allowed. The fix is
-// to make the open step a genuinely plain (non-async) function, called
-// directly and synchronously from the click handler — see
-// useRequestDrawerActions.ts's `runPrint`, the only caller — with every
-// async step (Preact render, stylesheet wait, print()) moved into a
-// separate continuation that only ever runs after the window already
-// exists.
+// CRM-1C audit correction (live browser failure): the false "popup
+// blocked" report was NOT an async-activation issue — an `async` function
+// runs synchronously up to its first `await`, and `window.open()` was
+// already the first statement, before any `await`. The actual defect was
+// in `openIsolatedPrintDocument.ts`'s own feature string: passing
+// `noopener`/`noreferrer` makes `window.open()` return `null` PER SPEC
+// even when a window is genuinely created, because the entire point of
+// `noopener` is that the caller gets no handle back — see that file's own
+// corrected comment. Fixed there, not here.
+//
+// This module keeps the open step (openRequestPrintWindow, below) as a
+// genuinely plain, non-async function called directly from the click
+// handler — see useRequestDrawerActions.ts's `runPrint`, the only caller —
+// with every async step (Preact render, stylesheet wait, print()) in a
+// separate continuation that only ever runs once the window already
+// exists. Harmless and still good practice, but it was never what fixed
+// the reported defect.
 
 import { render } from 'preact';
 import { QuoteProposalPreview } from '@/components/request-flow/QuoteProposalPreview';
