@@ -16,6 +16,8 @@ This file is the single source of truth for repository-wide guidance for human c
 
 Before normal repository startup, check `Project-work-instructions`; if it has newer changes, sync it and read `project-work/AGENTS.md` plus the active work file first.
 
+"Run the cycle" (or "run it" with no other context) means: check `Project-work-instructions` for updates, and if any are found, read the active work file and act on its status.
+
 ## Repository workflow
 
 Follow this path, omitting the Claude-specific startup step in tools that do not support it:
