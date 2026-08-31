@@ -126,6 +126,15 @@ check(
   'approved/cancelled status offers Print only (plus the always-present Close) — no opposite lifecycle action',
 );
 
+// CRM-1C audit correction: pending Print must honor the same busy-state
+// action lock as Approve/Cancel Request, not stay enabled during mutation.
+const pendingPrintAction = pendingBlock.match(/id:\s*'print'[\s\S]*?\n\s*},/);
+check(pendingPrintAction !== null, 'the pending branch has a print action descriptor');
+check(
+  pendingPrintAction !== null && /disabled:\s*busy/.test(pendingPrintAction[0]),
+  'CRM-1C correction: pending Print action is disabled while an Approve/Cancel mutation is in flight',
+);
+
 // ── The data source calls the durable-backed endpoint ───────────────────────
 
 check(

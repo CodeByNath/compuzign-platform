@@ -22,7 +22,7 @@ function check(label: string, cond: unknown, detail?: unknown): void {
 }
 
 async function main(): Promise<void> {
-  const { openIsolatedPrintDocument, stylesheetHrefsFor } = await import('../resources/ts/admin-station/stations/requests/openIsolatedPrintDocument');
+  const { openIsolatedPrintDocument, stylesheetHrefsFor, waitForStylesheets } = await import('../resources/ts/admin-station/stations/requests/openIsolatedPrintDocument');
 
   const config = { distUrl: 'https://cz-test.local/wp-content/plugins/compuzign-platform/dist/', atomicEngineUrl: 'https://cz-test.local/wp-content/plugins/compuzign-platform/atomic-engine/' };
 
@@ -87,8 +87,34 @@ async function main(): Promise<void> {
     check('an entirely absent config reports config-missing', !undefinedConfig.ok && undefinedConfig.reason === 'config-missing');
   }
 
-  // ── 4) Source-level proof: no live API/secret access, snapshot only ────
-  console.log('\n4) printRequestProposal.tsx touches no live API, catalog, or customer secret');
+  // ── 4) CRM-1C audit correction: stylesheet waiting is bounded/race-safe ─
+  console.log('\n4) waitForStylesheets() cannot hang forever and settles promptly once loaded');
+  {
+    const win = new Window({ url: 'https://cz-test.local/admin-station/' });
+    const doc = win.document as unknown as Document;
+
+    // A link neither 'load' nor 'error' ever fires on (the scenario that
+    // made the pre-fix version await forever) must still settle, bounded
+    // by the timeout fallback rather than by any stylesheet event.
+    const stuckLink = doc.createElement('link') as HTMLLinkElement;
+    const stuckStart = Date.now();
+    await waitForStylesheets([stuckLink], 60);
+    const stuckElapsed = Date.now() - stuckStart;
+    check('a link that never fires load/error still resolves, via the bounded timeout', stuckElapsed < 1000, `${stuckElapsed}ms`);
+
+    // A link that does fire 'load' must resolve on that event, not sit
+    // waiting out the full timeout window.
+    const loadingLink = doc.createElement('link') as HTMLLinkElement;
+    const loadStart = Date.now();
+    const loadPromise = waitForStylesheets([loadingLink], 5000);
+    loadingLink.dispatchEvent(new win.Event('load'));
+    await loadPromise;
+    const loadElapsed = Date.now() - loadStart;
+    check('a link that fires load resolves promptly, well before the timeout fallback', loadElapsed < 1000, `${loadElapsed}ms`);
+  }
+
+  // ── 5) Source-level proof: no live API/secret access, snapshot only ────
+  console.log('\n5) printRequestProposal.tsx touches no live API, catalog, or customer secret');
   {
     const root = resolve(import.meta.dirname, '..');
     const printSource = readFileSync(resolve(root, 'resources/ts/admin-station/stations/requests/printRequestProposal.tsx'), 'utf8');
@@ -102,13 +128,21 @@ async function main(): Promise<void> {
     check('printRequestProposal.tsx has no code-level reference to a view/quote secret', !/secret/i.test(printSourceNoComments), printSourceNoComments);
     check('printRequestProposal.tsx renders from its `request` parameter only, not a re-fetch', printSource.includes('request.items') && printSource.includes('request.quote_ref'));
     check('openIsolatedPrintDocument.ts never imports Preact (stays plain-DOM, contract-testable without rendering)', !/from ['"]preact/.test(isolatedDocSource));
+    check(
+      'waitForStylesheets() recognizes an already-loaded stylesheet up front, not only future load/error events',
+      isolatedDocSource.includes('link.sheet'),
+    );
+    check(
+      'waitForStylesheets() races every listener against a timeout so a missed/never-fired event cannot hang it',
+      /setTimeout/.test(isolatedDocSource) && /clearTimeout/.test(isolatedDocSource),
+    );
   }
 
   if (failures.length > 0) {
     console.error(`\n${failures.length} check(s) failed.`);
     process.exit(1);
   }
-  console.log('\nAll checks passed — Request print opens a genuinely isolated window, loads only the 4 expected stylesheets there, leaves the parent Admin Station document untouched, fails closed on popup-block/missing-config, and never re-fetches live data or a customer secret.');
+  console.log('\nAll checks passed — Request print opens a genuinely isolated window, loads only the 4 expected stylesheets there, leaves the parent Admin Station document untouched, fails closed on popup-block/missing-config, waits for stylesheets on a bounded/race-safe timeout, and never re-fetches live data or a customer secret.');
 }
 
 main().catch((error) => {

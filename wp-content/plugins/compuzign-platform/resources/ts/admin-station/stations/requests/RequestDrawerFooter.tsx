@@ -56,8 +56,9 @@ export function RequestDrawerFooter({ status, pendingAction, onClose, onApprove,
         tone: 'secondary',
         overflow: [],
         onSelect: onPrint,
-        // Printing doesn't mutate server state — it stays available even
-        // while an Approve/Cancel mutation is in flight.
+        // Honors the same busy-state action lock as Approve/Cancel — while
+        // a lifecycle mutation is in flight, every footer action disables.
+        disabled: busy,
       },
     );
   } else {

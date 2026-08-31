@@ -65,11 +65,30 @@ export function openIsolatedPrintDocument(
   return { ok: true, printWindow, mount, links };
 }
 
-export function waitForStylesheets(links: HTMLLinkElement[]): Promise<void> {
+// Print must never hang the drawer forever: a cached stylesheet has already
+// fired its one 'load' event before this function's listener attaches, and
+// some environments never fire 'load'/'error' for a given link at all. So
+// this recognizes an already-loaded sheet up front (`link.sheet !== null`)
+// and races every remaining listener against a short timeout fallback.
+const STYLESHEET_LOAD_TIMEOUT_MS = 2000;
+
+export function waitForStylesheets(
+  links: HTMLLinkElement[],
+  timeoutMs = STYLESHEET_LOAD_TIMEOUT_MS,
+): Promise<void> {
   return Promise.all(
     links.map((link) => new Promise<void>((resolve) => {
-      link.addEventListener('load', () => resolve(), { once: true });
-      link.addEventListener('error', () => resolve(), { once: true });
+      if (link.sheet !== null) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(resolve, timeoutMs);
+      const settle = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      link.addEventListener('load', settle, { once: true });
+      link.addEventListener('error', settle, { once: true });
     })),
   ).then(() => undefined);
 }
