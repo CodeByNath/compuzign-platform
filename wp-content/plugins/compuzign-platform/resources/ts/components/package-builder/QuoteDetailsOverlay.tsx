@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import {
-  resolveEffectiveTierDisplay,
-  computeTotalContractValue,
-  startingPaymentsByCycle,
-  chargeTypeLabel,
-} from '@/components/cost-builder/PricingTiers';
+import { resolveEffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
+import { computeTotalContractValue, startingPaymentsByCycle, chargeTypeLabel } from '@/utils/paymentSummary';
 import { formatPrice } from '@/utils/format';
 import { isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';

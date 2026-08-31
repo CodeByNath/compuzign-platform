@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { buildLegPaymentSummaries, computeTotalContractValue, cycleSuffix } from '@/components/cost-builder/PricingTiers';
-import type { LegPaymentSummary } from '@/components/cost-builder/PricingTiers';
+import { buildLegPaymentSummaries, cycleSuffix } from '@/components/cost-builder/PricingTiers';
+import { computeTotalContractValue } from '@/utils/paymentSummary';
+import type { LegPaymentSummary } from '@/utils/paymentSummary';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem } from '@/api/types/cost-builder';
 import { availablePeriodComponents, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
 

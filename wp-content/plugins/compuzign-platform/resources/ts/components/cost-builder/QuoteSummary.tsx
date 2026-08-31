@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
-import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from './PricingTiers';
+import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import type { CartItem, FamilyTierQuoteItem } from './types';
 
 interface QuoteSummaryProps {

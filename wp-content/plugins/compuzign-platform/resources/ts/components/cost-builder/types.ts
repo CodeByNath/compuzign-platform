@@ -1,5 +1,5 @@
 import type { ServiceInclusion, TierId } from '@/api/types/cost-builder';
-import type { LegPaymentSummary } from './PricingTiers';
+import type { LegPaymentSummary } from '@/utils/paymentSummary';
 
 // 'bundle' = recommended bundle; 'promotion' = active promotion tier offer
 export type QuoteItemTierId = TierId | 'bundle' | 'promotion';

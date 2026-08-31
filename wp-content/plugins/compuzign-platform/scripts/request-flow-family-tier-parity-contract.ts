@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { calcQuoteTotals, isFamilyTierQuoteItem } from '../resources/ts/utils/quote';
-import { computeTotalContractValue } from '../resources/ts/components/cost-builder/PricingTiers';
+import { computeTotalContractValue } from '../resources/ts/utils/paymentSummary';
 import type { FamilyTierQuoteItem, QuoteItem } from '../resources/ts/components/cost-builder/types';
-import type { LegPaymentSummary } from '../resources/ts/components/cost-builder/PricingTiers';
+import type { LegPaymentSummary } from '../resources/ts/utils/paymentSummary';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Request flow Family Tier parity: ${message}`);

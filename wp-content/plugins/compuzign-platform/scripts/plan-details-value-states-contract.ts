@@ -8,7 +8,7 @@ import {
   periodItemsTotalDisplay,
   dueAtPlanStartDisplay,
 } from '../resources/ts/components/package-builder/PlanDetailsModal';
-import type { LegPaymentSummary } from '../resources/ts/components/cost-builder/PricingTiers';
+import type { LegPaymentSummary } from '../resources/ts/utils/paymentSummary';
 import type { CommercialLegPricedItem } from '../resources/ts/api/types/cost-builder';
 
 function check(condition: unknown, message: string): asserts condition {

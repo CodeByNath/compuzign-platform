@@ -1,6 +1,6 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
-import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/components/cost-builder/PricingTiers';
+import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
