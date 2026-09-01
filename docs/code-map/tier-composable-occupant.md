@@ -1,13 +1,12 @@
 # Composable Tier Occupant
 
-**Phase 1A — backend/hook complete, admin UI not mounted.** Persistence,
-lifecycle, projection, identity, full Tier Edition CRUD/lifecycle/bin
-parity, and a typed `usePackageStation` hook (view + mutations) all exist
-and are exercised by real controller-level tests. No admin drawer screen
-renders any of it — `composableView()`/`saveComposableOverview()` etc. are
-ready for a future round to mount. No customer-facing inclusion/quantity/
-Price Option selection, cart key, quote snapshot, or promotion exists. Do
-not describe this as customer- or admin-reachable yet.
+**Phase 1B — backend, hook, and admin UI mount all complete; not yet
+browser-verified.** Persistence, lifecycle, projection, identity, Edition
+CRUD/lifecycle/bin parity, the `usePackageStation` hook, and a mounted
+admin card all exist. Backend is exercised by real controller-level tests;
+the UI compiles/builds clean but has not been interactively verified — see
+Admin UI below. No customer-facing selection, cart key, quote snapshot, or
+promotion exists.
 
 ## Purpose and ownership
 
@@ -19,9 +18,9 @@ assigned independently. It is one new sibling field on the Tier Instance,
 `composable_occupant` — a single nullable slot, not an array, so "exactly
 one occupant" is true by shape. Never added to `PackageSchema::ALLOWED_TIERS`.
 
-Package Station owns it like any other Tier Instance field.
+Package Station owns it like any Tier Instance field.
 `TierInstanceSchema::sanitizeInstance()` defaults it `null`; `is_addon` is
-not reused for it (an Add-on stays a `tiers[tierId]` occupant).
+not reused for it.
 
 ## Identity
 
@@ -31,18 +30,16 @@ occupant_id)` is not slot-qualified. Never `is_addon`, so never `CZTA`.
 Editions/Legs reuse `CZTE`/`CZTL`/`CZTEL` through dedicated
 `.../composable/editions/...` routes (full CRUD/lifecycle/bin parity).
 
-**Identity-adapter gap found and fixed during completion:**
-`PackageRepository`'s locate/claim/exists/assignment-page functions for
-`tierOccupant`, `tierLeg`, `tierEdition`, and `tierEditionLeg` (16 functions
-total) originally scanned only `instance.tiers[*]` and `instance.
-occupant_bin[]`. A composable occupant's native reference matched nothing,
-so `settleComposableOccupant()`'s `bind()` threw on first Publish even
-though `reserve()` and the station write succeeded — caught only by
-invoking the real controller against a real `PlatformIdentifierStation` in
-`tests/composable-occupant-controller-contract.php`, not by `php -l` or a
-pure-function test. All 16 now also check
-`instance.composable_occupant.current_occupant` as a fourth occupant
-location alongside the five `tiers` slots and `occupant_bin`.
+**Identity-adapter gap found and fixed:** `PackageRepository`'s locate/
+claim/exists/assignment-page functions for `tierOccupant`, `tierLeg`,
+`tierEdition`, `tierEditionLeg` (16 functions) originally scanned only
+`instance.tiers[*]`/`instance.occupant_bin[]`. A composable occupant's
+native reference matched nothing, so `bind()` threw on first Publish even
+though `reserve()`/the station write succeeded — caught only by invoking
+the real controller against a real `PlatformIdentifierStation` in
+`tests/composable-occupant-controller-contract.php`, not `php -l`. All 16
+now also check `instance.composable_occupant.current_occupant` as a
+fourth occupant location.
 
 ## Reused unchanged
 
@@ -51,49 +48,67 @@ location alongside the five `tiers` slots and `occupant_bin`.
 `revertTierModuleDraft()`, `sanitizeCommercialLegs()`, and the Rate
 Sheet/Leg/Edition engines in `PackageManagerSchema` are generic over "an
 occupant slot array," not `ALLOWED_TIERS`-hardcoded — all run unmodified
-against `composable_occupant`.
+against `composable_occupant`. On the frontend, `TierOverviewEditor`,
+`TierPricingRulesEditor`, `PoolInclusionsEditor`, `PoolFaqsEditor`, and
+`buildRateSheetCatalogue()` are all reused verbatim (not forked) by the
+composable card — the first three are pure `{draft, onChange}` components
+with no Tier-specific coupling already.
 
 ## Dedicated (not reused)
 
-- `PackageStationController` `SECTION: COMPOSABLE_OCCUPANT` — module save/
-  revert/enable-disable/settle, plus `SECTION: COMPOSABLE_OCCUPANT_EDITION`
-  (11 methods, mirroring `SECTION: TIER_EDITION`/`TIER_EDITION_BIN`) — all
-  calling the same `PackageSchema` functions the `tiers/{tier}/...` routes
-  call, addressed at `instance.composable_occupant`. No existing tier or
-  Edition route/method is touched.
-- `PackageSchema::archiveComposableOccupant()`/`restoreComposableOccupant()`
-  — dedicated, NOT the `ALLOWED_TIERS`-coupled `archiveTierOccupant()`/
-  `restoreBinnedOccupant()` (which support swap/retarget across the five
-  peer slots — never valid here; an occupied slot blocks with
-  `target_occupied`). `trashBinnedOccupant()`/`deleteBinnedOccupant()` are
-  reused unchanged. Bin `origin_tier` uses sentinel
-  `PackageSchema::COMPOSABLE_OCCUPANT_ORIGIN`, accepted by
-  `ensureOccupantBin()`'s whitelist alongside (never joining) `ALLOWED_TIERS`.
-- `PackageRepository::compileOccupantSlotForCostBuilder()`/
-  `enrichCompiledOccupantIdentity()` and
-  `PackageStationController::compileAdminOccupantDetail()` — extracted from
-  the per-tier loops so `tiers[tierId]` and the composable child compile
-  through one shared function each, attached as sibling key
-  `composable_offer`/`composable_occupant`, never merged into `tiers`.
+- `PackageStationController` `SECTION: COMPOSABLE_OCCUPANT` (module save/
+  revert/enable-disable/settle) and `SECTION: COMPOSABLE_OCCUPANT_EDITION`
+  (11 methods mirroring `SECTION: TIER_EDITION`/`TIER_EDITION_BIN`) — call
+  the same `PackageSchema` functions the `tiers/{tier}/...` routes call,
+  addressed at `instance.composable_occupant`. No existing route touched.
+- `archiveComposableOccupant()`/`restoreComposableOccupant()` — NOT the
+  `ALLOWED_TIERS`-coupled, swap/retarget-capable
+  `archiveTierOccupant()`/`restoreBinnedOccupant()` (never valid here — an
+  occupied slot blocks with `target_occupied`). `trashBinnedOccupant()`/
+  `deleteBinnedOccupant()` are reused unchanged. Bin `origin_tier` uses
+  sentinel `COMPOSABLE_OCCUPANT_ORIGIN`, accepted alongside (never joining)
+  `ALLOWED_TIERS`.
+- `compileOccupantSlotForCostBuilder()`/`enrichCompiledOccupantIdentity()`/
+  `compileAdminOccupantDetail()` — extracted from the per-tier loops so
+  `tiers[tierId]` and the composable child compile through one shared
+  function each, attached as sibling key `composable_offer`/
+  `composable_occupant`, never merged into `tiers`.
   `PackageFamilyPricingBuilder::presentOccupant()` — same extraction
-  publicly; appears only when configured and fully identified (real `CZT`).
+  publicly, appearing only when fully identified (real `CZT`).
 - `usePackageStation.ts` — `buildTierViewFromSlot()` extracted from
-  `tierView()` so `composableView()` derives the identical draft-preferred,
-  live-priced view from `station.composable_occupant`. Mutation set mirrors
-  the tierId-keyed one, minus the key and `setPopularTier`.
+  `tierView()` so `composableView()` derives the same draft-preferred view.
+  Mutation set mirrors the tierId-keyed one, minus the key and
+  `setPopularTier`.
+- `ComposableOccupantCard.tsx` (new) — its own small local `useState` edit
+  state, not the tierId-keyed `useTierModuleEditing`/`useTierBinTravel` the
+  five normal occupants share — deliberately lighter than the full
+  schema-driven module system the individual-tier screen uses.
+
+## Admin UI
+
+Mounted in `TierDrawerContent.tsx`'s package-overview Details screen, as
+one additive section after the five `tierOccupants` cards and before the
+Pricing Summary table — never inside `TIER_KEYS`/`tierOccupants`, the
+"Current (N)" count, the table rows, or individual-tier navigation. Path:
+absent → Create (Overview) → Pending identity → Pricing Rules/Features/
+FAQs → Publish → Enable/Disable, plus a minimal Editions section (create +
+one-click Publish only — no module editing or bin UI for Editions).
+`TierOverviewEditor` gained an additive `hideAddonAndPopular` prop
+(default `false`, every caller unaffected) so the card reuses it without
+the Add-on/popular checkboxes, which do not apply here. No archive/restore
+UI yet, though the API exists.
+
+**Not interactively verified.** `TierDrawerContent.tsx`/
+`useTierDrawerController.ts` are the locked, historically bug-prone
+four-group Tier drawer — `package-station/CLAUDE.md` documents defects
+caught only by live browser validation, not code review or `tsc`/`build`.
+Authorized to proceed without a live browser this round, with validation
+deferred to the reviewer after source review.
 
 ## Not yet built
 
-**Admin drawer/launcher UI** — the one remaining Phase 1A item. The hook is
-ready; no screen mounts it. `TierDrawerContent.tsx`/`useTierDrawerController.
-ts` (the locked, historically bug-prone four-group Tier drawer —
-`package-station/CLAUDE.md` documents defects caught only by live browser
-validation, not code review) were deliberately not touched without a way to
-verify chrome/footer/focused-task-shell behavior interactively. Composable
-archive/restore also has no UI affordance yet, though the API exists.
-
-Also not built: customer-facing inclusion/quantity/Price Option selection,
-cart key (`FamilyTierQuoteItem`), quote snapshot, PDF/email, promotions.
+Customer inclusion/quantity/Price Option selection, cart key
+(`FamilyTierQuoteItem`), quote snapshot, PDF/email, promotions.
 `TierInstanceSchema::deriveInstanceStatus()` never reads
 `composable_occupant` — it can never make the parent Tier Instance Active.
 

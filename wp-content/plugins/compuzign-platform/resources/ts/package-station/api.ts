@@ -32,6 +32,7 @@ import type {
   ComposableOccupantLifecycleResponse,
   ComposableOccupantArchiveResponse,
   ComposableOccupantRestoreResponse,
+  ComposableOccupantEditionResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -418,6 +419,32 @@ export function restoreComposableOccupant(
   return apiClient.post<ComposableOccupantRestoreResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/restore/${binId}`,
     { discard_drafts: discardDrafts },
+  );
+}
+
+// Phase 1B — minimal composable-owned Edition management (create + status
+// transition only; full module editing/bin travel are not wired to the
+// admin surface yet — see docs/code-map/tier-composable-occupant.md).
+export function createComposableOccupantEdition(
+  serviceId: number,
+  tierInstanceId: string,
+  payload: Partial<TierEditionOverviewDraft>,
+): Promise<ComposableOccupantEditionResponse> {
+  return apiClient.post<ComposableOccupantEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions`,
+    payload,
+  );
+}
+
+export function updateComposableOccupantEditionStatus(
+  serviceId: number,
+  tierInstanceId: string,
+  editionId: string,
+  change: { platform_status: 'active' | 'disabled' | 'archived' | 'trashed' } | { action: 'disable' | 'enable' },
+): Promise<ComposableOccupantEditionResponse> {
+  return apiClient.patch<ComposableOccupantEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}/status`,
+    change,
   );
 }
 

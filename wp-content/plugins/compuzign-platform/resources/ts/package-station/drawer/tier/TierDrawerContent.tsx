@@ -35,6 +35,7 @@ import { TierDrawerFooter } from './TierDrawerFooter';
 import { TierBinList } from './TierBinList';
 import { TierDrawerDialogs } from './TierDrawerDialogs';
 import { TierEditionDeclarationSwitcher } from './TierEditionDeclarationSwitcher';
+import { ComposableOccupantCard } from './ComposableOccupantCard';
 import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
@@ -292,6 +293,13 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
                     </ReadBlock>
                   );
                 })}
+
+                {/* Phase 1B — the subordinate composable occupant. Deliberately
+                    NOT one of the TIER_KEYS/tierOccupants cards above and NOT
+                    part of the "Current (N)" count, the Pricing Summary table,
+                    or individual-tier navigation below — a clearly separate,
+                    visually subordinate section. See ComposableOccupantCard.tsx. */}
+                <ComposableOccupantCard pkg={c.pkg} serviceId={props.serviceId} tierInstanceId={props.tierInstanceId} />
 
                 <div class="cz-shell-section cz-shell-section--no-border">
                   <p class="cz-shell-section__title">Pricing Summary</p>

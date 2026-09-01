@@ -28,9 +28,15 @@ export type TierOverviewEditDraft = TierOverviewDraft & {
 interface Props {
   draft:    TierOverviewEditDraft;
   onChange: (patch: Partial<TierOverviewEditDraft>) => void;
+  // Composable occupant reuse (Phase 1B): is_addon/popular are five-slot
+  // Tier concepts that do not apply to the subordinate composable occupant
+  // (see docs/code-map/tier-composable-occupant.md) — hide those two
+  // fields rather than fork a second Overview editor. Defaults to shown so
+  // every existing caller is unaffected.
+  hideAddonAndPopular?: boolean;
 }
 
-export function TierOverviewEditor({ draft, onChange }: Props) {
+export function TierOverviewEditor({ draft, onChange, hideAddonAndPopular = false }: Props) {
   const isAddon: boolean = draft.is_addon ?? false;
   // An occupant belongs to its Tier Group, not one customer audience. Unset
   // defaults to every group.
@@ -79,20 +85,24 @@ export function TierOverviewEditor({ draft, onChange }: Props) {
           onChange={(contact) => onChange({ contact })}
         />
 
-        <AdminField
-          def={{ id: 'tier-is-addon', type: 'checkbox', label: 'Make this Tier an add-on' }}
-          value={isAddon}
-          onChange={(is_addon) => onChange({ is_addon })}
-        />
+        {!hideAddonAndPopular && (
+          <AdminField
+            def={{ id: 'tier-is-addon', type: 'checkbox', label: 'Make this Tier an add-on' }}
+            value={isAddon}
+            onChange={(is_addon) => onChange({ is_addon })}
+          />
+        )}
 
-        <AdminField
-          def={{ id: 'tier-popular', type: 'checkbox', label: 'Mark as popular tier' }}
-          value={draft.popular}
-          onChange={(popular) => onChange({ popular })}
-        />
+        {!hideAddonAndPopular && (
+          <AdminField
+            def={{ id: 'tier-popular', type: 'checkbox', label: 'Mark as popular tier' }}
+            value={draft.popular}
+            onChange={(popular) => onChange({ popular })}
+          />
+        )}
       </div>
 
-      {draft.popular && (
+      {!hideAddonAndPopular && draft.popular && (
         <AdminField
           def={{ id: 'tier-popular-label', type: 'text', label: 'Popular badge label' }}
           value={draft.popular_label}

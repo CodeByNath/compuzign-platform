@@ -723,6 +723,16 @@ export interface TierEditionResponse {
   message?:    string;
 }
 
+// Phase 1B — the composable occupant's own Edition responses. Same shape as
+// TierEditionResponse minus `tier_id` (this occupant is never slot-keyed).
+export interface ComposableOccupantEditionResponse {
+  success:    boolean;
+  tier_instance_id?: string;
+  edition_id: string;
+  edition?:   TierEdition;
+  message?:   string;
+}
+
 // Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response
 // carried by the package station. `overview` holds tier-owned scalars; `features`
 // and `faqs` hold references into the service pool (anchor/consumer model).
