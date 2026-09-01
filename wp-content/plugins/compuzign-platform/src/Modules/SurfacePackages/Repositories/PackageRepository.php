@@ -638,6 +638,20 @@ class PackageRepository
                 $matches++;
             }
         }
+        // Phase 1A — the subordinate composable_occupant slot is a fourth
+        // occupant location alongside the five `tiers` slots and the
+        // occupant_bin, addressed the same way (by occupant id, never a
+        // slot key): this is what closes the identity-adapter gap that made
+        // Publish fail to bind for a composable occupant.
+        $composableOccupant = is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            ? $instance['composable_occupant']['current_occupant']
+            : null;
+        if ($composableOccupant !== null && (string) ($composableOccupant['id'] ?? '') === $parts[1]) {
+            $stored = (string) ($composableOccupant[$key] ?? '');
+            if ($stored !== '' && $stored !== $platformId) return false;
+            $instance['composable_occupant']['current_occupant'][$key] = $platformId;
+            $matches++;
+        }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $index => $entry) {
             if (is_array($entry['occupant'] ?? null) && (string) ($entry['occupant']['id'] ?? '') === $parts[1]) {
                 $stored = (string) ($entry['occupant'][$key] ?? '');
@@ -661,6 +675,10 @@ class PackageRepository
             foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
                 if (is_array($slot['current_occupant'] ?? null) && ($slot['current_occupant'][$key] ?? '') === $platformId) return true;
             }
+            if (is_array($instance['composable_occupant']['current_occupant'] ?? null)
+                && ($instance['composable_occupant']['current_occupant'][$key] ?? '') === $platformId) {
+                return true;
+            }
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 if (is_array($entry['occupant'] ?? null) && ($entry['occupant'][$key] ?? '') === $platformId) return true;
             }
@@ -682,6 +700,12 @@ class PackageRepository
                 $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
                 $this->appendEligibleOccupantReference($references, $instanceId, $occupant, $addon);
             }
+            $this->appendEligibleOccupantReference(
+                $references,
+                $instanceId,
+                is_array($instance['composable_occupant']['current_occupant'] ?? null) ? $instance['composable_occupant']['current_occupant'] : null,
+                $addon
+            );
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
                 $this->appendEligibleOccupantReference($references, $instanceId, $occupant, $addon);
@@ -718,6 +742,12 @@ class PackageRepository
         foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
             $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
             if ($occupant !== null && (string) ($occupant['id'] ?? '') === $parts[1]) $matches[] = ['tier_instance_id' => $parts[0], 'location' => 'slot:' . $slotId, 'occupant' => $occupant];
+        }
+        $composableOccupant = is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            ? $instance['composable_occupant']['current_occupant']
+            : null;
+        if ($composableOccupant !== null && (string) ($composableOccupant['id'] ?? '') === $parts[1]) {
+            $matches[] = ['tier_instance_id' => $parts[0], 'location' => 'composable', 'occupant' => $composableOccupant];
         }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
             $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
@@ -764,6 +794,11 @@ class PackageRepository
             $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
             if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
             if (!$this->writeTierLegPlatformId($instance['tiers'][$slotId]['current_occupant'], $legId, $platformId)) return false;
+            $matches++;
+        }
+        if (is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            && (string) ($instance['composable_occupant']['current_occupant']['id'] ?? '') === $occupantId) {
+            if (!$this->writeTierLegPlatformId($instance['composable_occupant']['current_occupant'], $legId, $platformId)) return false;
             $matches++;
         }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $binIndex => $entry) {
@@ -813,6 +848,7 @@ class PackageRepository
             foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
                 if ($this->tierLegListHasPlatformId($slot['current_occupant'] ?? null, $platformId)) return true;
             }
+            if ($this->tierLegListHasPlatformId($instance['composable_occupant']['current_occupant'] ?? null, $platformId)) return true;
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 if ($this->tierLegListHasPlatformId($entry['occupant'] ?? null, $platformId)) return true;
             }
@@ -843,6 +879,7 @@ class PackageRepository
             foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
                 $this->appendEligibleLegReferences($references, $instanceId, $slot['current_occupant'] ?? null);
             }
+            $this->appendEligibleLegReferences($references, $instanceId, $instance['composable_occupant']['current_occupant'] ?? null);
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 $this->appendEligibleLegReferences($references, $instanceId, $entry['occupant'] ?? null);
             }
@@ -894,6 +931,13 @@ class PackageRepository
             if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
             $leg = $this->resolveTierLegRecord($occupant, $legId);
             if ($leg !== null) $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'slot:' . $slotId, 'leg' => $leg];
+        }
+        $composableOccupant = is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            ? $instance['composable_occupant']['current_occupant']
+            : null;
+        if ($composableOccupant !== null && (string) ($composableOccupant['id'] ?? '') === $occupantId) {
+            $leg = $this->resolveTierLegRecord($composableOccupant, $legId);
+            if ($leg !== null) $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'composable', 'leg' => $leg];
         }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
             $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
@@ -962,6 +1006,25 @@ class PackageRepository
                 $matches++;
             }
         }
+        if (is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            && (string) ($instance['composable_occupant']['current_occupant']['id'] ?? '') === $occupantId) {
+            $composableOccupant = $instance['composable_occupant']['current_occupant'];
+            foreach (is_array($composableOccupant['tier_editions'] ?? null) ? $composableOccupant['tier_editions'] : [] as $index => $edition) {
+                if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['composable_occupant']['current_occupant']['tier_editions'][$index]['edition_platform_id'] = $platformId;
+                $matches++;
+            }
+            foreach (is_array($composableOccupant['tier_edition_bin'] ?? null) ? $composableOccupant['tier_edition_bin'] : [] as $binIndex => $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['composable_occupant']['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $binIndex => $entry) {
             $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
             if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
@@ -996,6 +1059,7 @@ class PackageRepository
                 $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
                 if ($this->tierEditionListHasPlatformId($occupant, $platformId)) return true;
             }
+            if ($this->tierEditionListHasPlatformId($instance['composable_occupant']['current_occupant'] ?? null, $platformId)) return true;
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
                 if ($this->tierEditionListHasPlatformId($occupant, $platformId)) return true;
@@ -1018,6 +1082,7 @@ class PackageRepository
                 $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
                 $this->appendEligibleEditionReferences($references, $instanceId, $occupant);
             }
+            $this->appendEligibleEditionReferences($references, $instanceId, $instance['composable_occupant']['current_occupant'] ?? null);
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
                 $this->appendEligibleEditionReferences($references, $instanceId, $occupant);
@@ -1064,6 +1129,22 @@ class PackageRepository
                 $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
                 if ($edition !== null && (string) ($edition['id'] ?? '') === $editionId) {
                     $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'slot:' . $slotId . ':edition-bin:' . (string) ($binEntry['bin_id'] ?? ''), 'edition' => $edition];
+                }
+            }
+        }
+        $composableOccupant = is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            ? $instance['composable_occupant']['current_occupant']
+            : null;
+        if ($composableOccupant !== null && (string) ($composableOccupant['id'] ?? '') === $occupantId) {
+            foreach (is_array($composableOccupant['tier_editions'] ?? null) ? $composableOccupant['tier_editions'] : [] as $edition) {
+                if (is_array($edition) && (string) ($edition['id'] ?? '') === $editionId) {
+                    $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'composable', 'edition' => $edition];
+                }
+            }
+            foreach (is_array($composableOccupant['tier_edition_bin'] ?? null) ? $composableOccupant['tier_edition_bin'] : [] as $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition !== null && (string) ($edition['id'] ?? '') === $editionId) {
+                    $matches[] = ['tier_instance_id' => $instanceId, 'occupant_id' => $occupantId, 'location' => 'composable:edition-bin:' . (string) ($binEntry['bin_id'] ?? ''), 'edition' => $edition];
                 }
             }
         }
@@ -1157,6 +1238,21 @@ class PackageRepository
                 $matches++;
             }
         }
+        if (is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            && (string) ($instance['composable_occupant']['current_occupant']['id'] ?? '') === $occupantId) {
+            $composableOccupant = $instance['composable_occupant']['current_occupant'];
+            foreach (is_array($composableOccupant['tier_editions'] ?? null) ? $composableOccupant['tier_editions'] : [] as $index => $edition) {
+                if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                if (!$this->writeTierLegPlatformId($instance['composable_occupant']['current_occupant']['tier_editions'][$index], $legId, $platformId)) return false;
+                $matches++;
+            }
+            foreach (is_array($composableOccupant['tier_edition_bin'] ?? null) ? $composableOccupant['tier_edition_bin'] : [] as $binIndex => $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                if (!$this->writeTierLegPlatformId($instance['composable_occupant']['current_occupant']['tier_edition_bin'][$binIndex]['edition'], $legId, $platformId)) return false;
+                $matches++;
+            }
+        }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $binIndex => $entry) {
             $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
             if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
@@ -1187,6 +1283,7 @@ class PackageRepository
                 $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
                 if ($this->tierEditionLegListHasPlatformId($occupant, $platformId)) return true;
             }
+            if ($this->tierEditionLegListHasPlatformId($instance['composable_occupant']['current_occupant'] ?? null, $platformId)) return true;
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
                 if ($this->tierEditionLegListHasPlatformId($occupant, $platformId)) return true;
@@ -1221,6 +1318,7 @@ class PackageRepository
             foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
                 $this->appendEligibleEditionLegReferences($references, $instanceId, $slot['current_occupant'] ?? null);
             }
+            $this->appendEligibleEditionLegReferences($references, $instanceId, $instance['composable_occupant']['current_occupant'] ?? null);
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 $this->appendEligibleEditionLegReferences($references, $instanceId, $entry['occupant'] ?? null);
             }

@@ -11,6 +11,10 @@ import {
   restoreServicePackageStationBinEntry,
   trashServicePackageStationBinEntry,
   deleteServicePackageStationBinEntry,
+  saveComposableOccupantModule,
+  revertComposableOccupantModule,
+  setComposableOccupantEnabled,
+  settleComposableOccupant,
 } from './api';
 // Service owns the inclusion/FAQ pools; the Package Station creates canonical
 // items through the Service boundary.
@@ -30,6 +34,7 @@ import type {
   OccupantBinEntry,
   TierModuleKey,
   TierRateSheetSelection,
+  ComposableOccupantLifecycleResponse,
 } from './types';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
 import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
@@ -72,8 +77,12 @@ export type PackageStationTier = SurfaceTierDetail & {
   module_status: Record<string, string>;
 };
 
-type NormStation = Omit<ServicePackageStationData, 'tiers'> & {
+type NormStation = Omit<ServicePackageStationData, 'tiers' | 'composable_occupant'> & {
   tiers: Record<string, PackageStationTier>;
+  // Phase 1A — the subordinate composable child. Null until an admin
+  // creates one; never keyed like `tiers`, matching the same single-slot
+  // shape the backend already enforces.
+  composable_occupant: PackageStationTier | null;
 };
 type NormDetail = Omit<ServicePackageStationResponse, 'station'> & { station: NormStation };
 
@@ -93,7 +102,15 @@ function normDetail(res: ServicePackageStationResponse): NormDetail {
   for (const key of Object.keys(res.station.tiers)) {
     tiers[key] = normTier(res.station.tiers[key]);
   }
-  return { ...res, station: { ...res.station, tiers } };
+  const composable = res.station.composable_occupant;
+  return {
+    ...res,
+    station: {
+      ...res.station,
+      tiers,
+      composable_occupant: composable ? normTier(composable) : null,
+    },
+  };
 }
 
 // Draft-preferred detail: draft wins over the settled occupant per module.
@@ -172,6 +189,19 @@ export interface PackageStation {
   setPopularTier:   (tierId: string | null, label: string) => Promise<boolean>;
   // Live-state toggle (separate lifecycle action).
   toggleTierEnabled: (tierId: string, enabled: boolean) => Promise<boolean>;
+  // ── Composable occupant (Phase 1A) ──────────────────────────────────────
+  // The single subordinate slot's own draft-preferred view + mutations —
+  // same shape as the tierId-keyed set above, minus the key (there is only
+  // ever one) and minus popular (a five-slot-only concept). Null view until
+  // an admin creates one (first Overview save).
+  composableView: () => PackageStationTierView | null;
+  saveComposableOverview:     (draft: TierOverviewDraft) => Promise<ComposableOccupantLifecycleResponse | null>;
+  saveComposablePricingRules: (draft: TierPricingRulesDraft) => Promise<ComposableOccupantLifecycleResponse | null>;
+  saveComposableFeatures:     (refs: TierRateSheetSelection[]) => Promise<ComposableOccupantLifecycleResponse | null>;
+  saveComposableFaqs:         (refs: string[]) => Promise<ComposableOccupantLifecycleResponse | null>;
+  revertComposableModule:     (module: TierModuleKey) => Promise<ComposableOccupantLifecycleResponse | null>;
+  settleComposable:           () => Promise<ComposableOccupantLifecycleResponse | null>;
+  toggleComposableEnabled:    (enabled: boolean) => Promise<boolean>;
   // ── Occupant travel (engine D2–D4) ──────────────────────────────────────
   // The shell never travels; the occupant does. These return the raw response
   // so the consumer can key confirm flows on `code` (pending_drafts,
@@ -221,10 +251,11 @@ export function usePackageStation(
     [detail],
   );
 
-  const tierView = useCallback((tierId: string): PackageStationTierView | null => {
-    const slot = detail?.station.tiers[tierId];
-    if (!slot) return null;
-
+  // Extracted from tierView's own body (Phase 1A) so the composable
+  // occupant's single slot can build the exact same draft-preferred,
+  // live-priced, per-module-evaluated view as any tiers[tierId] entry — one
+  // shared derivation, never a second one for the composable slot.
+  const buildTierViewFromSlot = useCallback((slot: PackageStationTier): PackageStationTierView => {
     const dp = draftPreferredDetail(slot);
     // Row identity is (rate_sheet_id, item_id): resolve within the sheet this Tier
     // is bound to, never a bare scan across sheets.
@@ -325,6 +356,18 @@ export function usePackageStation(
       },
     };
   }, [detail, platformStatus]);
+
+  const tierView = useCallback((tierId: string): PackageStationTierView | null => {
+    const slot = detail?.station.tiers[tierId];
+    if (!slot) return null;
+    return buildTierViewFromSlot(slot);
+  }, [detail, buildTierViewFromSlot]);
+
+  const composableView = useCallback((): PackageStationTierView | null => {
+    const slot = detail?.station.composable_occupant;
+    if (!slot) return null;
+    return buildTierViewFromSlot(slot);
+  }, [detail, buildTierViewFromSlot]);
 
   // Persist-through patch: patch the tier slot's draft + module_status in place from
   // the endpoint response, so derived values recompute without a refetch.
@@ -434,6 +477,137 @@ export function usePackageStation(
       if (e instanceof ApiTimeoutError) throw e;
       return null;
     } finally { setSaving(false); }
+  }, [serviceId, tierInstanceId, onRefresh]);
+
+  // ── Composable occupant (Phase 1A) — the single subordinate slot's own
+  // mutation set, mirroring saveTierOverview/saveTierPricingRules/
+  // saveTierFeatures/saveTierFaqs/revertTierModule/settleTier/
+  // toggleTierEnabled exactly, minus the tierId param (there is only ever
+  // one slot) and minus popular (a five-slot-only concept). No dedicated
+  // archive/restore UI wiring yet — the API/backend support it
+  // (archiveComposableOccupant/restoreComposableOccupant in api.ts), but
+  // no admin surface mounts this hook yet either; a future round wires
+  // both together.
+
+  const patchComposableModule = useCallback((module: TierModuleKey, res: ComposableOccupantLifecycleResponse) => {
+    setDetail(prev => {
+      if (!prev || !prev.station.composable_occupant) return prev;
+      const merged: PackageStationTier = {
+        ...prev.station.composable_occupant,
+        drafts:        { ...prev.station.composable_occupant.drafts, [module]: res.drafts[module] },
+        module_status: res.module_status,
+      };
+      return {
+        ...prev,
+        station: {
+          ...prev.station,
+          composable_occupant: {
+            ...merged,
+            occupant_id:            res.occupant.occupant_id,
+            platform_id:            res.occupant.platform_id,
+            is_explicitly_disabled: res.occupant.is_explicitly_disabled ?? false,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const saveComposableModule = useCallback(async (module: TierModuleKey, payload: Parameters<typeof saveComposableOccupantModule>[3]) => {
+    if (tierInstanceId === null) return null;
+    setSaving(true);
+    try {
+      const res = await saveComposableOccupantModule(serviceId, tierInstanceId, module, payload);
+      if (res.success) {
+        // First save on an empty slot: the settled occupant did not exist in
+        // local state yet (composable_occupant was null) — seed it from the
+        // response rather than relying on patchComposableModule's merge,
+        // which needs an existing slot to merge into.
+        setDetail(prev => {
+          if (!prev) return prev;
+          if (!prev.station.composable_occupant) {
+            return {
+              ...prev,
+              station: {
+                ...prev.station,
+                composable_occupant: normTier({ ...res.occupant, drafts: res.drafts, module_status: res.module_status }),
+              },
+            };
+          }
+          return prev;
+        });
+        patchComposableModule(module, res);
+        onRefresh?.();
+      }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, tierInstanceId, onRefresh, patchComposableModule]);
+
+  const saveComposableOverview = useCallback(
+    (draft: TierOverviewDraft) => saveComposableModule('overview', draft),
+    [saveComposableModule],
+  );
+  const saveComposablePricingRules = useCallback(
+    (draft: TierPricingRulesDraft) => saveComposableModule('pricing_rules', draft),
+    [saveComposableModule],
+  );
+  const saveComposableFeatures = useCallback(
+    (refs: TierRateSheetSelection[]) => saveComposableModule('features', { rate_sheet_items: refs }),
+    [saveComposableModule],
+  );
+  const saveComposableFaqs = useCallback(
+    (refs: string[]) => saveComposableModule('faqs', { faq_refs: refs }),
+    [saveComposableModule],
+  );
+
+  const revertComposableModule = useCallback(async (module: TierModuleKey) => {
+    if (tierInstanceId === null) return null;
+    setSaving(true);
+    try {
+      const res = await revertComposableOccupantModule(serviceId, tierInstanceId, module);
+      if (res.success) { patchComposableModule(module, res); onRefresh?.(); }
+      return res;
+    } catch { return null; } finally { setSaving(false); }
+  }, [serviceId, tierInstanceId, onRefresh, patchComposableModule]);
+
+  const settleComposable = useCallback(async () => {
+    if (tierInstanceId === null) return null;
+    setSaving(true);
+    try {
+      const res = await settleComposableOccupant(serviceId, tierInstanceId);
+      if (res.success) {
+        setDetail(prev => prev ? {
+          ...prev,
+          station: {
+            ...prev.station,
+            composable_occupant: normTier({ ...res.occupant, drafts: res.drafts, module_status: res.module_status }),
+          },
+        } : prev);
+        onRefresh?.();
+      }
+      return res;
+    } catch (e) {
+      if (e instanceof ApiTimeoutError) throw e;
+      return null;
+    } finally { setSaving(false); }
+  }, [serviceId, tierInstanceId, onRefresh]);
+
+  const toggleComposableEnabled = useCallback(async (enabled: boolean) => {
+    if (tierInstanceId === null) return false;
+    setSaving(true);
+    try {
+      const res = await setComposableOccupantEnabled(serviceId, tierInstanceId, enabled);
+      if (res.success) {
+        setDetail(prev => prev ? {
+          ...prev,
+          station: {
+            ...prev.station,
+            composable_occupant: normTier({ ...res.occupant, drafts: res.drafts, module_status: res.module_status }),
+          },
+        } : prev);
+        onRefresh?.();
+      }
+      return res.success;
+    } catch { return false; } finally { setSaving(false); }
   }, [serviceId, tierInstanceId, onRefresh]);
 
   // Station-level popular tier — patches station.popular_tier/label in place.
@@ -608,6 +782,14 @@ export function usePackageStation(
     settleTier,
     setPopularTier,
     toggleTierEnabled,
+    composableView,
+    saveComposableOverview,
+    saveComposablePricingRules,
+    saveComposableFeatures,
+    saveComposableFaqs,
+    revertComposableModule,
+    settleComposable,
+    toggleComposableEnabled,
     occupantBin:    station?.occupant_bin ?? [],
     archiveTier,
     restoreOccupant,

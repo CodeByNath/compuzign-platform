@@ -370,6 +370,77 @@ class PackageStationController
             'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
         ]);
 
+        // Composable occupant's own Editions — full CZTE/CZTEL parity,
+        // addressed one level deeper under /composable/, never a `tier`
+        // slot-key segment. See SECTION: COMPOSABLE_OCCUPANT_EDITION.
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions', [
+            'methods' => 'POST', 'callback' => [$this, 'createComposableOccupantEdition'],
+            'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)', [
+            'methods' => 'POST', 'callback' => [$this, 'saveComposableOccupantEditionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)/settle', [
+            'methods' => 'POST', 'callback' => [$this, 'settleComposableOccupantEditionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)/modules/(?P<module>[a-z]+)/revert', [
+            'methods' => 'POST', 'callback' => [$this, 'revertComposableOccupantEditionModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string'], 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)/status', [
+            'methods' => 'PATCH', 'callback' => [$this, 'updateComposableOccupantEditionStatus'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string'],
+                'platform_status' => ['required' => false, 'type' => 'string', 'enum' => [
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_ACTIVE,
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_DISABLED,
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_ARCHIVED,
+                    \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::STATUS_TRASHED,
+                ]],
+                'action' => ['required' => false, 'type' => 'string', 'enum' => ['disable', 'enable']],
+            ],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)/restore', [
+            'methods' => 'POST', 'callback' => [$this, 'restoreComposableOccupantEditionEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)', [
+            'methods' => 'DELETE', 'callback' => [$this, 'deleteComposableOccupantEditionEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)/bin', [
+            'methods' => 'POST', 'callback' => [$this, 'moveComposableOccupantEditionToBinEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/editions/(?P<edition>edt_[a-z0-9]+)/move-to-bin', [
+            'methods' => 'POST', 'callback' => [$this, 'moveComposableOccupantEditionToBinCommand'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'edition' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/edition-bin/(?P<bin>[a-z0-9_]+)/restore', [
+            'methods' => 'POST', 'callback' => [$this, 'restoreComposableOccupantEditionFromBinEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/edition-bin/(?P<bin>[a-z0-9_]+)/trash', [
+            'methods' => 'POST', 'callback' => [$this, 'trashComposableOccupantEditionBinEntryEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/edition-bin/(?P<bin>[a-z0-9_]+)', [
+            'methods' => 'DELETE', 'callback' => [$this, 'deleteComposableOccupantEditionBinEntryEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+
         // Package Station Manager — operational-facts-only read model.
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/manager', [
             'methods'             => 'GET',
@@ -2690,6 +2761,494 @@ class PackageStationController
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
             'occupant_bin'  => $result['station']['occupant_bin'],
+        ]));
+    }
+
+    // ===================================================================
+    // SECTION: COMPOSABLE_OCCUPANT_EDITION
+    // ===================================================================
+    // Full CZTE/CZTEL parity for the composable occupant's own Editions,
+    // completing the "reuse the full occupant feature set" requirement.
+    // Every PackageSchema Edition/Edition-bin function below (addTierEdition,
+    // saveTierEditionDraft, settleTierEditionOverview, revertTierEditionOverview,
+    // applyTierEditionStatus, applyTierEditionDisabledMask, restoreTierEdition,
+    // deleteTierEdition, moveTierEditionToBin, restoreTierEditionFromBin,
+    // trashTierEditionBinEntry, deleteTierEditionBinEntry) already takes an
+    // `$editions`/`$occupant` array directly — it was never `tierId`-coupled,
+    // only SECTION: TIER_EDITION's own context resolver/write-back were. So
+    // this section is exactly that same pair, dedicated to
+    // `composable_occupant`, plus the same 11 thin wrapper methods —
+    // no Edition lifecycle/identity rule is duplicated or forked.
+
+    /**
+     * Resolve the composable Edition addressing chain: instance ->
+     * composable_occupant -> occupant -> Edition. Mirrors tierEditionContext()
+     * exactly, minus the `tier` slot-key segment.
+     *
+     * @return array{0: array, 1: string, 2: array, 3: array, 4: string, 5: array, 6: array|null}|\WP_REST_Response
+     */
+    private function composableEditionContext(\WP_REST_Request $request): array|\WP_REST_Response
+    {
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $slot = is_array($instance['composable_occupant'] ?? null) ? $instance['composable_occupant'] : [];
+        $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+        if ($occupant === null) {
+            return new \WP_REST_Response(['success' => false, 'code' => 'no_occupant', 'message' => 'The composable occupant does not exist yet.'], 404);
+        }
+
+        $editionId = sanitize_text_field((string) $request->get_param('edition'));
+        $editions  = is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [];
+        $edition   = $editionId !== '' ? \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::findTierEdition($editions, $editionId) : null;
+        if ($editionId !== '' && $edition === null) {
+            return new \WP_REST_Response(['success' => false, 'code' => 'unknown_tier_edition', 'message' => 'Tier Edition not found.'], 404);
+        }
+
+        return [$station, $instanceId, $instance, $occupant, $editionId, $editions, $edition];
+    }
+
+    /** Write an updated tier_editions[] collection back through the composable occupant, instance, and station. */
+    private function persistComposableEditionOccupant(array $station, string $instanceId, array $instance, array $occupant, array $editions): array
+    {
+        $occupant['tier_editions'] = $editions;
+        $instance['composable_occupant']['current_occupant'] = $occupant;
+        return $this->persistTierInstance($station, $instanceId, $instance);
+    }
+
+    public function createComposableOccupantEdition(\WP_REST_Request $request): \WP_REST_Response
+    {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, , $editions] = $context;
+
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        try {
+            $result = $PS::addTierEdition($editions, $body);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $result['tier_editions']);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'edition_id' => $result['edition']['id'],
+            'edition'    => $result['edition'],
+        ]));
+    }
+
+    public function saveComposableOccupantEditionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId, $editions] = $context;
+
+        $module = sanitize_key((string) $request->get_param('module'));
+        if ($module !== 'overview') {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $body = $request->get_json_params();
+        $body = is_array($body) ? $body : [];
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        try {
+            $editions = $PS::saveTierEditionDraft($editions, $editionId, $body);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    public function settleComposableOccupantEditionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId, $editions] = $context;
+
+        $module = sanitize_key((string) $request->get_param('module'));
+        if ($module !== 'overview') {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        try {
+            $editions = $PS::settleTierEditionOverview($editions, $editionId);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+        $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    public function revertComposableOccupantEditionModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId, $editions] = $context;
+
+        $module = sanitize_key((string) $request->get_param('module'));
+        if ($module !== 'overview') {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $editions = $PS::revertTierEditionOverview($editions, $editionId);
+        $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    /**
+     * Same engine transition (platform_status) or explicit Disable/Enable
+     * mask (action) contract as updateTierEditionStatus(), including the
+     * same first-Active CZTE/CZTEL reserve -> persist -> bind sequence.
+     */
+    public function updateComposableOccupantEditionStatus(\WP_REST_Request $request): \WP_REST_Response
+    {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId, $editions] = $context;
+
+        $target = sanitize_text_field((string) $request->get_param('platform_status'));
+        $action = sanitize_text_field((string) $request->get_param('action'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+
+        try {
+            if ($action === 'disable' || $action === 'enable') {
+                $editions = $PS::applyTierEditionDisabledMask($editions, $editionId, $action);
+            } elseif ($target !== '') {
+                $editions = $PS::applyTierEditionStatus($editions, $editionId, $target);
+            } else {
+                return new \WP_REST_Response(['success' => false, 'message' => 'A platform_status or action is required.'], 422);
+            }
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $updatedEdition = $PS::findTierEdition($editions, $editionId);
+        $reservation = null;
+        $resumed = false;
+        $legReservations = [];
+        if ($this->identityEnabled && ($updatedEdition['platform_status'] ?? null) === $engine::STATUS_ACTIVE) {
+            $existingId = (string) ($updatedEdition['edition_platform_id'] ?? '');
+            try {
+                if ($existingId === '') {
+                    $reservation = $this->platformIdentity->reserve($this->identityAdapters->tierEdition());
+                    $updatedEdition['edition_platform_id'] = $reservation->platformId();
+                } elseif ($this->identityNeedsReconciliation($existingId)) {
+                    $adapter = $this->identityAdapters->tierEdition();
+                    $reservation = $this->reservationForReconciliation($adapter, $existingId);
+                    $resumed = $reservation->platformId() === $existingId;
+                    $updatedEdition['edition_platform_id'] = $reservation->platformId();
+                }
+            } catch (\Throwable) {
+                if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Edition Platform identifier.'], 500);
+            }
+
+            try {
+                $legResult = $this->reserveTierLegPlatformIds($updatedEdition, $this->identityAdapters->tierEditionLeg());
+                $updatedEdition = $legResult['container'];
+                $legReservations = $legResult['reservations'];
+                $updatedEdition = $this->rewriteHeadlineLegId($updatedEdition, $legReservations);
+            } catch (\Throwable) {
+                $this->retireTierLegReservations($legReservations);
+                if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a Tier Edition Leg Platform identifier.'], 500);
+            }
+
+            if ($legReservations !== [] && is_array($updatedEdition['rate_sheet_items'] ?? null)) {
+                $updatedEdition['rate_sheet_items'] = $PS::resolveLegAssignmentPlatformIds(
+                    $updatedEdition['rate_sheet_items'],
+                    $this->legReservationPlatformIdMap($legReservations)
+                );
+            }
+
+            if ($reservation !== null || $legReservations !== []) {
+                $editions = $PS::replaceTierEdition($editions, $updatedEdition);
+            }
+        }
+
+        $station = $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $editions);
+
+        if ($reservation !== null || $legReservations !== []) {
+            $nativeReference = PackagePlatformNativeReference::tierEdition($instanceId, (string) $occupant['id'], $editionId);
+            try {
+                if ($reservation !== null) {
+                    $this->platformIdentity->bind($this->identityAdapters->tierEdition(), $reservation, $nativeReference);
+                }
+                $this->bindTierLegPlatformIds(
+                    $this->identityAdapters->tierEditionLeg(),
+                    $legReservations,
+                    fn(string $legId): string => PackagePlatformNativeReference::tierEditionLeg($instanceId, (string) $occupant['id'], $editionId, $legId)
+                );
+            } catch (\Throwable) {
+                if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                $this->retireTierLegReservations($legReservations);
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'Composable occupant Edition status changed, but Platform identifier binding requires reconciliation.',
+                    'native_reference' => $nativeReference,
+                ], 500);
+            }
+        }
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'edition_id' => $editionId,
+            'edition'    => $updatedEdition,
+        ]));
+    }
+
+    public function restoreComposableOccupantEditionEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId, $editions] = $context;
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        try {
+            $editions = $PS::restoreTierEdition($editions, $editionId);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'edition_id' => $editionId,
+            'edition'    => $PS::findTierEdition($editions, $editionId),
+        ]));
+    }
+
+    /** Guarded permanent delete: trashed-only — see PackageSchema::deleteTierEdition. */
+    public function deleteComposableOccupantEditionEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId, $editions] = $context;
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        try {
+            $editions = $PS::deleteTierEdition($editions, $editionId);
+        } catch (\InvalidArgumentException $e) {
+            return $this->instanceDeleteGuardResponse('tier_edition_delete_guard', $e->getMessage());
+        }
+
+        $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $editions);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'    => true,
+            'edition_id' => $editionId,
+        ]));
+    }
+
+    private function composableEditionBinContext(\WP_REST_Request $request): array|\WP_REST_Response
+    {
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $slot = is_array($instance['composable_occupant'] ?? null) ? $instance['composable_occupant'] : [];
+        $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+        if ($occupant === null) {
+            return new \WP_REST_Response(['success' => false, 'code' => 'no_occupant', 'message' => 'The composable occupant does not exist yet.'], 404);
+        }
+
+        return [$station, $instanceId, $instance, $occupant];
+    }
+
+    public function moveComposableOccupantEditionToBinEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId] = $context;
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::moveTierEditionToBin($occupant, $editionId, $PS::generateBinId(), current_time('mysql', true));
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_edition' => 'Tier Edition not found.',
+                'not_binnable'    => 'Only an archived or trashed Tier Edition can be moved to the bin.',
+                default           => 'Move to bin failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['composable_occupant']['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'edition_id'       => $editionId,
+            'bin_entry'        => $result['entry'],
+            'tier_editions'    => $occupant['tier_editions'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    /** Admin-intent "Move Edition to Bin" from any status — mirrors moveTierEditionToBinCommand(). */
+    public function moveComposableOccupantEditionToBinCommand(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant, $editionId, $editions, $edition] = $context;
+
+        $PS     = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+
+        try {
+            if (!$engine::isBinned((string) $edition['platform_status'])) {
+                $editions = $PS::applyTierEditionStatus($editions, $editionId, $engine::STATUS_TRASHED);
+            }
+            $occupant['tier_editions'] = $editions;
+            $result = $PS::moveTierEditionToBin($occupant, $editionId, $PS::generateBinId(), current_time('mysql', true));
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_edition' => 'Tier Edition not found.',
+                default           => 'Move to bin failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['composable_occupant']['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'edition_id'       => $editionId,
+            'bin_entry'        => $result['entry'],
+            'tier_editions'    => $occupant['tier_editions'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    public function restoreComposableOccupantEditionFromBinEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionBinContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant] = $context;
+
+        $binId = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::restoreTierEditionFromBin($occupant, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'restore_illegal'   => 'This entry cannot be restored.',
+                default             => 'Restore failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['composable_occupant']['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'bin_id'           => $binId,
+            'edition'          => $PS::findTierEdition($occupant['tier_editions'], (string) $result['entry']['edition']['id']),
+            'tier_editions'    => $occupant['tier_editions'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    public function trashComposableOccupantEditionBinEntryEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionBinContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant] = $context;
+
+        $binId = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::trashTierEditionBinEntry($occupant, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'trash_illegal'     => 'Only an archived entry can be moved to trash.',
+                default             => 'Trash failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['composable_occupant']['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'bin_id'           => $binId,
+            'bin_entry'        => $result['entry'],
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
+        ]));
+    }
+
+    /** Guarded permanent delete: trashed-only — see PackageSchema::deleteTierEditionBinEntry. */
+    public function deleteComposableOccupantEditionBinEntryEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $context = $this->composableEditionBinContext($request);
+        if ($context instanceof \WP_REST_Response) return $context;
+        [$station, $instanceId, $instance, $occupant] = $context;
+
+        $binId = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $result = $PS::deleteTierEditionBinEntry($occupant, $binId);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'delete_illegal'    => 'Only a trashed entry can be permanently deleted.',
+                default             => 'Delete failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $occupant = $result['occupant'];
+        $instance['composable_occupant']['current_occupant'] = $occupant;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'          => true,
+            'bin_id'           => $binId,
+            'deleted'          => true,
+            'tier_edition_bin' => $occupant['tier_edition_bin'],
         ]));
     }
 
