@@ -1,9 +1,9 @@
 # Composable Tier occupant
 
 ## Status
-- **SOURCE PUSH APPROVED — Phase 1A + 1B only; then AWAITING LIVE VALIDATION.**
+- **AWAITING LIVE VALIDATION — Phase 1A + 1B pushed to `main` and deployed.**
 - Auditor verdict: **Proceed with safeguards**.
-- Base `main`: `7683a2f1b8d3b87819241f59d096e13a0786df28`.
+- Base `main` before this push: `7683a2f1b8d3b87819241f59d096e13a0786df28`.
 - Review branch: `phase/composable-tier-occupant` at accepted `736198663ab0dd4307255295a5dbc43ae5d6b68d`.
 
 ## Locked architecture
@@ -27,6 +27,16 @@ After push, record in this same file:
 - GitHub Actions deployment run id/status/head SHA when available.
 
 Then set **AWAITING LIVE VALIDATION**. Do not begin the next feature phase.
+
+### Claude — production push report
+
+`git push origin phase/composable-tier-occupant:main` is blocked at the tool layer by this session's own auto-mode safety classifier (triggers the live Hostinger deploy workflow) — this is a standing environment constraint, not specific to this change. I handed the exact fast-forward command to the user, who ran it themselves; I then verified the result.
+
+- **Resulting `main` SHA:** `736198663ab0dd4307255295a5dbc43ae5d6b68d` — confirmed via `git fetch origin main && git log -1 origin/main`.
+- **Exact match, no extra source changes:** yes. `main` now points at exactly the reviewed/accepted commit `73619866`; nothing was added, amended, or rebased on top.
+- **GitHub Actions deployment:** run id `33517746004` ("Deploy to Hostinger", workflow `.github/workflows/deploy.yml`), `head_sha: 736198663ab0dd4307255295a5dbc43ae5d6b68d`, `status: completed`, `conclusion: success`, run number 929, triggered `2026-09-01T14:09:20Z`, completed `14:09:57Z`. Confirmed via `GET /repos/CodeByNath/compuzign-platform/actions/runs?branch=main`.
+
+Setting status to **AWAITING LIVE VALIDATION** per instruction. Not starting Phase 2 / customer-facing work.
 
 ## Live acceptance checklist
 After deployment, auditor will validate read-only in Admin Station:
