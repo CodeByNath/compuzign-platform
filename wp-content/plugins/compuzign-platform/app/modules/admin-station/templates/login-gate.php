@@ -19,7 +19,7 @@
       <div class="cz-tf-field">
         <label class="cz-tf-label" for="cz_as_username">Username</label>
         <input
-          class="cz-tf-control cz-tf-input"
+          class="cz-tf-control cz-tf-input cz-tf-control--lg"
           type="text"
           name="cz_username"
           id="cz_as_username"
@@ -33,7 +33,7 @@
         <label class="cz-tf-label" for="cz_as_password">Password</label>
         <div class="cz-station-login-gate__password-wrap">
           <input
-            class="cz-tf-control cz-tf-input"
+            class="cz-tf-control cz-tf-input cz-tf-control--lg"
             type="password"
             name="cz_password"
             id="cz_as_password"

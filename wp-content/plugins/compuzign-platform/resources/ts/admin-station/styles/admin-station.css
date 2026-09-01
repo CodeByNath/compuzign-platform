@@ -3805,59 +3805,68 @@ button.cz-station-status-pill {
   align-items: center;
   justify-content: center;
   padding: var(--station-space-x);
-  background: var(--station-surface);
+  background:
+    radial-gradient(560px 360px at 50% -10%, var(--station-accent-soft-bg), transparent 70%),
+    var(--station-surface);
 }
 
 .cz-station-login-gate__card {
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   background: var(--station-card-bg);
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
   box-shadow: var(--station-shadow);
-  padding: 32px 28px;
+  padding: 40px 32px 32px;
 }
 
 .cz-station-login-gate__brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 24px;
+  gap: 6px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--station-card-divider);
   text-align: center;
 }
 
 .cz-station-login-gate__mark {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--station-control-radius);
+  width: 52px;
+  height: 52px;
+  border-radius: var(--station-card-icon-radius);
   background: var(--station-accent);
   color: var(--station-accent-on);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 16px;
-  margin-bottom: 4px;
+  font-size: var(--station-text-lg);
+  box-shadow: 0 8px 20px var(--station-accent-soft-bg);
+  margin-bottom: 6px;
 }
 
 .cz-station-login-gate__name {
   margin: 0;
-  font-size: var(--station-text-lg);
+  font-size: var(--station-text-xl);
   font-weight: 700;
+  letter-spacing: var(--station-tracking-tight);
   color: var(--station-text);
 }
 
 .cz-station-login-gate__sub {
   margin: 0;
-  font-size: var(--station-text-sm);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--station-tracking-wide);
+  text-transform: uppercase;
   color: var(--station-text-muted);
 }
 
 .cz-station-login-gate__form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .cz-station-login-gate__password-wrap {
@@ -3868,24 +3877,24 @@ button.cz-station-status-pill {
 
 .cz-station-login-gate__password-wrap .cz-tf-input {
   width: 100%;
-  padding-right: 52px;
+  padding-right: 64px;
 }
 
 .cz-station-login-gate__toggle {
   position: absolute;
-  right: 10px;
+  right: 8px;
   border: 0;
   background: transparent;
   color: var(--station-accent-fg);
   font-size: var(--station-text-xs);
   font-weight: 700;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: var(--station-control-radius);
+  padding: 5px 10px;
+  border-radius: var(--station-pill-radius);
 }
 
 .cz-station-login-gate__toggle:hover {
-  background: var(--station-hover-bg);
+  background: var(--station-accent-soft-bg);
 }
 
 .cz-station-login-gate__toggle:focus-visible {
@@ -3896,4 +3905,7 @@ button.cz-station-status-pill {
 .cz-station-login-gate__submit {
   width: 100%;
   justify-content: center;
+  margin-top: 6px;
+  min-height: var(--station-field-min-h-lg);
+  font-size: var(--station-field-font-lg);
 }
