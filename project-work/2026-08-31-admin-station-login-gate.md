@@ -1,8 +1,9 @@
 # Admin Station branded login gate
 
 ## Status
-- **READY FOR CLAUDE — visual refinement only.**
-- Production `main` = `f2bc48ae4a6a8998a33a0dd84cdfcf0bb0e14e47`.
+- **AWAITING CHATGPT REVIEW — visual refinement implemented on `review/admin-station-login-gate`.**
+- Production `main` = `f2bc48ae4a6a8998a33a0dd84cdfcf0bb0e14e47` (base for this change; not yet pushed to `main`).
+- Review SHA = `7683a2f1b8d3b87819241f59d096e13a0786df28` on branch `review/admin-station-login-gate` (pushed to origin).
 - Existing auth/session behavior is accepted; Nath reports the deployed login works. Current request is presentation polish only.
 - Auditor verdict: **Proceed with safeguards**.
 
@@ -33,3 +34,31 @@ Refine **only the login-gate presentation** using the existing Admin Station des
 - No customer Atomic Engine accent/style collision.
 - Login, bad-credential error, Show/Hide, successful return to Admin Station, unauthorized state, and session behavior remain unchanged.
 - Report changed files, focused validation, exact review SHA, and set **AWAITING CHATGPT REVIEW**. Do not push to `main` before audit approval.
+
+## Claude implementation report (2026-09-01)
+
+### Changed files
+- `app/modules/admin-station/templates/login-gate.php` — added the existing `cz-tf-control--lg` field-system size modifier to the username and password inputs. No new field type, no new class, no markup restructuring, no auth/controller code touched.
+- `resources/ts/admin-station/styles/admin-station.css` — refined only the pre-existing `cz-station-login-gate*` rule block (no new class names added):
+  - Outer gate: added a subtle `--station-accent-soft-bg` radial backdrop behind the centered card (fixes the "large dead space" complaint) — a container background, not a control paint.
+  - Card: slightly wider (360px → 380px), more generous top padding for breathing room, unchanged border/radius/shadow tokens.
+  - Brand block: added a hairline `--station-card-divider` under the mark/name/sub group so the form reads as a distinct section, larger mark (44px → 52px) reusing `--station-card-icon-radius` (the same radius family the entity-card medallions use) plus a soft accent glow shadow, larger brand name (`--station-text-lg` → `--station-text-xl`), and an uppercase/tracked "Admin Station" label for a deliberate brand hierarchy.
+  - Form: field gap 16px → 20px to match the now-larger (`--lg`) fields.
+  - Show/Hide toggle: repositioned into a proper pill (`--station-pill-radius`) with an accent-soft hover state instead of a bare text button, so it reads as a control rather than stray text.
+  - Submit: height/font now match the `--station-field-min-h-lg` / `--station-field-font-lg` tokens the fields use, for a stronger, size-consistent primary action — colour/background still entirely inherited from the unmodified shared `cz-admin-btn--primary`.
+- `dist/css/admin-station.css` — regenerated via `npm run build` (normal source workflow only, no hand edits).
+
+### What was NOT touched
+- `AdminStationAuth.php`, `AdminStationModule.php` — zero changes, not even read-adjacent edits.
+- The `cz-tf-*` field system and `cz-admin-btn*` button system definitions in `drawer-kit.css` — zero changes. Only an existing modifier class (`cz-tf-control--lg`) was applied in the template, and only existing `--station-*` tokens were referenced (no new token, no `--cz-color-*`, no raw hex).
+- No new CSS class names were introduced anywhere, so there was nothing new to grep against `atomic-engine/css/` for collision — the class surface is unchanged from before.
+
+### Focused validation (from plugin root)
+- `npm run contract:admin-station-css` — same 6 pre-existing failures as on `main` before this change (all unrelated `cz-rate-sheet-tool__*` classes), confirmed via `git stash` diff; **zero new failures** introduced by this change.
+- `php tests/admin-station-login-gate.php` — all 30 checks pass unchanged (auth/redirect/nonce/error-genericity/no-retired-Command-Centre-symbol behavior untouched).
+- `npm run build` — succeeds, `dist/css/admin-station.css` regenerated.
+- `npm run docs:check` — passes (110 Markdown files, 39 Code Maps, 22 numbered history records).
+- Browser inspection not performed — no WordPress runtime available locally (per `no-unevidenced-claims-about-live` policy, this is a code-level review pending live validation after merge/deploy).
+
+### Review SHA
+`7683a2f1b8d3b87819241f59d096e13a0786df28` on `review/admin-station-login-gate` (pushed to `origin/review/admin-station-login-gate`). Not merged to `main`; awaiting audit approval per this doc's acceptance criteria.
