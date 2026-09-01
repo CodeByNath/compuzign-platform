@@ -1,38 +1,35 @@
 # Admin Station branded login gate
 
 ## Status
-- **AWAITING LIVE VALIDATION — production and deploy independently verified.**
+- **READY FOR CLAUDE — visual refinement only.**
 - Production `main` = `f2bc48ae4a6a8998a33a0dd84cdfcf0bb0e14e47`.
-- Deploy: **Deploy to Hostinger** run #927 (`33444463110`), exact head SHA `f2bc48ae`, event `push`, completed/success, attempt 1.
+- Existing auth/session behavior is accepted; Nath reports the deployed login works. Current request is presentation polish only.
 - Auditor verdict: **Proceed with safeguards**.
 
-## Goal
-Admin Station URL → branded CompuZign login → WordPress auth/session underneath → `manage_compuzign` check → existing Admin Station. No visible WordPress login/dashboard journey; no Command Centre resurrection.
+## Locked behavior — do not change
+- Admin Station URL -> branded CompuZign login -> WordPress auth/session underneath -> `manage_compuzign` check -> existing Admin Station.
+- No visible `/wp-login.php` or `/wp-admin/` journey.
+- Keep the current page-scoped POST handling, nonce, generic auth error, `wp_signon()`, server-derived redirect, `home_url('/')` fallback, password show/hide behavior, capability handling, and session behavior exactly as implemented.
+- No Station Manager, CRM, pricing, identity, persistence, quote/customer, account-provisioning, or auth architecture changes.
 
-## Accepted implementation
-- `PlatformAccess` remains capability/account authority; no credential/provisioning change.
-- Logged-out Admin Station renders branded login; unauthorized logged-in users render product-styled denied state.
-- `wp_signon()` runs before output at `template_redirect`; nonce is Admin-Station scoped; auth failures are generic.
-- Login POST is processed only when the queried singular page itself contains `[compuzign_admin_station]`.
-- Client redirect authority is removed; return destination is server-derived from the current Admin Station request with stale `login_error` stripped.
-- Redirect validation uses explicit `home_url('/')` fallback; no `wp_safe_redirect()` / `admin_url()` path exists in this flow.
-- Current Admin Station field/button/token system is reused; no retired Command Centre routes/assets/components.
-- No Station Manager, CRM, pricing, identity, persistence, quote/customer behavior change.
+## Visual issue found live
+The gate works, but the current screen is too bare/flat: large dead space, weak visual hierarchy, plain field presentation, and the form does not yet feel like a deliberate Admin Station surface.
 
-## Independent verification
-GitHub `main` independently resolves to exact `f2bc48ae4a6a8998a33a0dd84cdfcf0bb0e14e47`.
+## Claude implementation instruction
+Refine **only the login-gate presentation** using the existing Admin Station design system.
 
-GitHub Actions run #927 / `33444463110` independently reports `Deploy to Hostinger`, branch `main`, exact head SHA `f2bc48ae4a6a8998a33a0dd84cdfcf0bb0e14e47`, status `completed`, conclusion `success`, attempt 1.
+1. Read `docs/code-map/admin-station.md`, `docs/code-map/admin-station-styles.md`, the current `login-gate.php`, Admin Station tokens, shell CSS, and shared drawer/field/button CSS before editing.
+2. Keep the existing `cz-tf-*` field system and `cz-admin-btn*` button system. Do not create a second field/button system and do not copy customer-facing Atomic Engine styles.
+3. Use only existing `--station-*` Admin Station palette/shape/depth/focus/surface tokens (and already-established shared Admin private tokens where appropriate). No raw/new brand colours and no `--cz-color-*` customer tokens.
+4. Make the login feel intentionally part of Admin Station: compact centered composition, clearer brand hierarchy, a contained/elevated Admin surface, improved spacing/rhythm, proper field widths/padding, stronger primary Sign in treatment, and polished Show/Hide placement. Keep it restrained, not decorative or flashy.
+5. Preserve responsive behavior and accessibility: labels remain explicit, keyboard focus visible, contrast remains valid, password toggle retains `aria-*`, error remains generic, and mobile viewport must not overflow.
+6. Scope styles to `cz-station-login-gate*`; do not alter global Admin Station controls just to make this one screen look better.
+7. Do not touch auth/controller logic unless a visual-only template class hook absolutely requires it; if so, no behavior change.
+8. Update focused tests/contracts only if needed to guard token ownership/no customer-token collision. Build generated CSS only through the normal source workflow.
 
-No further source correction is requested before live validation.
-
-## Live validation required before closure
-1. Logged-out Admin Station shows branded login gate.
-2. Bad credentials show only generic error.
-3. Valid `cz_platform_manager` login returns directly to Admin Station.
-4. Unauthorized logged-in account sees access denied, never WP admin.
-5. Show/hide password works.
-6. Refresh keeps authenticated session.
-7. No visible `/wp-login.php` or `/wp-admin/` navigation occurs.
-
-If all seven pass, mark this work **CLOSED** and remove the completed review branch only after confirming it is contained in `main`.
+## Acceptance
+- Visually reads as an Admin Station login, not a raw WordPress/form page.
+- Existing Admin tokens/primitives are visibly reused.
+- No customer Atomic Engine accent/style collision.
+- Login, bad-credential error, Show/Hide, successful return to Admin Station, unauthorized state, and session behavior remain unchanged.
+- Report changed files, focused validation, exact review SHA, and set **AWAITING CHATGPT REVIEW**. Do not push to `main` before audit approval.
