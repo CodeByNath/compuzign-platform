@@ -1,12 +1,10 @@
 # Composable Tier Occupant
 
-**Phase 1B — backend, hook, and admin UI mount all complete; not yet
-browser-verified.** Persistence, lifecycle, projection, identity, Edition
-CRUD/lifecycle/bin parity, the `usePackageStation` hook, and a mounted
-admin card all exist. Backend is exercised by real controller-level tests;
-the UI compiles/builds clean but has not been interactively verified — see
-Admin UI below. No customer-facing selection, cart key, quote snapshot, or
-promotion exists.
+**Phase 1B — backend complete.** Persistence, lifecycle, projection,
+identity, and full Tier Edition CRUD/lifecycle/bin parity all exist and are
+exercised by real controller-level tests. See [Composable Tier Occupant
+Admin UI](tier-composable-occupant-admin-ui.md) for the frontend design and
+current verification status.
 
 ## Purpose and ownership
 
@@ -48,11 +46,7 @@ fourth occupant location.
 `revertTierModuleDraft()`, `sanitizeCommercialLegs()`, and the Rate
 Sheet/Leg/Edition engines in `PackageManagerSchema` are generic over "an
 occupant slot array," not `ALLOWED_TIERS`-hardcoded — all run unmodified
-against `composable_occupant`. On the frontend, `TierOverviewEditor`,
-`TierPricingRulesEditor`, `PoolInclusionsEditor`, `PoolFaqsEditor`, and
-`buildRateSheetCatalogue()` are all reused verbatim (not forked) by the
-composable card — the first three are pure `{draft, onChange}` components
-with no Tier-specific coupling already.
+against `composable_occupant`.
 
 ## Dedicated (not reused)
 
@@ -66,8 +60,9 @@ with no Tier-specific coupling already.
   `archiveTierOccupant()`/`restoreBinnedOccupant()` (never valid here — an
   occupied slot blocks with `target_occupied`). `trashBinnedOccupant()`/
   `deleteBinnedOccupant()` are reused unchanged. Bin `origin_tier` uses
-  sentinel `COMPOSABLE_OCCUPANT_ORIGIN`, accepted alongside (never joining)
-  `ALLOWED_TIERS`.
+  sentinel `COMPOSABLE_OCCUPANT_ORIGIN` (distinct from the frontend's own
+  `COMPOSABLE_TIER_ID` — one addresses the live slot, the other labels a
+  displaced bin entry), accepted alongside (never joining) `ALLOWED_TIERS`.
 - `compileOccupantSlotForCostBuilder()`/`enrichCompiledOccupantIdentity()`/
   `compileAdminOccupantDetail()` — extracted from the per-tier loops so
   `tiers[tierId]` and the composable child compile through one shared
@@ -75,35 +70,6 @@ with no Tier-specific coupling already.
   `composable_occupant`, never merged into `tiers`.
   `PackageFamilyPricingBuilder::presentOccupant()` — same extraction
   publicly, appearing only when fully identified (real `CZT`).
-- `usePackageStation.ts` — `buildTierViewFromSlot()` extracted from
-  `tierView()` so `composableView()` derives the same draft-preferred view.
-  Mutation set mirrors the tierId-keyed one, minus the key and
-  `setPopularTier`.
-- `ComposableOccupantCard.tsx` (new) — its own small local `useState` edit
-  state, not the tierId-keyed `useTierModuleEditing`/`useTierBinTravel` the
-  five normal occupants share — deliberately lighter than the full
-  schema-driven module system the individual-tier screen uses.
-
-## Admin UI
-
-Mounted in `TierDrawerContent.tsx`'s package-overview Details screen, as
-one additive section after the five `tierOccupants` cards and before the
-Pricing Summary table — never inside `TIER_KEYS`/`tierOccupants`, the
-"Current (N)" count, the table rows, or individual-tier navigation. Path:
-absent → Create (Overview) → Pending identity → Pricing Rules/Features/
-FAQs → Publish → Enable/Disable, plus a minimal Editions section (create +
-one-click Publish only — no module editing or bin UI for Editions).
-`TierOverviewEditor` gained an additive `hideAddonAndPopular` prop
-(default `false`, every caller unaffected) so the card reuses it without
-the Add-on/popular checkboxes, which do not apply here. No archive/restore
-UI yet, though the API exists.
-
-**Not interactively verified.** `TierDrawerContent.tsx`/
-`useTierDrawerController.ts` are the locked, historically bug-prone
-four-group Tier drawer — `package-station/CLAUDE.md` documents defects
-caught only by live browser validation, not code review or `tsc`/`build`.
-Authorized to proceed without a live browser this round, with validation
-deferred to the reviewer after source review.
 
 ## Not yet built
 
@@ -114,6 +80,7 @@ Customer inclusion/quantity/Price Option selection, cart key
 
 ## Related Code Maps
 
+[Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
 [Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Tier
 Edition](tier-edition.md), [Commercial Legs](commercial-legs.md), [Package
 Station](package-station.md), and [Cost Builder](cost-builder.md).

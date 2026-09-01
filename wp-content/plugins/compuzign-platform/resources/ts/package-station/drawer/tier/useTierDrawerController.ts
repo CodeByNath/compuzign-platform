@@ -27,7 +27,8 @@ import { usePackageStation } from '../../usePackageStation';
 import type { DrawerBaseTabId } from '@/drawer-kit/DrawerTabs';
 import { serviceConnectionBinding } from '@/service-station';
 import { useAutoDismiss, useOutsideClickDismiss } from '@/entity-drawers/shared/drawerChrome';
-import { createTierEdition } from '../../api';
+import { createTierEdition, createComposableOccupantEdition } from '../../api';
+import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 import { useTierModuleEditing } from './useTierModuleEditing';
 import { useTierBinTravel } from './useTierBinTravel';
 import { buildTierDetail, buildTierFooterModel } from './tierDetailModel';
@@ -239,7 +240,15 @@ export function useTierDrawerController({
     const existingCount = pkg.tierView(editingTierId)?.detail.tier_editions?.length ?? 0;
     setAddingEdition(true);
     try {
-      await createTierEdition(serviceId, tierInstanceId, editingTierId, { title: `Edition ${existingCount + 2}` });
+      // The composable occupant's own Editions live behind a dedicated
+      // .../composable/editions route (no tierId to address) — see
+      // useTierEditions.ts's own isComposable branching for the rest of
+      // this occupant's Edition lifecycle.
+      if (editingTierId === COMPOSABLE_TIER_ID) {
+        await createComposableOccupantEdition(serviceId, tierInstanceId, { title: `Edition ${existingCount + 2}` });
+      } else {
+        await createTierEdition(serviceId, tierInstanceId, editingTierId, { title: `Edition ${existingCount + 2}` });
+      }
       pkg.refetch();
     } finally {
       setAddingEdition(false);

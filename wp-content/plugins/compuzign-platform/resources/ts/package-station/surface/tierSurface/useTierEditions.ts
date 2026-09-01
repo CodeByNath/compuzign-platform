@@ -33,8 +33,20 @@ import {
   restoreTierEditionFromBin,
   trashTierEditionBinEntry,
   deleteTierEditionBinEntry,
+  createComposableOccupantEdition,
+  saveComposableOccupantEditionModule,
+  settleComposableOccupantEditionModule,
+  revertComposableOccupantEditionModule,
+  updateComposableOccupantEditionStatus,
+  restoreComposableOccupantEdition,
+  deleteComposableOccupantEdition,
+  moveComposableOccupantEditionToBinCommand,
+  restoreComposableOccupantEditionFromBin,
+  trashComposableOccupantEditionBinEntry,
+  deleteComposableOccupantEditionBinEntry,
 } from '../../api';
 import { draftPreferredEdition } from '../../drawer/tier/tierEditionModel';
+import { isComposableOccupant } from '../../vocabulary';
 
 export interface TierEditionsController {
   // Raw editions, as persisted (settled fields only) — existence/id/ordering
@@ -141,11 +153,15 @@ export function useTierEditions(
     }
   }, [onMutated]);
 
+  const isComposable = isComposableOccupant(tierId);
+
   const create = useCallback(async (draft: Partial<TierEditionOverviewDraft> & { title: string }) => {
     if (tierInstanceId === null || tierId === null) return null;
     let created: TierEdition | null = null;
     await run(
-      () => createTierEdition(serviceId, tierInstanceId, tierId, draft),
+      () => isComposable
+        ? createComposableOccupantEdition(serviceId, tierInstanceId, draft)
+        : createTierEdition(serviceId, tierInstanceId, tierId, draft),
       (res) => {
         if (res.success && res.edition) {
           replaceEdition(res.edition);
@@ -156,39 +172,47 @@ export function useTierEditions(
       },
     );
     return created;
-  }, [serviceId, tierInstanceId, tierId, run, replaceEdition]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run, replaceEdition]);
 
   const saveDraft = useCallback((editionId: string, draft: TierEditionOverviewDraft) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => saveTierEditionModule(serviceId, tierInstanceId, tierId, editionId, draft),
+      () => isComposable
+        ? saveComposableOccupantEditionModule(serviceId, tierInstanceId, editionId, draft)
+        : saveTierEditionModule(serviceId, tierInstanceId, tierId, editionId, draft),
       (res) => { if (res.success && res.edition) { replaceEdition(res.edition); return true; } return false; },
     );
-  }, [serviceId, tierInstanceId, tierId, run, replaceEdition]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run, replaceEdition]);
 
   const settle = useCallback((editionId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => settleTierEditionModule(serviceId, tierInstanceId, tierId, editionId),
+      () => isComposable
+        ? settleComposableOccupantEditionModule(serviceId, tierInstanceId, editionId)
+        : settleTierEditionModule(serviceId, tierInstanceId, tierId, editionId),
       (res) => { if (res.success && res.edition) { replaceEdition(res.edition); return true; } return false; },
     );
-  }, [serviceId, tierInstanceId, tierId, run, replaceEdition]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run, replaceEdition]);
 
   const revert = useCallback((editionId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => revertTierEditionModule(serviceId, tierInstanceId, tierId, editionId),
+      () => isComposable
+        ? revertComposableOccupantEditionModule(serviceId, tierInstanceId, editionId)
+        : revertTierEditionModule(serviceId, tierInstanceId, tierId, editionId),
       (res) => { if (res.success && res.edition) { replaceEdition(res.edition); return true; } return false; },
     );
-  }, [serviceId, tierInstanceId, tierId, run, replaceEdition]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run, replaceEdition]);
 
   const applyStatus = useCallback((editionId: string, change: Parameters<typeof updateTierEditionStatus>[4]) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => updateTierEditionStatus(serviceId, tierInstanceId, tierId, editionId, change),
+      () => isComposable
+        ? updateComposableOccupantEditionStatus(serviceId, tierInstanceId, editionId, change)
+        : updateTierEditionStatus(serviceId, tierInstanceId, tierId, editionId, change),
       (res) => { if (res.success && res.edition) { replaceEdition(res.edition); return true; } return false; },
     );
-  }, [serviceId, tierInstanceId, tierId, run, replaceEdition]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run, replaceEdition]);
 
   const publish = useCallback((editionId: string) => applyStatus(editionId, { platform_status: 'active' }), [applyStatus]);
   const archive = useCallback((editionId: string) => applyStatus(editionId, { platform_status: 'archived' }), [applyStatus]);
@@ -199,18 +223,22 @@ export function useTierEditions(
   const restoreAction = useCallback((editionId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => restoreTierEdition(serviceId, tierInstanceId, tierId, editionId),
+      () => isComposable
+        ? restoreComposableOccupantEdition(serviceId, tierInstanceId, editionId)
+        : restoreTierEdition(serviceId, tierInstanceId, tierId, editionId),
       (res) => { if (res.success && res.edition) { replaceEdition(res.edition); return true; } return false; },
     );
-  }, [serviceId, tierInstanceId, tierId, run, replaceEdition]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run, replaceEdition]);
 
   const remove = useCallback((editionId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => deleteTierEdition(serviceId, tierInstanceId, tierId, editionId),
+      () => isComposable
+        ? deleteComposableOccupantEdition(serviceId, tierInstanceId, editionId)
+        : deleteTierEdition(serviceId, tierInstanceId, tierId, editionId),
       (res) => { if (res.success) { removeEdition(editionId); return true; } return false; },
     );
-  }, [serviceId, tierInstanceId, tierId, run, removeEdition]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run, removeEdition]);
 
   // Phase 6 — every bin mutation's response carries the full authoritative
   // tier_editions[]/tier_edition_bin[] pair (not one patched row), so local
@@ -227,7 +255,9 @@ export function useTierEditions(
   const moveToBin = useCallback((editionId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => moveTierEditionToBinCommand(serviceId, tierInstanceId, tierId, editionId),
+      () => isComposable
+        ? moveComposableOccupantEditionToBinCommand(serviceId, tierInstanceId, editionId)
+        : moveTierEditionToBinCommand(serviceId, tierInstanceId, tierId, editionId),
       (res) => {
         if (res.success && res.tier_editions && res.tier_edition_bin) {
           setLocalEditions(res.tier_editions);
@@ -237,12 +267,14 @@ export function useTierEditions(
         return false;
       },
     );
-  }, [serviceId, tierInstanceId, tierId, run]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run]);
 
   const restoreFromBin = useCallback((binId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => restoreTierEditionFromBin(serviceId, tierInstanceId, tierId, binId),
+      () => isComposable
+        ? restoreComposableOccupantEditionFromBin(serviceId, tierInstanceId, binId)
+        : restoreTierEditionFromBin(serviceId, tierInstanceId, tierId, binId),
       (res) => {
         if (res.success && res.tier_editions && res.tier_edition_bin) {
           setLocalEditions(res.tier_editions);
@@ -252,12 +284,14 @@ export function useTierEditions(
         return false;
       },
     );
-  }, [serviceId, tierInstanceId, tierId, run]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run]);
 
   const trashBinEntry = useCallback((binId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => trashTierEditionBinEntry(serviceId, tierInstanceId, tierId, binId),
+      () => isComposable
+        ? trashComposableOccupantEditionBinEntry(serviceId, tierInstanceId, binId)
+        : trashTierEditionBinEntry(serviceId, tierInstanceId, tierId, binId),
       (res) => {
         if (res.success && res.tier_edition_bin) {
           setLocalEditionBin(res.tier_edition_bin);
@@ -266,12 +300,14 @@ export function useTierEditions(
         return false;
       },
     );
-  }, [serviceId, tierInstanceId, tierId, run]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run]);
 
   const deleteBinEntry = useCallback((binId: string) => {
     if (tierInstanceId === null || tierId === null) return Promise.resolve(false);
     return run(
-      () => deleteTierEditionBinEntry(serviceId, tierInstanceId, tierId, binId),
+      () => isComposable
+        ? deleteComposableOccupantEditionBinEntry(serviceId, tierInstanceId, binId)
+        : deleteTierEditionBinEntry(serviceId, tierInstanceId, tierId, binId),
       (res) => {
         if (res.success && res.tier_edition_bin) {
           setLocalEditionBin(res.tier_edition_bin);
@@ -280,7 +316,7 @@ export function useTierEditions(
         return false;
       },
     );
-  }, [serviceId, tierInstanceId, tierId, run]);
+  }, [serviceId, tierInstanceId, tierId, isComposable, run]);
 
   return {
     editions: localEditions,

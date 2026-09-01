@@ -127,6 +127,11 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
       <TierOverviewEditor
         draft={s.draft as TierOverviewEditDraft}
         onChange={(patch) => s.patch?.(patch)}
+        // Phase 1B — the composable occupant's own Overview session threads
+        // this through extras (same pattern as pricing_rules' rateSheets/
+        // hasSelections below) so Add-on/Popular — five-slot-only concepts —
+        // never appear when this same editor is reused for that occupant.
+        hideAddonAndPopular={!!s.extras?.hideAddonAndPopular}
       />
     ),
   },

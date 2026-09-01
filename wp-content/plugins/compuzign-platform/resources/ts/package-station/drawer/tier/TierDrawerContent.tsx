@@ -29,13 +29,12 @@ import { TiersIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import type { TierRateSheetSelection, TierPricingRulesDraft } from '../../types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
-import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
+import { TIER_KEYS, TIER_LABELS, COMPOSABLE_TIER_ID, isComposableOccupant } from '../../vocabulary';
 import { useTierDrawerController } from './useTierDrawerController';
 import { TierDrawerFooter } from './TierDrawerFooter';
 import { TierBinList } from './TierBinList';
 import { TierDrawerDialogs } from './TierDrawerDialogs';
 import { TierEditionDeclarationSwitcher } from './TierEditionDeclarationSwitcher';
-import { ComposableOccupantCard } from './ComposableOccupantCard';
 import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
@@ -295,11 +294,50 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
                 })}
 
                 {/* Phase 1B — the subordinate composable occupant. Deliberately
-                    NOT one of the TIER_KEYS/tierOccupants cards above and NOT
-                    part of the "Current (N)" count, the Pricing Summary table,
-                    or individual-tier navigation below — a clearly separate,
-                    visually subordinate section. See ComposableOccupantCard.tsx. */}
-                <ComposableOccupantCard pkg={c.pkg} serviceId={props.serviceId} tierInstanceId={props.tierInstanceId} />
+                    NOT one of the TIER_KEYS/tierOccupants cards above (it is
+                    never in that array, the "Current (N)" count, or the
+                    Pricing Summary table below) — a separate, visually
+                    subordinate launcher into the SAME individual-occupant
+                    screen every normal Tier card already opens, via the same
+                    openTierEdit(), just addressed at COMPOSABLE_TIER_ID
+                    instead of a tierId. See
+                    docs/code-map/tier-composable-occupant.md. */}
+                {(() => {
+                  const view      = c.pkg.tierView(COMPOSABLE_TIER_ID);
+                  const detail    = view?.detail;
+                  const status    = view ? view.status : 'not-configured';
+                  const showData  = !!(detail && (detail.price !== null || detail.billing_cycle || detail.contact));
+                  const priceText = detail?.contact && detail.price === null
+                    ? 'Contact'
+                    : detail?.price != null ? `$${detail.price.toFixed(2)}` : '$0.00';
+                  const cycleText = detail?.billing_cycle ?? 'Not available';
+                  const composableNotes = detail ? getTierNotes(detail, {
+                    platformStatus: detail.enabled ? 'active' : 'disabled',
+                    disabled:       detail.is_explicitly_disabled,
+                  }) : [];
+                  return (
+                    <ReadBlock
+                      title={`Composable ${detail?.label?.trim() || TIER_LABELS[COMPOSABLE_TIER_ID]}`}
+                      subtitle="A subordinate, customer-configurable occupant on this same Tier System — never a sixth Tier."
+                      icon={MODULE_ICONS.package}
+                      scopeClass="drawerOverview tier"
+                      status={status}
+                      notes={composableNotes}
+                      actions={[{ id: 'view', label: detail ? 'View' : 'Create', onSelect: () => c.openTierEdit(COMPOSABLE_TIER_ID) }]}
+                    >
+                      <div class="drawerModule__fields">
+                        <div class="drawerModule__field">
+                          <p class="drawerModule__label">Pricing</p>
+                          {showData ? (
+                            <p class="drawerModule__value"><span>{priceText}</span>{' · '}<span>{cycleText}</span></p>
+                          ) : (
+                            <p class="drawerModule__value">{detail ? 'View Tier Overview and manage pricing.' : 'Not yet created.'}</p>
+                          )}
+                        </div>
+                      </div>
+                    </ReadBlock>
+                  );
+                })()}
 
                 <div class="cz-shell-section cz-shell-section--no-border">
                   <p class="cz-shell-section__title">Pricing Summary</p>
@@ -371,6 +409,11 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
+        // Add-on/Popular are five-slot-only concepts — never offered while
+        // editing the composable occupant's own Overview. See
+        // TierOverviewEditor's hideAddonAndPopular and the bindings/tier.tsx
+        // 'overview' editor render, which threads this through.
+        extras: { hideAddonAndPopular: isComposableOccupant(c.editingTierId) },
       },
     };
   } else if (c.editingSection === 'tier-pricing-rules' && c.pricingRulesDraft) {

@@ -724,13 +724,29 @@ export interface TierEditionResponse {
 }
 
 // Phase 1B — the composable occupant's own Edition responses. Same shape as
-// TierEditionResponse minus `tier_id` (this occupant is never slot-keyed).
+// TierEditionResponse/TierEditionBinResponse minus `tier_id` (this occupant
+// is never slot-keyed) and `code` on the plain response (kept on the bin one,
+// matching TierEditionBinResponse's own restore/trash/delete failure codes).
 export interface ComposableOccupantEditionResponse {
   success:    boolean;
   tier_instance_id?: string;
   edition_id: string;
   edition?:   TierEdition;
   message?:   string;
+}
+
+export interface ComposableOccupantEditionBinResponse {
+  success:     boolean;
+  tier_instance_id?: string;
+  bin_id?:     string;
+  edition_id?: string;
+  edition?:    TierEdition;
+  bin_entry?:  TierEditionBinEntry;
+  tier_editions?:    TierEdition[];
+  tier_edition_bin?: TierEditionBinEntry[];
+  deleted?:    boolean;
+  code?:       string;
+  message?:    string;
 }
 
 // Phase 2 (P3/P4) tier lifecycle shapes — the per-module draft payloads/response

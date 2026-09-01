@@ -4,7 +4,7 @@
 // controller; every lifecycle call and conflict decision lives in the controller.
 
 import { TravelStatusPill } from '@/drawer-kit/ui/TravelStatusPill';
-import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
+import { TIER_KEYS, TIER_LABELS, COMPOSABLE_OCCUPANT_ORIGIN } from '../../vocabulary';
 import { slotOccupied } from './useTierDrawerController';
 import type { TierDrawerController } from './useTierDrawerController';
 
@@ -21,6 +21,11 @@ export function TierBinList({ c }: { c: TierDrawerController }) {
         const occ        = entry.occupant;
         const originKey  = entry.origin_tier;
         const originName = originKey ? (TIER_LABELS[originKey] ?? originKey) : null;
+        // The composable occupant has no swap/retarget — its own restore
+        // endpoint accepts neither parameter, so a conflict here can only
+        // ever be resolved by archiving whatever currently occupies the
+        // slot first. Never offer a control that would silently do nothing.
+        const isComposableOrigin = originKey === COMPOSABLE_OCCUPANT_ORIGIN;
         const priceText  = occ.contact
           ? 'Contact'
           : occ.price != null ? `$${Number(occ.price).toFixed(2)}` : '—';
@@ -75,6 +80,16 @@ export function TierBinList({ c }: { c: TierDrawerController }) {
                     >
                       {pkg.saving ? '…' : 'Discard & Restore'}
                     </button>
+                    <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => c.setBinPrompt(null)}>
+                      Cancel
+                    </button>
+                  </>
+                ) : isComposableOrigin ? (
+                  // No swap/retarget for the composable occupant — its own
+                  // restore endpoint accepts neither, so the only resolution
+                  // is archiving whatever currently occupies the slot first.
+                  <>
+                    <span class="cz-sc-table__confirm-label">The composable slot is already occupied. Archive it first, then restore.</span>
                     <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm" disabled={pkg.saving} onClick={() => c.setBinPrompt(null)}>
                       Cancel
                     </button>

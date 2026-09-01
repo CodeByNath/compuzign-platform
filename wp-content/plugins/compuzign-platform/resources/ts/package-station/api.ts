@@ -33,6 +33,7 @@ import type {
   ComposableOccupantArchiveResponse,
   ComposableOccupantRestoreResponse,
   ComposableOccupantEditionResponse,
+  ComposableOccupantEditionBinResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -422,9 +423,10 @@ export function restoreComposableOccupant(
   );
 }
 
-// Phase 1B — minimal composable-owned Edition management (create + status
-// transition only; full module editing/bin travel are not wired to the
-// admin surface yet — see docs/code-map/tier-composable-occupant.md).
+// Phase 1B — the composable occupant's own Editions, full CRUD/lifecycle/
+// bin parity mirroring createTierEdition/saveTierEditionModule/etc. below
+// exactly, minus the tierId param (this occupant is never slot-keyed).
+// useTierEditions.ts routes to these when addressed at COMPOSABLE_TIER_ID.
 export function createComposableOccupantEdition(
   serviceId: number,
   tierInstanceId: string,
@@ -433,6 +435,40 @@ export function createComposableOccupantEdition(
   return apiClient.post<ComposableOccupantEditionResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions`,
     payload,
+  );
+}
+
+export function saveComposableOccupantEditionModule(
+  serviceId: number,
+  tierInstanceId: string,
+  editionId: string,
+  payload: TierEditionOverviewDraft,
+): Promise<ComposableOccupantEditionResponse> {
+  return apiClient.post<ComposableOccupantEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}/modules/overview`,
+    stripLegSelfIdentity(payload),
+  );
+}
+
+export function settleComposableOccupantEditionModule(
+  serviceId: number,
+  tierInstanceId: string,
+  editionId: string,
+): Promise<ComposableOccupantEditionResponse> {
+  return apiClient.post<ComposableOccupantEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}/modules/overview/settle`,
+    {},
+  );
+}
+
+export function revertComposableOccupantEditionModule(
+  serviceId: number,
+  tierInstanceId: string,
+  editionId: string,
+): Promise<ComposableOccupantEditionResponse> {
+  return apiClient.post<ComposableOccupantEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}/modules/overview/revert`,
+    {},
   );
 }
 
@@ -445,6 +481,72 @@ export function updateComposableOccupantEditionStatus(
   return apiClient.patch<ComposableOccupantEditionResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}/status`,
     change,
+  );
+}
+
+export function restoreComposableOccupantEdition(
+  serviceId: number,
+  tierInstanceId: string,
+  editionId: string,
+): Promise<ComposableOccupantEditionResponse> {
+  return apiClient.post<ComposableOccupantEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}/restore`,
+    {},
+  );
+}
+
+/** Guarded permanent delete: trashed-only. */
+export function deleteComposableOccupantEdition(
+  serviceId: number,
+  tierInstanceId: string,
+  editionId: string,
+): Promise<ComposableOccupantEditionResponse> {
+  return apiClient.delete<ComposableOccupantEditionResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}`,
+  );
+}
+
+export function moveComposableOccupantEditionToBinCommand(
+  serviceId: number,
+  tierInstanceId: string,
+  editionId: string,
+): Promise<ComposableOccupantEditionBinResponse> {
+  return apiClient.post<ComposableOccupantEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/editions/${editionId}/move-to-bin`,
+    {},
+  );
+}
+
+export function restoreComposableOccupantEditionFromBin(
+  serviceId: number,
+  tierInstanceId: string,
+  binId: string,
+): Promise<ComposableOccupantEditionBinResponse> {
+  return apiClient.post<ComposableOccupantEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/edition-bin/${binId}/restore`,
+    {},
+  );
+}
+
+export function trashComposableOccupantEditionBinEntry(
+  serviceId: number,
+  tierInstanceId: string,
+  binId: string,
+): Promise<ComposableOccupantEditionBinResponse> {
+  return apiClient.post<ComposableOccupantEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/edition-bin/${binId}/trash`,
+    {},
+  );
+}
+
+/** Guarded permanent delete: trashed-only. */
+export function deleteComposableOccupantEditionBinEntry(
+  serviceId: number,
+  tierInstanceId: string,
+  binId: string,
+): Promise<ComposableOccupantEditionBinResponse> {
+  return apiClient.delete<ComposableOccupantEditionBinResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/edition-bin/${binId}`,
   );
 }
 
