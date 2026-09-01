@@ -49,6 +49,13 @@ export interface ServicePackageStationData {
   bundle:          { title: string; description: string; price: number | null };
   // D2 additive read exposure — [] for stations predating the bin.
   occupant_bin?:   OccupantBinEntry[];
+  // Phase 1A — the subordinate composable child: a single occupant slot,
+  // never a sixth `tiers` entry. Null until an admin creates one; never an
+  // array, so "exactly one occupant" is a type-level fact, not a runtime
+  // check. Carries drafts/module_status inline, same as this response's own
+  // `tiers[tierId]` entries do at runtime. See
+  // docs/code-map/tier-composable-occupant.md.
+  composable_occupant?: (SurfaceTierDetail & { drafts: TierDrafts; module_status: Record<string, string> }) | null;
 }
 
 export interface ServicePackageStationResponse {
@@ -950,6 +957,47 @@ export interface BinDeleteResponse {
   bin_id?:       string;
   deleted?:      boolean;
   occupant_bin?: OccupantBinEntry[];
+}
+
+// Phase 1A — the subordinate composable child's own lifecycle responses.
+// Deliberately separate response shapes from TierLifecycleResponse/
+// TierArchiveResponse/BinRestoreResponse (not a `tier_id`-carrying variant
+// of them) since this occupant is never addressed by a slot key; `occupant`
+// stands in for their `tier`/`tier_id` pair. Trash/permanent-delete of a
+// composable bin entry reuse the existing BinTrashResponse/BinDeleteResponse
+// endpoints and types unchanged — see PackageStationController's
+// SECTION: COMPOSABLE_OCCUPANT.
+export interface ComposableOccupantLifecycleResponse {
+  success:       boolean;
+  tier_instance_id?: string;
+  message?:      string;
+  module?:       TierModuleKey;
+  occupant:      SurfaceTierDetail;
+  drafts:        TierDrafts;
+  module_status: Record<string, string>;
+}
+
+export interface ComposableOccupantArchiveResponse {
+  success:          boolean;
+  tier_instance_id?: string;
+  message?:         string;
+  code?:            string;
+  occupant?:        SurfaceTierDetail;
+  drafts?:          TierDrafts;
+  module_status?:   Record<string, string>;
+  bin_entry?:       OccupantBinEntry;
+  occupant_bin?:    OccupantBinEntry[];
+}
+
+export interface ComposableOccupantRestoreResponse {
+  success:        boolean;
+  tier_instance_id?: string;
+  message?:       string;
+  code?:          string;
+  occupant?:      SurfaceTierDetail;
+  drafts?:        TierDrafts;
+  module_status?: Record<string, string>;
+  occupant_bin?:  OccupantBinEntry[];
 }
 
 export interface TierSavePayload {

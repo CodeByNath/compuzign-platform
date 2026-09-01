@@ -332,6 +332,44 @@ class PackageStationController
             'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
         ]);
 
+        // Phase 1A — the subordinate composable child. Dedicated routes
+        // (not a widened `tier` param) addressing `composable_occupant`
+        // directly; every route above is unaffected. See SECTION:
+        // COMPOSABLE_OCCUPANT.
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/modules/(?P<module>[a-z_]+)', [
+            'methods' => 'POST', 'callback' => [$this, 'saveComposableOccupantModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs,
+                'module' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::TIER_MODULES, true)],
+            ],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/modules/(?P<module>overview|pricing_rules|features|faqs)/revert', [
+            'methods' => 'POST', 'callback' => [$this, 'revertComposableOccupantModule'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'module' => ['required' => true, 'type' => 'string']],
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/enabled', [
+            'methods' => 'POST', 'callback' => [$this, 'setComposableOccupantEnabled'],
+            'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/settle', [
+            'methods' => 'POST', 'callback' => [$this, 'settleComposableOccupant'],
+            'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
+        ]);
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/archive', [
+            'methods' => 'POST', 'callback' => [$this, 'archiveComposableOccupantEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'], 'args' => $instanceArgs,
+        ]);
+        // Trash/permanent-delete of an archived composable entry reuse the
+        // existing generic /bin/{bin}/trash and /bin/{bin} DELETE routes
+        // above unchanged — trashBinnedOccupant()/deleteBinnedOccupant()
+        // operate purely on occupant_bin by bin_id, never on origin_tier.
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/restore/(?P<bin>[a-z0-9_]+)', [
+            'methods' => 'POST', 'callback' => [$this, 'restoreComposableOccupantEndpoint'],
+            'permission_callback' => [$this, 'requireAdmin'],
+            'args' => [...$instanceArgs, 'bin' => ['required' => true, 'type' => 'string']],
+        ]);
+
         // Package Station Manager — operational-facts-only read model.
         register_rest_route('compuzign/v1', '/admin/services/(?P<id>\d+)/package-station/manager', [
             'methods'             => 'GET',
@@ -956,65 +994,23 @@ class PackageStationController
         $managerModel = $PMS::buildReadModel($serviceId, $sanitizedManager, $incPool, $faqPool, $instanceStatus);
         $tiers = [];
         foreach ($PS::ALLOWED_TIERS as $tierId) {
-            // P3 additive read exposure: settled detail (unchanged 8 fields) plus the
-            // raw drafts + module_status, returned SEPARATELY. No server-side merge —
-            // the hook derives draft-preferred client-side (parity with useServiceStation).
-            $slot   = $PS::ensureTierLifecycle($instance['tiers'][$tierId] ?? []);
-            $detail = $PS::normaliseTierSlot($slot);
-            $detail['drafts']        = $slot['drafts'];
-            $detail['module_status'] = $slot['module_status'];
-            // B2 — pool refs resolve at read time: id authoritative, label refreshed
-            // from the pool, danglers flagged (missing) but never pruned. Applies to
-            // the settled occupant AND the pending features draft; the admin save
-            // round-trip then persists the refreshed labels.
-            $detail['inclusions_override'] = PoolReferences::refreshInclusionLabels(
-                $incPool,
-                is_array($detail['inclusions_override'] ?? null) ? $detail['inclusions_override'] : []
+            $tiers[$tierId] = $this->compileAdminOccupantDetail(
+                $serviceId, $rawManager, $managerModel, $incPool, $faqPool, $instanceStatus,
+                $instance['tiers'][$tierId] ?? []
             );
-            if (is_array($detail['drafts']['features'] ?? null)) {
-                $detail['drafts']['features'] = $PS::sanitizeTierRateSheetSelections($detail['drafts']['features']);
-            }
-            $effectiveSelections = is_array($detail['drafts']['features'] ?? null)
-                ? $detail['drafts']['features']
-                : ($detail['rate_sheet_items'] ?? []);
-            // Same draft-preferred convention as rate_sheet_items/rate_sheet_id
-            // above — an in-progress, unpublished Contact Us toggle previews
-            // in this live price computation just like an in-progress Rate
-            // Sheet selection change already does.
-            $effectiveContact = is_array($detail['drafts']['overview'] ?? null)
-                ? (bool) ($detail['drafts']['overview']['contact'] ?? false)
-                : (bool) ($detail['contact'] ?? false);
-            $rateProjection = $PMS::projectTierRateSheet(
-                $serviceId, $rawManager, $effectiveSelections, $incPool,
-                $faqPool, $instanceStatus,
-                $detail['rate_sheet_id'] ?? null,
-                $effectiveContact
-            );
-            $detail['rate_sheet_selections'] = $rateProjection['selections'];
-            $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections);
-            $detail['price'] = $rateProjection['price'];
-            $detail['contact'] = $effectiveContact;
-            $detail['inclusions_override'] = array_map(
-                fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'missing' => !$row['resolved']],
-                array_values(array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'inclusion'))
-            );
-            $detail['faq_refs'] = array_values(array_map(
-                fn(array $row): string => (string) $row['source_id'],
-                array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'faq' && !empty($row['resolved']))
-            ));
-            if (is_array($detail['drafts']['overview'] ?? null)) {
-                $detail['drafts']['overview']['price'] = $rateProjection['price'];
-            }
-            // Each Edition carries its own rate_sheet_id/rate_sheet_items, resolved
-            // against the SAME already-built read model the occupant's own price
-            // just used above — the one authoritative pricing boundary, not a
-            // second Edition-specific calculation.
-            $detail['tier_editions'] = $PMS::projectEditionPrices($managerModel, $detail['tier_editions']);
-            $tiers[$tierId] = $detail;
         }
 
         // D2 additive read exposure: the occupant bin (lazy-normalised; [] pre-D2).
         $instance = $PS::ensureOccupantBin($instance);
+
+        // Phase 1A — the subordinate composable child, read through the
+        // exact same admin compile step as any ALLOWED_TIERS slot, but
+        // returned as its own sibling key so the admin drawer can never
+        // mistake it for a sixth `tiers` entry.
+        $composableOccupant = $this->compileAdminOccupantDetail(
+            $serviceId, $rawManager, $managerModel, $incPool, $faqPool, $instanceStatus,
+            $instance['composable_occupant'] ?? []
+        );
 
         $responseStation = [
             'platform_status' => $instanceStatus,
@@ -1025,6 +1021,7 @@ class PackageStationController
             'sort_position'   => (int) ($station['sort_position'] ?? 0),
             'bundle'          => $station['bundle'] ?? ['title' => '', 'description' => '', 'price' => null],
             'occupant_bin'    => $instance['occupant_bin'],
+            'composable_occupant' => $composableOccupant,
         ];
         $responseStation['tier_instance_id'] = $instanceId;
 
@@ -1048,6 +1045,89 @@ class PackageStationController
                 'package_relationships' => $managerModel['items'],
             ],
         ]));
+    }
+
+    /**
+     * Compile one occupant slot for the admin read — a `tiers[tierId]` entry
+     * or the composable_occupant sibling alike. Extracted verbatim from
+     * getPackageStation()'s per-tier loop so the composable child (Phase 1A)
+     * reads through the exact same draft-preferred, live-priced compile step
+     * with no second admin projection path.
+     *
+     * @param array<string, mixed> $rawManager
+     * @param array<string, mixed> $managerModel
+     * @param array<int|string, mixed> $incPool
+     * @param array<int|string, mixed> $faqPool
+     * @param array<string, mixed> $slot
+     * @return array<string, mixed>
+     */
+    private function compileAdminOccupantDetail(
+        int $serviceId,
+        array $rawManager,
+        array $managerModel,
+        array $incPool,
+        array $faqPool,
+        string $instanceStatus,
+        array $slot
+    ): array {
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+
+        // P3 additive read exposure: settled detail (unchanged 8 fields) plus the
+        // raw drafts + module_status, returned SEPARATELY. No server-side merge —
+        // the hook derives draft-preferred client-side (parity with useServiceStation).
+        $slot   = $PS::ensureTierLifecycle($slot);
+        $detail = $PS::normaliseTierSlot($slot);
+        $detail['drafts']        = $slot['drafts'];
+        $detail['module_status'] = $slot['module_status'];
+        // B2 — pool refs resolve at read time: id authoritative, label refreshed
+        // from the pool, danglers flagged (missing) but never pruned. Applies to
+        // the settled occupant AND the pending features draft; the admin save
+        // round-trip then persists the refreshed labels.
+        $detail['inclusions_override'] = PoolReferences::refreshInclusionLabels(
+            $incPool,
+            is_array($detail['inclusions_override'] ?? null) ? $detail['inclusions_override'] : []
+        );
+        if (is_array($detail['drafts']['features'] ?? null)) {
+            $detail['drafts']['features'] = $PS::sanitizeTierRateSheetSelections($detail['drafts']['features']);
+        }
+        $effectiveSelections = is_array($detail['drafts']['features'] ?? null)
+            ? $detail['drafts']['features']
+            : ($detail['rate_sheet_items'] ?? []);
+        // Same draft-preferred convention as rate_sheet_items/rate_sheet_id
+        // above — an in-progress, unpublished Contact Us toggle previews
+        // in this live price computation just like an in-progress Rate
+        // Sheet selection change already does.
+        $effectiveContact = is_array($detail['drafts']['overview'] ?? null)
+            ? (bool) ($detail['drafts']['overview']['contact'] ?? false)
+            : (bool) ($detail['contact'] ?? false);
+        $rateProjection = $PMS::projectTierRateSheet(
+            $serviceId, $rawManager, $effectiveSelections, $incPool,
+            $faqPool, $instanceStatus,
+            $detail['rate_sheet_id'] ?? null,
+            $effectiveContact
+        );
+        $detail['rate_sheet_selections'] = $rateProjection['selections'];
+        $detail['rate_sheet_items'] = $PS::sanitizeTierRateSheetSelections($effectiveSelections);
+        $detail['price'] = $rateProjection['price'];
+        $detail['contact'] = $effectiveContact;
+        $detail['inclusions_override'] = array_map(
+            fn(array $row): array => ['id' => $row['item_id'], 'label' => $row['label'], 'missing' => !$row['resolved']],
+            array_values(array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'inclusion'))
+        );
+        $detail['faq_refs'] = array_values(array_map(
+            fn(array $row): string => (string) $row['source_id'],
+            array_filter($rateProjection['selections'], fn(array $row): bool => ($row['source_type'] ?? null) === 'faq' && !empty($row['resolved']))
+        ));
+        if (is_array($detail['drafts']['overview'] ?? null)) {
+            $detail['drafts']['overview']['price'] = $rateProjection['price'];
+        }
+        // Each Edition carries its own rate_sheet_id/rate_sheet_items, resolved
+        // against the SAME already-built read model the occupant's own price
+        // just used above — the one authoritative pricing boundary, not a
+        // second Edition-specific calculation.
+        $detail['tier_editions'] = $PMS::projectEditionPrices($managerModel, $detail['tier_editions']);
+        return $detail;
     }
 
     /**
@@ -2215,6 +2295,401 @@ class PackageStationController
             'tier'          => $this->enrichTierEditionPrices($serviceId, $station, $instance, $PS::normaliseTierSlot($slot)),
             'drafts'        => $slot['drafts'],
             'module_status' => $slot['module_status'],
+        ]));
+    }
+
+    // ===================================================================
+    // SECTION: COMPOSABLE_OCCUPANT
+    // ===================================================================
+    // Phase 1A — the subordinate composable child living on the SAME Tier
+    // Instance as the five normal/Add-on occupants, addressed by its own
+    // dedicated `composable_occupant` field rather than a slot key. These
+    // methods are deliberately NOT the ALLOWED_TIERS-scoped ones above
+    // widened to accept a sentinel — they are dedicated, additive routes
+    // that call the exact same PackageSchema module/lifecycle functions
+    // (ensureTierLifecycle, ensurePendingOccupant, commitTierLifecycle,
+    // revertTierModuleDraft), just addressed at `instance.composable_occupant`
+    // instead of `instance.tiers[$tierId]`. Every existing tier-scoped route
+    // above is completely untouched by this section. See
+    // docs/code-map/tier-composable-occupant.md.
+
+    public function saveComposableOccupantModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        if ($rejection = $this->rejectPlatformIdMutation($request)) return $rejection;
+        $serviceId = (int) $request->get_param('id');
+        $module    = sanitize_key((string) $request->get_param('module'));
+
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+        if (!in_array($module, $PS::TIER_MODULES, true)) {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) { $body = []; }
+
+        $slot = $PS::ensureTierLifecycle($instance['composable_occupant'] ?? []);
+
+        if ($module === 'overview') {
+            $slot = $PS::ensurePendingOccupant($slot);
+
+            $contact = !empty($body['contact']);
+            $draftValue = [
+                'label'         => sanitize_text_field((string) ($body['label'] ?? '')),
+                'ideal_for'     => sanitize_textarea_field((string) ($body['ideal_for'] ?? '')),
+                'price'         => null,
+                'contact'       => $contact,
+                // The composable occupant is never an Add-on — is_addon
+                // semantics are deliberately not reused for this capability
+                // (see docs/code-map/tier-composable-occupant.md), so this
+                // module save accepts no is_addon key at all rather than
+                // silently coercing whatever a caller supplies.
+                'is_addon'      => false,
+            ];
+            if (array_key_exists('audience_groups', $body)) {
+                $draftValue['audience_groups'] = $PS::sanitizeTierAudienceGroups($body['audience_groups']);
+            }
+        } elseif ($module === 'pricing_rules') {
+            $draftValue = [
+                'rate_sheet_id' => sanitize_text_field((string) ($body['rate_sheet_id'] ?? '')),
+                'billing_cycle' => sanitize_text_field((string) ($body['billing_cycle'] ?? '')),
+            ];
+            if (array_key_exists('minimum_term_value', $body)) {
+                $draftValue['minimum_term_value'] = ($body['minimum_term_value'] !== null && $body['minimum_term_value'] !== '')
+                    ? (float) $body['minimum_term_value']
+                    : null;
+            }
+            if (array_key_exists('minimum_term_unit', $body)) {
+                $draftValue['minimum_term_unit'] = ($body['minimum_term_unit'] !== null && $body['minimum_term_unit'] !== '')
+                    ? sanitize_text_field((string) $body['minimum_term_unit'])
+                    : null;
+            }
+            if (array_key_exists('from_month', $body)) {
+                $draftValue['from_month'] = ($body['from_month'] !== null && $body['from_month'] !== '')
+                    ? (int) $body['from_month']
+                    : null;
+            }
+            if (array_key_exists('to_month', $body)) {
+                $draftValue['to_month'] = ($body['to_month'] !== null && $body['to_month'] !== '')
+                    ? (int) $body['to_month']
+                    : null;
+            }
+            if (array_key_exists('legs', $body)) {
+                $draftValue['legs'] = $PS::sanitizeCommercialLegs($body['legs']);
+            }
+            if (array_key_exists('headline_leg_id', $body)) {
+                $draftValue['headline_leg_id'] = sanitize_text_field((string) $body['headline_leg_id']);
+            }
+        } elseif ($module === 'features') {
+            $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
+        } else { // faqs
+            $draftValue = [];
+            if (is_array($body['faq_refs'] ?? null)) {
+                foreach ($body['faq_refs'] as $ref) {
+                    $ref = sanitize_text_field((string) $ref);
+                    if ($ref !== '') { $draftValue[] = $ref; }
+                }
+            }
+        }
+
+        $slot['drafts'][$module]        = $draftValue;
+        $slot['module_status'][$module] = 'pending';
+        $instance['composable_occupant'] = $slot;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'       => true,
+            'module'        => $module,
+            'occupant'      => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+        ]));
+    }
+
+    public function revertComposableOccupantModule(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $module    = sanitize_key((string) $request->get_param('module'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $slot = $PS::revertTierModuleDraft($instance['composable_occupant'] ?? [], $module);
+        if ($slot === null) {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
+        $instance['composable_occupant'] = $slot;
+        $this->persistTierInstance($station, $instanceId, $instance);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'       => true,
+            'module'        => $module,
+            'occupant'      => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+        ]));
+    }
+
+    public function setComposableOccupantEnabled(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $body    = $request->get_json_params();
+        $enabled = isset($body['enabled']) ? (bool) $body['enabled'] : true;
+
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $slot = $instance['composable_occupant'] ?? [];
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        if ($PS::isOccupantFormat($slot) && !empty($slot['current_occupant'])) {
+            $instance['composable_occupant']['current_occupant']['platform_status'] = 'disabled';
+            $instance['composable_occupant']['current_occupant']['is_explicitly_disabled'] = !$enabled;
+        }
+
+        $station = $this->persistTierInstance($station, $instanceId, $instance);
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'], $instanceId) ?? $instance;
+        $slot = $PS::ensureTierLifecycle($instance['composable_occupant'] ?? []);
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'         => true,
+            'occupant'        => $PS::normaliseTierSlot($slot),
+            'drafts'          => $slot['drafts'],
+            'module_status'   => $slot['module_status'],
+            // Deliberately NOT platform_status from TierInstanceSchema::
+            // deriveInstanceStatus() — the composable occupant's own
+            // enable/disable must never be read as the parent Tier
+            // Instance's own status (that stays `tiers`-derived only).
+        ]));
+    }
+
+    /**
+     * Settle (Publish) the composable occupant — mirrors settlePackageStationTier's
+     * identity choreography exactly, minus the is_addon/CZTA branch: this
+     * occupant is never an Add-on, so only CZT (primary) and CZTL/CZTEL
+     * (Legs) are ever reserved here.
+     */
+    public function settleComposableOccupant(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $originalSlot = is_array($instance['composable_occupant'] ?? null) ? $instance['composable_occupant'] : [];
+        try {
+            $slot = $PS::settleTierSlot($originalSlot);
+        } catch (\InvalidArgumentException $e) {
+            return new \WP_REST_Response(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+        $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+        $primaryReservation = null;
+        $primaryResumed = false;
+        if ($this->identityEnabled && $occupant !== null) {
+            try {
+                $existingPrimaryId = (string) ($occupant['cz_platform_id'] ?? '');
+                if ($existingPrimaryId === '') {
+                    $primaryReservation = $this->platformIdentity->reserve($this->identityAdapters->tier());
+                    $slot['current_occupant']['cz_platform_id'] = $primaryReservation->platformId();
+                } elseif ($this->identityNeedsReconciliation($existingPrimaryId)) {
+                    $adapter = $this->identityAdapters->tier();
+                    $primaryReservation = $this->reservationForReconciliation($adapter, $existingPrimaryId);
+                    $primaryResumed = $primaryReservation->platformId() === $existingPrimaryId;
+                    $slot['current_occupant']['cz_platform_id'] = $primaryReservation->platformId();
+                }
+            } catch (\Throwable) {
+                if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Platform identifier.'], 500);
+            }
+        }
+
+        $legReservations = [];
+        if ($this->identityEnabled && $occupant !== null) {
+            try {
+                $legResult = $this->reserveTierLegPlatformIds($slot['current_occupant'], $this->identityAdapters->tierLeg());
+                $slot['current_occupant'] = $legResult['container'];
+                $legReservations = $legResult['reservations'];
+                $slot['current_occupant'] = $this->rewriteHeadlineLegId($slot['current_occupant'], $legReservations);
+            } catch (\Throwable) {
+                $this->retireTierLegReservations($legReservations);
+                if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a Tier Leg Platform identifier.'], 500);
+            }
+        }
+
+        if ($legReservations !== [] && is_array($slot['current_occupant']['rate_sheet_items'] ?? null)) {
+            $slot['current_occupant']['rate_sheet_items'] = $PS::resolveLegAssignmentPlatformIds(
+                $slot['current_occupant']['rate_sheet_items'],
+                $this->legReservationPlatformIdMap($legReservations)
+            );
+        }
+
+        $instance['composable_occupant'] = $slot;
+        try {
+            $this->persistTierInstance($station, $instanceId, $instance);
+        } catch (\Throwable) {
+            $this->retireTierLegReservations($legReservations);
+            if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+            return new \WP_REST_Response(['success' => false, 'message' => 'Composable occupant settlement could not be persisted.'], 500);
+        }
+
+        if ($occupant !== null && ($primaryReservation !== null || $legReservations !== [])) {
+            $occupantId = (string) $slot['current_occupant']['id'];
+            $nativeReference = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
+            try {
+                if ($primaryReservation !== null) {
+                    $this->platformIdentity->bind($this->identityAdapters->tier(), $primaryReservation, $nativeReference);
+                }
+                $this->bindTierLegPlatformIds(
+                    $this->identityAdapters->tierLeg(),
+                    $legReservations,
+                    fn(string $legId): string => PackagePlatformNativeReference::tierLeg($instanceId, $occupantId, $legId)
+                );
+            } catch (\Throwable) {
+                if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                $this->retireTierLegReservations($legReservations);
+                return new \WP_REST_Response([
+                    'success' => false,
+                    'message' => 'Composable occupant settlement persisted, but Platform identifier binding requires reconciliation.',
+                    'native_reference' => $nativeReference,
+                ], 500);
+            }
+        }
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'       => true,
+            'occupant'      => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+        ]));
+    }
+
+    public function archiveComposableOccupantEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $body          = $request->get_json_params();
+        $discardDrafts = is_array($body) && !empty($body['discard_drafts']);
+
+        $result = $PS::archiveComposableOccupant(
+            $instance,
+            $discardDrafts,
+            $PS::generateBinId(),
+            current_time('mysql', true)
+        );
+
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'no_occupant'    => 'The composable occupant has no settled content to archive.',
+                'pending_drafts' => 'The composable occupant has unsettled changes. Discard them to archive.',
+                default          => 'Archive failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $station = $this->persistTierInstance($station, $instanceId, $result['station']);
+        $slot = $result['station']['composable_occupant'];
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'       => true,
+            'occupant'      => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+            'bin_entry'     => $result['entry'],
+            'occupant_bin'  => $result['station']['occupant_bin'],
+        ]));
+    }
+
+    public function restoreComposableOccupantEndpoint(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $serviceId = (int) $request->get_param('id');
+        $binId     = sanitize_key((string) $request->get_param('bin'));
+        $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        $post = get_post($serviceId);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            return rest_ensure_response(['success' => false, 'message' => 'Service not found.']);
+        }
+
+        $context = $this->tierInstanceContext($request);
+        if ($context instanceof \WP_REST_Response) {
+            return $context;
+        }
+        [$station, $instanceId, $instance] = $context;
+
+        $body          = $request->get_json_params();
+        $discardDrafts = is_array($body) && !empty($body['discard_drafts']);
+
+        $result = $PS::restoreComposableOccupant($instance, $binId, $discardDrafts);
+        if (isset($result['error'])) {
+            $message = match ($result['error']) {
+                'unknown_bin_entry' => 'Bin entry not found.',
+                'restore_illegal'   => 'This entry cannot be restored.',
+                'target_occupied'   => 'The composable slot is already occupied. Archive it first.',
+                'pending_drafts'    => 'The composable slot has unsettled changes. Discard them to restore.',
+                default              => 'Restore failed.',
+            };
+            return rest_ensure_response(['success' => false, 'code' => $result['error'], 'message' => $message]);
+        }
+
+        $station = $this->persistTierInstance($station, $instanceId, $result['station']);
+        $slot = $result['station']['composable_occupant'];
+
+        return rest_ensure_response($this->instanceResponseEnvelope($request, $instanceId, [
+            'success'       => true,
+            'occupant'      => $PS::normaliseTierSlot($slot),
+            'drafts'        => $slot['drafts'],
+            'module_status' => $slot['module_status'],
+            'occupant_bin'  => $result['station']['occupant_bin'],
         ]));
     }
 

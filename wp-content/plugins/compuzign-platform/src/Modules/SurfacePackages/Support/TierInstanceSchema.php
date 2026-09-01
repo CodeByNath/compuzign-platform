@@ -146,6 +146,19 @@ final class TierInstanceSchema
             $popularTier = null;
         }
 
+        // Subordinate composable child (Phase 1A) — deliberately a single
+        // nullable slot, not an array/map keyed like `tiers`, so "exactly
+        // one occupant" is true by shape rather than by a runtime check.
+        // Never one of ALLOWED_TIERS and never merged into `tiers`: every
+        // consumer that only iterates ALLOWED_TIERS/`tiers` (five-slot
+        // status derivation, the customer exclusive-select projection,
+        // Add-on grouping) stays unaware of it by construction. See
+        // docs/code-map/tier-composable-occupant.md.
+        $composableOccupant = null;
+        if (is_array($instance['composable_occupant'] ?? null) && $instance['composable_occupant'] !== []) {
+            $composableOccupant = PackageSchema::ensureTierLifecycle($instance['composable_occupant']);
+        }
+
         return [
             'tier_instance_id'       => $id,
             'cz_platform_id'         => sanitize_text_field((string) ($instance['cz_platform_id'] ?? '')),
@@ -157,6 +170,7 @@ final class TierInstanceSchema
             'popular_label'          => sanitize_text_field((string) ($instance['popular_label'] ?? '')),
             'tiers'                  => $tiers,
             'occupant_bin'           => $binStation['occupant_bin'],
+            'composable_occupant'    => $composableOccupant,
         ];
     }
 

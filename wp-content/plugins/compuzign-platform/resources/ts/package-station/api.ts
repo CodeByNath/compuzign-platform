@@ -29,6 +29,9 @@ import type {
   TierEditionBinResponse,
   TierCommercialLeg,
   CommercialLegsDebugResponse,
+  ComposableOccupantLifecycleResponse,
+  ComposableOccupantArchiveResponse,
+  ComposableOccupantRestoreResponse,
 } from './types';
 
 export function fetchTierInstances(): Promise<TierInstancesResponse> {
@@ -338,6 +341,83 @@ export function deleteServicePackageStationBinEntry(
 ): Promise<BinDeleteResponse> {
   return apiClient.delete<BinDeleteResponse>(
     `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/bin/${binId}`,
+  );
+}
+
+// Phase 1A — the subordinate composable child. Dedicated endpoints
+// addressing `composable_occupant` directly (never a `tierId`/slot key),
+// reusing the same underlying occupant module/lifecycle machinery every
+// tiers[tierId] endpoint above already calls. Trash/permanent-delete of an
+// archived composable entry reuse trashServicePackageStationBinEntry()/
+// deleteServicePackageStationBinEntry() above unchanged.
+
+export function saveComposableOccupantModule(
+  serviceId: number,
+  tierInstanceId: string,
+  module:    TierModuleKey,
+  payload:   TierModuleSavePayload,
+): Promise<ComposableOccupantLifecycleResponse> {
+  return apiClient.post<ComposableOccupantLifecycleResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/modules/${module}`,
+    stripLegSelfIdentity(payload),
+  );
+}
+
+export function revertComposableOccupantModule(
+  serviceId: number,
+  tierInstanceId: string,
+  module:    TierModuleKey,
+): Promise<ComposableOccupantLifecycleResponse> {
+  return apiClient.post<ComposableOccupantLifecycleResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/modules/${module}/revert`,
+    {},
+  );
+}
+
+export function setComposableOccupantEnabled(
+  serviceId: number,
+  tierInstanceId: string,
+  enabled:   boolean,
+): Promise<ComposableOccupantLifecycleResponse> {
+  return apiClient.post<ComposableOccupantLifecycleResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/enabled`,
+    { enabled },
+  );
+}
+
+export function settleComposableOccupant(
+  serviceId: number,
+  tierInstanceId: string,
+): Promise<ComposableOccupantLifecycleResponse> {
+  return apiClient.post<ComposableOccupantLifecycleResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/settle`,
+    {},
+  );
+}
+
+export function archiveComposableOccupant(
+  serviceId:     number,
+  tierInstanceId: string,
+  discardDrafts: boolean = false,
+): Promise<ComposableOccupantArchiveResponse> {
+  return apiClient.post<ComposableOccupantArchiveResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/archive`,
+    { discard_drafts: discardDrafts },
+  );
+}
+
+// No mode/targetTier parameter exists — the composable occupant only ever
+// returns to its own single slot; an already-occupied slot fails
+// target_occupied rather than offering swap/retarget.
+export function restoreComposableOccupant(
+  serviceId:     number,
+  tierInstanceId: string,
+  binId:         string,
+  discardDrafts: boolean = false,
+): Promise<ComposableOccupantRestoreResponse> {
+  return apiClient.post<ComposableOccupantRestoreResponse>(
+    `admin/services/${serviceId}/package-station/tier-instances/${tierInstanceId}/composable/restore/${binId}`,
+    { discard_drafts: discardDrafts },
   );
 }
 

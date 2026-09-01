@@ -24,6 +24,11 @@ class PackageSchema
     // 'archived' retired at E2 (confirmed unreachable).
     public const ALLOWED_PLATFORM_STATUSES   = ['active', 'disabled'];
     public const ALLOWED_TIERS               = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
+    // Phase 1A — the subordinate composable child's own bin `origin_tier`
+    // sentinel. Deliberately NOT added to ALLOWED_TIERS: it addresses the
+    // single `composable_occupant` slot on the Tier Instance, never a sixth
+    // peer slot. See docs/code-map/tier-composable-occupant.md.
+    public const COMPOSABLE_OCCUPANT_ORIGIN  = 'composable_occupant';
     public const ALLOWED_PROMOTION_STATUSES  = ['draft', 'active', 'archived'];
     public const ALLOWED_BASED_ON            = ['basic', 'standard', 'premium', 'enterprise', 'ultimate'];
     public const TIER_AUDIENCE_GROUPS        = ['personal_business', 'enterprise'];
@@ -2363,9 +2368,10 @@ class PackageSchema
                 $status = 'archived';
             }
             $origin = (string) ($entry['origin_tier'] ?? '');
+            $originValid = in_array($origin, self::ALLOWED_TIERS, true) || $origin === self::COMPOSABLE_OCCUPANT_ORIGIN;
             $out[] = [
                 'bin_id'           => $binId,
-                'origin_tier'      => in_array($origin, self::ALLOWED_TIERS, true) ? $origin : '',
+                'origin_tier'      => $originValid ? $origin : '',
                 'occupant'         => $occupant,
                 'status'           => $status,
                 'previous_enabled' => (bool) ($entry['previous_enabled'] ?? false),
@@ -2720,6 +2726,132 @@ class PackageSchema
 
         array_splice($station['occupant_bin'], $index, 1);
         return ['station' => $station, 'entry' => $entry];
+    }
+
+    // ── Composable occupant (Phase 1A) — dedicated, not reused from the
+    // ALLOWED_TIERS-coupled functions above. archiveTierOccupant()/
+    // restoreBinnedOccupant() are hard-wired to `$station['tiers'][$tierId]`
+    // and support swap/retarget across the five peer slots — behaviour that
+    // must never apply to the single subordinate composable_occupant slot
+    // (it must never be swapped into/out of a normal Tier slot). These two
+    // functions instead address `composable_occupant` directly and support
+    // neither swap nor retarget — there is only ever one shell to return to.
+    // trashBinnedOccupant()/deleteBinnedOccupant() above are already fully
+    // generic over any occupant_bin entry (keyed by bin_id, never by
+    // origin_tier) and are reused unchanged for composable entries.
+
+    /**
+     * Archive the composable occupant into occupant_bin, mirroring
+     * archiveTierOccupant()'s shape/guards for the single dedicated slot.
+     *
+     * @param  array<string, mixed> $instance
+     * @return array{station: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function archiveComposableOccupant(array $instance, bool $discardDrafts, string $binId, ?string $displacedAt): array
+    {
+        $instance = self::ensureOccupantBin($instance);
+        $slot     = self::ensureTierLifecycle($instance['composable_occupant'] ?? []);
+
+        $occupant = (self::isOccupantFormat($slot) && !empty($slot['current_occupant']))
+            ? $slot['current_occupant']
+            : null;
+        if ($occupant === null) {
+            return ['error' => 'no_occupant'];
+        }
+
+        $hasDraft = false;
+        foreach (self::TIER_MODULES as $module) {
+            if (($slot['drafts'][$module] ?? null) !== null) {
+                $hasDraft = true;
+                break;
+            }
+        }
+        if ($hasDraft && !$discardDrafts) {
+            return ['error' => 'pending_drafts'];
+        }
+
+        [$occupant, $cascadedEditionIds] = self::cascadeArchiveTierEditions($occupant);
+
+        $entry = [
+            'bin_id'           => $binId,
+            'origin_tier'      => self::COMPOSABLE_OCCUPANT_ORIGIN,
+            'occupant'         => $occupant,
+            'status'           => 'archived',
+            'previous_enabled' => ($occupant['platform_status'] ?? 'active') === 'active',
+            'displaced_at'     => $displacedAt,
+            'cascaded_edition_ids' => $cascadedEditionIds,
+        ];
+        $instance['occupant_bin'][] = $entry;
+
+        $slot['current_occupant'] = null;
+        $slot['drafts']           = self::emptyTierLifecycle()['drafts'];
+        foreach (self::TIER_MODULES as $module) {
+            $slot['module_status'][$module] = 'not-configured';
+        }
+        $instance['composable_occupant'] = $slot;
+        // Deliberately no deriveStationStatus() call here: the composable
+        // occupant is subordinate and must never affect the parent Tier
+        // Instance's own Active/Pending status (that stays derived from
+        // `tiers` alone — see TierInstanceSchema::deriveInstanceStatus()).
+
+        return ['station' => $instance, 'entry' => $entry];
+    }
+
+    /**
+     * Restore a binned composable occupant back into the composable_occupant
+     * slot. No swap/retarget: an occupied slot simply blocks the restore
+     * (target_occupied) — there is nowhere else for this occupant to go.
+     *
+     * @param  array<string, mixed> $instance
+     * @return array{station: array<string, mixed>, entry: array<string, mixed>}|array{error: string}
+     */
+    public static function restoreComposableOccupant(array $instance, string $binId, bool $discardDrafts): array
+    {
+        $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+
+        $instance = self::ensureOccupantBin($instance);
+        $index    = self::findBinIndex($instance['occupant_bin'], $binId);
+        if ($index === null) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+        $entry = $instance['occupant_bin'][$index];
+        if (($entry['origin_tier'] ?? null) !== self::COMPOSABLE_OCCUPANT_ORIGIN) {
+            return ['error' => 'unknown_bin_entry'];
+        }
+
+        if ($engine::restore($entry['status']) === null) {
+            return ['error' => 'restore_illegal'];
+        }
+
+        $slot = self::ensureTierLifecycle($instance['composable_occupant'] ?? []);
+        if (self::shellOccupied($slot)) {
+            return ['error' => 'target_occupied'];
+        }
+
+        $hasDraft = false;
+        foreach (self::TIER_MODULES as $module) {
+            if (($slot['drafts'][$module] ?? null) !== null) { $hasDraft = true; break; }
+        }
+        if ($hasDraft && !$discardDrafts) {
+            return ['error' => 'pending_drafts'];
+        }
+
+        array_splice($instance['occupant_bin'], $index, 1);
+
+        $carriedEditionIds = is_array($entry['cascaded_edition_ids'] ?? null) ? $entry['cascaded_edition_ids'] : [];
+        $occupant = self::cascadeRestoreTierEditions($entry['occupant'], $carriedEditionIds);
+        $occupant['platform_status'] = 'disabled';
+        $occupant['is_explicitly_disabled'] = false;
+
+        $slot['current_occupant'] = $occupant;
+        if (!isset($slot['history']) || !is_array($slot['history'])) {
+            $slot['history'] = [];
+        }
+        $slot = self::commitTierLifecycle($slot);
+
+        $instance['composable_occupant'] = $slot;
+
+        return ['station' => $instance, 'entry' => $entry];
     }
 
     /**

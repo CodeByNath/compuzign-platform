@@ -1968,9 +1968,77 @@ class PackageRepository
         $flatTiers = [];
         $selectedInclusionSourceIds = [];
         foreach (PackageSchema::ALLOWED_TIERS as $tierId) {
-            $extracted = PackageSchema::extractTierForCostBuilder($instance['tiers'][$tierId] ?? []);
+            $extracted = $this->compileOccupantSlotForCostBuilder(
+                $readModel,
+                $instance['tiers'][$tierId] ?? [],
+                $includeSelectedInclusionProvenance,
+                $tierId,
+                $selectedInclusionSourceIds
+            );
             if ($extracted === null) {
                 continue;
+            }
+            $flatTiers[$tierId] = $extracted;
+        }
+        $projected['platform_status'] = 'active';
+        $projected['tiers'] = $flatTiers;
+        $projected['popular_tier'] = $instance['popular_tier'] ?? null;
+        $projected['popular_label'] = (string) ($instance['popular_label'] ?? '');
+        $projected['promotion_tiers'] = is_array($station['promotions'] ?? null)
+            ? $station['promotions']
+            : [];
+        // Phase 1A — the subordinate composable child, projected through the
+        // exact same per-slot compiler as every `tiers[tierId]` entry above,
+        // but attached as a sibling key, never merged into `tiers`. Every
+        // existing consumer of this projection (the customer exclusive-
+        // select surface, ComparePlans) only ever reads `tiers`, so it stays
+        // unaware of this key without any exclusion logic being written.
+        $composableSlot = $instance['composable_occupant'] ?? null;
+        if (is_array($composableSlot)) {
+            $composableExtracted = $this->compileOccupantSlotForCostBuilder(
+                $readModel,
+                $composableSlot,
+                false,
+                null,
+                $selectedInclusionSourceIds
+            );
+            if ($composableExtracted !== null) {
+                $projected['composable_offer'] = $composableExtracted;
+            }
+        }
+        if ($includeSelectedInclusionProvenance) {
+            $projected['_selected_inclusion_source_ids'] = $selectedInclusionSourceIds;
+        }
+        return $projected;
+    }
+
+    /**
+     * Compile one occupant slot — a `tiers[tierId]` entry OR the subordinate
+     * `composable_occupant` sibling — through the same Rate-Sheet-backed
+     * projector, Bundle detection, inclusion resolution, and per-Edition
+     * commercial-Leg/Headline resolution every Tier occupant already gets.
+     * Returns null when the slot carries no consumable occupant.
+     *
+     * Extracted verbatim from the per-tier loop this now serves so a second,
+     * independently-addressed occupant slot (Phase 1A) can reuse the exact
+     * same compilation with no parallel/duplicated pricing path — the engine
+     * itself is unchanged; only its caller now runs it over two kinds of slot.
+     *
+     * @param array<string, mixed> $readModel
+     * @param array<string, mixed> $slot
+     * @param array<string, mixed> $selectedInclusionSourceIds keyed by $provenanceKey, written when requested
+     * @return array<string, mixed>|null
+     */
+    private function compileOccupantSlotForCostBuilder(
+        array $readModel,
+        array $slot,
+        bool $includeSelectedInclusionProvenance,
+        ?string $provenanceKey,
+        array &$selectedInclusionSourceIds
+    ): ?array {
+            $extracted = PackageSchema::extractTierForCostBuilder($slot);
+            if ($extracted === null) {
+                return null;
             }
             $rateProjection = PackageManagerSchema::projectTierRateSheetWith(
                 $readModel,
@@ -2034,8 +2102,8 @@ class PackageRepository
                 },
                 $resolvedInclusions
             );
-            if ($includeSelectedInclusionProvenance) {
-                $selectedInclusionSourceIds[$tierId] = array_values(array_map(
+            if ($includeSelectedInclusionProvenance && $provenanceKey !== null) {
+                $selectedInclusionSourceIds[$provenanceKey] = array_values(array_map(
                     static fn(array $row): string => (string) ($row['source_id'] ?? ''),
                     $resolvedInclusions
                 ));
@@ -2044,8 +2112,8 @@ class PackageRepository
             // rate_sheet_id/rate_sheet_items — the occupant's own selection
             // above is different — through this same authoritative projector.
             if (!empty($extracted['edition_options'])) {
-                $occupant = PackageSchema::isOccupantFormat($instance['tiers'][$tierId] ?? [])
-                    ? ($instance['tiers'][$tierId]['current_occupant'] ?? null)
+                $occupant = PackageSchema::isOccupantFormat($slot)
+                    ? ($slot['current_occupant'] ?? null)
                     : null;
                 $rawEditions = is_array($occupant) ? PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) : [];
                 $editionPriceById = [];
@@ -2088,19 +2156,46 @@ class PackageRepository
             // become public response fields — commercial_legs above is the
             // resolved, public-safe shape derived from 'legs' instead.
             unset($extracted['rate_sheet_id'], $extracted['rate_sheet_items'], $extracted['legs']);
-            $flatTiers[$tierId] = $extracted;
+            return $extracted;
+    }
+
+    /**
+     * Attach an occupant's own CZT/CZTA + per-Edition CZTE onto its already-
+     * compiled tier row, for the public Family projection only (Cost
+     * Builder's own service-scoped map never carried these). Returns null
+     * when there is no occupant or no minted primary/Add-on Platform id yet
+     * — the same "not surfaced until fully identified" rule for a normal
+     * Tier slot and for the composable child alike.
+     *
+     * @param array<string, mixed> $tier
+     * @param array<string, mixed>|null $occupant
+     * @return array<string, mixed>|null
+     */
+    private function enrichCompiledOccupantIdentity(array $tier, ?array $occupant): ?array
+    {
+        if (!is_array($occupant)) {
+            return null;
         }
-        $projected['platform_status'] = 'active';
-        $projected['tiers'] = $flatTiers;
-        $projected['popular_tier'] = $instance['popular_tier'] ?? null;
-        $projected['popular_label'] = (string) ($instance['popular_label'] ?? '');
-        $projected['promotion_tiers'] = is_array($station['promotions'] ?? null)
-            ? $station['promotions']
-            : [];
-        if ($includeSelectedInclusionProvenance) {
-            $projected['_selected_inclusion_source_ids'] = $selectedInclusionSourceIds;
+        $tierPlatformId = !empty($tier['is_addon'])
+            ? (string) ($occupant['addon_platform_id'] ?? '')
+            : (string) ($occupant['cz_platform_id'] ?? '');
+        if ($tierPlatformId === '') {
+            return null;
         }
-        return $projected;
+        $tier['occupant_id'] = (string) ($occupant['id'] ?? '');
+        $tier['platform_id'] = $tierPlatformId;
+        $editionPlatformIds = [];
+        foreach (PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) as $edition) {
+            $editionPlatformIds[(string) ($edition['id'] ?? '')] = (string) ($edition['edition_platform_id'] ?? '');
+        }
+        $tier['edition_options'] = array_values(array_filter(array_map(
+            static function (array $option) use ($editionPlatformIds): array {
+                $platformId = $editionPlatformIds[(string) ($option['id'] ?? '')] ?? '';
+                return [...$option, 'edition_platform_id' => $platformId];
+            },
+            is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : []
+        ), static fn(array $option): bool => $option['edition_platform_id'] !== ''));
+        return $tier;
     }
 
     /**
@@ -2184,34 +2279,30 @@ class PackageRepository
                 $occupant = PackageSchema::isOccupantFormat($slot)
                     ? ($slot['current_occupant'] ?? null)
                     : null;
-                if (!is_array($occupant)) {
+                $enriched = $this->enrichCompiledOccupantIdentity($tier, $occupant);
+                if ($enriched === null) {
                     unset($compiled['tiers'][$tierId]);
                     continue;
                 }
-                $tierPlatformId = !empty($tier['is_addon'])
-                    ? (string) ($occupant['addon_platform_id'] ?? '')
-                    : (string) ($occupant['cz_platform_id'] ?? '');
-                if ($tierPlatformId === '') {
-                    unset($compiled['tiers'][$tierId]);
-                    continue;
-                }
-                $tier['occupant_id'] = (string) ($occupant['id'] ?? '');
-                $tier['platform_id'] = $tierPlatformId;
-                $editionPlatformIds = [];
-                foreach (PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) as $edition) {
-                    $editionPlatformIds[(string) ($edition['id'] ?? '')] = (string) ($edition['edition_platform_id'] ?? '');
-                }
-                $tier['edition_options'] = array_values(array_filter(array_map(
-                    static function (array $option) use ($editionPlatformIds): array {
-                        $platformId = $editionPlatformIds[(string) ($option['id'] ?? '')] ?? '';
-                        return [...$option, 'edition_platform_id' => $platformId];
-                    },
-                    is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : []
-                ), static fn(array $option): bool => $option['edition_platform_id'] !== ''));
+                $tier = $enriched;
             }
             unset($tier);
             if ($compiled['tiers'] === []) {
                 continue;
+            }
+
+            // The composable child rides the same identity enrichment as any
+            // `tiers[tierId]` entry, keyed by its own composable_occupant
+            // slot instead. Absent when never configured, or dropped (same
+            // as a normal Tier above) when it has no occupant yet or no
+            // minted CZT — never surfaced half-identified.
+            $composableOffer = null;
+            if (is_array($compiled['composable_offer'] ?? null)) {
+                $composableSlot = $instance['composable_occupant'] ?? [];
+                $composableOccupant = PackageSchema::isOccupantFormat($composableSlot)
+                    ? ($composableSlot['current_occupant'] ?? null)
+                    : null;
+                $composableOffer = $this->enrichCompiledOccupantIdentity($compiled['composable_offer'], $composableOccupant);
             }
 
             $managerItemsBySourceId = [];
@@ -2245,6 +2336,7 @@ class PackageRepository
                 'popular_tier'    => $compiled['popular_tier'],
                 'popular_label'   => $compiled['popular_label'],
                 'included_categories' => array_keys($includedCategories),
+                'composable_offer' => $composableOffer,
             ];
         }
 
