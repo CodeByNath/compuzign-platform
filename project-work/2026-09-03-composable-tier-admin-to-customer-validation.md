@@ -12,30 +12,32 @@ Build Your Own remains a normal full Tier occupant for product definition and li
 
 Customer Options controls only existing occupant inclusion `item_id`s: required/optional/excluded, optional default-selected, fixed vs configurable quantity with default/min/max/step, and Featured. Price Option, Commercial Legs, commitment and Editions stay occupant-authored and outside this drawer.
 
-## Source/deployment acceptance
-Independent audit confirms:
-- `main` resolves exactly to the approved `8ff4eff9` commit;
-- review branch vs `main`: 0 commits / 0 files different;
-- deploy #934 succeeded on that exact SHA;
-- no cart/quote/Request/PDF/email/promotions/TCV scope entered this phase.
+## Live setup authorization
+Nath authorizes the browser-validation chat to make a **small real configuration change** to the existing KAIROS Build Your Own occupant so this path can be exercised. This is not permission for broad catalogue/package changes.
 
-No further Claude source action is authorized unless live validation exposes a genuine defect.
+Authorized now:
+- open the existing KAIROS Build Your Own occupant in Studio;
+- use the normal occupant editor only;
+- select a small set of existing real KAIROS Rate Sheet inclusions sufficient to exercise Required/Optional/quantity/filter behavior;
+- use existing authored Price Options/Commercial Legs only; do not invent new pricing structures;
+- save the normal occupant configuration and make it **publish-ready**;
+- record exactly which inclusions and settings were changed.
 
-## Live Admin validation — browser chat
+**Publishing/activating is not authorized by this note alone.** Stop at the publish boundary and ask Nath in the browser chat for explicit approval before activating the real offer. Do not modify any of the five normal Tier occupants, Family assignment, Service/Category records, Rate Sheet rows, Price Options, or unrelated platform data.
+
+## Browser validation sequence
 Use `https://compuzign.weerax.com/studio/`.
+1. Confirm Customer Options is absent while Build Your Own is not active/published.
+2. Configure the small real inclusion set through normal Build Your Own View/Edit and bring it to publish-ready state.
+3. Stop and obtain Nath's explicit approval before Publish/Activate.
+4. After authorized publication, return to the Build Your Own shell and verify Customer Options appears only there.
+5. Verify View/Edit still opens the normal four-module Tier occupant editor.
+6. Open Customer Options and verify its separate Customer Selection Rules drawer contains only the occupant's existing inclusions and only the approved policy controls.
+7. Save/reopen the customer-policy draft and verify fidelity. Publish/settle that policy only through the normal Build Your Own lifecycle and only with Nath's explicit authorization for that action.
+8. Only after a real policy is active, validate `https://compuzign.weerax.com/pricing/` for Build Your Own / Upgrade your build, filters, Add/Remove, quantity and server-resolved pricing.
 
-Do not create fake records. Use the existing real Build Your Own occupant state. If it is still Empty/unpublished, verify only the gate: **Customer Options must not be available yet**, while normal Configure/View/Edit remains unchanged.
-
-If Nath separately authorizes configuring/publishing a genuine Build Your Own offer, follow the normal occupant workflow first. After it becomes active/published, return to the Build Your Own shell and verify:
-1. **Customer Options** appears only on that composable card, not the five normal Tier/Add-on cards.
-2. Normal **View/Edit** still opens the unchanged normal Tier occupant editor.
-3. Customer Options opens a separate Customer Selection Rules drawer, not Details/Pricing Rules/Features/FAQs.
-4. Drawer rows are only existing inclusions from that Build Your Own occupant.
-5. Controls shown: Not offered / Always included / Customer Add-Remove; Selected by default for optional; customer-configurable quantity with default/min/max/step; Featured.
-6. No customer Price Option, Commercial Leg, commitment or Edition authoring appears in this drawer.
-7. Save/reopen faithfully returns the authored draft. Do not claim customer-facing behavior until the policy is actually settled/published through the occupant lifecycle.
-
-Then, only after a real policy is published, validate `https://compuzign.weerax.com/pricing/` for Build Your Own / Upgrade your build behavior already covered by Phase 2B1.
+## Hard boundaries
+No fake records, REST/DevTools bypass, new Rate Sheet rows, new Price Options, new Legs solely for testing, changes to normal Tier/Add-on occupants, cart/quote/Request/PDF/email/promotions/TCV work, or broad cleanup.
 
 ## Browser-agent report
-Update this same file with the exact observed state, any separately-authorized runtime changes, and screenshots/notes. If the occupant remains unconfigured, record the gate result and stop. If a real configuration is authorized, validate one boundary at a time and stop immediately on any architecture mismatch.
+Update this same file with the exact runtime changes and observed boundary at each stop. Stop immediately on any architecture mismatch or unexpected mutation.
