@@ -16,7 +16,9 @@
 // Fixture-driven against real exported production functions, not mounted
 // DOM — same precedent composable-occupant-address-contract.ts follows.
 
-import { TIER_KEYS, COMPOSABLE_TIER_ID } from '../resources/ts/package-station/vocabulary';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { TIER_KEYS, COMPOSABLE_TIER_ID, resolveTierDrawerHeaderTitle } from '../resources/ts/package-station/vocabulary';
 import {
   projectWorkspaceTierSlots,
   projectComposableWorkspaceSlot,
@@ -115,5 +117,25 @@ const subordinateCopy = subordinateEmptyStateCopy('Build Your Own');
 check(!subordinateCopy.heading.includes('Tier'), 'the composable occupant\'s empty-state heading never says "Tier" — it must not read as a peer Tier that merely has not been configured yet');
 check(!subordinateCopy.body.toLowerCase().includes('tier slot'), 'the composable occupant\'s empty-state body never says "Tier slot" — it is never one');
 check(subordinateCopy.body.includes('Build Your Own'), 'the composable occupant\'s empty-state body still names the occupant by its approved product label');
+
+// ── 5. Drawer header title never says Package Tier/Add-on for composable ───
+// Blocking live finding after production deploy of 8545eb2e: the workspace's
+// own internal presentation was correct, but the shared drawer shell's
+// static per-template title ("Package Tier", registered in register.ts)
+// still rendered at the top of the drawer chrome while the composable
+// occupant was open. Proves the override resolver, and that every normal
+// Tier/Add-on/package-overview screen still falls back to that unchanged
+// registered title.
+
+check(resolveTierDrawerHeaderTitle(COMPOSABLE_TIER_ID) !== null, 'the composable occupant gets a header title override rather than falling back to the shell\'s own registered title');
+check(resolveTierDrawerHeaderTitle(COMPOSABLE_TIER_ID) !== 'Package Tier' && resolveTierDrawerHeaderTitle(COMPOSABLE_TIER_ID) !== 'Package Add-on', 'the composable occupant\'s drawer header title is never "Package Tier"/"Package Add-on"');
+check(resolveTierDrawerHeaderTitle(COMPOSABLE_TIER_ID) === 'Build Your Own', 'the composable occupant\'s drawer header title uses the same approved product label the rest of the admin vocabulary already uses');
+for (const tierId of TIER_KEYS) {
+  check(resolveTierDrawerHeaderTitle(tierId) === null, `a normal Tier screen ("${tierId}") gets no header title override -- the shell's own registered "Package Tier" title renders unchanged`);
+}
+check(resolveTierDrawerHeaderTitle(null) === null, 'the package-overview screen (no tier open) gets no header title override');
+
+const registerSource = readFileSync(resolve(import.meta.dirname, '../resources/ts/package-station/register.ts'), 'utf8');
+check(registerSource.includes("title: 'Package Tier'"), 'the Tier drawer template\'s own base/fallback title is still registered as "Package Tier" -- this fix overrides it per-instance rather than renaming it, so every normal Tier/Add-on drawer is unaffected');
 
 console.log('Composable occupant workspace contract passed.');

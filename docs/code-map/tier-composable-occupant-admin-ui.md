@@ -1,17 +1,17 @@
 # Composable Tier Occupant Admin UI
 
-**Phase 1B/1C — full reuse via sentinel routing; not yet browser-verified.**
-See [Composable Tier Occupant](tier-composable-occupant.md) for the backend
-foundation this builds on. Verified by `tsc`/`build`/two dedicated TS
-contracts (`composable-occupant-address-contract.ts`,
-`composable-occupant-workspace-contract.ts`); no interactive browser check
-has been performed — see Not interactively verified below.
+**Phase 1B — full reuse via sentinel routing; not yet browser-verified on
+this route.** See [Composable Tier Occupant](tier-composable-occupant.md)
+for the backend foundation this builds on. Verified by `tsc`/`build`/a
+dedicated TS contract (`composable-occupant-address-contract.ts`); no
+interactive browser check has been performed on this Service-scoped route
+— see Not interactively verified below.
 
-Phase 1B's launcher only reached the Service-scoped Connections route. A
-live check on the Family-first route (Settings → Family Groups → View →
-Connections → Manage Tier system) found none there — it resolves to the
-separate, pre-existing `presentation/package-tier-workspace/` surface,
-untouched by Phase 1B. Phase 1C (below) adds the same launcher there.
+This document covers only the Service-scoped Connections route
+(`TierDrawerContent.tsx`). The separate Family-first
+`presentation/package-tier-workspace/` surface — its own launcher,
+subordinate presentation, and the drawer-chrome header fix live validation
+found — is [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md).
 
 ## The sentinel-routing design
 
@@ -78,44 +78,6 @@ Popular). `TierDrawerContent.tsx` sets `extras.hideAddonAndPopular` from
 `isComposableOccupant(editingTierId)` when constructing the `tier-overview`
 editing session.
 
-## Phase 1C — the Tier Workspace surface's own launcher
-
-`presentation/package-tier-workspace/` is a second, independent entry point
-over the same `usePackageStation` instance data. `usePackageTierWorkspace.ts`
-now also reads `pkg.tierView(COMPOSABLE_TIER_ID)`, exposed as a new
-`composableOccupant: WorkspaceTierSlot | null` field on
-`PackageTierWorkspaceTool` — never entering `slots`/
-`projectWorkspaceTierSlots()`/`occupants`, so "N of 5"/Family "Tiers 5" are
-unaffected. `PackageTierWorkspace.tsx` renders it once, outside the
-Focus/Grid switch, reusing `TierDetailPanel` (the same created/empty-slot
-branches a fixed Tier gets, plus an additive `isSubordinate` prop — default
-`false`, every other caller unaffected). The composable slot itself is built
-by `projection.ts`'s `projectComposableWorkspaceSlot()`, exported alongside
-`projectWorkspaceTierSlots()` rather than inlined in the hook.
-
-`isSubordinate` swaps every peer-Tier-sounding surface, not just the empty
-label first shipped: `TierDetailPanel`'s empty-state heading/body (extracted
-as `subordinateEmptyStateCopy()`, never "This Tier"/"Tier slot") and
-`toTierOccupantCard()`'s own additive `isSubordinate` param (`kind:
-'Composable occupant'` instead of `'Package Tier'`/`'Package Add-on'`,
-`PackagesIcon` instead of the Tier glyph) for the created-occupant card —
-both extracted so the composable-occupant-workspace contract can assert the
-composable occupant never presents as a normal Tier/Add-on in either state,
-while every existing Tier/Add-on caller of both functions stays unchanged.
-
-Two routing-layer gaps, neither specific to this surface, had blocked that
-dispatch: `usePackageStation.ts`'s `resolveOccupantSlot()` scanned only
-`station.tiers` for an `occupant_id` — the same class of gap already fixed
-PHP-side for `PackageRepository`. The lookup is now
-`tierOccupants.ts`'s exported `resolveOccupantSlotIncludingComposable()`,
-which also checks `composable_occupant.occupant_id`, returning
-`COMPOSABLE_TIER_ID`. `tierDrawerTypes.ts`'s `FIXED_TIER_SLOTS` (the
-empty-slot routing token's own validation, distinct from `TIER_KEYS`)
-rejected the sentinel, blocking an as-yet-uncreated composable occupant
-from opening by slot address; it now accepts it too. Both extractions exist
-so `composable-occupant-workspace-contract.ts` can exercise them directly,
-alongside the workspace's own structural five-slot-exclusion proof.
-
 ## Not interactively verified
 
 `TierDrawerContent.tsx`/`useTierDrawerController.ts` are the locked,
@@ -128,6 +90,7 @@ after source review — see the coordination doc's Phase 1B decision.
 
 ## Related Code Maps
 
+[Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
 [Composable Tier Occupant](tier-composable-occupant.md), [Tiers](tiers.md),
 [Tier Edition](tier-edition.md), [Drawer System](drawer-system.md), and
 [Package Station](package-station.md).

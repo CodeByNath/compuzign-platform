@@ -81,6 +81,7 @@ Customer inclusion/quantity/Price Option selection, cart key
 ## Related Code Maps
 
 [Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
+[Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
 [Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Tier
 Edition](tier-edition.md), [Commercial Legs](commercial-legs.md), [Package
 Station](package-station.md), and [Cost Builder](cost-builder.md).

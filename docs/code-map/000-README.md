@@ -39,6 +39,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Tier Edition](tier-edition.md)
 - [Composable Tier Occupant](tier-composable-occupant.md)
 - [Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md)
+- [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md)
 - [Commercial Legs](commercial-legs.md)
 - [Promotions](promotions.md)
 - [Categories](categories.md)

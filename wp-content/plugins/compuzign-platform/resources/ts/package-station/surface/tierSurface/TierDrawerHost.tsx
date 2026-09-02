@@ -37,6 +37,7 @@ export function TierDrawerHost({
   setFooter,
   setCloseGuard,
   setHeaderHidden,
+  setHeaderTitle,
 }: DrawerContentProps): VNode {
   const host = useHostService();
 
@@ -44,6 +45,7 @@ export function TierDrawerHost({
   const footerRef = useRef(setFooter);       footerRef.current = setFooter;
   const guardRef  = useRef(setCloseGuard);   guardRef.current  = setCloseGuard;
   const headerRef = useRef(setHeaderHidden); headerRef.current = setHeaderHidden;
+  const titleRef  = useRef(setHeaderTitle);  titleRef.current  = setHeaderTitle;
   const savedRef  = useRef(onSaved);         savedRef.current  = onSaved;
 
   const bridge = useMemo<EntityDrawerHostBridge>(() => ({
@@ -51,6 +53,7 @@ export function TierDrawerHost({
     setFooter:     (footer) => footerRef.current?.(footer),
     setCloseGuard: (guard)  => guardRef.current?.(guard),
     setHeaderHidden: (hidden) => headerRef.current?.(hidden),
+    setHeaderTitle:  (title) => titleRef.current?.(title),
     // The composition's own usePackageStation reloads itself after a mutation;
     // this refreshes the wall the drawer was opened from, and only that wall.
     onMutationComplete: () => savedRef.current(),

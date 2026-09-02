@@ -27,6 +27,20 @@ export function isComposableOccupant(tierId: string | null | undefined): boolean
   return tierId === COMPOSABLE_TIER_ID;
 }
 
+// The Tier drawer's shell chrome (AdminStationDrawer.tsx) renders a single
+// static per-template title ("Package Tier", registered in register.ts) --
+// right for a normal Tier/Add-on, wrong for the subordinate composable
+// occupant, which is neither. TierDrawerContent.tsx calls this to resolve
+// the shell's optional setHeaderTitle override: non-null only while
+// editingTierId addresses the composable occupant, null (falling back to
+// the shell's own registered title) for package overview and every normal
+// Tier/Add-on screen. Extracted as a pure function, rather than inlined in
+// the effect, so the composable-occupant-workspace contract can assert it
+// directly. Exported for that contract.
+export function resolveTierDrawerHeaderTitle(editingTierId: string | null): string | null {
+  return isComposableOccupant(editingTierId) ? TIER_LABELS[COMPOSABLE_TIER_ID] : null;
+}
+
 // Mirrors PackageSchema::COMPOSABLE_OCCUPANT_ORIGIN — the occupant_bin
 // entry's own origin_tier sentinel, used to resolve which occupant a bin_id
 // belongs to (never guessed from whichever occupant happens to be open).

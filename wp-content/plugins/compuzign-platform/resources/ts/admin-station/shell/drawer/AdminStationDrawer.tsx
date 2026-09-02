@@ -82,6 +82,16 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
     setHeaderAction(null);
   }, [open.drawerTemplateKey, open.recordId]);
 
+  // Entity-supplied header title override (optional -- see setHeaderTitle's
+  // own comment in drawerTypes.ts). Same guaranteed-reset reasoning as
+  // headerAction/headerHidden above: `null` falls back to the template's own
+  // registered title, so content that never calls this renders exactly as
+  // before.
+  const [headerTitle, setHeaderTitle] = useState<string | null>(null);
+  useEffect(() => {
+    setHeaderTitle(null);
+  }, [open.drawerTemplateKey, open.recordId]);
+
   // The single close path: honour the content's guard, then close. When the
   // guard returns false the content has raised its own blocking UI and drives
   // the close itself; the shell does nothing further.
@@ -148,6 +158,8 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
               setHeaderHidden={setHeaderHidden}
               headerAction={headerAction}
               setHeaderAction={setHeaderAction}
+              headerTitle={headerTitle}
+              setHeaderTitle={setHeaderTitle}
             />
           )
           : <UnresolvedDrawer onClose={requestClose} />}
@@ -169,6 +181,8 @@ function ResolvedDrawer({
   setHeaderHidden,
   headerAction,
   setHeaderAction,
+  headerTitle,
+  setHeaderTitle,
 }: {
   open: OpenDrawerState;
   template: NonNullable<ReturnType<typeof resolveDrawerTemplate>>;
@@ -179,6 +193,8 @@ function ResolvedDrawer({
   setHeaderHidden: (hidden: boolean) => void;
   headerAction: ComponentChildren;
   setHeaderAction: (action: ComponentChildren) => void;
+  headerTitle: string | null;
+  setHeaderTitle: (title: string | null) => void;
 }) {
   const { setMode, notifySaved } = useAdminStationDrawer();
   const Content = template.content;
@@ -198,7 +214,7 @@ function ResolvedDrawer({
           for why this can never stay stuck hidden across different content. */}
       {!headerHidden && (
         <header class="cz-station-drawer__head">
-          <h2 class="cz-station-drawer__title">{template.title}</h2>
+          <h2 class="cz-station-drawer__title">{headerTitle ?? template.title}</h2>
           <div class="cz-station-drawer__head-actions">
             {headerAction}
             <button type="button" class="cz-station-drawer__close" aria-label="Close" onClick={onClose}>×</button>
@@ -220,6 +236,7 @@ function ResolvedDrawer({
           setCloseGuard={setCloseGuard}
           setHeaderHidden={setHeaderHidden}
           setHeaderAction={setHeaderAction}
+          setHeaderTitle={setHeaderTitle}
         />
       </div>
     </>

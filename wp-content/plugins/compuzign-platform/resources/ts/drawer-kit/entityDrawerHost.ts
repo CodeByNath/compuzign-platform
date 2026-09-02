@@ -44,6 +44,15 @@ export interface EntityDrawerHostBridge {
   // hidden when the open drawer's content changes to something else.
   setHeaderHidden?: (hidden: boolean) => void;
 
+  // Ask the host to override (or clear, with null) its own static per-
+  // template title -- e.g. the Tier drawer's registered "Package Tier" is
+  // right for a normal Tier/Add-on but wrong for a subordinate record like
+  // the composable occupant, which is neither. Optional: a composition that
+  // never calls this renders the host's own registered title unchanged, and
+  // the host itself guarantees this never stays stuck overridden when the
+  // open drawer's content changes to something else.
+  setHeaderTitle?: (title: string | null) => void;
+
   // A save or lifecycle mutation that changed the record completed — the host
   // refreshes the surface the drawer was opened from, and only that surface.
   // Optional: a host with nothing behind the drawer omits it.

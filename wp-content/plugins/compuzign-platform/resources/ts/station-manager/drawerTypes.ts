@@ -81,6 +81,16 @@ export interface DrawerContentProps {
   // stale hidden header behind for a different record/drawer. Content that
   // never calls this behaves exactly as before — the header always shows.
   setHeaderHidden?: (hidden: boolean) => void;
+  // Optional: content may override (or clear, with null) the shell's own
+  // static per-template title -- e.g. the Tier drawer's registered "Package
+  // Tier" is right for a normal Tier/Add-on but wrong for a subordinate
+  // record like the composable occupant, which is neither. The shell resets
+  // this to `null` itself whenever the open drawer's content identity
+  // changes, the same guaranteed reset `setHeaderHidden`/`setHeaderAction`
+  // get above, for the same reason. Content that never calls this renders
+  // the template's own title unchanged -- every existing template is
+  // unaffected.
+  setHeaderTitle?: (title: string | null) => void;
 }
 
 export type DrawerContent = (props: DrawerContentProps) => import('preact').VNode;

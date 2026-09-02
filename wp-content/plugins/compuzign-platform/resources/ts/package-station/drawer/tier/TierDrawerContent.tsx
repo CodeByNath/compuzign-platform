@@ -29,7 +29,7 @@ import { TiersIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import type { TierRateSheetSelection, TierPricingRulesDraft } from '../../types';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
-import { TIER_KEYS, TIER_LABELS, COMPOSABLE_TIER_ID, isComposableOccupant } from '../../vocabulary';
+import { TIER_KEYS, TIER_LABELS, COMPOSABLE_TIER_ID, isComposableOccupant, resolveTierDrawerHeaderTitle } from '../../vocabulary';
 import { useTierDrawerController } from './useTierDrawerController';
 import { TierDrawerFooter } from './TierDrawerFooter';
 import { TierBinList } from './TierBinList';
@@ -184,6 +184,18 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     bridge.setHeaderHidden?.(c.focusedTaskActive);
     return () => bridge.setHeaderHidden?.(false);
   }, [bridge, c.focusedTaskActive]);
+
+  // The shell's registered drawer title ("Package Tier") is right while a
+  // normal Tier/Add-on is open but wrong for the subordinate composable
+  // occupant, which is neither. Overridden only while editingTierId
+  // addresses it -- package overview and every normal Tier/Add-on screen
+  // fall back to the shell's own title unchanged. The cleanup clears it on
+  // unmount as a second line of defense alongside AdminStationDrawer's own
+  // content-identity reset, same convention as setHeaderHidden above.
+  useEffect(() => {
+    bridge.setHeaderTitle?.(resolveTierDrawerHeaderTitle(c.editingTierId));
+    return () => bridge.setHeaderTitle?.(null);
+  }, [bridge, c.editingTierId]);
 
   if (!c.pkg.detailLoaded) return <AsyncLoading label="Loading tiers…" />;
 
