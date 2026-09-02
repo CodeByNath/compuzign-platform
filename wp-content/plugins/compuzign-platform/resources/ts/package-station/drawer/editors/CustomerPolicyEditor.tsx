@@ -10,11 +10,11 @@ import type { TierResolvedRateSheetSelection } from '../../types';
 // References the occupant's own already-published Rate Sheet rows
 // (rateSheetCatalogue, the SAME resolved catalogue Tier Inclusions' own
 // editor reads — see PoolInclusionsEditor.tsx) only. No second inclusion
-// list, no independent pricing, no Price Option customer-selectability (the
-// customer never picks one — see PackageRepository::
-// resolveComposableOfferSelection()) — this drawer only authors WHICH
-// option the policy allows/defaults to, same as it already authors
-// quantity bounds.
+// list, no independent pricing. Price Option authoring is out of this
+// drawer's scope entirely (not in the locked "owns only" list) — every
+// item's price_option stays permanently {mode:'fixed'}, so the customer
+// never has (and never had) a Price Option choice of any kind — see
+// PackageRepository::resolveComposableOfferSelection().
 //
 // A row absent from the draft's own items[] displays as "Not offered"
 // (mode: excluded) — the exact same safe default
@@ -76,7 +76,6 @@ export function CustomerPolicyEditor({ draft, onChange, rateSheetCatalogue }: Pr
           {rows.map((row) => {
             const item = findItem(draft, row.item_id);
             const mode = item?.mode ?? 'excluded';
-            const priceOptions = row.price_options ?? [];
 
             return (
               <div key={row.item_id} class="cz-ie-entry">
@@ -150,69 +149,19 @@ export function CustomerPolicyEditor({ draft, onChange, rateSheetCatalogue }: Pr
                       </div>
                     )}
 
-                    {priceOptions.length > 0 && (
-                      <div class="cz-ie-row">
-                        <select
-                          class="cz-tf-select"
-                          aria-label={`Price Option policy for ${row.label}`}
-                          value={item?.price_option.mode ?? 'fixed'}
-                          onChange={(event) => {
-                            const nextPriceMode = event.currentTarget.value as 'fixed' | 'choice';
-                            patchItem(row.item_id, {
-                              price_option: nextPriceMode === 'fixed'
-                                ? DEFAULT_PRICE_OPTION
-                                : { mode: 'choice', allowed_price_option_ids: [], default_price_option_id: null },
-                            });
-                          }}
-                        >
-                          <option value="fixed">Fixed price (published option only)</option>
-                          <option value="choice">Admin-authorized alternatives</option>
-                        </select>
-                      </div>
-                    )}
-                    {priceOptions.length > 0 && item?.price_option.mode === 'choice' && (
-                      <div class="cz-ie-list">
-                        {priceOptions.map((option) => {
-                          const allowed = item.price_option.allowed_price_option_ids ?? [];
-                          const isAllowed = allowed.includes(option.option_id);
-                          return (
-                            <label key={option.option_id} class="cz-ie-row">
-                              <input
-                                type="checkbox" class="cz-tf-checkbox"
-                                checked={isAllowed}
-                                onChange={(event) => {
-                                  const nextAllowed = event.currentTarget.checked
-                                    ? [...allowed, option.option_id]
-                                    : allowed.filter((id) => id !== option.option_id);
-                                  const nextDefault = nextAllowed.includes(item.price_option.default_price_option_id ?? '')
-                                    ? item.price_option.default_price_option_id
-                                    : (nextAllowed[0] ?? null);
-                                  patchItem(row.item_id, {
-                                    price_option: { mode: 'choice', allowed_price_option_ids: nextAllowed, default_price_option_id: nextDefault },
-                                  });
-                                }}
-                              />
-                              <span class="cz-tf-label">{option.label} · ${option.unit_price.toFixed(2)}</span>
-                            </label>
-                          );
-                        })}
-                        {(item.price_option.allowed_price_option_ids?.length ?? 0) > 0 && (
-                          <select
-                            class="cz-tf-select"
-                            aria-label={`Default Price Option for ${row.label}`}
-                            value={item.price_option.default_price_option_id ?? ''}
-                            onChange={(event) => patchItem(row.item_id, {
-                              price_option: { ...item.price_option, default_price_option_id: event.currentTarget.value || null },
-                            })}
-                          >
-                            {(item.price_option.allowed_price_option_ids ?? []).map((optionId) => {
-                              const option = priceOptions.find((candidate) => candidate.option_id === optionId);
-                              return <option value={optionId} key={optionId}>{option?.label ?? optionId}</option>;
-                            })}
-                          </select>
-                        )}
-                      </div>
-                    )}
+                    {/* Price Option authoring is deliberately NOT in this
+                        drawer's scope — the auditor's own "owns only" list
+                        (project-work/2026-09-03-composable-tier-admin-to-
+                        customer-validation.md) names required/optional/
+                        excluded, default-selected, quantity bounds, and
+                        Featured only; Price Option is absent from it. Every
+                        item's price_option therefore stays permanently
+                        {mode:'fixed'} (DEFAULT_PRICE_OPTION) via patchItem's
+                        own default — the backend's already-built 'choice'
+                        mode support has no Admin authoring path from this
+                        drawer. Flagged explicitly in this round's report as
+                        a real gap, not a silent omission, in case a future
+                        round wants this drawer's scope extended to cover it. */}
 
                     <label class="cz-ie-row">
                       <input

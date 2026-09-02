@@ -80,8 +80,14 @@ small as what is actually authorized.
 ## Not yet built / out of scope this slice
 
 Live browser validation (no local WordPress environment). No cart/quote/
-Request/PDF/email/promotions work. No customer Price Option
-selectability (unchanged — still never customer-controlled). See
+Request/PDF/email/promotions work. **Price Option authoring is out of this
+drawer's scope entirely** — absent from the locked "owns only" list, so
+every item's `price_option` stays permanently `{mode:'fixed'}`
+(`CustomerPolicyEditor.tsx`'s own `DEFAULT_PRICE_OPTION`). The backend's
+already-built `'choice'` mode support (Phase 2A) has no Admin authoring
+path from any surface — flagged as a real gap, not a silent omission, for
+a future round to pick up if wanted. Customer Price Option selectability
+was already never a thing (unchanged, Phase 2A/2B1). See
 `tests/composable-customer-policy-admin-surface.php` for the two backend
 fixes' evidence.
 
