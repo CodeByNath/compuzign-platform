@@ -44,6 +44,11 @@ export interface TierOccupantCardInput {
   view: PackageStationTierView | null;
   // Platform status feeds the same note generator the drawer uses.
   platformStatus: string;
+  // Additive, default false — every existing normal Tier/Add-on caller is
+  // byte-behaviorally unchanged. True only for the subordinate composable
+  // occupant's own card: it must never present as `kind: 'Package Tier'`/
+  // `'Package Add-on'` or the Tier-specific glyph, since it is neither.
+  isSubordinate?: boolean;
 }
 
 /** Project one Tier occupant into the shared card the grid renders. */
@@ -52,6 +57,7 @@ export function toTierOccupantCard({
   slotId,
   view,
   platformStatus,
+  isSubordinate = false,
 }: TierOccupantCardInput): CategoryGroupCardItem {
   const detail     = view?.detail;
   const price      = detail?.price ?? null;
@@ -72,11 +78,11 @@ export function toTierOccupantCard({
     id:   occupantId,          // native stable occupant id, unchanged
     key:  occupantId,
     name: `Package ${detail?.label?.trim() || TIER_LABELS[slotId] || slotId}`,
-    kind: isAddon ? 'Package Add-on' : 'Package Tier',
+    kind: isSubordinate ? 'Composable occupant' : (isAddon ? 'Package Add-on' : 'Package Tier'),
     description: price == null
       ? 'Pricing not configured'
       : `$${price.toFixed(2)} · ${detail?.billing_cycle ?? 'Not available'}`,
-    icon:   TiersIcon,
+    icon: isSubordinate ? PackagesIcon : TiersIcon,
     status: toTierCardStatus(view?.status ?? 'pending-dim'),
     // The same notes the manager card shows, from the same generator, using
     // occupant truth (not the parent Tier Group/station status) — mirrors

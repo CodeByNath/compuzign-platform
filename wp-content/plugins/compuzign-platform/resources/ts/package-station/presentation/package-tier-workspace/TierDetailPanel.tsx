@@ -32,6 +32,17 @@ interface Props {
   isSubordinate?: boolean;
 }
 
+// The subordinate composable occupant's own empty-state copy — extracted so
+// it never drifts back to peer-Tier wording ("This Tier"/"Tier slot") and so
+// the composable-occupant-workspace contract can assert that directly.
+// Exported for that contract.
+export function subordinateEmptyStateCopy(label: string): { heading: string; body: string } {
+  return {
+    heading: 'This composable occupant is ready to configure.',
+    body: `Configure ${label} in the existing Tier tool.`,
+  };
+}
+
 export function TierDetailPanel({ slot, familyName, hasInstance, onAction, onOpenSettings, isSubordinate = false }: Props): VNode {
   const item: CategoryGroupCardItem | null = slot.item;
   if (!item) {
@@ -49,12 +60,21 @@ export function TierDetailPanel({ slot, familyName, hasInstance, onAction, onOpe
         </header>
         <div class="cz-tier-workspace__empty-focus">
           <div class="cz-tier-workspace__empty-copy">
-            <h5>{hasInstance ? 'This Tier is ready to configure.' : 'Tier capability is optional.'}</h5>
-            <p>
-              {hasInstance
-                ? `Configure the ${slot.label} slot in the existing Tier tool.`
-                : `${familyName ?? 'This Package Family'} is complete without a Tier assignment. Configure the Tier system from Settings below.`}
-            </p>
+            {isSubordinate ? (
+              <>
+                <h5>{subordinateEmptyStateCopy(slot.label).heading}</h5>
+                <p>{subordinateEmptyStateCopy(slot.label).body}</p>
+              </>
+            ) : (
+              <>
+                <h5>{hasInstance ? 'This Tier is ready to configure.' : 'Tier capability is optional.'}</h5>
+                <p>
+                  {hasInstance
+                    ? `Configure the ${slot.label} slot in the existing Tier tool.`
+                    : `${familyName ?? 'This Package Family'} is complete without a Tier assignment. Configure the Tier system from Settings below.`}
+                </p>
+              </>
+            )}
           </div>
           <button
             type="button"

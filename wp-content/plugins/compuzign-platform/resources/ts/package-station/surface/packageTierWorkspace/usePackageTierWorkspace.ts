@@ -322,6 +322,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
           slotId: COMPOSABLE_TIER_ID,
           view: composableView,
           platformStatus: pkg.platformStatus,
+          isSubordinate: true,
         }) : null,
       );
     }

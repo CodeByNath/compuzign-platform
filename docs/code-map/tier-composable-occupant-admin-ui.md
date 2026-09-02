@@ -89,11 +89,19 @@ now also reads `pkg.tierView(COMPOSABLE_TIER_ID)`, exposed as a new
 unaffected. `PackageTierWorkspace.tsx` renders it once, outside the
 Focus/Grid switch, reusing `TierDetailPanel` (the same created/empty-slot
 branches a fixed Tier gets, plus an additive `isSubordinate` prop — default
-`false`, every other caller unaffected — swapping its empty-state "Fixed
-Tier slot" copy for wording that does not claim the composable occupant is
-one) and the existing `dispatchTierIntent` path. The composable slot itself
-is built by `projection.ts`'s `projectComposableWorkspaceSlot()`, exported
-alongside `projectWorkspaceTierSlots()` rather than inlined in the hook.
+`false`, every other caller unaffected). The composable slot itself is built
+by `projection.ts`'s `projectComposableWorkspaceSlot()`, exported alongside
+`projectWorkspaceTierSlots()` rather than inlined in the hook.
+
+`isSubordinate` swaps every peer-Tier-sounding surface, not just the empty
+label first shipped: `TierDetailPanel`'s empty-state heading/body (extracted
+as `subordinateEmptyStateCopy()`, never "This Tier"/"Tier slot") and
+`toTierOccupantCard()`'s own additive `isSubordinate` param (`kind:
+'Composable occupant'` instead of `'Package Tier'`/`'Package Add-on'`,
+`PackagesIcon` instead of the Tier glyph) for the created-occupant card —
+both extracted so the composable-occupant-workspace contract can assert the
+composable occupant never presents as a normal Tier/Add-on in either state,
+while every existing Tier/Add-on caller of both functions stays unchanged.
 
 Two routing-layer gaps, neither specific to this surface, had blocked that
 dispatch: `usePackageStation.ts`'s `resolveOccupantSlot()` scanned only

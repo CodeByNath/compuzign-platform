@@ -29,6 +29,9 @@ import {
   encodeTierDrawerRecordId,
   decodeTierDrawerRecordId,
 } from '../resources/ts/package-station/drawer/tier/tierDrawerTypes';
+import { toTierOccupantCard } from '../resources/ts/package-station/surface/tierSurface/tierOccupantCard';
+import { subordinateEmptyStateCopy } from '../resources/ts/package-station/presentation/package-tier-workspace/TierDetailPanel';
+import { TiersIcon, PackagesIcon } from '@/admin-station/shell/icons';
 import type { CategoryGroupCardItem } from '../resources/ts/admin-station/presentation/category-groups/types';
 
 function check(condition: unknown, message: string): asserts condition {
@@ -89,5 +92,28 @@ for (const tierId of TIER_KEYS) {
 check(resolveOccupantSlotIncludingComposable(stationFixture, 'occ_composable') === COMPOSABLE_TIER_ID, 'resolveOccupantSlotIncludingComposable resolves the composable occupant\'s own occupant_id to COMPOSABLE_TIER_ID — the gap that blocked opening an already-created composable occupant by identity');
 check(resolveOccupantSlotIncludingComposable(stationFixture, 'occ_unknown') === null, 'resolveOccupantSlotIncludingComposable still fails closed for an occupant_id that belongs to neither the five slots nor the composable occupant');
 check(resolveOccupantSlotIncludingComposable({ tiers: stationFixture.tiers, composable_occupant: null }, 'occ_composable') === null, 'with no composable occupant created yet (null), its own former occupant_id (from a fixture that no longer applies) resolves to nothing rather than a stale match');
+
+// ── 4. Subordinate presentation never identifies as a normal Tier/Add-on ───
+// Blocking finding from auditor review of f73ae103: the launcher's own copy/
+// card leaked peer-Tier identity even though routing/counts were correct.
+// This section proves the fix, both for an as-yet-uncreated composable
+// occupant (empty-state copy) and an already-created one (the card
+// toTierOccupantCard builds), while proving every existing normal-Tier/
+// Add-on caller of both functions is byte-behaviorally unchanged.
+
+const normalTierCard = toTierOccupantCard({ occupantId: 'occ_basic', slotId: 'basic', view: null, platformStatus: 'disabled' });
+check(normalTierCard.kind === 'Package Tier', 'a normal Tier card (isSubordinate omitted) still reports kind "Package Tier" — unchanged for every existing caller');
+check(normalTierCard.icon === TiersIcon, 'a normal Tier card still uses the Tier-specific icon — unchanged for every existing caller');
+
+const subordinateCard = toTierOccupantCard({ occupantId: 'occ_composable', slotId: COMPOSABLE_TIER_ID, view: null, platformStatus: 'disabled', isSubordinate: true });
+check(subordinateCard.kind !== 'Package Tier' && subordinateCard.kind !== 'Package Add-on', 'the composable occupant\'s card never reports "Package Tier"/"Package Add-on" as its kind — it is neither');
+check(subordinateCard.kind === 'Composable occupant', 'the composable occupant\'s card reports its own distinct kind');
+check(subordinateCard.icon !== TiersIcon, 'the composable occupant\'s card never uses the Tier-specific glyph, so it cannot visually imply fixed Tier membership');
+check(subordinateCard.icon === PackagesIcon, 'the composable occupant\'s card uses a neutral package icon instead');
+
+const subordinateCopy = subordinateEmptyStateCopy('Build Your Own');
+check(!subordinateCopy.heading.includes('Tier'), 'the composable occupant\'s empty-state heading never says "Tier" — it must not read as a peer Tier that merely has not been configured yet');
+check(!subordinateCopy.body.toLowerCase().includes('tier slot'), 'the composable occupant\'s empty-state body never says "Tier slot" — it is never one');
+check(subordinateCopy.body.includes('Build Your Own'), 'the composable occupant\'s empty-state body still names the occupant by its approved product label');
 
 console.log('Composable occupant workspace contract passed.');
