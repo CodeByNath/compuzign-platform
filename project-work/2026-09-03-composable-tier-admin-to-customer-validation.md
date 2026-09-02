@@ -1,43 +1,49 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **AWAITING LIVE VALIDATION — exact reviewed source deployed.**
+- **AWAITING LIVE VALIDATION — NATH PUBLISH APPROVAL REQUIRED.**
 - Auditor verdict: **Proceed with safeguards.**
-- Production `main`: `8ff4eff90129f15f8140858d21cb923dd2f5d549`.
-- Review branch `review/composable-tier-admin-customer-policy` is byte-identical to `main`.
-- Hostinger deploy #934 / run `33691866996`: completed / success for exact `head_sha=8ff4eff90129f15f8140858d21cb923dd2f5d549`.
+- Production `main@8ff4eff90129f15f8140858d21cb923dd2f5d549`; review branch byte-identical.
+- Hostinger deploy #934 / run `33691866996`: success for the exact production SHA.
+- Continue in this file; no new work file.
 
 ## Locked architecture
-Build Your Own remains a normal full Tier occupant for product definition and lifecycle. Customer Selection Rules are a separate external controller/drawer launched from the composable occupant shell after the occupant is active/published. The shared normal Tier drawer remains the established four-module product editor.
+Build Your Own is a subordinate full Tier occupant for product definition/lifecycle and is not one of the five normal Tier slots. Customer Selection Rules are a separate external drawer exposed from the composable shell only after the occupant is active/published. The shared four-module Tier drawer remains the product editor.
 
-Customer Options controls only existing occupant inclusion `item_id`s: required/optional/excluded, optional default-selected, fixed vs configurable quantity with default/min/max/step, and Featured. Price Option, Commercial Legs, commitment and Editions stay occupant-authored and outside this drawer.
+Customer Options may control only existing occupant inclusion `item_id`s: required/optional/excluded, optional default-selected, fixed/configurable quantity default/min/max/step, and Featured. Price Option, Commercial Legs, commitment and Editions remain occupant-authored and outside that drawer.
 
-## Live setup authorization
-Nath authorizes the browser-validation chat to make a **small real configuration change** to the existing KAIROS Build Your Own occupant so this path can be exercised. This is not permission for broad catalogue/package changes.
+## Live Admin round — 2026-09-03
+Route: `/studio/` → Packages → KAIROS — IaaS.
 
-Authorized now:
-- open the existing KAIROS Build Your Own occupant in Studio;
-- use the normal occupant editor only;
-- select a small set of existing real KAIROS Rate Sheet inclusions sufficient to exercise Required/Optional/quantity/filter behavior;
-- use existing authored Price Options/Commercial Legs only; do not invent new pricing structures;
-- save the normal occupant configuration and make it **publish-ready**;
-- record exactly which inclusions and settings were changed.
+Pre-configuration checks passed:
+- Family summary remained **Tiers 5** and the five normal cards were unchanged.
+- Separate subordinate **Build Your Own** card rendered below them.
+- Card was **Empty** and exposed **Configure Build Your Own**; **Customer Options was absent**, as required before publication.
+- Configure opened the normal Tier editor with Details, Options, Connections and Support.
 
-**Publishing/activating is not authorized by this note alone.** Stop at the publish boundary and ask Nath in the browser chat for explicit approval before activating the real offer. Do not modify any of the five normal Tier occupants, Family assignment, Service/Category records, Rate Sheet rows, Price Options, or unrelated platform data.
+Authorized real changes saved through the normal editor:
+- Rate Sheet: existing **KAIROS-IaaS**.
+- Commercial Leg: existing Default leg; Recurring, Monthly, month 0–Indefinite, Headline.
+- Inclusions:
+  - **2 vCPU** — quantity 1;
+  - **Block Storage** — quantity 100;
+  - **Backup Storage — BaaS** — quantity 50.
+- Resolved headline shown by Admin: **$48.50 monthly**.
+- No new Rate Sheet row, Price Option, Leg, Edition, catalogue record, Family relation, or normal Tier/Add-on change was made.
 
-## Browser validation sequence
-Use `https://compuzign.weerax.com/studio/`.
-1. Confirm Customer Options is absent while Build Your Own is not active/published.
-2. Configure the small real inclusion set through normal Build Your Own View/Edit and bring it to publish-ready state.
-3. Stop and obtain Nath's explicit approval before Publish/Activate.
-4. After authorized publication, return to the Build Your Own shell and verify Customer Options appears only there.
-5. Verify View/Edit still opens the normal four-module Tier occupant editor.
-6. Open Customer Options and verify its separate Customer Selection Rules drawer contains only the occupant's existing inclusions and only the approved policy controls.
-7. Save/reopen the customer-policy draft and verify fidelity. Publish/settle that policy only through the normal Build Your Own lifecycle and only with Nath's explicit authorization for that action.
-8. Only after a real policy is active, validate `https://compuzign.weerax.com/pricing/` for Build Your Own / Upgrade your build, filters, Add/Remove, quantity and server-resolved pricing.
+Saved state is Pending and the drawer’s **Publish** action is enabled. After closing, the shell remains gated as Empty/Configure and still has no Customer Options. No Publish/Activate action was taken.
+
+## Customer boundary
+The open `/pricing/` page continues to show the existing normal KAIROS offers. No Build Your Own customer offer is expected before publication; no customer configurator claim is made yet.
+
+## Exact next step
+Nath must explicitly authorize publishing/activating this real KAIROS Build Your Own occupant. After approval, browser validation will:
+1. Publish through the normal occupant lifecycle.
+2. Verify the shell becomes active and Customer Options appears only there.
+3. Confirm View/Edit still opens the normal four-module editor.
+4. Open the separate Customer Selection Rules drawer; verify only the three existing inclusions and approved policy controls.
+5. Save/reopen a minimal policy and request any separately required settle/publish approval.
+6. Only after active policy, validate Build Your Own / Upgrade your build on Pricing.
 
 ## Hard boundaries
-No fake records, REST/DevTools bypass, new Rate Sheet rows, new Price Options, new Legs solely for testing, changes to normal Tier/Add-on occupants, cart/quote/Request/PDF/email/promotions/TCV work, or broad cleanup.
-
-## Browser-agent report
-Update this same file with the exact runtime changes and observed boundary at each stop. Stop immediately on any architecture mismatch or unexpected mutation.
+No fake records, REST/DevTools bypass, sixth Tier, second Tier Instance/Family assignment, new pricing structures, changes to normal occupants, or cart/quote/Request/PDF/email/promotions/TCV expansion. Stop on any unexpected mutation.
