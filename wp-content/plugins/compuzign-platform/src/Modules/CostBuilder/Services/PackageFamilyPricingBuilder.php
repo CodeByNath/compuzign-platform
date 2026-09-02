@@ -101,6 +101,19 @@ final class PackageFamilyPricingBuilder
             // frontend. Carried through verbatim, same as
             // commercial_legs above.
             'headline_leg_id'   => (string) ($tier['headline_leg_id'] ?? 'default'),
+            // Phase 2A — Admin-authorized customer selection bounds
+            // (PackageSchema::sanitizeCustomerPolicy() shape). Customer-safe
+            // by construction: every entry is keyed by the already-exposed
+            // item_id/price_option_id this same occupant's own `inclusions`/
+            // `commercial_legs` already surface — never a Rate Sheet id.
+            // Null for every occupant that has never configured one
+            // (normal Tiers today, and any Family predating this field),
+            // same additive-absence posture as commercial_legs/
+            // edition_options above. Carried through this same shared
+            // function so it appears identically under `tiers[tierId]` and
+            // the composable `composable_offer` sibling alike — no separate
+            // top-level key, no composable-specific branch in buildResponse().
+            'customer_policy'   => is_array($tier['customer_policy'] ?? null) ? $tier['customer_policy'] : null,
         ];
     }
 }

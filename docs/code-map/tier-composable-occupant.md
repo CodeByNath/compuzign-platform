@@ -73,8 +73,10 @@ against `composable_occupant`.
 
 ## Not yet built
 
-Customer inclusion/quantity/Price Option selection, cart key
-(`FamilyTierQuoteItem`), quote snapshot, PDF/email, promotions.
+Customer-facing selection UI, cart key (`FamilyTierQuoteItem`), quote
+snapshot, PDF/email, promotions — see [Composable Tier Occupant — Customer
+Configuration Policy](tier-composable-occupant-customer-policy.md) (Phase 2A)
+for the backend policy/resolver slice that now exists ahead of these.
 `TierInstanceSchema::deriveInstanceStatus()` never reads
 `composable_occupant` — it can never make the parent Tier Instance Active.
 
@@ -82,6 +84,8 @@ Customer inclusion/quantity/Price Option selection, cart key
 
 [Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
 [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
-[Tiers](tiers.md), [Tier Add-on Selection](tier-addon.md), [Tier
-Edition](tier-edition.md), [Commercial Legs](commercial-legs.md), [Package
-Station](package-station.md), and [Cost Builder](cost-builder.md).
+[Composable Tier Occupant — Customer Configuration
+Policy](tier-composable-occupant-customer-policy.md), [Tiers](tiers.md),
+[Tier Add-on Selection](tier-addon.md), [Tier Edition](tier-edition.md),
+[Commercial Legs](commercial-legs.md), [Package Station](package-station.md),
+and [Cost Builder](cost-builder.md).

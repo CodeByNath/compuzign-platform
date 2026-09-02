@@ -42,7 +42,7 @@ class PackageSchema
     // Phase 2 tier lifecycle (P2 — store schema): the per-tier-module draft + status
     // layer stored inside each cz_service_package_station tier slot, alongside
     // current_occupant. Additive and inert in P2 — nothing reads these until P3.
-    public const TIER_MODULES                = ['overview', 'pricing_rules', 'features', 'faqs'];
+    public const TIER_MODULES                = ['overview', 'pricing_rules', 'features', 'faqs', 'customer_policy'];
     public const ALLOWED_MODULE_STATUSES     = ['not-configured', 'pending', 'settled'];
 
     // Lifecycle engine C1 — promotion instance envelope. Same module trio as tiers;
@@ -134,6 +134,108 @@ class PackageSchema
             }
         }
         return $selections;
+    }
+
+    /**
+     * Customer configuration policy (Phase 2A) — Admin-authorized bounds on
+     * what an actual customer may choose within the composable occupant's
+     * own published inclusions. Rung-1 attribute data (see
+     * compuzign-platform-architecture skill): no Platform ID of its own,
+     * keyed entirely by the container's own existing `item_id`s. Legs are
+     * deliberately absent from this shape — Commercial Leg structure is
+     * fixed for the customer this phase (see
+     * project-work/2026-09-02-composable-tier-customer-policy.md).
+     *
+     * Purely structural here, mirroring sanitizeTierRateSheetSelections()'s
+     * own split: cross-referencing a policy entry against the container's
+     * actual currently-published rate_sheet_items/Price Options happens at
+     * resolve time (PackageManagerSchema::resolveCustomerComposableSelection()),
+     * never here — a policy may legitimately reference an item_id that is
+     * later removed/changed; that is a live-resolve concern, not a save-time
+     * rejection, the same posture rate_sheet_items/legs already take toward
+     * their own dangling references.
+     *
+     * An unrecognized/garbage `mode` always sanitizes to `excluded` — the
+     * safe failure for authorization data is "not offered", never
+     * "always included" or "freely selectable".
+     *
+     * Returns null for no configured policy at all (backwards-compatible
+     * absence — a Family/Edition with no policy is unaffected). A non-null
+     * result is always a complete, valid shape:
+     * `{ items: [{item_id, mode, default_selected, quantity, price_option}],
+     *    minimum_total_contract_value: float|null }`.
+     */
+    public static function sanitizeCustomerPolicy(mixed $policy): ?array
+    {
+        if (!is_array($policy)) {
+            return null;
+        }
+
+        $rawItems = is_array($policy['items'] ?? null) ? $policy['items'] : [];
+        $items = [];
+        $seen = [];
+        foreach ($rawItems as $item) {
+            if (!is_array($item)) { continue; }
+            $id = sanitize_text_field((string) ($item['item_id'] ?? ''));
+            if ($id === '' || isset($seen[$id])) { continue; }
+            $seen[$id] = true;
+
+            $mode = sanitize_text_field((string) ($item['mode'] ?? ''));
+            if (!in_array($mode, ['required', 'optional', 'excluded'], true)) {
+                $mode = 'excluded';
+            }
+
+            $quantity = null;
+            if (is_array($item['quantity'] ?? null)) {
+                $q = $item['quantity'];
+                $default = max(1, (int) ($q['default'] ?? 1));
+                $min     = max(1, (int) ($q['min'] ?? 1));
+                $max     = max($min, (int) ($q['max'] ?? $default));
+                $step    = max(1, (int) ($q['step'] ?? 1));
+                $default = min(max($default, $min), $max);
+                $quantity = ['default' => $default, 'min' => $min, 'max' => $max, 'step' => $step];
+            }
+
+            $priceOption = ['mode' => 'fixed', 'allowed_price_option_ids' => null, 'default_price_option_id' => null];
+            if (is_array($item['price_option'] ?? null) && ($item['price_option']['mode'] ?? null) === 'choice') {
+                $allowed = [];
+                if (is_array($item['price_option']['allowed_price_option_ids'] ?? null)) {
+                    foreach ($item['price_option']['allowed_price_option_ids'] as $optId) {
+                        $optId = sanitize_text_field((string) $optId);
+                        if ($optId !== '' && !in_array($optId, $allowed, true)) { $allowed[] = $optId; }
+                    }
+                }
+                // 'choice' with nothing actually allowed is meaningless —
+                // collapses back to 'fixed' rather than storing a dead state.
+                if ($allowed !== []) {
+                    $defaultOptionId = sanitize_text_field((string) ($item['price_option']['default_price_option_id'] ?? ''));
+                    $priceOption = [
+                        'mode' => 'choice',
+                        'allowed_price_option_ids' => $allowed,
+                        'default_price_option_id' => ($defaultOptionId !== '' && in_array($defaultOptionId, $allowed, true))
+                            ? $defaultOptionId
+                            : null,
+                    ];
+                }
+            }
+
+            $items[] = [
+                'item_id'          => $id,
+                'mode'             => $mode,
+                // Only meaningful for 'optional' — 'required' is always
+                // selected, 'excluded' is never offered, regardless of this flag.
+                'default_selected' => $mode === 'optional' ? (bool) ($item['default_selected'] ?? false) : false,
+                'quantity'         => $quantity,
+                'price_option'     => $priceOption,
+            ];
+        }
+
+        $floor = null;
+        if (isset($policy['minimum_total_contract_value']) && $policy['minimum_total_contract_value'] !== null && $policy['minimum_total_contract_value'] !== '') {
+            $floor = max(0.0, (float) $policy['minimum_total_contract_value']);
+        }
+
+        return ['items' => $items, 'minimum_total_contract_value' => $floor];
     }
 
     /**
@@ -1276,6 +1378,14 @@ class PackageSchema
                 'inclusions_override' => !empty($edition['inclusions_override'])
                     ? $edition['inclusions_override']
                     : ($occ['inclusions_override'] ?? []),
+                // Phase 2A — same inherit-when-absent rule, using presence
+                // (not emptiness) as the signal: a non-null policy is this
+                // Edition's own COMPLETE replacement, never a per-item patch
+                // against the occupant's Default policy (see
+                // project-work/2026-09-02-composable-tier-customer-policy.md).
+                'customer_policy'     => ($edition['customer_policy'] ?? null) !== null
+                    ? self::sanitizeCustomerPolicy($edition['customer_policy'])
+                    : self::sanitizeCustomerPolicy($occ['customer_policy'] ?? null),
             ];
         }
         return $out;
@@ -1311,6 +1421,13 @@ class PackageSchema
                 // the occupant's own Default when there is no genuine
                 // alternate choice.
                 'edition_options'     => self::publicTierEditionOptions($occ),
+                // Phase 2A — Admin-authorized customer selection bounds.
+                // Additive only; null for every occupant that has never
+                // configured one (identical to edition_options' own
+                // never-used-Editions posture above). Re-sanitized here
+                // rather than trusted verbatim from storage, matching
+                // rate_sheet_items' own defensive re-sanitize below.
+                'customer_policy'     => self::sanitizeCustomerPolicy($occ['customer_policy'] ?? null),
                 // The occupant's own permanent Default commitment — same
                 // field, same public-projection treatment as price/
                 // billing_cycle/contact above. Null for every occupant that
@@ -1687,6 +1804,12 @@ class PackageSchema
             'inclusions_override'      => is_array($edition['inclusions_override'] ?? null)
                 ? array_values(array_filter($edition['inclusions_override'], 'is_array'))
                 : [],
+            // Phase 2A — null (never an empty array) means inherit the
+            // parent occupant's policy wholesale; a non-null value is this
+            // Edition's own complete replacement. See sanitizeCustomerPolicy().
+            'customer_policy'          => array_key_exists('customer_policy', $edition)
+                ? self::sanitizeCustomerPolicy($edition['customer_policy'])
+                : null,
             'faq_refs'                 => is_array($edition['faq_refs'] ?? null)
                 ? array_values(array_map(static fn($ref): string => sanitize_text_field((string) $ref), $edition['faq_refs']))
                 : [],
@@ -1832,6 +1955,9 @@ class PackageSchema
             // occupant's. Presentation metadata only.
             'headline_leg_id'      => sanitize_text_field((string) ($data['headline_leg_id'] ?? '')),
             'inclusions_override'  => $data['inclusions_override'] ?? [],
+            // Phase 2A — null means inherit the parent occupant's policy;
+            // non-null is this Edition's own complete replacement.
+            'customer_policy'      => $data['customer_policy'] ?? null,
             'faq_refs'             => $data['faq_refs'] ?? [],
         ];
         $edition['module_status']['overview'] = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::MODULE_PENDING;
@@ -1889,6 +2015,10 @@ class PackageSchema
         $edition['headline_leg_id'] = array_key_exists('headline_leg_id', $draft)
             ? sanitize_text_field((string) $draft['headline_leg_id'])
             : ($edition['headline_leg_id'] ?? '');
+        // Phase 2A — same draft-preferred rule as every field above.
+        $edition['customer_policy'] = array_key_exists('customer_policy', $draft)
+            ? self::sanitizeCustomerPolicy($draft['customer_policy'])
+            : ($edition['customer_policy'] ?? null);
 
         // Authoring-time guard, separate from the resolver: a finite
         // commitment is the maximum legal commercial end for this Edition —
@@ -2964,6 +3094,15 @@ class PackageSchema
             'rate_sheet_items'    => $selections,
             'features'            => $occ['features'] ?? [],
             'faq_refs'            => is_array($drafts['faqs'] ?? null) ? $drafts['faqs'] : ($occ['faq_refs'] ?? []),
+            // Phase 2A — same draft-preferred rule as features above. The
+            // draft is wrapped ({'value': ...}) because a sanitized policy
+            // can itself legitimately be null (explicitly cleared); is_array
+            // here (matching features' own is_array check) distinguishes
+            // "a customer_policy draft exists" from "no draft at all" no
+            // matter what its own value resolves to.
+            'customer_policy'     => is_array($drafts['customer_policy'] ?? null)
+                ? self::sanitizeCustomerPolicy($drafts['customer_policy']['value'] ?? null)
+                : ($occ['customer_policy'] ?? null),
             // Draft-preferred like every other overview scalar: an edited-but-
             // unsettled is_addon change wins, otherwise the settled occupant's
             // existing value carries forward untouched.

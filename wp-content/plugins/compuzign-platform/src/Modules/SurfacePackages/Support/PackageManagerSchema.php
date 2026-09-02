@@ -2280,6 +2280,181 @@ final class PackageManagerSchema
         return $violations === [] ? null : ['commitment_end' => $commitmentEnd, 'violations' => $violations];
     }
 
+    // ── Composable customer selection resolver (Phase 2A) ───────────────────
+    // See project-work/2026-09-02-composable-tier-customer-policy.md for the
+    // accepted contract this implements. Never mutates $container — builds
+    // an in-memory adjusted copy and hands it to the unmodified
+    // resolveCommercialLegTimeline()/projectTierRateSheetWith(), reusing the
+    // one price engine rather than a second parallel calculation.
+
+    /**
+     * Resolve a customer's raw configuration choice against a composable
+     * occupant's/Edition's own live `customer_policy` and currently-
+     * published `rate_sheet_items`. Whole-inclusion by item_id: excluding
+     * an item drops its entire row from the copy handed to the resolver —
+     * which structurally also drops that row's own nested
+     * `leg_assignments[]`, so an excluded item can never survive under an
+     * Additional Leg while absent from the customer's own visible list (see
+     * the work file's "final blocker" resolution). Quantity/Price-Option
+     * customization touches only the copied row's own top-level fields,
+     * never `leg_assignments[]` — a Leg's own per-window commercial values
+     * stay exactly as Admin authored, regardless of customer choice.
+     *
+     * Never a silent substitution: a customer choice outside policy bounds,
+     * or an item that resolves unavailable, rejects the WHOLE selection
+     * with a structured reason rather than dropping/coercing it.
+     *
+     * @param array<string, mixed> $readModel same shape resolveCommercialLegTimeline()/
+     *   projectTierRateSheetWith() already consume (rate_sheets[], items[]).
+     * @param array<string, mixed> $container occupant or Tier Edition shape,
+     *   PLUS its own 'customer_policy' (PackageSchema::sanitizeCustomerPolicy()
+     *   shape, nullable).
+     * @param array<int, array{item_id: string, selected?: bool, quantity?: int, price_option_id?: string|null}> $choice
+     * @return array{ok: true, periods: array, total_contract_value: float|null}
+     *       | array{ok: false, code: string, rejected_items?: array<int, array{item_id: ?string, reason: string}>}
+     */
+    public static function resolveCustomerComposableSelection(array $readModel, array $container, array $choice): array
+    {
+        $policy = is_array($container['customer_policy'] ?? null) ? $container['customer_policy'] : null;
+        $policyByItemId = [];
+        foreach (is_array($policy['items'] ?? null) ? $policy['items'] : [] as $entry) {
+            if (is_array($entry) && isset($entry['item_id'])) {
+                $policyByItemId[(string) $entry['item_id']] = $entry;
+            }
+        }
+
+        $choiceByItemId = [];
+        foreach ($choice as $entry) {
+            if (is_array($entry) && isset($entry['item_id'])) {
+                $choiceByItemId[(string) $entry['item_id']] = $entry;
+            }
+        }
+
+        $sourceRows = is_array($container['rate_sheet_items'] ?? null) ? $container['rate_sheet_items'] : [];
+
+        $rejected = [];
+        $keptRows = [];
+        foreach ($sourceRows as $row) {
+            if (!is_array($row) || !isset($row['item_id'])) { continue; }
+            $itemId = (string) $row['item_id'];
+            // No policy entry at all = not offered — the same safe default
+            // sanitizeCustomerPolicy() uses for a garbage mode.
+            $policyEntry = $policyByItemId[$itemId] ?? ['mode' => 'excluded'];
+            $mode = $policyEntry['mode'] ?? 'excluded';
+
+            if ($mode === 'excluded') {
+                continue; // never survives into the customer-scoped copy at all
+            }
+
+            $customerChoice = $choiceByItemId[$itemId] ?? null;
+            $selected = $mode === 'required'
+                ? true
+                : (bool) ($customerChoice['selected'] ?? ($policyEntry['default_selected'] ?? false));
+            if (!$selected) {
+                continue; // whole-inclusion exclusion — drop the row AND its nested leg_assignments
+            }
+
+            $adjustedRow = $row;
+
+            $quantityPolicy = $policyEntry['quantity'] ?? null;
+            if ($quantityPolicy !== null && $customerChoice !== null && array_key_exists('quantity', $customerChoice)) {
+                $requested = (int) $customerChoice['quantity'];
+                $inStep = (($requested - $quantityPolicy['min']) % max(1, (int) $quantityPolicy['step'])) === 0;
+                if ($requested < $quantityPolicy['min'] || $requested > $quantityPolicy['max'] || !$inStep) {
+                    $rejected[] = ['item_id' => $itemId, 'reason' => 'quantity_out_of_bounds'];
+                    continue;
+                }
+                $adjustedRow['quantity'] = $requested;
+            } elseif ($quantityPolicy !== null) {
+                $adjustedRow['quantity'] = $quantityPolicy['default'];
+            }
+            // quantityPolicy === null: fixed at the row's own published quantity — untouched.
+
+            $priceOptionPolicy = $policyEntry['price_option'] ?? ['mode' => 'fixed'];
+            if (($priceOptionPolicy['mode'] ?? 'fixed') === 'choice') {
+                if ($customerChoice !== null && array_key_exists('price_option_id', $customerChoice)) {
+                    $requestedOption = $customerChoice['price_option_id'];
+                    $requestedOption = $requestedOption === null ? null : (string) $requestedOption;
+                    $allowed = $priceOptionPolicy['allowed_price_option_ids'] ?? [];
+                    if ($requestedOption !== null && !in_array($requestedOption, $allowed, true)) {
+                        $rejected[] = ['item_id' => $itemId, 'reason' => 'price_option_not_allowed'];
+                        continue;
+                    }
+                    $adjustedRow['price_option_id'] = $requestedOption;
+                } else {
+                    $adjustedRow['price_option_id'] = $priceOptionPolicy['default_price_option_id'] ?? null;
+                }
+            }
+            // 'fixed' mode: price_option_id stays exactly the row's own published value.
+
+            $keptRows[] = $adjustedRow;
+        }
+
+        if ($rejected !== []) {
+            return ['ok' => false, 'code' => 'selection_invalid', 'rejected_items' => $rejected];
+        }
+
+        $adjustedContainer = $container;
+        $adjustedContainer['rate_sheet_items'] = $keptRows;
+
+        $periods = self::resolveCommercialLegTimeline($readModel, $adjustedContainer);
+
+        foreach ($periods as $period) {
+            foreach ($period['components'] ?? [] as $component) {
+                foreach ($component['items'] ?? [] as $priced) {
+                    if (($priced['available'] ?? true) === false) {
+                        return ['ok' => false, 'code' => 'price_option_unresolved', 'rejected_items' => [
+                            ['item_id' => $priced['item_id'] ?? null, 'reason' => 'price_option_unresolved'],
+                        ]];
+                    }
+                }
+            }
+        }
+
+        $tcv = self::computeResolvedTimelineTotalContractValue($periods);
+        $floor = $policy['minimum_total_contract_value'] ?? null;
+        if ($floor !== null) {
+            if ($tcv === null) {
+                return ['ok' => false, 'code' => 'floor_unverifiable'];
+            }
+            if ($tcv < $floor) {
+                return ['ok' => false, 'code' => 'below_minimum_total_contract_value'];
+            }
+        }
+
+        return ['ok' => true, 'periods' => $periods, 'total_contract_value' => $tcv];
+    }
+
+    /**
+     * Sum every resolved period's own priced line totals into one scalar —
+     * but only when the timeline actually terminates. An open-ended last
+     * Period (`to_month === null`) has no well-defined total, so this
+     * returns null rather than an arbitrary partial sum; the caller treats
+     * a configured floor against a null total as unverifiable, never as a
+     * silent pass (see the work file's TCV-floor resolution).
+     *
+     * @param array<int, array{from_month:int, to_month:?int, components:array}> $periods
+     */
+    public static function computeResolvedTimelineTotalContractValue(array $periods): ?float
+    {
+        if ($periods === []) {
+            return 0.0;
+        }
+        $last = $periods[count($periods) - 1];
+        if (($last['to_month'] ?? null) === null) {
+            return null;
+        }
+        $total = 0.0;
+        foreach ($periods as $period) {
+            foreach ($period['components'] ?? [] as $component) {
+                foreach ($component['items'] ?? [] as $priced) {
+                    $total += (float) ($priced['line_total'] ?? 0.0);
+                }
+            }
+        }
+        return $total;
+    }
+
     // ── Consumer projections ─────────────────────────────────────────────────
 
     /**

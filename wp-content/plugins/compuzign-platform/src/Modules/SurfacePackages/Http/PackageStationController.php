@@ -1810,6 +1810,15 @@ class PackageStationController
         if (!in_array($module, $PS::TIER_MODULES, true)) {
             return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
         }
+        // Phase 2A — customer_policy exists in TIER_MODULES for the
+        // composable occupant only (saveComposableOccupantModule()); no
+        // customer-choice concept exists for a fixed Tier/Add-on in this
+        // phase, so this shared module-name vocabulary explicitly does not
+        // extend to it here rather than silently mishandling the payload as
+        // FAQs via the trailing else branch below.
+        if ($module === 'customer_policy') {
+            return rest_ensure_response(['success' => false, 'message' => 'Unknown module.']);
+        }
 
         $post = get_post($serviceId);
         if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
@@ -2463,6 +2472,18 @@ class PackageStationController
             }
         } elseif ($module === 'features') {
             $draftValue = $PS::sanitizeTierRateSheetSelections($body['rate_sheet_items'] ?? []);
+        } elseif ($module === 'customer_policy') {
+            // Phase 2A — Admin-authorized customer selection bounds.
+            // Composable-only: savePackageStationTierModule() explicitly
+            // rejects this module for fixed Tier/Add-on occupants (no
+            // customer-choice concept exists there in this phase). See
+            // project-work/2026-09-02-composable-tier-customer-policy.md.
+            // Wrapped in 'value' because a sanitized policy can itself
+            // legitimately be null (explicitly clearing it back to "no
+            // policy") — the platform's own drafts[$module] === null
+            // already means "no pending draft at all" (see hasDraft in
+            // settleTierSlot), so the two nulls must never be conflated.
+            $draftValue = ['value' => $PS::sanitizeCustomerPolicy($body['customer_policy'] ?? null)];
         } else { // faqs
             $draftValue = [];
             if (is_array($body['faq_refs'] ?? null)) {
