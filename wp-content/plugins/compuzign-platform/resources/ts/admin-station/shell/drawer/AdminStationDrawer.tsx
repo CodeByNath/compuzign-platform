@@ -143,7 +143,10 @@ function DrawerOverlay({ open, onClose }: { open: OpenDrawerState; onClose: () =
         class={`cz-station-drawer${size === 'normal' ? '' : ` cz-station-drawer--${size}`}`}
         role="dialog"
         aria-modal="true"
-        aria-label={template ? template.title : 'Drawer'}
+        // Same effective title as the visible <h2> below -- an override that
+        // changes what's on screen but not the accessible name would leave
+        // sighted and assistive-technology users disagreeing about what's open.
+        aria-label={template ? (headerTitle ?? template.title) : 'Drawer'}
         tabIndex={-1}
       >
         {template

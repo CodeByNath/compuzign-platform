@@ -138,4 +138,18 @@ check(resolveTierDrawerHeaderTitle(null) === null, 'the package-overview screen 
 const registerSource = readFileSync(resolve(import.meta.dirname, '../resources/ts/package-station/register.ts'), 'utf8');
 check(registerSource.includes("title: 'Package Tier'"), 'the Tier drawer template\'s own base/fallback title is still registered as "Package Tier" -- this fix overrides it per-instance rather than renaming it, so every normal Tier/Add-on drawer is unaffected');
 
+// ── 6. The accessible dialog name shares the same override as the visible title ─
+// Blocking finding after live validation of d78629d3: the visible <h2> used
+// the new override, but the dialog's aria-label still read template.title
+// directly, so assistive technology kept announcing "Package Tier" while
+// sighted chrome correctly said "Build Your Own" -- source of truth, not
+// mounted DOM, so this is a source-scan assertion, same precedent
+// tier-instance-scope-contract.ts already uses for exactly this reason.
+
+const shellSource = readFileSync(resolve(import.meta.dirname, '../resources/ts/admin-station/shell/drawer/AdminStationDrawer.tsx'), 'utf8');
+const visibleTitleLine = shellSource.split('\n').find((line) => line.includes('cz-station-drawer__title'));
+const ariaLabelLine = shellSource.split('\n').find((line) => line.includes('aria-label={template'));
+check(!!visibleTitleLine && visibleTitleLine.includes('headerTitle ?? template.title'), 'the visible drawer <h2> resolves its title as headerTitle ?? template.title');
+check(!!ariaLabelLine && ariaLabelLine.includes('headerTitle ?? template.title'), 'the dialog\'s accessible name (aria-label) resolves from the exact same headerTitle ?? template.title expression as the visible title -- not template.title alone -- so sighted and assistive-technology users can never disagree about what drawer is open');
+
 console.log('Composable occupant workspace contract passed.');
