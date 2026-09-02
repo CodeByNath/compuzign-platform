@@ -101,3 +101,23 @@ export function toTierOccupantCard({
     ],
   };
 }
+
+/**
+ * Append the composable occupant's own Customer Options action to its
+ * already-projected card — a separate step from toTierOccupantCard() itself
+ * (shared by every normal Tier/Add-on card, per its own doc comment) so the
+ * action can never leak onto a normal slot's actions array. `eligible` is
+ * the caller's own "genuinely published/manageable" fact (occupant.enabled,
+ * i.e. platform_status === 'active') — never a bare occupant_id existence
+ * check, which is already true for a Pending, never-published occupant.
+ * Exported so the composable-occupant-workspace contract can exercise the
+ * gate directly. See
+ * docs/code-map/tier-composable-occupant-admin-customer-policy.md.
+ */
+export function withComposableCustomerOptionsAction(
+  card: CategoryGroupCardItem,
+  eligible: boolean,
+): CategoryGroupCardItem {
+  if (!eligible) return card;
+  return { ...card, actions: [...card.actions, { id: 'customer-options', label: 'Customer Options' }] };
+}

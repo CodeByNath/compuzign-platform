@@ -620,13 +620,14 @@ export interface SurfaceTierDetail {
   // moved out of tier_editions[] (never auto-migrated). Absent/empty for
   // every occupant that has never used this capability.
   tier_edition_bin?: TierEditionBinEntry[];
-  // Phase 2B1.1 — Admin-authorized customer selection bounds, composable
-  // occupant only (see docs/code-map/tier-composable-occupant-customer-ux.md).
-  // Every normal Tier/Add-on occupant's own field stays permanently null —
-  // savePackageStationTierModule() rejects the 'customer_policy' module
-  // outright for a fixed slot, so there is no admin authoring path to set
-  // one there. Optional for the same pre-repair-response reason as
-  // drafts/module_status above.
+  // Admin-authorized customer selection bounds, composable occupant only
+  // (see docs/code-map/tier-composable-occupant-customer-ux.md), authored
+  // through the standalone Customer Selection Rules drawer — not a module
+  // of this shared Tier drawer/entity. Every normal Tier/Add-on occupant's
+  // own field stays permanently null — savePackageStationTierModule()
+  // rejects the 'customer_policy' module outright for a fixed slot, so
+  // there is no admin authoring path to set one there. Optional for the
+  // same pre-repair-response reason as drafts/module_status above.
   customer_policy?: CustomerPolicy | null;
 }
 

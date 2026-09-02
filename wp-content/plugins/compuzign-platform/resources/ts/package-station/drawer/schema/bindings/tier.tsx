@@ -9,13 +9,11 @@
 
 import type { TierCommercialLeg, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../../types';
 import type { InclusionItem } from '@/api/types/pools';
-import type { CustomerPolicy } from '@/api/types/cost-builder';
 import {
   tierOverviewModule,
   tierPricingRulesModule,
   tierFeaturesModule,
   tierFaqsModule,
-  tierCustomerPolicyModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import { TierOverviewEditor } from '../../editors/TierOverviewEditor';
 import type { TierOverviewEditDraft } from '../../editors/TierOverviewEditor';
@@ -25,7 +23,6 @@ import type { TierPricingRulesDraft } from '../../../types';
 import { PoolInclusionsEditor } from '../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
-import { CustomerPolicyEditor } from '../../editors/CustomerPolicyEditor';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
 
@@ -301,57 +298,6 @@ export const tierFaqsShell: ShellSchema<TierFaqsShellData> = {
         onChange={(next) => s.replace(next)}
         pool={(s.extras?.pool ?? []) as FaqPoolItem[]}
         onCreate={s.extras?.onCreate as (question: string, answer: string) => Promise<FaqPoolItem | null>}
-      />
-    ),
-  },
-};
-
-// ── Customer Selection Rules (composable occupant only) ─────────────────────
-//
-// Admin-authored bounds on which of the occupant's own already-published
-// Rate Sheet inclusions a future customer may choose, at what quantity and
-// Price Option — see docs/code-map/tier-composable-occupant-customer-ux.md
-// and PackageSchema::sanitizeCustomerPolicy(). Rendered by TierDrawerContent
-// ONLY while the composable occupant is open and a real occupant_id exists
-// (the same gate Options/Editions already use) — never a module a normal
-// Tier/Add-on's own drawer surfaces, matching
-// savePackageStationTierModule()'s own explicit rejection of this module
-// for a fixed slot.
-
-export interface TierCustomerPolicyShellData {
-  policy: CustomerPolicy | null;
-}
-
-export const tierCustomerPolicyShell: ShellSchema<TierCustomerPolicyShellData> = {
-  archetype: 'overview',
-  dna:       tierCustomerPolicyModule,
-  header: {
-    title:       'Customer Selection Rules',
-    subtitle:    'What a customer may Add/Remove and at what quantity on Build Your Own.',
-    icon:        'overview',
-    iconVariant: 'drawerModule__icon--overview',
-    scopeClass:  'drawerOverview tier',
-  },
-  content: [
-    {
-      id: 'summary', element: 'text',
-      bind: (d): TextValue => {
-        const items = d.policy?.items ?? [];
-        if (items.length === 0) return { value: 'Not configured — every inclusion stays not offered.' };
-        const required = items.filter((item) => item.mode === 'required').length;
-        const optional = items.filter((item) => item.mode === 'optional').length;
-        return { value: `${required} always included · ${optional} customer Add/Remove` };
-      },
-    },
-  ],
-  footer:  DETAILS_FOOTER,
-  actions: DETAILS_ACTIONS,
-  editor: {
-    render: (s) => (
-      <CustomerPolicyEditor
-        draft={s.draft as CustomerPolicy | null}
-        onChange={(next) => s.replace(next)}
-        rateSheetCatalogue={(s.extras?.rateSheetCatalogue ?? []) as TierResolvedRateSheetSelection[]}
       />
     ),
   },

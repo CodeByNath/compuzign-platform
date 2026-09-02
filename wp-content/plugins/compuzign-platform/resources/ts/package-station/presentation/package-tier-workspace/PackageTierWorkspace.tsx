@@ -14,6 +14,7 @@ import {
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
 import { encodeTierInclusionDrawerRecordId } from '../../drawer/inclusion/tierInclusionDrawerTypes';
+import { encodeTierCustomerPolicyDrawerRecordId } from '../../drawer/customerPolicy/tierCustomerPolicyDrawerTypes';
 import {
   encodeTierRateSheetDrawerRecordId,
   encodeTierRateSheetGroupDrawerRecordId,
@@ -120,6 +121,15 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       ? encodeTierDrawerRecordId(instanceId, occupantId)
       : encodeTierSlotDrawerRecordId(instanceId, slotId);
     onIntent(recordId, actionId);
+  };
+
+  // The composable occupant's own Customer Options action opens the
+  // standalone Customer Selection Rules drawer — a sibling of the Tier
+  // drawer, addressed by tier_instance_id alone (there is at most one
+  // composable occupant per instance).
+  const dispatchCustomerPolicyIntent = () => {
+    if (instanceId === null) return;
+    onIntent(encodeTierCustomerPolicyDrawerRecordId(instanceId), 'customer-options');
   };
 
   // A Details-lane row addresses one inclusion inside the focused slot. The slot
@@ -339,11 +349,13 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             familyName={tool.selectedFamily?.name ?? null}
             hasInstance
             isSubordinate
-            onAction={(actionId) => dispatchTierIntent(
-              COMPOSABLE_TIER_ID,
-              tool.composableOccupant?.occupantId ?? null,
-              actionId,
-            )}
+            onAction={(actionId) => actionId === 'customer-options'
+              ? dispatchCustomerPolicyIntent()
+              : dispatchTierIntent(
+                  COMPOSABLE_TIER_ID,
+                  tool.composableOccupant?.occupantId ?? null,
+                  actionId,
+                )}
             onOpenSettings={openTierSettings}
           />
         </div>

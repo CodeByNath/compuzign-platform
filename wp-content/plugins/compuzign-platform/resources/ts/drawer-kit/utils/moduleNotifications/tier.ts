@@ -96,13 +96,15 @@ export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
   resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(count > 0, ctx),
 };
 
-// Composable occupant only (see drawer/schema/bindings/tier.tsx's
-// tierCustomerPolicyShell). An absent/empty policy is a legitimate "no
-// customer composability offered yet" state, not an error — never a
-// completeness problem, matching this module's own code-map doc
-// (customer_policy has no shipped floor/requirement of its own). Still
-// gated on parent completeness like Features/FAQs: authoring policy over
-// inclusions that do not resolve yet has nothing meaningful to reference.
+// Composable occupant only — the dna for the STANDALONE Customer Selection
+// Rules drawer (drawer/schema/bindings/tierCustomerPolicy.tsx), not a module
+// of the shared Tier drawer's TIER_ENTITY (an earlier round wired it there
+// and the auditor rejected that as an architectural mismatch — see
+// docs/code-map/tier-composable-occupant-admin-customer-policy.md). An
+// absent/empty policy is a legitimate "no customer composability offered
+// yet" state, not an error — never a completeness problem, matching this
+// module's own code-map doc (customer_policy has no shipped floor/
+// requirement of its own).
 export const tierCustomerPolicyModule: ModuleDefinition<{ count: number }> = {
   key:                'tier-customer-policy',
   requiresParent:     true,

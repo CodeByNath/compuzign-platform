@@ -12,7 +12,6 @@ import {
   tierPricingRulesShell,
   tierFeaturesShell,
   tierFaqsShell,
-  tierCustomerPolicyShell,
 } from '../bindings/tier';
 import { serviceOverviewShell } from '@/service-station';
 import type { EntitySchema } from '@/drawer-kit/schema/types';
@@ -48,12 +47,6 @@ export const TIER_ENTITY: EntitySchema = {
     features:      tierFeaturesShell,
     faqs:          tierFaqsShell,
     service:       serviceOverviewShell,
-    // Composable occupant only. Deliberately absent from `placements.drawer`
-    // below (which TierDrawerContent.tsx does not read for this screen
-    // anyway — it composes its own PlacedShell tree by hand — but stays
-    // accurate as a manifest either way): unlike the four modules above,
-    // this one must never appear on a normal Tier/Add-on's own drawer.
-    customer_policy: tierCustomerPolicyShell,
   },
 
   // Occupant travel actions (engine D2–D4). The restore-conflict flows

@@ -15,7 +15,6 @@ import type {
   TierPricingRulesShellData,
   TierFeaturesShellData,
   TierFaqsShellData,
-  TierCustomerPolicyShellData,
 } from '../schema/bindings/tier';
 import { relationshipDisplayLabel } from '../../rateSheetLabels';
 import { TIER_LABELS } from '../../vocabulary';
@@ -196,8 +195,8 @@ export function buildTierFooterModel(
 }
 
 export interface TierDetailHandlers {
-  onEditSection:  (section: 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs' | 'tier-customer-policy') => void;
-  onRevertModule: (module: 'overview' | 'pricing_rules' | 'features' | 'faqs' | 'customer_policy') => void;
+  onEditSection:  (section: 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs') => void;
+  onRevertModule: (module: 'overview' | 'pricing_rules' | 'features' | 'faqs') => void;
 }
 
 /**
@@ -323,19 +322,7 @@ export function buildTierDetail(
     handlers: { edit: () => onEditSection('tier-faqs'), 'discard-draft': () => onRevertModule('faqs') },
     busy: tierBusy,
   };
-  // Composable occupant only — TierDrawerContent renders this shell's
-  // PlacedShell conditionally; the binding itself is built unconditionally
-  // like every other, since a normal Tier's own detail.customer_policy is
-  // simply always null and never rendered.
-  const customerPolicyBinding: ShellBinding<TierCustomerPolicyShellData> = {
-    data:     { policy: detail.customer_policy ?? null },
-    state:    view.modules.customer_policy,
-    hasDraft: view.drafts.customer_policy !== null,
-    handlers: { edit: () => onEditSection('tier-customer-policy'), 'discard-draft': () => onRevertModule('customer_policy') },
-    busy: tierBusy,
-  };
-
-  return { view, detail, rateSheetCatalogue, isPopular, overviewBinding, pricingRulesBinding, featuresBinding, faqsBinding, customerPolicyBinding };
+  return { view, detail, rateSheetCatalogue, isPopular, overviewBinding, pricingRulesBinding, featuresBinding, faqsBinding };
 }
 
 export type TierDetailModel = ReturnType<typeof buildTierDetail>;

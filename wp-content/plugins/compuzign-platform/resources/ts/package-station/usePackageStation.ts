@@ -51,7 +51,6 @@ import {
   tierPricingRulesModule,
   tierFeaturesModule,
   tierFaqsModule,
-  tierCustomerPolicyModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from '@/hooks/stationPrimitives';
@@ -240,7 +239,6 @@ export interface PackageStationTierView {
     pricing_rules: ModuleState;
     features:      ModuleState;
     faqs:          ModuleState;
-    customer_policy: ModuleState;
   };
 }
 
@@ -433,22 +431,6 @@ export function usePackageStation(
             platformStatus:   occupantPlatformStatus,
             moduleTransition: slot.module_status.faqs,
             hasDraft:         slot.drafts.faqs !== null,
-            disabled:         occupantDisabled,
-            parentReady:      tierPricingComplete,
-            parentLabel:      'Tier Overview',
-            platformLabel:    'Tier',
-          },
-        ),
-        // Composable occupant only — rendered conditionally by
-        // TierDrawerContent, but evaluated unconditionally here like every
-        // other module (a normal Tier's own value is simply never read).
-        customer_policy: evaluateModule(
-          tierCustomerPolicyModule,
-          { count: dp.customer_policy?.items.length ?? 0 },
-          {
-            platformStatus:   occupantPlatformStatus,
-            moduleTransition: slot.module_status.customer_policy,
-            hasDraft:         slot.drafts.customer_policy !== null,
             disabled:         occupantDisabled,
             parentReady:      tierPricingComplete,
             parentLabel:      'Tier Overview',

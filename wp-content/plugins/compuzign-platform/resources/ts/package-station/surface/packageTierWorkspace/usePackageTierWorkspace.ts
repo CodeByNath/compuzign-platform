@@ -15,7 +15,7 @@ import { usePackageStation } from '../../usePackageStation';
 import { useTierInstances } from '../tierInstance/useTierInstances';
 import type { TierInstancesToolState } from '../tierInstance/useTierInstances';
 import { useHostService } from '../tierSurface/useHostService';
-import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
+import { toTierOccupantCard, withComposableCustomerOptionsAction } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
 import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 import {
@@ -315,16 +315,17 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
           hasFocusedTier: true,
         });
       }
-      composableOccupant = projectComposableWorkspaceSlot(
-        composableOccupantId,
-        composableOccupantId ? toTierOccupantCard({
+      const composableCard = composableOccupantId ? withComposableCustomerOptionsAction(
+        toTierOccupantCard({
           occupantId: composableOccupantId,
           slotId: COMPOSABLE_TIER_ID,
           view: composableView,
           platformStatus: pkg.platformStatus,
           isSubordinate: true,
-        }) : null,
-      );
+        }),
+        composableView?.detail.enabled === true,
+      ) : null;
+      composableOccupant = projectComposableWorkspaceSlot(composableOccupantId, composableCard);
     }
 
     return {

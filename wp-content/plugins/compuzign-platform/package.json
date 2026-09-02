@@ -53,6 +53,7 @@
     "contract:composable-offer-choice": "tsx scripts/composable-offer-choice-contract.ts",
     "contract:composable-offer-contribution": "tsx scripts/composable-offer-contribution-contract.ts",
     "contract:tier-customer-policy-draft": "tsx scripts/tier-customer-policy-draft-contract.ts",
+    "contract:tier-customer-policy-drawer": "tsx scripts/tier-customer-policy-drawer-contract.ts",
     "contract:tier-edition-admin": "tsx scripts/tier-edition-admin-contract.ts",
     "contract:tier-edition-switch": "tsx scripts/tier-edition-switch-contract.ts",
     "contract:tier-edition-move-to-bin": "tsx scripts/tier-edition-move-to-bin-contract.ts",

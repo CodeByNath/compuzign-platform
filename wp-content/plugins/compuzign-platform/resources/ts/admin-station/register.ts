@@ -179,6 +179,11 @@ export function registerPresentationPolicy(): void {
         // cards and detail panel above the deck.
         { id: 'view-inclusion', target: 'drawer', mode: 'view', drawerTemplateKey: 'tier-inclusion' },
         { id: 'edit-inclusion', target: 'drawer', mode: 'edit', drawerTemplateKey: 'tier-inclusion' },
+        // The composable occupant's own shell card exposes this action once
+        // Build Your Own is genuinely published — it opens its own
+        // standalone Customer Selection Rules drawer, never the Tier drawer.
+        // See docs/code-map/tier-composable-occupant-admin-customer-policy.md.
+        { id: 'customer-options', target: 'drawer', mode: 'view', drawerTemplateKey: 'tier-customer-policy' },
         // The lower-deck Connections lane addresses what the focused Tier is
         // connected TO — its Package Family, its Rate Sheet groups, and its Rate
         // Sheet — so each section carries its own intents and its own drawer key.

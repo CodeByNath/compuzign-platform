@@ -10,6 +10,7 @@ import { TierRateSheetDrawerContent } from './presentation/rate-sheet-tool/TierR
 import { PackageFamilyDrawerContent } from './surface/packageFamily/PackageFamilyDrawerContent';
 import { usePackageFamilyCards } from './surface/packageFamily/usePackageFamilyCards';
 import { usePackageTierWorkspace } from './surface/packageTierWorkspace/usePackageTierWorkspace';
+import { TierCustomerPolicyDrawerHost } from './surface/tierSurface/TierCustomerPolicyDrawerHost';
 import { TierDrawerHost } from './surface/tierSurface/TierDrawerHost';
 import { TierInclusionDrawerHost } from './surface/tierSurface/TierInclusionDrawerHost';
 import { useServiceTierCards } from './surface/tierSurface/useServiceTierCards';
@@ -72,6 +73,17 @@ export function registerPackageStation(): void {
       title: 'Inclusion',
       supportedModes: ['view', 'edit'],
       content: TierInclusionDrawerHost,
+    },
+    {
+      // The composable occupant's own Customer Selection Rules — a
+      // standalone controller over an already-published Build Your Own
+      // occupant, launched from that occupant's own shell card, not a
+      // module of the shared `tier` drawer/entity. See
+      // docs/code-map/tier-composable-occupant-admin-customer-policy.md.
+      key: 'tier-customer-policy',
+      title: 'Customer Selection Rules',
+      supportedModes: ['view', 'edit'],
+      content: TierCustomerPolicyDrawerHost,
     },
     {
       // Package-owned Rate Sheet authoring, mounted in the generic Admin drawer.
