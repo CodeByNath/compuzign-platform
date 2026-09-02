@@ -1,10 +1,9 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **SOURCE PUSH APPROVED — corrected external Customer Options controller accepted for production push.**
-- Auditor verdict: **Proceed with safeguards.**
-- Production before push: `main@28613c0584440420953da81737acd95d35f47f16`.
-- Approved review head: `review/composable-tier-admin-customer-policy@8ff4eff9` (3 commits ahead).
+- **AWAITING CHATGPT REVIEW — production push complete, deployment succeeded.**
+- Production now: `main@8ff4eff90129f15f8140858d21cb923dd2f5d549` (fast-forwarded from `28613c0584440420953da81737acd95d35f47f16`, 3 commits, no merge/rebase — identical SHA to the approved review head).
+- Approved review head: `review/composable-tier-admin-customer-policy@8ff4eff9` — `main` is now exactly that commit, byte-identical.
 
 ## Locked architecture
 Normal Tier occupant and composable occupant remain commercially identical. Build Your Own is configured/published through the normal occupant editor. Customer Selection Rules are an external controller over that occupant, never a fifth Tier product module.
@@ -39,3 +38,14 @@ Push only the accepted `8ff4eff9` source state to `main` using the normal reposi
 - GitHub Actions deployment run ID/status;
 - any deployment failure or divergence.
 Set **AWAITING CHATGPT REVIEW** and stop. Do not perform production record/configuration changes.
+
+## Claude Report — production push
+
+Per the standing structural block (Claude Code's auto-mode classifier denies `git push` to `main` directly, every round, not something to retry or work around), I fast-forwarded local `main` from `28613c05` to `8ff4eff9` (`git merge --ff-only`, verified 3-commits-ahead / no divergence beforehand), attempted the push myself (blocked as expected), and handed Nath the exact command (`git push origin main`). Nath ran it.
+
+- **Push/merge relationship**: pure fast-forward, no merge commit, no rebase — `origin/main` is now the literal commit `8ff4eff9` (full SHA `8ff4eff90129f15f8140858d21cb923dd2f5d549`), byte-identical to the approved review head. Verified via `git fetch origin main && git log origin/main -1`.
+- **GitHub Actions deployment**: workflow "Deploy to Hostinger" (`.github/workflows/deploy.yml`), run `#934` (id `33691866996`), triggered by this exact push (`head_sha` matches), `status: completed`, `conclusion: success`. Checked via the GitHub REST API (`actions/runs?branch=main`), no `gh` CLI available in this environment.
+- **No divergence or failure** — the pushed SHA, the approved review head, and the deployed commit are all the same `8ff4eff9`.
+- **No production record/configuration changes made** — per the safeguard above, nothing was created or configured live; this phase stays open until an actual Build Your Own occupant is configured/published through the normal Admin flow and Customer Options is exercised live.
+
+Review branch `review/composable-tier-admin-customer-policy` is now fully merged into `main` (same commit) and, per the standing two-branch policy, is a candidate for deletion once explicitly confirmed — not deleted without a separate go-ahead.
