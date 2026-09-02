@@ -162,8 +162,27 @@ class PackageSchema
      * Returns null for no configured policy at all (backwards-compatible
      * absence — a Family/Edition with no policy is unaffected). A non-null
      * result is always a complete, valid shape:
-     * `{ items: [{item_id, mode, default_selected, quantity, price_option}],
-     *    minimum_total_contract_value: float|null }`.
+     * `{ items: [{item_id, mode, default_selected, quantity, price_option}] }`.
+     *
+     * No `minimum_total_contract_value` floor field — deliberately deferred.
+     * The accepted contract required one, but auditing the Period boundary
+     * semantics this phase needed (PackageManagerSchema::
+     * commercialLegTimelinePeriods()) proved `to_month` is unambiguously
+     * INCLUSIVE (a boundary at `to_month + 1`; `activeCommercialLegTimelineChildren()`
+     * treats `to_month >= month` as active), while the existing frontend
+     * TCV algorithm this work was told to reuse
+     * (`buildOccurrenceMonths()`/`buildLegPaymentSummaries()`,
+     * `PricingTiers.tsx`) counts occurrences with `for (m=start; m<effectiveEnd;
+     * m+=interval)` — an EXCLUSIVE-style loop bound against an inclusive
+     * `to_month`, undercounting a finite monthly stream by one occurrence
+     * (11, not 12, for a nominal 12-month window). That discrepancy is
+     * pre-existing, live in the customer-facing Cost Builder/quote/PDF
+     * display today, and well outside this Phase 2A backend slice's
+     * authority to silently correct — see
+     * project-work/2026-09-02-composable-tier-customer-policy.md for the
+     * full finding. Shipping a commercial floor on disputed arithmetic was
+     * rejected in review; re-add this field only once that occurrence-count
+     * question is resolved on its own, separately-scoped work item.
      */
     public static function sanitizeCustomerPolicy(mixed $policy): ?array
     {
@@ -230,12 +249,7 @@ class PackageSchema
             ];
         }
 
-        $floor = null;
-        if (isset($policy['minimum_total_contract_value']) && $policy['minimum_total_contract_value'] !== null && $policy['minimum_total_contract_value'] !== '') {
-            $floor = max(0.0, (float) $policy['minimum_total_contract_value']);
-        }
-
-        return ['items' => $items, 'minimum_total_contract_value' => $floor];
+        return ['items' => $items];
     }
 
     /**

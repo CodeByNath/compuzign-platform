@@ -1,59 +1,66 @@
 # Composable Tier Occupant — Customer Configuration Policy
 
 **Phase 2A — backend policy/resolver slice only, no customer-facing UI or
-cart/quote wiring.** Implements the accepted contract in
-`project-work/2026-09-02-composable-tier-customer-policy.md`. See
-[Composable Tier Occupant](tier-composable-occupant.md) for the occupant this
-extends.
+cart/quote wiring.** Implements `project-work/2026-09-02-composable-tier-
+customer-policy.md`. See [Composable Tier Occupant](tier-composable-occupant.md)
+for the occupant this extends.
 
 ## Purpose and ownership
 
 `customer_policy` is Admin-authorized bounds on which of an occupant's/
 Edition's already-published inclusions a future customer may choose, at what
-quantity, and with which Price Option — never a second catalogue, never
-mutable by a customer. Rung-1 attribute data (`compuzign-platform-architecture`
-skill): no new Platform ID family, keyed by the container's own existing
-`item_id`/`price_option_id`. `PackageSchema::sanitizeCustomerPolicy()` is
-structural only; live cross-referencing is a separate step (Save-time
-validation below).
+quantity and Price Option — never a second catalogue, never mutable by a
+customer. Rung-1 attribute data (`compuzign-platform-architecture` skill): no
+new Platform ID family, keyed by the container's own `item_id`/
+`price_option_id`. `PackageSchema::sanitizeCustomerPolicy()` is structural
+only; live cross-referencing is separate (Save-time validation below).
 
 Commercial Leg structure is fixed this phase — a policy never mentions a Leg.
-Source audit confirmed no alternate/parallel Leg-set concept exists anywhere;
-Default and every Additional Leg are strictly time-scoped children of one
-combined timeline ([Commercial Legs](commercial-legs.md)).
+Source audit confirmed no alternate/parallel Leg-set concept exists; Default
+and every Additional Leg are strictly time-scoped children of one combined
+timeline ([Commercial Legs](commercial-legs.md)).
 
 ## Persistence
 
 Occupant: `customer_policy` joins `TIER_MODULES` as a fifth module, settled
-through the same draft → pending → settle lifecycle every other module uses.
+through the same draft → pending → settle lifecycle other modules use.
 Draft wrapped (`{'value': <policy-or-null>}`) since a sanitized policy can
 itself be `null` (explicitly cleared), distinct from `drafts[$module] ===
 null` meaning "no draft." `savePackageStationTierModule()` (fixed-Tier/Add-on)
-explicitly rejects it as unknown rather than falling into the trailing FAQs
-branch.
+rejects it as unknown rather than falling into the trailing FAQs branch.
 
 Edition: travels through the existing single `overview` draft — no new
-Edition module. **Absent/null inherits the occupant's Default policy
-wholesale; non-empty is a COMPLETE replacement**, never a per-item patch — an
-item absent from a non-empty Edition policy defaults to excluded. Mirrors
-`inclusions_override`'s existing empty-means-inherit precedent.
+module. **Absent/null inherits the occupant's Default policy wholesale;
+non-empty is a COMPLETE replacement**, never a per-item patch — an item
+absent from a non-empty Edition policy defaults to excluded, mirroring
+`inclusions_override`'s empty-means-inherit precedent.
+
+## No TCV floor — deferred, not shipped
+
+The accepted contract originally required a `minimum_total_contract_value`
+floor. Auditing Period boundary semantics proved `to_month` is unambiguously
+INCLUSIVE (`commercialLegTimelinePeriods()`'s own `to_month + 1` boundary),
+while the existing frontend TCV algorithm this work was told to reuse
+(`buildOccurrenceMonths()`, `PricingTiers.tsx`) counts occurrences with an
+exclusive-style loop bound against that inclusive value — undercounting a
+finite monthly stream by one occurrence (11, not 12, over a nominal 12-month
+window). A pre-existing discrepancy, live in the customer-facing Cost
+Builder/quote/PDF display today, outside this slice's authority to correct.
+The floor was removed entirely rather than shipped on disputed arithmetic.
 
 ## Save-time validation
 
 `PackageManagerSchema::validateCustomerPolicyAgainstContainer(policy,
 container, readModel)` — the live-data check `sanitizeCustomerPolicy()`
-deliberately skips: every policy `item_id` must exist in the container's own
-current `rate_sheet_items`; every `choice`-mode Price Option id must resolve
-against that row's own live `price_options[]`; a configured
-`minimum_total_contract_value` is rejected if the container's own fixed Leg
-structure can't yield a finite total (checked unfiltered — open-endedness
-never depends on item selection). Returns the first violation; never
-repairs/drops one. Wired into both `saveComposableOccupantModule()` (against
-the occupant's `current_occupant`) and `saveComposableOccupantEditionModule()`
-(against the Edition's own current fields, never the in-flight draft) — each
-builds a fresh `readModel` inline via `buildReadModel()`, matching this
-controller's existing pattern rather than a new signature threaded through
-the shared, composable-agnostic `settleTierSlot()`/`settleTierEditionOverview()`.
+skips: every policy `item_id`, including `excluded` entries, must exist in
+the container's current `rate_sheet_items`; every `choice`-mode Price Option
+id must resolve against that row's own live `price_options[]`. Returns the
+first violation; never repairs/drops one. Wired into
+`saveComposableOccupantModule()` (against `current_occupant`) and
+`saveComposableOccupantEditionModule()` (against the Edition's own current
+fields, never the draft) — each builds `readModel` inline via
+`buildReadModel()`, not a new signature through the shared
+`settleTierSlot()`/`settleTierEditionOverview()`.
 
 ## Projection
 
@@ -61,13 +68,16 @@ the shared, composable-agnostic `settleTierSlot()`/`settleTierEditionOverview()`
 whitelist boundary — a field in storage isn't visible downstream until named
 at every extraction step (architecture-examples #8's class of gap).
 `publicTierEditionOptions()` re-sanitizes both the inherited and
-Edition's-own branches identically — the resolver test initially caught the
-inherited branch returning raw unsanitized data instead.
+Edition's-own branches identically.
 
 `PackageFamilyPricingBuilder::presentOccupant()` — the one shared shape for
-`pricing.tiers[tierId]` and `pricing.composable_offer` — carries
-`customer_policy` through generically, customer-safe by construction (never a
-Rate Sheet id). No separate top-level `composable_offer_policy` key.
+`pricing.tiers[tierId]` and `pricing.composable_offer` (each
+`edition_options[]` entry too) — carries `customer_policy` through a
+dedicated `presentCustomerPolicy()` filter: customer-safe by construction
+(never a Rate Sheet id) and by omission, stripping every `mode: excluded`
+entry (not offered, never "visible and disabled"). Server validation still
+sees the full stored policy; only this projection filters. No separate
+top-level `composable_offer_policy` key.
 
 ## Resolver
 
@@ -81,28 +91,19 @@ of `rate_sheet_items[]` and hands it to the unmodified
   removes it from Default's AND every Additional Leg's own component at once.
 - **Quantity/Price-Option customization stays scoped to the row's own
   top-level fields** — `leg_assignments[]` is never touched.
-- **Every submitted choice is pre-validated** against the effective policy
-  and the container's current rows: a stale/unknown/not-offered `item_id`, or
-  a duplicate in one submission, rejects rather than being silently ignored
-  or last-write-wins.
+- **Every submitted choice is pre-validated:** a stale/unknown/not-offered or
+  duplicate `item_id` rejects rather than being silently ignored or
+  last-write-wins.
 - **Never a silent substitution:** an out-of-bounds quantity, a disallowed
   Price Option — including an explicit `null` under `'choice'` mode, never
-  automatically authorized (`'fixed'` mode is the route that preserves
-  published null/base pricing) — or an unresolved published Price Option
-  rejects the WHOLE selection with a structured `{item_id, reason}`.
-- **TCV floor:** `computeResolvedTimelineTotalContractValue()` — a faithful
-  PHP port of the canonical `buildLegPaymentSummaries()`/
-  `computeTotalContractValue()` algorithm (`PricingTiers.tsx`/
-  `paymentSummary.ts`), accounting for billing cadence/occurrence count per
-  stream, not a per-Period line-total sum (the first cut's flaw). Returns
-  `null` the instant any stream is open-ended; a configured floor against
-  `null` rejects as `floor_unverifiable`, at save time and defensively at
-  resolve time.
+  automatically authorized (`'fixed'` preserves published null/base
+  pricing) — or an unresolved Price Option rejects the WHOLE selection with a
+  structured `{item_id, reason}`.
 
 ## Not yet built
 
 Customer-facing selection UI (Phase 2B), `FamilyTierQuoteItem`/cart-key
-coexistence, request-schema persistence, PDF/email, promotions.
+coexistence, request-schema/PDF/email/promotions, and the TCV floor (above).
 
 ## Related Code Maps
 

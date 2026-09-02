@@ -85,7 +85,10 @@ final class PackageFamilyPricingBuilder
                 ? array_values(array_map('strval', $tier['audience_groups']))
                 : ['personal_business', 'enterprise'],
             'is_addon'          => (bool) ($tier['is_addon'] ?? false),
-            'edition_options'   => is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : [],
+            'edition_options'   => array_map(
+                fn(array $option): array => [...$option, 'customer_policy' => $this->presentCustomerPolicy($option['customer_policy'] ?? null)],
+                is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : []
+            ),
             'minimum_term_value' => $tier['minimum_term_value'] ?? null,
             'minimum_term_unit'  => $tier['minimum_term_unit'] ?? null,
             // The occupant's own resolved Default + Additional Leg
@@ -113,7 +116,34 @@ final class PackageFamilyPricingBuilder
             // function so it appears identically under `tiers[tierId]` and
             // the composable `composable_offer` sibling alike — no separate
             // top-level key, no composable-specific branch in buildResponse().
-            'customer_policy'   => is_array($tier['customer_policy'] ?? null) ? $tier['customer_policy'] : null,
+            'customer_policy'   => $this->presentCustomerPolicy($tier['customer_policy'] ?? null),
+        ];
+    }
+
+    /**
+     * Customer-safe `customer_policy` projection — omits every `excluded`
+     * entry rather than exposing it as a visible-but-disabled option.
+     * `excluded` means "not offered", never "customer-visible and
+     * disabled" (see project-work/2026-09-02-composable-tier-customer-
+     * policy.md). Server-side validation/resolution
+     * (PackageManagerSchema::resolveCustomerComposableSelection()/
+     * validateCustomerPolicyAgainstContainer()) still operates on the FULL
+     * stored policy including excluded entries — only this public-facing
+     * projection filters them.
+     *
+     * @param array<string, mixed>|null $policy PackageSchema::sanitizeCustomerPolicy() shape
+     * @return array<string, mixed>|null
+     */
+    private function presentCustomerPolicy(?array $policy): ?array
+    {
+        if ($policy === null) {
+            return null;
+        }
+        return [
+            'items' => array_values(array_filter(
+                is_array($policy['items'] ?? null) ? $policy['items'] : [],
+                static fn(array $item): bool => ($item['mode'] ?? 'excluded') !== 'excluded'
+            )),
         ];
     }
 }

@@ -2293,7 +2293,14 @@ final class PackageManagerSchema
      * violation found so the caller can reject the whole save with a
      * structured 422-style response and leave stored/draft state
      * unchanged, matching the resolver's own "never a silent substitution"
-     * posture at the opposite (customer) end of this same contract.
+     * posture at the opposite (customer) end of this same contract. Checks
+     * every stored entry's own `item_id` against the container regardless
+     * of `mode` — an `excluded` entry naming a since-removed item is a
+     * dangling reference too, never silently accumulated.
+     *
+     * No TCV/floor check here — `minimum_total_contract_value` was removed
+     * from the policy shape entirely; see sanitizeCustomerPolicy()'s own
+     * docblock for why.
      *
      * @param array<string, mixed> $policy PackageSchema::sanitizeCustomerPolicy() shape (already-sanitized, non-null)
      * @param array<string, mixed> $container occupant or Tier Edition shape (its OWN currently-published rate_sheet_id/rate_sheet_items/legs/minimum_term_*)
@@ -2323,11 +2330,18 @@ final class PackageManagerSchema
         foreach (is_array($policy['items'] ?? null) ? $policy['items'] : [] as $entry) {
             if (!is_array($entry) || !isset($entry['item_id'])) { continue; }
             $itemId = (string) $entry['item_id'];
-            if (($entry['mode'] ?? 'excluded') === 'excluded') { continue; }
 
+            // Every stored policy entry must reference a real container
+            // row, regardless of mode — an 'excluded' entry naming a
+            // since-removed item is stale bookkeeping, not a harmless
+            // no-op, and a non-empty policy is a complete-replacement
+            // authority (see PackageSchema::sanitizeCustomerPolicy()'s own
+            // docblock); a dangling reference is rejected here rather than
+            // accumulating silently.
             if (!isset($sourceRowIds[$itemId])) {
                 return ['code' => 'dangling_item_id', 'item_id' => $itemId];
             }
+            if (($entry['mode'] ?? 'excluded') === 'excluded') { continue; } // nothing more to validate for a never-offered item
 
             $priceOptionPolicy = $entry['price_option'] ?? ['mode' => 'fixed'];
             if (($priceOptionPolicy['mode'] ?? 'fixed') !== 'choice') { continue; }
@@ -2354,22 +2368,6 @@ final class PackageManagerSchema
                 && (!isset($liveOptionIds[(string) $defaultOptionId]) || !in_array((string) $defaultOptionId, $allowedIds, true))
             ) {
                 return ['code' => 'invalid_default_price_option', 'item_id' => $itemId];
-            }
-        }
-
-        $floor = $policy['minimum_total_contract_value'] ?? null;
-        if ($floor !== null) {
-            // Open-endedness is purely a Leg-timeline-structure fact
-            // (from_month/to_month vs. commitment) — never dependent on
-            // which items a future customer might select — so this is
-            // checked against the container's own full, unmodified,
-            // currently-published state, not a simulated customer choice.
-            $commitmentMonths = (($container['minimum_term_unit'] ?? null) === 'month' && ($container['minimum_term_value'] ?? null) !== null)
-                ? (int) $container['minimum_term_value']
-                : null;
-            $periods = self::resolveCommercialLegTimeline($readModel, $container);
-            if (self::computeResolvedTimelineTotalContractValue($periods, $commitmentMonths) === null) {
-                return ['code' => 'floor_unverifiable'];
             }
         }
 
@@ -2406,7 +2404,7 @@ final class PackageManagerSchema
      *   PLUS its own 'customer_policy' (PackageSchema::sanitizeCustomerPolicy()
      *   shape, nullable).
      * @param array<int, array{item_id: string, selected?: bool, quantity?: int, price_option_id?: string|null}> $choice
-     * @return array{ok: true, periods: array, total_contract_value: float|null}
+     * @return array{ok: true, periods: array}
      *       | array{ok: false, code: string, rejected_items?: array<int, array{item_id: ?string, reason: string}>}
      */
     public static function resolveCustomerComposableSelection(array $readModel, array $container, array $choice): array
@@ -2551,130 +2549,14 @@ final class PackageManagerSchema
             }
         }
 
-        $commitmentMonths = (($container['minimum_term_unit'] ?? null) === 'month' && ($container['minimum_term_value'] ?? null) !== null)
-            ? (int) $container['minimum_term_value']
-            : null;
-        $tcv = self::computeResolvedTimelineTotalContractValue($periods, $commitmentMonths);
-        $floor = $policy['minimum_total_contract_value'] ?? null;
-        if ($floor !== null) {
-            if ($tcv === null) {
-                return ['ok' => false, 'code' => 'floor_unverifiable'];
-            }
-            if ($tcv < $floor) {
-                return ['ok' => false, 'code' => 'below_minimum_total_contract_value'];
-            }
-        }
-
-        return ['ok' => true, 'periods' => $periods, 'total_contract_value' => $tcv];
+        return ['ok' => true, 'periods' => $periods];
     }
 
-    /** @var array<string, int> */
-    private const CADENCE_INTERVAL_MONTHS = ['monthly' => 1, 'quarterly' => 3, 'annual' => 12, 'annually' => 12];
-    /** @var array<string, true> */
-    private const UPFRONT_BILLING_CYCLES = ['one-time' => true, 'upfront' => true];
-
-    /**
-     * Faithful PHP port of the ONE canonical payment-summary/TCV calculation
-     * — `buildLegPaymentSummaries()` +
-     * `computeTotalContractValue()`/`startingPaymentsByCycle()`'s own
-     * null-propagating sum (resources/ts/components/cost-builder/
-     * PricingTiers.tsx, resources/ts/utils/paymentSummary.ts). Claude's
-     * first cut of this function summed each component's own `line_total`
-     * once per resolved Period, ignoring billing cadence/occurrence count
-     * entirely (a 12-month monthly stream counted once instead of 12 times)
-     * — flagged by the auditor as a second, approximate TCV engine and
-     * corrected here to the real algorithm, not merely re-scoped.
-     *
-     * Deliberately NOT physically extracted from/shared with
-     * `NotificationTemplates::computeTotalContractValue()` (Requests module)
-     * — that function aggregates already-frozen, previously-built summaries
-     * (e.g. a stored Request's own `legPaymentSummaries`), never builds them
-     * from raw resolved Periods, and no existing PHP port of the BUILDING
-     * step existed anywhere before this. Sharing would require a new
-     * Requests → SurfacePackages dependency this work was not asked to
-     * introduce; flagged for the auditor to weigh in on this same round
-     * rather than made unilaterally. The algorithm here is the same
-     * canonical one, not a second approximation of it.
-     *
-     * Dedupes by `component.source` across Periods exactly like the TS
-     * original — the same commercial identity repeating across Periods
-     * (because some OTHER identity started/stopped) is one continuous
-     * payment stream, never counted twice; its last appearance's `to_month`
-     * is read as its true end. An `available:false` component is skipped
-     * (mirrors `!component.available` in the TS original) — the caller
-     * already rejects the whole selection before reaching here whenever any
-     * component is unavailable, so this exclusion is defense-in-depth, not
-     * the primary gate.
-     *
-     * @param array<int, array{from_month:int, to_month:?int, components:array}> $periods
-     * @param int|null $commitmentMonths the container's own finite commitment
-     *   in months (only when minimum_term_unit === 'month'), or null — the
-     *   same fallback an open-ended Period's own `to_month` uses when no
-     *   later Period closes it, mirroring `entry.end ?? commitmentMonths`.
-     * @return float|null null the instant any stream is genuinely open-ended
-     *   (no commitment to bound it either) — never an arbitrary partial sum.
-     */
-    public static function computeResolvedTimelineTotalContractValue(array $periods, ?int $commitmentMonths): ?float
-    {
-        $order = [];
-        $bySource = [];
-        foreach ($periods as $period) {
-            foreach ($period['components'] ?? [] as $component) {
-                if (empty($component['available'])) { continue; }
-                $source = (string) ($component['source'] ?? '');
-                if (!isset($bySource[$source])) {
-                    $order[] = $source;
-                    $bySource[$source] = [
-                        'billing_cycle' => $component['billing_cycle'] ?? null,
-                        'price'         => $component['price'] ?? null,
-                        'start'         => (int) $period['from_month'],
-                        'end'           => $period['to_month'] ?? null,
-                    ];
-                } else {
-                    $bySource[$source]['end'] = $period['to_month'] ?? null;
-                }
-            }
-        }
-
-        $total = 0.0;
-        foreach ($order as $source) {
-            $entry = $bySource[$source];
-            $cycle = $entry['billing_cycle'];
-            $effectiveEnd = $entry['end'] ?? $commitmentMonths;
-            $singleOccurrence = $cycle !== null && isset(self::UPFRONT_BILLING_CYCLES[$cycle]);
-            $isOngoing = !$singleOccurrence && $effectiveEnd === null;
-            if ($isOngoing) {
-                return null;
-            }
-            $occurrences = $singleOccurrence
-                ? 1
-                : self::countCommercialOccurrenceMonths($entry['start'], (int) $effectiveEnd, $cycle);
-            if ($entry['price'] === null) {
-                return null;
-            }
-            $total += ((float) $entry['price']) * $occurrences;
-        }
-        return $total;
-    }
-
-    /**
-     * `buildOccurrenceMonths()`'s own occurrence COUNT (PricingTiers.tsx) —
-     * how many billing occurrences a stream has between $start (inclusive)
-     * and $effectiveEnd (exclusive), stepping by its own cadence interval.
-     * An unrecognized/null cycle defaults to a monthly interval (1), same as
-     * the TS original's `?? 1` fallback. Always at least 1 (mirrors
-     * `months.length > 0 ? months : [start]`) — a window narrower than one
-     * full interval still bills once.
-     */
-    private static function countCommercialOccurrenceMonths(int $start, int $effectiveEnd, ?string $cycle): int
-    {
-        $interval = ($cycle !== null ? (self::CADENCE_INTERVAL_MONTHS[$cycle] ?? null) : null) ?? 1;
-        $count = 0;
-        for ($m = $start; $m < $effectiveEnd; $m += $interval) {
-            $count++;
-        }
-        return max(1, $count);
-    }
+    // No TCV/floor here (removed) — see PackageSchema::sanitizeCustomerPolicy()'s
+    // docblock for why `minimum_total_contract_value` was deferred entirely
+    // rather than shipped on the existing frontend TCV algorithm's disputed
+    // occurrence-count arithmetic (project-work/2026-09-02-composable-tier-
+    // customer-policy.md has the full finding).
 
     // ── Consumer projections ─────────────────────────────────────────────────
 

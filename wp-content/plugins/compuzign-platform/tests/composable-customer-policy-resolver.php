@@ -23,14 +23,28 @@ declare(strict_types=1);
  *     row's own top-level fields; an Additional Leg's own
  *     leg_assignments[] value for a DIFFERENT, still-included item is
  *     never touched.
+ *   - Every submitted choice is pre-validated against the effective
+ *     policy and the container's own current rows: stale/unknown/
+ *     not-offered/duplicate item_ids reject rather than being silently
+ *     ignored or last-write-wins.
  *   - Out-of-policy choices reject the WHOLE selection with a
- *     structured reason — never a silent substitution.
- *   - The TCV floor rejects as 'floor_unverifiable' against an
- *     open-ended timeline, never a silent skip.
+ *     structured reason — never a silent substitution, including an
+ *     explicit null Price Option under 'choice' mode, which is never
+ *     automatically authorized.
+ *   - No `minimum_total_contract_value` floor exists in this shape —
+ *     deferred (not shipped) after auditing Period boundary semantics
+ *     found the existing frontend TCV occurrence-count algorithm this
+ *     work was told to reuse disagrees with `to_month`'s own proven
+ *     inclusive meaning (see sanitizeCustomerPolicy()'s own docblock).
  *   - Edition policy: absent/null inherits the occupant's Default
  *     policy wholesale; non-empty is a COMPLETE replacement (an item
  *     absent from a non-empty Edition policy is excluded, never
  *     falls back to Default's own entry for it).
+ *   - `excluded` policy entries never leak into the customer-facing
+ *     projection (PackageFamilyPricingBuilder) — server-side
+ *     validation/resolution still sees the full stored policy, and a
+ *     stored `excluded` entry naming a since-removed item is itself a
+ *     dangling reference, rejected at save time like any other mode.
  */
 
 if (!function_exists('sanitize_text_field')) {
@@ -39,12 +53,52 @@ if (!function_exists('sanitize_text_field')) {
 if (!function_exists('sanitize_textarea_field')) {
     function sanitize_textarea_field(mixed $value): string { return trim(strip_tags((string) $value)); }
 }
+$composablePolicyProjectionOption = null;
+if (!function_exists('current_time')) {
+    function current_time(string $type, bool $gmt = false): string { return '2026-09-02 00:00:00'; }
+}
+if (!function_exists('get_option')) {
+    function get_option(string $key, mixed $default = false): mixed
+    {
+        global $composablePolicyProjectionOption;
+        return $key === 'cz_package_station' ? ($composablePolicyProjectionOption ?? $default) : $default;
+    }
+}
+if (!function_exists('update_option')) {
+    function update_option(string $key, mixed $value, bool $autoload = false): bool
+    {
+        global $composablePolicyProjectionOption;
+        if ($key === 'cz_package_station') { $composablePolicyProjectionOption = $value; }
+        return true;
+    }
+}
+if (!function_exists('get_posts')) {
+    function get_posts(array $args = []): array { return []; }
+}
+if (!function_exists('get_post')) {
+    function get_post(int $postId): ?object { return null; }
+}
+if (!function_exists('get_post_meta')) {
+    function get_post_meta(int $postId, string $key = '', bool $single = false): mixed { return $single ? null : []; }
+}
+if (!function_exists('get_term_meta')) {
+    function get_term_meta(int $termId, string $key = '', bool $single = false): mixed { return $single ? null : []; }
+}
+if (!function_exists('wp_get_post_terms')) {
+    function wp_get_post_terms(int $postId, string $taxonomy, array $args = []): array { return []; }
+}
+if (!function_exists('rest_ensure_response')) {
+    function rest_ensure_response(mixed $value): mixed { return $value; }
+}
 
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../src/Modules/Admin/Support/StationLifecycle.php';
 
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema as PMS;
 use CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema as PS;
+use CompuZign\Platform\Modules\SurfacePackages\Support\TierInstanceSchema as TIS;
+use CompuZign\Platform\Modules\SurfacePackages\Repositories\PackageRepository;
+use CompuZign\Platform\Modules\CostBuilder\Services\PackageFamilyPricingBuilder;
 
 function assertSameValue(mixed $expected, mixed $actual, string $message): void
 {
@@ -163,8 +217,7 @@ $p3 = PS::sanitizeCustomerPolicy(['items' => [
 ]]);
 assertSameValue('fixed', $p3['items'][0]['price_option']['mode'], '1f. choice with nothing allowed collapses to fixed, never a dead choice state');
 
-$p4 = PS::sanitizeCustomerPolicy(['minimum_total_contract_value' => -50]);
-assertSameValue(0.0, $p4['minimum_total_contract_value'], '1g. a negative floor clamps to zero, never negative');
+assertSameValue(['items' => []], PS::sanitizeCustomerPolicy([]), '1g. the sanitized shape carries no minimum_total_contract_value key at all (deferred)');
 
 // ── 2. No occupant mutation ──────────────────────────────────────────────────
 
@@ -173,7 +226,7 @@ $c2 = container([
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'required'],
         ['item_id' => 'support', 'mode' => 'optional', 'default_selected' => true],
-    ], 'minimum_total_contract_value' => null],
+    ]],
 ]);
 $c2Before = $c2;
 $result2 = PMS::resolveCustomerComposableSelection($readModel, $c2, [['item_id' => 'hosting'], ['item_id' => 'support']]);
@@ -194,7 +247,7 @@ $c3 = container([
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'optional', 'default_selected' => false],
         ['item_id' => 'support', 'mode' => 'required'],
-    ], 'minimum_total_contract_value' => null],
+    ]],
 ]);
 $result3 = PMS::resolveCustomerComposableSelection($readModel, $c3, [['item_id' => 'support']]);
 assertTrue($result3['ok'], '3. selection resolves ok');
@@ -225,7 +278,7 @@ $c4 = container([
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'required', 'quantity' => ['default' => 1, 'min' => 1, 'max' => 5, 'step' => 1]],
         ['item_id' => 'support', 'mode' => 'required'],
-    ], 'minimum_total_contract_value' => null],
+    ]],
 ]);
 $result4 = PMS::resolveCustomerComposableSelection($readModel, $c4, [['item_id' => 'hosting', 'quantity' => 3]]);
 assertTrue($result4['ok'], '4. quantity change within bounds resolves ok');
@@ -243,7 +296,7 @@ $c5 = container([
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'optional', 'default_selected' => true,
             'quantity' => ['default' => 1, 'min' => 1, 'max' => 3, 'step' => 1]],
-    ], 'minimum_total_contract_value' => null],
+    ]],
 ]);
 $rOutOfBounds = PMS::resolveCustomerComposableSelection($readModel, $c5, [['item_id' => 'hosting', 'quantity' => 99]]);
 assertSameValue(false, $rOutOfBounds['ok'], '5a. a quantity outside policy bounds rejects the whole selection');
@@ -255,7 +308,7 @@ $c5b = container([
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'required',
             'price_option' => ['mode' => 'choice', 'allowed_price_option_ids' => ['po_cheap']]],
-    ], 'minimum_total_contract_value' => null],
+    ]],
 ]);
 $rBadOption = PMS::resolveCustomerComposableSelection($readModel, $c5b, [['item_id' => 'hosting', 'price_option_id' => 'po_expensive']]);
 assertSameValue(false, $rBadOption['ok'], '5b. a disallowed Price Option choice rejects the whole selection, never silently substitutes po_cheap');
@@ -265,18 +318,17 @@ $c5c = container([
     'rate_sheet_items' => [item('hosting', 1, 'po_does_not_exist')],
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'required'], // 'fixed' price option — the row's own published (unresolved) choice
-    ], 'minimum_total_contract_value' => null],
+    ]],
 ]);
 $rUnresolved = PMS::resolveCustomerComposableSelection($readModel, $c5c, [['item_id' => 'hosting']]);
 assertSameValue(false, $rUnresolved['ok'], '5c. an unresolved published Price Option rejects rather than silently falling back to base price');
 assertSameValue('price_option_unresolved', $rUnresolved['code'], '5c. structured code');
 
 // A submitted choice for an item with NO policy entry at all (never
-// offered) is now a structured rejection, not a silent no-op — the
-// auditor's blocker 3 fix: a stale/unknown/not-offered submitted item_id
-// must never be silently ignored.
+// offered) is a structured rejection, not a silent no-op — a
+// stale/unknown/not-offered submitted item_id must never be silently ignored.
 $c5d = container(['rate_sheet_items' => [item('hosting', 1), item('support', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']], 'minimum_total_contract_value' => null]]);
+    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']]]]);
 $rNoPolicy = PMS::resolveCustomerComposableSelection($readModel, $c5d, [['item_id' => 'hosting'], ['item_id' => 'support']]);
 assertSameValue(false, $rNoPolicy['ok'], '5d. submitting a choice for an item with no policy entry (not offered) rejects rather than being silently ignored');
 assertSameValue('not_selectable', $rNoPolicy['rejected_items'][0]['reason'], '5d. structured reason');
@@ -285,7 +337,7 @@ assertSameValue('not_selectable', $rNoPolicy['rejected_items'][0]['reason'], '5d
 // own current rate_sheet_items at all (e.g. removed since the customer's
 // browser last loaded the policy) is rejected the same way.
 $c5e = container(['rate_sheet_items' => [item('support', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']], 'minimum_total_contract_value' => null]]);
+    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']]]]);
 $rGhost = PMS::resolveCustomerComposableSelection($readModel, $c5e, [['item_id' => 'support'], ['item_id' => 'ghost_item']]);
 assertSameValue(false, $rGhost['ok'], '5e. a submitted item_id absent from the container entirely rejects');
 assertSameValue('not_selectable', $rGhost['rejected_items'][0]['reason'], '5e. structured reason');
@@ -294,7 +346,7 @@ assertSameValue('not_selectable', $rGhost['rejected_items'][0]['reason'], '5e. s
 // silently resolved by last-write-wins (no such ordering rule exists in
 // the accepted contract).
 $c5f = container(['rate_sheet_items' => [item('support', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']], 'minimum_total_contract_value' => null]]);
+    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']]]]);
 $rDup = PMS::resolveCustomerComposableSelection($readModel, $c5f, [['item_id' => 'support'], ['item_id' => 'support', 'quantity' => 2]]);
 assertSameValue(false, $rDup['ok'], '5f. a duplicate submitted item_id rejects rather than silently picking one');
 assertSameValue('duplicate_item_choice', $rDup['rejected_items'][0]['reason'], '5f. structured reason');
@@ -307,7 +359,7 @@ $c5g = container([
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'required',
             'price_option' => ['mode' => 'choice', 'allowed_price_option_ids' => ['po_cheap']]],
-    ], 'minimum_total_contract_value' => null],
+    ]],
 ]);
 $rNullBypass = PMS::resolveCustomerComposableSelection($readModel, $c5g, [['item_id' => 'hosting', 'price_option_id' => null]]);
 assertSameValue(false, $rNullBypass['ok'], '5g. an explicit null Price Option under choice mode rejects rather than silently reverting to base price');
@@ -322,88 +374,24 @@ $c5h = container(['rate_sheet_items' => [item('hosting', 1)],
     'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'required', 'default_selected' => false,
             'price_option' => ['mode' => 'choice', 'allowed_price_option_ids' => ['po_cheap'], 'default_price_option_id' => 'po_expensive']],
-    ], 'minimum_total_contract_value' => null]]);
+    ]]]);
 $rBadDefault = PMS::resolveCustomerComposableSelection($readModel, $c5h, [['item_id' => 'hosting']]); // no explicit choice — falls to the (invalid) default
 assertSameValue(false, $rBadDefault['ok'], '5h. a configured default Price Option outside its own allowed list rejects rather than silently applying it');
 assertSameValue('price_option_not_allowed', $rBadDefault['rejected_items'][0]['reason'], '5h. structured reason');
 
-// ── 6. TCV floor — canonical cadence-aware calculation ──────────────────────
-//    (Claude's first cut summed line_total once per resolved Period,
-//    ignoring billing cadence/occurrence count entirely — a 12-month
-//    monthly stream counted once instead of many times. Corrected to the
-//    canonical buildLegPaymentSummaries()/computeTotalContractValue()
-//    algorithm (PricingTiers.tsx/paymentSummary.ts), faithfully ported.)
-
-$c6Open = container([
-    'to_month' => null, // open-ended — no scalar total is well-defined
-    'rate_sheet_items' => [item('support', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']], 'minimum_total_contract_value' => 100.0],
-]);
-$rOpen = PMS::resolveCustomerComposableSelection($readModel, $c6Open, [['item_id' => 'support']]);
-assertSameValue(false, $rOpen['ok'], '6a. a configured floor against an open-ended timeline rejects rather than silently skipping');
-assertSameValue('floor_unverifiable', $rOpen['code'], '6a. structured code');
-
-// Monthly hosting ($100/mo) from month 1 through month 12 inclusive.
-// countCommercialOccurrenceMonths(1, 12, 'monthly') walks m=1..11 (m<12,
-// step 1) => 11 occurrences — the canonical algorithm's own exact
-// semantics (a faithful port of buildOccurrenceMonths()'s `for (m=start;
-// m<effectiveEnd; m+=interval)`), not an off-by-one introduced here. What
-// this test actually proves: the corrected engine now counts MULTIPLE
-// occurrences (11, not 1) for a multi-month recurring stream — exactly
-// the class of case the auditor's blocker 1 flagged as understated by the
-// original one-sum-per-period implementation.
-$c6Multi = container([
-    'to_month' => 12,
-    'rate_sheet_items' => [item('hosting', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'hosting', 'mode' => 'required']], 'minimum_total_contract_value' => null],
-]);
-$rMulti = PMS::resolveCustomerComposableSelection($readModel, $c6Multi, [['item_id' => 'hosting']]);
-assertTrue($rMulti['ok'], '6b. a 12-month monthly stream resolves ok');
-assertSameValue(1100.0, $rMulti['total_contract_value'], '6b. TCV is $100 x 11 occurrences = $1100, proving cadence/occurrence-count awareness (the old code would have given $100)');
-
-$c6Low = container([
-    'to_month' => 3,
-    'rate_sheet_items' => [item('support', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']], 'minimum_total_contract_value' => 1000.0],
-]);
-$rLow = PMS::resolveCustomerComposableSelection($readModel, $c6Low, [['item_id' => 'support']]);
-assertSameValue(false, $rLow['ok'], '6c. a finite total below the floor rejects');
-assertSameValue('below_minimum_total_contract_value', $rLow['code'], '6c. structured code');
-
-$c6Ok = container([
-    'to_month' => 3,
-    'rate_sheet_items' => [item('hosting', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'hosting', 'mode' => 'required']], 'minimum_total_contract_value' => 50.0],
-]);
-$rOk = PMS::resolveCustomerComposableSelection($readModel, $c6Ok, [['item_id' => 'hosting']]);
-assertTrue($rOk['ok'], '6d. a finite total at/above the floor resolves ok');
-// countCommercialOccurrenceMonths(1, 3, 'monthly') => m=1,2 => 2 occurrences.
-assertSameValue(200.0, $rOk['total_contract_value'], '6d. TCV is $100 x 2 occurrences = $200 over the 3-month window');
-
-// A one-time/upfront stream is always exactly ONE occurrence regardless of
-// window length — UPFRONT_BILLING_CYCLES short-circuits the cadence loop.
-$c6Upfront = container([
-    'billing_cycle' => 'one-time', 'to_month' => 12,
-    'rate_sheet_items' => [item('hosting', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'hosting', 'mode' => 'required']], 'minimum_total_contract_value' => null],
-]);
-$rUpfront = PMS::resolveCustomerComposableSelection($readModel, $c6Upfront, [['item_id' => 'hosting']]);
-assertTrue($rUpfront['ok'], '6e. a one-time stream resolves ok');
-assertSameValue(100.0, $rUpfront['total_contract_value'], '6e. TCV is $100 x 1 occurrence, never multiplied by the window length');
-
-// ── 7. Edition policy: inherit-when-absent, complete-replacement-when-set ──
+// ── 6. Edition policy: inherit-when-absent, complete-replacement-when-set ──
 
 $occFixture = [
     'inclusions_override' => [], 'customer_policy' => ['items' => [
         ['item_id' => 'hosting', 'mode' => 'required'],
         ['item_id' => 'support', 'mode' => 'optional', 'default_selected' => false],
-    ], 'minimum_total_contract_value' => null],
+    ]],
     'tier_editions' => [
         // No customer_policy key at all — inherits the occupant's Default policy wholesale.
         ['id' => 'edt_inherit', 'platform_status' => 'active', 'title' => 'Inherits'],
         // Explicit non-empty policy — complete replacement (hosting absent => excluded, not inherited).
         ['id' => 'edt_override', 'platform_status' => 'active', 'title' => 'Overrides',
-            'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']], 'minimum_total_contract_value' => null]],
+            'customer_policy' => ['items' => [['item_id' => 'support', 'mode' => 'required']]]],
     ],
 ];
 $extracted = PS::extractTierForCostBuilder(['current_occupant' => $occFixture]);
@@ -412,40 +400,48 @@ foreach ($extracted['edition_options'] as $opt) { $editionsByI[$opt['id']] = $op
 assertSameValue(
     $extracted['customer_policy'],
     $editionsByI['edt_inherit']['customer_policy'],
-    '7a. an Edition with no customer_policy at all inherits the occupant\'s Default policy verbatim'
+    '6a. an Edition with no customer_policy at all inherits the occupant\'s Default policy verbatim'
 );
 $overridePolicy = $editionsByI['edt_override']['customer_policy'];
-assertSameValue(1, count($overridePolicy['items']), '7b. a non-empty Edition policy is a COMPLETE replacement, not merged with Default\'s');
-assertSameValue('support', $overridePolicy['items'][0]['item_id'], '7c. only the Edition\'s own explicit entry survives — hosting is absent (excluded), never inherited from Default');
+assertSameValue(1, count($overridePolicy['items']), '6b. a non-empty Edition policy is a COMPLETE replacement, not merged with Default\'s');
+assertSameValue('support', $overridePolicy['items'][0]['item_id'], '6c. only the Edition\'s own explicit entry survives — hosting is absent (excluded), never inherited from Default');
 
-// ── 8. Bundle-backed row: no special-casing, item_id stays opaque ──────────
+// ── 7. Bundle-backed row: no special-casing, item_id stays opaque ──────────
 
-$c8 = container([
+$c7 = container([
     'rate_sheet_items' => [item('addon_bundle', 1)],
-    'customer_policy' => ['items' => [['item_id' => 'addon_bundle', 'mode' => 'required']], 'minimum_total_contract_value' => null],
+    'customer_policy' => ['items' => [['item_id' => 'addon_bundle', 'mode' => 'required']]],
 ]);
-$result8 = PMS::resolveCustomerComposableSelection($readModel, $c8, [['item_id' => 'addon_bundle']]);
-assertTrue($result8['ok'], '8. a Bundle-backed row (bundle_id set on the Rate Sheet row) resolves through the exact same one-row path as any other item_id — no policy special-casing needed');
+$result7 = PMS::resolveCustomerComposableSelection($readModel, $c7, [['item_id' => 'addon_bundle']]);
+assertTrue($result7['ok'], '7. a Bundle-backed row (bundle_id set on the Rate Sheet row) resolves through the exact same one-row path as any other item_id — no policy special-casing needed');
 
-// ── 9. Save-time semantic validation against live published data ──────────
+// ── 8. Save-time semantic validation against live published data ──────────
 //    PackageManagerSchema::validateCustomerPolicyAgainstContainer() — the
 //    authoritative check sanitizeCustomerPolicy() deliberately does not
 //    perform itself (structural-only). Never repairs/drops an invalid
 //    reference; returns the first violation for the caller to reject the
 //    whole save with, leaving stored/draft state untouched.
 
-$c9 = container(['rate_sheet_items' => [item('hosting', 1), item('support', 1)]]);
+$c8 = container(['rate_sheet_items' => [item('hosting', 1), item('support', 1)]]);
 
 $policyDangling = PS::sanitizeCustomerPolicy(['items' => [['item_id' => 'ghost_item', 'mode' => 'required']]]);
-$vDangling = PMS::validateCustomerPolicyAgainstContainer($policyDangling, $c9, $readModel);
-assertSameValue('dangling_item_id', $vDangling['code'] ?? null, '9a. a policy item_id absent from the container\'s own rate_sheet_items rejects at save time');
+$vDangling = PMS::validateCustomerPolicyAgainstContainer($policyDangling, $c8, $readModel);
+assertSameValue('dangling_item_id', $vDangling['code'] ?? null, '8a. a policy item_id absent from the container\'s own rate_sheet_items rejects at save time');
+
+// A stored 'excluded' entry naming a since-removed item is a dangling
+// reference too — never silently accumulated just because it's "not
+// offered" anyway. A complete-replacement policy contract means every
+// entry it stores is meaningful.
+$policyDanglingExcluded = PS::sanitizeCustomerPolicy(['items' => [['item_id' => 'ghost_item', 'mode' => 'excluded']]]);
+$vDanglingExcluded = PMS::validateCustomerPolicyAgainstContainer($policyDanglingExcluded, $c8, $readModel);
+assertSameValue('dangling_item_id', $vDanglingExcluded['code'] ?? null, '8b. a stored EXCLUDED entry naming a since-removed item also rejects at save time — not exempted just because it is never offered');
 
 $policyBadAllowed = PS::sanitizeCustomerPolicy(['items' => [
     ['item_id' => 'hosting', 'mode' => 'required',
         'price_option' => ['mode' => 'choice', 'allowed_price_option_ids' => ['po_does_not_exist']]],
 ]]);
-$vBadAllowed = PMS::validateCustomerPolicyAgainstContainer($policyBadAllowed, $c9, $readModel);
-assertSameValue('disallowed_price_option', $vBadAllowed['code'] ?? null, '9b. an allowed_price_option_id not on the row\'s own live price_options[] rejects at save time');
+$vBadAllowed = PMS::validateCustomerPolicyAgainstContainer($policyBadAllowed, $c8, $readModel);
+assertSameValue('disallowed_price_option', $vBadAllowed['code'] ?? null, '8c. an allowed_price_option_id not on the row\'s own live price_options[] rejects at save time');
 
 // Defense-in-depth: a policy whose own default has drifted outside its
 // allowed list (hand-built, bypassing sanitizeCustomerPolicy()'s own
@@ -453,23 +449,98 @@ assertSameValue('disallowed_price_option', $vBadAllowed['code'] ?? null, '9b. an
 $policyBadDefault = $policyBadAllowed;
 $policyBadDefault['items'][0]['price_option']['allowed_price_option_ids'] = ['po_cheap'];
 $policyBadDefault['items'][0]['price_option']['default_price_option_id'] = 'po_expensive';
-$vBadDefault = PMS::validateCustomerPolicyAgainstContainer($policyBadDefault, $c9, $readModel);
-assertSameValue('invalid_default_price_option', $vBadDefault['code'] ?? null, '9c. a default_price_option_id outside the row\'s own live options rejects at save time');
-
-$policyFloor = PS::sanitizeCustomerPolicy(['items' => [['item_id' => 'support', 'mode' => 'required']], 'minimum_total_contract_value' => 100.0]);
-$openContainer = container(['to_month' => null, 'rate_sheet_items' => [item('hosting', 1), item('support', 1)]]);
-$vFloor = PMS::validateCustomerPolicyAgainstContainer($policyFloor, $openContainer, $readModel);
-assertSameValue('floor_unverifiable', $vFloor['code'] ?? null, '9d. a configured floor against a structurally open-ended Leg timeline rejects at save time, never deferred silently to resolve time only');
-// Open-endedness is a pure Leg-timeline-structure fact, independent of
-// which items a future customer might select — confirmed by validating
-// against the container's own full, unfiltered rate_sheet_items.
+$vBadDefault = PMS::validateCustomerPolicyAgainstContainer($policyBadDefault, $c8, $readModel);
+assertSameValue('invalid_default_price_option', $vBadDefault['code'] ?? null, '8d. a default_price_option_id outside the row\'s own live options rejects at save time');
 
 $policyValid = PS::sanitizeCustomerPolicy(['items' => [
     ['item_id' => 'hosting', 'mode' => 'required', 'price_option' => ['mode' => 'choice', 'allowed_price_option_ids' => ['po_cheap']]],
     ['item_id' => 'support', 'mode' => 'optional', 'default_selected' => true],
-], 'minimum_total_contract_value' => 50.0]);
-$closedContainer = container(['to_month' => 3, 'rate_sheet_items' => [item('hosting', 1), item('support', 1)]]);
-$vValid = PMS::validateCustomerPolicyAgainstContainer($policyValid, $closedContainer, $readModel);
-assertSameValue(null, $vValid, '9e. a fully valid policy against live data passes save-time validation');
+]]);
+$vValid = PMS::validateCustomerPolicyAgainstContainer($policyValid, $c8, $readModel);
+assertSameValue(null, $vValid, '8e. a fully valid policy against live data passes save-time validation');
+
+// ── 9. Excluded entries never leak into the customer-facing projection ─────
+//    PackageFamilyPricingBuilder::presentOccupant() — the full stored
+//    policy (including 'excluded' entries) exists server-side for
+//    validation/resolution, but the public response omits them entirely:
+//    'excluded' means "not offered", never "customer-visible and disabled".
+
+function occupantShapeWithPolicy(string $idSuffix, ?string $platformId, ?array $customerPolicy): array
+{
+    return [
+        'current_occupant' => [
+            'id' => 'occ_' . $idSuffix, 'cz_platform_id' => $platformId ?? '', 'addon_platform_id' => '',
+            'default_leg_platform_id' => '', 'platform_status' => 'active', 'is_explicitly_disabled' => false,
+            'is_addon' => false, 'label' => 'Build Your Own', 'ideal_for' => '',
+            'audience_groups' => ['personal_business', 'enterprise'], 'price' => null, 'contact' => false,
+            'billing_cycle' => 'monthly', 'minimum_term_value' => null, 'minimum_term_unit' => null,
+            'from_month' => null, 'to_month' => null, 'legs' => [], 'headline_leg_id' => '',
+            'rate_sheet_id' => 'rs_projection',
+            'inclusions_override' => [],
+            'rate_sheet_items' => [
+                ['item_id' => 'hosting', 'quantity' => 1, 'price_option_id' => null, 'leg_assignments' => []],
+                ['item_id' => 'support', 'quantity' => 1, 'price_option_id' => null, 'leg_assignments' => []],
+            ],
+            'features' => [], 'faq_refs' => [],
+            'customer_policy' => $customerPolicy,
+            'tier_editions' => [], 'tier_edition_bin' => [],
+        ],
+        'history' => [],
+    ];
+}
+
+$instance = [
+    'tier_instance_id' => 'ti_projection', 'cz_platform_id' => 'CZTG-PROJECTION', 'title' => 'Projection Set',
+    'status' => 'active', 'allowed_rate_sheet_ids' => ['rs_projection'], 'popular_tier' => null, 'popular_label' => '',
+    'tiers' => TIS::emptyTierMap(), 'occupant_bin' => [],
+];
+// deriveInstanceStatus() never reads composable_occupant (Phase 1's own
+// documented boundary) — a fixed-Tier occupant is required here just to
+// make the instance itself "active" at all, unrelated to what this test
+// actually proves.
+$instance['tiers']['basic'] = occupantShapeWithPolicy('primary', 'CZT-PRIMARY', null);
+$instance['composable_occupant'] = occupantShapeWithPolicy('composable', 'CZT-COMPOSABLE', [
+    'items' => [
+        ['item_id' => 'hosting', 'mode' => 'required'],
+        ['item_id' => 'support', 'mode' => 'excluded'], // stored — must never reach the public response
+    ],
+]);
+$manager = [
+    'sources' => [], 'groups' => [], 'category_groups' => [[
+        'group_id' => 'pcg_projection', 'cz_platform_id' => 'CZPG-PROJECTION', 'label' => 'Projection Family',
+        'description' => '', 'platform_status' => 'active', 'previous_platform_status' => null,
+        'module_status' => ['overview' => 'settled'], 'overview_draft' => null, 'sort_order' => 0,
+    ]], 'items' => [],
+    'rate_sheets' => [[
+        'rate_sheet_id' => 'rs_projection', 'title' => 'Projection Rates', 'status' => 'active', 'groups' => [],
+        'items' => [
+            ['item_id' => 'hosting', 'source_item_id' => 'inc_hosting', 'self_priced' => true, 'unit_price' => 100, 'per' => null, 'quantity' => 1, 'group_id' => null, 'price_options' => []],
+            ['item_id' => 'support', 'source_item_id' => 'inc_support', 'self_priced' => true, 'unit_price' => 20, 'per' => null, 'quantity' => 1, 'group_id' => null, 'price_options' => []],
+        ],
+    ]],
+];
+$composablePolicyProjectionOption = [
+    'platform_status' => 'active', 'tier_instances' => [$instance],
+    'tier_assignments' => [[
+        'assignment_id' => \CompuZign\Platform\Modules\SurfacePackages\Support\TierAssignmentSchema::deriveAssignmentId('package_family', 'pcg_projection', 'ti_projection'),
+        'consumer_type' => 'package_family', 'consumer_id' => 'pcg_projection', 'tier_instance_id' => 'ti_projection',
+    ]],
+    'popular_tier' => null, 'popular_label' => '', 'sort_position' => 0,
+    'bundle' => ['title' => '', 'description' => '', 'price' => null], 'occupant_bin' => [], 'promotions' => [],
+    'package_manager' => $manager, 'legacy_host_service_id' => 0, 'valid_from' => null, 'valid_until' => null,
+];
+
+$projectionResponse = (new PackageFamilyPricingBuilder(new PackageRepository()))->buildResponse();
+$projectionFamily = $projectionResponse['families'][0] ?? null;
+assertTrue($projectionFamily !== null, '9a. the projection Family renders publicly');
+$publicPolicy = $projectionFamily['pricing']['composable_offer']['customer_policy'];
+$publicIds = array_map(static fn(array $i): string => $i['item_id'], $publicPolicy['items']);
+assertSameValue(['hosting'], $publicIds, '9b. the public customer_policy.items omits the excluded "support" entry entirely — only the required "hosting" entry survives');
+
+// Confirm the exclusion is a PROJECTION-layer filter only — the full
+// stored policy (including the excluded entry) is still what server-side
+// validation/resolution actually sees.
+$storedPolicy = $instance['composable_occupant']['current_occupant']['customer_policy'];
+assertSameValue(2, count($storedPolicy['items']), '9c. the stored policy itself still carries both entries — only the public projection filters');
 
 fwrite(STDOUT, "Composable customer policy resolver contract: PASS\n");
