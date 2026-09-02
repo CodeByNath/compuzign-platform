@@ -1,34 +1,55 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **AWAITING LIVE VALIDATION / ADMIN CAPABILITY CHECK.**
+- **READY FOR CLAUDE — Admin customer-policy authoring is the blocker.**
+- Auditor verdict: **Proceed with safeguards.**
 - Production source: `main@28613c0584440420953da81737acd95d35f47f16`.
-- Phase 2B1 source/static validation is CLOSED. This file is the browser-chat handoff for the first real configured offer.
+- Keep all follow-up in this file; do not create another work file.
 
-## URLs
-- Admin Studio: `https://compuzign.weerax.com/studio/`
-- Customer pricing: `https://compuzign.weerax.com/pricing/`
+## Verified production
+On 2026-09-03 the auditor independently confirmed:
+- GitHub `main` exactly matches the recorded SHA.
+- Deploy to Hostinger run `33649657279` / #933 completed successfully for that exact SHA.
+- Live pages: `/studio/` and `/pricing/`.
 
-## Critical boundary
-Do not create fake production records merely to expose the UI. Do not use DevTools/raw REST/manual option editing to bypass missing Admin capability. Browser work is read-only unless Nath explicitly authorizes the exact production record/configuration change in that chat.
+## Live Admin result
+Read-only route: Studio → Packages → KAIROS — IaaS.
 
-Important current gap: Phase 2B1 shipped the customer-policy resolver/UI, but **no normal Admin authoring UI for `customer_policy` exists yet**. Therefore the browser agent must distinguish between configuring the composable occupant itself (supported) and authoring its customer-selection policy (currently not a normal Admin workflow). If policy controls are absent, record that as the next source-work requirement; do not hack around it.
+Passed:
+- KAIROS retains its normal assigned Tier System and displays **Tiers 5**.
+- A separate subordinate card appears below the five normal slots with the explicit text: **“Composable occupant — subordinate to this Tier system, not one of the 5 Tiers.”**
+- The card is labelled **Build Your Own**, status **Empty**, with **Configure Build Your Own**.
+- Opening it mounts the shared Tier drawer: Details, Options, Connections, Support, Overview, Rate Sheet/pricing rules, inclusions, Editions, lifecycle footer and Publish.
+- It is Pending/unconfigured; no second Family→Tier System relation or sixth normal Tier was created.
+- No Add-on or Popular authoring control was exposed for this composable context.
 
-## Step-by-step validation path
-1. Open **Studio** and locate Package Station / the real Package Family being considered. Confirm it already has its normal assigned Tier System/CZTG. Never create a second Family→Tier System relation.
-2. Open that Tier System and confirm the separate subordinate **Build Your Own** card exists below the five normal Tier slots.
-3. Open Build Your Own. Verify it uses the normal Tier occupant editor/lifecycle, not a separate configurator: Overview, one Rate Sheet, inclusions/quantities, Commercial Legs, commitment/headline settings, Editions where applicable.
-4. If Nath authorizes configuring a real offer, use existing real catalogue/Rate Sheet data only. Configure/publish the composable occupant exactly like a normal full Tier occupant. Do not mark it Add-on and do not alter normal occupants.
-5. Look specifically for customer-policy authoring controls: inclusion mode (`required/optional/excluded`), optional default selection, configurable quantity bounds (`default/min/max/step`), and Featured bool. **Price Option must not be customer-selectable.**
-6. If those policy controls are missing, STOP the setup there and update this file: Admin authoring is the blocker before a customer-visible composable offer can be completed. Do not inject policy through REST/DevTools.
-7. Once a genuine policy can be authored through an approved Admin flow, publish and move to **Pricing**.
-8. Before a normal plan is selected, verify the same composable offer appears as **Build Your Own**. After selecting a normal Tier/Edition, verify the same offer appears as **Upgrade your build**.
-9. Validate: only policy-authorized inclusions appear; required rows cannot be removed; optional Add/Remove works; fixed quantity has no selector; configurable quantity respects bounds; Category/Service filters, Featured-first order and six-per-page paging work; no Price Option control/raw Platform IDs appear.
-10. Change a quantity and confirm the card contribution and Commercial-Leg stream preview update from the server result. Do not expect invented cross-period/TCV totals.
-11. Confirm the existing normal Tier/Edition and Add-on customer flows remain unchanged.
+Blocking failure:
+- No normal Admin controls exist in Details, Options, Connections, Support, or their visible actions for:
+  - inclusion mode: required / optional / excluded;
+  - optional default selection;
+  - configurable quantity default / min / max / step;
+  - Featured boolean.
+- Price Option was not exposed as customer-selectable.
+- No Save, Publish, Disable, catalogue assignment, Edition change, or other runtime mutation was performed.
 
-## Current downstream limit
-Phase 2B1 does **not** yet persist the composable result into final cart/quote, Request, PDF, email or promotions. Do not treat absence of those downstream effects as a browser defect; they are later work.
+## Live customer result
+The existing KAIROS pricing page still renders its normal Tier/Edition and Add-on experience. No Build Your Own offer appears before plan selection. Because the Admin occupant is Empty/unpublished and its policy cannot be authored, this is expected and **is not a customer defect**. Per the stop boundary, no customer configurator behavior, quantity pricing, filters, paging, or post-plan “Upgrade your build” claim was made.
 
-## Browser-agent report
-Update this same file with what was actually visible, any authorized runtime changes made, screenshots/observations, and the exact stopping point. If Admin policy authoring is missing, say so plainly and stop before customer-flow claims.
+## Exact Claude instruction
+Add the smallest normal Admin authoring flow for the composable occupant’s existing `customer_policy` contract. It must support, per inclusion:
+- required / optional / excluded;
+- optional default selected state;
+- fixed versus configurable quantity with default/min/max/step;
+- Featured boolean.
+
+Expected behavior:
+- Authoring belongs inside the existing shared Tier occupant editor and persists through the established composable occupant lifecycle.
+- Validate values and identity server-side; reopen must faithfully show saved policy.
+- Price Option remains non-customer-selectable.
+- Once a genuine policy and real catalogue/Rate Sheet configuration can be authored, the same published offer may proceed to customer validation.
+
+Hard non-change boundary:
+- No parallel configurator/editor, sixth Tier, second Tier Instance, second Family assignment, fake records, DevTools/REST bypass, client-owned pricing math, or changes to normal Tier/Edition/Add-on behavior.
+- Do not expand into final cart/quote, Request, PDF, email, promotions, or invented cross-period/TCV totals.
+
+Report root cause/design, changed files, contracts/tests, exact commit SHA, push/deploy state, and unresolved risks here, then set **AWAITING CHATGPT REVIEW**.
