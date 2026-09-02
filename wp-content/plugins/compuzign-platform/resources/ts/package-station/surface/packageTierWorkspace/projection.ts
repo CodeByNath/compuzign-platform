@@ -13,7 +13,7 @@ import type {
   TierInstanceRecord,
   TierInstanceSummary,
 } from '../../types';
-import { TIER_KEYS, TIER_LABELS } from '../../vocabulary';
+import { TIER_KEYS, TIER_LABELS, COMPOSABLE_TIER_ID } from '../../vocabulary';
 
 /** Package Family fields used by the workspace and its authoritative summary. */
 export interface WorkspaceFamilyScope {
@@ -59,6 +59,29 @@ export function projectWorkspaceTierSlots(
       isPopular: occupant?.isPopular ?? false,
     };
   });
+}
+
+/**
+ * Project the subordinate composable occupant into the SAME shape a fixed
+ * slot gets, so TierDetailPanel renders it via the identical created/empty
+ * branches — but never through projectWorkspaceTierSlots/TIER_KEYS, so it
+ * can never join `slots`, its counts, or its Tier/Add-on filters. `occupantId`
+ * and `item` are null for an as-yet-uncreated composable occupant, matching
+ * an empty fixed slot's own null pair. Exported for the composable-occupant-
+ * workspace contract.
+ */
+export function projectComposableWorkspaceSlot(
+  occupantId: string | null,
+  item: CategoryGroupCardItem | null,
+): WorkspaceTierSlot {
+  return {
+    slotId: COMPOSABLE_TIER_ID,
+    label: TIER_LABELS[COMPOSABLE_TIER_ID] ?? 'Build Your Own',
+    occupantId,
+    item,
+    isAddon: null,
+    isPopular: false,
+  };
 }
 
 /** The left Package Tiers list filter: both occupant types, Tiers only, or Add-ons only. */

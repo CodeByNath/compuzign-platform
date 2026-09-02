@@ -17,8 +17,9 @@ import type { TierInstancesToolState } from '../tierInstance/useTierInstances';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
-import { COMPOSABLE_TIER_ID, TIER_LABELS } from '../../vocabulary';
+import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 import {
+  projectComposableWorkspaceSlot,
   projectResolvedInstanceOccupants,
   projectWorkspaceTierSlots,
   resolveFamilyTierAssignment,
@@ -314,19 +315,15 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
           hasFocusedTier: true,
         });
       }
-      composableOccupant = {
-        slotId: COMPOSABLE_TIER_ID,
-        label: TIER_LABELS[COMPOSABLE_TIER_ID] ?? 'Build Your Own',
-        occupantId: composableOccupantId,
-        item: composableOccupantId ? toTierOccupantCard({
+      composableOccupant = projectComposableWorkspaceSlot(
+        composableOccupantId,
+        composableOccupantId ? toTierOccupantCard({
           occupantId: composableOccupantId,
           slotId: COMPOSABLE_TIER_ID,
           view: composableView,
           platformStatus: pkg.platformStatus,
         }) : null,
-        isAddon: null,
-        isPopular: false,
-      };
+      );
     }
 
     return {

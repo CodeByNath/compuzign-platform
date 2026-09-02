@@ -2,9 +2,10 @@
 
 **Phase 1B/1C — full reuse via sentinel routing; not yet browser-verified.**
 See [Composable Tier Occupant](tier-composable-occupant.md) for the backend
-foundation this builds on. Verified by `tsc`/`build`/a dedicated TS
-contract (`composable-occupant-address-contract.ts`); no interactive
-browser check has been performed — see Not interactively verified below.
+foundation this builds on. Verified by `tsc`/`build`/two dedicated TS
+contracts (`composable-occupant-address-contract.ts`,
+`composable-occupant-workspace-contract.ts`); no interactive browser check
+has been performed — see Not interactively verified below.
 
 Phase 1B's launcher only reached the Service-scoped Connections route. A
 live check on the Family-first route (Settings → Family Groups → View →
@@ -86,19 +87,26 @@ now also reads `pkg.tierView(COMPOSABLE_TIER_ID)`, exposed as a new
 `PackageTierWorkspaceTool` — never entering `slots`/
 `projectWorkspaceTierSlots()`/`occupants`, so "N of 5"/Family "Tiers 5" are
 unaffected. `PackageTierWorkspace.tsx` renders it once, outside the
-Focus/Grid switch, reusing `TierDetailPanel` unmodified (the same
-created/empty-slot branches a fixed Tier gets) and the existing
-`dispatchTierIntent` path.
+Focus/Grid switch, reusing `TierDetailPanel` (the same created/empty-slot
+branches a fixed Tier gets, plus an additive `isSubordinate` prop — default
+`false`, every other caller unaffected — swapping its empty-state "Fixed
+Tier slot" copy for wording that does not claim the composable occupant is
+one) and the existing `dispatchTierIntent` path. The composable slot itself
+is built by `projection.ts`'s `projectComposableWorkspaceSlot()`, exported
+alongside `projectWorkspaceTierSlots()` rather than inlined in the hook.
 
 Two routing-layer gaps, neither specific to this surface, had blocked that
 dispatch: `usePackageStation.ts`'s `resolveOccupantSlot()` scanned only
 `station.tiers` for an `occupant_id` — the same class of gap already fixed
-PHP-side for `PackageRepository` — and now also checks
-`composable_occupant.occupant_id`, returning `COMPOSABLE_TIER_ID`.
-`tierDrawerTypes.ts`'s `FIXED_TIER_SLOTS` (the empty-slot routing token's
-own validation, distinct from `TIER_KEYS`) rejected the sentinel, blocking
-an as-yet-uncreated composable occupant from opening by slot address; it
-now accepts it too.
+PHP-side for `PackageRepository`. The lookup is now
+`tierOccupants.ts`'s exported `resolveOccupantSlotIncludingComposable()`,
+which also checks `composable_occupant.occupant_id`, returning
+`COMPOSABLE_TIER_ID`. `tierDrawerTypes.ts`'s `FIXED_TIER_SLOTS` (the
+empty-slot routing token's own validation, distinct from `TIER_KEYS`)
+rejected the sentinel, blocking an as-yet-uncreated composable occupant
+from opening by slot address; it now accepts it too. Both extractions exist
+so `composable-occupant-workspace-contract.ts` can exercise them directly,
+alongside the workspace's own structural five-slot-exclusion proof.
 
 ## Not interactively verified
 
