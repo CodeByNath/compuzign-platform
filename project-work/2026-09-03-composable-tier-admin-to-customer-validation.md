@@ -1,10 +1,9 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **READY FOR CLAUDE — correction required; SOURCE PUSH NOT APPROVED.**
-- Auditor verdict: **Stop — architectural risk.**
-- Production remains `main@28613c0584440420953da81737acd95d35f47f16`.
-- Reviewed branch: `review/composable-tier-admin-customer-policy@a29a93b8` (2 commits ahead of production).
+- **AWAITING CHATGPT REVIEW — correction round 1 (Claude round 2) implemented.**
+- Production remains `main@28613c0584440420953da81737acd95d35f47f16` (untouched).
+- Reviewed branch: `review/composable-tier-admin-customer-policy@8ff4eff9` (3 commits ahead of production; `8ff4eff9` is the correction commit on top of `a29a93b8`).
 
 ## Locked architecture
 The normal Tier occupant and composable occupant must remain commercially identical. The composable occupant is built/published through the same normal occupant editor: Rate Sheet, inclusions, authored quantity/Price Option, Commercial Legs, commitment/headline, Editions and lifecycle.
@@ -43,3 +42,33 @@ Do not gate merely on `occupant_id` if that exposes customer rules before the pr
 
 ## Claude next action
 Patch the same review branch. Preserve the valid backend read/revert fixes as appropriate, but refactor the frontend into a dedicated shell-launched Customer Rules drawer/controller with the correct lifecycle gate. Add focused contracts proving: normal Tier drawer module count/behavior remains unchanged; action absent before eligibility and present after the correct published/manageable state; action exists only on composable shell; drawer binds only existing inclusion IDs; save/reopen works; normal Tier/Add-on flows unchanged. Record exact new SHA, changed files and evidence here, set **AWAITING CHATGPT REVIEW**, then stop.
+
+## Claude Report — round 2 (correction)
+
+Commit `8ff4eff9` on `review/composable-tier-admin-customer-policy`, on top of `a29a93b8`. `main` untouched at `28613c05`.
+
+### What changed, mapped to the required model
+
+1. **Removed `customer_policy` from the shared Tier drawer/entity entirely.** `TIER_ENTITY.shells`/`placements.drawer` no longer name it (`schema/entities/tier.ts`); `bindings/tier.tsx`'s `tierCustomerPolicyShell` is deleted outright; `TierDrawerContent.tsx`'s conditional PlacedShell and editing-session branch are gone; `useTierModuleEditing.ts`/`useTierDrawerController.ts`/`tierDetailModel.ts`'s `customerPolicyDraft`/`customerPolicyBinding` state is gone; `usePackageStation.ts`'s `PackageStationTierView.modules.customer_policy` (the shared-drawer notification-panel evaluation) is gone. `TierDrafts.customer_policy`/`saveTierCustomerPolicy`/`revertTierModule('customer_policy')` stay on `usePackageStation` — the standalone drawer still needs the generic per-module draft/save/revert mechanism, it just no longer renders through the shared multi-module screen. `scripts/tier-system-drawer-contract.ts`'s module count reverts 5 → 4 (its own comment explains the revert is because the module moved to its own entity, not because the invariant loosened).
+2. **Build Your Own's own shell card gains the "Customer Options" action** — `withComposableCustomerOptionsAction()` (new, `surface/tierSurface/tierOccupantCard.ts`), applied only to the composable card's own projected item in `usePackageTierWorkspace.ts`, never to `toTierOccupantCard()` itself (shared by every normal Tier/Add-on card).
+3. **Gate: `detail.enabled` (published, `platform_status === 'active'`), not `occupant_id`.** This is the pre-computed fact every Tier card's own status pill already reads (`resolveTierStatus()`); `occupant_id` is minted on first Overview Save, well before publish, so it was too weak. Re-checked defensively inside the drawer's own controller too.
+4. **New standalone drawer**, modeled directly on the existing `tier-inclusion` sibling-drawer precedent (own entity manifest `TIER_CUSTOMER_POLICY_ENTITY`, own routing token `tier-customer-policy:{instance_id}`, own controller `useTierCustomerPolicyDrawerController.ts`, own host `TierCustomerPolicyDrawerHost.tsx`, own registered key `'tier-customer-policy'` in `register.ts`, own action intent `'customer-options'` in `admin-station/register.ts`). It never joins `EntityDrawer`'s Details/Pricing Rules/Features/FAQs group — one Details-tab shell only, no Connections placement.
+5. **Rows come only from the occupant's own existing inclusions** — the controller resolves them through the same pure `buildRateSheetCatalogue()` the shared Tier drawer's own Features module reads (`drawer/tier/tierDetailModel.ts`, unchanged), never a second lookup.
+6. **`CustomerPolicyEditor.tsx` reused unmodified.** Price Option authoring stays out of scope (unchanged from round 1).
+7. **Save/reopen unchanged** — `TierDrafts.customer_policy`'s wrapped-null semantics and `draftPreferredDetail()`'s unwrap are untouched, still locked by `scripts/tier-customer-policy-draft-contract.ts` (still passing). Settling stays the occupant's own Publish action, not this drawer's — Save here shows "Saved — settle Build Your Own to publish," matching every other module's own draft-then-settle boundary.
+8. The two backend plumbing fixes from round 1 are **retained unchanged** and now actually reachable end-to-end: the standalone drawer's own `discard-draft` action calls the previously-orphaned revert route.
+
+### New evidence
+
+- `scripts/tier-customer-policy-drawer-contract.ts` (new) — proves: `TIER_ENTITY` carries no `customer_policy` shell/placement and `TierDrawerContent.tsx`'s source has no remaining reference to it at all; the Customer Options action is absent from a normal Tier card and from an ineligible composable card, present only once `eligible: true`; the standalone routing token round-trips and rejects a foreign token; the drawer is registered under its own key with its own action intent, never the base `tier` binding; the controller resolves rows only through the occupant's own `rate_sheet_id`/`rate_sheet_selections` via the shared pure catalogue builder.
+- `tests/composable-customer-policy-admin-surface.php` — unchanged, still green (the two backend fixes' own evidence).
+
+### Full validation (this round)
+
+Green: `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, `npm run contract:tier-system-drawer` (module count back to 4), `npm run contract:tier-customer-policy-draft`, `npm run contract:tier-customer-policy-drawer` (new), `npm run contract:tier-occupant-admin`, `npm run contract:composable-occupant-address`, `npm run contract:composable-occupant-workspace`, `npm run contract:composable-offer-choice`, `npm run contract:composable-offer-contribution`, `npm run contract:drawer-module-entry`, `npm run contract:tier-instance-scope`, `npm run contract:tier-instance-tool`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run contract:tier-edition-move-to-bin`, `npm run contract:package-tier-workspace`, `npm run contract:package-tier-workspace-shell`, `npm run contract:tier-connections`, `npm run contract:tier-settings`; `php tests/composable-customer-policy-admin-surface.php`, `php tests/composable-customer-policy-resolver.php`, `php tests/composable-customer-ux-preview.php`, `php tests/tier-composable-occupant.php`, `php tests/composable-occupant-controller-contract.php`.
+
+Confirmed pre-existing, unrelated (re-verified against this round's own change, not just round 1's): `npm run contract:admin-station-css`'s same six `cz-rate-sheet-tool__*` findings; `npm run regression:tier-occupant-lifecycle` crashing identically on the unrelated `d.audienceGroups.length` TypeError inside `tierOverviewShell`'s own content bind.
+
+### No new design decisions flagged this round
+
+Round 1's two flagged decisions are resolved by this correction itself (the launcher question is answered by the required model's own "Build Your Own home/shell card" action; Price Option removal stands, reconfirmed correct by the auditor's own round-1 review — "customer Price Option authoring is correctly absent"). No new ambiguous scope calls arose in this round; the required model in the Status section above was followed directly.
