@@ -4972,3 +4972,123 @@
   max-width: 480px;
   margin: 0 0 var(--cz-space-4);
 }
+
+/* Phase 2B1 — composable Tier occupant browse surface
+   (ComposableOfferBrowser.tsx), rendered as a sibling below whichever
+   normal-Tier view is active. Layout/spacing only; cards/buttons reuse the
+   same .cz-btn primitives everywhere else in this file already does. */
+.cz-package-builder__composable {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+  margin-top: var(--cz-space-8);
+  padding-top: var(--cz-space-8);
+  border-top: 1px solid var(--cz-color-border);
+}
+
+.cz-package-builder__composable-subheading {
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-sm);
+  margin: 0;
+}
+
+.cz-package-builder__composable-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cz-space-4);
+}
+
+.cz-package-builder__composable-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-color-muted);
+}
+
+.cz-package-builder__composable-filter input,
+.cz-package-builder__composable-filter select {
+  font-size: var(--cz-font-size-base);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: var(--cz-space-2) var(--cz-space-3);
+  border: 1px solid var(--cz-color-border);
+  border-radius: var(--cz-radius-sm);
+  color: var(--cz-color-text);
+  background: var(--cz-color-surface);
+}
+
+.cz-package-builder__composable-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--cz-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cz-package-builder__composable-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-4);
+  border: 1px solid var(--cz-color-border);
+  border-radius: var(--cz-radius-md);
+  background: var(--cz-color-surface);
+}
+
+.cz-package-builder__composable-card-label {
+  font-weight: 600;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__composable-card-price {
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-sm);
+}
+
+.cz-package-builder__composable-card-qty {
+  width: 5rem;
+  padding: var(--cz-space-1) var(--cz-space-2);
+  border: 1px solid var(--cz-color-border);
+  border-radius: var(--cz-radius-sm);
+}
+
+.cz-package-builder__composable-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cz-space-3);
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-sm);
+}
+
+.cz-package-builder__composable-page-btn {
+  border: 1px solid var(--cz-color-border);
+  border-radius: var(--cz-radius-sm);
+  background: var(--cz-color-surface);
+  color: var(--cz-color-text);
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+}
+
+.cz-package-builder__composable-page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cz-package-builder__composable-preview {
+  font-weight: 600;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__composable-preview-error {
+  color: var(--cz-color-danger, #b3261e);
+  font-weight: 400;
+}

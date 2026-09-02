@@ -25,6 +25,60 @@ export interface ServiceInclusion {
   // Bundle child rows, display-only: never separately priced, never
   // selectable, never flattened into the top-level inclusion list.
   includes?: ServiceInclusion[];
+  // Phase 2B1 — browse/merchandising-only fields, additive on every
+  // occupant-sourced inclusion (composable and normal Tier alike; the
+  // backend projects them through one shared function). unit_price/
+  // line_total are this row's own resolved Rate Sheet price at its
+  // published quantity/Price Option — never itself a customer control.
+  // categories/service are live-resolved supplying-Service provenance
+  // labels for filtering only, never an authorization signal — see
+  // PackageRepository::compileOccupantSlotForCostBuilder().
+  unit_price?: number | null;
+  line_total?: number | null;
+  categories?: string[];
+  service?: string | null;
+}
+
+// Phase 2B1 — Admin-authorized customer selection bounds for the composable
+// Tier occupant (and, when configured, a Tier Edition). Server-owned policy:
+// PackageSchema::sanitizeCustomerPolicy() is the only place this shape is
+// produced, and the public projection (PackageFamilyPricingBuilder::
+// presentCustomerPolicy()) has already stripped every `mode: 'excluded'`
+// entry — an item_id absent from `items` here is simply not offered.
+// Price Option is deliberately never customer-controlled in this phase: a
+// 'choice' entry names its own Admin-configured default only for display;
+// there is no client field anywhere in this contract to submit an
+// alternative, and PackageRepository::resolveComposableOfferSelection()
+// silently drops one if a caller sends it anyway.
+export interface CustomerPolicyQuantityBounds {
+  default: number;
+  min: number;
+  max: number;
+  step: number;
+}
+
+export interface CustomerPolicyPriceOption {
+  mode: 'fixed' | 'choice';
+  allowed_price_option_ids: string[] | null;
+  default_price_option_id: string | null;
+}
+
+export interface CustomerPolicyItem {
+  item_id: string;
+  mode: 'required' | 'optional';
+  // Only meaningful when mode === 'optional'.
+  default_selected: boolean;
+  // null = fixed at this item's own published quantity — render no selector.
+  quantity: CustomerPolicyQuantityBounds | null;
+  price_option: CustomerPolicyPriceOption;
+  // Merchandising-only sort/highlight flag — never authorization. Structurally
+  // cannot reference an unauthorized item_id: it lives on this same
+  // policy-authorized entry.
+  featured: boolean;
+}
+
+export interface CustomerPolicy {
+  items: CustomerPolicyItem[];
 }
 
 export interface ServiceFaq {
@@ -94,6 +148,10 @@ export interface PricingEditionOption {
   // components[].source will carry — see resolveHeadlinePrice() in
   // PricingTiers.tsx. Never itself a price/cycle value.
   headline_leg_id?: string;
+  // Phase 2B1 — this Edition's own customer selection policy. Absent/null
+  // for every Edition that has never configured one (identical posture to
+  // commercial_legs/headline_leg_id above).
+  customer_policy?: CustomerPolicy | null;
 }
 
 // One resolved commercial-priced Rate Sheet selection inside a Commercial
@@ -189,6 +247,12 @@ export interface PricingTierData {
   // commercial_legs' own components[].source will carry — see
   // resolveHeadlinePrice() in PricingTiers.tsx.
   headline_leg_id?: string;
+  // Phase 2B1 — Admin-authorized customer selection bounds for this
+  // occupant's own Default declaration. Null for every occupant that has
+  // never configured one (normal Tiers today, and any Family predating
+  // this field) — same additive-absence posture as commercial_legs/
+  // edition_options above.
+  customer_policy?: CustomerPolicy | null;
 }
 
 export interface ServicePricing {
@@ -264,10 +328,40 @@ export interface PackageBuilderFamily {
   popular_tier: TierId | null;
   popular_label: string | null;
   included_categories: string[];
-  pricing: { tiers: Partial<Record<TierId, PricingTierData>> };
+  pricing: {
+    tiers: Partial<Record<TierId, PricingTierData>>;
+    // Phase 1A/2B1 — the subordinate composable Tier occupant, projected
+    // through the exact same shape as any `tiers[tierId]` entry, but never
+    // itself a member of the exclusive "Choose your Tier" set `tiers`
+    // drives. Absent entirely when the Family has none configured.
+    composable_offer?: PricingTierData | null;
+  };
 }
 
 export interface PackageBuilderResponse {
   tiers: Tier[];
   families: PackageBuilderFamily[];
+}
+
+// Phase 2B1 — one Add/Remove/quantity candidate row a customer submits to
+// POST /package-builder/composable-preview. `price_option_id` is
+// deliberately not a field here at all: this contract has no client-facing
+// Price Option control — see CustomerPolicy above.
+export interface ComposablePreviewChoiceItem {
+  item_id: string;
+  // Only meaningful for a 'optional' policy item — omit for 'required'.
+  selected?: boolean;
+  // Only meaningful for an item with non-null quantity bounds — omit for a
+  // fixed-quantity item; the server ignores this field for one anyway.
+  quantity?: number;
+}
+
+// PackageManagerSchema::resolveCustomerComposableSelection()'s own return
+// shape, unchanged end to end through PackageRepository::
+// resolveComposableOfferSelection().
+export interface ComposablePreviewResult {
+  ok: boolean;
+  periods?: CommercialLegPeriod[];
+  code?: string;
+  rejected_items?: { item_id: string | null; reason: string }[];
 }

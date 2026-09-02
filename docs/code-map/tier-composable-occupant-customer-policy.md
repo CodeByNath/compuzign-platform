@@ -102,14 +102,16 @@ of `rate_sheet_items[]` and hands it to the unmodified
 
 ## Not yet built
 
-Customer-facing selection UI (Phase 2B), `FamilyTierQuoteItem`/cart-key
-coexistence, request-schema/PDF/email/promotions, and the TCV floor (above).
+`FamilyTierQuoteItem`/cart-key coexistence, request-schema/PDF/email/
+promotions, and the TCV floor (above). Customer-facing selection UI is now
+Phase 2B1 — see [Composable Tier Occupant — Customer UX](tier-composable-occupant-customer-ux.md).
 
 ## Related Code Maps
 
 [Composable Tier Occupant](tier-composable-occupant.md), [Composable Tier
-Occupant Admin UI](tier-composable-occupant-admin-ui.md), [Composable Tier
-Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
+Occupant — Customer UX](tier-composable-occupant-customer-ux.md),
+[Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
+[Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
 [Commercial Legs](commercial-legs.md), [Tier Edition](tier-edition.md),
 [Rate Sheet](rate-sheet.md), [Rate Sheet Bundle](rate-sheet-bundle.md), and
 [Cost Builder](cost-builder.md).

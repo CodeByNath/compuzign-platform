@@ -162,7 +162,7 @@ class PackageSchema
      * Returns null for no configured policy at all (backwards-compatible
      * absence — a Family/Edition with no policy is unaffected). A non-null
      * result is always a complete, valid shape:
-     * `{ items: [{item_id, mode, default_selected, quantity, price_option}] }`.
+     * `{ items: [{item_id, mode, default_selected, quantity, price_option, featured}] }`.
      *
      * No `minimum_total_contract_value` floor field — deliberately deferred.
      * The accepted contract required one, but auditing the Period boundary
@@ -246,6 +246,14 @@ class PackageSchema
                 'default_selected' => $mode === 'optional' ? (bool) ($item['default_selected'] ?? false) : false,
                 'quantity'         => $quantity,
                 'price_option'     => $priceOption,
+                // Phase 2B1 — merchandising-only sort/highlight flag for the
+                // customer browse surface. Structurally cannot reference an
+                // unauthorized item_id: it lives ON this same policy-authorized
+                // entry, never a separate admin-authored id list. Never read
+                // by resolveCustomerComposableSelection()/save-time validation
+                // — no authorization meaning at all, same posture as
+                // Category/Service labels on the inclusion projection.
+                'featured'         => (bool) ($item['featured'] ?? false),
             ];
         }
 

@@ -44,7 +44,7 @@ class CostBuilderModule
         $importer          = new CatalogImporter();
 
         (new CostBuilderController($builder, $importer))->register();
-        (new PackageBuilderController(new PackageFamilyPricingBuilder($packageRepository)))->register();
+        (new PackageBuilderController(new PackageFamilyPricingBuilder($packageRepository), $packageRepository))->register();
 
         add_shortcode('compuzign_cost_builder', [$this, 'renderShortcode']);
         add_shortcode('compuzign_package_builder', [$this, 'renderPackageBuilderShortcode']);

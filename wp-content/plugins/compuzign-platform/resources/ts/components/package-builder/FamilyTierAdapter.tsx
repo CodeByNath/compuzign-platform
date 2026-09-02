@@ -7,6 +7,7 @@ import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import { periodLabel, availablePeriodComponents, availableComponents, componentPaymentName, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
 import { PlanDetailsModal } from './PlanDetailsModal';
+import { ComposableOfferBrowser } from './ComposableOfferBrowser';
 
 // Phase 7E: the Plan Details popup's own explicit target identity, resolved
 // once at "View plan details" click time from whichever Tier/Edition is
@@ -1208,6 +1209,15 @@ export function FamilyTierAdapter({
     <>
       {mainContent}
       {planDetailsOverlay}
+      {/* Phase 2B1 — same sibling posture as planDetailsOverlay above: reads
+          only `family` (composable_offer/customer_policy) plus its own
+          candidate state, never mainContent's live locals. context flips
+          purely on whether a normal Tier/Edition is currently selected —
+          it never changes which occupant this reads or how it resolves. */}
+      <ComposableOfferBrowser
+        family={family}
+        context={selectedTierId === null ? 'build_your_own' : 'upgrade_your_build'}
+      />
     </>
   );
 }

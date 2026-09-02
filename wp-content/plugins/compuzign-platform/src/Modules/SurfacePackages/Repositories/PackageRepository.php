@@ -2177,9 +2177,35 @@ class PackageRepository
                 static fn(array $row): bool => $row['resolved']
                     && (($row['source_type'] ?? null) === 'inclusion' || isset($bundleIdByItemId[$row['item_id']]))
             ));
+            // Phase 2B1 — browse/merchandising metadata only (never
+            // authorization): the same live-resolved supplying-Service
+            // provenance the Manager read model already computes per item
+            // (source_categories/source_service_title), keyed here by the
+            // row's own source_id so the composable customer browse surface
+            // can filter/group without a new persisted field or identity.
+            // Absent (null/[]) for a self-priced row with no Manager source
+            // behind it — filters simply show nothing for that row, same
+            // graceful-absence posture as every other optional field here.
+            $provenanceBySourceId = [];
+            foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $sourceItem) {
+                if (is_array($sourceItem) && isset($sourceItem['source_id'])) {
+                    $provenanceBySourceId[(string) $sourceItem['source_id']] = $sourceItem;
+                }
+            }
             $extracted['inclusions_override'] = array_map(
-                static function (array $row) use ($bundleIdByItemId): array {
-                    $entry = ['id' => $row['item_id'], 'label' => $row['label'], 'quantity' => $row['quantity']];
+                static function (array $row) use ($bundleIdByItemId, $provenanceBySourceId): array {
+                    $provenance = $provenanceBySourceId[(string) ($row['source_id'] ?? '')] ?? null;
+                    $entry = [
+                        'id' => $row['item_id'],
+                        'label' => $row['label'],
+                        'quantity' => $row['quantity'],
+                        'unit_price' => $row['unit_price'],
+                        'line_total' => $row['line_total'],
+                        'categories' => is_array($provenance['source_categories'] ?? null) ? $provenance['source_categories'] : [],
+                        'service' => is_string($provenance['source_service_title'] ?? null) && $provenance['source_service_title'] !== ''
+                            ? $provenance['source_service_title']
+                            : null,
+                    ];
                     $bundleId = $bundleIdByItemId[$row['item_id']] ?? null;
                     if ($bundleId !== null) {
                         $entry['bundle_id'] = $bundleId;
@@ -2439,6 +2465,158 @@ class PackageRepository
         }
 
         return $this->activeFamilyOfferCache = $families;
+    }
+
+    /**
+     * Active station + active Package Family + active Tier Instance for one
+     * `family_id` — the same per-family authorization boundary
+     * findAllActiveFamiliesForCostBuilder() applies while it walks every
+     * Family at once. Factored out (Phase 2B1) so a single-family customer
+     * entry point — the composable preview resolver below — can reuse the
+     * identical gate rather than re-deriving it, without forcing that
+     * whole-collection method to detour through a single-family shape it
+     * was never written for. Returns null the moment any part of the chain
+     * (station/Family/assignment/Tier Instance) is not public.
+     *
+     * @return array{station: array, manager: array, instance: array}|null
+     */
+    private function locateActiveFamilyInstance(string $familyId): ?array
+    {
+        $station = $this->loadStation();
+        if ($station === null) {
+            return null;
+        }
+        $packageStatus = $station['platform_status'] ?? '';
+        if ($packageStatus !== '' && $packageStatus !== 'active') {
+            return null;
+        }
+        $now = current_time('mysql', true);
+        if ((!empty($station['valid_from']) && $station['valid_from'] > $now)
+            || (!empty($station['valid_until']) && $station['valid_until'] < $now)
+        ) {
+            return null;
+        }
+
+        $manager = is_array($station['package_manager'] ?? null)
+            ? PackageManagerSchema::sanitize($station['package_manager'])
+            : PackageManagerSchema::defaultManager();
+        $instances = TierInstanceSchema::sanitizeInstances($station['tier_instances'] ?? []);
+        $assignments = TierAssignmentSchema::sanitizeAssignments(
+            $station['tier_assignments'] ?? [],
+            ['package_family' => TierAssignmentSchema::consumerRegistryFor('package_family', $manager)],
+            $instances
+        );
+
+        $family = null;
+        foreach ($manager['category_groups'] as $candidate) {
+            if ((string) ($candidate['group_id'] ?? '') === $familyId) {
+                $family = $candidate;
+                break;
+            }
+        }
+        if ($family === null
+            || ($family['platform_status'] ?? null) !== 'active'
+            || (string) ($family['cz_platform_id'] ?? '') === ''
+        ) {
+            return null;
+        }
+
+        $assignment = TierAssignmentSchema::findForConsumer($assignments, 'package_family', $familyId);
+        if ($assignment === null) {
+            return null;
+        }
+        $instance = TierInstanceSchema::findInstance(
+            $instances,
+            (string) ($assignment['tier_instance_id'] ?? '')
+        );
+        if ($instance === null
+            || ($instance['status'] ?? null) !== 'active'
+            || TierInstanceSchema::deriveInstanceStatus($instance) !== 'active'
+            || (string) ($instance['cz_platform_id'] ?? '') === ''
+        ) {
+            return null;
+        }
+
+        return ['station' => $station, 'manager' => $manager, 'instance' => $instance];
+    }
+
+    /**
+     * Customer-safe resolve for the composable Tier occupant on one active,
+     * directly-assigned Package Family — Phase 2B1. Authorization is
+     * exactly locateActiveFamilyInstance()'s gate above (the same boundary
+     * findAllActiveFamiliesForCostBuilder() already applies per Family);
+     * the occupant itself must also carry a minted CZT/CZTA, the same
+     * "not yet fully identified" gate enrichCompiledOccupantIdentity()
+     * applies to the compiled public response.
+     *
+     * Only `item_id`, `selected`, and `quantity` are ever read off a
+     * submitted choice row — a `price_option_id` a caller sends is silently
+     * dropped here, never forwarded to
+     * PackageManagerSchema::resolveCustomerComposableSelection(). Price
+     * Option is deliberately never customer-controlled in this phase (see
+     * project-work/2026-09-02-composable-tier-customer-ux.md): omitting the
+     * key entirely — rather than forwarding an explicit null — is what lets
+     * that resolver's own already-audited fallback run ("no explicit
+     * customer choice -> the policy's own configured default, only when
+     * that default is itself still authorized").
+     *
+     * @param array<int, array{item_id?: mixed, selected?: mixed, quantity?: mixed}> $rawChoice
+     * @return array{ok: true, periods: array}
+     *       | array{ok: false, code: string, rejected_items?: array<int, array{item_id: ?string, reason: string}>}
+     */
+    public function resolveComposableOfferSelection(string $familyId, array $rawChoice): array
+    {
+        $located = $this->locateActiveFamilyInstance($familyId);
+        if ($located === null) {
+            return ['ok' => false, 'code' => 'not_found'];
+        }
+        $instance = $located['instance'];
+
+        $composableSlot = $instance['composable_occupant'] ?? null;
+        if (!is_array($composableSlot) || !PackageSchema::isOccupantFormat($composableSlot)) {
+            return ['ok' => false, 'code' => 'not_found'];
+        }
+        $occupant = $composableSlot['current_occupant'] ?? null;
+        if (!is_array($occupant)) {
+            return ['ok' => false, 'code' => 'not_found'];
+        }
+        $tierPlatformId = !empty($occupant['is_addon'])
+            ? (string) ($occupant['addon_platform_id'] ?? '')
+            : (string) ($occupant['cz_platform_id'] ?? '');
+        if ($tierPlatformId === '') {
+            return ['ok' => false, 'code' => 'not_found'];
+        }
+
+        $container = PackageSchema::extractTierForCostBuilder($composableSlot);
+        if (!is_array($container) || !is_array($container['customer_policy'] ?? null)) {
+            return ['ok' => false, 'code' => 'not_configured'];
+        }
+
+        [$inclusionPool, $faqPool] = $this->sourcePools($located['station']);
+        $readModel = PackageManagerSchema::buildReadModel(
+            (int) ($located['station']['legacy_host_service_id'] ?? 0),
+            $located['manager'],
+            $inclusionPool,
+            $faqPool,
+            'active'
+        );
+
+        $choice = [];
+        foreach ($rawChoice as $entry) {
+            if (!is_array($entry) || !isset($entry['item_id'])) {
+                continue;
+            }
+            $row = ['item_id' => sanitize_text_field((string) $entry['item_id'])];
+            if (array_key_exists('selected', $entry)) {
+                $row['selected'] = (bool) $entry['selected'];
+            }
+            if (array_key_exists('quantity', $entry)) {
+                $row['quantity'] = (int) $entry['quantity'];
+            }
+            $choice[] = $row;
+        }
+
+        return PackageManagerSchema::resolveCustomerComposableSelection($readModel, $container, $choice);
     }
 
     /**
