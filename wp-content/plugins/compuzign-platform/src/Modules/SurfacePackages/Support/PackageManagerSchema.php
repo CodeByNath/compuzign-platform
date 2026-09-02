@@ -2280,6 +2280,102 @@ final class PackageManagerSchema
         return $violations === [] ? null : ['commitment_end' => $commitmentEnd, 'violations' => $violations];
     }
 
+    /**
+     * Save-time SEMANTIC validation of a customer_policy against a
+     * container's own actual currently-published rate_sheet_items/Price
+     * Options/Leg structure. Kept deliberately separate from
+     * PackageSchema::sanitizeCustomerPolicy() (structural only, no
+     * cross-referencing) — this is the live-data check the accepted
+     * contract requires at the save/settle boundary, one authoritative
+     * validation step rather than blended into the sanitizer.
+     *
+     * Never repairs/drops an invalid reference itself — returns the first
+     * violation found so the caller can reject the whole save with a
+     * structured 422-style response and leave stored/draft state
+     * unchanged, matching the resolver's own "never a silent substitution"
+     * posture at the opposite (customer) end of this same contract.
+     *
+     * @param array<string, mixed> $policy PackageSchema::sanitizeCustomerPolicy() shape (already-sanitized, non-null)
+     * @param array<string, mixed> $container occupant or Tier Edition shape (its OWN currently-published rate_sheet_id/rate_sheet_items/legs/minimum_term_*)
+     * @param array<string, mixed> $readModel same shape resolveCommercialLegTimeline() consumes
+     * @return array{code: string, item_id?: string}|null null when fully valid
+     */
+    public static function validateCustomerPolicyAgainstContainer(array $policy, array $container, array $readModel): ?array
+    {
+        $rateSheet = self::findRateSheet(
+            is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
+            $container['rate_sheet_id'] ?? null
+        );
+        $rateItemsById = [];
+        foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $rateItem) {
+            if (is_array($rateItem) && isset($rateItem['item_id'])) {
+                $rateItemsById[(string) $rateItem['item_id']] = $rateItem;
+            }
+        }
+
+        $sourceRowIds = [];
+        foreach (is_array($container['rate_sheet_items'] ?? null) ? $container['rate_sheet_items'] : [] as $row) {
+            if (is_array($row) && isset($row['item_id'])) {
+                $sourceRowIds[(string) $row['item_id']] = true;
+            }
+        }
+
+        foreach (is_array($policy['items'] ?? null) ? $policy['items'] : [] as $entry) {
+            if (!is_array($entry) || !isset($entry['item_id'])) { continue; }
+            $itemId = (string) $entry['item_id'];
+            if (($entry['mode'] ?? 'excluded') === 'excluded') { continue; }
+
+            if (!isset($sourceRowIds[$itemId])) {
+                return ['code' => 'dangling_item_id', 'item_id' => $itemId];
+            }
+
+            $priceOptionPolicy = $entry['price_option'] ?? ['mode' => 'fixed'];
+            if (($priceOptionPolicy['mode'] ?? 'fixed') !== 'choice') { continue; }
+
+            $liveOptionIds = [];
+            foreach (($rateItemsById[$itemId]['price_options'] ?? []) as $option) {
+                if (is_array($option) && isset($option['option_id'])) {
+                    $liveOptionIds[(string) $option['option_id']] = true;
+                }
+            }
+            foreach ($priceOptionPolicy['allowed_price_option_ids'] ?? [] as $allowedId) {
+                if (!isset($liveOptionIds[(string) $allowedId])) {
+                    return ['code' => 'disallowed_price_option', 'item_id' => $itemId];
+                }
+            }
+            // Re-checks BOTH invariants sanitizeCustomerPolicy() already
+            // enforces at construction time (default must be live-
+            // resolvable AND a member of this same policy's own allowed
+            // list) — defense-in-depth against stale/tampered stored data
+            // reaching this live-data path, never assumed to still hold.
+            $defaultOptionId = $priceOptionPolicy['default_price_option_id'] ?? null;
+            $allowedIds = array_map('strval', $priceOptionPolicy['allowed_price_option_ids'] ?? []);
+            if ($defaultOptionId !== null
+                && (!isset($liveOptionIds[(string) $defaultOptionId]) || !in_array((string) $defaultOptionId, $allowedIds, true))
+            ) {
+                return ['code' => 'invalid_default_price_option', 'item_id' => $itemId];
+            }
+        }
+
+        $floor = $policy['minimum_total_contract_value'] ?? null;
+        if ($floor !== null) {
+            // Open-endedness is purely a Leg-timeline-structure fact
+            // (from_month/to_month vs. commitment) — never dependent on
+            // which items a future customer might select — so this is
+            // checked against the container's own full, unmodified,
+            // currently-published state, not a simulated customer choice.
+            $commitmentMonths = (($container['minimum_term_unit'] ?? null) === 'month' && ($container['minimum_term_value'] ?? null) !== null)
+                ? (int) $container['minimum_term_value']
+                : null;
+            $periods = self::resolveCommercialLegTimeline($readModel, $container);
+            if (self::computeResolvedTimelineTotalContractValue($periods, $commitmentMonths) === null) {
+                return ['code' => 'floor_unverifiable'];
+            }
+        }
+
+        return null;
+    }
+
     // ── Composable customer selection resolver (Phase 2A) ───────────────────
     // See project-work/2026-09-02-composable-tier-customer-policy.md for the
     // accepted contract this implements. Never mutates $container — builds
@@ -2323,14 +2419,38 @@ final class PackageManagerSchema
             }
         }
 
-        $choiceByItemId = [];
-        foreach ($choice as $entry) {
-            if (is_array($entry) && isset($entry['item_id'])) {
-                $choiceByItemId[(string) $entry['item_id']] = $entry;
+        $sourceRows = is_array($container['rate_sheet_items'] ?? null) ? $container['rate_sheet_items'] : [];
+        $sourceRowIds = [];
+        foreach ($sourceRows as $row) {
+            if (is_array($row) && isset($row['item_id'])) {
+                $sourceRowIds[(string) $row['item_id']] = true;
             }
         }
 
-        $sourceRows = is_array($container['rate_sheet_items'] ?? null) ? $container['rate_sheet_items'] : [];
+        // Stale/unknown/not-offered submitted choices are rejected up front,
+        // never silently ignored by the per-row loop below — and a duplicate
+        // item_id in the submitted choice is rejected rather than silently
+        // resolved by last-write-wins, since no ordering rule is part of the
+        // accepted contract.
+        $choiceByItemId = [];
+        $preRejected = [];
+        foreach ($choice as $entry) {
+            if (!is_array($entry) || !isset($entry['item_id'])) { continue; }
+            $itemId = (string) $entry['item_id'];
+            if (isset($choiceByItemId[$itemId])) {
+                $preRejected[] = ['item_id' => $itemId, 'reason' => 'duplicate_item_choice'];
+                continue;
+            }
+            $choiceByItemId[$itemId] = $entry;
+            $policyEntry = $policyByItemId[$itemId] ?? null;
+            $mode = $policyEntry['mode'] ?? 'excluded';
+            if (!isset($sourceRowIds[$itemId]) || $mode === 'excluded') {
+                $preRejected[] = ['item_id' => $itemId, 'reason' => 'not_selectable'];
+            }
+        }
+        if ($preRejected !== []) {
+            return ['ok' => false, 'code' => 'selection_invalid', 'rejected_items' => $preRejected];
+        }
 
         $rejected = [];
         $keptRows = [];
@@ -2372,17 +2492,37 @@ final class PackageManagerSchema
 
             $priceOptionPolicy = $policyEntry['price_option'] ?? ['mode' => 'fixed'];
             if (($priceOptionPolicy['mode'] ?? 'fixed') === 'choice') {
+                $allowed = $priceOptionPolicy['allowed_price_option_ids'] ?? [];
                 if ($customerChoice !== null && array_key_exists('price_option_id', $customerChoice)) {
                     $requestedOption = $customerChoice['price_option_id'];
                     $requestedOption = $requestedOption === null ? null : (string) $requestedOption;
-                    $allowed = $priceOptionPolicy['allowed_price_option_ids'] ?? [];
-                    if ($requestedOption !== null && !in_array($requestedOption, $allowed, true)) {
+                    // An explicit null is NEVER automatically authorized under
+                    // 'choice' mode — null/base pricing is what 'fixed' mode
+                    // is for. Checking membership unconditionally (not only
+                    // when non-null) is what closes this: $allowed can never
+                    // itself contain null, so a null request is rejected here
+                    // exactly like any other unauthorized id, never silently
+                    // accepted as "use base price".
+                    if (!in_array($requestedOption, $allowed, true)) {
                         $rejected[] = ['item_id' => $itemId, 'reason' => 'price_option_not_allowed'];
                         continue;
                     }
                     $adjustedRow['price_option_id'] = $requestedOption;
                 } else {
-                    $adjustedRow['price_option_id'] = $priceOptionPolicy['default_price_option_id'] ?? null;
+                    // No explicit customer choice — fall back to the policy's
+                    // own configured default, but only if that default is
+                    // itself still an authorized/resolvable option. A default
+                    // that has drifted out of allowed_price_option_ids (stale
+                    // policy data) is rejected here rather than silently
+                    // applied — sanitizeCustomerPolicy() already enforces this
+                    // invariant at save time, but this is the live-data path,
+                    // never assumed to still hold.
+                    $defaultOptionId = $priceOptionPolicy['default_price_option_id'] ?? null;
+                    if ($defaultOptionId === null || !in_array($defaultOptionId, $allowed, true)) {
+                        $rejected[] = ['item_id' => $itemId, 'reason' => 'price_option_not_allowed'];
+                        continue;
+                    }
+                    $adjustedRow['price_option_id'] = $defaultOptionId;
                 }
             }
             // 'fixed' mode: price_option_id stays exactly the row's own published value.
@@ -2411,7 +2551,10 @@ final class PackageManagerSchema
             }
         }
 
-        $tcv = self::computeResolvedTimelineTotalContractValue($periods);
+        $commitmentMonths = (($container['minimum_term_unit'] ?? null) === 'month' && ($container['minimum_term_value'] ?? null) !== null)
+            ? (int) $container['minimum_term_value']
+            : null;
+        $tcv = self::computeResolvedTimelineTotalContractValue($periods, $commitmentMonths);
         $floor = $policy['minimum_total_contract_value'] ?? null;
         if ($floor !== null) {
             if ($tcv === null) {
@@ -2425,34 +2568,112 @@ final class PackageManagerSchema
         return ['ok' => true, 'periods' => $periods, 'total_contract_value' => $tcv];
     }
 
+    /** @var array<string, int> */
+    private const CADENCE_INTERVAL_MONTHS = ['monthly' => 1, 'quarterly' => 3, 'annual' => 12, 'annually' => 12];
+    /** @var array<string, true> */
+    private const UPFRONT_BILLING_CYCLES = ['one-time' => true, 'upfront' => true];
+
     /**
-     * Sum every resolved period's own priced line totals into one scalar —
-     * but only when the timeline actually terminates. An open-ended last
-     * Period (`to_month === null`) has no well-defined total, so this
-     * returns null rather than an arbitrary partial sum; the caller treats
-     * a configured floor against a null total as unverifiable, never as a
-     * silent pass (see the work file's TCV-floor resolution).
+     * Faithful PHP port of the ONE canonical payment-summary/TCV calculation
+     * — `buildLegPaymentSummaries()` +
+     * `computeTotalContractValue()`/`startingPaymentsByCycle()`'s own
+     * null-propagating sum (resources/ts/components/cost-builder/
+     * PricingTiers.tsx, resources/ts/utils/paymentSummary.ts). Claude's
+     * first cut of this function summed each component's own `line_total`
+     * once per resolved Period, ignoring billing cadence/occurrence count
+     * entirely (a 12-month monthly stream counted once instead of 12 times)
+     * — flagged by the auditor as a second, approximate TCV engine and
+     * corrected here to the real algorithm, not merely re-scoped.
+     *
+     * Deliberately NOT physically extracted from/shared with
+     * `NotificationTemplates::computeTotalContractValue()` (Requests module)
+     * — that function aggregates already-frozen, previously-built summaries
+     * (e.g. a stored Request's own `legPaymentSummaries`), never builds them
+     * from raw resolved Periods, and no existing PHP port of the BUILDING
+     * step existed anywhere before this. Sharing would require a new
+     * Requests → SurfacePackages dependency this work was not asked to
+     * introduce; flagged for the auditor to weigh in on this same round
+     * rather than made unilaterally. The algorithm here is the same
+     * canonical one, not a second approximation of it.
+     *
+     * Dedupes by `component.source` across Periods exactly like the TS
+     * original — the same commercial identity repeating across Periods
+     * (because some OTHER identity started/stopped) is one continuous
+     * payment stream, never counted twice; its last appearance's `to_month`
+     * is read as its true end. An `available:false` component is skipped
+     * (mirrors `!component.available` in the TS original) — the caller
+     * already rejects the whole selection before reaching here whenever any
+     * component is unavailable, so this exclusion is defense-in-depth, not
+     * the primary gate.
      *
      * @param array<int, array{from_month:int, to_month:?int, components:array}> $periods
+     * @param int|null $commitmentMonths the container's own finite commitment
+     *   in months (only when minimum_term_unit === 'month'), or null — the
+     *   same fallback an open-ended Period's own `to_month` uses when no
+     *   later Period closes it, mirroring `entry.end ?? commitmentMonths`.
+     * @return float|null null the instant any stream is genuinely open-ended
+     *   (no commitment to bound it either) — never an arbitrary partial sum.
      */
-    public static function computeResolvedTimelineTotalContractValue(array $periods): ?float
+    public static function computeResolvedTimelineTotalContractValue(array $periods, ?int $commitmentMonths): ?float
     {
-        if ($periods === []) {
-            return 0.0;
-        }
-        $last = $periods[count($periods) - 1];
-        if (($last['to_month'] ?? null) === null) {
-            return null;
-        }
-        $total = 0.0;
+        $order = [];
+        $bySource = [];
         foreach ($periods as $period) {
             foreach ($period['components'] ?? [] as $component) {
-                foreach ($component['items'] ?? [] as $priced) {
-                    $total += (float) ($priced['line_total'] ?? 0.0);
+                if (empty($component['available'])) { continue; }
+                $source = (string) ($component['source'] ?? '');
+                if (!isset($bySource[$source])) {
+                    $order[] = $source;
+                    $bySource[$source] = [
+                        'billing_cycle' => $component['billing_cycle'] ?? null,
+                        'price'         => $component['price'] ?? null,
+                        'start'         => (int) $period['from_month'],
+                        'end'           => $period['to_month'] ?? null,
+                    ];
+                } else {
+                    $bySource[$source]['end'] = $period['to_month'] ?? null;
                 }
             }
         }
+
+        $total = 0.0;
+        foreach ($order as $source) {
+            $entry = $bySource[$source];
+            $cycle = $entry['billing_cycle'];
+            $effectiveEnd = $entry['end'] ?? $commitmentMonths;
+            $singleOccurrence = $cycle !== null && isset(self::UPFRONT_BILLING_CYCLES[$cycle]);
+            $isOngoing = !$singleOccurrence && $effectiveEnd === null;
+            if ($isOngoing) {
+                return null;
+            }
+            $occurrences = $singleOccurrence
+                ? 1
+                : self::countCommercialOccurrenceMonths($entry['start'], (int) $effectiveEnd, $cycle);
+            if ($entry['price'] === null) {
+                return null;
+            }
+            $total += ((float) $entry['price']) * $occurrences;
+        }
         return $total;
+    }
+
+    /**
+     * `buildOccurrenceMonths()`'s own occurrence COUNT (PricingTiers.tsx) —
+     * how many billing occurrences a stream has between $start (inclusive)
+     * and $effectiveEnd (exclusive), stepping by its own cadence interval.
+     * An unrecognized/null cycle defaults to a monthly interval (1), same as
+     * the TS original's `?? 1` fallback. Always at least 1 (mirrors
+     * `months.length > 0 ? months : [start]`) — a window narrower than one
+     * full interval still bills once.
+     */
+    private static function countCommercialOccurrenceMonths(int $start, int $effectiveEnd, ?string $cycle): int
+    {
+        $interval = ($cycle !== null ? (self::CADENCE_INTERVAL_MONTHS[$cycle] ?? null) : null) ?? 1;
+        $count = 0;
+        for ($m = $start; $m < $effectiveEnd; $m += $interval) {
+            $count++;
+        }
+        return max(1, $count);
     }
 
     // ── Consumer projections ─────────────────────────────────────────────────

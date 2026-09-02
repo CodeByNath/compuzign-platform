@@ -2478,12 +2478,37 @@ class PackageStationController
             // rejects this module for fixed Tier/Add-on occupants (no
             // customer-choice concept exists there in this phase). See
             // project-work/2026-09-02-composable-tier-customer-policy.md.
+            $sanitizedPolicy = $PS::sanitizeCustomerPolicy($body['customer_policy'] ?? null);
+            if ($sanitizedPolicy !== null) {
+                // Save-time SEMANTIC validation against this occupant's own
+                // actual currently-published rate_sheet_items/Price
+                // Options/Leg structure — sanitizeCustomerPolicy() above is
+                // structural only (see its own docblock). Never repairs or
+                // drops an invalid reference: rejects the whole save and
+                // leaves stored/draft state completely untouched.
+                $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+                $currentOccupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : [];
+                $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
+                $manager = $PMS::sanitize($rawManager);
+                [$incPool, $faqPool] = $this->packages()->sourcePools($station, $manager['sources']);
+                $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
+                $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
+                $violation = $PMS::validateCustomerPolicyAgainstContainer($sanitizedPolicy, $currentOccupant, $readModel);
+                if ($violation !== null) {
+                    return new \WP_REST_Response([
+                        'success' => false,
+                        'code'    => $violation['code'],
+                        'item_id' => $violation['item_id'] ?? null,
+                        'message' => 'Customer policy references invalid or unresolvable data.',
+                    ], 422);
+                }
+            }
             // Wrapped in 'value' because a sanitized policy can itself
             // legitimately be null (explicitly clearing it back to "no
             // policy") — the platform's own drafts[$module] === null
             // already means "no pending draft at all" (see hasDraft in
             // settleTierSlot), so the two nulls must never be conflated.
-            $draftValue = ['value' => $PS::sanitizeCustomerPolicy($body['customer_policy'] ?? null)];
+            $draftValue = ['value' => $sanitizedPolicy];
         } else { // faqs
             $draftValue = [];
             if (is_array($body['faq_refs'] ?? null)) {
@@ -2881,6 +2906,35 @@ class PackageStationController
         $body = $request->get_json_params();
         $body = is_array($body) ? $body : [];
         $PS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::class;
+
+        // Phase 2A — same save-time semantic validation as the occupant's
+        // own (saveComposableOccupantModule()), against this Edition's own
+        // actual currently-published rate_sheet_id/rate_sheet_items — never
+        // the in-flight draft body, matching "published" in the accepted
+        // contract. Only when the submitted policy is itself non-null;
+        // clearing it back to inherit needs no live cross-reference.
+        if (array_key_exists('customer_policy', $body) && $body['customer_policy'] !== null) {
+            $sanitizedPolicy = $PS::sanitizeCustomerPolicy($body['customer_policy']);
+            if ($sanitizedPolicy !== null) {
+                $existingEdition = $PS::findTierEdition($editions, $editionId) ?? [];
+                $PMS = \CompuZign\Platform\Modules\SurfacePackages\Support\PackageManagerSchema::class;
+                $serviceId = (int) $request->get_param('id');
+                $rawManager = is_array($station['package_manager'] ?? null) ? $station['package_manager'] : $PMS::defaultManager();
+                $manager = $PMS::sanitize($rawManager);
+                [$incPool, $faqPool] = $this->packages()->sourcePools($station, $manager['sources']);
+                $platformStatus = (string) ($station['platform_status'] ?? 'disabled');
+                $readModel = $PMS::buildReadModel($serviceId, $manager, $incPool, $faqPool, $platformStatus);
+                $violation = $PMS::validateCustomerPolicyAgainstContainer($sanitizedPolicy, $existingEdition, $readModel);
+                if ($violation !== null) {
+                    return new \WP_REST_Response([
+                        'success' => false,
+                        'code'    => $violation['code'],
+                        'item_id' => $violation['item_id'] ?? null,
+                        'message' => 'Customer policy references invalid or unresolvable data.',
+                    ], 422);
+                }
+            }
+        }
 
         try {
             $editions = $PS::saveTierEditionDraft($editions, $editionId, $body);
