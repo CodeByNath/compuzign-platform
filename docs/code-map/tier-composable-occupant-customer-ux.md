@@ -8,18 +8,17 @@ Implements `project-work/2026-09-02-composable-tier-customer-ux.md`. See
 ## Purpose and ownership
 
 A deliberately minimal customer composition surface over the existing
-composable Tier occupant: quantity-only Add/Remove browsing within
-Admin-authorized bounds, no customer Price Option control, no Leg/
-commitment/Edition editing. Two presentation contexts over the SAME
-composable offer — "Build Your Own" (no normal Tier/Edition selected) and
-"Upgrade your build" (after one is) — both rendered by one component,
-`ComposableOfferBrowser.tsx`, as a sibling of `FamilyTierAdapter`'s existing
-staged/focused views, never nested inside either.
+composable Tier occupant: quantity-only Add/Remove within Admin-authorized
+bounds, no customer Price Option control, no Leg/commitment/Edition
+editing. Two contexts over the SAME composable offer — "Build Your Own"
+(no normal Tier/Edition selected) and "Upgrade your build" (after one is)
+— both rendered by one component, `ComposableOfferBrowser.tsx`, as a
+sibling of `FamilyTierAdapter`'s existing staged/focused views.
 
 ## Browse/merchandising metadata — projection only, no new identity
 
 Category/Service filters and Featured sort needed metadata that did not
-exist on a Rate Sheet item. Rather than invent a new persisted field,
+exist on a Rate Sheet item. Rather than a new persisted field,
 `PackageRepository::compileOccupantSlotForCostBuilder()` threads the
 already-live-resolved supplying-Service provenance
 (`source_categories`/`source_service_title`) onto each `inclusions_override`
@@ -28,29 +27,28 @@ shared `presentOccupant()` function, harmless-unread on a normal Tier.
 `unit_price`/`line_total` (already resolved in
 `projectTierRateSheetWith()`'s selection rows) ride along the same way.
 
-`featured` is genuinely new state — a merchandising-only bool added to each
+`featured` is new state — a merchandising-only bool on each
 `PackageSchema::sanitizeCustomerPolicy()` item entry, never read by
 `resolveCustomerComposableSelection()`/save-time validation. Living on the
-policy-authorized entry itself makes "an Admin featured reference may only
-point at an authorized item_id" structural.
+policy-authorized entry makes "an Admin featured reference may only point
+at an authorized item_id" structural.
 
 ## Customer-safe preview endpoint
 
 `PackageRepository::locateActiveFamilyInstance(family_id)` — extracted from
 `findAllActiveFamiliesForCostBuilder()`'s own per-Family gate — lets a new
-single-family entry point reuse that identical authorization boundary.
-`resolveComposableOfferSelection(family_id, choice)` uses it, requires the
-occupant carry a minted CZT/CZTA (same gate
-`enrichCompiledOccupantIdentity()` applies publicly), builds its container
-via `PackageSchema::extractTierForCostBuilder()`, and calls the existing
-resolver unchanged.
+single-family entry point reuse that same authorization boundary.
+`resolveComposableOfferSelection(family_id, choice)` uses it, requires a
+minted CZT/CZTA (same gate `enrichCompiledOccupantIdentity()` applies
+publicly), builds its container via `PackageSchema::extractTierForCostBuilder()`,
+and calls the existing resolver unchanged.
 
 `POST /compuzign/v1/package-builder/composable-preview` (public, no auth)
 wraps it. **Only `item_id`, `selected`, and `quantity` are ever read off a
-submitted choice row** — a `price_option_id` a caller sends is silently
-dropped before the resolver sees it, making "no customer Price Option
-selector" a wire-contract fact, not a UI convention. A fixed-quantity item
-similarly ignores any submitted quantity.
+submitted choice row** — a `price_option_id` sent by a caller is silently
+dropped, making "no customer Price Option selector" a wire-contract fact,
+not a UI convention. A fixed-quantity item similarly ignores any submitted
+quantity.
 
 ## Frontend
 
@@ -67,10 +65,10 @@ over the already-fetched offer.
 `scripts/composable-offer-choice-contract.ts`) is the submission boundary:
 every optional row is ALWAYS sent with an explicit `selected: true|false`,
 never omitted when off. **Correction round 1** found the original version
-omitted an unselected optional row entirely; `resolveCustomerComposableSelection()`
-treats an absent optional row as "use the policy's own `default_selected`"
-— silently re-selecting a `default_selected:true` item on every Remove
-click. A required row is always sent with no `selected` key.
+omitted an unselected optional row entirely; the resolver treats an absent
+optional row as "use the policy's own `default_selected`" — silently
+re-selecting a `default_selected:true` item on every Remove click. A
+required row is always sent with no `selected` key.
 
 The live preview never sums resolved Period component prices into a
 cross-period total — Periods are timeline boundaries a recurring stream can
@@ -81,16 +79,28 @@ payment-summary presentation (one row per resolved stream: price, cycle,
 start/end month), deliberately never reading
 `summary.subtotal`/`summary.occurrenceMonths`.
 
+`resolveItemContributions(periods)` (exported, contract-tested via
+`scripts/composable-offer-contribution-contract.ts`) is each card's
+"resolved individual contribution" — **correction round 2** replaced a
+static published-`unitPrice` display (unchanged by quantity) with an
+item_id's `line_total` read verbatim off the resolved server rows, never
+`unitPrice * quantity` recomputed client-side. A second, DIFFERENT
+`component.source` claiming the same item_id (Default + an Additional Leg
+may legally do so independently) makes it `ambiguous` — never summed or
+picked arbitrarily; the card falls back to the published base/unit price,
+labeled "per unit". A source repeating across Periods is not
+double-counted (first-seen-wins, same invariant `commercialLegInclusionGroups()`
+already relies on).
+
 ## Not yet built / explicitly out of scope this slice
 
 Persisting a composable item into `FamilyTierQuoteItem`, `quoteItemKey()`
 changes, Request/PDF/email, final cart persistence, promotions, and an
-Admin authoring surface for `featured`/Category/Service beyond what already
-exists via Service Catalog import. No live browser validation this session
-(no local WordPress environment) — reviewed via `npx tsc --noEmit`,
-`npm run build`, and the PHP/contract test suite; see
-`tests/composable-customer-ux-preview.php` and
-`scripts/composable-offer-choice-contract.ts`.
+Admin authoring surface for `featured`/Category/Service beyond Service
+Catalog import. No live browser validation this session (no local
+WordPress environment) — reviewed via `npx tsc --noEmit`, `npm run build`,
+and the PHP/contract suite (`tests/composable-customer-ux-preview.php`,
+`scripts/composable-offer-*-contract.ts`).
 
 ## Related Code Maps
 

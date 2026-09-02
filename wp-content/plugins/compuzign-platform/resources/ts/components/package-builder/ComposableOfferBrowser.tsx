@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
-import type { ComposablePreviewChoiceItem, CustomerPolicyItem, PackageBuilderFamily, ServiceInclusion } from '@/api/types/cost-builder';
+import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, ServiceInclusion } from '@/api/types/cost-builder';
 import { resolveComposablePreview } from '@/api/endpoints/package-builder';
 import { buildLegPaymentSummaries, cycleSuffix } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
@@ -73,6 +73,61 @@ export function buildComposableChoice(
     choice.push(submitted);
   }
   return choice;
+}
+
+// One item_id's resolved contribution, read verbatim off the server's own
+// resolved Period/component rows — never computed by multiplying a
+// published unit price by a client-held quantity. `ambiguous: true` means
+// the SAME item_id was claimed, with a DIFFERENT `line_total`, by more
+// than one distinct commercial stream (component.source) in the resolved
+// candidate — Default and an Additional Leg may both legally claim the
+// same item independently (see the Commercial Legs pricing boundary), so
+// there is no single truthful number to show; `lineTotal` is then null and
+// the card must not display one.
+export interface ItemContribution {
+  lineTotal: number | null;
+  quantity: number;
+  ambiguous: boolean;
+}
+
+// Extracted so a contract script can exercise this directly (see
+// scripts/composable-offer-contribution-contract.ts). Deliberately reads
+// only `component.price`'s own per-row `item.line_total`/`item.quantity` —
+// server-resolved values — and reads each DISTINCT `component.source` at
+// most once for a given item_id, mirroring the same "first-seen-wins per
+// source is safe" invariant commercialLegInclusionGroups() (FamilyTierAdapter.tsx)
+// already relies on: a Leg's own claimed items[] are built ONCE from the
+// container's static declaration, so every repeated appearance of the SAME
+// source across multiple resolved Periods is structurally guaranteed
+// identical — nothing to reconcile. A SECOND, DIFFERENT source claiming the
+// same item_id is a genuinely different commercial stream, not a repeat,
+// and is what flips a row to ambiguous.
+export function resolveItemContributions(periods: CommercialLegPeriod[]): Record<string, ItemContribution> {
+  const bySource = new Map<string, Map<string, ItemContribution>>();
+  for (const period of periods) {
+    for (const component of period.components) {
+      if (!component.available) continue;
+      if (bySource.has(component.source)) continue;
+      const perItem = new Map<string, ItemContribution>();
+      for (const item of component.items) {
+        if (item.available === false) continue;
+        perItem.set(item.item_id, { lineTotal: item.line_total, quantity: item.quantity, ambiguous: false });
+      }
+      bySource.set(component.source, perItem);
+    }
+  }
+  const out: Record<string, ItemContribution> = {};
+  for (const perItem of bySource.values()) {
+    for (const [itemId, contribution] of perItem) {
+      const existing = out[itemId];
+      if (existing === undefined) {
+        out[itemId] = contribution;
+      } else if (!existing.ambiguous) {
+        out[itemId] = { lineTotal: null, quantity: existing.quantity, ambiguous: true };
+      }
+    }
+  }
+  return out;
 }
 
 export function ComposableOfferBrowser({ family, context }: ComposableOfferBrowserProps) {
@@ -171,9 +226,15 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
     ? offer.minimum_term_value ?? null
     : null;
 
-  const [preview, setPreview] = useState<{ ok: boolean; summaries: LegPaymentSummary[] | null; message: string | null }>({
+  const [preview, setPreview] = useState<{
+    ok: boolean;
+    summaries: LegPaymentSummary[] | null;
+    contributions: Record<string, ItemContribution> | null;
+    message: string | null;
+  }>({
     ok: true,
     summaries: null,
+    contributions: null,
     message: null,
   });
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -189,7 +250,7 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
         .then((result) => {
           if (cancelled) return;
           if (!result.ok) {
-            setPreview({ ok: false, summaries: null, message: 'This combination is not available right now.' });
+            setPreview({ ok: false, summaries: null, contributions: null, message: 'This combination is not available right now.' });
             return;
           }
           // Periods are timeline boundaries, not a commercial total on their
@@ -203,10 +264,17 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
           // unresolved discrepancy on (see the Phase 2A TCV floor removal);
           // reviving that math here was explicitly rejected in review.
           const summaries = buildLegPaymentSummaries(result.periods ?? [], commitmentMonths);
-          setPreview({ ok: true, summaries, message: null });
+          // Each card's own resolved individual contribution — read
+          // verbatim off the server's resolved rows, never computed here by
+          // multiplying a published unit price by the locally-held
+          // quantity. See resolveItemContributions()'s own docblock for why
+          // a second distinct commercial stream claiming the same item_id
+          // makes that item's card contribution ambiguous rather than summed.
+          const contributions = resolveItemContributions(result.periods ?? []);
+          setPreview({ ok: true, summaries, contributions, message: null });
         })
         .catch(() => {
-          if (!cancelled) setPreview({ ok: false, summaries: null, message: 'Could not resolve pricing right now.' });
+          if (!cancelled) setPreview({ ok: false, summaries: null, contributions: null, message: 'Could not resolve pricing right now.' });
         })
         .finally(() => {
           if (!cancelled) setPreviewLoading(false);
@@ -272,11 +340,32 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
         {pageRows.map((row) => {
           const current = selection[row.item_id];
           const isSelected = current?.selected ?? false;
+          // The card's price is the server-resolved contribution whenever
+          // one is available and unambiguous for a currently-selected row
+          // — never a client-side unitPrice*quantity computation. A row
+          // that is not selected, whose contribution hasn't resolved yet
+          // (still loading/failed), or whose item_id is ambiguously
+          // claimed by more than one concurrent commercial stream falls
+          // back to the published base/unit price, clearly labeled as such
+          // rather than presented as the current total.
+          const resolvedContribution = isSelected && preview.ok
+            ? preview.contributions?.[row.item_id] ?? null
+            : null;
+          const showResolved = resolvedContribution !== null && !resolvedContribution.ambiguous
+            && resolvedContribution.lineTotal !== null;
           return (
             <li key={row.item_id} class="cz-package-builder__composable-card">
               <span class="cz-package-builder__composable-card-label">{row.label}</span>
-              {row.unitPrice !== null && (
-                <span class="cz-package-builder__composable-card-price">{formatPrice(row.unitPrice)}</span>
+              {showResolved && (
+                <span class="cz-package-builder__composable-card-price">
+                  {formatPrice(resolvedContribution!.lineTotal)}
+                </span>
+              )}
+              {!showResolved && row.unitPrice !== null && (
+                <span class="cz-package-builder__composable-card-price">
+                  {formatPrice(row.unitPrice)}
+                  <span class="cz-package-builder__composable-card-price-note"> per unit</span>
+                </span>
               )}
               {row.policy.quantity && isSelected && (
                 <input

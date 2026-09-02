@@ -5052,6 +5052,15 @@
   font-size: var(--cz-font-size-sm);
 }
 
+/* Only present on the published-base-price fallback (not selected, not yet
+   resolved, or ambiguously claimed by more than one commercial stream) —
+   distinguishes it from the server-resolved contribution shown once a row
+   is selected and unambiguous. */
+.cz-package-builder__composable-card-price-note {
+  font-size: var(--cz-font-size-xs);
+  opacity: 0.8;
+}
+
 .cz-package-builder__composable-card-qty {
   width: 5rem;
   padding: var(--cz-space-1) var(--cz-space-2);
