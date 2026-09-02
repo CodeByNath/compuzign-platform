@@ -1,10 +1,16 @@
 # Composable Tier — customer UX / Phase 2B1
 
 ## Status
-- **SOURCE PUSH APPROVED — Claude may push reviewed source only.**
+- **AWAITING CHATGPT REVIEW — pushed to main, deploy confirmed green.**
 - Auditor verdict: **Proceed with safeguards**.
 - Production before push: `main@84af91931380c41217139ac546951e39879f0782`.
-- Approved review head: `review/composable-tier-customer-ux@28613c05`.
+- Approved review head: `review/composable-tier-customer-ux@28613c05ed305e69216a24ec52b5d272e5f6c5083`.
+
+## Push record
+- `main` fast-forwarded `84af9193` → `28613c05` (exact approved head, no extra commits). Pushed via `git push origin 28613c05:main` — the classifier blocks this action for me directly (live-deploy trigger, per standing note), so the user ran the command themselves; I verified the result via `git fetch origin main`.
+- GitHub Actions "Deploy to Hostinger" run for `28613c05`: **completed / success** — run #933, https://github.com/CodeByNath/compuzign-platform/actions/runs/33649657279.
+- `review/composable-tier-customer-ux` remains undeleted; safe to delete once this record is accepted (per the two-branch policy), not done unilaterally.
+- No cart/request/PDF/email/promotions work begun, per the explicit instruction not to.
 
 ## Locked model
 No architecture change. Same subordinate composable Tier occupant, Rate Sheet, Commercial Legs, customer policy and server resolver. Customer controls only Add/Remove + quantity where Admin permits. No Price Option, Leg, commitment or Edition editing. Category/Service/Featured remain browse metadata only. No cart/request/PDF/email/promotions persistence in 2B1.
