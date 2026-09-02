@@ -1,41 +1,45 @@
 # Composable Tier occupant
 
 ## Status
-- **AWAITING LIVE VALIDATION — pushed to `main`, deployed successfully.**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main` now: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` (fast-forward from `73619866`, confirmed ancestor before push, no extra commits).
-- Review branch `fix/composable-tier-workspace-launcher` is the same SHA main now points to.
+- **READY FOR CLAUDE — live validation found one remaining drawer-header presentation leak.**
+- Auditor verdict: **Proceed with safeguards — not CLOSED.**
+- Production `main`: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`.
+- Deploy to Hostinger run `33589079596` / #930 succeeded on that exact SHA.
+- **SOURCE PUSH NOT APPROVED for any new correction until review.**
 
 ## Locked architecture
 One subordinate `composable_occupant` lives under the existing Tier System, outside the five-slot `tiers` map. It reuses normal occupant/editor/lifecycle machinery but is never a sixth Tier, Add-on, second Tier Instance, or Family assignment.
 
-## Accepted correction
-Independent audit of the full branch confirms:
-- `projectWorkspaceTierSlots()` remains exactly five-slot-only; Tier counts/filters/grid remain unchanged.
-- Family-first `PackageTierWorkspace` gets a separate subordinate composable model from the existing shared `usePackageStation` read.
-- configured composable routes by its occupant identity; absent child gets a narrow `COMPOSABLE_TIER_ID` drawer target without joining `TIER_KEYS`.
-- destination remains the accepted shared Tier drawer/editor/footer/Edition stack; no parallel editor.
-- occupant-id resolution now includes the composable location without disturbing normal five slots.
-- focused workspace contract covers five-slot exclusion, absent/configured launcher states, routing, and normal-route preservation.
-- presentation leak is corrected: subordinate empty/configured states no longer identify as `Package Tier`/`Package Add-on` or fixed Tier slot; normal Tier/Add-on callers remain unchanged.
+## Live browser evidence — 2026-09-02
+Nath supplied production screenshots from the Family-first KAIROS workspace.
 
-Full review branch is a clean fast-forward of **3 commits** from current production `main`, no unrelated source changes. Reported typecheck/build/docs and focused workspace/address/lifecycle/Edition contracts pass.
+### Passed
+- Family summary still reports **Tiers 5**.
+- Exactly five normal Package Tier cards remain in the left list.
+- Separate subordinate section renders below/outside the five-Tier workspace.
+- It is labelled **Build Your Own** / **Subordinate composable occupant** and explicitly says it is not one of the 5 Tiers.
+- Empty-state wording is composable-specific: **“This composable occupant is ready to configure.”**
+- Opening **Configure Build Your Own** reaches the existing mature Tier drawer with Details / Options / Connections / Support, Tier Overview, Pricing Rules and the normal lifecycle footer. No parallel editor is visible.
+- No Save/Publish/Enable/Disable/archive/restore/Edition mutation was performed.
 
-## Claude — production step — done
-Pushed with Nath's explicit confirmation (production-push, not a routine coordination push). `git merge-base --is-ancestor origin/main origin/fix/composable-tier-workspace-launcher` confirmed a clean fast-forward before pushing; `git push origin origin/fix/composable-tier-workspace-launcher:refs/heads/main` reported `73619866..8545eb2e`, no source added/amended.
+### Blocking live defect
+The shared drawer chrome/header still renders **“Package Tier”** at the top when the composable target is open. This contradicts the locked presentation rule even though the internal cards correctly show Build Your Own/composable semantics.
 
-- Resulting `main` SHA: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` — exactly the reviewed chain (`73619866` → `de0f65c6` → `f73ae103` → `8545eb2e`), 3 commits, no extra source changes.
-- GitHub Actions "Deploy to Hostinger": run `33589079596` / #930, head SHA `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`, **completed / success**.
+The screenshot also shows the composable Tier Overview itself as Pending with label Build Your Own. Add-on/Popular absence has not yet been interactively verified because the Overview editor was not opened, and Grid mode has not yet been evidenced in this browser pass.
 
-Set to **AWAITING LIVE VALIDATION**. No Phase 2/customer/cart/quote/PDF/email/promotion work performed.
+## Claude — exact correction
+Find the authority that supplies the Tier drawer's top-level title/chrome label (`Package Tier`) and make it composable-context-aware using the already-existing `COMPOSABLE_TIER_ID` / composable address. The composable drawer header should use **Build Your Own** or **Composable occupant** (pick the smallest wording consistent with the existing admin vocabulary), while every normal Tier/Add-on header remains unchanged.
 
-## Live validation target
-On the production Family-first KAIROS route, auditor will verify read-only:
-- existing `5 of 5 Tiers configured` and Family `Tiers 5` remain unchanged;
-- one separate subordinate Build Your Own / Composable launcher appears in both Focus/Grid workspace contexts without joining Tier lists/counts;
-- configured/empty presentation never says Package Tier/Add-on/fixed Tier slot;
-- opening the launcher reaches the same shared Tier editor;
-- Add-on/Popular are absent only in composable context;
-- normal five occupants remain unchanged.
+Safeguards:
+- Do not fork the drawer host/chrome.
+- Do not change routing, persistence, lifecycle, editor modules, counts, workspace projection, Add-on semantics, or customer/cart/quote/PDF/email/promotion work.
+- Prefer one additive title/label resolution seam in the existing shared drawer host/binding.
+- Add a focused contract proving normal Tier header stays unchanged and composable header never says Package Tier/Add-on.
 
-Runtime mutations (Save/Publish/Enable/Disable/archive/restore/Edition writes) remain separately authorization-gated.
+Push the correction only to the existing review branch, report exact SHA/files/tests here, set **AWAITING CHATGPT REVIEW**, and do not push to `main`.
+
+## Remaining live checks after correction
+- Focus and Grid both retain exactly five normal Tiers plus one separate subordinate launcher.
+- composable drawer header is no longer Package Tier/Add-on.
+- opening Tier Overview Edit shows Add-on and Popular controls absent only for composable context (do not Save).
+- normal Tier drawer still presents normally.
