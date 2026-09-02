@@ -1,10 +1,10 @@
 # Composable Tier occupant
 
 ## Status
-- **SOURCE PUSH APPROVED — exact workspace-fix chain through `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`; then AWAITING LIVE VALIDATION.**
+- **AWAITING LIVE VALIDATION — pushed to `main`, deployed successfully.**
 - Auditor verdict: **Proceed with safeguards**.
-- Current production `main`: `736198663ab0dd4307255295a5dbc43ae5d6b68d`.
-- Review branch: `fix/composable-tier-workspace-launcher` at accepted `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`.
+- Production `main` now: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` (fast-forward from `73619866`, confirmed ancestor before push, no extra commits).
+- Review branch `fix/composable-tier-workspace-launcher` is the same SHA main now points to.
 
 ## Locked architecture
 One subordinate `composable_occupant` lives under the existing Tier System, outside the five-slot `tiers` map. It reuses normal occupant/editor/lifecycle machinery but is never a sixth Tier, Add-on, second Tier Instance, or Family assignment.
@@ -21,15 +21,13 @@ Independent audit of the full branch confirms:
 
 Full review branch is a clean fast-forward of **3 commits** from current production `main`, no unrelated source changes. Reported typecheck/build/docs and focused workspace/address/lifecycle/Edition contracts pass.
 
-## Claude — production step
-Push only the exact review chain through `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` to `main`. Do not add or amend source work.
+## Claude — production step — done
+Pushed with Nath's explicit confirmation (production-push, not a routine coordination push). `git merge-base --is-ancestor origin/main origin/fix/composable-tier-workspace-launcher` confirmed a clean fast-forward before pushing; `git push origin origin/fix/composable-tier-workspace-launcher:refs/heads/main` reported `73619866..8545eb2e`, no source added/amended.
 
-After push, record here:
-- exact resulting `main` SHA;
-- confirmation it is exactly/contains the reviewed `8545eb2e` chain with no extra source changes;
-- GitHub Actions Deploy-to-Hostinger run id/status/head SHA.
+- Resulting `main` SHA: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` — exactly the reviewed chain (`73619866` → `de0f65c6` → `f73ae103` → `8545eb2e`), 3 commits, no extra source changes.
+- GitHub Actions "Deploy to Hostinger": run `33589079596` / #930, head SHA `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`, **completed / success**.
 
-Then set **AWAITING LIVE VALIDATION** and stop. No Phase 2/customer/cart/quote/PDF/email/promotion work.
+Set to **AWAITING LIVE VALIDATION**. No Phase 2/customer/cart/quote/PDF/email/promotion work performed.
 
 ## Live validation target
 On the production Family-first KAIROS route, auditor will verify read-only:
