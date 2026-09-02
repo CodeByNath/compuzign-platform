@@ -1,53 +1,43 @@
 # Composable Tier occupant
 
 ## Status
-- **AWAITING CHATGPT REVIEW — presentation leak corrected, pushed to review branch.**
-- Auditor verdict on file: **Proceed with safeguards — not yet approved for `main`.**
-- Deployed baseline: `736198663ab0dd4307255295a5dbc43ae5d6b68d`.
-- Review branch: `fix/composable-tier-workspace-launcher`, now `8545eb2e` (3 commits ahead of `phase/composable-tier-occupant`).
-- **SOURCE PUSH NOT APPROVED.**
+- **SOURCE PUSH APPROVED — exact workspace-fix chain through `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`; then AWAITING LIVE VALIDATION.**
+- Auditor verdict: **Proceed with safeguards**.
+- Current production `main`: `736198663ab0dd4307255295a5dbc43ae5d6b68d`.
+- Review branch: `fix/composable-tier-workspace-launcher` at accepted `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`.
 
 ## Locked architecture
 One subordinate `composable_occupant` lives under the existing Tier System, outside the five-slot `tiers` map. It reuses normal occupant/editor/lifecycle machinery but is never a sixth Tier, Add-on, second Tier Instance, or Family assignment.
 
-## Audit of `f73ae103` — core correction accepted
-Independent diff review confirms:
-- `projectWorkspaceTierSlots()` remains five-slot-only.
-- composable workspace model is separate from `slots`/counts/filters/grid collection;
-- existing `usePackageStation` read is reused; no second backend read;
-- configured composable resolves by occupant id; absent composable gets a narrow drawer-token target through `COMPOSABLE_TIER_ID` without joining `TIER_KEYS`;
-- shared mature Tier drawer/editor/footer/Edition stack remains the destination;
-- focused contract covers five-slot exclusion and composable routing.
+## Accepted correction
+Independent audit of the full branch confirms:
+- `projectWorkspaceTierSlots()` remains exactly five-slot-only; Tier counts/filters/grid remain unchanged.
+- Family-first `PackageTierWorkspace` gets a separate subordinate composable model from the existing shared `usePackageStation` read.
+- configured composable routes by its occupant identity; absent child gets a narrow `COMPOSABLE_TIER_ID` drawer target without joining `TIER_KEYS`.
+- destination remains the accepted shared Tier drawer/editor/footer/Edition stack; no parallel editor.
+- occupant-id resolution now includes the composable location without disturbing normal five slots.
+- focused workspace contract covers five-slot exclusion, absent/configured launcher states, routing, and normal-route preservation.
+- presentation leak is corrected: subordinate empty/configured states no longer identify as `Package Tier`/`Package Add-on` or fixed Tier slot; normal Tier/Add-on callers remain unchanged.
 
-## Blocking presentation leak
-The subordinate launcher still presents itself as a normal Tier in both states:
-1. `TierDetailPanel` empty state with `isSubordinate` still says **“This Tier is ready to configure.”** and **“Configure the Build Your Own slot…”**.
-2. Configured state is built with unmodified `toTierOccupantCard()`, which sets `kind: 'Package Tier'` for every non-Add-on and uses the Tier icon.
+Full review branch is a clean fast-forward of **3 commits** from current production `main`, no unrelated source changes. Reported typecheck/build/docs and focused workspace/address/lifecycle/Edition contracts pass.
 
-That violates the locked rule that this child must not masquerade as a sixth Tier/fixed slot even though counts remain five.
+## Claude — production step
+Push only the exact review chain through `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` to `main`. Do not add or amend source work.
 
-## Claude — exact correction
-Do not change routing, persistence, projection ownership, counts, or editor integration.
+After push, record here:
+- exact resulting `main` SHA;
+- confirmation it is exactly/contains the reviewed `8545eb2e` chain with no extra source changes;
+- GitHub Actions Deploy-to-Hostinger run id/status/head SHA.
 
-- Make `TierDetailPanel`'s subordinate empty copy explicitly composable/subordinate; no “This Tier”, “Tier slot”, or equivalent peer-Tier wording.
-- Make the configured subordinate card/detail present as **Build Your Own / Composable** (or equivalent existing approved product wording), not `Package Tier` and not Add-on.
-- Prefer a small additive presentation option/adapter around `toTierOccupantCard()` rather than forking the card model. Existing normal Tier/Add-on callers must remain byte-behaviorally unchanged.
-- Use an existing neutral/package icon if available; do not imply fixed Tier membership visually.
-- Extend the workspace contract to assert both absent and configured subordinate presentation do not identify as a normal Tier/Add-on.
+Then set **AWAITING LIVE VALIDATION** and stop. No Phase 2/customer/cart/quote/PDF/email/promotion work.
 
-Run typecheck/build/docs and the same focused workspace/address/lifecycle/Edition contracts. Push only to the same review branch, report SHA/files/tests here, set **AWAITING CHATGPT REVIEW**. No `main` push or live mutations.
+## Live validation target
+On the production Family-first KAIROS route, auditor will verify read-only:
+- existing `5 of 5 Tiers configured` and Family `Tiers 5` remain unchanged;
+- one separate subordinate Build Your Own / Composable launcher appears in both Focus/Grid workspace contexts without joining Tier lists/counts;
+- configured/empty presentation never says Package Tier/Add-on/fixed Tier slot;
+- opening the launcher reaches the same shared Tier editor;
+- Add-on/Popular are absent only in composable context;
+- normal five occupants remain unchanged.
 
-## Claude correction report — 2026-09-02
-Branch `fix/composable-tier-workspace-launcher`, new commit `8545eb2e` on top of the audited `f73ae103` (that commit's own diff untouched). Pushed to the same review branch. **Not merged, not on `main`, no live mutations.**
-
-**Fixed both leaks, both in the additive `isSubordinate` path only — no routing, persistence, projection ownership, count, or editor-integration change:**
-- `TierDetailPanel.tsx`: extracted `subordinateEmptyStateCopy(label)` — heading "This composable occupant is ready to configure.", body "Configure {label} in the existing Tier tool." — wired for `isSubordinate` only; the normal-Tier empty-state branch (`hasInstance`/`familyName` logic) is untouched.
-- `tierOccupantCard.ts`: `toTierOccupantCard()` gained an additive `isSubordinate` param (default `false`). True sets `kind: 'Composable occupant'` (never `'Package Tier'`/`'Package Add-on'`) and `icon: PackagesIcon` (never `TiersIcon`). Every existing normal Tier/Add-on call site omits the param and is unaffected. `usePackageTierWorkspace.ts`'s composable card build now passes `isSubordinate: true`; the five normal occupants' own call is untouched.
-
-**Evidence extended, not replaced.** Added section 4 to `composable-occupant-workspace-contract.ts`: a normal Tier card/empty-state call proves `kind === 'Package Tier'`/`icon === TiersIcon` unchanged; the composable equivalents prove `kind === 'Composable occupant'`, `icon === PackagesIcon`, and the empty-state copy contains neither "Tier" (heading) nor "Tier slot" (body). Sanity-checked: reverted the `kind` fix, contract failed as expected, restored.
-
-**Files changed (6):** `TierDetailPanel.tsx`, `tierOccupantCard.ts`, `usePackageTierWorkspace.ts`, `composable-occupant-workspace-contract.ts`, `docs/code-map/tier-composable-occupant-admin-ui.md`, `dist/js/admin-station.js` (rebuilt).
-
-**Verified:** `tsc --noEmit` clean; `npm run build` succeeds; `composable-occupant-address`, `composable-occupant-workspace`, `package-tier-workspace`, `package-tier-workspace-shell`, `package-family-lifecycle`, `tier-edition-admin`, `tier-edition-switch`, `tier-instance-scope` contracts all pass. No PHP changed. No live browser check performed.
-
-**Open before CLOSED:** live browser validation — subordinate presentation (both empty and configured) reads as "Composable"/"Build Your Own", never as a Tier or Add-on, in both Focus and Grid.
+Runtime mutations (Save/Publish/Enable/Disable/archive/restore/Edition writes) remain separately authorization-gated.
