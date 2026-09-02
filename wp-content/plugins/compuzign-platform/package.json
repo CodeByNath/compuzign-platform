@@ -50,6 +50,7 @@
     "contract:tier-overview-is-addon": "tsx scripts/tier-overview-is-addon-contract.ts",
     "contract:composable-occupant-address": "tsx scripts/composable-occupant-address-contract.ts",
     "contract:composable-occupant-workspace": "tsx scripts/composable-occupant-workspace-contract.ts",
+    "contract:composable-offer-choice": "tsx scripts/composable-offer-choice-contract.ts",
     "contract:tier-edition-admin": "tsx scripts/tier-edition-admin-contract.ts",
     "contract:tier-edition-switch": "tsx scripts/tier-edition-switch-contract.ts",
     "contract:tier-edition-move-to-bin": "tsx scripts/tier-edition-move-to-bin-contract.ts",

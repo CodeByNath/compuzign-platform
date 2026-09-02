@@ -11,82 +11,86 @@ A deliberately minimal customer composition surface over the existing
 composable Tier occupant: quantity-only Add/Remove browsing within
 Admin-authorized bounds, no customer Price Option control, no Leg/
 commitment/Edition editing. Two presentation contexts over the SAME
-composable offer — "Build Your Own" (no normal Tier/Edition selected yet)
-and "Upgrade your build" (after one is) — both rendered by one component,
+composable offer — "Build Your Own" (no normal Tier/Edition selected) and
+"Upgrade your build" (after one is) — both rendered by one component,
 `ComposableOfferBrowser.tsx`, as a sibling of `FamilyTierAdapter`'s existing
 staged/focused views, never nested inside either.
 
 ## Browse/merchandising metadata — projection only, no new identity
 
 Category/Service filters and Featured sort needed metadata that did not
-exist anywhere on a Rate Sheet item. Rather than invent a new persisted
-field, `PackageRepository::compileOccupantSlotForCostBuilder()` threads the
-SAME live-resolved supplying-Service provenance the Manager read model
-already computes per item (`source_categories`/`source_service_title`) onto
-each `inclusions_override` entry as `categories`/`service`, keyed by the
-row's own `source_id` — additive on the one shared `presentOccupant()`
-function, so every normal Tier's inclusions carry it too (harmless, unread
-there). `unit_price`/`line_total` (already resolved inside
-`projectTierRateSheetWith()`'s own selection rows) ride along the same way,
-giving each browse card its "resolved individual contribution" with no new
-computation.
+exist on a Rate Sheet item. Rather than invent a new persisted field,
+`PackageRepository::compileOccupantSlotForCostBuilder()` threads the
+already-live-resolved supplying-Service provenance
+(`source_categories`/`source_service_title`) onto each `inclusions_override`
+entry as `categories`/`service`, keyed by `source_id` — additive on the one
+shared `presentOccupant()` function, harmless-unread on a normal Tier.
+`unit_price`/`line_total` (already resolved in
+`projectTierRateSheetWith()`'s selection rows) ride along the same way.
 
-`featured` is genuinely new authored state — a merchandising-only bool added
-to each `PackageSchema::sanitizeCustomerPolicy()` item entry, never read by
+`featured` is genuinely new state — a merchandising-only bool added to each
+`PackageSchema::sanitizeCustomerPolicy()` item entry, never read by
 `resolveCustomerComposableSelection()`/save-time validation. Living on the
 policy-authorized entry itself makes "an Admin featured reference may only
-point at an authorized item_id" structural, not a rule to enforce
-separately — there is no other place to store the flag.
+point at an authorized item_id" structural.
 
 ## Customer-safe preview endpoint
 
 `PackageRepository::locateActiveFamilyInstance(family_id)` — extracted from
-`findAllActiveFamiliesForCostBuilder()`'s own per-Family gate (active
-station/Family/Tier Instance), factored out so a single-family entry point
-can reuse the identical boundary without forcing the whole-collection method
-through a single-family access shape it wasn't written for.
-`resolveComposableOfferSelection(family_id, choice)` uses it, then requires
-the composable occupant itself carry a minted CZT/CZTA (same gate
-`enrichCompiledOccupantIdentity()` applies to the compiled public response),
-builds its container via `PackageSchema::extractTierForCostBuilder()`
-(already shaped almost exactly like `resolveCustomerComposableSelection()`'s
-own container contract), and calls that resolver unchanged.
+`findAllActiveFamiliesForCostBuilder()`'s own per-Family gate — lets a new
+single-family entry point reuse that identical authorization boundary.
+`resolveComposableOfferSelection(family_id, choice)` uses it, requires the
+occupant carry a minted CZT/CZTA (same gate
+`enrichCompiledOccupantIdentity()` applies publicly), builds its container
+via `PackageSchema::extractTierForCostBuilder()`, and calls the existing
+resolver unchanged.
 
-`POST /compuzign/v1/package-builder/composable-preview` (public, no auth —
-same posture as `/package-builder` itself) wraps it. **Only `item_id`,
-`selected`, and `quantity` are ever read off a submitted choice row** — a
-`price_option_id` a caller sends is silently dropped before it reaches the
-resolver. This is what makes "no customer Price Option selector" a wire-
-contract fact rather than a UI-only convention: omitting the key lets the
-resolver's own already-audited "no explicit choice → policy default, only
-if still authorized" branch run every time, regardless of what a malicious
-client sends. A fixed-quantity item (policy `quantity: null`) similarly
-ignores any submitted quantity — the resolver's own untouched-row branch
-already guarantees this; nothing extra was added to enforce it.
+`POST /compuzign/v1/package-builder/composable-preview` (public, no auth)
+wraps it. **Only `item_id`, `selected`, and `quantity` are ever read off a
+submitted choice row** — a `price_option_id` a caller sends is silently
+dropped before the resolver sees it, making "no customer Price Option
+selector" a wire-contract fact, not a UI convention. A fixed-quantity item
+similarly ignores any submitted quantity.
 
 ## Frontend
 
 `ComposableOfferBrowser.tsx` joins `composable_offer.inclusions` (browse
 metadata) with `composable_offer.customer_policy.items` (authorization) by
-`item_id` — an inclusion absent from the policy is not offered, full stop.
-Candidate selection/quantity lives in component-local state only, reseeded
-from policy defaults on Family/offer change; every change re-calls
-`resolveComposablePreview()` for the whole candidate and renders the live
-resolved total. Category (searchable via `<datalist>`)/Service (narrowed by
-Category)/Sort (Featured default)/max 6 per page with prev/next paging are
-client-side over the already-fetched offer — no new network shape per
-filter interaction, only the live-resolve call on an actual selection
-change.
+`item_id`. Candidate selection/quantity is component-local state only,
+reseeded from policy defaults on Family/offer change; every change
+re-calls `resolveComposablePreview()` (debounced 400ms). Category
+(searchable via `<datalist>`)/Service (narrowed by Category)/Sort
+(Featured default)/max 6 per page with prev/next paging are client-side
+over the already-fetched offer.
+
+`buildComposableChoice(rows, selection)` (exported, contract-tested via
+`scripts/composable-offer-choice-contract.ts`) is the submission boundary:
+every optional row is ALWAYS sent with an explicit `selected: true|false`,
+never omitted when off. **Correction round 1** found the original version
+omitted an unselected optional row entirely; `resolveCustomerComposableSelection()`
+treats an absent optional row as "use the policy's own `default_selected`"
+— silently re-selecting a `default_selected:true` item on every Remove
+click. A required row is always sent with no `selected` key.
+
+The live preview never sums resolved Period component prices into a
+cross-period total — Periods are timeline boundaries a recurring stream can
+span, and that arithmetic depends on the same finite-occurrence counting
+this repo has an open, unresolved discrepancy on (the Phase 2A TCV floor
+removal). It instead reuses `buildLegPaymentSummaries()`'s existing
+payment-summary presentation (one row per resolved stream: price, cycle,
+start/end month), deliberately never reading
+`summary.subtotal`/`summary.occurrenceMonths`.
 
 ## Not yet built / explicitly out of scope this slice
 
 Persisting a composable item into `FamilyTierQuoteItem`, `quoteItemKey()`
 changes, Request/PDF/email, final cart persistence, promotions, and an
 Admin authoring surface for `featured`/Category/Service beyond what already
-exists via Service Catalog import. Live browser validation was not possible
-in this session (no local WordPress environment) — reviewed via `npx tsc
---noEmit`, `npm run build`, and the PHP test suite only; see
-`tests/composable-customer-ux-preview.php`.
+exists via Service Catalog import. No live browser validation this session
+(no local WordPress environment) — reviewed via `npx tsc --noEmit`,
+`npm run build`, and the PHP/contract test suite; see
+`tests/composable-customer-ux-preview.php` and
+`scripts/composable-offer-choice-contract.ts`.
 
 ## Related Code Maps
 

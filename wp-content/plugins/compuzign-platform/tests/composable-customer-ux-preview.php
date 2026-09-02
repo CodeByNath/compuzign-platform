@@ -321,4 +321,57 @@ assertSameValue(true, $hostingPolicyItem['featured'], '10b. featured sanitizes t
 $unfeaturedFalse = PS::sanitizeCustomerPolicy(['items' => [['item_id' => 'x', 'mode' => 'required']]]);
 assertSameValue(false, $unfeaturedFalse['items'][0]['featured'], '10c. featured defaults to false when never set');
 
+// ── 11. Correction-round regression: default_selected:true Add/Remove ──────
+//    round-trips through the repository entry point. This is the backend
+//    side of the bug the auditor found in ComposableOfferBrowser.tsx: the
+//    frontend was omitting an unselected optional row from the submitted
+//    choice entirely, and this resolver treats an ABSENT optional row as
+//    "use the policy's own default_selected", not "not selected". This
+//    section locks that the REPOSITORY/RESOLVER side already honors an
+//    EXPLICIT selected:false/true correctly (the frontend fix in
+//    ComposableOfferBrowser.tsx/buildComposableChoice() is what now
+//    guarantees the explicit key is always sent — see
+//    scripts/composable-offer-choice-contract.ts for that half).
+
+$policyDefaultOn = [
+    'items' => [
+        ['item_id' => 'hosting', 'mode' => 'required',
+            'price_option' => ['mode' => 'choice', 'allowed_price_option_ids' => ['po_cheap', 'po_expensive'], 'default_price_option_id' => 'po_cheap']],
+        // default_selected:true — the exact shape the bug affected.
+        ['item_id' => 'support', 'mode' => 'optional', 'default_selected' => true],
+    ],
+];
+global $composableUxProjectionOption;
+$composableUxProjectionOption = stationFixture(occupantFixture('composable-defaulton', 'CZT-COMPOSABLE-UX-DEFAULTON', $policyDefaultOn));
+$repo3 = new PackageRepository();
+
+// 11a. Omitting 'support' from the choice entirely (no row at all) falls
+// back to the policy's own default_selected:true — support IS included.
+// This is the resolver's own documented, correct behaviour (never touched
+// by this correction round) — proves the OMISSION path really does behave
+// the way the frontend bug accidentally relied on, so 11b/11c below are a
+// meaningful contrast, not a vacuous check.
+$rOmitted = $repo3->resolveComposableOfferSelection('pcg_ux', [['item_id' => 'hosting']]);
+assertTrue($rOmitted['ok'], '11a. baseline resolves ok');
+assertTrue(totalForItem($rOmitted['periods'], 'support') !== null, '11a. omitting the row entirely falls back to default_selected:true — support IS included (documents the resolver behaviour the frontend must never accidentally rely on)');
+
+// 11b. Explicit selected:false ("Remove" was clicked) correctly EXCLUDES
+// support, despite its policy default being true — the actual fix under
+// test.
+$rExplicitOff = $repo3->resolveComposableOfferSelection('pcg_ux', [
+    ['item_id' => 'hosting'],
+    ['item_id' => 'support', 'selected' => false],
+]);
+assertTrue($rExplicitOff['ok'], '11b. resolves ok');
+assertSameValue(null, totalForItem($rExplicitOff['periods'], 'support'), '11b. an EXPLICIT selected:false correctly excludes support even though its policy default_selected is true — Remove works');
+
+// 11c. Explicit selected:true ("Add" clicked again after Remove) correctly
+// re-includes it — the round-trip.
+$rExplicitOn = $repo3->resolveComposableOfferSelection('pcg_ux', [
+    ['item_id' => 'hosting'],
+    ['item_id' => 'support', 'selected' => true],
+]);
+assertTrue($rExplicitOn['ok'], '11c. resolves ok');
+assertTrue(totalForItem($rExplicitOn['periods'], 'support') !== null, '11c. an explicit selected:true re-includes support — Add works, completing the Remove-then-Add round-trip');
+
 fwrite(STDOUT, "OK: composable-customer-ux-preview.php\n");
