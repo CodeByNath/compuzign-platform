@@ -28,6 +28,7 @@ import { MODULE_ICONS } from '@/drawer-kit/schema/icons';
 import { TiersIcon, ServicesIcon } from '@/admin-station/shell/icons';
 import { getTierNotes } from '@/drawer-kit/utils/moduleNotifications';
 import type { TierRateSheetSelection, TierPricingRulesDraft } from '../../types';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import { TIER_KEYS, TIER_LABELS, COMPOSABLE_TIER_ID, isComposableOccupant, resolveTierDrawerHeaderTitle } from '../../vocabulary';
 import { useTierDrawerController } from './useTierDrawerController';
@@ -482,6 +483,25 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         extras: { pool: svc.faqs, onCreate: (question: string, answer: string) => c.pkg.createFaq(question, answer) },
       },
     };
+  } else if (c.editingSection === 'tier-customer-policy') {
+    // No `&& c.customerPolicyDraft` guard, unlike the truthy-array checks
+    // above — null is this draft's own legitimate VALUE (no policy
+    // configured / explicitly cleared), not "nothing to edit." The session
+    // is open iff editingSection matches, exactly like useTierModuleEditing's
+    // own saveSection() branch for this same module.
+    editing = {
+      module: 'customer_policy',
+      session: {
+        draft: c.customerPolicyDraft,
+        replace: (next) => c.setCustomerPolicyDraft(next as CustomerPolicy | null),
+        onSave: c.saveSection,
+        onCancel: c.cancelSection,
+        saving: c.pkg.saving,
+        saveErr: c.saveErr,
+        isDirty: true,
+        extras: { rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved) },
+      },
+    };
   }
 
   // View mode — the Individual Tier drawer body. Keyed by stable occupant
@@ -557,6 +577,22 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
               binding={td.featuresBinding}
               panelOpen={c.openTierPanel === 'features'}
               onTogglePanel={togglePanel('features')}
+              editing={editing}
+            />
+          )}
+          {/* Composable occupant only — same "a real, settled occupant"
+              gate (detail.occupant_id) Options' own Edition switcher below
+              already uses, plus isComposableOccupant so a normal Tier/
+              Add-on's own Details group never grows a fifth module. Sibling-
+              suppression matches every module above: unconditional at this
+              tree position, never reparented/remounted by the guard. */}
+          {(!editing || editing.module === 'customer_policy') && isComposableOccupant(c.editingTierId) && detail.occupant_id && (
+            <PlacedShell
+              entity={TIER_ENTITY}
+              slot={{ module: 'customer_policy', mode: 'details' }}
+              binding={td.customerPolicyBinding}
+              panelOpen={c.openTierPanel === 'customer_policy'}
+              onTogglePanel={togglePanel('customer_policy')}
               editing={editing}
             />
           )}

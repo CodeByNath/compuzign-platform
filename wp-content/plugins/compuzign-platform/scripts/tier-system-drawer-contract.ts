@@ -464,13 +464,22 @@ const tierBindingsSource = readFileSync(resolve(
 // the single place that creates one. Overview, Pricing Rules, Features, and
 // FAQs all use the plain shared DETAILS_FOOTER/DETAILS_ACTIONS now — no
 // Overview-specific superset remains.
+//
+// Phase 2B1.1 added a fifth module, Customer Selection Rules
+// (tierCustomerPolicyShell, composable occupant only), using this SAME
+// shared footer/actions convention — the count below tracks how many Tier
+// modules currently exist in this file, not a fixed ceiling; it moves from
+// 4 to 5 because a genuine fifth module now exists, not because this check
+// was loosened. The invariant itself — no module gets a footer/actions
+// superset of its own — is unchanged and still enforced by the negative
+// checks (OVERVIEW_FOOTER/OVERVIEW_ACTIONS/'add-edition') right below.
 check(
-  (tierBindingsSource.match(/footer:\s+DETAILS_FOOTER/g) ?? []).length === 4
+  (tierBindingsSource.match(/footer:\s+DETAILS_FOOTER/g) ?? []).length === 5
     && !tierBindingsSource.includes('OVERVIEW_FOOTER')
     && !tierBindingsSource.includes('OVERVIEW_ACTIONS')
     && !tierBindingsSource.includes("id: 'add-edition'")
     && tierBindingsSource.includes("edit: { id: 'edit', label: 'Edit', intent: 'secondary' }"),
-  'all four Tier modules offer the same Edit action into their own inline editor, through the one shared DETAILS_FOOTER/DETAILS_ACTIONS — Overview carries no second, Edition-creating action of its own anymore',
+  'all five Tier modules offer the same Edit action into their own inline editor, through the one shared DETAILS_FOOTER/DETAILS_ACTIONS — Overview carries no second, Edition-creating action of its own anymore',
 );
 const tierModuleRules = readFileSync(resolve(
   root,

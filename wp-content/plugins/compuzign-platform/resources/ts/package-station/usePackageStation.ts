@@ -42,6 +42,7 @@ import type {
   ComposableOccupantRestoreResponse,
 } from './types';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
 import { resolveTierStatus } from '@/drawer-kit/utils/moduleStatus';
 import type { TierLike } from '@/drawer-kit/utils/moduleStatus';
 import {
@@ -50,6 +51,7 @@ import {
   tierPricingRulesModule,
   tierFeaturesModule,
   tierFaqsModule,
+  tierCustomerPolicyModule,
 } from '@/drawer-kit/utils/moduleNotifications';
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { patchTierModuleDraft } from '@/hooks/stationPrimitives';
@@ -79,9 +81,10 @@ import { COMPOSABLE_TIER_ID, COMPOSABLE_OCCUPANT_ORIGIN } from './vocabulary';
 // addressing scheme exists at all, since they only ever see a tierId string.
 // See docs/code-map/tier-composable-occupant.md.
 
-const EMPTY_DRAFTS: TierDrafts = { overview: null, pricing_rules: null, features: null, faqs: null };
+const EMPTY_DRAFTS: TierDrafts = { overview: null, pricing_rules: null, features: null, faqs: null, customer_policy: null };
 const NOT_CONFIGURED: Record<string, string> = {
   overview: 'not-configured', pricing_rules: 'not-configured', features: 'not-configured', faqs: 'not-configured',
+  customer_policy: 'not-configured',
 };
 
 // A tier slot with its lifecycle layer guaranteed present (the P3 response always
@@ -157,6 +160,12 @@ export function draftPreferredDetail(slot: PackageStationTier): SurfaceTierDetai
     // a draft that omits it (or no draft at all) keeps the settled
     // occupant's value.
     is_addon:            ov && ov.is_addon !== undefined ? ov.is_addon : slot.is_addon,
+    // Wrapped draft (see TierDrafts.customer_policy's own doc comment): the
+    // draft slot itself being present (not null) means a pending change
+    // exists, regardless of whether its own 'value' is null (an explicit
+    // pending clear) or a policy object — only the ABSENCE of the wrapper
+    // means "no draft, use the settled occupant's own value."
+    customer_policy:     slot.drafts.customer_policy ? slot.drafts.customer_policy.value : (slot.customer_policy ?? null),
   };
 }
 
@@ -231,6 +240,7 @@ export interface PackageStationTierView {
     pricing_rules: ModuleState;
     features:      ModuleState;
     faqs:          ModuleState;
+    customer_policy: ModuleState;
   };
 }
 
@@ -253,6 +263,10 @@ export interface PackageStation {
   saveTierPricingRules: (tierId: string, draft: TierPricingRulesDraft) => Promise<TierLifecycleResponse | null>;
   saveTierFeatures:     (tierId: string, refs: TierRateSheetSelection[]) => Promise<TierLifecycleResponse | null>;
   saveTierFaqs:         (tierId: string, refs: string[])           => Promise<TierLifecycleResponse | null>;
+  // Composable occupant only — savePackageStationTierModule() rejects this
+  // module outright for a fixed Tier/Add-on, so calling this with any other
+  // tierId simply fails server-side; no client-side guard duplicates that.
+  saveTierCustomerPolicy: (tierId: string, policy: CustomerPolicy | null) => Promise<TierLifecycleResponse | null>;
   // Discard one module's pending draft (engine D1) — status re-derives from the occupant.
   revertTierModule: (tierId: string, module: TierModuleKey) => Promise<TierLifecycleResponse | null>;
   // Commit the whole tier.
@@ -425,6 +439,22 @@ export function usePackageStation(
             platformLabel:    'Tier',
           },
         ),
+        // Composable occupant only — rendered conditionally by
+        // TierDrawerContent, but evaluated unconditionally here like every
+        // other module (a normal Tier's own value is simply never read).
+        customer_policy: evaluateModule(
+          tierCustomerPolicyModule,
+          { count: dp.customer_policy?.items.length ?? 0 },
+          {
+            platformStatus:   occupantPlatformStatus,
+            moduleTransition: slot.module_status.customer_policy,
+            hasDraft:         slot.drafts.customer_policy !== null,
+            disabled:         occupantDisabled,
+            parentReady:      tierPricingComplete,
+            parentLabel:      'Tier Overview',
+            platformLabel:    'Tier',
+          },
+        ),
       },
     };
   }, [detail, platformStatus]);
@@ -540,6 +570,10 @@ export function usePackageStation(
   );
   const saveTierFaqs = useCallback(
     (tierId: string, refs: string[]) => saveModule(tierId, 'faqs', { faq_refs: refs }),
+    [saveModule],
+  );
+  const saveTierCustomerPolicy = useCallback(
+    (tierId: string, policy: CustomerPolicy | null) => saveModule(tierId, 'customer_policy', { customer_policy: policy }),
     [saveModule],
   );
 
@@ -842,6 +876,7 @@ export function usePackageStation(
     saveTierPricingRules,
     saveTierFeatures,
     saveTierFaqs,
+    saveTierCustomerPolicy,
     revertTierModule,
     settleTier,
     setPopularTier,

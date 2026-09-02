@@ -1,5 +1,6 @@
 import type { PromotionTier } from '@/api/types/admin';
 import type { InclusionItem, FaqItem } from '@/api/types/pools';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
 
 // Phase 2 — Service Station-owned Package Station tier management.
 // Engine D2 — a displaced tier occupant travelling through the bin. The shell
@@ -619,6 +620,14 @@ export interface SurfaceTierDetail {
   // moved out of tier_editions[] (never auto-migrated). Absent/empty for
   // every occupant that has never used this capability.
   tier_edition_bin?: TierEditionBinEntry[];
+  // Phase 2B1.1 — Admin-authorized customer selection bounds, composable
+  // occupant only (see docs/code-map/tier-composable-occupant-customer-ux.md).
+  // Every normal Tier/Add-on occupant's own field stays permanently null —
+  // savePackageStationTierModule() rejects the 'customer_policy' module
+  // outright for a fixed slot, so there is no admin authoring path to set
+  // one there. Optional for the same pre-repair-response reason as
+  // drafts/module_status above.
+  customer_policy?: CustomerPolicy | null;
 }
 
 // ── Tier Edition (Phase 1+) ──────────────────────────────────────────────────
@@ -905,15 +914,24 @@ export interface TierDrafts {
   pricing_rules: TierPricingRulesDraft | null;
   features:      TierRateSheetSelection[] | null;
   faqs:          string[] | null;
+  // Wrapped, unlike every sibling draft above — a sanitized policy can
+  // itself legitimately be null (explicitly cleared back to "no policy"),
+  // and the platform's own drafts[module] === null already means "no
+  // pending draft at all" (PackageStationController::
+  // saveComposableOccupantModule()'s own customer_policy branch), so the
+  // two nulls must never be conflated. null = no draft; {value: null} = a
+  // pending explicit clear; {value: {...}} = a pending policy.
+  customer_policy: { value: CustomerPolicy | null } | null;
 }
 
-export type TierModuleKey = 'overview' | 'pricing_rules' | 'features' | 'faqs';
+export type TierModuleKey = 'overview' | 'pricing_rules' | 'features' | 'faqs' | 'customer_policy';
 
 export type TierModuleSavePayload =
   | TierOverviewDraft
   | TierPricingRulesDraft
   | { rate_sheet_items: TierRateSheetSelection[] }
-  | { faq_refs: string[] };
+  | { faq_refs: string[] }
+  | { customer_policy: CustomerPolicy | null };
 
 // Response of the per-module save and settle endpoints. `tier` is the settled
 // detail (unchanged by a draft save; rewritten by settle); `drafts`/`module_status`

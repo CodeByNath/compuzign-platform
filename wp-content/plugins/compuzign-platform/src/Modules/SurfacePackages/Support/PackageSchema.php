@@ -1244,6 +1244,12 @@ class PackageSchema
                 'rate_sheet_items'    => self::sanitizeTierRateSheetSelections($occ['rate_sheet_items'] ?? []),
                 'features'            => $occ['features'] ?? [],
                 'faq_refs'            => $occ['faq_refs'] ?? [],
+                // Admin read of the settled customer_policy — same additive,
+                // re-sanitized-not-trusted-verbatim posture as every other
+                // field here. The draft-preferred value (settleTierSlot's own
+                // read) is separate; this is the plain settled projection
+                // every other module already gets, which this one lacked.
+                'customer_policy'     => self::sanitizeCustomerPolicy($occ['customer_policy'] ?? null),
                 'enabled'             => ($occ['platform_status'] ?? 'active') === 'active',
                 // Occupant-level selection mode: whether this Tier is offered as an
                 // exclusive normal choice (false) or as a stackable add-on alongside
@@ -2417,7 +2423,7 @@ class PackageSchema
             'from_month' => null, 'to_month' => null, 'legs' => [], 'headline_leg_id' => '',
             'rate_sheet_id' => null, 'inclusions_override' => [], 'rate_sheet_items' => [],
             'features' => [], 'faq_refs' => [], 'enabled' => false, 'is_addon' => false,
-            'tier_editions' => [], 'tier_edition_bin' => [],
+            'tier_editions' => [], 'tier_edition_bin' => [], 'customer_policy' => null,
         ];
     }
 

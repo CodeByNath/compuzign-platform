@@ -111,6 +111,7 @@ Phase 2B1 — see [Composable Tier Occupant — Customer UX](tier-composable-occ
 [Composable Tier Occupant](tier-composable-occupant.md), [Composable Tier
 Occupant — Customer UX](tier-composable-occupant-customer-ux.md),
 [Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
+[Composable Tier Occupant — Admin Customer Selection Rules](tier-composable-occupant-admin-customer-policy.md),
 [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
 [Commercial Legs](commercial-legs.md), [Tier Edition](tier-edition.md),
 [Rate Sheet](rate-sheet.md), [Rate Sheet Bundle](rate-sheet-bundle.md), and

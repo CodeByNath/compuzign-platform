@@ -107,5 +107,6 @@ and the PHP/contract suite (`tests/composable-customer-ux-preview.php`,
 [Composable Tier Occupant](tier-composable-occupant.md), [Composable Tier
 Occupant — Customer Configuration Policy](tier-composable-occupant-customer-policy.md),
 [Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
+[Composable Tier Occupant — Admin Customer Selection Rules](tier-composable-occupant-admin-customer-policy.md),
 [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
-[Commercial Legs](commercial-legs.md), and [Cost Builder](cost-builder.md).
+and [Commercial Legs](commercial-legs.md).

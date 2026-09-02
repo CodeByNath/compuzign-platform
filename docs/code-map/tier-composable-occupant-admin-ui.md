@@ -91,6 +91,7 @@ after source review — see the coordination doc's Phase 1B decision.
 ## Related Code Maps
 
 [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
-[Composable Tier Occupant](tier-composable-occupant.md), [Tiers](tiers.md),
-[Tier Edition](tier-edition.md), [Drawer System](drawer-system.md), and
+[Composable Tier Occupant](tier-composable-occupant.md), [Composable Tier
+Occupant — Admin Customer Selection Rules](tier-composable-occupant-admin-customer-policy.md),
+[Tiers](tiers.md), [Tier Edition](tier-edition.md), [Drawer System](drawer-system.md), and
 [Package Station](package-station.md).

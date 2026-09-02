@@ -9,6 +9,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { TierPricingRulesDraft, TierRateSheetSelection } from '../../types';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
 import type { PackageStation } from '../../usePackageStation';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
@@ -30,11 +31,17 @@ export function useTierModuleEditing({
   const [pricingRulesDraft, setPricingRulesDraft] = useState<TierPricingRulesDraft | null>(null);
   const [featuresDraft, setFeaturesDraft] = useState<TierRateSheetSelection[] | null>(null);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
+  // Composable occupant only. null distinguishes "no policy configured" as
+  // the actual, valid draft VALUE, same as the module-level draft-open flow
+  // for every other section — the section is only open while
+  // editingSection === 'tier-customer-policy'; this itself is never used to
+  // decide that.
+  const [customerPolicyDraft, setCustomerPolicyDraft] = useState<CustomerPolicy | null>(null);
   // Set only by the Pricing Rules save-time coverage correction below — see
   // resolveLegsCoverageCorrection's own doc comment.
   const [pricingRulesNotice, setPricingRulesNotice] = useState<string | null>(null);
 
-  const openSection = (section: 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs') => {
+  const openSection = (section: 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs' | 'tier-customer-policy') => {
     if (!editingTierId) return;
     const view = pkg.tierView(editingTierId);
     if (!view) return;
@@ -75,6 +82,8 @@ export function useTierModuleEditing({
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));
+    } else if (section === 'tier-customer-policy') {
+      setCustomerPolicyDraft(d.customer_policy ?? null);
     } else {
       setFaqsDraft([...d.faq_refs]);
     }
@@ -140,6 +149,14 @@ export function useTierModuleEditing({
       } else if (editingSection === 'tier-faqs' && faqsDraft) {
         const r = await pkg.saveTierFaqs(editingTierId, faqsDraft);
         ok = !!r?.success;
+      } else if (editingSection === 'tier-customer-policy') {
+        // No `&& customerPolicyDraft` guard, unlike every branch above —
+        // null is this draft's own legitimate VALUE (explicitly clearing
+        // the policy back to none), not "nothing to save." The session is
+        // open iff editingSection matches; the draft's own nullability is
+        // orthogonal, same as every other module's session/value split.
+        const r = await pkg.saveTierCustomerPolicy(editingTierId, customerPolicyDraft);
+        ok = !!r?.success;
       }
       if (!ok) { setSaveErr('Save failed.'); return; }
       setSaveOk(true);
@@ -148,6 +165,7 @@ export function useTierModuleEditing({
       setPricingRulesDraft(null);
       setFeaturesDraft(null);
       setFaqsDraft(null);
+      setCustomerPolicyDraft(null);
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
     }
@@ -160,6 +178,7 @@ export function useTierModuleEditing({
     setPricingRulesDraft(null);
     setFeaturesDraft(null);
     setFaqsDraft(null);
+    setCustomerPolicyDraft(null);
     setSaveErr(null);
     setSaveOk(false);
     setPricingRulesNotice(null);
@@ -172,6 +191,7 @@ export function useTierModuleEditing({
     pricingRulesNotice,
     featuresDraft, setFeaturesDraft,
     faqsDraft, setFaqsDraft,
+    customerPolicyDraft, setCustomerPolicyDraft,
     openSection, saveSection, cancelSection,
   };
 }

@@ -96,6 +96,23 @@ export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
   resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(count > 0, ctx),
 };
 
+// Composable occupant only (see drawer/schema/bindings/tier.tsx's
+// tierCustomerPolicyShell). An absent/empty policy is a legitimate "no
+// customer composability offered yet" state, not an error — never a
+// completeness problem, matching this module's own code-map doc
+// (customer_policy has no shipped floor/requirement of its own). Still
+// gated on parent completeness like Features/FAQs: authoring policy over
+// inclusions that do not resolve yet has nothing meaningful to reference.
+export const tierCustomerPolicyModule: ModuleDefinition<{ count: number }> = {
+  key:                'tier-customer-policy',
+  requiresParent:     true,
+  emptyPrompt:        'Edit customer selection rules.',
+  isEmpty:            ({ count }) => count === 0,
+  problems:           () => [],
+  includeDraftInTail: true,
+  resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(true, ctx),
+};
+
 // One inclusion as a single Tier uses it — the module behind the Inclusion
 // drawer's Overview. Its truth is the selection's own resolution: a selection
 // whose Rate Sheet row and Service source both resolve is complete; one that

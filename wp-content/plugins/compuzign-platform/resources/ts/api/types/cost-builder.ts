@@ -65,7 +65,14 @@ export interface CustomerPolicyPriceOption {
 
 export interface CustomerPolicyItem {
   item_id: string;
-  mode: 'required' | 'optional';
+  // The true backend shape (PackageSchema::sanitizeCustomerPolicy()) always
+  // allows 'excluded' — the CUSTOMER-facing projection this type originally
+  // modeled never actually carries one (PackageFamilyPricingBuilder::
+  // presentCustomerPolicy() strips every excluded entry before it reaches
+  // the wire), but the raw admin-side stored/settled policy
+  // (package-station's own Admin "Customer Options" drawer) does, so the
+  // type must allow it to stay accurate for both readers of this one shape.
+  mode: 'required' | 'optional' | 'excluded';
   // Only meaningful when mode === 'optional'.
   default_selected: boolean;
   // null = fixed at this item's own published quantity — render no selector.

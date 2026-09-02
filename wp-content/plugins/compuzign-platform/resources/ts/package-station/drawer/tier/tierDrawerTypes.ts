@@ -32,7 +32,9 @@ export interface TierDrawerContentProps {
 }
 
 // Which individual-tier module is being edited (null = every module readable).
-export type TierEditingSection = 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs' | null;
+// 'tier-customer-policy' is reachable only for the composable occupant — see
+// TierDrawerContent.tsx's own conditional PlacedShell.
+export type TierEditingSection = 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs' | 'tier-customer-policy' | null;
 
 // The individual-tier screen's four presentation groups (drawer refinement
 // blueprint, Phase 3). This screen composes its shells directly through

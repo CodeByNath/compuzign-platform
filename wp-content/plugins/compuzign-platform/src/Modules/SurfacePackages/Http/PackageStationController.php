@@ -343,7 +343,7 @@ class PackageStationController
                 'module' => ['required' => true, 'validate_callback' => fn($v) => in_array($v, \CompuZign\Platform\Modules\SurfacePackages\Support\PackageSchema::TIER_MODULES, true)],
             ],
         ]);
-        register_rest_route('compuzign/v1', $instanceBase . '/composable/modules/(?P<module>overview|pricing_rules|features|faqs)/revert', [
+        register_rest_route('compuzign/v1', $instanceBase . '/composable/modules/(?P<module>overview|pricing_rules|features|faqs|customer_policy)/revert', [
             'methods' => 'POST', 'callback' => [$this, 'revertComposableOccupantModule'],
             'permission_callback' => [$this, 'requireAdmin'],
             'args' => [...$instanceArgs, 'module' => ['required' => true, 'type' => 'string']],
