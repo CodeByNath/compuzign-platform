@@ -1,11 +1,12 @@
 # Composable Tier occupant
 
 ## Status
-- **READY FOR CLAUDE — live validation found one remaining drawer-header presentation leak.**
-- Auditor verdict: **Proceed with safeguards — not CLOSED.**
-- Production `main`: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`.
+- **AWAITING CHATGPT REVIEW — drawer-header correction pushed to review branch.**
+- Auditor verdict on file: **Proceed with safeguards — not CLOSED.**
+- Production `main`: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` (unchanged — this correction is NOT on `main` yet).
 - Deploy to Hostinger run `33589079596` / #930 succeeded on that exact SHA.
-- **SOURCE PUSH NOT APPROVED for any new correction until review.**
+- Review branch `fix/composable-tier-workspace-launcher` now `d78629d3` (1 commit ahead of deployed `8545eb2e`).
+- **SOURCE PUSH NOT APPROVED for this correction until review.**
 
 ## Locked architecture
 One subordinate `composable_occupant` lives under the existing Tier System, outside the five-slot `tiers` map. It reuses normal occupant/editor/lifecycle machinery but is never a sixth Tier, Add-on, second Tier Instance, or Family assignment.
@@ -43,3 +44,20 @@ Push the correction only to the existing review branch, report exact SHA/files/t
 - composable drawer header is no longer Package Tier/Add-on.
 - opening Tier Overview Edit shows Add-on and Popular controls absent only for composable context (do not Save).
 - normal Tier drawer still presents normally.
+
+## Claude correction report — 2026-09-02
+Branch `fix/composable-tier-workspace-launcher`, new commit `d78629d3` on top of the deployed `8545eb2e`. Pushed to the same review branch only. **`main` unchanged, not merged, no live mutations.**
+
+**Root cause:** `register.ts` registers one static `title: 'Package Tier'` per drawer template key (`tier` -> `'Package Tier'`); `AdminStationDrawer.tsx` renders `template.title` unconditionally in the drawer's `<h2>`. No seam existed for content to override it per-instance.
+
+**Correction — one additive title-resolution seam, per the safeguards:**
+- New optional `setHeaderTitle?: (title: string | null) => void` on `DrawerContentProps` (`station-manager/drawerTypes.ts`) and `EntityDrawerHostBridge` (`drawer-kit/entityDrawerHost.ts`) — mirrors the existing `setHeaderHidden`/`setHeaderAction` pattern exactly: shell-owned state in `AdminStationDrawer.tsx`, guaranteed reset to `null` on template/record change, `null` falls back to `template.title` unchanged. Not fork of the drawer host/chrome — same shell, same template registry.
+- `TierDrawerHost.tsx` wires the new prop through to the bridge, same as `setHeaderHidden`.
+- `TierDrawerContent.tsx` calls a new exported `vocabulary.ts` function, `resolveTierDrawerHeaderTitle(editingTierId)`, in an effect keyed on `editingTierId`: returns `'Build Your Own'` (the existing `TIER_LABELS[COMPOSABLE_TIER_ID]`) only while the composable occupant is open, `null` otherwise — package overview and every normal Tier/Add-on screen unaffected.
+- No routing, persistence, lifecycle, editor module, count, workspace projection, or Add-on-semantics change. Every other registered drawer template (Family, Rate Sheet, Inclusion, …) never calls the new bridge method, so its own title is unaffected.
+
+**Evidence — extended per the safeguard requirement.** `composable-occupant-workspace-contract.ts` section 5 proves: the composable header title is never `'Package Tier'`/`'Package Add-on'`, resolves to `'Build Your Own'`; every normal Tier screen (all five `TIER_KEYS`) and the package-overview screen (`null`) get no override; and `register.ts`'s own base title is still literally `'Package Tier'` in source, unchanged. Sanity-checked: reverted the resolver to always return `null`, contract failed as expected, restored.
+
+**Files changed (10 source + 2 doc-index):** `drawerTypes.ts`, `entityDrawerHost.ts`, `AdminStationDrawer.tsx`, `TierDrawerHost.tsx`, `TierDrawerContent.tsx`, `vocabulary.ts`, `composable-occupant-workspace-contract.ts`, `dist/js/admin-station.js` (rebuilt); `docs/code-map/tier-composable-occupant-admin-ui.md` split into itself (Phase 1B) plus new `tier-composable-occupant-workspace-ui.md` (Phase 1C, now covers this fix) since it had grown past 900 words across three rounds — `000-README.md`/`tier-composable-occupant.md` links updated.
+
+**Verified:** `tsc --noEmit` clean; `npm run build` succeeds. Ran the previously-passing suite plus, as a precaution since this touches the shared drawer shell every entity drawer uses: `composable-occupant-workspace`, `composable-occupant-address`, `package-tier-workspace`, `package-tier-workspace-shell`, `package-family-lifecycle`, `tier-edition-admin`, `tier-edition-switch`, `tier-instance-scope`, `tier-drawer-editor-chrome`, `drawer-module-entry`, `tier-system-drawer`, `tier-occupant-card-drawer-unification` — all pass. No PHP changed. No live browser check performed on this correction yet.
