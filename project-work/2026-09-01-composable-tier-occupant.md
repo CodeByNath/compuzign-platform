@@ -1,8 +1,8 @@
 # Composable Tier occupant
 
 ## Status
-- **READY FOR CLAUDE — workspace integration correction only.**
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW — implementation complete on the review branch, evidence contract added.**
+- Auditor verdict on the correction scope: **Proceed with safeguards** (unchanged; implementation follows it below).
 - Reviewed/deployed baseline: `736198663ab0dd4307255295a5dbc43ae5d6b68d`.
 - **SOURCE PUSH NOT APPROVED.**
 
@@ -33,3 +33,26 @@ Add focused TS contracts proving:
 - normal five-slot drawer routing remains unchanged.
 
 Run typecheck/build/docs plus relevant workspace, lifecycle, Edition and composable contracts. Push only to the existing review branch, report exact SHA/files/tests/root cause confirmation here, then set **AWAITING CHATGPT REVIEW**. Do not push to `main`, mutate live runtime, or start customer/cart/quote/PDF/email/promotion work.
+
+## Claude implementation report — 2026-09-02
+Branch `fix/composable-tier-workspace-launcher` (based on `phase/composable-tier-occupant` @ `73619866`), pushed to the existing review branch, HEAD `f73ae103` (prior commit `de0f65c6` also pushed). **Not merged, not on `main`, no live mutations.**
+
+**Root cause confirmed as stated** — `PackageTierWorkspace.tsx` is a second entry point untouched by Phase 1B; `projectWorkspaceTierSlots()` left five-slot-only, exactly as instructed.
+
+**Correction to the auditor's own read:** `usePackageStation` has no `pkg.composableView()` method — the actual accepted API is `pkg.tierView(COMPOSABLE_TIER_ID)` (the same sentinel-routing call `TierDrawerContent.tsx` already makes). Used that instead; behavior matches the auditor's intent exactly (the composable read already crosses this surface via the shared hook, no second backend read added).
+
+**Per the 6-point instruction:**
+1. `projectWorkspaceTierSlots()` untouched; still exactly `TIER_KEYS.map(...)`.
+2. New separate model: `usePackageTierWorkspace.ts` adds a `composableOccupant: WorkspaceTierSlot | null` field, built by a new exported `projectComposableWorkspaceSlot()` in `projection.ts` — never entering `slots`/`occupants`/Tier counts/Add-on filtering/Popular/grid collection.
+3. One subordinate launcher rendered in `PackageTierWorkspace.tsx`, outside the Focus/Grid switch (covers both views), showing configured/not-configured state via a reused `TierDetailPanel` (additive `isSubordinate` prop, default `false`, swaps its "Fixed Tier slot" copy so it never claims to be a sixth Tier).
+4. Reused `dispatchTierIntent`. Existing composable occupant routes by occupant identity: `usePackageStation.ts`'s `resolveOccupantSlot()` was blind to `composable_occupant` — extracted the fix as `tierOccupants.ts`'s exported `resolveOccupantSlotIncludingComposable()`. Absent child: `tierDrawerTypes.ts`'s `FIXED_TIER_SLOTS` (routing-token validation, distinct from `TIER_KEYS`) now also accepts `COMPOSABLE_TIER_ID` — narrow, not added to `TIER_KEYS`/`ALLOWED_TIERS`.
+5. Opens the same `TierDrawerContent.tsx`/`TierDrawerHost.tsx` path every normal occupant uses — no new editor/controller/footer/Edition UI.
+6. Add-on/Popular suppression and no-swap/retarget semantics are unchanged (already gated upstream in `TierDrawerContent.tsx`/`TierBinList.tsx`; this round touched neither).
+
+**Files changed (8):** `usePackageTierWorkspace.ts`, `PackageTierWorkspace.tsx`, `TierDetailPanel.tsx`, `projection.ts`, `tierOccupants.ts`, `usePackageStation.ts`, `tierDrawerTypes.ts`, `docs/code-map/tier-composable-occupant-admin-ui.md`, plus `dist/js/admin-station.js` rebuilt and a new `scripts/composable-occupant-workspace-contract.ts` (registered as `contract:composable-occupant-workspace`).
+
+**Required evidence — delivered.** The new contract proves, against the real exported functions (not mounted DOM, same precedent as `composable-occupant-address-contract.ts`): workspace `slots`/filters stay exactly five with composable structurally absent; the composable model is available and correctly shaped for both absent and configured states; the composable routing token decodes without joining `TIER_KEYS`/`FIXED_TIER_SLOTS` while all five normal slots and a normal occupant-id route round-trip unchanged; and `resolveOccupantSlotIncludingComposable` resolves the composable occupant's own `occupant_id` without disturbing the five normal ones or matching a stale/absent one. Sanity-checked the contract itself: reverted the `FIXED_TIER_SLOTS` fix, contract failed as expected, restored it.
+
+**Verified:** `tsc --noEmit` clean; `npm run build` succeeds; `contract:composable-occupant-address`, `contract:composable-occupant-workspace`, `contract:package-tier-workspace`, `contract:package-tier-workspace-shell`, `contract:package-family-lifecycle`, `contract:tier-edition-admin`, `contract:tier-edition-switch`, `contract:tier-instance-scope` all pass. No PHP changed. **Not verified:** no live browser check (none authorized/performed).
+
+**Open before CLOSED:** live browser validation on the KAIROS route (both Focus and Grid) — subordinate launcher renders, "5 of 5"/Family "Tiers 5" unchanged, opens the same shared Tier editor for the composable target, Add-on/Popular remain absent in that context.
