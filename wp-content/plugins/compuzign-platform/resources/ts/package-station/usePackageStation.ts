@@ -312,8 +312,18 @@ export function usePackageStation(
   const station        = detail?.station ?? null;
   const platformStatus = station?.platform_status ?? 'disabled';
   const tierOccupants  = deriveTierOccupants(station?.tiers ?? {});
+  // The composable occupant is deliberately excluded from `tiers`/`tierOccupants`
+  // (never a sixth slot), so a generic occupant_id lookup must check it as a
+  // fourth location too — the same identity-adapter gap already fixed on the
+  // PHP side for PackageRepository's locate/claim/exists functions. Without
+  // this, opening the composable occupant by its own occupant_id (rather than
+  // the caller already knowing to hardcode COMPOSABLE_TIER_ID) silently
+  // resolves to no slot at all.
   const resolveOccupantSlot = useCallback(
-    (occupantId: string) => resolveTierOccupantSlot(detail?.station.tiers ?? {}, occupantId),
+    (occupantId: string) => {
+      if (detail?.station.composable_occupant?.occupant_id === occupantId) return COMPOSABLE_TIER_ID;
+      return resolveTierOccupantSlot(detail?.station.tiers ?? {}, occupantId);
+    },
     [detail],
   );
 

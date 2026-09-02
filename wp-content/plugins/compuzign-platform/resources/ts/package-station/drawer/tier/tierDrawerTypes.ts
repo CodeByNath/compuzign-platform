@@ -7,6 +7,7 @@
 
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
+import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 
 export interface TierDrawerContentProps {
   // Service id is navigation context for the Package-owned endpoint.
@@ -50,7 +51,11 @@ export interface TierBinPrompt {
 const TIER_DRAWER_RECORD_PREFIX = 'tier-instance:';
 const TIER_SLOT_DRAWER_RECORD_PREFIX = 'tier-slot:';
 const TIER_REGISTRATION_RECORD_PREFIX = 'tier-register:';
-const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate']);
+// The subordinate composable occupant's own sentinel is a valid empty-slot
+// address too — it is never one of the five fixed Tier slots, but an
+// as-yet-uncreated composable occupant still opens by this same token before
+// any occupant_id exists to route by instead.
+const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate', COMPOSABLE_TIER_ID]);
 
 /** Package-owned routing token; the card itself keeps occupant_id identity. */
 export function encodeTierDrawerRecordId(instanceId: string, occupantId: string): string {

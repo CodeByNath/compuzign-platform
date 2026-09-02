@@ -17,6 +17,7 @@ import type { TierInstancesToolState } from '../tierInstance/useTierInstances';
 import { useHostService } from '../tierSurface/useHostService';
 import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
+import { COMPOSABLE_TIER_ID, TIER_LABELS } from '../../vocabulary';
 import {
   projectResolvedInstanceOccupants,
   projectWorkspaceTierSlots,
@@ -50,6 +51,11 @@ export interface PackageTierWorkspaceTool {
   // fails closed rather than showing a fabricated zero.
   familyComposition: TierGroupComposition | null;
   slots: WorkspaceTierSlot[];
+  // The subordinate composable occupant — deliberately never one of `slots`,
+  // never counted in `occupants.length`/"N of 5", never in TIER_KEYS. Null
+  // whenever no Tier system is assigned/focused (same shape as a fixed slot
+  // so TierDetailPanel renders it via the identical created/empty branches).
+  composableOccupant: WorkspaceTierSlot | null;
   decks: Record<string, TierDeck>;
   connectionNavigation: Record<string, ConnectionNavigationCategory[]>;
   emptyConnectionNavigation: ConnectionNavigationCategory[];
@@ -283,6 +289,46 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       }),
     );
     const occupants = resolvedOccupants.map((occupant) => occupant.item);
+
+    // The subordinate composable occupant — read through the SAME
+    // pkg.tierView(...) sentinel routing TierDrawerContent already uses, never
+    // through pkg.tierOccupants/projectWorkspaceTierSlots (both TIER_KEYS-only
+    // by design). Present only once a Tier system is actually focused.
+    let composableOccupant: WorkspaceTierSlot | null = null;
+    if (workspaceInstance) {
+      const composableView = pkg.tierView(COMPOSABLE_TIER_ID);
+      const composableOccupantId = composableView?.detail.occupant_id ?? null;
+      if (composableOccupantId) {
+        const deck = projectTierDeck(
+          composableView?.detail.rate_sheet_selections ?? [],
+          categoryByRateItem,
+          rateSheets.find((sheet) => sheet.rate_sheet_id === composableView?.detail.rate_sheet_id) ?? null,
+          composableView?.detail.rate_sheet_id ?? null,
+        );
+        decks[composableOccupantId] = deck;
+        connectionNavigation[composableOccupantId] = projectConnectionNavigation({
+          family: selectedFamily,
+          familyComposition,
+          groups: deck.groups,
+          rateSheet: deck.rateSheet,
+          hasFocusedTier: true,
+        });
+      }
+      composableOccupant = {
+        slotId: COMPOSABLE_TIER_ID,
+        label: TIER_LABELS[COMPOSABLE_TIER_ID] ?? 'Build Your Own',
+        occupantId: composableOccupantId,
+        item: composableOccupantId ? toTierOccupantCard({
+          occupantId: composableOccupantId,
+          slotId: COMPOSABLE_TIER_ID,
+          view: composableView,
+          platformStatus: pkg.platformStatus,
+        }) : null,
+        isAddon: null,
+        isPopular: false,
+      };
+    }
+
     return {
       kind: 'tier-instance-tool',
       tierInstances: workspaceTierInstances,
@@ -293,6 +339,7 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
       occupants,
       familyComposition,
       slots: projectWorkspaceTierSlots(resolvedOccupants),
+      composableOccupant,
       decks,
       connectionNavigation,
       emptyConnectionNavigation: projectConnectionNavigation({

@@ -22,6 +22,7 @@ import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
 import { filterWorkspaceTierSlots, type TierListFilter } from '../../surface/packageTierWorkspace/projection';
 import type { ConnectionTarget } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
+import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierNavigation } from './TierNavigation';
@@ -320,6 +321,33 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           )}
         </aside>
       </div>
+
+      {/* The subordinate composable occupant — never one of the five `slots`,
+          never inside cz-tier-workspace__layout's Focus/Grid switch above, so
+          "N of 5"/Family "Tiers 5" stay unchanged in both view modes. Reuses
+          TierDetailPanel unmodified (same created/empty branches a fixed slot
+          gets) and dispatches through the same dispatchTierIntent path,
+          addressed at COMPOSABLE_TIER_ID, into the SAME mature Tier drawer —
+          see docs/code-map/tier-composable-occupant-admin-ui.md. */}
+      {tool.composableOccupant && (
+        <div class="cz-tier-workspace__composable">
+          <p class="cz-tier-workspace__panel-label">
+            Composable occupant — subordinate to this Tier system, not one of the 5 Tiers
+          </p>
+          <TierDetailPanel
+            slot={tool.composableOccupant}
+            familyName={tool.selectedFamily?.name ?? null}
+            hasInstance
+            isSubordinate
+            onAction={(actionId) => dispatchTierIntent(
+              COMPOSABLE_TIER_ID,
+              tool.composableOccupant?.occupantId ?? null,
+              actionId,
+            )}
+            onOpenSettings={openTierSettings}
+          />
+        </div>
+      )}
 
       {(tool.selectedFamily !== null || tool.workspaceInstance !== null) && (
         <div ref={lowerDeckRef} tabIndex={-1}>

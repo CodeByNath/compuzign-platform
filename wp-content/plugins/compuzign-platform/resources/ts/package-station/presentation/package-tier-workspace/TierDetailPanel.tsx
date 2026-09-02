@@ -25,18 +25,25 @@ interface Props {
   hasInstance: boolean;
   onAction: (actionId: string) => void;
   onOpenSettings: () => void;
+  // True only for the subordinate composable occupant's own slot — swaps the
+  // empty-state "Fixed Tier slot"/"<label> Tier" copy for wording that never
+  // claims it is one of the five fixed slots. Every existing caller omits
+  // this and is unaffected.
+  isSubordinate?: boolean;
 }
 
-export function TierDetailPanel({ slot, familyName, hasInstance, onAction, onOpenSettings }: Props): VNode {
+export function TierDetailPanel({ slot, familyName, hasInstance, onAction, onOpenSettings, isSubordinate = false }: Props): VNode {
   const item: CategoryGroupCardItem | null = slot.item;
   if (!item) {
-    const title = `${slot.label} Tier`;
+    const title = isSubordinate ? slot.label : `${slot.label} Tier`;
     return (
       <section class="cz-tier-workspace__detail" role="tabpanel" aria-label={`${title} detail`}>
         <header class="cz-tier-workspace__detail-head">
           <div class="cz-tier-workspace__detail-identity">
             <h4 class="cz-tier-workspace__detail-name">{title}</h4>
-            <p class="cz-tier-workspace__detail-kind">Fixed Tier slot</p>
+            <p class="cz-tier-workspace__detail-kind">
+              {isSubordinate ? 'Subordinate composable occupant' : 'Fixed Tier slot'}
+            </p>
           </div>
           <span class="cz-tier-workspace__tab-status" data-status="empty">Empty</span>
         </header>

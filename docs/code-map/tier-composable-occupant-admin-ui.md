@@ -1,10 +1,16 @@
 # Composable Tier Occupant Admin UI
 
-**Phase 1B — full reuse via sentinel routing; not yet browser-verified.**
+**Phase 1B/1C — full reuse via sentinel routing; not yet browser-verified.**
 See [Composable Tier Occupant](tier-composable-occupant.md) for the backend
 foundation this builds on. Verified by `tsc`/`build`/a dedicated TS
 contract (`composable-occupant-address-contract.ts`); no interactive
 browser check has been performed — see Not interactively verified below.
+
+Phase 1B's launcher only reached the Service-scoped Connections route. A
+live check on the Family-first route (Settings → Family Groups → View →
+Connections → Manage Tier system) found none there — it resolves to the
+separate, pre-existing `presentation/package-tier-workspace/` surface,
+untouched by Phase 1B. Phase 1C (below) adds the same launcher there.
 
 ## The sentinel-routing design
 
@@ -26,13 +32,11 @@ every schema-driven module editor) stays unaware a second addressing
 scheme exists, since they only ever see a `tierId` string.
 
 `restoreOccupant` resolves which occupant a `bin_id` belongs to from the
-bin entry's own `origin_tier` (never from whichever occupant is currently
-open); routed to the composable endpoint, `mode`/`targetTier` are silently
-unused because that endpoint accepts neither — swap/retarget into a normal
-slot is structurally unreachable, not merely unoffered. `TierBinList.tsx`
-mirrors this at the presentation layer: a composable-origin conflict shows
-"archive it first, then restore," never a Swap/retarget control that would
-silently no-op against an endpoint that ignores those parameters.
+bin entry's own `origin_tier`; routed to the composable endpoint,
+`mode`/`targetTier` are silently unused since that endpoint accepts
+neither — swap/retarget into a normal slot is structurally unreachable.
+`TierBinList.tsx` mirrors this: a composable-origin conflict shows "archive
+it first, then restore," never a Swap/retarget control.
 
 ## Reused unchanged
 
@@ -72,6 +76,29 @@ the composable context suppresses invalid normal-slot concepts (Add-on,
 Popular). `TierDrawerContent.tsx` sets `extras.hideAddonAndPopular` from
 `isComposableOccupant(editingTierId)` when constructing the `tier-overview`
 editing session.
+
+## Phase 1C — the Tier Workspace surface's own launcher
+
+`presentation/package-tier-workspace/` is a second, independent entry point
+over the same `usePackageStation` instance data. `usePackageTierWorkspace.ts`
+now also reads `pkg.tierView(COMPOSABLE_TIER_ID)`, exposed as a new
+`composableOccupant: WorkspaceTierSlot | null` field on
+`PackageTierWorkspaceTool` — never entering `slots`/
+`projectWorkspaceTierSlots()`/`occupants`, so "N of 5"/Family "Tiers 5" are
+unaffected. `PackageTierWorkspace.tsx` renders it once, outside the
+Focus/Grid switch, reusing `TierDetailPanel` unmodified (the same
+created/empty-slot branches a fixed Tier gets) and the existing
+`dispatchTierIntent` path.
+
+Two routing-layer gaps, neither specific to this surface, had blocked that
+dispatch: `usePackageStation.ts`'s `resolveOccupantSlot()` scanned only
+`station.tiers` for an `occupant_id` — the same class of gap already fixed
+PHP-side for `PackageRepository` — and now also checks
+`composable_occupant.occupant_id`, returning `COMPOSABLE_TIER_ID`.
+`tierDrawerTypes.ts`'s `FIXED_TIER_SLOTS` (the empty-slot routing token's
+own validation, distinct from `TIER_KEYS`) rejected the sentinel, blocking
+an as-yet-uncreated composable occupant from opening by slot address; it
+now accepts it too.
 
 ## Not interactively verified
 
