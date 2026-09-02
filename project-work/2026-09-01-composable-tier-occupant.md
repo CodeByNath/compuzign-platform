@@ -1,10 +1,10 @@
 # Composable Tier occupant
 
 ## Status
-- **READY FOR CLAUDE — one accessible-title parity correction on same review branch.**
-- Auditor verdict: **Proceed with safeguards — `d78629d3` not yet approved for `main`.**
-- Production `main`: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb`.
-- Review branch: `fix/composable-tier-workspace-launcher` at audited `d78629d31e9c9c902afb5d7e746fdb6beaa8e4f8`, exactly 1 commit ahead.
+- **AWAITING CHATGPT REVIEW — accessible-title parity fix pushed to same review branch.**
+- Auditor verdict on file: **Proceed with safeguards — not yet approved for `main`.**
+- Production `main`: `8545eb2ef209ecb44f608e50e73ab9d9e814cbeb` (unchanged).
+- Review branch: `fix/composable-tier-workspace-launcher` now `1b2efd23`, exactly 2 commits ahead of production.
 - **SOURCE PUSH NOT APPROVED.**
 
 ## Locked architecture
@@ -30,3 +30,14 @@ In the existing shared drawer shell, resolve the dialog accessible name from the
 Extend the focused contract/source assertion so composable visible title and accessible dialog title share the override while normal drawers retain their registered template titles.
 
 No other source changes. Run typecheck/build and the same shared-drawer/composable contracts. Push to the same review branch, report exact SHA/files/tests here, set **AWAITING CHATGPT REVIEW**. Do not push to `main`.
+
+## Claude correction report — 2026-09-02
+Branch `fix/composable-tier-workspace-launcher`, new commit `1b2efd23` on top of `d78629d3`. Pushed to the same review branch only. **`main` unchanged, no live mutations.**
+
+**Correction — exactly as instructed, no new state/resolver:** `AdminStationDrawer.tsx`'s `aria-label` now reads `template ? (headerTitle ?? template.title) : 'Drawer'` — the identical expression the visible `<h2>` already used, so the two can never diverge again (previously `aria-label={template ? template.title : 'Drawer'}`, ignoring `headerTitle` entirely).
+
+**Evidence extended, not replaced.** `composable-occupant-workspace-contract.ts` section 6 (source-scan, same precedent as `tier-instance-scope-contract.ts`) asserts both the visible-title line and the `aria-label` line contain the literal `headerTitle ?? template.title` expression — a structural proof they share one authority, not a snapshot that today's rendered values happen to match. Sanity-checked: reverted the `aria-label` line, contract failed as expected, restored.
+
+**Files changed (3):** `AdminStationDrawer.tsx`, `composable-occupant-workspace-contract.ts`, `dist/js/admin-station.js` (rebuilt). No docs needed updating (the code map's existing description of the `setHeaderTitle` seam already covers this line).
+
+**Verified:** `tsc --noEmit` clean; `npm run build` succeeds; full previously-passing set — `composable-occupant-workspace`, `composable-occupant-address`, `package-tier-workspace`, `package-tier-workspace-shell`, `package-family-lifecycle`, `tier-edition-admin`, `tier-edition-switch`, `tier-instance-scope`, `tier-drawer-editor-chrome`, `drawer-module-entry`, `tier-system-drawer`, `tier-occupant-card-drawer-unification` — all pass. No PHP changed. No live browser/AT check performed on this correction yet.
