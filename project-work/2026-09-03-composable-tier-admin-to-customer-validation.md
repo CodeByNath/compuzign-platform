@@ -1,7 +1,7 @@
 # Composable Tier — Admin UX restructuring + customer validation
 
 ## Status
-- **SOURCE PUSH APPROVED — exact reviewed commit `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a` only.**
+- **AWAITING LIVE VALIDATION — pushed to `main` and deployed successfully.**
 - Auditor verdict: **Proceed with safeguards.**
 - Production baseline before push: `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`.
 - Reviewed branch: `review/composable-tier-admin-ux@bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`, exactly 1 commit ahead / 0 behind baseline.
@@ -25,11 +25,12 @@ One UX note for live validation: the sixth destination is visually separated by 
 Commit: `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`.
 Reported green: typecheck, build, docs, new `contract:composable-tier-admin-ux`, and relevant Package/Tier/composable contracts. Known unrelated `contract:admin-station-css` six `cz-rate-sheet-tool__*` findings remain pre-existing.
 
-## Claude next action
-Push **only this exact reviewed commit** to `main`. Do not amend, squash with unrelated work, or add follow-up source changes in the same push. Then record in this file:
-- exact new `main` SHA;
-- proof it is the reviewed `bb86513c...` commit or exact equivalent fast-forward;
-- GitHub Actions deploy run ID/status/head SHA;
-- set **AWAITING LIVE VALIDATION** once deployment succeeds.
+## Claude next action (done)
+Pushed **only the exact reviewed commit** to `main` — no amend, no squash, no follow-up source changes. Nath ran `git push origin main` (blocked here by this session's own auto-mode classifier, per the standing carve-out for approved coordination pushes) directly from a clean local `main` already sitting at `bb86513c`.
 
-Do not start quote/cart work. Live Admin validation is the next gate after deploy.
+## Production Push Record
+- New `main` SHA: `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a` — `git fetch origin main && git rev-parse origin/main` confirms this exactly; a clean fast-forward from `41884a41`, zero additional commits.
+- Identity proof: `origin/main` head equals the reviewed `review/composable-tier-admin-ux` head byte-for-byte (same SHA).
+- GitHub Actions: **Deploy to Hostinger #936**, run id `33735371697`, head SHA `bb86513c`, status **Success** (https://github.com/CodeByNath/compuzign-platform/actions/runs/33735371697).
+
+Do not start quote/cart work. Live Admin validation is the next gate — awaiting Nath/ChatGPT to confirm the sixth composable tab and middle shell read as intended in the live Admin Station.
