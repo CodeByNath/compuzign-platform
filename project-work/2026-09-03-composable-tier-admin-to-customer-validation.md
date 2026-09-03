@@ -1,39 +1,34 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **AWAITING LIVE VALIDATION — no customer frontend regression found.**
+- **READY FOR CLAUDE — live Admin defect: Customer Options action is not visible.**
 - Auditor verdict: **Proceed with safeguards.**
 - Production `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`; Hostinger deploy #935 succeeded on exact SHA.
 
-## Current live state
-KAIROS Build Your Own is an active subordinate occupant with three selected inclusions: 2 vCPU, Block Storage, Backup Storage — BaaS. Customer Options is the separate external policy controller.
+## Verified live evidence
+Nath supplied current Studio screenshots of KAIROS Tier workspace. The subordinate **Package Build Your Own** occupant is Active, $48.50 monthly, 3 included features. Its card exposes only the normal **View** split-button. Opening it shows the standard Tier drawer with **Details / Options / Connections / Support**. The normal occupant editors correctly show the 3 selected inclusions: 2 vCPU, Block Storage, Backup Storage — BaaS.
 
-## Customer visibility audit — accepted
-Claude made no source changes. Independent source review agrees with his finding:
-- `FamilyTierAdapter` still mounts `ComposableOfferBrowser` unconditionally as the customer pricing sibling.
-- Context remains **Build Your Own** before a normal Tier is selected and **Upgrade your build** afterward.
-- `ComposableOfferBrowser` deliberately returns `null` when there is no public policy or no policy-backed offered row.
-- Public projection filters null/excluded policy state, so an active composable occupant with no settled authorized policy correctly produces no customer browser.
+The expected separate **Customer Options** action is not visible anywhere on the Build Your Own card in this live state. Therefore the previously recorded live-validation instruction “open Customer Options” is currently impossible through the normal Admin UI.
 
-Important correction to earlier assumptions: before `41884a41`, `upsertOccupant()` dropped `customer_policy` on settle. Therefore a real KAIROS Customer Options policy could not previously survive Publish. The earlier documented customer UX validation was synthetic/mock-data validation; the Admin Build Your Own launcher is a separate Admin surface. No accepted evidence shows a real published KAIROS policy-backed `/pricing/` browser existed and was later removed.
+## Architecture remains locked
+Customer policy stays an external controller over the otherwise normal full Tier occupant. Do not put `customer_policy` back into the shared Tier drawer. The intended action is a composable-card-only sibling action that opens the standalone `tier-customer-policy` drawer. Normal Tier/Add-on cards and their 4-module drawer must remain unchanged.
 
-## Exact live gate now
-No source change is needed before validation.
+## Claude task — focused audit then smallest fix
+Trace production source at `41884a41` from composable workspace card projection through action rendering/dispatch:
+1. confirm `withComposableCustomerOptionsAction()` is still applied to the composable card and what exact eligibility value it receives;
+2. trace whether `detail.enabled === true` is actually true for this live Active Build Your Own projection, and whether the card action is dropped later by shell/action normalization or split-button rendering;
+3. verify `'customer-options'` intent and `tier-customer-policy` drawer registration still exist and are reachable;
+4. identify why the live card shows only View despite Active status.
 
-Using the existing KAIROS Build Your Own occupant:
-1. Open **Customer Options → Edit** and first confirm exactly the 3 occupant-owned rows appear, not the full Rate Sheet catalogue.
-2. Author at least one of those rows as **Required** or **Optional**; leave Price Option/Leg/cycle/commitment untouched.
-3. Save Customer Options, then **Publish/settle Build Your Own** through its normal occupant lifecycle. Customer Options Save alone is only a draft.
-4. Reopen Customer Options and confirm the authored rule survived Publish.
-5. Open `/pricing/`: before primary selection, the existing shipped browser should render **Build Your Own**; after a normal Tier/Edition selection, the same browser should present **Upgrade your build**.
-6. Validate Add/Remove and quantity only where the authored policy permits it; pricing must come from server preview.
+If the defect is source-side, implement the **smallest correction only** so an Active/published composable occupant shows `Customer Options` in its card action menu. Do not add it to the normal Tier drawer or normal/Add-on cards. Do not change customer `/pricing/`, policy semantics, cart/quote/PDF/email, Rate Sheets, Legs, Editions, or lifecycle.
 
-Then perform the stale-rule regression on one authorized test inclusion: remove it from occupant Features → settle → re-add same item → settle → Customer Options must show it as **Not offered**, not restore its old rule.
+Add/adjust a narrow contract proving:
+- active composable card => View + Customer Options;
+- draft/inactive composable card => no Customer Options;
+- normal Tier/Add-on cards unchanged;
+- Customer Options dispatches standalone `tier-customer-policy` drawer.
 
-Stop on any unexpected mutation to normal Tiers/Add-ons, Family assignment, Rate Sheet data, Legs, Price Options or Editions.
+Report exact changed files, tests, branch/commit and diff in this same file, then set **AWAITING CHATGPT REVIEW**. Do not push to `main` without auditor approval.
 
-## Follow-up — separate scope
-After this live gate closes, separately scope **Import all current Rate Sheet inclusions** as a one-time snapshot/bulk-selection action in the normal occupant inclusion editor. No wildcard binding or automatic future Rate Sheet additions.
-
-## Next action
-Live validation only. No Claude source work authorized unless the live exercise exposes a genuine source defect. Record exact observations and stop before declaring CLOSED.
+## Deferred live gate
+After this action is restored, live validation resumes: exactly 3 policy rows, author one Required/Optional rule, Save, normal Publish/settle, reopen persistence, then `/pricing/` Build Your Own / Upgrade your build. Stale remove/re-add regression remains afterward.
