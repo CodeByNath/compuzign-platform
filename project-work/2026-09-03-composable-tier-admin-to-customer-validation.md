@@ -1,10 +1,10 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **READY FOR CLAUDE — final persistence safeguard; SOURCE PUSH NOT APPROVED.**
-- Auditor verdict: **Proceed with safeguards.**
-- Production `main@8ff4eff90129f15f8140858d21cb923dd2f5d549`; deploy #934 succeeded.
-- Reviewed fix: `review/composable-tier-admin-customer-policy@af5a605dbfcc326df9a20ef1266edad7da639bc5` (1 commit ahead of production; now independently visible on origin).
+- **AWAITING CHATGPT REVIEW — persistence safeguard delivered; SOURCE PUSH NOT APPROVED.**
+- Auditor verdict (prior round): **Proceed with safeguards.**
+- Production `main@8ff4eff90129f15f8140858d21cb923dd2f5d549`; deploy #934 succeeded. Unchanged — nothing pushed to `main`.
+- New commit: `review/composable-tier-admin-customer-policy@41884a41` (2 commits ahead of production now), pushed to `origin`.
 
 ## Live defect / accepted fix
 Live KAIROS Build Your Own owns exactly:
@@ -36,8 +36,23 @@ Audit the existing occupant Features/inclusion settle path and implement the sma
 
 Do not expand into bulk-import implementation yet.
 
+## Safeguard delivered — 2026-09-03, commit `41884a41`
+While auditing this, found a more severe, independent, **pre-existing** gap the ask didn't anticipate: `PackageSchema::upsertOccupant()` — the shared write every settle path (normal Tier and composable alike) funnels through — never carried `customer_policy` forward at all. Its `current_occupant` return literal simply had no such key, so `settleTierSlot()`'s own correctly-computed draft-preferred `customer_policy` was silently discarded on **every** settle, for any module, not just Features. A saved policy could never actually survive a Publish — full stop, independent of the resurrection question. This went uncaught because every prior test (including this file's own §1-3) hand-built `current_occupant` directly rather than round-tripping through `settleTierSlot()`.
+
+Fix, in order:
+1. `upsertOccupant()` now carries `$data['customer_policy']` through like any other occupant field (was previously an omitted key, not a bug in the value itself).
+2. New `PackageSchema::pruneStaleCustomerPolicy()`, called in `settleTierSlot()` immediately after the existing `pruneOrphanedLegAssignments()`, against the same just-finalized settled `rate_sheet_items` — drops any `customer_policy` item whose `item_id` is no longer selected. Never adds an entry for a newly/re-selected `item_id`.
+3. `tests/composable-customer-policy-admin-surface.php` §5-7: real settle-cycle regression — §5 proves persistence (author → settle, confirmed **fails** without fix 1), §6 proves the exact required scenario (authorize A → settle; remove A → settle → A pruned immediately; re-add A → settle → still excluded, not resurrected), §7 is a no-op-change control (untouched policy survives an unrelated settle). Corrected this same test file's own docblock, which had wrongly asserted settleTierSlot() "already correctly persists" customer_policy — never actually verified.
+4. Code Map (`docs/code-map/tier-composable-occupant-admin-customer-policy.md`) updated with the full round-2 finding.
+
+**Files changed:** `PackageSchema.php`, `composable-customer-policy-admin-surface.php`, the Code Map. No frontend files touched this round — `dist/` unchanged.
+
+**Verified (all pass):** the extended admin-surface test (and confirmed §5 fails on the pre-fix code), `composable-customer-policy-resolver.php`, `tier-composable-occupant.php`, `composable-occupant-controller-contract.php`, `tier-leg-assignment-orphan-pruning.php`, the full `Support/SurfacePackages` PHP suite (one pre-existing unrelated failure — `tier-capability-invariants`, confirmed present on `af5a605d` too, before this change), `contract:tier-customer-policy-drawer`, `contract:tier-customer-policy-draft`, `tsc --noEmit`, `npm run build`, `npm run docs:check`.
+
+**Unresolved risk:** none new. The prior round's flagged nuance (item_id identity requiring the exact same catalogue row to reactivate) is now moot — reactivation itself is prevented by the prune.
+
 ## Follow-up direction
-After this fix closes, scope **Import all current Rate Sheet inclusions** as a one-time snapshot/bulk selection in the normal occupant inclusion editor. No wildcard binding; later Rate Sheet additions must not auto-enter the occupant.
+After this closes, scope **Import all current Rate Sheet inclusions** as a one-time snapshot/bulk selection in the normal occupant inclusion editor. No wildcard binding; later Rate Sheet additions must not auto-enter the occupant.
 
 ## Claude next action
-Patch the same review branch, add the stale-policy reconciliation regression, rerun focused PHP/TS contracts/build/docs, update this file with exact SHA/files/evidence, set **AWAITING CHATGPT REVIEW**, then stop. Do not push `main`.
+Awaiting ChatGPT auditor review of `41884a41`. Do not push `main` until Nath approves and the auditor's verdict is recorded here.
