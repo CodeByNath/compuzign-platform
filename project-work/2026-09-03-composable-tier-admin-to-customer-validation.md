@@ -1,52 +1,31 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING LIVE VALIDATION — pushed to `main` and deployed successfully.**
+- **AWAITING LIVE VALIDATION — browser agent action required.**
 - Auditor verdict: **Proceed with safeguards.**
-- Production: `main@84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`.
-- Deploy to Hostinger #937, run `33754346845`, head SHA `84ebbb28...`, status **completed / success**.
+- Independently verified production: `main@84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`.
+- Independently verified GitHub Actions **Deploy to Hostinger #937**, run `33754346845`, `head_sha=84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`, completed **success**.
 
 ## Accepted architecture
-- one aggregate composable `FamilyTierQuoteItem`;
-- distinct centralized `primary | addon | composable` role/key;
-- composable key is Family+Tier System scoped and independent from primary/Add-ons;
-- zero selected + no required removes the line; required-only persists;
-- removing/changing primary never removes composable;
-- commercial facts come only from latest successful server preview;
-- no per-inclusion products, no `is_addon` reuse, no new backend entity;
-- Request/PDF/email remains out of scope this phase.
+One aggregate composable `FamilyTierQuoteItem`; centralized `primary | addon | composable` identity; Family+Tier-System composable key; no per-inclusion products; no `is_addon` reuse; zero-selected/no-required removes line; required-only persists; primary and composable are independent; commercial facts come only from the latest successful server preview. Request/PDF/email is not part of this phase.
 
-## Independent correction review
-Reactive-loop blocker is resolved. The correction commit `84ebbb28...` is a direct child of prior review head `4ab18d6f...` and changes only `PackageBuilderApp.tsx`, focused regression test/package script, Code Map, and built `cost-builder.js`.
+Reactive callback-loop blocker was corrected before production. Mounted regression proves one user interaction produces one preview/cart write and an unchanged post-commit render does not continuously retrigger.
 
-`PackageBuilderApp` now stabilizes cart mutation callbacks with `useCallback`. Composable add/remove callbacks no longer change identity when only cart state changes, while Family-scoped removals depend on stable Family/instance identity strings. This removes the self-trigger path where a successful preview commit caused a parent render, new callback identity, another preview effect, and another commit.
+## Browser Agent — live customer validation
+Use deployed customer `/pricing/`. Hard-refresh first. This validation may change only this browser's quote/cart selection state; **do not alter Admin, Package records, pricing, policy, WordPress configuration, or other persistent platform data.**
 
-New mounted happy-dom regression reportedly proves:
-- one Add interaction -> one preview + one cart write;
-- 1000ms idle after parent rerender -> no further preview/cart writes;
-- genuine second Remove -> one new preview + one new cart write;
-- failed preview -> no cart write.
+Run these checks against KAIROS/its existing published composable offer and record PASS/FAIL with screenshots:
 
-Overall diff from production is frontend/docs/contracts/dist only. No PHP, `RequestSchema.php`, Request mapping, PDF or email source changed.
+1. **Standalone Build Your Own:** ensure no normal KAIROS primary Tier is selected. Add the authorized optional Block Storage inclusion. Confirm exactly **one** composable quote/cart line appears with the resolved payment stream/amount. Screenshot.
+2. **No reactive loop:** after Add, wait at least **3 seconds without touching anything**. Cart line, total and preview must remain stable: no repeated spinner/flicker, duplicate line, changing count, or repeated visible refresh behavior.
+3. **Remove empty composition:** remove Block Storage. Because current live policy has no required inclusion, the composable cart line must disappear completely rather than remain as a zero-value item. Screenshot.
+4. **Coexistence / Upgrade your build:** select a normal KAIROS Tier (keep an existing Add-on too if available), then add Block Storage under **Upgrade your build**. Confirm primary + composable (+ Add-on when present) coexist as separate lines; composable must not replace either. Screenshot.
+5. **Totals exactly once:** verify quote item count, composable payment stream and Total Contract Value include the composable line once only. No duplicate contribution.
+6. **Update not duplicate:** if quantity control is available, change quantity once; otherwise Remove then Add once. Confirm one existing composable line updates/reappears, never a second composable line. Wait 3 seconds again for stability.
+7. **Independence:** remove/change the normal primary and confirm composable remains. Then re-add a primary and remove only composable; confirm primary/Add-on remain.
+8. **Reload/reseed:** with a composable selection present, reload/hard-refresh. Confirm the composable choice re-seeds correctly and the cart remains unchanged merely from viewing/waiting 3 seconds.
 
-## Claude next action (done)
-Pushed the exact reviewed branch history/head to `main` — a clean fast-forward, no amend/squash/unrelated changes.
+Stop and capture evidence immediately if: composable replaces primary/Add-on; two composable lines appear; empty composition remains in cart; totals double-count; cart changes during idle; reload changes cart without interaction; or pricing differs between preview and cart.
 
-## Production Push Record
-- New `main` SHA: `84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33` — `git fetch origin main && git rev-parse origin/main` confirms this exactly.
-- Identity proof: matches the reviewed `review/composable-quote-cart-connection` head byte-for-byte (same SHA); `git log --oneline -3 origin/main` shows `84ebbb28` -> `4ab18d6f` -> `bb86513c`, the exact two-commit fast-forward, no rewrite.
-- GitHub Actions: **Deploy to Hostinger #937**, run id `33754346845`, head SHA `84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`, status `completed`, conclusion **`success`** — confirmed via direct GitHub API read (`GET /repos/.../actions/runs/33754346845`), not just the UI listing.
-
-Do not start Request/PDF/email work yet. Next gate is the live validation checklist below.
-
-## Live validation after deploy
-Customer `/pricing/` must prove both contexts:
-1. **Build Your Own** with no primary Tier selected: Add an optional inclusion -> exactly one composable cart line appears; remove it -> line disappears.
-2. **Upgrade your build** with a normal primary selected: composable line appears alongside primary (and existing Add-ons if present), never replacing them.
-3. Quote count, per-line payment streams and TCV include composable once only.
-4. Wait at least ~2 seconds after an Add/qty change; cart/preview must remain stable with no repeated writes/spinner/network-like refresh symptoms.
-5. Change quantity/selection again -> exactly one updated composable line, not duplicate lines.
-6. Removing/changing primary leaves composable intact; removing composable leaves primary/Add-ons intact.
-7. Reload page -> persisted composable choice re-seeds the browser correctly and does not auto-mutate cart merely from viewing.
-
-Browser agent should capture screenshots for standalone Build Your Own cart, coexistence with primary/Add-on, removal, and reload/reseed state.
+## Next gate
+Browser Agent should write results into this same file. If all pass, set **AWAITING CHATGPT REVIEW** for auditor acceptance. If any fail, record exact reproduction + screenshot and set **AWAITING CHATGPT REVIEW**. Do **not** start Request/PDF/email work yet.
