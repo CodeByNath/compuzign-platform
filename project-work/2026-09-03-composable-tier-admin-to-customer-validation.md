@@ -1,55 +1,39 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **AWAITING CHATGPT REVIEW — audit complete, no source changed; see response below.**
-- Auditor verdict (prior round): **Proceed with safeguards.**
-- Production `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`; Hostinger deploy #935 succeeded on that exact SHA. Unchanged this round.
+- **AWAITING LIVE VALIDATION — no customer frontend regression found.**
+- Auditor verdict: **Proceed with safeguards.**
+- Production `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`; Hostinger deploy #935 succeeded on exact SHA.
 
-## Current live/Admin state
-KAIROS Build Your Own is a real active subordinate occupant with three selected inclusions: 2 vCPU, Block Storage, Backup Storage — BaaS. Customer Options is the separate external policy controller. The latest deployed fixes constrain it to occupant-owned inclusions, persist `customer_policy` through settle, and prune removed inclusion policy IDs.
+## Current live state
+KAIROS Build Your Own is an active subordinate occupant with three selected inclusions: 2 vCPU, Block Storage, Backup Storage — BaaS. Customer Options is the separate external policy controller.
 
-## New question from Nath — audit only first
-Nath reports that an **earlier customer browser check showed the composable/front-end entry**, but after the recent Admin/boundary fixes the customer surface now appears unchanged / the composable option is no longer visible. We had already planned the customer-facing placement and do not want that UX silently lost while fixing Admin persistence.
+## Customer visibility audit — accepted
+Claude made no source changes. Independent source review agrees with his finding:
+- `FamilyTierAdapter` still mounts `ComposableOfferBrowser` unconditionally as the customer pricing sibling.
+- Context remains **Build Your Own** before a normal Tier is selected and **Upgrade your build** afterward.
+- `ComposableOfferBrowser` deliberately returns `null` when there is no public policy or no policy-backed offered row.
+- Public projection filters null/excluded policy state, so an active composable occupant with no settled authorized policy correctly produces no customer browser.
 
-The shipped frontend source still visibly contains the intended Phase 2B1 wiring:
-- `FamilyTierAdapter` renders `ComposableOfferBrowser` as a sibling of the normal pricing view;
-- context is `Build Your Own` before a normal Tier is selected and `Upgrade your build` after a normal Tier/Edition is selected;
-- `ComposableOfferBrowser` currently returns `null` when `composable_offer`, `customer_policy`, or policy-backed rows are absent.
+Important correction to earlier assumptions: before `41884a41`, `upsertOccupant()` dropped `customer_policy` on settle. Therefore a real KAIROS Customer Options policy could not previously survive Publish. The earlier documented customer UX validation was synthetic/mock-data validation; the Admin Build Your Own launcher is a separate Admin surface. No accepted evidence shows a real published KAIROS policy-backed `/pricing/` browser existed and was later removed.
 
-## Claude audit request
-Do **not change source yet**. Explain exactly why the live customer entry disappeared and whether this is:
-1. expected because KAIROS currently has no settled/published `customer_policy` rows;
-2. a regression in the public `composable_offer` projection after the settle/persistence fixes;
-3. a lifecycle/state issue where publishing the occupant but not Customer Options leaves the public projection intentionally empty;
-4. or another wiring defect.
+## Exact live gate now
+No source change is needed before validation.
 
-Trace the exact chain for current KAIROS state:
-`current_occupant` → settled `customer_policy` → PackageRepository/public `pricing.composable_offer` → `FamilyTierAdapter` → `ComposableOfferBrowser` null/render gate.
+Using the existing KAIROS Build Your Own occupant:
+1. Open **Customer Options → Edit** and first confirm exactly the 3 occupant-owned rows appear, not the full Rate Sheet catalogue.
+2. Author at least one of those rows as **Required** or **Optional**; leave Price Option/Leg/cycle/commitment untouched.
+3. Save Customer Options, then **Publish/settle Build Your Own** through its normal occupant lifecycle. Customer Options Save alone is only a draft.
+4. Reopen Customer Options and confirm the authored rule survived Publish.
+5. Open `/pricing/`: before primary selection, the existing shipped browser should render **Build Your Own**; after a normal Tier/Edition selection, the same browser should present **Upgrade your build**.
+6. Validate Add/Remove and quantity only where the authored policy permits it; pricing must come from server preview.
 
-Also reconcile this with the locked customer UX plan. State plainly:
-- where **Build Your Own** is intended to appear before a primary Tier is chosen;
-- where **Upgrade your build** is intended to appear after a primary Tier/Edition is chosen;
-- whether the UI should be hidden until at least one policy item is explicitly offered, or whether a visible entry/empty-state shell was intended;
-- what exact Admin action/state is required today to make the current shipped customer UI render.
+Then perform the stale-rule regression on one authorized test inclusion: remove it from occupant Features → settle → re-add same item → settle → Customer Options must show it as **Not offered**, not restore its old rule.
 
-Do not propose a new parallel UI. Do not alter cart/quote/PDF/email. Do not touch production data. Record the source paths/functions, current-state explanation, and smallest recommendation in this same file, set **AWAITING CHATGPT REVIEW**, then stop.
+Stop on any unexpected mutation to normal Tiers/Add-ons, Family assignment, Rate Sheet data, Legs, Price Options or Editions.
 
-## Claude audit response — 2026-09-03 (no source changed)
+## Follow-up — separate scope
+After this live gate closes, separately scope **Import all current Rate Sheet inclusions** as a one-time snapshot/bulk-selection action in the normal occupant inclusion editor. No wildcard binding or automatic future Rate Sheet additions.
 
-**Answer: (1) expected, not a regression.** No wiring defect found.
-
-**Chain, exact:**
-- `ComposableOfferBrowser.tsx:134-135` — `policy = family.pricing.composable_offer?.customer_policy ?? null`.
-- `ComposableOfferBrowser.tsx:286` — `if (!offer || !policy || rows.length === 0) return null;`. `rows` (built ~140-158) joins `policy.items` to inclusions; empty whenever `policy.items` is empty. This guard is unchanged since the component's own introduction (`0b4a6203`).
-- `FamilyTierAdapter.tsx:1217-1220` mounts `ComposableOfferBrowser` **unconditionally** as a sibling of the normal pricing view; `context` is `build_your_own` when `selectedTierId === null`, else `upgrade_your_build`. It does no gating itself — all visibility is delegated to the browser's own `return null`.
-- Public projection: `PackageFamilyPricingBuilder::presentCustomerPolicy()` (`PackageFamilyPricingBuilder.php:137-146`): `customer_policy === null` → returns `null` (→ browser's `!policy` fires). A non-null policy with all items `excluded` (or empty) → returns `{items: []}`, a real object — browser's `!policy` passes but `rows.length === 0` fires. Either way, same visible outcome (nothing renders); this filter predates the customer component (`84af9193`, before `0b4a6203`) — never loosened then tightened.
-
-**Root fact: KAIROS's settled `customer_policy` cannot have been non-null before `41884a41`.** `upsertOccupant()` (the sole `current_occupant` write, one construction site, `PackageSchema.php`) had no `customer_policy` key in its return literal until this exact commit added `'customer_policy' => $data['customer_policy'] ?? null,`. Every settle before it silently discarded whatever `settleTierSlot()` computed, for every occupant, always — not KAIROS-specific, not caused by the recent fixes. The fixes are what *first make it possible* for a real policy to survive a Publish at all.
-
-**What the "earlier check" likely was:** two other things exist that are easy to conflate with this: (a) an **Admin-only** "Build Your Own" launcher, `PackageTierWorkspace.tsx:342` (`{tool.composableOccupant && (...)}`) — no `customer_policy` check at all, live since deploy #931, but it's the Admin Studio surface, never customer `/pricing/`; (b) Phase 2B1's own closure (`2026-08-30-...customer-ux.md`, deploy #933) was a **synthetic happy-dom harness with mocked data**, explicitly deferring real validation: *"the first real Admin-configured/published composable offer must receive an end-to-end customer validation."* No genuine `/pricing/` browse against real settled policy data is documented as having happened before now.
-
-**Reconciled UX intent:** hidden-until-authorized is the locked design, not a gap — Phase 2B1's own accepted assertion list included "no-op render when `composable_offer` is absent." No empty-state shell was ever intended for zero authorized items.
-
-**What Admin must do today:** open Customer Options on the KAIROS composable occupant, author at least one item as `required` or `optional` (not `excluded`), Save, then **Publish the composable occupant** (settle) — the first Publish that can actually carry a policy through, post-`41884a41`. Until that happens, no entry is the correct, expected state.
-
-**Recommendation:** no source change. Proceed straight to that Admin action, then live-validate `/pricing/`.
+## Next action
+Live validation only. No Claude source work authorized unless the live exercise exposes a genuine source defect. Record exact observations and stop before declaring CLOSED.
