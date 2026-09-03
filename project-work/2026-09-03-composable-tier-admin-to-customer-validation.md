@@ -1,67 +1,35 @@
 # Composable Tier — Admin UX restructuring + customer validation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — review branch pushed, ready for independent inspection.**
-- Auditor verdict (prior round): **Proceed with safeguards.**
-- Production baseline: `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`.
-- Review branch: `review/composable-tier-admin-ux` @ `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`.
+- **SOURCE PUSH APPROVED — exact reviewed commit `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a` only.**
+- Auditor verdict: **Proceed with safeguards.**
+- Production baseline before push: `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`.
+- Reviewed branch: `review/composable-tier-admin-ux@bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`, exactly 1 commit ahead / 0 behind baseline.
 
-## Locked architecture
-This phase remains **Admin UI/UX only**:
-- five normal Tier backend slots unchanged;
-- composable occupant remains subordinate, not sixth backend Tier and not `is_addon`;
-- existing `customer_policy`, Rate Sheet/inclusions/Legs/Editions/identity/lifecycle/resolver unchanged;
-- standalone Customer Options drawer remains external controller;
-- no quote/cart/Request/PDF/email changes.
+## Independent audit result
+Actual pushed diff inspected: 17 files, Admin presentation/contracts/docs + built assets only; no PHP/schema/API/quote/cart changes.
 
-## Claude implementation report received
-Claude reports local commit `bb86513c` implementing:
-- Build Your Own as a sixth **workspace destination only**, separated from the five normal `slots`;
-- composable-focused reuse of the normal focus summary and existing `TierLowerDeck`;
-- composable-only middle shell between focus area and lower deck;
-- left side up to 6 policy-backed/featured inclusions;
-- right side Customer Selection Rules metrics + View/Edit Customer Options;
-- Customer Options reuses existing standalone `tier-customer-policy` dispatch;
-- local routing-token widening for composable inclusion/Rate Sheet drawers only;
-- no PHP/schema/API changes.
+Accepted safeguards:
+1. `TierNavigation` receives composable as separate `composableSlot`; it is appended only for rendering/keyboard navigation and never merged into the five `slots` array or Tier/Add-on filter semantics.
+2. `PackageTierWorkspace` uses the existing `COMPOSABLE_TIER_ID` sentinel only as focus state. `focusedSlot` switches between normal selected slot and subordinate composable slot; five-slot source remains untouched.
+3. Normal Tier focus path is unchanged; composable focus uses the same `TierDetailPanel` and existing `TierLowerDeck` rather than a fork.
+4. New `TierComposableMiddleShell` mounts only for `viewMode === 'focus' && isComposableFocused && composable item exists`.
+5. Customer rule summary derives only from settled `customer_policy`; normal `WorkspaceTierSlot.customerPolicy` is hard-null in `projectWorkspaceTierSlots()`, so no normal Tier/Add-on policy leakage.
+6. Customer Options still dispatches the existing standalone `tier-customer-policy` drawer.
+7. Inclusion/Rate Sheet drawer token validation is widened only by adding the existing composable sentinel to otherwise closed allowed-slot sets; arbitrary slot IDs still fail closed.
+8. Grid mode keeps the existing subordinate composable box and never turns it into a sixth backend Tier.
 
-Reported green: typecheck, build, docs, new `contract:composable-tier-admin-ux`, and relevant Package/Tier/composable contracts. `contract:admin-station-css` still has the known unrelated six `cz-rate-sheet-tool__*` findings.
+One UX note for live validation: the sixth destination is visually separated by divider/dashed treatment, but live browser must confirm it reads as subordinate rather than a peer Tier and that the middle shell visually fits Nath's intended Package-home flow.
 
-## Auditor gate — resolved
+## Reviewed implementation
+Commit: `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`.
+Reported green: typecheck, build, docs, new `contract:composable-tier-admin-ux`, and relevant Package/Tier/composable contracts. Known unrelated `contract:admin-station-css` six `cz-rate-sheet-tool__*` findings remain pre-existing.
 
-## Claude response — review branch published
-`git branch review/composable-tier-admin-ux bb86513c` then
-`git push origin review/composable-tier-admin-ux:review/composable-tier-admin-ux` —
-no amend, no rebase, no cherry-pick; the exact previously-reported local
-commit, verbatim. `main` was never touched: `git fetch origin main` confirms
-`origin/main` is still `41884a41ab7f0e21c52dc8e9158c126aace1abf9`, unchanged.
+## Claude next action
+Push **only this exact reviewed commit** to `main`. Do not amend, squash with unrelated work, or add follow-up source changes in the same push. Then record in this file:
+- exact new `main` SHA;
+- proof it is the reviewed `bb86513c...` commit or exact equivalent fast-forward;
+- GitHub Actions deploy run ID/status/head SHA;
+- set **AWAITING LIVE VALIDATION** once deployment succeeds.
 
-- Base: `bb86513c` is a direct, single-commit child of `41884a41` (`git merge-base bb86513c 41884a41` == `41884a41`; no other commits in between).
-- Pushed branch head: `review/composable-tier-admin-ux` @ `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`, identical local/remote (`git rev-parse` matches on both sides).
-- Changed files (17, `git diff --stat 41884a41 bb86513c`):
-  `TierNavigation.tsx`, `PackageTierWorkspace.tsx`,
-  `TierComposableMiddleShell.tsx` (new), `composableMiddleShell.ts` (new),
-  `projection.ts`, `usePackageTierWorkspace.ts`,
-  `tierInclusionDrawerTypes.ts`, `tierRateSheetDrawerTypes.ts`,
-  `admin-station.css`, `admin-station-responsive.css`,
-  `docs/code-map/tier-composable-occupant-workspace-ui.md`, `package.json`,
-  `scripts/composable-tier-admin-ux-contract.ts` (new),
-  `scripts/package-tier-workspace-shell-contract.ts`,
-  `scripts/tier-settings-contract.ts`, `dist/css/admin-station.css`,
-  `dist/js/admin-station.js` (built output).
-- No additional source changes beyond the single reported commit — nothing
-  amended, no follow-up commits on the review branch.
-- Not deployed; `main` and production untouched.
-
-## Review focus once pushed
-Auditor will independently verify:
-1. composable is visual workspace destination only, never inserted into five-slot backend semantics;
-2. normal Tier focus behavior is unchanged;
-3. middle shell renders only for composable focus;
-4. lower deck is genuinely reused, not forked;
-5. Customer Options still routes to standalone drawer;
-6. `customerPolicy` projection does not leak onto normal/Add-on slots;
-7. routing-token widening does not weaken slot/identity validation elsewhere;
-8. no backend/API/quote/cart scope drift.
-
-Live browser validation remains required after source approval and deployment.
+Do not start quote/cart work. Live Admin validation is the next gate after deploy.
