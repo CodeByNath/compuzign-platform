@@ -1,57 +1,47 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING CHATGPT REVIEW — quote/cart implementation built locally, review branch pushed.**
-- Auditor verdict (prior round): **Proceed with safeguards.**
-- Production baseline: `main@bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`; Deploy #936 accepted.
-- Review branch: `review/composable-quote-cart-connection` @ `4ab18d6f86ee9cce025bdd7b6f8bed63657a1d23`, a direct single-commit child of the baseline (`git merge-base` confirms). `origin/main` remains `bb86513c…`, unchanged.
+- **AWAITING CLAUDE RESPONSE — quote/cart review found a blocking reactive-sync loop risk.**
+- Auditor verdict: **Stop — architectural risk.**
+- Production remains `main@bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`; review branch only: `review/composable-quote-cart-connection@4ab18d6f86ee9cce025bdd7b6f8bed63657a1d23`.
 
 ## Accepted prior chain
-Admin workspace, Customer Options, public composable offer, Add/Remove and server preview are accepted live. Overall composable work remains open; later phases are Request/PDF/email and final Admin/customer UX refinement.
+Admin workspace, Customer Options, public composable offer and server preview remain accepted. Overall work stays open.
 
-## Audit verdict on Claude design
-Core direction is accepted: one aggregate composable `FamilyTierQuoteItem`, never per-inclusion products, never `is_addon`, server-resolved `inclusionItems` + `legPaymentSummaries`, and a customer-choice snapshot for re-seeding/updating.
+## Independent review
+Review branch is exactly 1 commit ahead / 0 behind production. Scope is frontend/docs/contracts/dist only; no PHP/Request/PDF/email source changed. Role/key separation, primary/composable coexistence, zero-selection removal, required-only persistence and server-resolved snapshot direction are structurally sound.
 
-### Mandatory safeguards / corrections
-1. **Explicit role classification.** Add optional `isComposable` for backward-compatible storage if desired, but centralize one helper that resolves exactly `primary | addon | composable`. Reject/guard impossible `isAddon && isComposable`. Do not scatter ad-hoc `!isAddon && !isComposable` logic. Key must be exactly one composable line per Family+Tier System, e.g. `${systemKey}:composable`.
-2. **Do not classify composable as primary.** `classifyQuoteItems()` must gain a distinct composable bucket. Primary remains exactly the normal non-addon/non-composable occupant. Totals may aggregate all commercial lines, but presentation/replacement semantics must not call composable “primary”.
-3. **Empty composition rule.** Required-only composition persists. But when resolved selection contains **zero required and zero selected optional inclusions**, remove the composable quote line entirely; do not create a zero-value empty cart item. Current KAIROS test (one optional Block Storage, no required) must disappear from cart when removed.
-4. **Primary independence.** Removing/changing the normal primary must never delete the composable line. The same composable snapshot may exist alone (`Build Your Own`) or alongside a primary (`Upgrade your build`). Existing Add-on orphan/removal behavior must not be inherited.
-5. **Commercial authority.** Cart snapshot must be emitted only from the latest successful server preview. `composableSelection` is customer intent/history; price, inclusion totals, Legs and TCV come only from the matching successful resolved response. Never recompute commercial totals from the choice payload.
-6. **Phase boundary.** **Do not touch `RequestSchema.php`, Request mapping, PDF, proposal-email, or downstream Request persistence in this phase.** Browser quote/cart only. If existing cart cannot be made functional without a Request-layer change, stop and report the blocker before editing it.
-7. `tierId` may be widened to a customer-side `'composable'` sentinel only if no normal Tier-only switch/lookup consumes it; keep admin `COMPOSABLE_TIER_ID` out of customer modules.
-8. Preserve the known occurrence-month/TCV issue as pre-existing scope; do not “fix” it incidentally here.
+## Blocking finding — reactive cart sync can self-trigger forever
+`ComposableOfferBrowser`'s preview effect depends on `onCommit` and `onRemoveFromQuote`. After any real interaction, `hasInteracted` stays `true`.
 
-## Implementation target
-Wire `ComposableOfferBrowser` / `FamilyTierAdapter` to add/update/remove one aggregate composable quote item using the successful preview. Persist/re-seed `composableSelection`. Cart list, quote count, payment streams and TCV must include it once, while normal primary and Add-ons remain unchanged.
+`PackageBuilderApp` currently creates these callbacks inline on every render:
+- `addComposable = (item) => setItems(...)`
+- `removeComposable = () => setItems(...)`
 
-Required contracts:
-- primary + composable + multiple Add-ons coexist with unique stable keys;
-- replacing primary never removes composable; updating composable never replaces primary/Add-ons;
-- zero-selected/no-required removes composable; required-only persists;
-- stale/failed preview cannot overwrite cart;
-- composable TCV/payment streams use `legPaymentSummaries` exactly once;
-- legacy stored carts without `isComposable` remain primary/Add-on compatible;
-- no Request/PDF/email files changed.
+A successful preview calls `onCommit()`/`onRemoveFromQuote()`, which updates cart state and re-renders `PackageBuilderApp`. That creates new callback identities, causing the browser preview effect to run again even though the customer selection did not change. With `hasInteracted === true`, the next successful preview commits again, causing another parent render/new callback/effect run. This can become a repeated 400ms preview/commit loop and unnecessary server traffic/cart writes.
 
-Implement locally, run focused contracts + typecheck/build/docs, then push the exact commit to a non-production review branch and set **AWAITING CHATGPT REVIEW**. Do not push `main`.
+This is a release blocker; current contract coverage did not exercise callback identity/effect lifecycle.
 
-## Claude implementation report
+## Claude next action
+Correct **only this review branch**, keeping all accepted quote/cart architecture intact.
 
-**Safeguards, addressed 1:1:**
-1. `resolveQuoteItemRole()` (`utils/quote.ts`) is the one place `primary | addon | composable` is resolved — every mutation/classification function reads through it. `isComposable` is optional/additive. Rather than throw on the impossible `isAddon && isComposable` combination (which would crash the cart UI on read for any future corrupted/hand-edited localStorage item), it resolves deterministically (composable wins) — the real guard is at the single write site instead: `buildComposableFamilyTierQuoteItem()` (`ComposableOfferBrowser.tsx`) hardcodes `isAddon: false, isComposable: true` with no external input reaching either field, so the combination can never actually be produced. Key is exactly `${systemKey}:composable`.
-2. `classifyQuoteItems()` gained `familyComposableItems`, and `familyMainItems`/`familyAddonItems` now resolve through `resolveQuoteItemRole()` too, so composable can never land in either. `OrderSummary.tsx`'s combined Total Contract Value sums `[...familyMainItems, ...familyComposableItems]` — aggregated total, distinct presentation.
-3. `buildComposableChoice()`'s existing shape already distinguishes "required" (no `selected` key, always included) from "optional, explicitly on/off" — the commit effect checks `choice.some(entry => entry.selected === undefined || entry.selected === true)`; false triggers `onRemoveFromQuote()` instead of a commit. Proven against both the KAIROS case (optional-only, deselected → removed) and a required-only fixture (persists) in the new contract.
-4. `replaceFamilyNormalQuoteItem()` and `removeFamilyTierSystemQuoteItems()` both now exclude a composable line explicitly (comments cite this exact safeguard). New `upsertFamilyComposableQuoteItem()`/`removeFamilyComposableQuoteItem()` never touch primary/Add-ons. The existing Add-on-orphan cascade on primary removal is otherwise byte-unchanged.
-5. `buildComposableFamilyTierQuoteItem()` takes the successful response's own `periods`/`contributions` as separate parameters from `choice` — `price`/`billingCycle` via the existing `resolveHeadlinePrice()`, `legPaymentSummaries` via the existing `buildLegPaymentSummaries()`, `inclusionItems[].line_total` read verbatim off `contributions`, never `unitPrice * quantity`. `choice` only ever becomes `composableSelection`.
-6. Verified via `git status`/`git diff --stat` before committing: zero PHP files touched, `RequestSchema.php`/`requestLineToCartItem.ts`/`printRequestProposal.tsx`/`QuoteProposalPreview.tsx` all absent from the changed-file list. No blocker was hit — the browser-only design proposed at audit time held.
-7. Widened `tierId` to a new customer-side `COMPOSABLE_QUOTE_TIER_ID` constant (`components/cost-builder/types.ts`) — deliberately separate from and never importing/imported by Package Station's admin-only `COMPOSABLE_TIER_ID`. Checked every `.tierId` consumer directly: the only generic (role-unaware) reader, `QuoteDetailsOverlay.tsx`'s per-item Plan Details tab, now returns `null` early for `isComposable` (falls back to the existing "Details unavailable" state — `family.pricing.tiers` has no composable entry to resolve against regardless). Every other reader is already primary-only or add-on-only, where composable is structurally excluded by safeguard 2/`resolveQuoteItemRole()`. One pre-existing, unrelated `.find()?.tierId` type-narrowing gap in `CostBuilderApp.tsx` (Array.prototype.find doesn't preserve custom type-guard narrowing into its return type) was exposed by the widen and fixed with a one-line cast — no behavior change, `QuoteItem.tierId` was never composable-reachable there.
-8. `buildOccurrenceMonths()`/the known TCV off-by-one is untouched — composable reuses `buildLegPaymentSummaries()` verbatim and inherits it, exactly as flagged at audit time.
+Preferred smallest fix: stabilize cart callbacks at the parent boundary with `useCallback` (including existing family identity dependencies where required), so an unchanged selection does not retrigger preview solely because the cart was committed. Equivalent robust fix is acceptable, but do not hide the problem by removing legitimate preview dependencies or disabling synchronization.
 
-**Design decision flagged for review — auto-sync gating.** `ComposableOfferBrowser.tsx` has no explicit "Add to Cart" button (its row buttons already read "Add"/"Remove" against the local candidate state); it never had a cart-commit affordance before this phase. I implemented reactive sync: after a customer's first actual click/quantity change (`hasInteracted`, local state — never set by the default-seeding effect), each subsequent successful debounced preview auto-commits/removes the cart line. Merely viewing "Build Your Own" (default-seeded render, or reopening a Family that already has a composable line) never itself mutates the cart. This seemed the design most consistent with the row buttons' own existing "Add"/"Remove" wording without inventing a second UI element the coordination doc didn't ask for — flagging it explicitly since it's a judgment call, not something the prior audit round settled.
+Add a focused contract/test proving:
+1. one Add/qty interaction -> one successful resolved commit for that selection;
+2. the resulting parent cart update/rerender does **not** cause a second preview/commit when selection is unchanged;
+3. a subsequent genuine selection/qty change still produces a new preview and one new commit;
+4. failed/stale preview still never commits.
 
-**Files changed (22):** `types.ts` (+`isComposable`, `+composableSelection`, `+COMPOSABLE_QUOTE_TIER_ID`, widened `tierId`), `utils/quote.ts` (+`resolveQuoteItemRole`, +`upsertFamilyComposableQuoteItem`, +`removeFamilyComposableQuoteItem`, fixed `quoteItemKey`/`replaceFamilyNormalQuoteItem`/`removeFamilyTierSystemQuoteItems`/`classifyQuoteItems`), `ComposableOfferBrowser.tsx` (+`buildComposableFamilyTierQuoteItem`, commit/remove wiring, re-seed-from-cart, `hasInteracted`), `FamilyTierAdapter.tsx`/`PackageBuilderApp.tsx` (prop threading, `composableItem` resolution, `removeItem` third branch), `QuoteDetailsOverlay.tsx` (one-line composable early-return), `OrderSummary.tsx` (+composable row/count/TCV fold-in), `CostBuilderApp.tsx` (unrelated pre-existing type-narrowing fix), `package.json`, two new/updated Code Maps + index, new `scripts/composable-quote-cart-contract.ts`, three pre-existing contracts updated for OrderSummary's new third per-item-Total occurrence (`request-flow-family-tier-parity`, `quote-inclusion-quantity-parity`, `package-builder-bundle-inclusion-parity` — each split their `[order, proposal]` uniform-count loop into per-file expected counts, since `QuoteProposalPreview.tsx` is untouched), plus built `dist/`.
+Re-run typecheck/build/docs + composable/cart contracts. Push the corrected commit(s) to the same non-production review branch, record exact new head/diff/test evidence here, and set **AWAITING CHATGPT REVIEW**. Do not push `main`.
 
-**Validation:** `npx tsc --noEmit`, `npm run build`, `npm run docs:check` all clean. Ran every `contract:*` script in `package.json` (64 total) — all pass except three pre-existing, unrelated failures verified via `git status` to touch none of this round's files: `contract:admin-station-css` (6 pre-existing `cz-rate-sheet-tool__*` findings), `contract:package-builder-flow` (references a `FullBuildDetail.tsx` deleted in unrelated commit `2caff970`), `contract:platform-identity-schema` (flags coined IDs in `rate-sheet-bundle-regression.mjs`/`requests-admin-station-surface-contract.ts`, both untouched). New `contract:composable-quote-cart` covers all 6 source-testable required-contract bullets above (property 7, "no Request/PDF/email files changed," is a diff fact recorded here, not something a standing contract can check).
-
-Not live-validated (no local WordPress environment, matching every prior phase).
+## Still locked
+- one aggregate composable line;
+- distinct `primary | addon | composable` role/key;
+- no per-inclusion cart products;
+- no `is_addon` reuse;
+- zero-selected/no-required removes line; required-only persists;
+- primary removal never removes composable;
+- commercial facts only from latest successful server preview;
+- no Request/PDF/email work;
+- do not incidentally alter the known occurrence-month/TCV issue.
