@@ -1,53 +1,47 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **READY FOR CLAUDE — Customer Options violates the locked inclusion boundary.**
+- **READY FOR CLAUDE — fix Customer Options inclusion boundary first.**
 - Auditor verdict: **Stop — architectural risk.**
-- Production `main@8ff4eff90129f15f8140858d21cb923dd2f5d549`.
-- Hostinger deploy #934 / run `33691866996`: success for that exact SHA.
-- Continue only in this file.
+- Production `main@8ff4eff90129f15f8140858d21cb923dd2f5d549`; deploy #934 succeeded.
 
-## Locked architecture
-Build Your Own is a subordinate full Tier occupant, not one of the five normal Tier slots. Its separate Customer Selection Rules drawer may control **only inclusion `item_id`s already selected by that occupant**: required/optional/excluded, optional default-selected, fixed/configurable quantity default/min/max/step, and Featured. It must not become a Rate Sheet catalogue selector. Price Option, Commercial Legs, commitment and Editions remain in the normal four-module occupant editor.
+## Live evidence
+KAIROS Build Your Own was configured/published through the normal occupant flow using existing `KAIROS-IaaS` data:
+- 2 vCPU ×1
+- Block Storage ×100
+- Backup Storage — BaaS ×50
+- Default Leg Recurring / Monthly / indefinite; headline $48.50 monthly.
 
-## Live setup completed
-On 2026-09-03, through the normal KAIROS Build Your Own editor:
-- Rate Sheet: existing **KAIROS-IaaS**.
-- Default Leg: Recurring, Monthly, month 0–Indefinite, Headline.
-- Inclusions: **2 vCPU ×1**, **Block Storage ×100**, **Backup Storage — BaaS ×50**.
-- Admin resolved headline: **$48.50 monthly**.
-- No new Rate Sheet row, Price Option, Leg, Edition, Family relation, or normal Tier/Add-on change was made.
+Family remains Tiers 5; composable card is Active; Customer Options appears only there.
 
-Nath then published the occupant manually. Live Admin correctly showed:
-- subordinate **Package Build Your Own** card as **Active**;
-- price **$48.50 monthly**, **3 included features**;
-- Family summary still **Tiers 5**;
-- normal **View/Edit** action plus **Customer Options** only in the composable card menu.
+Opening Customer Options correctly opens the separate Customer Selection Rules drawer, but Edit shows **45 Rate Sheet rows** instead of the occupant's **3 selected inclusion rows**. No policy was saved; customer `/pricing/` validation stopped.
 
-## Failed live boundary
-Opening Customer Options correctly produced a separate **Customer Selection Rules** drawer with initial text **“Not configured — every inclusion stays not offered.”**
+## Required correction
+Customer Options must read the **current composable occupant selection identities**, not the bound Rate Sheet catalogue.
 
-However, Edit rendered **45 Customer access rows** from the entire KAIROS Rate Sheet catalogue instead of the occupant’s three selected inclusions. Examples of out-of-scope rows included 4/6/8 vCPU, multiple RAM sizes, Windows/SUSE/RHEL, bare metal, GPU, networking, security, monitoring and automation products.
+Expected rows are exactly the occupant-owned selections above. The Rate Sheet remains upstream catalogue authority but is never the Customer Options row source.
 
-Expected row set was exactly:
-1. 2 vCPU
-2. Block Storage
-3. Backup Storage — BaaS
+Claude must:
+- derive policy rows from persisted `rate_sheet_selections`/occupant inclusion identities only;
+- use Rate Sheet resolution only to enrich those selected identities with labels/pricing metadata;
+- reject policy item IDs that are stale, foreign, unselected, or merely available on the Rate Sheet;
+- ensure removing an inclusion from the occupant makes its prior policy invalid/non-public safely;
+- preserve valid policy draft save/reopen;
+- keep Customer Options separate from the normal four-module occupant editor.
 
-The edit session was cancelled without changing or saving policy. No customer-policy draft was created. Per the stop rule, `/pricing/` configurator behavior was not validated.
+Add a contract with a Rate Sheet containing many rows but an occupant selecting exactly three; the policy drawer and server validation must expose/accept only those three.
 
-## Exact Claude instruction
-Correct the Customer Selection Rules read/editor projection so its row source is the current Build Your Own occupant’s persisted inclusion identities only, not every row in its bound Rate Sheet.
+## Approved follow-up direction — NOT the bug fix
+Nath wants the normal Build Your Own inclusion setup eventually to support two convenient authoring choices:
+1. **Select inclusions** — current granular selection.
+2. **Import all current Rate Sheet inclusions** — bulk-select every eligible row into the occupant.
 
-Required safeguards:
-- authorize and persist policy only for inclusion `item_id`s currently owned by this composable occupant;
-- reject stale, foreign, unselected or merely Rate-Sheet-available identities server-side;
-- removing an inclusion from the occupant must remove/ignore its customer policy safely;
-- preserve draft save/reopen fidelity for valid rows;
-- keep the separate drawer and existing approved controls;
-- do not move catalogue selection, Price Options, Legs, commitment or Editions into Customer Options.
+Important safeguard: “Import all” must be a **snapshot/bulk selection into the occupant**, not a persistent wildcard binding. Future Rate Sheet additions must not silently become occupant/customer offerings. Once imported, the occupant owns the explicit selected identities and Admin may remove/edit them normally. Customer Options still sees only occupant-owned selections.
+
+Do not implement this bulk-import enhancement in the current correction unless the inclusion-boundary fix genuinely requires the same primitive. Record a proposed smallest follow-up after the bug is corrected.
 
 ## Non-change boundary
-No sixth Tier, parallel product editor, second Tier Instance/Family assignment, fake records, REST/DevTools bypass, Rate Sheet mutation, normal Tier/Add-on changes, customer pricing math changes, or cart/quote/Request/PDF/email/promotions/TCV work.
+No Rate Sheet mutation, new pricing/Legs, normal Tier/Add-on changes, cart/quote/Request/PDF/email/promotions/TCV work, fake data or REST/DevTools bypass.
 
-Report root cause, changed files, tests/contracts, exact commit SHA, push/deploy state and risks here, then set **AWAITING CHATGPT REVIEW**.
+## Claude next action
+Patch the existing review branch for the inclusion-boundary defect only, add focused contracts, report exact SHA/files/tests and a small follow-up proposal for the snapshot bulk-import option, set **AWAITING CHATGPT REVIEW**, and stop. Do not push `main`.
