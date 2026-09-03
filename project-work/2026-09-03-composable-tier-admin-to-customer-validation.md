@@ -1,47 +1,35 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **AWAITING LIVE VALIDATION — exact approved fix deployed.**
+- **AWAITING CLAUDE RESPONSE — audit why customer-facing composable entry is no longer visible; DO NOT IMPLEMENT YET.**
 - Auditor verdict: **Proceed with safeguards.**
-- Production `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`.
-- Hostinger deploy #935 / run `33708795165`: completed / success for exact `head_sha=41884a41ab7f0e21c52dc8e9158c126aace1abf9`.
+- Production `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`; Hostinger deploy #935 succeeded on that exact SHA.
 
-## Accepted corrections
-The deployed fix now enforces the intended external-controller boundary:
-- Customer Options reads only the composable occupant's own selected `rate_sheet_selections`, never the whole bound Rate Sheet catalogue.
-- Server save validation accepts only inclusion IDs currently owned by that occupant.
-- `customer_policy` now survives normal occupant settle/publish; the previous shared `upsertOccupant()` omission is fixed.
-- settle performs server-owned pruning of policy entries whose inclusion IDs are no longer selected.
-- re-adding a previously removed inclusion never restores its old authorization automatically; it returns Not offered until Admin explicitly authors it again.
+## Current live/Admin state
+KAIROS Build Your Own is a real active subordinate occupant with three selected inclusions: 2 vCPU, Block Storage, Backup Storage — BaaS. Customer Options is the separate external policy controller. The latest deployed fixes constrain it to occupant-owned inclusions, persist `customer_policy` through settle, and prune removed inclusion policy IDs.
 
-No cart/quote/Request/PDF/email/promotions/TCV work is part of this phase.
+## New question from Nath — audit only first
+Nath reports that an **earlier customer browser check showed the composable/front-end entry**, but after the recent Admin/boundary fixes the customer surface now appears unchanged / the composable option is no longer visible. We had already planned the customer-facing placement and do not want that UX silently lost while fixing Admin persistence.
 
-## Independent source/deployment verification
-- GitHub `main` resolves exactly to approved `41884a41ab7f0e21c52dc8e9158c126aace1abf9`.
-- Deploy #935 succeeded on that exact SHA.
-- No further Claude source work is authorized unless live validation exposes a genuine defect.
+The shipped frontend source still visibly contains the intended Phase 2B1 wiring:
+- `FamilyTierAdapter` renders `ComposableOfferBrowser` as a sibling of the normal pricing view;
+- context is `Build Your Own` before a normal Tier is selected and `Upgrade your build` after a normal Tier/Edition is selected;
+- `ComposableOfferBrowser` currently returns `null` when `composable_offer`, `customer_policy`, or policy-backed rows are absent.
 
-## Live validation — browser chat
-Use the already-configured real KAIROS Build Your Own occupant in `https://compuzign.weerax.com/studio/`. Do not create new fake records.
+## Claude audit request
+Do **not change source yet**. Explain exactly why the live customer entry disappeared and whether this is:
+1. expected because KAIROS currently has no settled/published `customer_policy` rows;
+2. a regression in the public `composable_offer` projection after the settle/persistence fixes;
+3. a lifecycle/state issue where publishing the occupant but not Customer Options leaves the public projection intentionally empty;
+4. or another wiring defect.
 
-First verify the immediate defect:
-1. Open Build Your Own → Customer Options → Edit.
-2. Expected rows are exactly the occupant's three current inclusions:
-   - 2 vCPU
-   - Block Storage
-   - Backup Storage — BaaS
-3. Confirm no other KAIROS Rate Sheet rows appear.
+Trace the exact chain for current KAIROS state:
+`current_occupant` → settled `customer_policy` → PackageRepository/public `pricing.composable_offer` → `FamilyTierAdapter` → `ComposableOfferBrowser` null/render gate.
 
-Then exercise policy persistence with a minimal real rule set authorized by Nath in that browser chat:
-4. Author one inclusion as Optional (or another simple rule), Save, then settle/publish through the normal Build Your Own lifecycle.
-5. Reopen Customer Options and confirm the rule survived Publish.
-6. For stale-policy regression, choose one test inclusion only: record its current settings, remove it through the normal occupant Features flow, settle/publish, re-add that same inclusion, settle/publish, reopen Customer Options. It must return **Not offered** rather than restoring its old rule. Restore any intended final rule only if Nath explicitly asks.
-7. Stop immediately on any unexpected mutation to the five normal Tier occupants, Family assignment, Rate Sheet data, Legs, Price Options or Editions.
+Also reconcile this with the locked customer UX plan. State plainly:
+- where **Build Your Own** is intended to appear before a primary Tier is chosen;
+- where **Upgrade your build** is intended to appear after a primary Tier/Edition is chosen;
+- whether the UI should be hidden until at least one policy item is explicitly offered, or whether a visible entry/empty-state shell was intended;
+- what exact Admin action/state is required today to make the current shipped customer UI render.
 
-Only after Admin rules are successfully settled should `https://compuzign.weerax.com/pricing/` be validated for Build Your Own / Upgrade your build behavior.
-
-## Follow-up — not part of this live gate
-Separately scope **Import all current Rate Sheet inclusions** as a one-time snapshot/bulk-selection action in the normal occupant inclusion editor. No wildcard binding and no automatic future Rate Sheet additions.
-
-## Browser-agent report
-Update this same file with exact observed rows, authorized runtime changes, persistence/re-add results, and stopping point. Do not mark CLOSED until both Admin persistence and the corresponding customer behavior are validated.
+Do not propose a new parallel UI. Do not alter cart/quote/PDF/email. Do not touch production data. Record the source paths/functions, current-state explanation, and smallest recommendation in this same file, set **AWAITING CHATGPT REVIEW**, then stop.
