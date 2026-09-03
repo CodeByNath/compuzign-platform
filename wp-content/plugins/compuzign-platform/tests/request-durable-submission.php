@@ -634,6 +634,64 @@ $resp14 = $controller->submitRequest(requestFor($ref14, 'legacy14@example.com'))
 check($resp14->get_status() === 200, 'a submission against a legacy ref joins it directly');
 check($requests->platformId($legacyOutcome14['post_id']) === '', 'the legacy record still has no CZR — no backfill was attempted');
 
+// ── 15. A full quote_cart submission carrying a composable line — the exact
+//    live-correction-round smoke test: primary + composable coexisting for
+//    the same Family, going through the REAL submitRequest() -> RequestSchema
+//    -> NotificationTemplates pipeline end to end. Live evidence found a
+//    successful Request with no customer email; this proves the composable
+//    rendering path itself does not throw during either email build and
+//    both emails are still sent exactly once each. ─────────────────────────
+
+echo "\nA quote_cart submission with a composable line sends both emails\n";
+freshIp();
+$ref15 = 'CZ-COMP01';
+$mailCountBefore15 = count($__mailLog);
+$resp15 = $controller->submitRequest(requestFor($ref15, 'composable15@example.com', [
+    'type' => 'quote_cart',
+    'items' => [
+        [
+            'offer_type' => 'family_tier',
+            'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
+            'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
+            'tierOccupantId' => 'occ_starter', 'tierPlatformId' => 'CZT-CLOUD001', 'tierEditionPlatformId' => null,
+            'tierId' => 'basic', 'tierTitle' => 'Starter Cloud', 'price' => 49, 'billingCycle' => 'monthly', 'isAddon' => false,
+        ],
+        [
+            'offer_type' => 'family_tier',
+            'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
+            'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
+            'tierOccupantId' => 'occ_addon', 'tierPlatformId' => 'CZT-CLOUD002', 'tierEditionPlatformId' => null,
+            'tierId' => 'enterprise', 'tierTitle' => 'Backup & DR Shield', 'price' => 25, 'billingCycle' => 'monthly', 'isAddon' => true,
+        ],
+        [
+            'offer_type' => 'family_tier',
+            'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
+            'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
+            'tierOccupantId' => 'occ_composable', 'tierPlatformId' => 'CZT-CLOUD009', 'tierEditionPlatformId' => null,
+            'tierId' => 'composable', 'tierTitle' => 'Build Your Own', 'price' => 10, 'billingCycle' => 'monthly',
+            'isAddon' => false, 'isComposable' => true,
+            'inclusionItems' => [['id' => 'itm_block', 'label' => 'Block Storage', 'quantity' => 100]],
+            'legPaymentSummaries' => [[
+                'source' => 'leg_block_storage', 'billingCycle' => 'monthly', 'price' => 10,
+                'startMonth' => 0, 'endMonth' => null, 'isOngoing' => true, 'occurrenceMonths' => [], 'subtotal' => null,
+            ]],
+        ],
+    ],
+]));
+$data15 = $resp15->get_data();
+check($resp15->get_status() === 200 && ($data15['success'] ?? false) === true, 'a quote_cart submission with primary + Add-on + composable lines succeeds');
+check(count($__mailLog) === $mailCountBefore15 + 2, 'both admin and customer emails are sent exactly once each for the composable submission — proves buildAdminHtmlEmail()/buildCustomerHtmlEmail() do not throw for this line shape');
+$record15 = $requests->findByRef($ref15);
+$storedComposable15 = null;
+foreach ($record15['data']['items'] as $storedItem) {
+    if (!empty($storedItem['isComposable'])) {
+        $storedComposable15 = $storedItem;
+    }
+}
+check($storedComposable15 !== null, 'the composable line is durably stored with isComposable: true');
+check($storedComposable15['isAddon'] === false, 'the stored composable line keeps isAddon false');
+check(!array_key_exists('composableSelection', $storedComposable15), 'composableSelection is never persisted in the durable Request');
+
 echo "\nAll durable-submission checks passed.\n";
 
 } // namespace

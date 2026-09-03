@@ -166,19 +166,35 @@ class RequestsController
             ? "Your assessment request has been received — {$quoteRef}"
             : "Your quote request has been received — {$quoteRef}";
 
-        wp_mail(
-            $adminEmail,
-            $adminSubject,
-            NotificationTemplates::buildAdminHtmlEmail($payload),
-            $headers
-        );
+        // Live-correction round: the durable Request above is already
+        // persisted and authoritative by this point — a rendering failure in
+        // EITHER email must never 500 this response (which would read to the
+        // customer as a failed submission despite their Request already
+        // existing) and must never let one email's failure silently swallow
+        // the other. Each is independently guarded and logged; a genuine
+        // wp_mail() transport failure (returns false, no exception) is
+        // unaffected by this and was already silent before this change.
+        try {
+            wp_mail(
+                $adminEmail,
+                $adminSubject,
+                NotificationTemplates::buildAdminHtmlEmail($payload),
+                $headers
+            );
+        } catch (\Throwable $e) {
+            error_log('[CompuZign] Admin Request notification failed for ' . $quoteRef . ': ' . $e->getMessage());
+        }
 
-        wp_mail(
-            $email,
-            $customerSubject,
-            NotificationTemplates::buildCustomerHtmlEmail($payload, $siteTitle, $quoteViewLink),
-            $headers
-        );
+        try {
+            wp_mail(
+                $email,
+                $customerSubject,
+                NotificationTemplates::buildCustomerHtmlEmail($payload, $siteTitle, $quoteViewLink),
+                $headers
+            );
+        } catch (\Throwable $e) {
+            error_log('[CompuZign] Customer Request notification failed for ' . $quoteRef . ': ' . $e->getMessage());
+        }
 
         return new \WP_REST_Response([
             'success'  => true,

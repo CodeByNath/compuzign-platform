@@ -1750,15 +1750,24 @@ button.cz-station-status-pill {
 
 .cz-requests-drawer__item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--station-grid-gap);
+  flex-direction: column;
+  gap: 6px;
   padding-block: 8px;
   border-bottom: 1px solid var(--station-border);
 }
 
 .cz-requests-drawer__item:last-child {
   border-bottom: 0;
+}
+
+/* Live-correction round: the copy+price row is its own flex row so an
+   optional detail block (composable inclusions/streams) can stack full-width
+   beneath it instead of competing for the same row's horizontal space. */
+.cz-requests-drawer__item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-grid-gap);
 }
 
 .cz-requests-drawer__item-copy {
@@ -1779,6 +1788,43 @@ button.cz-station-status-pill {
   color: var(--station-text);
   font-size: var(--station-text-sm);
   font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Live-correction round: composable ("Build Your Own") inclusion/Leg detail,
+   beneath the aggregate line's own row. */
+.cz-requests-drawer__item-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  margin-left: 12px;
+  border-left: 2px solid var(--station-border);
+  font-size: var(--station-text-xs);
+}
+
+.cz-requests-drawer__inclusions,
+.cz-requests-drawer__streams {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cz-requests-drawer__inclusion-row,
+.cz-requests-drawer__stream-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--station-grid-gap);
+  color: var(--station-text-muted);
+}
+
+.cz-requests-drawer__stream-value {
+  font-weight: 600;
+  color: var(--station-text);
   white-space: nowrap;
 }
 

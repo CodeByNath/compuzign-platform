@@ -24,7 +24,7 @@ import { fetchAdminRequest } from '@/api/endpoints/admin';
 import { useApi } from '@/hooks/useApi';
 import { IconButton } from '@/admin-station/shell/IconButton';
 import { PrintIcon } from '@/admin-station/shell/icons';
-import { requestItemDisplay } from './requestItemDisplay';
+import { requestComposableDetail, requestItemDisplay } from './requestItemDisplay';
 import { useRequestDrawerActions } from './useRequestDrawerActions';
 import { RequestDrawerFooter } from './RequestDrawerFooter';
 import { RequestDrawerDialogs } from './RequestDrawerDialogs';
@@ -136,16 +136,50 @@ export function RequestDrawerHost({ recordId, onSaved, setFooter, setHeaderActio
             <ul class="cz-requests-drawer__items">
               {request.items.map((item, index) => {
                 const display = requestItemDisplay(item);
+                // Live-correction round: beneath the composable ("Build Your
+                // Own") aggregate line only — its own stored inclusion names/
+                // quantities and per-Leg payment streams, straight from the
+                // durable snapshot. Every other line keeps today's flat
+                // title/subtitle/price row unchanged.
+                const composableDetail = requestComposableDetail(item);
                 return (
                   // The submitted snapshot carries no stable per-line id — it is
                   // an immutable array from the customer's own submission, never
                   // reordered or mutated after the fact, so a positional key is safe.
                   <li key={index} class="cz-requests-drawer__item">
-                    <span class="cz-requests-drawer__item-copy">
-                      <strong>{display.title}</strong>
-                      {display.subtitle !== '' && <small>{display.subtitle}</small>}
-                    </span>
-                    <span class="cz-requests-drawer__item-price">{display.price}</span>
+                    <div class="cz-requests-drawer__item-row">
+                      <span class="cz-requests-drawer__item-copy">
+                        <strong>{display.title}</strong>
+                        {display.subtitle !== '' && <small>{display.subtitle}</small>}
+                      </span>
+                      <span class="cz-requests-drawer__item-price">{display.price}</span>
+                    </div>
+                    {composableDetail && (
+                      <div class="cz-requests-drawer__item-detail">
+                        {composableDetail.inclusions.length > 0 && (
+                          <ul class="cz-requests-drawer__inclusions">
+                            {composableDetail.inclusions.map((row) => (
+                              <li key={row.key} class="cz-requests-drawer__inclusion-row">
+                                <span class="cz-requests-drawer__inclusion-label">{row.label}</span>
+                                {row.quantity !== null && (
+                                  <span class="cz-requests-drawer__inclusion-qty">{row.quantity}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {composableDetail.streams.length > 0 && (
+                          <ul class="cz-requests-drawer__streams">
+                            {composableDetail.streams.map((stream) => (
+                              <li key={stream.source} class="cz-requests-drawer__stream-row">
+                                <span class="cz-requests-drawer__stream-label">{stream.label}</span>
+                                <span class="cz-requests-drawer__stream-value">{stream.amount}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}

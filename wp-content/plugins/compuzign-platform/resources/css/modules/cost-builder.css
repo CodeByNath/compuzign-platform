@@ -2858,11 +2858,21 @@
   line-height: 1.5;
 }
 
-/* Actions */
+/* Actions — live-correction round: sticky within .cz-rf-right's own scroll
+   container (overflow-y: auto) so Print/Save as PDF and Submit stay
+   reachable without scrolling past the full services/totals list at short
+   viewport heights (e.g. 1067x701). Existing rail/action styling only, no
+   redesign — an opaque background matching the rail prevents scrolled
+   content (the help footer below) from showing through underneath. */
 .cz-os__actions {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-3);
+  position: sticky;
+  bottom: 0;
+  background: var(--cz-color-surface);
+  padding: var(--cz-space-3) 0;
+  z-index: 1;
 }
 
 .cz-os__print-btn,

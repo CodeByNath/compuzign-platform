@@ -10,7 +10,9 @@
 // — the price shown is always the line's own stored headline price/
 // billingCycle snapshot, never implied as a total contract value.
 
-import type { RequestLine } from '@/api/types/admin';
+import { chargeTypeLabel } from '@/utils/paymentSummary';
+import { formatPrice } from '@/utils/format';
+import type { RequestInclusionItem, RequestLegPaymentSummary, RequestLine } from '@/api/types/admin';
 
 export interface RequestItemDisplay {
   title: string;
@@ -35,4 +37,63 @@ export function requestItemDisplay(item: RequestLine): RequestItemDisplay {
     : `$${item.price.toFixed(2)}${item.billingCycle ? ` / ${item.billingCycle}` : ''}`;
 
   return { title, subtitle, price };
+}
+
+// Live-correction round: the composable ("Build Your Own") aggregate line's
+// own stored inclusion names/quantities + per-Leg payment summaries, for the
+// Admin Request readback beneath its summary row (requestItemDisplay() above
+// stays a flat title/subtitle/price for every line type — this is additive,
+// composable-only detail). Same stored-snapshot-only contract as every other
+// Request surface: never re-resolved from live Rate Sheet/occupant/policy
+// state, and never persisted `composableSelection`.
+export interface RequestComposableInclusionRow {
+  key: string;
+  label: string;
+  quantity: number | null;
+  isBundleParent: boolean;
+}
+
+export interface RequestComposableStreamRow {
+  source: string;
+  label: string;
+  amount: string;
+}
+
+export interface RequestComposableDetail {
+  inclusions: RequestComposableInclusionRow[];
+  streams: RequestComposableStreamRow[];
+}
+
+function flattenInclusions(items: RequestInclusionItem[]): RequestComposableInclusionRow[] {
+  return items.flatMap((inclusion, i) => [
+    {
+      key: inclusion.id || String(i),
+      label: inclusion.label,
+      quantity: inclusion.bundle_id ? null : (inclusion.quantity ?? null),
+      isBundleParent: !!inclusion.bundle_id,
+    },
+    ...(inclusion.includes ?? []).map((child, ci) => ({
+      key: `${inclusion.id || i}:${child.id || ci}`,
+      label: child.label,
+      quantity: child.quantity ?? null,
+      isBundleParent: false,
+    })),
+  ]);
+}
+
+function streamRow(stream: RequestLegPaymentSummary): RequestComposableStreamRow {
+  return {
+    source: stream.source,
+    label: chargeTypeLabel(stream.billingCycle),
+    amount: formatPrice(stream.price),
+  };
+}
+
+export function requestComposableDetail(item: RequestLine): RequestComposableDetail | null {
+  if (!item.isComposable) return null;
+
+  const inclusions = flattenInclusions(item.inclusionItems ?? []);
+  const streams = (item.legPaymentSummaries ?? []).map(streamRow);
+
+  return inclusions.length === 0 && streams.length === 0 ? null : { inclusions, streams };
 }

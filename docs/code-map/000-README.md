@@ -44,6 +44,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Composable Tier Occupant — Customer UX](tier-composable-occupant-customer-ux.md)
 - [Composable Tier Occupant — Admin Customer Selection Rules](tier-composable-occupant-admin-customer-policy.md)
 - [Composable Tier Occupant — Quote/Cart Connection](tier-composable-occupant-quote-cart.md)
+- [Composable Tier Occupant — Live Correction Round](tier-composable-occupant-live-correction.md)
 - [Commercial Legs](commercial-legs.md)
 - [Promotions](promotions.md)
 - [Categories](categories.md)

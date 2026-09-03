@@ -14,6 +14,7 @@
     "contract:package-family-cart": "tsx scripts/package-family-cart-contract.ts",
     "contract:composable-quote-cart": "tsx scripts/composable-quote-cart-contract.ts",
     "contract:composable-request-line": "tsx scripts/composable-request-line-contract.ts",
+    "contract:composable-live-correction": "tsx scripts/composable-live-correction-contract.ts",
     "contract:package-builder-flow": "tsx scripts/package-builder-flow-contract.ts",
     "contract:package-builder-customer-tabs": "tsx scripts/package-builder-customer-tabs-contract.ts",
     "contract:package-family-request-flow": "tsx scripts/package-family-request-flow-contract.ts",

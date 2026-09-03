@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
-import { calcQuoteTotals, classifyQuoteItems, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, classifyQuoteItems, composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
@@ -293,13 +293,17 @@ export function OrderSummary({
             const streams = item.legPaymentSummaries;
             const hasStreams = !!streams && streams.length > 0;
             const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
+            // Live-correction round: "Upgrades" when a sibling primary Tier
+            // is already selected for the same Family (composableCoexistsWithPrimary()
+            // in utils/quote.ts) — standalone Build Your Own naming otherwise.
+            const displayTag = composableCoexistsWithPrimary(item, items) ? 'Upgrades' : item.tierTitle;
             return (
               <div key={quoteItemKey(item)} class="cz-os__service">
                 <span class="cz-os__service-icon" aria-hidden="true">{item.familyTitle.charAt(0).toUpperCase()}</span>
                 <div class="cz-os__service-info">
                   <p class="cz-os__service-name">{item.familyTitle}</p>
                   <div class="cz-os__service-tags">
-                    <span class="cz-os__service-tag">{item.tierTitle}</span>
+                    <span class="cz-os__service-tag">{displayTag}</span>
                   </div>
                 </div>
                 {hasStreams ? (

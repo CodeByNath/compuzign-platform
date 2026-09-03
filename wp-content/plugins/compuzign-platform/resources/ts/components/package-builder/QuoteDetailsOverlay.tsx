@@ -4,7 +4,7 @@ import { computeTotalContractValue, startingPaymentsByCycle, chargeTypeLabel } f
 import { formatPrice } from '@/utils/format';
 import { isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
-import type { PackageBuilderFamily, Tier, TierId } from '@/api/types/cost-builder';
+import type { PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import { periodsForVariant } from './FamilyTierAdapter';
 import { PlanDetailsContent } from './PlanDetailsModal';
 
@@ -54,11 +54,11 @@ const TOTAL_COMMITMENT_KEY = '__total_commitment__';
 function resolvePlanDetails(item: FamilyTierQuoteItem, families: PackageBuilderFamily[], tiers: Tier[]) {
   // The composable occupant has no fixed-slot Tier/Edition declaration to
   // resolve here — family.pricing.tiers only ever holds the five fixed
-  // slots, never family.pricing.composable_offer — so this per-plan Details
-  // tab falls back to the generic "Details unavailable" state below rather
-  // than a composable-specific resolver this phase doesn't build. The
-  // composable line's own commercial facts (price/legPaymentSummaries) are
-  // still fully correct everywhere else (cart list, Total Commitment tab).
+  // slots, never family.pricing.composable_offer — so this resolver still
+  // returns null for it. Live-correction round: the caller (QuoteDetailsOverlay
+  // below) no longer falls through to "Details unavailable" for that null —
+  // it renders ComposablePlanDetails() instead, straight from the item's own
+  // stored snapshot (inclusionItems/legPaymentSummaries), never re-resolved.
   if (item.isComposable) return null;
   // Every non-composable FamilyTierQuoteItem's tierId is a real fixed-slot
   // TierId — the type is widened only to admit the composable sentinel
@@ -86,6 +86,102 @@ function resolvePlanDetails(item: FamilyTierQuoteItem, families: PackageBuilderF
     commitmentUnit: effective.minimumTermUnit,
     periods: periodsForVariant(family, tierId, editionId),
   };
+}
+
+// Live-correction round: the composable ("Build Your Own") occupant's own
+// Details tab body — rendered straight from the quoted item's own stored
+// snapshot (inclusionItems/legPaymentSummaries/price/billingCycle, the exact
+// same fields QuoteProposalPreview.tsx/OrderSummary.tsx already render for
+// it), never re-resolved against current Rate Sheet/occupant/policy state.
+// A Bundle parent stays quantity-less with its real children nested beneath
+// it, mirroring FamilyInclusionsList's own bundle_id treatment in the
+// request-flow components (a separate, deliberately non-shared
+// implementation — this file's own cz-package-builder__* class family,
+// theirs cz-proposal__cz-os__).
+function ComposableInclusionsTable({ items }: { items: ServiceInclusion[] }) {
+  return (
+    <div class="cz-package-builder__details-table-wrap">
+      <table class="cz-package-builder__details-table">
+        <thead>
+          <tr>
+            <th>Item Included</th>
+            <th>Quantity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.flatMap((inclusion, i) => [
+            <tr key={inclusion.id || i}>
+              <td>{inclusion.label}</td>
+              <td>{inclusion.bundle_id ? '' : (inclusion.quantity ?? '')}</td>
+            </tr>,
+            ...(inclusion.includes ?? []).map((child, ci) => (
+              <tr key={`${inclusion.id || i}:child:${child.id || ci}`} class="cz-package-builder__details-table-row--child">
+                <td class="cz-package-builder__details-table-child-label">{child.label}</td>
+                <td>{child.quantity ?? ''}</td>
+              </tr>
+            )),
+          ])}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ComposablePlanDetails({ item }: { item: FamilyTierQuoteItem }) {
+  const streams = item.legPaymentSummaries ?? [];
+  const hasStreams = streams.length > 0;
+  const total = hasStreams ? computeTotalContractValue(streams) : null;
+  return (
+    <div class="cz-package-builder__details-body">
+      <section class="cz-package-builder__details-section">
+        <h4 class="cz-package-builder__details-heading">Plan Overview</h4>
+        <dl class="cz-package-builder__details-overview">
+          <div class="cz-package-builder__details-overview-row">
+            <dt>Family</dt>
+            <dd>{item.familyTitle}</dd>
+          </div>
+          <div class="cz-package-builder__details-overview-row">
+            <dt>Plan Tier</dt>
+            <dd>{item.tierTitle}</dd>
+          </div>
+        </dl>
+      </section>
+
+      {item.inclusionItems && item.inclusionItems.length > 0 && (
+        <section class="cz-package-builder__details-section">
+          <h4 class="cz-package-builder__details-heading">Included</h4>
+          <ComposableInclusionsTable items={item.inclusionItems} />
+        </section>
+      )}
+
+      <section class="cz-package-builder__details-section">
+        <h4 class="cz-package-builder__details-heading">Billing</h4>
+        {hasStreams ? (
+          <>
+            {streams.map((stream) => (
+              <div key={stream.source} class="cz-package-builder__commitment-row">
+                <span>{chargeTypeLabel(stream.billingCycle)}</span>
+                <span>{formatPrice(stream.price)}</span>
+              </div>
+            ))}
+            {total !== null ? (
+              <div class="cz-package-builder__commitment-row cz-package-builder__commitment-row--total">
+                <span>Total</span>
+                <span>{formatPrice(total)}</span>
+              </div>
+            ) : (
+              <p class="cz-package-builder__details-fact">Includes charges without a fixed end date.</p>
+            )}
+          </>
+        ) : (
+          <div class="cz-package-builder__commitment-row">
+            <span>{chargeTypeLabel(item.billingCycle)}</span>
+            <span>{formatPrice(item.price)}</span>
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
 
 function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuoteItem[]; families: PackageBuilderFamily[]; tiers: Tier[] }) {
@@ -271,6 +367,8 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
 
           {activeKey === TOTAL_COMMITMENT_KEY ? (
             <TotalCommitmentTab items={primaryFamilyTierItems} families={families} tiers={tiers} />
+          ) : activeItem?.isComposable ? (
+            <ComposablePlanDetails item={activeItem} />
           ) : activeResolved ? (
             <PlanDetailsContent
               familyTitle={activeResolved.familyTitle}

@@ -38,6 +38,28 @@ export function resolveQuoteItemRole(item: FamilyTierQuoteItem): FamilyTierQuote
   return item.isAddon ? 'addon' : 'primary';
 }
 
+/**
+ * Live-correction round: whether a composable ("Build Your Own") line has a
+ * sibling primary Tier for the SAME Family+Tier-Instance in the same cart —
+ * i.e. it was reached via the "upgrade your build" entry point rather than
+ * standing alone. Contextual, not a stored fact: the same composable line
+ * can gain or lose a sibling primary as the customer edits the cart, so this
+ * is computed at render time from the cart array, never cached on the item
+ * itself. Customer quote/cart + review surfaces (QuoteSummary.tsx,
+ * OrderSummary.tsx) use this to show "Upgrades" instead of "Build Your Own"
+ * for exactly this coexistence case — internal identity/keys and every
+ * Admin-facing surface (requestItemDisplay.ts, the Request drawer,
+ * QuoteProposalPreview.tsx shared with Admin PDF print) are unaffected and
+ * keep "Build Your Own" unconditionally.
+ */
+export function composableCoexistsWithPrimary(item: FamilyTierQuoteItem, items: CartItem[]): boolean {
+  if (resolveQuoteItemRole(item) !== 'composable') return false;
+  const systemKey = familyTierSystemKey(item);
+  return items.some((other) => isFamilyTierQuoteItem(other)
+    && resolveQuoteItemRole(other) === 'primary'
+    && familyTierSystemKey(other) === systemKey);
+}
+
 export function quoteItemKey(item: CartItem): string {
   if (isFamilyTierQuoteItem(item)) {
     const systemKey = familyTierSystemKey(item);

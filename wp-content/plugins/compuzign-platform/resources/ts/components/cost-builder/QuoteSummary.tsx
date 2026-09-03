@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import { calcQuoteTotals, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, composableCoexistsWithPrimary, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import type { CartItem, FamilyTierQuoteItem } from './types';
@@ -141,7 +141,15 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
               </button>
               <div class="cz-quote-summary__item-info">
                 <span class="cz-quote-summary__item-title">{isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}</span>
-                <span class="cz-quote-summary__item-tier">{item.tierTitle}</span>
+                {/* Live-correction round: a composable ("Build Your Own")
+                    line reached via "upgrade your build" (a sibling primary
+                    Tier already selected for the same Family) reads as
+                    "Upgrades" here — the standalone Build Your Own naming
+                    stays for a composable line with no primary sibling, and
+                    for every Admin-facing surface regardless. */}
+                <span class="cz-quote-summary__item-tier">
+                  {isFamilyTierQuoteItem(item) && composableCoexistsWithPrimary(item, items) ? 'Upgrades' : item.tierTitle}
+                </span>
                 {/* Phase 6: raw CZ Platform IDs (familyPlatformId,
                     tierInstancePlatformId, tierPlatformId,
                     tierEditionPlatformId) are deliberately not rendered here
