@@ -1,50 +1,39 @@
 # Composable Tier — Admin UX restructuring + customer validation
 
 ## Status
-- **AWAITING LIVE VALIDATION — pushed to `main` and deployed successfully.**
-- Auditor verdict: **Proceed with safeguards.**
+- **CLOSED — live Admin validation accepted on 2026-09-03.**
+- Auditor verdict: **Proceed.**
 - Production `main@bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`.
-- GitHub Actions **Deploy to Hostinger #936**, run `33735371697`, completed **Success**, exact head SHA `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`.
+- GitHub Actions **Deploy to Hostinger #936**, run `33735371697`, completed **Success** for the exact production SHA.
+- Validation coordination commit: `9f91df33250bf1525b8ed029790d2af47926bc2e`.
 
 ## Independent source/deploy audit
-Actual reviewed commit is production verbatim, direct child of prior `41884a41...`. Diff remains Admin presentation/contracts/docs + built assets only; no PHP/schema/API/quote/cart changes.
+The reviewed production commit is a direct child of prior `41884a41...`. Scope remains Admin presentation/contracts/docs plus built assets only; no PHP, schema, API, quote, or cart changes.
 
-Accepted invariants:
-- five backend Tier slots unchanged;
-- composable is separate workspace destination only;
+Accepted invariants remain intact:
+- five backend Tier slots;
+- composable is a separate subordinate workspace destination;
 - normal focus path unchanged;
-- composable focus reuses `TierDetailPanel` + existing `TierLowerDeck`;
-- middle shell only on composable focus;
-- normal slots have `customerPolicy: null`;
-- Customer Options still opens standalone `tier-customer-policy` drawer;
-- inclusion/Rate Sheet routing stays closed except explicit composable sentinel.
+- composable focus reuses the standard focused summary and existing lower deck;
+- composable middle shell appears only for composable focus;
+- Customer Options opens the standalone Customer Selection Rules drawer;
+- inclusion and Rate Sheet routing remain unchanged except for the explicit composable sentinel.
 
-## Browser Agent — exact live validation
-Read-only validation only. Do not change Package/WordPress/runtime data.
+## Live browser validation results
+Read-only checks completed against the deployed CompuZign Admin Studio after a hard refresh. No Package, WordPress, or runtime data was changed.
 
-1. Open CompuZign Admin Studio and hard-refresh once.
-2. Open the KAIROS Package Tier Engine used in the prior live test.
-3. In **Focus** view, confirm the left Tier navigation still shows the existing five Tier destinations plus a visually separated **Build Your Own / composable** destination. It may visually be sixth, but normal Tier/Family counts must still read **5**, never 6.
-4. Click a normal Tier first. Confirm its focused experience is unchanged and there is **no composable middle shell**.
-5. Click **Build Your Own**. Confirm:
-   - standard focused Tier summary appears using the same shell as normal occupants;
-   - new composable-only middle shell appears **between the focused summary and lower deck**;
-   - left side shows policy-backed/featured inclusion highlights only, max 6 (current KAIROS policy may show Block Storage only);
-   - right side shows Customer Selection Rules metrics: Always included / Customer Add-Remove / Selected by default / Adjustable quantity / Featured;
-   - **View/Edit Customer Options** is visible.
-6. Click **View/Edit Customer Options** and confirm it opens the existing standalone **Customer Selection Rules** drawer, not the shared Tier Details/Options/Connections/Support drawer. Close without saving.
-7. Back on focused Build Your Own, validate reused lower deck:
-   - **Details** shows the composable occupant inclusion list;
-   - **Connections** shows the composable occupant's existing Family/Rate Sheet/Tier relationships and opens the correct read-only target drawers;
-   - **Settings** is the existing Tier Engine settings/pool experience, not a composable-specific duplicate.
-8. Switch back to a normal Tier and confirm the middle shell disappears completely and lower-deck context returns to that normal Tier.
-9. Switch to **Grid** view and confirm the existing subordinate composable box still appears as before; it must not be counted/presented as a normal sixth Tier.
-10. Stop and capture screenshots if any of these occur: count becomes 6; normal Tier gets composable shell; Build Your Own opens wrong occupant/drawer; Customer Options route changes; Details/Connections actions fail; composable visually reads as a peer normal Tier rather than subordinate.
+- **Step 3 — PASS:** Focus navigation shows five normal Tier destinations, then a visual separator and **Package Build Your Own**. Family summary remains **Tiers 5**.
+- **Step 4 — PASS:** Selecting normal **Starter Cloud** restores the normal focused experience; no composable middle shell is present.
+- **Step 5 — PASS:** Selecting **Build Your Own** shows the standard summary, then the composable-only middle shell before the lower deck. Featured inclusions shows **Block Storage** only. Metrics render: Always included 0; Customer Add/Remove 1; Selected by default 0 of 1; Adjustable quantity 0; Featured 0. **View/Edit Customer Options** is visible.
+- **Step 6 — PASS:** Customer Options opens the standalone **Customer Selection Rules** drawer (Overview/Connections, Active, “0 always included · 1 customer Add/Remove”), not the shared Tier drawer. Closed without saving.
+- **Step 7 — PASS:** Details shows the three composable inclusions (2 vCPU, Block Storage, Backup Storage — BaaS). Connections shows Family Group KAIROS, Groups 3, Rate Sheet 1; KAIROS opens the correct read-only Package Family drawer. Settings remains the shared Tier Engine settings/pool experience.
+- **Step 8 — PASS:** Switching back to Starter Cloud removes the middle shell completely and restores normal context.
+- **Step 9 — PASS:** Grid contains five normal Tier cards. A separately labelled subordinate section states **“Composable occupant — subordinate to this Tier system, not one of the 5 Tiers”** and contains Package Build Your Own. Family summary remains **Tiers 5**.
 
-## Existing live customer state
-Previously proven: published Block Storage Customer Add/Remove policy reaches `/pricing/`; Add/Remove + server preview `$10/mo Ongoing` work. Quote/cart persistence remains intentionally absent and is **not part of this validation**.
+Required browser screenshots were captured for normal Focus, Build Your Own Focus and middle shell, Customer Selection Rules drawer, lower-deck Connections, and Grid subordinate presentation.
 
-## Acceptance gate
-Browser Agent should report PASS/FAIL for steps 3-9 and provide screenshots for: normal Focus, Build Your Own Focus + middle shell, Customer Options drawer, lower-deck tabs, and Grid view. Do not close this work file until those live checks pass.
+## Customer boundary
+Previously proven customer state remains accepted: published Block Storage Customer Add/Remove policy reaches `/pricing/`, and Add/Remove plus server preview `$10/mo Ongoing` work. Quote/cart persistence remains intentionally absent and was not retested or changed.
 
-Do not start quote/cart work.
+## Closure
+No further Claude source action is requested for this work item. Do not start quote/cart work.
