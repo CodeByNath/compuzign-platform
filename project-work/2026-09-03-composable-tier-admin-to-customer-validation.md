@@ -1,45 +1,41 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING LIVE VALIDATION — corrected live-correction round deployed.**
+- **READY FOR CLAUDE — live responsive correction required before validation can pass.**
 - Auditor verdict: **Proceed with safeguards.**
-- Independently verified production `main@eb200731384359041ac585fcbc9ed57f01550f0d`.
-- Independently verified Hostinger Deploy **#939 / run `33768478158`**, attempt 2, `head_sha=eb200731384359041ac585fcbc9ed57f01550f0d`, completed **success**. Attempt 1 failed at SSH deploy; retry succeeded.
+- Production remains `main@eb200731384359041ac585fcbc9ed57f01550f0d`.
+- Hostinger Deploy #939 / run `33768478158`, attempt 2, succeeded on that exact SHA.
 
-## Accepted source behavior
-- Customer cart/review uses **Upgrades** only when composable coexists with the same Family+Tier-System primary; standalone/Admin **Build Your Own** remains unchanged.
-- Composable Quote Details renders the successful snapshot (`inclusionItems` + `legPaymentSummaries`), not fixed-slot/live re-resolution.
-- Review & Finalise action area is sticky/reachable.
-- Admin Request renders stored composable inclusion quantities and payment streams.
-- Matching repeated Request submission is side-effect-idempotent: no new secret/transient/email; changed payload remains 409.
-- Only the creator call mints quote-view secret/transient and dispatches notifications. `wp_mail() === false` and exceptions are logged separately.
-- No pricing/resolver/Rate Sheet/entity/identity changes; legacy Requests remain compatible.
+## Accepted behavior retained
+Do not reopen the accepted composable architecture or Request retry fix. Keep:
+- explicit `primary | addon | composable` identity and one aggregate composable line;
+- customer **Upgrades** label only when composable coexists with the same Family+Tier-System primary;
+- composable Quote Details from stored/current successful snapshot;
+- Admin Request stored inclusion/quantity + payment-stream detail;
+- creator-only Request secret/transient/email side effects; identical retry side-effect-idempotent; changed payload 409;
+- no pricing/resolver/Rate Sheet/entity/identity/occurrence-month changes.
 
-## Live browser validation — do now
-Use deployed production surfaces read-only except for the explicit Request submission gate below.
+## New live failure — quote/cart actions at intermediate desktop width
+Nath reports the browser validation exposed a customer quote/cart responsive gap: **the bottom action buttons become unreachable at some widths just before the layout collapses to the single-column/mobile treatment.** Treat this as a live validation failure even if the browser-agent transcript is not available in this coordination file.
 
-### Customer configurator / cart
-1. Open `/pricing/`, select the KAIROS normal plan used in the prior test, then add the composable Block Storage option.
-2. Confirm the aggregate composable line says **Upgrades**, not Build Your Own, while the normal Tier remains selected.
-3. Open composable **Quote details**. Confirm it no longer says “Details unavailable”; it must show selected inclusion + quantity and stored payment stream. With unchanged KAIROS setup expect Block Storage ×100, Monthly $10, Ongoing.
-4. Open Review & Finalise at approximately 1067×701 and a smaller supported height. Confirm **Print / Save as PDF** remains visibly reachable without scrolling past the whole right rail.
+Independent source read confirms the risky boundary:
+- customer builder uses the desktop sticky quote sidebar from **1024px up**;
+- the mobile quote bar/single-column path takes over at **<=1023px**;
+- desktop sidebar has a viewport-constrained max height/outer scrolling, while `.cz-quote-summary` itself is `overflow:hidden`, its list has its own `max-height:340px; overflow-y:auto`, and the CTA/PDF controls live later in `.cz-quote-summary__footer`.
 
-### Existing durable Request
-Open existing Request **CZ-B9W42O / CZRWNTCQ** in Admin. Confirm:
-- three roles remain separate: primary, Add-on, composable;
-- the composable aggregate line has stored inclusion name/quantity and stored Leg/payment stream beneath it;
-- no raw customer-facing Platform IDs are introduced.
-Existing Request cannot prove the newly corrected external email dispatch because it predates this deploy; do not mutate/rewrite it.
+This creates a plausible trapped/nested-scroll/reachability failure in the narrow desktop band where content wraps/tallens but the mobile layout has not yet activated.
 
-### Fresh Request/email gate
-A fresh production Request is required to prove actual external email delivery, new public quote, proposal/print/PDF, totals, and exact-once behavior. **Do not submit it unless Nath explicitly authorizes that production Request + email mutation.** Once authorized, use the same three-line KAIROS shape (normal primary + Add-on + composable Block Storage ×100), then validate:
-- one durable Request only;
-- Admin detail correct;
-- proposal/print/PDF and public quote show exactly one composable aggregate with stored quantity/payment stream;
-- primary + composable do not collapse;
-- totals include composable exactly once;
-- no raw Platform IDs customer-facing;
-- customer email actually arrives and carries the same stored snapshot values;
-- do not intentionally resubmit the same live Request merely to test idempotency; source/controller contracts already cover retry semantics.
+## Claude correction request
+Audit and fix **only** the customer pricing-page quote/cart sidebar action reachability across the narrow desktop transition. Do not redesign the cart.
 
-Record PASS/FAIL evidence here after browser validation. Do not begin final UI/UX refinement until this representation chain is accepted.
+Required behavior:
+1. At widths immediately above the existing 1024px desktop boundary (and representative wider desktop widths), **Quote details / Review & Finalise / Print-Save PDF or equivalent bottom cart actions must always be reachable by normal pointer/touchpad/keyboard scrolling**.
+2. No action may be clipped behind the viewport or trapped below a nested scroll region.
+3. At <=1023px, preserve the existing mobile/single-column quote-bar behavior.
+4. Preserve sticky desktop sidebar behavior where it remains useful; prefer one clear scroll owner rather than stacked scroll traps.
+5. Do not change quote data, totals, composable identity, Request flow, or customer copy in this correction.
+
+Add a focused responsive regression/contract covering at least ~1024, 1067, 1100/1180 widths with a short viewport height and a populated multi-line quote. Push to a non-production review branch, record exact SHA/files/tests here, set **AWAITING CHATGPT REVIEW**, and do not push `main`.
+
+## Remaining live gate after this correction
+Still validate Upgrades label, composable Quote Details, Review/Finalise actions, Admin Request detail, proposal/PDF/public quote exact-once rendering, totals once, no raw IDs. Fresh production Request/email remains separately gated by Nath’s explicit authorization.
