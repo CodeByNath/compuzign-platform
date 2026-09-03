@@ -1,10 +1,10 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **SOURCE PUSH APPROVED — inclusion boundary + policy persistence safeguard accepted.**
-- Auditor verdict: **Proceed with safeguards.**
-- Production before push: `main@8ff4eff90129f15f8140858d21cb923dd2f5d549`.
-- Approved review head: `review/composable-tier-admin-customer-policy@41884a41ab7f0e21c52dc8e9158c126aace1abf9` (2 commits ahead).
+- **AWAITING CHATGPT REVIEW — pushed to main; awaiting live validation.**
+- Auditor verdict (prior round): **Proceed with safeguards.**
+- Production: `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9` (fast-forward from `8ff4eff9`, no additional source changes — exactly the approved review head).
+- Deploy: GitHub Actions "Deploy to Hostinger" run #935 (`33708795165`), `head_sha` = `41884a41ab7f0e21c52dc8e9158c126aace1abf9`, status `completed`, conclusion `success`.
 
 ## Live defect and accepted correction
 Live KAIROS Build Your Own owns 3 selections (2 vCPU, Block Storage, Backup Storage — BaaS) but Customer Options showed all 45 bound Rate Sheet rows.
@@ -30,4 +30,4 @@ Claude reports focused PHP/TS/build/docs suites green; the known unrelated `tier
 After this live defect is closed, separately scope **Import all current Rate Sheet inclusions** as a one-time snapshot/bulk-selection action in the normal occupant inclusion editor. No wildcard binding and no automatic future Rate Sheet additions.
 
 ## Claude next action
-Push exactly the reviewed source state through `41884a41ab7f0e21c52dc8e9158c126aace1abf9` to `main` with no additional source changes. Update this same file with the exact resulting `main` SHA and deployment run/status, set **AWAITING CHATGPT REVIEW**, and stop. Do not alter the live KAIROS configuration during the push.
+None — awaiting the auditor's read-only live validation against the deployed SHA above: reopen KAIROS Build Your Own's Customer Options and confirm exactly 3 occupant-owned rows (not 45), then exercise remove → settle → re-add same item_id → settle and confirm it returns Not offered with no resurrected rule. Do not mark **CLOSED** until that live behavior is confirmed to match this accepted source/deployment.
