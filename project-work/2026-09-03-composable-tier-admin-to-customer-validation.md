@@ -1,10 +1,10 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — exact reviewed head `84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33` only.**
+- **AWAITING LIVE VALIDATION — pushed to `main` and deployed successfully.**
 - Auditor verdict: **Proceed with safeguards.**
-- Production remains `main@bb86513c38fb4e0eea39c290ddf07961e6ecfd1a` until push.
-- Reviewed branch: `review/composable-quote-cart-connection@84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`, exactly 2 commits ahead / 0 behind production.
+- Production: `main@84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`.
+- Deploy to Hostinger #937, run `33754346845`, head SHA `84ebbb28...`, status **completed / success**.
 
 ## Accepted architecture
 - one aggregate composable `FamilyTierQuoteItem`;
@@ -29,14 +29,15 @@ New mounted happy-dom regression reportedly proves:
 
 Overall diff from production is frontend/docs/contracts/dist only. No PHP, `RequestSchema.php`, Request mapping, PDF or email source changed.
 
-## Claude next action
-Push the exact reviewed branch history/head to `main` as a clean fast-forward. Do not amend/squash/add unrelated changes. Then record:
-- exact new `main` SHA;
-- proof `main` head equals reviewed `84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`;
-- Deploy to Hostinger run ID/status/head SHA;
-- status **AWAITING LIVE VALIDATION** after successful deployment.
+## Claude next action (done)
+Pushed the exact reviewed branch history/head to `main` — a clean fast-forward, no amend/squash/unrelated changes.
 
-Do not start Request/PDF/email work yet.
+## Production Push Record
+- New `main` SHA: `84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33` — `git fetch origin main && git rev-parse origin/main` confirms this exactly.
+- Identity proof: matches the reviewed `review/composable-quote-cart-connection` head byte-for-byte (same SHA); `git log --oneline -3 origin/main` shows `84ebbb28` -> `4ab18d6f` -> `bb86513c`, the exact two-commit fast-forward, no rewrite.
+- GitHub Actions: **Deploy to Hostinger #937**, run id `33754346845`, head SHA `84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`, status `completed`, conclusion **`success`** — confirmed via direct GitHub API read (`GET /repos/.../actions/runs/33754346845`), not just the UI listing.
+
+Do not start Request/PDF/email work yet. Next gate is the live validation checklist below.
 
 ## Live validation after deploy
 Customer `/pricing/` must prove both contexts:
