@@ -69,6 +69,7 @@
     "contract:payment-summary-extraction-parity": "tsx scripts/payment-summary-extraction-parity-contract.ts",
     "contract:request-print-isolation": "tsx scripts/request-print-isolation-contract.ts",
     "regression:tier-system-footer-loop": "node scripts/tier-system-footer-loop-regression.mjs",
+    "regression:composable-quote-cart-loop": "node scripts/composable-quote-cart-loop-regression.mjs",
     "regression:entity-action-footer-menu-only": "node scripts/entity-action-footer-menu-only-regression.mjs",
     "regression:tier-occupant-lifecycle": "node scripts/tier-occupant-lifecycle-regression.mjs",
     "regression:tier-edition-lifecycle": "node scripts/tier-edition-lifecycle-regression.mjs",

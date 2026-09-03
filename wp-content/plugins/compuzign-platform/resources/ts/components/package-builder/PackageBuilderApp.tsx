@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import { usePackageBuilder } from '@/hooks/usePackageBuilder';
 import { Spinner } from '@/components/ui/Spinner';
 import { Card } from '@/components/ui/Card';
@@ -61,6 +61,59 @@ export function PackageBuilderApp() {
     else saveCart(items);
   }, [items]);
 
+  // Resolved here, unconditionally, before the loading/error/empty guards
+  // below — the Rules of Hooks forbid calling useCallback only on some
+  // renders, and `data` does not exist yet during the loading/error states.
+  // Byte-identical resolution to the `family` derivation after the guards
+  // (re-derived there too, since a null family cannot drive the JSX below).
+  const selectedFamily = data
+    ? data.families.find((candidate) => candidate.family_id === activeFamilyId) ?? data.families[0] ?? null
+    : null;
+  const familyKey = selectedFamily?.family_id ?? '';
+  const tierInstanceKey = selectedFamily?.tier_instance_id ?? '';
+
+  // Quote/cart connection phase correction: these must be reference-stable
+  // across a render that only changed `items` (e.g. because ONE of them
+  // just ran), not redefined as a new closure every render. Without this,
+  // ComposableOfferBrowser.tsx's own preview effect — which depends on
+  // onCommit/onRemoveFromQuote precisely so it can react to a genuinely new
+  // callback (Family switch) — saw a new identity after every single
+  // commit, re-ran, resolved the SAME successful preview again, and
+  // committed again: an unbounded 400ms preview/commit feedback loop. Deps
+  // are the Family's own identity strings (not the full family object,
+  // which is recreated every `usePackageBuilder()` fetch) so a real Family
+  // switch still produces a fresh callback, matching the addressed cart.
+  const add = useCallback((item: FamilyTierQuoteItem) => setItems((current) => item.isAddon
+    ? upsertFamilyAddonQuoteItem(current, item)
+    : replaceFamilyNormalQuoteItem(current, item)), []);
+  const removePrimary = useCallback(
+    () => setItems((current) => removeFamilyTierSystemQuoteItems(current, familyKey, tierInstanceKey)),
+    [familyKey, tierInstanceKey],
+  );
+  const removeAddon = useCallback(
+    (tierPlatformId: string) => setItems((current) => removeFamilyAddonQuoteItem(current, familyKey, tierInstanceKey, tierPlatformId)),
+    [familyKey, tierInstanceKey],
+  );
+  const addComposable = useCallback(
+    (item: FamilyTierQuoteItem) => setItems((current) => upsertFamilyComposableQuoteItem(current, item)),
+    [],
+  );
+  const removeComposable = useCallback(
+    () => setItems((current) => removeFamilyComposableQuoteItem(current, familyKey, tierInstanceKey)),
+    [familyKey, tierInstanceKey],
+  );
+  const removeItem = useCallback((item: CartItem) => setItems((current) => {
+    if (isFamilyTierQuoteItem(item)) {
+      const role = resolveQuoteItemRole(item);
+      if (role === 'addon') return removeFamilyAddonQuoteItem(current, item.familyId, item.tierInstanceId, item.tierPlatformId);
+      if (role === 'composable') return removeFamilyComposableQuoteItem(current, item.familyId, item.tierInstanceId);
+      return removeFamilyTierSystemQuoteItems(current, item.familyId, item.tierInstanceId);
+    }
+    return item.isAddon
+      ? removeAddonQuoteItem(current, item.serviceId, item.tierId)
+      : removeServiceQuoteItems(current, item.serviceId);
+  }), []);
+
   if (loading) return <div class="cz-cost-builder cz-cost-builder--loading"><Spinner label="Loading packages…" /></div>;
   if (error) return (
     <div class="cz-cost-builder cz-cost-builder--error">
@@ -70,8 +123,7 @@ export function PackageBuilderApp() {
   );
   if (!data || data.families.length === 0) return <div class="cz-cost-builder cz-cost-builder--empty"><p class="cz-muted">No packages available at this time.</p></div>;
 
-  const familyId = activeFamilyId ?? data.families[0].family_id;
-  const family = data.families.find((candidate) => candidate.family_id === familyId) ?? data.families[0];
+  const family = selectedFamily ?? data.families[0];
   const familyItems = items.filter(
     (item): item is FamilyTierQuoteItem => isFamilyTierQuoteItem(item)
       && item.familyId === family.family_id
@@ -87,25 +139,6 @@ export function PackageBuilderApp() {
   // Family+Instance, if any — never the primary, never an Add-on (see
   // resolveQuoteItemRole()).
   const composableItem = familyItems.find((item) => resolveQuoteItemRole(item) === 'composable') ?? null;
-
-  const add = (item: FamilyTierQuoteItem) => setItems((current) => item.isAddon
-    ? upsertFamilyAddonQuoteItem(current, item)
-    : replaceFamilyNormalQuoteItem(current, item));
-  const removePrimary = () => setItems((current) => removeFamilyTierSystemQuoteItems(current, family.family_id, family.tier_instance_id));
-  const removeAddon = (tierPlatformId: string) => setItems((current) => removeFamilyAddonQuoteItem(current, family.family_id, family.tier_instance_id, tierPlatformId));
-  const addComposable = (item: FamilyTierQuoteItem) => setItems((current) => upsertFamilyComposableQuoteItem(current, item));
-  const removeComposable = () => setItems((current) => removeFamilyComposableQuoteItem(current, family.family_id, family.tier_instance_id));
-  const removeItem = (item: CartItem) => setItems((current) => {
-    if (isFamilyTierQuoteItem(item)) {
-      const role = resolveQuoteItemRole(item);
-      if (role === 'addon') return removeFamilyAddonQuoteItem(current, item.familyId, item.tierInstanceId, item.tierPlatformId);
-      if (role === 'composable') return removeFamilyComposableQuoteItem(current, item.familyId, item.tierInstanceId);
-      return removeFamilyTierSystemQuoteItems(current, item.familyId, item.tierInstanceId);
-    }
-    return item.isAddon
-      ? removeAddonQuoteItem(current, item.serviceId, item.tierId)
-      : removeServiceQuoteItems(current, item.serviceId);
-  });
 
   return (
     <div class={`cz-cost-builder cz-package-builder${items.length ? ' cz-cost-builder--has-quote' : ''}`}>

@@ -9,30 +9,23 @@ changes this phase (see that boundary below).
 
 ## Locked architecture
 
-The composable occupant reuses the existing `FamilyTierQuoteItem`/`offer_type:
-'family_tier'` shape — never a third `CartItem` union member — so every
-generic consumer (cart persistence, admin Request mapping, PDF/quote-view)
-stays unaware a new role exists. A new `isComposable?: boolean` field is
-orthogonal to `isAddon`, never reused from it (`resolveQuoteItemRole()`,
-`utils/quote.ts`, the one place primary/addon/composable is resolved — no
-call site re-derives it independently). `tierId` is additively widened to
-admit a customer-side `COMPOSABLE_QUOTE_TIER_ID` sentinel
-(`components/cost-builder/types.ts`) — deliberately a SEPARATE constant
-from Package Station's admin-only `COMPOSABLE_TIER_ID`; neither module
-imports the other's.
+Reuses the existing `FamilyTierQuoteItem`/`offer_type: 'family_tier'` shape
+— never a third `CartItem` union member. A new `isComposable?: boolean`
+field is orthogonal to `isAddon` (`resolveQuoteItemRole()`, `utils/quote.ts`
+— the one place primary/addon/composable is resolved). `tierId` is
+additively widened to admit a customer-side `COMPOSABLE_QUOTE_TIER_ID`
+sentinel (`components/cost-builder/types.ts`) — a SEPARATE constant from
+Package Station's admin-only `COMPOSABLE_TIER_ID`; neither module imports
+the other's.
 
-`quoteItemKey()` gives the composable line its own `:composable` suffix
-(never colliding with `:primary`/`:addon:*`). `replaceFamilyNormalQuoteItem()`
-and `removeFamilyTierSystemQuoteItems()` both now exclude a composable line
-from primary-replace/-removal — a standalone "Build Your Own" selection
-(`context: 'build_your_own'`, no primary Tier chosen) must survive the
-primary's own removal, unlike an Add-on's existing orphan-cascade rule,
-which is otherwise unchanged. New `upsertFamilyComposableQuoteItem()`/
-`removeFamilyComposableQuoteItem()` mirror the existing Add-on functions.
-`classifyQuoteItems()` gained a distinct `familyComposableItems` bucket —
-`familyMainItems` (still read as "the primary") never includes it, though a
-combined commercial total (Total Contract Value/Initial Payment) may
-legitimately aggregate both.
+`quoteItemKey()` gives the composable line its own `:composable` suffix.
+`replaceFamilyNormalQuoteItem()`/`removeFamilyTierSystemQuoteItems()` both
+exclude a composable line — a standalone "Build Your Own" selection must
+survive the primary's own removal, unlike an Add-on's existing orphan
+cascade. New `upsertFamilyComposableQuoteItem()`/`removeFamilyComposableQuoteItem()`
+mirror the Add-on functions. `classifyQuoteItems()` gained a distinct
+`familyComposableItems` bucket, never merged into `familyMainItems`, though
+a combined commercial total may legitimately aggregate both.
 
 ## Commit/removal — driven only by a successful server preview
 
@@ -63,38 +56,51 @@ already-quoted Family reseeds `selection` from the existing item's own
 `composableSelection` (falling back to policy defaults for any row it
 doesn't cover), not from scratch.
 
+## Correction round — reactive-sync callback stability
+
+Review found a release-blocking loop: `PackageBuilderApp.tsx`'s
+`addComposable`/`removeComposable` were plain closures redefined every
+render; the preview effect depends on them (to react to a Family switch),
+so a commit's own `setItems()` re-render produced a new identity,
+re-triggering the effect and re-committing the SAME unchanged selection —
+unbounded. Fixed with `useCallback`, keyed on the Family's own identity
+strings, constructed before the loading/error/empty early returns (Rules of
+Hooks). `scripts/composable-quote-cart-loop-regression.mjs` mounts the real
+composition (esbuild + happy-dom + Preact `render()`, same precedent as
+`tier-system-footer-loop-regression.mjs`) proving one interaction yields
+exactly one preview call and one cart write, an unchanged selection never
+retriggers either, and a failed preview never commits.
+
 ## Presentation — reused, not forked
 
 `QuoteSummary.tsx`'s cart list/count/TCV already iterate the flat cart
-array or `!item.isAddon`, so a composable line renders and totals
-correctly there with zero code changes. `OrderSummary.tsx` (the live
-pre-submission review step) gained one more `.map()` over
-`familyComposableItems`, matching the existing primary/Add-on row
-structure, and its Family Contract Value block now sums
-`[...familyMainItems, ...familyComposableItems]`.
-`QuoteDetailsOverlay.tsx`'s per-item Plan Details tab falls back to
-"Details unavailable" for a composable line (`family.pricing.tiers` has no
-composable entry to resolve against) — its Total Commitment tab and cart
-rendering are otherwise already correct, since neither is primary-name-
-specific the way `classifyQuoteItems()` was.
+array or `!item.isAddon`, so a composable line renders correctly with zero
+code changes. `OrderSummary.tsx` gained one more `.map()` over
+`familyComposableItems`, and its Family Contract Value block now sums
+`[...familyMainItems, ...familyComposableItems]`. `QuoteDetailsOverlay.tsx`'s
+per-item Plan Details tab falls back to "Details unavailable" for a
+composable line (`family.pricing.tiers` has no composable entry) — Total
+Commitment and cart rendering are already correct there.
 
 ## Phase boundary — deliberately untouched
 
 `QuoteProposalPreview.tsx` (shared by the live "View full quote" expand
-panel AND Admin PDF print — see `admin-station/CLAUDE.md`), `RequestSchema.php`,
-Request mapping, and proposal email are all out of scope this phase. A
-composable line is consequently invisible in that one expanded-preview/PDF
-surface today (silently absent, never mislabeled as primary) until the
-deferred Request -> PDF -> email phase lands.
+panel AND Admin PDF print), `RequestSchema.php`, Request mapping, and
+proposal email are all out of scope this phase — a composable line is
+consequently absent (never mislabeled) from that one expand/PDF surface
+until the deferred Request -> PDF -> email phase lands.
 
 ## Validation
 
 `scripts/composable-quote-cart-contract.ts`
-(`npm run contract:composable-quote-cart`) proves coexistence with unique
-keys, primary/composable mutual independence, the empty-composition removal
-rule, single-use `legPaymentSummaries`, legacy-cart compatibility, and the
-stale/failed-preview guard. `scripts/request-flow-family-tier-parity-contract.ts`
-updated for the new third per-item Total row in `OrderSummary.tsx` only.
+(`contract:composable-quote-cart`) proves coexistence with unique keys,
+primary/composable mutual independence, the empty-composition removal rule,
+single-use `legPaymentSummaries`, and legacy-cart compatibility.
+`scripts/composable-quote-cart-loop-regression.mjs`
+(`regression:composable-quote-cart-loop`) proves the callback-stability fix
+above. `scripts/request-flow-family-tier-parity-contract.ts` and two
+sibling contracts updated for the new third per-item row in
+`OrderSummary.tsx` only.
 
 ## Related Code Maps
 
