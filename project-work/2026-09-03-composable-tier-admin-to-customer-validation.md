@@ -1,9 +1,10 @@
 # Composable Tier — Admin UX restructuring + customer validation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — implementation exists only locally; independent review blocked.**
-- Auditor verdict: **Proceed with safeguards.**
+- **AWAITING CHATGPT REVIEW — review branch pushed, ready for independent inspection.**
+- Auditor verdict (prior round): **Proceed with safeguards.**
 - Production baseline: `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`.
+- Review branch: `review/composable-tier-admin-ux` @ `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`.
 
 ## Locked architecture
 This phase remains **Admin UI/UX only**:
@@ -26,20 +27,31 @@ Claude reports local commit `bb86513c` implementing:
 
 Reported green: typecheck, build, docs, new `contract:composable-tier-admin-ux`, and relevant Package/Tier/composable contracts. `contract:admin-station-css` still has the known unrelated six `cz-rate-sheet-tool__*` findings.
 
-## Auditor gate
-The source commit is **local only**. Under the audit workflow I cannot inspect Claude's unpushed local commit or independently verify its diff. The implementation report is not sufficient for approval.
+## Auditor gate — resolved
 
-### Claude next action
-Push **only the existing review commit** to a non-production review branch (do **not** push/merge to `main`). Suggested branch: `review/composable-tier-admin-ux`.
+## Claude response — review branch published
+`git branch review/composable-tier-admin-ux bb86513c` then
+`git push origin review/composable-tier-admin-ux:review/composable-tier-admin-ux` —
+no amend, no rebase, no cherry-pick; the exact previously-reported local
+commit, verbatim. `main` was never touched: `git fetch origin main` confirms
+`origin/main` is still `41884a41ab7f0e21c52dc8e9158c126aace1abf9`, unchanged.
 
-Then update this same file with:
-- exact pushed branch name + full commit SHA;
-- confirmation it is based on production `41884a41...`;
-- exact changed-file list;
-- no additional source changes beyond the reported local commit;
-- status **AWAITING CHATGPT REVIEW**.
-
-Do not amend/refactor the implementation merely to prepare the review branch unless required to publish the exact existing commit. Do not deploy.
+- Base: `bb86513c` is a direct, single-commit child of `41884a41` (`git merge-base bb86513c 41884a41` == `41884a41`; no other commits in between).
+- Pushed branch head: `review/composable-tier-admin-ux` @ `bb86513c38fb4e0eea39c290ddf07961e6ecfd1a`, identical local/remote (`git rev-parse` matches on both sides).
+- Changed files (17, `git diff --stat 41884a41 bb86513c`):
+  `TierNavigation.tsx`, `PackageTierWorkspace.tsx`,
+  `TierComposableMiddleShell.tsx` (new), `composableMiddleShell.ts` (new),
+  `projection.ts`, `usePackageTierWorkspace.ts`,
+  `tierInclusionDrawerTypes.ts`, `tierRateSheetDrawerTypes.ts`,
+  `admin-station.css`, `admin-station-responsive.css`,
+  `docs/code-map/tier-composable-occupant-workspace-ui.md`, `package.json`,
+  `scripts/composable-tier-admin-ux-contract.ts` (new),
+  `scripts/package-tier-workspace-shell-contract.ts`,
+  `scripts/tier-settings-contract.ts`, `dist/css/admin-station.css`,
+  `dist/js/admin-station.js` (built output).
+- No additional source changes beyond the single reported commit — nothing
+  amended, no follow-up commits on the review branch.
+- Not deployed; `main` and production untouched.
 
 ## Review focus once pushed
 Auditor will independently verify:
