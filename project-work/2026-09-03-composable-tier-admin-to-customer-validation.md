@@ -1,43 +1,30 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING LIVE VALIDATION — Request/PDF/email deployed.**
+- **READY FOR CLAUDE — live Request/customer UI correction round.**
 - Auditor verdict: **Proceed with safeguards.**
-- Production `main@f9035e82cda9ce7a0f1a65e36d761f8524aa058c`.
-- GitHub Actions **Deploy to Hostinger #938**, run `33762478987`, exact `head_sha=f9035e82cda9ce7a0f1a65e36d761f8524aa058c`, completed **success**.
+- Validated production: `main@f9035e82cda9ce7a0f1a65e36d761f8524aa058c`; Hostinger deploy #938/run `33762478987` succeeded.
+- Coordination input: `a274375c84b37028c0b8c41f89cc18b449db7124`.
 
-## Accepted chain before this phase
-Admin/customer composable workflow and aggregate quote/cart line are already accepted live. Architecture remains locked: one subordinate composable occupant, one aggregate composable quote line, explicit `primary | addon | composable`, no `is_addon` reuse, no second CZTG/entity.
+## Locked architecture / non-change boundary
+Retain one subordinate composable occupant and one aggregate composable quote line with explicit `primary | addon | composable` identity. Do not add entities/products, reuse `is_addon`, persist `composableSelection`, or change pricing/resolvers, Rate Sheets, occurrence-month math, identity keys, Admin configuration, or legacy Request data. Stored Request rendering must use stored `inclusionItems` and `legPaymentSummaries`, never live re-resolution.
 
-## Deployed Request/PDF/email implementation
-The approved source is now exact production main. It:
-- persists optional `isComposable` through Request storage/readback;
-- does **not** persist `composableSelection`;
-- normalizes impossible composable+Add-on input to composable / `isAddon=false`;
-- reconstructs the stored line as composable, preserving unique quote key/role;
-- renders **Build Your Own** distinctly in proposal/print/PDF/customer email;
-- reuses stored `inclusionItems` + `legPaymentSummaries`, never live re-resolution;
-- includes composable once in combined Family commercial totals;
-- preserves legacy Requests when `isComposable` is absent.
+## Live evidence
+Nath submitted current production Request **CZ-B9W42O / CZRWNTCQ** with Starter Cloud, Backup & DR Shield, and composable Block Storage ×100.
 
-No pricing/resolver/Rate Sheet/entity/identity/occurrence-month math changes were included.
+- Admin Request shows three separate summary lines and Build Your Own at $10/month, but omits the composable inclusion snapshot and per-Leg details.
+- Before submission, **Quote details → KAIROS — IaaS — Build Your Own Details** displayed “Details unavailable for this plan.”
+- Review & Finalise right rail contains **Print / Save as PDF** below the usable 1067×701 viewport; it appears hidden unless the rail is scrolled.
+- Customer quote/cart labels the aggregate line **Build Your Own** although it is created under **Upgrade your build**.
+- Gmail search for the new reference **CZ-B9W42O** returns no message. The open email and public quote for legacy **CZ-9GPG3T** predate this deployment and are not valid composable evidence.
 
-## Live browser validation — read-only first
-Use deployed Hostinger/customer/Admin surfaces only. Do **not** alter WordPress/platform configuration or source.
+## Exact correction request
+1. In the customer quote/cart and review UI, when the composable line is being added alongside a normal Tier, use the customer-facing subtitle **Upgrades** instead of **Build Your Own**. Keep internal composable identity and the aggregate line unchanged. Do not rename the standalone Admin destination.
+2. Populate the composable **Quote details** tab from the current server-preview snapshot: show every selected inclusion and quantity (current evidence: Block Storage 100), plus its payment stream/amount (Monthly $10, Ongoing). Never show “Details unavailable” when snapshot data exists.
+3. Keep **Print / Save as PDF** visibly reachable in the Review & Finalise modal at 1067×701 and smaller supported heights. Use the existing right-rail/action styling; make the action area sticky or otherwise viewport-reachable without redesigning the modal.
+4. In Admin Request CZ-B9W42O, render the stored composable inclusion names/quantities and stored per-Leg payment summaries beneath its aggregate line. Preserve the separate primary/Add-on lines and customer-safe labels.
+5. Diagnose the missing customer email for CZ-B9W42O. Ensure successful Request submission sends the email once and that the email/public quote/print/PDF all render the composable aggregate exactly once with stored inclusion quantities and payment streams. No raw Platform IDs.
+6. Preserve legacy Request fallback when `isComposable` is absent; do not rewrite CZ-9GPG3T.
 
-Prefer an **existing submitted Request containing a composable Build Your Own line** if one already exists. Validate the complete durable chain:
-1. Admin Request displays Build Your Own as a distinct aggregate Family line, not primary/Add-on.
-2. Stored selected inclusion names and quantities are present and match the submitted snapshot.
-3. Stored per-Leg payment streams display correctly.
-4. Proposal/Print/PDF shows exactly one Build Your Own line and no raw Platform IDs customer-facing.
-5. If the same Request contains a normal primary, primary + composable both appear separately with no duplicate/collapsed identity.
-6. Combined totals/TCV include composable exactly once.
-7. Customer email for that Request shows Build Your Own distinctly with the same stored inclusion quantities/payment streams and customer-safe labels.
-8. Re-open/reload the Request and confirm values remain snapshot-stable; do not compare/re-resolve against current Rate Sheet state.
-
-Capture screenshots/evidence for Admin Request, proposal/PDF, and customer email.
-
-### Mutation boundary
-If no existing composable Request/email exists and validation requires **submitting a new production Request or sending a new customer email**, stop before that action and ask Nath for explicit authorization for that exact runtime mutation. Do not create test Requests/emails without it.
-
-After validation, record PASS/FAIL evidence here. If all pass, mark this representation chain accepted but **keep the overall composable work open** for the final Admin/customer UI/UX refinement pass.
+## Claude handoff
+Implement only this scope, add focused regression coverage for preview/details, Request readback, email/proposal rendering, and responsive action visibility, then report files/tests/SHAs here. Do not push until the normal review gate authorizes it.
