@@ -325,7 +325,11 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
         }),
         composableView?.detail.enabled === true,
       ) : null;
-      composableOccupant = projectComposableWorkspaceSlot(composableOccupantId, composableCard);
+      composableOccupant = projectComposableWorkspaceSlot(
+        composableOccupantId,
+        composableCard,
+        composableView?.detail.customer_policy ?? null,
+      );
     }
 
     return {

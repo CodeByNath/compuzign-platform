@@ -28,6 +28,7 @@ import { PackageFamilyScope } from './PackageFamilyScope';
 import { PackageFamilySummary } from './PackageFamilySummary';
 import { TierNavigation } from './TierNavigation';
 import { TierDetailPanel } from './TierDetailPanel';
+import { TierComposableMiddleShell } from './TierComposableMiddleShell';
 import { TierLowerDeck, type DeckTab } from './TierLowerDeck';
 import type { PoolSubject } from './TierSystemSettings';
 
@@ -50,16 +51,25 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
   const slots = tool?.slots ?? [];
   const visibleSlots = useMemo(() => filterWorkspaceTierSlots(slots, tierFilter), [slots, tierFilter]);
   const instanceId = tool?.workspaceInstance?.tier_instance_id ?? null;
+  // The composable occupant's own sixth tab, addressed by the same sentinel
+  // dispatchTierIntent already uses elsewhere in this file — never a member
+  // of `slots`/`visibleSlots`, so it can never affect the Tiers/Add-ons
+  // filter or "N of 5" counts above it.
+  const isComposableFocused = selectedSlotId === COMPOSABLE_TIER_ID;
   // The same "selected, or the first available" pattern the unfiltered list
   // always used — narrowed to the currently visible slots, so a filter change
   // keeps the current selection when it remains visible and otherwise falls
   // back to the first visible occupant instead of an occupant the filter hid.
   const selectedSlot = useMemo(
-    () => instanceId === null
+    () => instanceId === null || isComposableFocused
       ? null
       : visibleSlots.find((slot) => slot.slotId === selectedSlotId) ?? visibleSlots[0] ?? null,
-    [instanceId, selectedSlotId, visibleSlots],
+    [instanceId, isComposableFocused, selectedSlotId, visibleSlots],
   );
+  // The one slot actually on screen right now, normal or composable — every
+  // lower-deck/Connections/Details dispatcher below reads through this alone
+  // rather than re-branching on isComposableFocused itself.
+  const focusedSlot = isComposableFocused ? tool?.composableOccupant ?? null : selectedSlot;
 
   const focusWorkspace = (announcement: string) => {
     setNavigationAnnouncement(announcement);
@@ -195,12 +205,15 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       if (target.platformId && target.rateSheetId) onIntent(target.rateSheetId, actionId === 'edit' ? 'edit-rate-sheet' : 'view-rate-sheet');
       return;
     }
-    if (instanceId === null || selectedSlot === null) return;
+    // The composable occupant's own focused view reuses this exact Connections
+    // lane (Admin UX restructuring), so it addresses through `focusedSlot`
+    // here too, not the five-slot-only `selectedSlot`.
+    if (instanceId === null || focusedSlot === null) return;
     if (target.kind === 'rate-sheet-group') {
       onIntent(
         encodeTierRateSheetGroupDrawerRecordId(
           instanceId,
-          selectedSlot.slotId,
+          focusedSlot.slotId,
           target.rateSheetId,
           target.groupId,
         ),
@@ -209,7 +222,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
       return;
     }
     onIntent(
-      encodeTierRateSheetDrawerRecordId(instanceId, selectedSlot.slotId, target.rateSheetId),
+      encodeTierRateSheetDrawerRecordId(instanceId, focusedSlot.slotId, target.rateSheetId),
       actionId === 'edit' ? 'edit-connected-rate-sheet' : 'view-connected-rate-sheet',
     );
   };
@@ -294,12 +307,30 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             <div class="cz-tier-workspace__focus">
               <TierNavigation
                 slots={visibleSlots}
-                selectedId={selectedSlot?.slotId ?? null}
+                selectedId={focusedSlot?.slotId ?? null}
                 onSelect={setSelectedSlotId}
                 filter={tierFilter}
                 onFilterChange={setTierFilter}
+                composableSlot={tool.composableOccupant}
               />
-              {selectedSlot && (
+              {isComposableFocused ? (
+                tool.composableOccupant && (
+                  <TierDetailPanel
+                    slot={tool.composableOccupant}
+                    familyName={tool.selectedFamily?.name ?? null}
+                    hasInstance
+                    isSubordinate
+                    onAction={(actionId) => actionId === 'customer-options'
+                      ? dispatchCustomerPolicyIntent()
+                      : dispatchTierIntent(
+                          COMPOSABLE_TIER_ID,
+                          tool.composableOccupant?.occupantId ?? null,
+                          actionId,
+                        )}
+                    onOpenSettings={openTierSettings}
+                  />
+                )
+              ) : selectedSlot && (
                 <TierDetailPanel
                   slot={selectedSlot}
                   familyName={tool.selectedFamily?.name ?? null}
@@ -332,14 +363,14 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
         </aside>
       </div>
 
-      {/* The subordinate composable occupant — never one of the five `slots`,
-          never inside cz-tier-workspace__layout's Focus/Grid switch above, so
-          "N of 5"/Family "Tiers 5" stay unchanged in both view modes. Reuses
-          TierDetailPanel unmodified (same created/empty branches a fixed slot
-          gets) and dispatches through the same dispatchTierIntent path,
-          addressed at COMPOSABLE_TIER_ID, into the SAME mature Tier drawer —
-          see docs/code-map/tier-composable-occupant-admin-ui.md. */}
-      {tool.composableOccupant && (
+      {/* Grid view has no tab strip to host the composable occupant's own
+          sixth destination (Focus view's TierNavigation, above, does), so it
+          keeps this always-visible box exactly as before — never one of the
+          five `slots`, "N of 5"/Family "Tiers 5" stay unchanged. Focus view
+          no longer duplicates it here: selecting its tab shows the same
+          panel in the primary focus area instead, per the Admin UX
+          restructuring — see docs/code-map/tier-composable-occupant-admin-ui.md. */}
+      {viewMode === 'grid' && tool.composableOccupant && (
         <div class="cz-tier-workspace__composable">
           <p class="cz-tier-workspace__panel-label">
             Composable occupant — subordinate to this Tier system, not one of the 5 Tiers
@@ -361,6 +392,19 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
         </div>
       )}
 
+      {/* Composable-only middle shell — hidden for every normal Tier, mounted
+          only while Focus view has the composable occupant's own tab
+          selected and it is published (an unpublished/absent occupant has no
+          deck/customer_policy to summarize; TierDetailPanel's own empty
+          state above already covers that case). */}
+      {viewMode === 'focus' && isComposableFocused && tool.composableOccupant?.item && (
+        <TierComposableMiddleShell
+          deck={tool.decks[tool.composableOccupant.item.id] ?? EMPTY_TIER_DECK}
+          policy={tool.composableOccupant.customerPolicy}
+          onManageCustomerOptions={dispatchCustomerPolicyIntent}
+        />
+      )}
+
       {(tool.selectedFamily !== null || tool.workspaceInstance !== null) && (
         <div ref={lowerDeckRef} tabIndex={-1}>
         <TierLowerDeck
@@ -368,18 +412,18 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           family={tool.selectedFamily}
           familyComposition={tool.familyComposition}
           families={tool.families}
-          tierName={selectedSlot?.item?.name ?? (selectedSlot ? `${selectedSlot.label} Tier` : 'Tier setup')}
-          deck={selectedSlot?.item ? tool.decks[selectedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
-          connectionNavigation={selectedSlot?.occupantId
-            ? tool.connectionNavigation[selectedSlot.occupantId] ?? tool.emptyConnectionNavigation
+          tierName={focusedSlot?.item?.name ?? (focusedSlot ? `${focusedSlot.label} Tier` : 'Tier setup')}
+          deck={focusedSlot?.item ? tool.decks[focusedSlot.item.id] ?? EMPTY_TIER_DECK : EMPTY_TIER_DECK}
+          connectionNavigation={focusedSlot?.occupantId
+            ? tool.connectionNavigation[focusedSlot.occupantId] ?? tool.emptyConnectionNavigation
             : tool.emptyConnectionNavigation}
           activeTab={deckTab}
-          hasFocusedTier={selectedSlot?.item !== null && selectedSlot !== null}
+          hasFocusedTier={focusedSlot?.item !== null && focusedSlot !== null}
           connectionScopeKey={[
             tool.selectedFamily?.id ?? 'unassigned',
             instanceId ?? 'no-instance',
-            selectedSlot?.slotId ?? 'no-slot',
-            selectedSlot?.occupantId ?? 'empty',
+            focusedSlot?.slotId ?? 'no-slot',
+            focusedSlot?.occupantId ?? 'empty',
           ].join(':')}
           tierTool={tool.tierInstances}
           workspaceInstance={tool.workspaceInstance}
@@ -387,7 +431,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           settingsLoading={tool.settingsLoading}
           settingsError={tool.settingsError}
           onInclusionIntent={(itemId, actionId) => {
-            if (selectedSlot) dispatchInclusionIntent(selectedSlot.slotId, itemId, actionId);
+            if (focusedSlot) dispatchInclusionIntent(focusedSlot.slotId, itemId, actionId);
           }}
           onConnectionIntent={dispatchConnectionIntent}
           onPoolIntent={dispatchPoolIntent}

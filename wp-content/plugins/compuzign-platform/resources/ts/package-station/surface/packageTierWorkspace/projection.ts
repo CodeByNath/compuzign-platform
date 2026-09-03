@@ -8,6 +8,7 @@ import type {
   CategoryGroupCardItem,
   CategoryGroupStatus,
 } from '@/admin-station/presentation/category-groups/types';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
 import type {
   TierAssignment,
   TierInstanceRecord,
@@ -38,6 +39,11 @@ export interface WorkspaceTierSlot {
   // card can read them without re-deriving from the station.
   isAddon: boolean | null;
   isPopular: boolean;
+  // Admin-authored customer selection bounds — composable occupant only (see
+  // types.ts's own `customer_policy` doc comment: every normal Tier/Add-on's
+  // field stays permanently null, so a fixed slot never populates this).
+  // Additive, Admin UX restructuring's composable middle shell.
+  customerPolicy: CustomerPolicy | null;
 }
 
 /**
@@ -57,6 +63,7 @@ export function projectWorkspaceTierSlots(
       item: occupant?.item ?? null,
       isAddon: occupant?.isAddon ?? null,
       isPopular: occupant?.isPopular ?? false,
+      customerPolicy: null,
     };
   });
 }
@@ -73,6 +80,7 @@ export function projectWorkspaceTierSlots(
 export function projectComposableWorkspaceSlot(
   occupantId: string | null,
   item: CategoryGroupCardItem | null,
+  customerPolicy: CustomerPolicy | null = null,
 ): WorkspaceTierSlot {
   return {
     slotId: COMPOSABLE_TIER_ID,
@@ -81,6 +89,7 @@ export function projectComposableWorkspaceSlot(
     item,
     isAddon: null,
     isPopular: false,
+    customerPolicy,
   };
 }
 

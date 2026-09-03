@@ -246,8 +246,13 @@ check(
   lowerDeckSource.includes('key={connectionScopeKey}')
     && workspaceSource.includes("tool.selectedFamily?.id ?? 'unassigned'")
     && workspaceSource.includes("instanceId ?? 'no-instance'")
-    && workspaceSource.includes("selectedSlot?.slotId ?? 'no-slot'")
-    && workspaceSource.includes("selectedSlot?.occupantId ?? 'empty'"),
+    // Admin UX restructuring: this scope key now reads through `focusedSlot`
+    // (selectedSlot, or the composable occupant while its own tab is
+    // focused) rather than `selectedSlot` alone, so switching TO or FROM the
+    // composable occupant's focus resets Connections/Settings exactly like
+    // switching between two fixed slots always has.
+    && workspaceSource.includes("focusedSlot?.slotId ?? 'no-slot'")
+    && workspaceSource.includes("focusedSlot?.occupantId ?? 'empty'"),
   'connection selection state resets on the exact Family, instance, slot, and occupant scope',
 );
 check(
@@ -265,8 +270,11 @@ check(
   'the orchestrator resolves the typed target union through the existing canonical drawer routes',
 );
 check(
-  /encodeTierRateSheetGroupDrawerRecordId\(\s*instanceId,\s*selectedSlot\.slotId,\s*target\.rateSheetId,\s*target\.groupId,\s*\)/s.test(workspaceSource)
-    && workspaceSource.includes('encodeTierRateSheetDrawerRecordId(instanceId, selectedSlot.slotId, target.rateSheetId)'),
+  // Admin UX restructuring: these routes now address through `focusedSlot`
+  // (selectedSlot, or the composable occupant while focused) — argument
+  // order/shape is otherwise unchanged.
+  /encodeTierRateSheetGroupDrawerRecordId\(\s*instanceId,\s*focusedSlot\.slotId,\s*target\.rateSheetId,\s*target\.groupId,\s*\)/s.test(workspaceSource)
+    && workspaceSource.includes('encodeTierRateSheetDrawerRecordId(instanceId, focusedSlot.slotId, target.rateSheetId)'),
   'group and Rate Sheet routes preserve the canonical instance, slot, sheet, then nested-group argument order',
 );
 

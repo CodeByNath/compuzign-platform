@@ -188,6 +188,11 @@
     display: flex;
   }
 
+  /* Composable middle shell — one column, highlights above rules. */
+  .cz-tier-workspace__composable-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   /* Lower deck — the filter toolbar collapses to a single column. The row lists
      stack at the list system's own breakpoint, not this one. */
   .cz-tier-deck__toolbar {

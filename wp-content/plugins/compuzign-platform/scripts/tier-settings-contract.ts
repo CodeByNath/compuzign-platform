@@ -484,8 +484,11 @@ check(
   workspaceSource.includes("if (target.kind === 'tier-instance') {")
     && workspaceSource.includes('dispatchTierInstanceIntent(target.instanceId, actionId);')
     && workspaceSource.includes('onIntent(encodeTierInstanceDrawerRecordId(targetInstanceId), actionId);')
+    // Admin UX restructuring: the slot-scoped guard now reads `focusedSlot`
+    // (selectedSlot, or the composable occupant while focused) — same guard,
+    // same ordering, generalized variable name.
     && workspaceSource.indexOf("target.kind === 'tier-instance'")
-      < workspaceSource.indexOf('if (instanceId === null || selectedSlot === null) return;'),
+      < workspaceSource.indexOf('if (instanceId === null || focusedSlot === null) return;'),
   'the Tier Group target opens the existing whole-instance Tier drawer, carrying its action, before the slot-scoped guard',
 );
 // The row's Platform ID is the engine's shared scalar key, carried through

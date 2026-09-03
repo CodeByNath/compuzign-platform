@@ -23,6 +23,13 @@ interface Props {
   onSelect: (slotId: string) => void;
   filter: TierListFilter;
   onFilterChange: (filter: TierListFilter) => void;
+  // The subordinate composable occupant, rendered as a sixth destination
+  // after a visual divider — never subject to the Tiers/Add-ons filter above
+  // (it is neither), never merged into `slots`, and never counted by it.
+  // Admin UX restructuring: this is the ONLY place the composable occupant
+  // enters the tab/filter navigation; it still never becomes a member of
+  // TIER_KEYS/normal Tier selection semantics — see projectComposableWorkspaceSlot.
+  composableSlot?: WorkspaceTierSlot | null;
 }
 
 const FILTER_OPTIONS: { value: TierListFilter; label: string }[] = [
@@ -42,33 +49,83 @@ const STATUS_META: Record<CategoryGroupStatus, { label: string; token: string }>
   'pending-full': { label: 'Pending',  token: 'pending' },
 };
 
-export function TierNavigation({ slots, selectedId, onSelect, filter, onFilterChange }: Props): VNode {
+export function TierNavigation({ slots, selectedId, onSelect, filter, onFilterChange, composableSlot = null }: Props): VNode {
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // The composable destination rides the SAME tablist/roving-tabindex as the
+  // five filterable slots (real tab semantics for keyboard users), appended
+  // after them — it is a rendering/keyboard-nav concern only, never fed back
+  // into `slots`/the Tiers/Add-ons filter above it.
+  const allTabs = composableSlot ? [...slots, composableSlot] : slots;
 
   // Arrow/Home/End move focus AND selection together — the tablist pattern where
   // the focused tab is the selected one. Horizontal keys are honoured too so the
   // control is forgiving of either mental model in a vertical list.
   const handleKeyDown = useCallback(
     (event: KeyboardEvent, index: number) => {
-      if (slots.length === 0) return;
+      if (allTabs.length === 0) return;
       let next: number | null = null;
       if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-        next = (index + 1) % slots.length;
+        next = (index + 1) % allTabs.length;
       } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-        next = (index - 1 + slots.length) % slots.length;
+        next = (index - 1 + allTabs.length) % allTabs.length;
       } else if (event.key === 'Home') {
         next = 0;
       } else if (event.key === 'End') {
-        next = slots.length - 1;
+        next = allTabs.length - 1;
       }
       if (next !== null) {
         event.preventDefault();
-        onSelect(slots[next].slotId);
+        onSelect(allTabs[next].slotId);
         optionRefs.current[next]?.focus();
       }
     },
-    [onSelect, slots],
+    [allTabs, onSelect],
   );
+
+  const renderTab = (slot: WorkspaceTierSlot, index: number, subordinate: boolean) => {
+    const item = slot.item;
+    const selected = slot.slotId === selectedId;
+    // One tab stop: the selected tab, or the first when nothing is chosen
+    // yet, so the strip is entered once and then navigated by arrow keys.
+    const isTabStop = selected || (selectedId === null && index === 0);
+    const status = item?.status ? STATUS_META[item.status] : null;
+    const feature = item?.metrics[0];
+    return (
+      <button
+        key={slot.slotId}
+        ref={(el) => { optionRefs.current[index] = el; }}
+        type="button"
+        role="tab"
+        aria-selected={selected}
+        tabIndex={isTabStop ? 0 : -1}
+        class={`cz-tier-workspace__tab${selected ? ' cz-tier-workspace__tab--selected' : ''}${subordinate ? ' cz-tier-workspace__tab--subordinate' : ''}`}
+        onClick={() => onSelect(slot.slotId)}
+        onKeyDown={(event) => handleKeyDown(event, index)}
+      >
+        <span class="cz-tier-workspace__tab-head">
+          <span class="cz-tier-workspace__tab-name">{item?.name ?? (subordinate ? slot.label : `${slot.label} Tier`)}</span>
+          {status && (
+            <span class="cz-tier-workspace__tab-status" data-status={status.token}>
+              {status.label}
+            </span>
+          )}
+          {!item && (
+            <span class="cz-tier-workspace__tab-status" data-status="empty">Empty</span>
+          )}
+        </span>
+        <span class="cz-tier-workspace__tab-meta">
+          {item?.description ? (
+            <span class="cz-tier-workspace__tab-price">{item.description}</span>
+          ) : <span class="cz-tier-workspace__tab-price">Not configured</span>}
+          {feature && (
+            <span class="cz-tier-workspace__tab-count">
+              {feature.value} {feature.label.toLowerCase()}
+            </span>
+          )}
+        </span>
+      </button>
+    );
+  };
 
   return (
     <div
@@ -95,50 +152,13 @@ export function TierNavigation({ slots, selectedId, onSelect, filter, onFilterCh
       {slots.length === 0 && (
         <p class="cz-station-empty cz-tier-workspace__list-empty">No occupants match this filter.</p>
       )}
-      {slots.map((slot, index) => {
-        const item = slot.item;
-        const selected = slot.slotId === selectedId;
-        // One tab stop: the selected tab, or the first when nothing is chosen
-        // yet, so the strip is entered once and then navigated by arrow keys.
-        const isTabStop = selected || (selectedId === null && index === 0);
-        const status = item?.status ? STATUS_META[item.status] : null;
-        const feature = item?.metrics[0];
-        return (
-          <button
-            key={slot.slotId}
-            ref={(el) => { optionRefs.current[index] = el; }}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            tabIndex={isTabStop ? 0 : -1}
-            class={`cz-tier-workspace__tab${selected ? ' cz-tier-workspace__tab--selected' : ''}`}
-            onClick={() => onSelect(slot.slotId)}
-            onKeyDown={(event) => handleKeyDown(event, index)}
-          >
-            <span class="cz-tier-workspace__tab-head">
-              <span class="cz-tier-workspace__tab-name">{item?.name ?? `${slot.label} Tier`}</span>
-              {status && (
-                <span class="cz-tier-workspace__tab-status" data-status={status.token}>
-                  {status.label}
-                </span>
-              )}
-              {!item && (
-                <span class="cz-tier-workspace__tab-status" data-status="empty">Empty</span>
-              )}
-            </span>
-            <span class="cz-tier-workspace__tab-meta">
-              {item?.description ? (
-                <span class="cz-tier-workspace__tab-price">{item.description}</span>
-              ) : <span class="cz-tier-workspace__tab-price">Not configured</span>}
-              {feature && (
-                <span class="cz-tier-workspace__tab-count">
-                  {feature.value} {feature.label.toLowerCase()}
-                </span>
-              )}
-            </span>
-          </button>
-        );
-      })}
+      {slots.map((slot, index) => renderTab(slot, index, false))}
+      {composableSlot && (
+        <>
+          <div class="cz-tier-workspace__tab-divider" role="separator" aria-orientation="horizontal" />
+          {renderTab(composableSlot, slots.length, true)}
+        </>
+      )}
     </div>
   );
 }

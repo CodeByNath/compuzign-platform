@@ -15,6 +15,8 @@
 // identity stays `(rate_sheet_id, item_id)`; no sheet is scanned and no group is
 // resolved by label.
 
+import { COMPOSABLE_TIER_ID } from '../../vocabulary';
+
 /** What the drawer is scoped to inside the addressed sheet. */
 export type TierRateSheetScope =
   | { kind: 'sheet' }
@@ -29,7 +31,12 @@ export interface TierRateSheetDrawerTarget {
 
 const SHEET_PREFIX = 'tier-rate-sheet:';
 const GROUP_PREFIX = 'tier-rate-sheet-group:';
-const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate']);
+// Admin UX restructuring: the composable occupant's own focused view now
+// reuses this same Connections lane, so its sentinel slot id must decode
+// here too — the same gap class Phase 1C already closed for
+// tierDrawerTypes.ts's own FIXED_TIER_SLOTS and
+// usePackageStation.resolveOccupantSlot().
+const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate', COMPOSABLE_TIER_ID]);
 
 /** Package-owned routing token for the focused Tier's whole Rate Sheet connection. */
 export function encodeTierRateSheetDrawerRecordId(

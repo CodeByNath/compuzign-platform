@@ -17,6 +17,7 @@
 // features module already uses.
 
 import type { EntityDrawerHostBridge } from '@/drawer-kit/entityDrawerHost';
+import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 
 export interface TierInclusionDrawerContentProps {
   // Service id is navigation context for the Package-owned endpoint.
@@ -34,7 +35,11 @@ export interface TierInclusionDrawerContentProps {
 }
 
 const TIER_INCLUSION_DRAWER_RECORD_PREFIX = 'tier-inclusion:';
-const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate']);
+// Admin UX restructuring: the composable occupant's own focused view now
+// reuses this same Details lane, so its sentinel slot id must decode here
+// too — the same gap class Phase 1C already closed for tierDrawerTypes.ts's
+// own FIXED_TIER_SLOTS and usePackageStation.resolveOccupantSlot().
+const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate', COMPOSABLE_TIER_ID]);
 
 export interface TierInclusionDrawerTarget {
   instanceId: string;

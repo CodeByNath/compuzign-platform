@@ -2667,6 +2667,20 @@ button.cz-station-status-pill {
   line-height: var(--station-line-snug);
 }
 
+/* The composable occupant's own sixth destination — visually separated from
+   the five filterable Tier tabs above it by a plain divider, and its own
+   tab gets a dashed border so it never reads as a sixth peer Tier slot. */
+.cz-tier-workspace__tab-divider {
+  height: 1px;
+  margin: 4px 2px;
+  border: 0;
+  background: var(--station-card-divider);
+}
+
+.cz-tier-workspace__tab--subordinate {
+  border-style: dashed;
+}
+
 /* Right — the one selected Tier's detail, an elevated panel echoing the card. */
 /* The focused Tier is the dominant panel: border/radius/background come from the
    shared panel rule above; here it becomes an edge-to-edge stack of separated
@@ -2825,6 +2839,108 @@ button.cz-station-status-pill {
   color: var(--station-text-muted);
   font-size: var(--station-text-sm);
   line-height: var(--station-line-snug);
+}
+
+/* ── Composable-only middle shell ──────────────────────────────────────────────
+   Sits between the upper focus area and the lower deck, mounted only while the
+   composable occupant's own tab is focused — hidden for every normal Tier. Two
+   elevated panels echoing the engine's own tabs/detail/family treatment: up to
+   six featured/selected inclusions on the left, a concise Customer Selection
+   Rules stat list on the right. */
+.cz-tier-workspace__composable-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);
+  gap: var(--station-card-gap);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.cz-tier-workspace__composable-highlights,
+.cz-tier-workspace__composable-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--station-card-gap);
+  min-width: 0;
+  padding: var(--station-card-pad);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-card-radius);
+  background: var(--station-surface-elevated);
+}
+
+.cz-tier-workspace__composable-highlight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cz-tier-workspace__composable-highlight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  background: var(--station-surface);
+}
+
+.cz-tier-workspace__composable-highlight-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+}
+
+.cz-tier-workspace__composable-highlight-icon > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cz-tier-workspace__composable-highlight-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--station-text);
+  font-size: var(--station-text-sm);
+  font-weight: 600;
+}
+
+/* Reuses the accent-chip treatment the focused card's own Popular badge
+   uses (merchandising flag, not a lifecycle status), pushed to the row's
+   trailing edge. */
+.cz-tier-workspace__featured-badge {
+  flex: none;
+  margin-inline-start: auto;
+  padding: var(--station-pill-pad-y) var(--station-pill-pad-x);
+  border: 1px solid var(--station-accent-border);
+  border-radius: var(--station-pill-radius);
+  background: var(--station-accent-soft-bg);
+  color: var(--station-accent-fg);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Same divided stat-row rhythm the Family summary's own metrics list uses. */
+.cz-tier-workspace__composable-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--station-card-divider);
+}
+
+.cz-tier-workspace__composable-metrics > * {
+  padding-block: var(--station-metric-pad);
+}
+
+.cz-tier-workspace__composable-metrics > * + * {
+  border-top: 1px solid var(--station-card-divider);
 }
 
 /* ── Tier Workspace lower deck ─────────────────────────────────────────────────
