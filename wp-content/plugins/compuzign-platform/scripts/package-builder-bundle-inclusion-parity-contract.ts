@@ -55,8 +55,12 @@ for (const file of [order, proposal]) {
   check(file.includes('item.inclusionItems && item.inclusionItems.length > 0'), 'renders the structured snapshot when present');
   check(file.includes('inclusion.bundle_id') && file.includes('inclusion.includes ?? []'), 'renders Bundle parent + nested includes children, mirroring the focused card\'s own bundle_id treatment');
   check(file.includes('item.features.length > 0') && file.includes('item.features.map'), 'falls back to the flat features[] list for an old cart entry without inclusionItems');
+  // Plus a third usage in OrderSummary only, for the composable occupant's
+  // own row (quote/cart connection phase) — QuoteProposalPreview is
+  // deliberately untouched this phase.
   const usageCount = (file.match(/<FamilyInclusionsList item=\{item\} \/>/g) ?? []).length;
-  check(usageCount === 2, 'FamilyInclusionsList is used for both Family primary and Family add-on rows');
+  const expectedUsageCount = file === order ? 3 : 2;
+  check(usageCount === expectedUsageCount, `FamilyInclusionsList is used ${expectedUsageCount} times in this file`);
   // Regression: a child row's list key must NEVER be the bare child.id —
   // when two different Bundle parents supply a child with the same id, that
   // would produce duplicate keys among siblings in the same <ul>, which can

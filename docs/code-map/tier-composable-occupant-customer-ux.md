@@ -94,13 +94,13 @@ already relies on).
 
 ## Not yet built / explicitly out of scope this slice
 
-Persisting a composable item into `FamilyTierQuoteItem`, `quoteItemKey()`
-changes, Request/PDF/email, final cart persistence, promotions, and an
-Admin authoring surface for `featured`/Category/Service beyond Service
-Catalog import. No live browser validation this session (no local
+Request/PDF/email, promotions, and Admin authoring for `featured`/Category/
+Service beyond Service Catalog import. No live browser validation (no local
 WordPress environment) — reviewed via `npx tsc --noEmit`, `npm run build`,
 and the PHP/contract suite (`tests/composable-customer-ux-preview.php`,
-`scripts/composable-offer-*-contract.ts`).
+`scripts/composable-offer-*-contract.ts`). Persisting a composable item into
+`FamilyTierQuoteItem`/cart is now built — see
+[Quote/Cart Connection](tier-composable-occupant-quote-cart.md).
 
 ## Related Code Maps
 
@@ -109,4 +109,5 @@ Occupant — Customer Configuration Policy](tier-composable-occupant-customer-po
 [Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
 [Composable Tier Occupant — Admin Customer Selection Rules](tier-composable-occupant-admin-customer-policy.md),
 [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
+[Composable Tier Occupant — Quote/Cart Connection](tier-composable-occupant-quote-cart.md),
 and [Commercial Legs](commercial-legs.md).

@@ -9,10 +9,13 @@ import {
   isFamilyTierQuoteItem,
   replaceFamilyNormalQuoteItem,
   upsertFamilyAddonQuoteItem,
+  upsertFamilyComposableQuoteItem,
   removeFamilyAddonQuoteItem,
+  removeFamilyComposableQuoteItem,
   removeFamilyTierSystemQuoteItems,
   removeAddonQuoteItem,
   removeServiceQuoteItems,
+  resolveQuoteItemRole,
 } from '@/utils/quote';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { TierId } from '@/api/types/cost-builder';
@@ -74,23 +77,30 @@ export function PackageBuilderApp() {
       && item.familyId === family.family_id
       && item.tierInstanceId === family.tier_instance_id,
   );
-  const primary = familyItems.find((item) => !item.isAddon) ?? null;
+  const primary = familyItems.find((item) => resolveQuoteItemRole(item) === 'primary') ?? null;
   // Phase 8E: the full quoted add-on items, not just their tierIds — an
   // add-on's exact quoted identity (Tier + Edition) is what the focused
   // shell's own exactness check needs, the same as the primary's own
   // tierEditionPlatformId below.
-  const addonItems = familyItems.filter((item) => item.isAddon);
+  const addonItems = familyItems.filter((item) => resolveQuoteItemRole(item) === 'addon');
+  // Quote/cart connection phase: the one aggregate composable line for this
+  // Family+Instance, if any — never the primary, never an Add-on (see
+  // resolveQuoteItemRole()).
+  const composableItem = familyItems.find((item) => resolveQuoteItemRole(item) === 'composable') ?? null;
 
   const add = (item: FamilyTierQuoteItem) => setItems((current) => item.isAddon
     ? upsertFamilyAddonQuoteItem(current, item)
     : replaceFamilyNormalQuoteItem(current, item));
   const removePrimary = () => setItems((current) => removeFamilyTierSystemQuoteItems(current, family.family_id, family.tier_instance_id));
   const removeAddon = (tierPlatformId: string) => setItems((current) => removeFamilyAddonQuoteItem(current, family.family_id, family.tier_instance_id, tierPlatformId));
+  const addComposable = (item: FamilyTierQuoteItem) => setItems((current) => upsertFamilyComposableQuoteItem(current, item));
+  const removeComposable = () => setItems((current) => removeFamilyComposableQuoteItem(current, family.family_id, family.tier_instance_id));
   const removeItem = (item: CartItem) => setItems((current) => {
     if (isFamilyTierQuoteItem(item)) {
-      return item.isAddon
-        ? removeFamilyAddonQuoteItem(current, item.familyId, item.tierInstanceId, item.tierPlatformId)
-        : removeFamilyTierSystemQuoteItems(current, item.familyId, item.tierInstanceId);
+      const role = resolveQuoteItemRole(item);
+      if (role === 'addon') return removeFamilyAddonQuoteItem(current, item.familyId, item.tierInstanceId, item.tierPlatformId);
+      if (role === 'composable') return removeFamilyComposableQuoteItem(current, item.familyId, item.tierInstanceId);
+      return removeFamilyTierSystemQuoteItems(current, item.familyId, item.tierInstanceId);
     }
     return item.isAddon
       ? removeAddonQuoteItem(current, item.serviceId, item.tierId)
@@ -151,6 +161,9 @@ export function PackageBuilderApp() {
               onAdd={add}
               onRemovePrimary={removePrimary}
               onRemoveAddon={removeAddon}
+              selectedComposableItem={composableItem}
+              onComposableCommit={addComposable}
+              onComposableRemove={removeComposable}
             />
           </Card>
         </main>

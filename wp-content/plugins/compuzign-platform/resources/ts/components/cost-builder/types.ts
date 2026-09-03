@@ -1,8 +1,16 @@
-import type { ServiceInclusion, TierId } from '@/api/types/cost-builder';
+import type { ComposablePreviewChoiceItem, ServiceInclusion, TierId } from '@/api/types/cost-builder';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
 
 // 'bundle' = recommended bundle; 'promotion' = active promotion tier offer
 export type QuoteItemTierId = TierId | 'bundle' | 'promotion';
+
+// The composable ("Build Your Own") occupant's own customer-side tierId
+// sentinel — deliberately a SEPARATE constant from Package Station's admin-
+// only COMPOSABLE_TIER_ID (package-station/vocabulary.ts): that module is
+// never imported by customer-facing code, and this one is never imported by
+// it. The two happen to share a literal string value; they are not the same
+// identity and must not be conflated or cross-imported.
+export const COMPOSABLE_QUOTE_TIER_ID = 'composable' as const;
 
 export interface QuoteItem {
   serviceId: number;
@@ -64,7 +72,14 @@ export interface FamilyTierQuoteItem {
   tierOccupantId: string;
   tierPlatformId: string;
   tierEditionPlatformId: string | null;
-  tierId: TierId;
+  // Widened (additive) to admit the composable occupant's own customer-side
+  // sentinel alongside the five fixed Tier ids — see COMPOSABLE_QUOTE_TIER_ID
+  // above. Every existing reader either only ever sees a real TierId here
+  // (an add-on/primary-only lookup, since resolveQuoteItemRole() in
+  // utils/quote.ts keeps the composable line out of both of those buckets)
+  // or already fails closed on an unresolvable id (QuoteDetailsOverlay.tsx's
+  // resolvePlanDetails()).
+  tierId: TierId | typeof COMPOSABLE_QUOTE_TIER_ID;
   tierTitle: string;
   // Human-readable Edition label at the moment of selection (e.g.
   // effective.selectedEdition?.label), for customer-facing review/PDF
@@ -86,6 +101,21 @@ export interface FamilyTierQuoteItem {
   // pre-Phase-8G cart entry). Never re-resolved from live catalog data.
   inclusionItems?: ServiceInclusion[];
   isAddon: boolean;
+  // The composable ("Build Your Own") occupant's own aggregate quote line —
+  // a role orthogonal to isAddon, never both true at once (see
+  // resolveQuoteItemRole() in utils/quote.ts, the one place that resolves
+  // primary/addon/composable so no call site re-derives it). Optional
+  // because every cart item that predates this capability simply omits it,
+  // in which case it reads as a normal (non-composable) line, unchanged.
+  isComposable?: boolean;
+  // The exact customer choice submitted to the LAST SUCCESSFUL composable
+  // preview this line was built from — intent/history for re-seeding
+  // ComposableOfferBrowser's own Add/Remove state when the customer returns
+  // to it, never itself a pricing source. price/inclusionItems/
+  // legPaymentSummaries above always come from that same successful
+  // preview's resolved response, never recomputed from this array. Absent
+  // for every non-composable line.
+  composableSelection?: ComposablePreviewChoiceItem[];
   minimumTermValue: number | null;
   minimumTermUnit: string | null;
   // Plan duration in months chosen in the focused Choose Plan view, captured

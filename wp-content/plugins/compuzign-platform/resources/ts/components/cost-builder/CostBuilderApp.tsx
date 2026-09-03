@@ -15,7 +15,7 @@ import { ComparePlans } from './ComparePlans';
 import { MobileQuoteBar } from './MobileQuoteBar';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 import { replaceNormalQuoteItem, upsertAddonQuoteItem, removeAddonQuoteItem, removeServiceQuoteItems, isFamilyTierQuoteItem, removeFamilyAddonQuoteItem, removeFamilyTierSystemQuoteItems } from '@/utils/quote';
-import type { CartItem, QuoteItem } from './types';
+import type { CartItem, QuoteItem, QuoteItemTierId } from './types';
 import type { ServiceItem, TierId } from '@/api/types/cost-builder';
 
 const QUOTE_SUMMARY_ID = 'cz-quote-summary';
@@ -178,7 +178,7 @@ export function CostBuilderApp() {
               <ServiceCard
                 service={activeService}
                 tiers={data.tiers}
-                selectedTierId={quoteItems.find((q) => !isFamilyTierQuoteItem(q) && q.serviceId === activeService.id && !q.isAddon)?.tierId ?? null}
+                selectedTierId={(quoteItems.find((q) => !isFamilyTierQuoteItem(q) && q.serviceId === activeService.id && !q.isAddon)?.tierId as QuoteItemTierId | undefined) ?? null}
                 selectedAddonTierIds={selectedAddonTierIds}
                 onAddToQuote={addToQuote}
                 onRemoveFromQuote={removeFromQuote}

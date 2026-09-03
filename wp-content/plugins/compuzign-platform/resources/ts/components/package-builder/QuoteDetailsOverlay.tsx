@@ -4,7 +4,7 @@ import { computeTotalContractValue, startingPaymentsByCycle, chargeTypeLabel } f
 import { formatPrice } from '@/utils/format';
 import { isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
-import type { PackageBuilderFamily, Tier } from '@/api/types/cost-builder';
+import type { PackageBuilderFamily, Tier, TierId } from '@/api/types/cost-builder';
 import { periodsForVariant } from './FamilyTierAdapter';
 import { PlanDetailsContent } from './PlanDetailsModal';
 
@@ -52,9 +52,21 @@ const TOTAL_COMMITMENT_KEY = '__total_commitment__';
 // correction FamilyTierAdapter's own external-focus resolver applies.
 // Showing the wrong plan's details would be worse than showing none.
 function resolvePlanDetails(item: FamilyTierQuoteItem, families: PackageBuilderFamily[], tiers: Tier[]) {
+  // The composable occupant has no fixed-slot Tier/Edition declaration to
+  // resolve here — family.pricing.tiers only ever holds the five fixed
+  // slots, never family.pricing.composable_offer — so this per-plan Details
+  // tab falls back to the generic "Details unavailable" state below rather
+  // than a composable-specific resolver this phase doesn't build. The
+  // composable line's own commercial facts (price/legPaymentSummaries) are
+  // still fully correct everywhere else (cart list, Total Commitment tab).
+  if (item.isComposable) return null;
+  // Every non-composable FamilyTierQuoteItem's tierId is a real fixed-slot
+  // TierId — the type is widened only to admit the composable sentinel
+  // (types.ts), and the branch above already excludes that case.
+  const tierId = item.tierId as TierId;
   const family = families.find((candidate) => candidate.family_id === item.familyId);
   if (!family) return null;
-  const tierData = family.pricing.tiers[item.tierId];
+  const tierData = family.pricing.tiers[tierId];
   if (!tierData) return null;
   let editionId: string | null = null;
   if (item.tierEditionPlatformId !== null) {
@@ -65,14 +77,14 @@ function resolvePlanDetails(item: FamilyTierQuoteItem, families: PackageBuilderF
     editionId = edition.id;
   }
   const effective = resolveEffectiveTierDisplay(tierData, '', editionId);
-  const tier = tiers.find((candidate) => candidate.id === item.tierId);
-  const planLabel = effective.selectedEdition?.label ?? tierData?.label ?? tier?.title ?? item.tierId;
+  const tier = tiers.find((candidate) => candidate.id === tierId);
+  const planLabel = effective.selectedEdition?.label ?? tierData?.label ?? tier?.title ?? tierId;
   return {
     familyTitle: family.title,
     planLabel,
     commitmentValue: effective.minimumTermValue,
     commitmentUnit: effective.minimumTermUnit,
-    periods: periodsForVariant(family, item.tierId, editionId),
+    periods: periodsForVariant(family, tierId, editionId),
   };
 }
 

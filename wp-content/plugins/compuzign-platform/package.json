@@ -12,6 +12,7 @@
     "contract:commercial-leg-inclusion-groups": "tsx scripts/commercial-leg-inclusion-groups-contract.ts",
     "contract:commercial-leg-extension-groups": "tsx scripts/commercial-leg-extension-groups-contract.ts",
     "contract:package-family-cart": "tsx scripts/package-family-cart-contract.ts",
+    "contract:composable-quote-cart": "tsx scripts/composable-quote-cart-contract.ts",
     "contract:package-builder-flow": "tsx scripts/package-builder-flow-contract.ts",
     "contract:package-builder-customer-tabs": "tsx scripts/package-builder-customer-tabs-contract.ts",
     "contract:package-family-request-flow": "tsx scripts/package-family-request-flow-contract.ts",

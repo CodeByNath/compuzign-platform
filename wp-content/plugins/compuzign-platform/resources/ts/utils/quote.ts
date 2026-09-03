@@ -19,10 +19,31 @@ export function familyTierSystemKey(item: FamilyTierQuoteItem): string {
   return `family:${item.familyPlatformId}:instance:${item.tierInstancePlatformId}`;
 }
 
+export type FamilyTierQuoteItemRole = 'primary' | 'addon' | 'composable';
+
+/**
+ * The one place that resolves primary/addon/composable for a
+ * FamilyTierQuoteItem — every call site below reads through this rather
+ * than re-deriving the same isAddon/isComposable branch independently, so
+ * the three roles can never drift out of agreement with each other. Every
+ * writer in this module sets isComposable only inside a freshly built
+ * composable snapshot (ComposableOfferBrowser.tsx's own builder), always
+ * paired with isAddon: false, so the two are never both true in practice;
+ * this still resolves deterministically (composable takes priority) rather
+ * than throwing, so a read path over a hand-edited/corrupted persisted cart
+ * degrades to a defensible classification instead of crashing the cart UI.
+ */
+export function resolveQuoteItemRole(item: FamilyTierQuoteItem): FamilyTierQuoteItemRole {
+  if (item.isComposable) return 'composable';
+  return item.isAddon ? 'addon' : 'primary';
+}
+
 export function quoteItemKey(item: CartItem): string {
   if (isFamilyTierQuoteItem(item)) {
     const systemKey = familyTierSystemKey(item);
-    return item.isAddon ? `${systemKey}:addon:${item.tierPlatformId}` : `${systemKey}:primary`;
+    const role = resolveQuoteItemRole(item);
+    if (role === 'composable') return `${systemKey}:composable`;
+    return role === 'addon' ? `${systemKey}:addon:${item.tierPlatformId}` : `${systemKey}:primary`;
   }
   return item.isAddon ? `${item.serviceId}:addon:${item.tierId}` : `${item.serviceId}:primary`;
 }
@@ -31,13 +52,29 @@ export function replaceFamilyNormalQuoteItem(items: CartItem[], item: FamilyTier
   const systemKey = familyTierSystemKey(item);
   return [
     ...items.filter((existing) => isFamilyTierQuoteItem(existing)
-      ? existing.isAddon || familyTierSystemKey(existing) !== systemKey
+      // Replacing the primary must never disturb an existing Add-on OR an
+      // existing composable line for the same Family+Instance — only the
+      // prior primary line itself is dropped.
+      ? resolveQuoteItemRole(existing) !== 'primary' || familyTierSystemKey(existing) !== systemKey
       : true),
     item,
   ];
 }
 
 export function upsertFamilyAddonQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
+  const key = quoteItemKey(item);
+  return [...items.filter((existing) => quoteItemKey(existing) !== key), item];
+}
+
+/**
+ * Add or replace the one aggregate composable ("Build Your Own") line for
+ * this Family+Instance — full-snapshot replace, never a per-item patch,
+ * mirroring upsertFamilyAddonQuoteItem's own shape. Independent of the
+ * primary Tier and every Add-on: it never removes them, and it is reachable
+ * with or without a primary Tier already selected (the composable browser's
+ * own 'build_your_own' vs 'upgrade_your_build' context).
+ */
+export function upsertFamilyComposableQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
   const key = quoteItemKey(item);
   return [...items.filter((existing) => quoteItemKey(existing) !== key), item];
 }
@@ -54,6 +91,34 @@ export function removeFamilyAddonQuoteItem(
     || item.tierPlatformId !== tierPlatformId);
 }
 
+/**
+ * Remove the one composable line for this Family+Instance, if any —
+ * independent of the primary Tier and every Add-on. Deliberately NOT routed
+ * through removeFamilyTierSystemQuoteItems(): that function's whole-system
+ * cascade is correct for Add-ons (which only make sense paired with a
+ * primary Tier) but wrong here, since a standalone composable selection has
+ * no primary to be "orphaned" from and must survive the primary's own
+ * removal — see removeFamilyTierSystemQuoteItems()'s own comment below.
+ */
+export function removeFamilyComposableQuoteItem(
+  items: CartItem[],
+  familyId: string,
+  tierInstanceId: string,
+): CartItem[] {
+  return items.filter((item) => !isFamilyTierQuoteItem(item)
+    || item.familyId !== familyId
+    || item.tierInstanceId !== tierInstanceId
+    || resolveQuoteItemRole(item) !== 'composable');
+}
+
+/**
+ * Removes the primary Tier and every Add-on for this Family+Instance — but
+ * never a composable line: unlike an Add-on, a composable ("Build Your
+ * Own") selection is designed to stand alone with no primary Tier at all
+ * (the composable browser's own 'build_your_own' context), so clearing the
+ * primary must not also clear it, unlike the existing Add-on-orphan
+ * cascade this function already performs.
+ */
 export function removeFamilyTierSystemQuoteItems(
   items: CartItem[],
   familyId: string,
@@ -61,7 +126,8 @@ export function removeFamilyTierSystemQuoteItems(
 ): CartItem[] {
   return items.filter((item) => !isFamilyTierQuoteItem(item)
     || item.familyId !== familyId
-    || item.tierInstanceId !== tierInstanceId);
+    || item.tierInstanceId !== tierInstanceId
+    || resolveQuoteItemRole(item) === 'composable');
 }
 
 /**
@@ -115,14 +181,21 @@ export interface ClassifiedQuoteItems {
   tierAddonItems: QuoteItem[];
   familyMainItems: FamilyTierQuoteItem[];
   familyAddonItems: FamilyTierQuoteItem[];
+  // The composable ("Build Your Own") occupant's own aggregate line(s) —
+  // never merged into familyMainItems: presentation/replacement semantics
+  // must not call it "primary", even though a combined commercial total may
+  // legitimately aggregate both (see resolveQuoteItemRole()).
+  familyComposableItems: FamilyTierQuoteItem[];
 }
 
 /**
- * The three explicitly distinct, never-merged cart-line classifications used
- * by both OrderSummary and QuoteProposalPreview: the customer's one normal
- * Tier/promotion per Service, the legacy recommended bundle (still its own
- * negative serviceId, unchanged), and real Tier add-ons (isAddon, regardless
- * of serviceId sign — never inferred from it).
+ * The four explicitly distinct, never-merged cart-line classifications used
+ * by OrderSummary: the customer's one normal Tier/promotion per Service, the
+ * legacy recommended bundle (still its own negative serviceId, unchanged),
+ * real Tier add-ons (isAddon, regardless of serviceId sign — never inferred
+ * from it), and the composable occupant's own line, kept apart from
+ * familyMainItems by the same resolveQuoteItemRole() every other Family-item
+ * mutation in this module already goes through.
  */
 export function classifyQuoteItems(items: CartItem[]): ClassifiedQuoteItems {
   const serviceItems = items.filter((item): item is QuoteItem => !isFamilyTierQuoteItem(item));
@@ -131,8 +204,9 @@ export function classifyQuoteItems(items: CartItem[]): ClassifiedQuoteItems {
     mainItems: serviceItems.filter((item) => item.serviceId > 0 && !item.isAddon),
     bundleItems: serviceItems.filter((item) => item.serviceId < 0),
     tierAddonItems: serviceItems.filter((item) => item.isAddon),
-    familyMainItems: familyItems.filter((item) => !item.isAddon),
-    familyAddonItems: familyItems.filter((item) => item.isAddon),
+    familyMainItems: familyItems.filter((item) => resolveQuoteItemRole(item) === 'primary'),
+    familyAddonItems: familyItems.filter((item) => resolveQuoteItemRole(item) === 'addon'),
+    familyComposableItems: familyItems.filter((item) => resolveQuoteItemRole(item) === 'composable'),
   };
 }
 

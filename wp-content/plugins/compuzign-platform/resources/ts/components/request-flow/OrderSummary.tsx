@@ -95,7 +95,7 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
+  const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems, familyComposableItems } = classifyQuoteItems(items);
 
   // Phase 8F (corrected twice): whenever ANY Family item has 2+ payment
   // streams, the Family Contract Value block below sums EVERY primary
@@ -122,18 +122,26 @@ export function OrderSummary({
   // semantics as QuoteSummary.tsx's footer — reusing the exact same
   // primitives, never a second re-derivation. Family add-ons never enter
   // this combined sum (see familyMainItems below, primary-only).
-  const familyPrimaryTotalContractValues = familyMainItems.map((item) =>
+  //
+  // Quote/cart connection phase: the composable occupant's own aggregate
+  // line joins this same combined commercial total (it is a real commercial
+  // line, same as the primary) — but stays a SEPARATE bucket from
+  // familyMainItems for every non-total purpose (rendering below, presented
+  // identity), per resolveQuoteItemRole()'s own primary/addon/composable
+  // split. legPaymentSummaries is read exactly once per item either way.
+  const familyCommercialItems = [...familyMainItems, ...familyComposableItems];
+  const familyPrimaryTotalContractValues = familyCommercialItems.map((item) =>
     item.legPaymentSummaries && item.legPaymentSummaries.length > 0
       ? computeTotalContractValue(item.legPaymentSummaries)
       : null,
   );
-  const allFamilyPrimariesFinite = familyMainItems.length > 0
+  const allFamilyPrimariesFinite = familyCommercialItems.length > 0
     && familyPrimaryTotalContractValues.every((value) => value !== null);
   const combinedFamilyTotalContractValue = allFamilyPrimariesFinite
     ? familyPrimaryTotalContractValues.reduce((sum, value) => sum + (value as number), 0)
     : null;
   const familyStartingPayments = startingPaymentsByCycle(
-    familyMainItems.map((item) => item.legPaymentSummaries ?? []),
+    familyCommercialItems.map((item) => item.legPaymentSummaries ?? []),
   );
   const familyInitialPaymentTotal = familyStartingPayments.reduce((sum, [, amount]) => sum + amount, 0);
 
@@ -144,7 +152,7 @@ export function OrderSummary({
   const isSubmitting = submitState === 'submitting';
   const isSubmitted  = submitState === 'success';
   const submitDisabled = step === 'contact' || !canSubmit || isSubmitting;
-  const totalCount   = mainItems.length + bundleItems.length + tierAddonItems.length + familyMainItems.length + familyAddonItems.length;
+  const totalCount   = mainItems.length + bundleItems.length + tierAddonItems.length + familyMainItems.length + familyAddonItems.length + familyComposableItems.length;
 
   return (
     <div class="cz-os">
@@ -246,6 +254,52 @@ export function OrderSummary({
                   <div class="cz-os__service-tags">
                     <span class="cz-os__service-tag">{item.tierTitle}</span>
                     {item.tierEditionTitle && <span class="cz-os__service-tag">{item.tierEditionTitle}</span>}
+                  </div>
+                </div>
+                {hasStreams ? (
+                  <div class="cz-os__service-streams">
+                    {streams!.map((stream) => (
+                      <div key={stream.source} class="cz-os__stream-row">
+                        <span class="cz-os__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                        <span class="cz-os__stream-value">{formatPrice(stream.price)}</span>
+                      </div>
+                    ))}
+                    {totalContractValue !== null && (
+                      <div class="cz-os__stream-row cz-os__stream-row--total">
+                        <span class="cz-os__stream-label">Total</span>
+                        <span class="cz-os__stream-value">{formatPrice(totalContractValue)}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div class="cz-os__service-price">
+                    <span class="cz-os__service-price-amount">{item.price !== null ? formatPrice(item.price) : 'TBC'}</span>
+                    {item.price !== null && cycleSuffix && <span class="cz-os__service-price-cycle"> {cycleSuffix}</span>}
+                  </div>
+                )}
+                <FamilyInclusionsList item={item} />
+              </div>
+            );
+          })}
+
+          {/* Quote/cart connection phase: the composable ("Build Your Own")
+              occupant's own aggregate line — same row shape as a primary
+              Family item above (it is a real commercial line, folded into
+              the same combined Total Contract Value below), but its own
+              distinct classifyQuoteItems() bucket so it is never counted or
+              presented as "the primary" selection. */}
+          {familyComposableItems.map((item) => {
+            const cycleSuffix = formatCycleLabel(item.billingCycle);
+            const streams = item.legPaymentSummaries;
+            const hasStreams = !!streams && streams.length > 0;
+            const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
+            return (
+              <div key={quoteItemKey(item)} class="cz-os__service">
+                <span class="cz-os__service-icon" aria-hidden="true">{item.familyTitle.charAt(0).toUpperCase()}</span>
+                <div class="cz-os__service-info">
+                  <p class="cz-os__service-name">{item.familyTitle}</p>
+                  <div class="cz-os__service-tags">
+                    <span class="cz-os__service-tag">{item.tierTitle}</span>
                   </div>
                 </div>
                 {hasStreams ? (

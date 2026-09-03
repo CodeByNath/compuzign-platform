@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
-import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, ServiceInclusion } from '@/api/types/cost-builder';
+import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData, ServiceInclusion } from '@/api/types/cost-builder';
 import { resolveComposablePreview } from '@/api/endpoints/package-builder';
-import { buildLegPaymentSummaries, cycleSuffix } from '@/components/cost-builder/PricingTiers';
+import { buildLegPaymentSummaries, cycleSuffix, resolveHeadlinePrice } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
+import { COMPOSABLE_QUOTE_TIER_ID, type FamilyTierQuoteItem } from '@/components/cost-builder/types';
 
 // Preview requests are debounced by this much so typing a quantity does not
 // POST on every keystroke — server-side validation stays the sole
@@ -13,16 +14,42 @@ const PREVIEW_DEBOUNCE_MS = 400;
 // Phase 2B1 — the composable Tier occupant's own minimal customer
 // composition surface: quantity-only Add/Remove browsing over Admin-
 // authorized inclusions, with a live server-resolved running total. No
-// Price Option control, no Leg/commitment/Edition editing, and nothing
-// here ever persists into FamilyTierQuoteItem/the cart — this component
-// owns its own candidate selection state and nothing else. See
-// project-work/2026-09-02-composable-tier-customer-ux.md.
+// Price Option control, no Leg/commitment/Edition editing.
+//
+// Quote/cart connection (composable occupant -> quote/cart phase): this
+// component now owns building and committing/removing the one aggregate
+// composable FamilyTierQuoteItem for its Family — see onCommit/
+// onRemoveFromQuote below and buildComposableFamilyTierQuoteItem(). It
+// still owns no cart mutation of its own; the caller (FamilyTierAdapter ->
+// PackageBuilderApp) performs the actual upsert/remove. See
+// project-work/2026-09-02-composable-tier-customer-ux.md and
+// project-work/2026-09-03-composable-tier-admin-to-customer-validation.md.
 interface ComposableOfferBrowserProps {
   family: PackageBuilderFamily;
   // 'build_your_own' = direct entry with no normal Tier/Edition chosen yet;
   // 'upgrade_your_build' = rendered after a normal Tier/Edition selection.
   // Presentation only — both read the exact same composable_offer/policy.
   context: 'build_your_own' | 'upgrade_your_build';
+  // The already-quoted composable line for this Family+Instance, or null —
+  // re-seeds `selection` from its own composableSelection (a real prior
+  // customer choice) instead of policy defaults, so switching Family and
+  // back (or a page reload restoring the cart) shows the same Add/Remove
+  // state the customer already committed rather than resetting to defaults.
+  initialCartItem: FamilyTierQuoteItem | null;
+  // Called with a freshly built, server-resolved snapshot once the customer
+  // has actually interacted with this browser AND the resolved selection is
+  // non-empty (at least one required or selected-optional item) — never
+  // fired from the initial default-seeded render, and never recomputed from
+  // the choice payload alone: price/inclusionItems/legPaymentSummaries all
+  // come straight off the matching successful preview response. Add-or-
+  // replace: the caller upserts the one aggregate composable line, it never
+  // accumulates duplicates.
+  onCommit: (item: FamilyTierQuoteItem) => void;
+  // Called instead of onCommit, after interaction, when the resolved
+  // selection is empty (zero required, zero selected-optional) — removes
+  // the composable line entirely rather than committing a zero-value
+  // placeholder cart item.
+  onRemoveFromQuote: () => void;
 }
 
 export interface BrowseRow {
@@ -130,7 +157,76 @@ export function resolveItemContributions(periods: CommercialLegPeriod[]): Record
   return out;
 }
 
-export function ComposableOfferBrowser({ family, context }: ComposableOfferBrowserProps) {
+// Builds the one aggregate composable FamilyTierQuoteItem from a successful
+// preview's own resolved response — the exact same "commercial facts come
+// only from the server-resolved response" rule buildComposableChoice()'s own
+// docblock and resolveItemContributions() already establish for this
+// surface. `choice` becomes the item's own composableSelection (intent/
+// history for re-seeding); it is never itself read for price/quantity here
+// — those come from `contributions`/`periods`. Exported so a contract script
+// can exercise it directly, same precedent as buildComposableChoice()/
+// resolveItemContributions() above.
+export function buildComposableFamilyTierQuoteItem(
+  family: PackageBuilderFamily,
+  offer: PricingTierData,
+  choice: ComposablePreviewChoiceItem[],
+  periods: CommercialLegPeriod[],
+  contributions: Record<string, ItemContribution>,
+  rows: BrowseRow[],
+): FamilyTierQuoteItem {
+  const commitmentMonths = offer.minimum_term_unit && /month/i.test(offer.minimum_term_unit)
+    ? offer.minimum_term_value ?? null
+    : null;
+  const legPaymentSummaries = buildLegPaymentSummaries(periods, commitmentMonths);
+  const headline = resolveHeadlinePrice(periods, offer.headline_leg_id);
+  const includedItemIds = new Set(
+    choice
+      .filter((entry) => entry.selected === undefined || entry.selected === true)
+      .map((entry) => entry.item_id),
+  );
+  const inclusionItems: ServiceInclusion[] = rows
+    .filter((row) => includedItemIds.has(row.item_id))
+    .map((row) => {
+      const contribution = contributions[row.item_id];
+      const resolved = contribution && !contribution.ambiguous;
+      return {
+        id: row.item_id,
+        label: row.label,
+        quantity: resolved ? contribution.quantity : undefined,
+        unit_price: row.unitPrice,
+        line_total: resolved ? contribution.lineTotal : null,
+        categories: row.categories,
+        service: row.service,
+      };
+    });
+  return {
+    offer_type: 'family_tier',
+    familyId: family.family_id,
+    familyPlatformId: family.family_platform_id,
+    familyTitle: family.title,
+    tierInstanceId: family.tier_instance_id,
+    tierInstancePlatformId: family.tier_instance_platform_id,
+    tierOccupantId: offer.tier_occupant_id ?? '',
+    tierPlatformId: offer.tier_platform_id ?? '',
+    tierEditionPlatformId: null,
+    tierId: COMPOSABLE_QUOTE_TIER_ID,
+    tierTitle: offer.label || 'Build Your Own',
+    tierEditionTitle: null,
+    price: headline?.price ?? null,
+    billingCycle: headline?.billing_cycle ?? '',
+    features: inclusionItems.map((item) => item.label),
+    inclusionItems,
+    isAddon: false,
+    isComposable: true,
+    composableSelection: choice,
+    minimumTermValue: offer.minimum_term_value ?? null,
+    minimumTermUnit: offer.minimum_term_unit ?? null,
+    planDurationMonths: null,
+    legPaymentSummaries,
+  };
+}
+
+export function ComposableOfferBrowser({ family, context, initialCartItem, onCommit, onRemoveFromQuote }: ComposableOfferBrowserProps) {
   const offer = family.pricing.composable_offer ?? null;
   const policy = offer?.customer_policy ?? null;
 
@@ -161,27 +257,50 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
 
   const rowIdsKey = rows.map((row) => row.item_id).join(',');
 
-  // Candidate selection/quantity — held only here, never persisted. Reseeded
-  // from each item's own policy defaults whenever the offer's item set
-  // itself changes (Family switch, or the offer's own policy changing).
+  // Candidate selection/quantity — held only here, mirrored into the cart
+  // only through onCommit/onRemoveFromQuote below, never written directly.
+  // Reseeded whenever the offer's item set itself changes (Family switch, or
+  // the offer's own policy changing): from the already-quoted composable
+  // item's own composableSelection when one exists for this Family+Instance
+  // (a real prior customer choice), falling back to each item's own policy
+  // defaults for any row that selection doesn't cover (a row added to the
+  // policy after the cart item was last committed) or when there is no
+  // existing cart item at all.
   const [selection, setSelection] = useState<Record<string, CandidateEntry>>({});
   const [category, setCategory] = useState('');
   const [service, setService] = useState('');
   const [sort, setSort] = useState<SortMode>('featured');
   const [page, setPage] = useState(0);
+  // True only once the customer has actually clicked Add/Remove or changed
+  // a quantity for THIS Family's browser instance — gates onCommit/
+  // onRemoveFromQuote below so merely viewing this surface (default-seeded,
+  // or re-seeded from an already-committed cart item) never itself mutates
+  // the cart. Reset alongside `selection` on every reseed below.
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
+    const seededById = new Map(
+      (initialCartItem?.composableSelection ?? []).map((entry) => [entry.item_id, entry]),
+    );
     const next: Record<string, CandidateEntry> = {};
     for (const row of rows) {
+      const seeded = seededById.get(row.item_id);
       next[row.item_id] = {
-        selected: row.policy.mode === 'required' ? true : row.policy.default_selected,
-        quantity: row.policy.quantity ? row.policy.quantity.default : undefined,
+        selected: row.policy.mode === 'required' ? true : (seeded?.selected ?? row.policy.default_selected),
+        quantity: seeded?.quantity ?? (row.policy.quantity ? row.policy.quantity.default : undefined),
       };
     }
     setSelection(next);
     setCategory('');
     setService('');
     setPage(0);
+    setHasInteracted(false);
+    // initialCartItem is deliberately excluded: this component's own commit
+    // below updates it (via the parent's cart state), and re-including it
+    // here would reseed/reset `selection` and `hasInteracted` right after
+    // every commit — fighting the customer's own next click. Reseeding from
+    // it is a Family-switch/mount concern only, matching the identical
+    // reasoning already applied to `family`/`rows` elsewhere in this file.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [family.family_id, rowIdsKey]);
 
@@ -263,15 +382,33 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
           // on the same finite-occurrence counting this repo has an open,
           // unresolved discrepancy on (see the Phase 2A TCV floor removal);
           // reviving that math here was explicitly rejected in review.
-          const summaries = buildLegPaymentSummaries(result.periods ?? [], commitmentMonths);
+          const periods = result.periods ?? [];
+          const summaries = buildLegPaymentSummaries(periods, commitmentMonths);
           // Each card's own resolved individual contribution — read
           // verbatim off the server's resolved rows, never computed here by
           // multiplying a published unit price by the locally-held
           // quantity. See resolveItemContributions()'s own docblock for why
           // a second distinct commercial stream claiming the same item_id
           // makes that item's card contribution ambiguous rather than summed.
-          const contributions = resolveItemContributions(result.periods ?? []);
+          const contributions = resolveItemContributions(periods);
           setPreview({ ok: true, summaries, contributions, message: null });
+
+          // Cart sync — gated on hasInteracted so merely browsing (initial
+          // default-seeded render, or re-seeding an already-committed
+          // selection back from the cart) never itself adds/removes a cart
+          // line; only an actual customer action does. The commit/removal
+          // decision AND every commercial fact on the built item come only
+          // from this successful resolved response — `choice` becomes the
+          // item's own composableSelection (intent/history), never a
+          // pricing source of its own.
+          if (offer && hasInteracted) {
+            const hasAnyIncluded = choice.some((entry) => entry.selected === undefined || entry.selected === true);
+            if (!hasAnyIncluded) {
+              onRemoveFromQuote();
+            } else {
+              onCommit(buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows));
+            }
+          }
         })
         .catch(() => {
           if (!cancelled) setPreview({ ok: false, summaries: null, contributions: null, message: 'Could not resolve pricing right now.' });
@@ -281,7 +418,12 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
         });
     }, PREVIEW_DEBOUNCE_MS);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [family.family_id, rows, selection, commitmentMonths]);
+    // `family` itself is deliberately not a dependency — a Family switch
+    // always changes family_id (the row/offer set is re-derived from it via
+    // `rows`/`offer` anyway), so this avoids re-fetching merely because the
+    // parent handed down a new-identity-but-same-content family object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote]);
 
   if (!offer || !policy || rows.length === 0) return null;
 
@@ -379,19 +521,23 @@ export function ComposableOfferBrowser({ family, context }: ComposableOfferBrows
                   onInput={(event) => {
                     const raw = Number((event.target as HTMLInputElement).value);
                     setSelection((prev) => ({ ...prev, [row.item_id]: { selected: true, quantity: raw } }));
+                    setHasInteracted(true);
                   }}
                 />
               )}
               <button
                 type="button"
                 class={`cz-btn ${isSelected ? 'cz-btn-secondary' : 'cz-btn-primary'}`}
-                onClick={() => setSelection((prev) => ({
-                  ...prev,
-                  [row.item_id]: {
-                    selected: !isSelected,
-                    quantity: prev[row.item_id]?.quantity ?? row.policy.quantity?.default,
-                  },
-                }))}
+                onClick={() => {
+                  setSelection((prev) => ({
+                    ...prev,
+                    [row.item_id]: {
+                      selected: !isSelected,
+                      quantity: prev[row.item_id]?.quantity ?? row.policy.quantity?.default,
+                    },
+                  }));
+                  setHasInteracted(true);
+                }}
               >
                 {isSelected ? 'Remove' : 'Add'}
               </button>

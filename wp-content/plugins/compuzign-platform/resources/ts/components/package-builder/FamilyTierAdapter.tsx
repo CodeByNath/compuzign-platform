@@ -409,6 +409,14 @@ interface FamilyTierAdapterProps {
   onAdd: (item: FamilyTierQuoteItem) => void;
   onRemovePrimary: () => void;
   onRemoveAddon: (tierPlatformId: string) => void;
+  // Quote/cart connection phase: the already-quoted composable ("Build Your
+  // Own") line for this Family+Instance, or null — forwarded to
+  // ComposableOfferBrowser to re-seed its own Add/Remove state. Independent
+  // of selectedTierId/selectedAddonItems above; the composable occupant is
+  // never the primary and never an Add-on.
+  selectedComposableItem: FamilyTierQuoteItem | null;
+  onComposableCommit: (item: FamilyTierQuoteItem) => void;
+  onComposableRemove: () => void;
 }
 
 const CUSTOMER_GROUPS = [
@@ -442,6 +450,9 @@ export function FamilyTierAdapter({
   onAdd,
   onRemovePrimary,
   onRemoveAddon,
+  selectedComposableItem,
+  onComposableCommit,
+  onComposableRemove,
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
@@ -568,7 +579,11 @@ export function FamilyTierAdapter({
   // "Added" state stays exactly as it already was (unchanged scope this
   // phase); selectedAddonItems above is what the FOCUSED shell reads for
   // Tier+Edition exactness.
-  const selectedAddonTierIds = selectedAddonItems.map((item) => item.tierId);
+  // An Add-on item's own tierId is always one of the five fixed Tier ids —
+  // isAddon and isComposable are mutually exclusive roles (resolveQuoteItemRole()
+  // in utils/quote.ts) — so this cast reflects a runtime-true fact about
+  // selectedAddonItems' own contents, not a widening of what's accepted here.
+  const selectedAddonTierIds = selectedAddonItems.map((item) => item.tierId as TierId);
 
   // The selected-Tier view both Add to Quote entry points land in: the chosen
   // Tier alone, with its Add-ons revealed. Derived against the live selection
@@ -1217,6 +1232,9 @@ export function FamilyTierAdapter({
       <ComposableOfferBrowser
         family={family}
         context={selectedTierId === null ? 'build_your_own' : 'upgrade_your_build'}
+        initialCartItem={selectedComposableItem}
+        onCommit={onComposableCommit}
+        onRemoveFromQuote={onComposableRemove}
       />
     </>
   );
