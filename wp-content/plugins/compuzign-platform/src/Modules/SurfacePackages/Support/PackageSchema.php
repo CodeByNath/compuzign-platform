@@ -389,6 +389,43 @@ class PackageSchema
     }
 
     /**
+     * A customer_policy entry for an item_id the occupant no longer selects
+     * is not merely inert — left in stored state, it silently reactivates
+     * its old Required/Optional/quantity/Featured rule the moment Admin
+     * later re-selects that same item_id, without Admin ever revisiting
+     * Customer Selection Rules. resolveCustomerComposableSelection() already
+     * ignores such an entry today (it walks the container's own live
+     * rate_sheet_items, never policy items), but "unreachable until the
+     * item_id returns" is not the same guarantee as "gone" — this prunes it
+     * from the AUTHORITATIVE settled policy so it cannot resurrect. Call
+     * this AFTER the write boundary that finalizes $rateSheetItems for this
+     * same settle (upsertOccupant()'s own returned rate_sheet_items),
+     * mirroring pruneOrphanedLegAssignments()'s identical call-order
+     * requirement just above. Never adds a policy entry for a newly
+     * selected/re-added item_id — an item with no entry already means "not
+     * offered" (sanitizeCustomerPolicy()'s own safe default), so pruning
+     * down to fewer entries changes nothing about that. `null` (no policy
+     * configured at all) passes through unchanged.
+     */
+    public static function pruneStaleCustomerPolicy(?array $customerPolicy, array $rateSheetItems): ?array
+    {
+        if ($customerPolicy === null) {
+            return null;
+        }
+        $liveItemIds = [];
+        foreach ($rateSheetItems as $row) {
+            if (is_array($row) && isset($row['item_id'])) {
+                $liveItemIds[(string) $row['item_id']] = true;
+            }
+        }
+        $customerPolicy['items'] = array_values(array_filter(
+            is_array($customerPolicy['items'] ?? null) ? $customerPolicy['items'] : [],
+            static fn($item): bool => is_array($item) && isset($liveItemIds[(string) ($item['item_id'] ?? '')])
+        ));
+        return $customerPolicy;
+    }
+
+    /**
      * Mint a Leg's stable id — plumbing only, matching the same
      * `<prefix>_ + random suffix` convention as `occ_`/`edt_`/`bin_` above.
      * Not a Platform ID: `CZTL`/`CZTEL` are a later phase and, once they
@@ -1652,6 +1689,14 @@ class PackageSchema
                 'rate_sheet_items'    => $selections,
                 'features'            => $data['features'] ?? [],
                 'faq_refs'            => $data['faq_refs'] ?? [],
+                // Composable-only (see TIER_MODULES); a normal Tier/Add-on
+                // $data never carries this key, so it stays null there. The
+                // only caller that ever supplies a real value is
+                // settleTierSlot()'s own draft-preferred computation — this
+                // literal previously omitted the key entirely, silently
+                // dropping every settled customer_policy regardless of which
+                // module's draft triggered the settle (2026-09-03 fix).
+                'customer_policy'     => $data['customer_policy'] ?? null,
                 // Preserved verbatim — see the note above the extraction at
                 // the top of this function. Never populated from $data.
                 'tier_editions'       => $existingTierEditions,
@@ -3169,6 +3214,14 @@ class PackageSchema
             $result['current_occupant']['rate_sheet_items'] = self::pruneOrphanedLegAssignments(
                 $result['current_occupant']['rate_sheet_items'] ?? [],
                 $result['current_occupant']['legs'] ?? []
+            );
+            // Same call-order requirement as the leg pruning just above —
+            // against the now-final settled rate_sheet_items — so a
+            // customer_policy entry for an item_id this same settle just
+            // removed can never resurrect if that item_id is re-added later.
+            $result['current_occupant']['customer_policy'] = self::pruneStaleCustomerPolicy(
+                $result['current_occupant']['customer_policy'] ?? null,
+                $result['current_occupant']['rate_sheet_items']
             );
         }
         return $result;
