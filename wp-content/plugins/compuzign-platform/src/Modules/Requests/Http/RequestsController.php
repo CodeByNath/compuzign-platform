@@ -128,8 +128,23 @@ class RequestsController
                 ], 409);
             }
 
-            $payload = $storedPayload;
+            // Live-correction round: a matching join is a no-op past this
+            // point — the creating call already minted the view-secret
+            // transient and sent both notifications exactly once. Returning
+            // success here WITHOUT repeating any of that is what makes a
+            // sequential retry or a concurrent-join side-effect-free: no
+            // secret rotation (which would invalidate the link already
+            // emailed to the customer), no duplicate admin/customer email.
+            return new \WP_REST_Response([
+                'success'  => true,
+                'quote_id' => $quoteRef,
+                'message'  => 'Your quote request has been received. We will be in touch within one business day.',
+            ], 200);
         }
+
+        // ── Everything below runs exactly once per durable Request — only
+        //    the call that actually created it (created_by_this_call ===
+        //    true above) reaches here. ─────────────────────────────────────
 
         // ── Phase 8J-C1: view secret; only the one-way hash is persisted, and
         //    only in the transient — never merged into the durable snapshot.
@@ -171,27 +186,35 @@ class RequestsController
         // EITHER email must never 500 this response (which would read to the
         // customer as a failed submission despite their Request already
         // existing) and must never let one email's failure silently swallow
-        // the other. Each is independently guarded and logged; a genuine
-        // wp_mail() transport failure (returns false, no exception) is
-        // unaffected by this and was already silent before this change.
+        // the other. Each is independently guarded; a thrown exception is
+        // logged in the catch, and a genuine wp_mail() transport failure
+        // (returns false, no exception) is now logged too rather than left
+        // silent — dispatch-attempted is not the same as delivered, and this
+        // never claims delivery, only that dispatch was attempted/logged.
         try {
-            wp_mail(
+            $adminMailSent = wp_mail(
                 $adminEmail,
                 $adminSubject,
                 NotificationTemplates::buildAdminHtmlEmail($payload),
                 $headers
             );
+            if ($adminMailSent === false) {
+                error_log('[CompuZign] Admin Request notification dispatch returned false for ' . $quoteRef);
+            }
         } catch (\Throwable $e) {
             error_log('[CompuZign] Admin Request notification failed for ' . $quoteRef . ': ' . $e->getMessage());
         }
 
         try {
-            wp_mail(
+            $customerMailSent = wp_mail(
                 $email,
                 $customerSubject,
                 NotificationTemplates::buildCustomerHtmlEmail($payload, $siteTitle, $quoteViewLink),
                 $headers
             );
+            if ($customerMailSent === false) {
+                error_log('[CompuZign] Customer Request notification dispatch returned false for ' . $quoteRef);
+            }
         } catch (\Throwable $e) {
             error_log('[CompuZign] Customer Request notification failed for ' . $quoteRef . ': ' . $e->getMessage());
         }

@@ -26,6 +26,19 @@ namespace CompuZign\Platform\Modules\Requests\Repositories {
     }
 }
 
+// Live-correction round: error_log() is also a real PHP builtin — same
+// reasoning as usleep() above. RequestsController::submitRequest() is the
+// only caller under test, so shadow it only in that namespace, capturing
+// into $__errorLog instead of the real system log so the "wp_mail() ===
+// false is logged" requirement is actually observable by the harness.
+namespace CompuZign\Platform\Modules\Requests\Http {
+    function error_log(string $message): bool {
+        global $__errorLog;
+        $__errorLog[] = $message;
+        return true;
+    }
+}
+
 namespace {
 
 const HOUR_IN_SECONDS = 3600;
@@ -36,6 +49,8 @@ $__postMeta     = [];
 $__options      = [];
 $__transients   = [];
 $__mailLog      = [];
+$__errorLog     = [];
+$__mailShouldFail = false;
 $__nextPostId   = 5000;
 $__submittedSeq = 0;
 $__deletedPostIds       = [];
@@ -89,9 +104,9 @@ function set_transient(string $key, mixed $value, int $expiration): bool
 
 function wp_mail(string $to, string $subject, string $message, array $headers = []): bool
 {
-    global $__mailLog;
+    global $__mailLog, $__mailShouldFail;
     $__mailLog[] = ['to' => $to, 'subject' => $subject];
-    return true;
+    return !$__mailShouldFail;
 }
 
 function is_wp_error(mixed $value): bool { return $value instanceof WP_Error; }
@@ -403,13 +418,19 @@ check(count($__mailLog) === 2, 'both admin and customer emails are sent on first
 // ── 2. Same-ref, same-payload retry ─────────────────────────────────────────
 
 echo "\nSame-ref, same-payload retry\n";
-$mailCountBefore  = count($__mailLog);
-$boundCountBefore = boundForwardCount();
+$mailCountBefore   = count($__mailLog);
+$boundCountBefore  = boundForwardCount();
+$transientBeforeRetry = $__transients['cz_quote_' . $ref1];
 $resp1b = $controller->submitRequest(requestFor($ref1, 'first@example.com'));
 check($resp1b->get_status() === 200, 'a same-ref same-payload retry still succeeds');
 check($requests->findPostIdByRef($ref1) === $postId1, 'the retry mints no second durable Request');
 check(boundForwardCount() === $boundCountBefore, 'the retry mints no second CZR — reserve() was never called again');
-check(count($__mailLog) === $mailCountBefore + 2, 'the retry regenerates transient/email from the stored snapshot');
+// Live-correction round: a matching join is fully idempotent past the
+// durable Request itself — no new view-secret transient (which would
+// invalidate the link already emailed to the customer) and NO additional
+// mail dispatch. Only the original creating call ever sends notifications.
+check($__transients['cz_quote_' . $ref1] === $transientBeforeRetry, 'the retry mints no new view-secret transient — the original secret/link stays valid');
+check(count($__mailLog) === $mailCountBefore, 'the retry sends zero additional emails — notifications are creator-only, never repeated on join');
 
 // ── 3. Same-ref, different-payload collision ────────────────────────────────
 
@@ -645,42 +666,44 @@ check($requests->platformId($legacyOutcome14['post_id']) === '', 'the legacy rec
 echo "\nA quote_cart submission with a composable line sends both emails\n";
 freshIp();
 $ref15 = 'CZ-COMP01';
+$composableItems15 = [
+    [
+        'offer_type' => 'family_tier',
+        'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
+        'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
+        'tierOccupantId' => 'occ_starter', 'tierPlatformId' => 'CZT-CLOUD001', 'tierEditionPlatformId' => null,
+        'tierId' => 'basic', 'tierTitle' => 'Starter Cloud', 'price' => 49, 'billingCycle' => 'monthly', 'isAddon' => false,
+    ],
+    [
+        'offer_type' => 'family_tier',
+        'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
+        'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
+        'tierOccupantId' => 'occ_addon', 'tierPlatformId' => 'CZT-CLOUD002', 'tierEditionPlatformId' => null,
+        'tierId' => 'enterprise', 'tierTitle' => 'Backup & DR Shield', 'price' => 25, 'billingCycle' => 'monthly', 'isAddon' => true,
+    ],
+    [
+        'offer_type' => 'family_tier',
+        'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
+        'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
+        'tierOccupantId' => 'occ_composable', 'tierPlatformId' => 'CZT-CLOUD009', 'tierEditionPlatformId' => null,
+        'tierId' => 'composable', 'tierTitle' => 'Build Your Own', 'price' => 10, 'billingCycle' => 'monthly',
+        'isAddon' => false, 'isComposable' => true,
+        'inclusionItems' => [['id' => 'itm_block', 'label' => 'Block Storage', 'quantity' => 100]],
+        'legPaymentSummaries' => [[
+            'source' => 'leg_block_storage', 'billingCycle' => 'monthly', 'price' => 10,
+            'startMonth' => 0, 'endMonth' => null, 'isOngoing' => true, 'occurrenceMonths' => [], 'subtotal' => null,
+        ]],
+    ],
+];
 $mailCountBefore15 = count($__mailLog);
 $resp15 = $controller->submitRequest(requestFor($ref15, 'composable15@example.com', [
     'type' => 'quote_cart',
-    'items' => [
-        [
-            'offer_type' => 'family_tier',
-            'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
-            'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
-            'tierOccupantId' => 'occ_starter', 'tierPlatformId' => 'CZT-CLOUD001', 'tierEditionPlatformId' => null,
-            'tierId' => 'basic', 'tierTitle' => 'Starter Cloud', 'price' => 49, 'billingCycle' => 'monthly', 'isAddon' => false,
-        ],
-        [
-            'offer_type' => 'family_tier',
-            'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
-            'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
-            'tierOccupantId' => 'occ_addon', 'tierPlatformId' => 'CZT-CLOUD002', 'tierEditionPlatformId' => null,
-            'tierId' => 'enterprise', 'tierTitle' => 'Backup & DR Shield', 'price' => 25, 'billingCycle' => 'monthly', 'isAddon' => true,
-        ],
-        [
-            'offer_type' => 'family_tier',
-            'familyId' => 'pcg_cloud', 'familyPlatformId' => 'CZPG-CLOUD01', 'familyTitle' => 'Cloud Family',
-            'tierInstanceId' => 'ti_cloud', 'tierInstancePlatformId' => 'CZTG-CLOUD01',
-            'tierOccupantId' => 'occ_composable', 'tierPlatformId' => 'CZT-CLOUD009', 'tierEditionPlatformId' => null,
-            'tierId' => 'composable', 'tierTitle' => 'Build Your Own', 'price' => 10, 'billingCycle' => 'monthly',
-            'isAddon' => false, 'isComposable' => true,
-            'inclusionItems' => [['id' => 'itm_block', 'label' => 'Block Storage', 'quantity' => 100]],
-            'legPaymentSummaries' => [[
-                'source' => 'leg_block_storage', 'billingCycle' => 'monthly', 'price' => 10,
-                'startMonth' => 0, 'endMonth' => null, 'isOngoing' => true, 'occurrenceMonths' => [], 'subtotal' => null,
-            ]],
-        ],
-    ],
+    'items' => $composableItems15,
 ]));
 $data15 = $resp15->get_data();
 check($resp15->get_status() === 200 && ($data15['success'] ?? false) === true, 'a quote_cart submission with primary + Add-on + composable lines succeeds');
 check(count($__mailLog) === $mailCountBefore15 + 2, 'both admin and customer emails are sent exactly once each for the composable submission — proves buildAdminHtmlEmail()/buildCustomerHtmlEmail() do not throw for this line shape');
+check(isset($__transients['cz_quote_' . $ref15]), 'exactly one quote-view transient exists for the composable submission');
 $record15 = $requests->findByRef($ref15);
 $storedComposable15 = null;
 foreach ($record15['data']['items'] as $storedItem) {
@@ -691,6 +714,57 @@ foreach ($record15['data']['items'] as $storedItem) {
 check($storedComposable15 !== null, 'the composable line is durably stored with isComposable: true');
 check($storedComposable15['isAddon'] === false, 'the stored composable line keeps isAddon false');
 check(!array_key_exists('composableSelection', $storedComposable15), 'composableSelection is never persisted in the durable Request');
+
+// ── 15b. An identical retry of the SAME composable-bearing submission is
+//    fully side-effect-free — the release blocker this round exists to fix.
+//    No new view-secret transient, zero additional mail dispatch. ─────────
+
+echo "\nAn identical retry of the composable submission is side-effect-free\n";
+$mailCountAfterFirst15 = count($__mailLog);
+$transientBeforeRetry15 = $__transients['cz_quote_' . $ref15];
+$resp15b = $controller->submitRequest(requestFor($ref15, 'composable15@example.com', [
+    'type' => 'quote_cart',
+    'items' => $composableItems15,
+]));
+$data15b = $resp15b->get_data();
+check($resp15b->get_status() === 200 && ($data15b['success'] ?? false) === true, 'an identical retry of the composable submission still succeeds');
+check($__transients['cz_quote_' . $ref15] === $transientBeforeRetry15, 'the retry mints no new view-secret transient — the original link stays valid');
+check(count($__mailLog) === $mailCountAfterFirst15, 'the retry performs zero additional mail dispatch attempts');
+
+// ── 15c. Same ref, changed payload still 409s with zero side effects, even
+//    for a composable-bearing Request. ────────────────────────────────────
+
+echo "\nSame composable ref with a changed payload still 409s, no side effects\n";
+$mailCountBeforeChanged15 = count($__mailLog);
+$transientBeforeChanged15 = $__transients['cz_quote_' . $ref15];
+$changedItems15 = $composableItems15;
+$changedItems15[2]['price'] = 15; // a different composable headline price
+$resp15c = $controller->submitRequest(requestFor($ref15, 'composable15@example.com', [
+    'type' => 'quote_cart',
+    'items' => $changedItems15,
+]));
+$data15c = $resp15c->get_data();
+check($resp15c->get_status() === 409 && ($data15c['success'] ?? true) === false, 'a changed composable payload for the same ref is rejected with 409');
+check($__transients['cz_quote_' . $ref15] === $transientBeforeChanged15, 'the rejected collision leaves the view-secret transient untouched');
+check(count($__mailLog) === $mailCountBeforeChanged15, 'the rejected collision sends zero additional emails');
+
+// ── 16. wp_mail() returning false (no exception — a genuine transport
+//    failure) is now observably logged, and never turns an already-durable
+//    Request into a failed submission response. ──────────────────────────
+
+echo "\nA wp_mail() false return is logged without failing the submission\n";
+freshIp();
+$ref16 = 'CZ-MAILFA';
+$errorLogCountBefore16 = count($__errorLog);
+$__mailShouldFail = true;
+$resp16 = $controller->submitRequest(requestFor($ref16, 'mailfail16@example.com'));
+$__mailShouldFail = false;
+$data16 = $resp16->get_data();
+check($resp16->get_status() === 200 && ($data16['success'] ?? false) === true, 'a submission whose wp_mail() dispatch returns false still succeeds — the durable Request is already persisted by that point');
+check($requests->findPostIdByRef($ref16) !== null, 'the durable Request exists despite the mail dispatch failure');
+$newErrorLogEntries16 = array_slice($__errorLog, $errorLogCountBefore16);
+check(count($newErrorLogEntries16) === 2, 'both the admin and customer wp_mail() false returns are logged, one entry each');
+check(str_contains($newErrorLogEntries16[0], 'dispatch returned false') && str_contains($newErrorLogEntries16[1], 'dispatch returned false'), 'the logged messages identify a dispatch failure, not a thrown exception');
 
 echo "\nAll durable-submission checks passed.\n";
 
