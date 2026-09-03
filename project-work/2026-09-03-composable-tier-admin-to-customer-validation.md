@@ -1,28 +1,59 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING CHATGPT REVIEW — live customer validation completed.**
-- Browser Agent verdict: **Proceed.**
-- Production independently recorded as `main@84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`.
-- GitHub Actions **Deploy to Hostinger #937**, run `33754346845`, completed **success** for that exact SHA.
-- Validation coordination input: `5c01006c3c05797c06c280b8c7a1f68679d47e5c`.
+- **READY FOR CLAUDE — next phase: Request -> PDF -> customer email propagation audit.**
+- Auditor verdict: **Proceed with safeguards.**
+- Production accepted: `main@84ebbb2850f9e8f9ead8cec8c13ee67462cb3f33`; Hostinger Deploy #937 / run `33754346845` succeeded.
 
-## Accepted architecture
-One aggregate composable `FamilyTierQuoteItem`; centralized `primary | addon | composable` identity; Family+Tier-System composable key; no per-inclusion products; no `is_addon` reuse; zero-selected/no-required removes line; required-only persists; primary and composable are independent; commercial facts come only from the latest successful server preview. Request/PDF/email is not part of this phase.
+## Accepted chain through quote/cart
+Live customer validation passed on deployed `/pricing/`:
+- standalone Build Your Own creates one aggregate composable line;
+- zero-selected/no-required removes it;
+- primary + composable coexist independently;
+- quote count/payment streams include composable once;
+- no reactive re-sync loop after idle;
+- update does not duplicate;
+- primary removal does not remove composable and vice versa;
+- reload re-seeds persisted composable choice without auto-mutating cart.
 
-## Live browser validation — 2026-09-03
-Read-only platform validation was run on deployed customer `/pricing/` after refresh. Only this browser's KAIROS quote selections changed; no Admin, Package, policy, price, WordPress configuration, or other platform record was altered.
+Accepted architecture remains locked: centralized `primary | addon | composable`; no per-inclusion products; no `is_addon` reuse; Family+Tier-System composable key; commercial facts only from successful server preview.
 
-1. **Standalone Build Your Own — PASS.** With no primary selected, adding authorized Block Storage created exactly one KAIROS Build Your Own line: Monthly **$10**; preview showed **$10/mo Ongoing**. Screenshot captured.
-2. **No reactive loop — PASS.** After 3.5 seconds idle, cart text, one-item count, amount, and preview were byte-for-byte stable; no spinner, flicker, duplicate, or visible refresh.
-3. **Remove empty composition — PASS.** Removing Block Storage removed the composable quote line completely and returned “No inclusions selected yet.” Screenshot captured.
-4. **Coexistence — PASS.** Starter Cloud primary plus Block Storage produced two independent lines: Starter Cloud and Build Your Own. No Add-on was already selected. Screenshot captured.
-5. **Totals exactly once — PASS.** Quote count was **2**. Primary retained Monthly $157, Yearly $80, Total $7,592; composable appeared once at Monthly $10. Combined Initial Payment was **$167** and Contract Value correctly read **Ongoing**.
-6. **Update, not duplicate — PASS.** No quantity control was available, so Remove then Add was tested. The same composable line reappeared once; count stayed 2. A second 3.5-second idle check was stable.
-7. **Independence — PASS.** Removing primary left Build Your Own intact at $10. Re-adding primary restored both. Removing only Build Your Own left Starter Cloud intact with Total Contract Value $7,592 and Initial Payment $157.
-8. **Reload/reseed — PASS.** With primary + composable present, reload restored both lines, count 2, Block Storage selected, and Initial Payment $167. After another 3.5 seconds idle, the complete DOM snapshot was unchanged. Screenshot captured.
+This overall work track remains open. Do not reopen the accepted Admin/customer/quote-cart architecture without hard evidence.
 
-No stop condition occurred: no replacement, duplicate composable line, empty cart line, double count, idle mutation, reload mutation, or preview/cart price mismatch.
+## Next phase — Request / PDF / customer email
+Goal: carry the already-accepted composable quote snapshot through the existing Request pipeline and every customer representation without inventing a second commercial model.
 
-## Next gate
-Auditor may accept and close this work item. No Claude source correction is requested. Do **not** start Request/PDF/email work yet.
+### Claude first action — audit only, no source edits
+Trace the exact current pipeline:
+`FamilyTierQuoteItem` cart snapshot -> Request submit payload -> REST schema/sanitizer -> stored Request line -> Admin Request read/display -> proposal/quote PDF -> customer email content/attachment/view`.
+
+Inspect at minimum:
+- `RequestSchema.php` sanitizer + REST args for `family_tier`;
+- request submission mapping/payload construction;
+- `RequestLine` / `requestLineToCartItem` and any request-item display helpers;
+- Admin Request surface representation;
+- `QuoteProposalPreview` / print/PDF generation path;
+- customer email template/body/attachment generation path;
+- every allow-list/serialization boundary that would currently drop `isComposable` or `composableSelection`;
+- existing handling of `inclusionItems`, `legPaymentSummaries`, quantities, Tier/Edition labels, TCV/payment streams.
+
+Report in this same file:
+1. exact fields that must persist for a truthful composable snapshot;
+2. fields that are display-only and should NOT be stored;
+3. how Request/Admin/PDF/email should distinguish `primary | addon | composable` without misusing `is_addon`;
+4. exact customer-facing label/section for composable (prefer **Build Your Own**, not raw IDs or “primary”);
+5. how selected inclusion names + quantities and per-Leg payment streams appear consistently across Admin, proposal/PDF and email;
+6. backward compatibility for old Requests with no composable fields;
+7. any schema/version/migration risk;
+8. exact source files and focused contracts/tests required.
+
+### Hard safeguards
+- One stored aggregate composable Request line, never one line per inclusion.
+- Persist the resolved commercial snapshot already in cart; do not re-resolve pricing from current Rate Sheet/occupant state when viewing an old Request/PDF/email.
+- `composableSelection` is customer-choice audit/reseed context; resolved `inclusionItems` + `legPaymentSummaries` remain the commercial/display snapshot.
+- No new entity/CZTG/Rate Sheet identity.
+- No changes to pricing/resolver math in this phase, including the known occurrence-month issue.
+- Existing primary/Add-on Request behavior must remain byte-compatible when new optional fields are absent.
+- Do not implement until auditor approves the audit design.
+
+Set **AWAITING CHATGPT REVIEW** after the audit. Overall final UI/UX refinement remains a later phase after this representation chain is accepted.
