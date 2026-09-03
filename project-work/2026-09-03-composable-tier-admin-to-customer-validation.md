@@ -1,41 +1,40 @@
 # Composable Tier — Admin → customer browser handoff
 
 ## Status
-- **AWAITING LIVE VALIDATION — Customer Options wiring audit accepted; no source change.**
+- **AWAITING LIVE VALIDATION — live policy/browser path now proven; quote/cart connection not built.**
 - Auditor verdict: **Proceed with safeguards.**
 - Production `main@41884a41ab7f0e21c52dc8e9158c126aace1abf9`; Hostinger deploy #935 succeeded on exact SHA.
 
-## Live evidence already established
-KAIROS Build Your Own is Active, $48.50 monthly, with 3 selected inclusions: 2 vCPU, Block Storage, Backup Storage — BaaS. Opening the primary **View** action correctly opens the normal 4-module Tier drawer.
+## Live Admin state
+KAIROS Build Your Own is Active, $48.50 monthly, with 3 occupant-owned inclusions: 2 vCPU, Block Storage, Backup Storage — BaaS.
 
-## Customer Options action audit — accepted
-Claude changed no source. The production action chain is internally consistent:
-- `usePackageTierWorkspace` applies `withComposableCustomerOptionsAction(..., composableView?.detail.enabled === true)` to the composable card.
-- The same `enabled` fact drives the displayed Active state, so an Active composable card is eligible.
-- `withComposableCustomerOptionsAction()` appends `customer-options` to the card actions.
-- Projection and `TierDetailPanel` pass actions through unchanged.
-- `StationSplitAction` always uses the first action as the visible primary **View** button and places later actions in the small chevron dropdown.
-- `customer-options` remains wired to the standalone `tier-customer-policy` drawer.
+The separate **Customer Options** action is present in the small chevron menu beside View. It opens the standalone Customer Selection Rules drawer, not the shared Tier drawer. Edit correctly shows exactly the 3 occupant-owned rows; the prior full-Rate-Sheet leakage is fixed.
 
-Therefore the prior screenshot does not prove the action is missing; it shows the closed split-button and the result of clicking its primary View half. The correct live check is the small **▾ chevron** beside View. Hard-refresh first to exclude an old cached Admin bundle.
+Nath live-authored/published a minimal policy where **Block Storage** is Customer Add/Remove and the other two rows are Not offered. This policy successfully reached the customer `/pricing/` surface.
 
-## Exact live validation now
-1. Hard-refresh Studio.
-2. On **Package Build Your Own**, click the small **▾** immediately right of **View**, not View itself.
-3. Expected menu includes **Edit** and **Customer Options**. If Customer Options is absent after hard refresh, stop and capture the open menu.
-4. Open **Customer Options**. Its standalone Customer Selection Rules drawer must not be the shared Tier drawer.
-5. Edit must show exactly these 3 occupant-owned rows and no full Rate Sheet leakage:
-   - 2 vCPU
-   - Block Storage
-   - Backup Storage — BaaS
-6. Then, only with Nath's explicit approval for the live mutation, author at least one Required/Optional rule, Save, Publish/settle Build Your Own, reopen and confirm persistence.
-7. After a real policy is published, validate `/pricing/` for Build Your Own before primary selection and Upgrade your build afterward.
-8. Stale remove/re-add regression remains the final Admin persistence check and must not be run without explicit live-mutation authorization.
+## Live customer evidence
+With a normal KAIROS plan selected, `/pricing/` renders **Upgrade your build** and only the authorized Block Storage card. Add changes to Remove and server preview resolves **$10/mo Ongoing**. No Price Option/Leg/cycle/commitment controls are exposed.
 
-Stop on any unexpected mutation to normal Tiers/Add-ons, Family assignment, Rate Sheet data, Legs, Price Options or Editions.
+This proves the chain:
+`composable occupant -> customer_policy -> public composable_offer -> customer Add/Remove -> server preview`.
 
-## Follow-up — separate scope
-After this live gate closes, separately scope **Import all current Rate Sheet inclusions** as a one-time snapshot/bulk-selection action in the normal occupant inclusion editor. No wildcard binding or automatic future Rate Sheet additions.
+## Important remaining boundary
+The composable browser is **preview-only**. It currently has no relation/persistence into the quote/cart engine. Selecting Block Storage does not create/update a `FamilyTierQuoteItem`, does not change quote count/TCV, and does not flow to Request/PDF/email. This is expected from Phase 2B1; cart/quote work was deliberately excluded.
 
-## Next action
-Live UI check only. No Claude source work authorized unless the chevron menu is genuinely missing Customer Options after hard refresh.
+Next implementation phase must connect the resolved composable occupant to quote/cart without making each inclusion an independent product. Locked direction:
+- one aggregate composable occupant quote snapshot;
+- selected-inclusion breakdown + quantities;
+- authoritative per-Leg payment summaries;
+- explicit composable quote role/key so it coexists with the normal primary occupant and Add-ons;
+- never reuse `is_addon` and never create per-inclusion cart identities;
+- Request/PDF/email only after quote/cart snapshot is accepted.
+
+## Remaining validation before closing current phase
+- Optionally verify direct **Build Your Own** context before any primary Tier selection.
+- Stale-policy remove -> settle -> re-add -> settle regression remains untested live and requires explicit mutation authorization.
+
+## Follow-up
+Separately scope **Import all current Rate Sheet inclusions** as one-time snapshot/bulk-selection in the normal occupant inclusion editor; no wildcard binding or automatic future Rate Sheet additions.
+
+## Cross-device checkpoint
+Safe to continue from another computer by running the Work Cycle and reading this file. Do not start quote/cart source work until the auditor explicitly scopes/approves that next phase.
