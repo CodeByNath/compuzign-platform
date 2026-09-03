@@ -84,7 +84,22 @@ check(bindingSource.includes("id: 'customer-options', target: 'drawer', mode: 'v
 // ── 4. No second inclusion catalogue/list authority ─────────────────────────
 
 const controllerSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/customerPolicy/useTierCustomerPolicyDrawerController.ts'), 'utf8');
-check(controllerSource.includes('buildRateSheetCatalogue(pkg.service, detail.rate_sheet_id, detail.rate_sheet_selections)'), 'the standalone controller resolves rows through the occupant\'s OWN rate_sheet_id/rate_sheet_selections via the shared pure buildRateSheetCatalogue — the same builder the shared Tier drawer\'s Features module reads, not a second lookup');
+check(!controllerSource.includes('buildRateSheetCatalogue('), 'the standalone controller never calls the full-sheet-catalogue builder — that builder only APPENDS existing selections onto the bound sheet\'s complete row list (for the Tier Features "Add from Rate Sheet…" picker) and does not filter down to selections, so reusing it here returns every catalogue row instead of only the occupant\'s own selected ones');
+check(controllerSource.includes('detail.rate_sheet_selections.filter((row) => row.resolved)'), 'rows come directly from the occupant\'s own resolved rate_sheet_selections (its persisted rate_sheet_items, resolved 1:1) — no second inclusion list, and no expansion back out to the bound sheet\'s full catalogue');
 check(controllerSource.includes("pkg.tierView(COMPOSABLE_TIER_ID)"), 'the controller reads the composable occupant through the same sentinel-routed usePackageStation.tierView every other composable consumer uses');
+
+// Regression proof of the actual defect: buildRateSheetCatalogue
+// (tierDetailModel.ts) only APPENDS any existingSelections it can't already
+// find in the bound sheet's own full item list — it never filters the
+// catalogue DOWN to just those selections. Confirms that function's
+// documented append-only shape stays exactly what makes it wrong for this
+// drawer, so a future edit can't silently reintroduce it here by relying on
+// that call somehow narrowing the set on its own.
+const tierDetailModelSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/tierDetailModel.ts'), 'utf8');
+check(
+  tierDetailModelSource.includes('for (const selected of existingSelections) {') &&
+  tierDetailModelSource.includes('if (!catalogue.some((item) => item.item_id === selected.item_id)) catalogue.push(selected);'),
+  'buildRateSheetCatalogue only appends existingSelections missing from the full sheet catalogue — it does not filter the catalogue down to them, which is why the standalone drawer must never route through it',
+);
 
 console.log('Tier customer policy drawer contract: PASS');

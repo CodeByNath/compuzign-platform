@@ -17,7 +17,6 @@ import type { ShellBinding } from '@/drawer-kit/schema/types';
 import { evaluateModule, tierCustomerPolicyModule } from '@/drawer-kit/utils/moduleNotifications';
 import { useAutoDismiss, useGuardedClose } from '@/entity-drawers/shared/drawerChrome';
 import { usePackageStation } from '../../usePackageStation';
-import { buildRateSheetCatalogue } from '../tier/tierDetailModel';
 import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 import type { TierCustomerPolicyShellData } from '../schema/bindings/tierCustomerPolicy';
 import type { TierCustomerPolicyDrawerContentProps } from './tierCustomerPolicyDrawerTypes';
@@ -44,14 +43,19 @@ export function useTierCustomerPolicyDrawerController({
   const view = pkg.tierView(COMPOSABLE_TIER_ID);
   const detail = view?.detail ?? null;
 
-  // The published occupant's own currently-selected rows only — no second
-  // catalogue/list authority. Same pure builder the shared Tier drawer's own
-  // Features module reads.
+  // The published occupant's own currently-selected rows only — never the
+  // full bound Rate Sheet catalogue. `detail.rate_sheet_selections` is
+  // already the occupant's own persisted `rate_sheet_items` resolved 1:1
+  // (usePackageStation.buildTierViewFromSlot) — the exact "3 selected rows"
+  // set, not "45 Rate Sheet rows". `buildRateSheetCatalogue` is deliberately
+  // NOT reused here: it exists to build the full sheet catalogue for the
+  // Tier Features "Add from Rate Sheet…" picker and only APPENDS existing
+  // selections it can't already find in that full list — it does not filter
+  // down to selections, so passing it the occupant's selections here still
+  // returned every catalogue row.
   const rateSheetCatalogue = useMemo(
-    () => pkg.service && detail
-      ? buildRateSheetCatalogue(pkg.service, detail.rate_sheet_id, detail.rate_sheet_selections).filter((row) => row.resolved)
-      : [],
-    [pkg.service, detail],
+    () => detail ? detail.rate_sheet_selections.filter((row) => row.resolved) : [],
+    [detail],
   );
 
   const loading = !pkg.detailLoaded;
