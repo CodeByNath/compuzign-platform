@@ -34,6 +34,12 @@ function toCartItem(item: RequestLine): CartItem {
       features: item.features,
       inclusionItems: item.inclusionItems ?? undefined,
       isAddon: item.isAddon,
+      // Request/PDF/email propagation phase: without this, every stored
+      // composable line silently read back as `primary` (resolveQuoteItemRole()
+      // in utils/quote.ts has no isComposable to see) — this is the one line
+      // that fixes it. Absent/optional on a legacy RequestLine defaults to
+      // false, i.e. every pre-existing Request reads as primary, unchanged.
+      isComposable: item.isComposable ?? false,
       minimumTermValue: item.minimumTermValue,
       minimumTermUnit: item.minimumTermUnit,
       legPaymentSummaries: item.legPaymentSummaries ?? null,

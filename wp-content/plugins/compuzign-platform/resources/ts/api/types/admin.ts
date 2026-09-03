@@ -123,6 +123,12 @@ export interface RequestLine {
   tierPlatformId?: string;
   tierEditionPlatformId?: string;
   tierEditionTitle?: string | null;
+  // Request/PDF/email propagation phase: the composable ("Build Your Own")
+  // occupant's own role discriminator, mirroring FamilyTierQuoteItem's own
+  // isComposable — see RequestSchema::sanitizeItems() (PHP), the one
+  // sanitisation gate that persists it. Optional/absent-as-false for every
+  // Request submitted before this phase, none of which was ever composable.
+  isComposable?: boolean;
   inclusionItems?: RequestInclusionItem[] | null;
   legPaymentSummaries?: RequestLegPaymentSummary[] | null;
 }

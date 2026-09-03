@@ -52,13 +52,12 @@ for (const file of [order, proposal]) {
   check(!!fallbackBlock, 'the old-cart features[] fallback branch is present');
   check(!fallbackBlock![0].includes('quantity'), 'the features[] fallback never references or invents a quantity');
 
-  // 6. Applied identically to Family primary and Family add-on rows in both
-  // files — plus a third usage in OrderSummary only, for the composable
-  // occupant's own row (quote/cart connection phase; QuoteProposalPreview
-  // is deliberately untouched this phase — see its own Code Map doc).
+  // 6. Applied identically to Family primary, Family add-on, AND composable
+  // ("Build Your Own") rows in both files — Request/PDF/email propagation
+  // phase brought QuoteProposalPreview up to the same three usages
+  // OrderSummary already had.
   const usageCount = (file.match(/<FamilyInclusionsList item=\{item\} \/>/g) ?? []).length;
-  const expectedUsageCount = file === order ? 3 : 2;
-  check(usageCount === expectedUsageCount, `FamilyInclusionsList (with its quantity rendering) is used ${expectedUsageCount} times in this file`);
+  check(usageCount === 3, 'FamilyInclusionsList (with its quantity rendering) is used 3 times in this file');
 }
 
 // Runtime proof of the exact nullish-vs-falsy distinction the source uses:

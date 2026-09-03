@@ -66,7 +66,7 @@ export function QuoteProposalPreview({
   quoteDate,
   quoteRef,
 }: QuoteProposalPreviewProps) {
-  const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems } = classifyQuoteItems(items);
+  const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems, familyComposableItems } = classifyQuoteItems(items);
 
   // Phase 8F (corrected twice): whenever ANY Family item has 2+ payment
   // streams, the Family Contract Value block below sums EVERY primary
@@ -93,18 +93,26 @@ export function QuoteProposalPreview({
   // semantics as QuoteSummary.tsx/OrderSummary.tsx — reusing the exact same
   // primitives, never a second re-derivation. Family add-ons never enter
   // this combined sum (see familyMainItems below, primary-only).
-  const familyPrimaryTotalContractValues = familyMainItems.map((item) =>
+  //
+  // Request/PDF/email propagation phase: the composable occupant's own
+  // aggregate line joins this same combined commercial total (it is a real
+  // commercial line, same as the primary) — but stays a SEPARATE bucket from
+  // familyMainItems for every non-total purpose (rendering below, presented
+  // identity), per resolveQuoteItemRole()'s own primary/addon/composable
+  // split, matching OrderSummary.tsx's own familyCommercialItems precedent.
+  const familyCommercialItems = [...familyMainItems, ...familyComposableItems];
+  const familyPrimaryTotalContractValues = familyCommercialItems.map((item) =>
     item.legPaymentSummaries && item.legPaymentSummaries.length > 0
       ? computeTotalContractValue(item.legPaymentSummaries)
       : null,
   );
-  const allFamilyPrimariesFinite = familyMainItems.length > 0
+  const allFamilyPrimariesFinite = familyCommercialItems.length > 0
     && familyPrimaryTotalContractValues.every((value) => value !== null);
   const combinedFamilyTotalContractValue = allFamilyPrimariesFinite
     ? familyPrimaryTotalContractValues.reduce((sum, value) => sum + (value as number), 0)
     : null;
   const familyStartingPayments = startingPaymentsByCycle(
-    familyMainItems.map((item) => item.legPaymentSummaries ?? []),
+    familyCommercialItems.map((item) => item.legPaymentSummaries ?? []),
   );
   const familyInitialPaymentTotal = familyStartingPayments.reduce((sum, [, amount]) => sum + amount, 0);
 
@@ -211,6 +219,50 @@ export function QuoteProposalPreview({
                 </div>
                 <div class="cz-proposal__service-price-block">
                   {item.tierEditionTitle && <span class="cz-proposal__service-tier">{item.tierEditionTitle}</span>}
+                  {hasStreams ? (
+                    <div class="cz-proposal__service-streams">
+                      {streams!.map((stream) => (
+                        <div key={stream.source} class="cz-proposal__stream-row">
+                          <span class="cz-proposal__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                          <span class="cz-proposal__stream-value">{formatPrice(stream.price)}</span>
+                        </div>
+                      ))}
+                      {totalContractValue !== null && (
+                        <div class="cz-proposal__stream-row cz-proposal__stream-row--total">
+                          <span class="cz-proposal__stream-label">Total</span>
+                          <span class="cz-proposal__stream-value">{formatPrice(totalContractValue)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span class="cz-proposal__service-price">{item.price !== null ? <>{formatPrice(item.price)}{cycleSuffix && <span class="cz-proposal__service-cycle"> {cycleSuffix}</span>}</> : <span class="cz-proposal__price-on-request">Contact for pricing</span>}</span>
+                  )}
+                </div>
+              </div>
+              <FamilyInclusionsList item={item} />
+            </div>
+          );
+        })}
+        {/* Request/PDF/email propagation phase: the composable ("Build Your
+            Own") occupant's own aggregate line — same row shape as a primary
+            Family item above (a real commercial line, folded into the same
+            combined Total Contract Value above), but its own distinct
+            classifyQuoteItems() bucket and eyebrow so it is never presented
+            as "the primary" selection. */}
+        {familyComposableItems.map((item) => {
+          const cycleSuffix = formatCycleLabel(item.billingCycle);
+          const streams = item.legPaymentSummaries;
+          const hasStreams = !!streams && streams.length > 0;
+          const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
+          return (
+            <div key={quoteItemKey(item)} class="cz-proposal__service">
+              <div class="cz-proposal__service-row">
+                <div class="cz-proposal__service-info">
+                  <span class="cz-proposal__service-eyebrow">Build Your Own</span>
+                  <h3 class="cz-proposal__service-title">{item.familyTitle}</h3>
+                  <span class="cz-proposal__service-billing">{item.tierTitle}</span>
+                </div>
+                <div class="cz-proposal__service-price-block">
                   {hasStreams ? (
                     <div class="cz-proposal__service-streams">
                       {streams!.map((stream) => (

@@ -1,106 +1,110 @@
 # Composable Tier Occupant — Quote/Cart Connection
 
-**Quote/cart connection phase — review branch, not yet live-validated.**
+**Quote/cart connection phase — live and accepted; Request/PDF/email
+propagation phase — review branch, not yet live-validated.**
 Implements `project-work/2026-09-03-composable-tier-admin-to-customer-validation.md`.
 Connects the customer-facing composable browsing surface documented in
 [Composable Tier Occupant — Customer UX](tier-composable-occupant-customer-ux.md)
-to the existing quote/cart engine. Browser-only: no Request/PDF/email
-changes this phase (see that boundary below).
+to the existing quote/cart engine, and — per the Request/PDF/email
+propagation phase below — carries the same `isComposable` discriminator
+through the Request pipeline to Admin display, print/PDF, and email.
 
 ## Locked architecture
 
 Reuses the existing `FamilyTierQuoteItem`/`offer_type: 'family_tier'` shape
-— never a third `CartItem` union member. A new `isComposable?: boolean`
-field is orthogonal to `isAddon` (`resolveQuoteItemRole()`, `utils/quote.ts`
-— the one place primary/addon/composable is resolved). `tierId` is
-additively widened to admit a customer-side `COMPOSABLE_QUOTE_TIER_ID`
-sentinel (`components/cost-builder/types.ts`) — a SEPARATE constant from
-Package Station's admin-only `COMPOSABLE_TIER_ID`; neither module imports
-the other's.
+— never a third `CartItem` union member. `isComposable?: boolean` is
+orthogonal to `isAddon` (`resolveQuoteItemRole()`, `utils/quote.ts` — the
+one place primary/addon/composable is resolved). `tierId` is additively
+widened to admit a customer-side `COMPOSABLE_QUOTE_TIER_ID` sentinel — a
+SEPARATE constant from Package Station's admin-only `COMPOSABLE_TIER_ID`.
 
 `quoteItemKey()` gives the composable line its own `:composable` suffix.
 `replaceFamilyNormalQuoteItem()`/`removeFamilyTierSystemQuoteItems()` both
-exclude a composable line — a standalone "Build Your Own" selection must
-survive the primary's own removal, unlike an Add-on's existing orphan
-cascade. New `upsertFamilyComposableQuoteItem()`/`removeFamilyComposableQuoteItem()`
-mirror the Add-on functions. `classifyQuoteItems()` gained a distinct
+exclude a composable line — it must survive the primary's own removal,
+unlike an Add-on's orphan cascade. `upsertFamilyComposableQuoteItem()`/`removeFamilyComposableQuoteItem()`
+mirror the Add-on functions. `classifyQuoteItems()` carries a distinct
 `familyComposableItems` bucket, never merged into `familyMainItems`, though
 a combined commercial total may legitimately aggregate both.
 
 ## Commit/removal — driven only by a successful server preview
 
 `ComposableOfferBrowser.tsx` owns building and committing the one aggregate
-composable line, via new `onCommit`/`onRemoveFromQuote` props
-(`FamilyTierAdapter.tsx` -> `PackageBuilderApp.tsx`). The exported
-`buildComposableFamilyTierQuoteItem()` builds it entirely from the LATEST
-SUCCESSFUL `resolveComposablePreview()` response: `price`/`billingCycle`
-via the existing `resolveHeadlinePrice()`, `legPaymentSummaries` via the
-existing `buildLegPaymentSummaries()`, and `inclusionItems` from the
-already-resolved `contributions` map — never recomputed from the
-submitted `choice` payload, which becomes only the item's own
-`composableSelection` (intent/history for re-seeding, not a pricing
-source). A failed/unavailable preview response returns before any
-commit; a superseded in-flight request is dropped by the existing
-`cancelled` debounce guard — both already covered the preview-only surface
-and now equally protect the cart from a stale/failed write.
+composable line, via `onCommit`/`onRemoveFromQuote` props
+(`FamilyTierAdapter.tsx` -> `PackageBuilderApp.tsx`). `buildComposableFamilyTierQuoteItem()`
+builds it entirely from the LATEST SUCCESSFUL `resolveComposablePreview()`
+response — `price`/`billingCycle`/`legPaymentSummaries`/`inclusionItems` all
+via the existing resolvers, never recomputed from the submitted `choice`
+payload, which becomes only the item's own `composableSelection`
+(intent/history for re-seeding, not a pricing source). A failed/unavailable
+preview never commits; a superseded in-flight request is dropped by the
+existing `cancelled` debounce guard.
 
-Sync only fires after genuine customer interaction (`hasInteracted`,
-local state set by the row Add/Remove/quantity handlers) — never from the
-initial default-seeded render or from re-seeding an already-committed
-selection back from the cart, so merely viewing this surface never itself
-mutates the cart. When the resolved choice contains zero required and zero
-selected-optional items, `onRemoveFromQuote()` fires instead of a
-zero-value placeholder commit; a required-only composition (no optional
-rows at all) always resolves as non-empty and persists. Reopening an
-already-quoted Family reseeds `selection` from the existing item's own
-`composableSelection` (falling back to policy defaults for any row it
-doesn't cover), not from scratch.
+Sync only fires after genuine customer interaction — never from the
+initial default-seeded render. Zero required/selected-optional items fires
+`onRemoveFromQuote()` instead of a zero-value commit. Reopening an
+already-quoted Family reseeds `selection` from `composableSelection`.
 
 ## Correction round — reactive-sync callback stability
 
-Review found a release-blocking loop: `PackageBuilderApp.tsx`'s
-`addComposable`/`removeComposable` were plain closures redefined every
-render; the preview effect depends on them (to react to a Family switch),
-so a commit's own `setItems()` re-render produced a new identity,
-re-triggering the effect and re-committing the SAME unchanged selection —
-unbounded. Fixed with `useCallback`, keyed on the Family's own identity
-strings, constructed before the loading/error/empty early returns (Rules of
-Hooks). `scripts/composable-quote-cart-loop-regression.mjs` mounts the real
-composition (esbuild + happy-dom + Preact `render()`, same precedent as
-`tier-system-footer-loop-regression.mjs`) proving one interaction yields
-exactly one preview call and one cart write, an unchanged selection never
-retriggers either, and a failed preview never commits.
+Review found a release-blocking loop: `addComposable`/`removeComposable`
+were plain closures redefined every render; the preview effect depends on
+them, so a commit's own `setItems()` re-render re-triggered the effect,
+re-committing the SAME unchanged selection unbounded. Fixed with
+`useCallback`, keyed on the Family's own identity strings, constructed
+before the early returns (Rules of Hooks). `composable-quote-cart-loop-regression.mjs`
+mounts the real composition (esbuild + happy-dom + Preact `render()`)
+proving one interaction yields exactly one preview call and one cart write.
 
 ## Presentation — reused, not forked
 
-`QuoteSummary.tsx`'s cart list/count/TCV already iterate the flat cart
-array or `!item.isAddon`, so a composable line renders correctly with zero
-code changes. `OrderSummary.tsx` gained one more `.map()` over
-`familyComposableItems`, and its Family Contract Value block now sums
-`[...familyMainItems, ...familyComposableItems]`. `QuoteDetailsOverlay.tsx`'s
-per-item Plan Details tab falls back to "Details unavailable" for a
-composable line (`family.pricing.tiers` has no composable entry) — Total
-Commitment and cart rendering are already correct there.
+`QuoteSummary.tsx` already iterates the flat cart array, so a composable
+line renders with zero code changes. `OrderSummary.tsx` gained a `.map()`
+over `familyComposableItems`; its combined totals sum
+`[...familyMainItems, ...familyComposableItems]`. `QuoteDetailsOverlay.tsx`
+falls back to "Details unavailable" for a composable line's Plan Details.
 
-## Phase boundary — deliberately untouched
+## Request / PDF / email propagation phase
 
-`QuoteProposalPreview.tsx` (shared by the live "View full quote" expand
-panel AND Admin PDF print), `RequestSchema.php`, Request mapping, and
-proposal email are all out of scope this phase — a composable line is
-consequently absent (never mislabeled) from that one expand/PDF surface
-until the deferred Request -> PDF -> email phase lands.
+Audit found the discriminator dropped at the one sanitisation gate:
+`RequestSchema::sanitizeItems()`'s `family_tier` branch built its stored
+line from a fixed allow-list that never copied `isComposable`/`composableSelection`.
+Every downstream reader fell back to its `isAddon`-only split and
+misclassified a stored composable line as primary — including a
+reproducible duplicate-key defect: primary and composable lines for the
+same Family+Tier-Instance reconstructed to the identical `quoteItemKey()`.
+
+Fix persists ONLY `isComposable` (default false) — never
+`composableSelection`, which is browser re-seed state, not a fact about a
+terminal, immutable Request. The sanitiser guards the impossible state at
+the write boundary: `isComposable: true` forces `isAddon: false`
+regardless of the raw payload, rather than relying on every reader to
+re-apply that precedence. `requestLineToCartItem.ts::toCartItem()`
+reconstructs it — the one line that fixes the misclassification.
+`QuoteProposalPreview.tsx` (shared by "View full quote" AND Admin PDF
+print) gained its own composable block, a "Build Your Own" eyebrow, and
+folds into the same combined totals as `OrderSummary.tsx`
+(`familyCommercialItems = [...familyMainItems, ...familyComposableItems]`).
+`NotificationTemplates.php` ports the same split — `resolveItemRole()`
+(mirrors `resolveQuoteItemRole()`), a fourth `familyComposableItems`
+bucket, a "Build Your Own" email badge — so email, PDF, and cart never
+diverge on classification.
+
+`inclusionItems`/`legPaymentSummaries`/`tierEditionTitle` already
+round-tripped correctly (predating composable) — wiring/classification
+only, no new commercial-data plumbing.
 
 ## Validation
 
-`scripts/composable-quote-cart-contract.ts`
-(`contract:composable-quote-cart`) proves coexistence with unique keys,
+`contract:composable-quote-cart` proves coexistence with unique keys,
 primary/composable mutual independence, the empty-composition removal rule,
 single-use `legPaymentSummaries`, and legacy-cart compatibility.
-`scripts/composable-quote-cart-loop-regression.mjs`
-(`regression:composable-quote-cart-loop`) proves the callback-stability fix
-above. `scripts/request-flow-family-tier-parity-contract.ts` and two
-sibling contracts updated for the new third per-item row in
-`OrderSummary.tsx` only.
+`regression:composable-quote-cart-loop` proves the callback-stability fix
+above. `contract:composable-request-line` proves Request-line role
+reconstruction and the duplicate-key fix. `tests/request-schema-composable.php`
+and `tests/notification-templates-composable-quote-parity.php` cover the
+PHP sanitiser guard and email three-way classification. `request-flow-family-tier-parity-contract.ts`
+and two siblings updated: `QuoteProposalPreview.tsx` now carries the same
+third per-item row `OrderSummary.tsx` already had.
 
 ## Related Code Maps
 

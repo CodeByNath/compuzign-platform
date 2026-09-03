@@ -38,16 +38,14 @@ const proposalCombinedBlock = proposal.match(/const familyPrimaryTotalContractVa
 check(!!proposalCombinedBlock, 'QuoteProposalPreview computes the combined Family primary TCV/Initial Payment block');
 check(!proposalCombinedBlock![0].includes('familyAddonItems'), 'QuoteProposalPreview combined primary TCV/Initial Payment excludes add-ons');
 
-// Stream + finite Total rendering for primary and add-on Family rows in
-// both files, PLUS a third occurrence in OrderSummary for the composable
-// occupant's own row (quote/cart connection phase) — QuoteProposalPreview
-// is deliberately untouched this phase (PDF/Request-layer boundary), so it
-// keeps its original two.
+// Stream + finite Total rendering for primary, add-on, AND composable
+// Family rows in both files — Request/PDF/email propagation phase brought
+// QuoteProposalPreview's composable row up to parity with OrderSummary's.
 {
   const orderStreamOccurrences = (order.match(/computeTotalContractValue\(streams!\)/g) ?? []).length;
   check(orderStreamOccurrences === 3, 'OrderSummary renders per-item finite Total for familyMainItems, familyAddonItems, AND familyComposableItems rows');
   const proposalStreamOccurrences = (proposal.match(/computeTotalContractValue\(streams!\)/g) ?? []).length;
-  check(proposalStreamOccurrences === 2, 'QuoteProposalPreview still renders per-item finite Total for only familyMainItems and familyAddonItems rows — untouched this phase');
+  check(proposalStreamOccurrences === 3, 'QuoteProposalPreview renders per-item finite Total for familyMainItems, familyAddonItems, AND familyComposableItems rows');
 }
 
 // Legacy/simple QuoteItem, bundle, promotion path stays represented and its

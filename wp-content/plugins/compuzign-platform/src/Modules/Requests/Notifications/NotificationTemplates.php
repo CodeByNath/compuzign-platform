@@ -153,15 +153,36 @@ class NotificationTemplates
     }
 
     /**
-     * The same five never-merged cart-line classifications
+     * The one place that resolves primary/addon/composable for a stored
+     * Family item — mirrors resolveQuoteItemRole() in utils/quote.ts (the TS
+     * side's own single source of truth) so this PHP port never scatters a
+     * raw `!isAddon` assumption anywhere else. Composable is checked first:
+     * RequestSchema::sanitizeItems() already guarantees the two flags are
+     * never both true on a stored line, but a role reader still resolves
+     * deterministically rather than assuming that invariant holds.
+     *
+     * @param array<string, mixed> $item
+     */
+    private static function resolveItemRole(array $item): string
+    {
+        if (!empty($item['isComposable'])) {
+            return 'composable';
+        }
+
+        return !empty($item['isAddon']) ? 'addon' : 'primary';
+    }
+
+    /**
+     * The same six never-merged cart-line classifications
      * quote.ts's classifyQuoteItems() defines for the browser (customer's
      * one normal Tier/promotion per Service, the legacy recommended bundle,
-     * real Tier add-ons, and Family main/add-on lines) — reused here so the
-     * email groups and orders its sections identically to OrderSummary.tsx
-     * / QuoteProposalPreview.tsx, never a second/diverging classification.
+     * real Tier add-ons, and Family main/add-on/composable lines) — reused
+     * here so the email groups and orders its sections identically to
+     * OrderSummary.tsx / QuoteProposalPreview.tsx, never a second/diverging
+     * classification.
      *
      * @param  array<int, array<string, mixed>> $items
-     * @return array{mainItems: array<int, array<string, mixed>>, bundleItems: array<int, array<string, mixed>>, tierAddonItems: array<int, array<string, mixed>>, familyMainItems: array<int, array<string, mixed>>, familyAddonItems: array<int, array<string, mixed>>}
+     * @return array{mainItems: array<int, array<string, mixed>>, bundleItems: array<int, array<string, mixed>>, tierAddonItems: array<int, array<string, mixed>>, familyMainItems: array<int, array<string, mixed>>, familyAddonItems: array<int, array<string, mixed>>, familyComposableItems: array<int, array<string, mixed>>}
      */
     private static function classifyQuoteItems(array $items): array
     {
@@ -169,11 +190,12 @@ class NotificationTemplates
         $familyItems  = array_values(array_filter($items, fn (array $item) => self::isFamilyItem($item)));
 
         return [
-            'mainItems'        => array_values(array_filter($serviceItems, fn (array $item) => (int) ($item['serviceId'] ?? 0) > 0 && empty($item['isAddon']))),
-            'bundleItems'      => array_values(array_filter($serviceItems, fn (array $item) => (int) ($item['serviceId'] ?? 0) < 0)),
-            'tierAddonItems'   => array_values(array_filter($serviceItems, fn (array $item) => !empty($item['isAddon']))),
-            'familyMainItems'  => array_values(array_filter($familyItems, fn (array $item) => empty($item['isAddon']))),
-            'familyAddonItems' => array_values(array_filter($familyItems, fn (array $item) => !empty($item['isAddon']))),
+            'mainItems'             => array_values(array_filter($serviceItems, fn (array $item) => (int) ($item['serviceId'] ?? 0) > 0 && empty($item['isAddon']))),
+            'bundleItems'           => array_values(array_filter($serviceItems, fn (array $item) => (int) ($item['serviceId'] ?? 0) < 0)),
+            'tierAddonItems'        => array_values(array_filter($serviceItems, fn (array $item) => !empty($item['isAddon']))),
+            'familyMainItems'       => array_values(array_filter($familyItems, fn (array $item) => self::resolveItemRole($item) === 'primary')),
+            'familyAddonItems'      => array_values(array_filter($familyItems, fn (array $item) => self::resolveItemRole($item) === 'addon')),
+            'familyComposableItems' => array_values(array_filter($familyItems, fn (array $item) => self::resolveItemRole($item) === 'composable')),
         ];
     }
 
@@ -378,21 +400,28 @@ class NotificationTemplates
      * same headline price/features rendering it always had.
      *
      * @param array<string, mixed> $item
+     * @param string $role 'primary' | 'addon' | 'composable' — see resolveItemRole().
      */
-    private static function emailFamilyRow(array $item, bool $isAddon, bool $includeInternalIds): string
+    private static function emailFamilyRow(array $item, string $role, bool $includeInternalIds): string
     {
         $familyTitle  = esc_html((string) ($item['familyTitle'] ?? ''));
         $tierTitle    = esc_html((string) ($item['tierTitle'] ?? ''));
         $editionTitle = !empty($item['tierEditionTitle']) ? esc_html((string) $item['tierEditionTitle']) : '';
 
-        $badge = $isAddon
-            ? ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>'
-            : '';
+        $badges = [
+            'addon'      => ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>',
+            'composable' => ' <span style="font-size:10px;background:#eef4ff;padding:1px 6px;border-radius:8px;color:#3157c9;">Build Your Own</span>',
+        ];
+        $badge = $badges[$role] ?? '';
 
-        if ($isAddon) {
+        if ($role === 'addon') {
             $title         = $tierTitle;
             $subtitleParts = array_filter(['Optional add-on', $familyTitle, $editionTitle], fn ($v) => $v !== '');
         } else {
+            // 'primary' and 'composable' both lead with the Family name —
+            // the composable row's own tierTitle already carries "Build
+            // Your Own"/the offer's own label, distinguished further by the
+            // badge above, never by a raw "primary"/"composable" string.
             $title         = $familyTitle;
             $subtitleParts = array_filter([$tierTitle, $editionTitle], fn ($v) => $v !== '');
         }
@@ -429,34 +458,35 @@ class NotificationTemplates
 
     /**
      * @param array<int, array<string, mixed>> $items
+     * @param string $role 'primary' | 'addon' | 'composable' — see resolveItemRole().
      */
-    private static function emailFamilyRows(array $items, bool $isAddon, bool $includeInternalIds): string
+    private static function emailFamilyRows(array $items, string $role, bool $includeInternalIds): string
     {
         $html = '';
         foreach ($items as $item) {
-            $html .= self::emailFamilyRow($item, $isAddon, $includeInternalIds);
+            $html .= self::emailFamilyRow($item, $role, $includeInternalIds);
         }
 
         return $html;
     }
 
     /**
-     * The combined "Total Contract Value" (every primary Family item's own
-     * Leg-stream total resolves finitely) or "Contract Value: Ongoing" block
-     * — OrderSummary.tsx's/QuoteProposalPreview.tsx's Phase 8F semantics,
-     * primary Family items only; add-ons never enter this combined sum.
+     * The combined "Total Contract Value" (every primary/composable Family
+     * item's own Leg-stream total resolves finitely) or "Contract Value:
+     * Ongoing" block — OrderSummary.tsx's/QuoteProposalPreview.tsx's Phase 8F
+     * semantics; add-ons never enter this combined sum.
      *
-     * @param array<int, array<string, mixed>> $familyMainItems
+     * @param array<int, array<string, mixed>> $familyCommercialItems primary + composable Family items (see buildQuoteSections())
      */
-    private static function familyContractValueBlock(array $familyMainItems): string
+    private static function familyContractValueBlock(array $familyCommercialItems): string
     {
         $values = array_map(function (array $item) {
             $streams = $item['legPaymentSummaries'] ?? null;
 
             return is_array($streams) && $streams !== [] ? self::computeTotalContractValue($streams) : null;
-        }, $familyMainItems);
+        }, $familyCommercialItems);
 
-        $allFinite = $familyMainItems !== [] && !in_array(null, $values, true);
+        $allFinite = $familyCommercialItems !== [] && !in_array(null, $values, true);
 
         if ($allFinite) {
             $combined = array_sum($values);
@@ -491,18 +521,18 @@ class NotificationTemplates
     }
 
     /**
-     * The combined "Initial Payment" row — every primary Family item's own
-     * earliest same-cycle streams, summed per cycle then across cycles
-     * (startingPaymentsByCycle() above); omitted entirely when no primary
-     * Family item has a priced stream to start from.
+     * The combined "Initial Payment" row — every primary/composable Family
+     * item's own earliest same-cycle streams, summed per cycle then across
+     * cycles (startingPaymentsByCycle() above); omitted entirely when none
+     * has a priced stream to start from.
      *
-     * @param array<int, array<string, mixed>> $familyMainItems
+     * @param array<int, array<string, mixed>> $familyCommercialItems primary + composable Family items (see buildQuoteSections())
      */
-    private static function familyInitialPaymentRow(array $familyMainItems): string
+    private static function familyInitialPaymentRow(array $familyCommercialItems): string
     {
         $itemStreams = array_map(
             fn (array $item) => is_array($item['legPaymentSummaries'] ?? null) ? $item['legPaymentSummaries'] : [],
-            $familyMainItems
+            $familyCommercialItems
         );
         $startingPayments = self::startingPaymentsByCycle($itemStreams);
         if ($startingPayments === []) {
@@ -539,14 +569,23 @@ class NotificationTemplates
     {
         $classified = self::classifyQuoteItems($items);
 
+        // The composable ("Build Your Own") occupant's own aggregate line is
+        // a real commercial line, same as the primary — it joins the
+        // combined Family Contract Value/Initial Payment sum below, matching
+        // OrderSummary.tsx's/QuoteProposalPreview.tsx's own
+        // familyCommercialItems precedent — but stays its own row and its
+        // own classifyQuoteItems() bucket for every other purpose.
+        $familyCommercialItems = array_merge($classified['familyMainItems'], $classified['familyComposableItems']);
+
         $rows = self::emailServiceRows($classified['mainItems'])
-            . self::emailFamilyRows($classified['familyMainItems'], false, $includeInternalIds)
+            . self::emailFamilyRows($classified['familyMainItems'], 'primary', $includeInternalIds)
+            . self::emailFamilyRows($classified['familyComposableItems'], 'composable', $includeInternalIds)
             . self::emailServiceRows($classified['bundleItems'])
             . self::emailServiceRows($classified['tierAddonItems'])
-            . self::emailFamilyRows($classified['familyAddonItems'], true, $includeInternalIds);
+            . self::emailFamilyRows($classified['familyAddonItems'], 'addon', $includeInternalIds);
 
         $hasMultiStreamItem = false;
-        foreach (array_merge($classified['familyMainItems'], $classified['familyAddonItems']) as $familyItem) {
+        foreach (array_merge($familyCommercialItems, $classified['familyAddonItems']) as $familyItem) {
             $streams = $familyItem['legPaymentSummaries'] ?? null;
             if (is_array($streams) && count($streams) > 1) {
                 $hasMultiStreamItem = true;
@@ -554,23 +593,24 @@ class NotificationTemplates
             }
         }
 
-        // Once any Family item is multi-stream, every Family item (primary or
-        // add-on) is already represented either in the combined block below
-        // or on its own per-item row above — never both there and inside the
-        // general cycle totals too (see familyContractValueBlock()'s docblock).
+        // Once any Family item is multi-stream, every Family item (primary,
+        // add-on, or composable) is already represented either in the
+        // combined block below or on its own per-item row above — never both
+        // there and inside the general cycle totals too (see
+        // familyContractValueBlock()'s docblock).
         $itemsForGeneralTotals = $hasMultiStreamItem
             ? array_values(array_filter($items, fn (array $item) => !self::isFamilyItem($item)))
             : $items;
 
         $totals = '';
         if ($hasMultiStreamItem) {
-            $totals .= self::familyContractValueBlock($classified['familyMainItems']);
+            $totals .= self::familyContractValueBlock($familyCommercialItems);
         }
         if ($itemsForGeneralTotals !== []) {
             $totals .= self::emailTotalsBlock(self::calcTotals($itemsForGeneralTotals));
         }
         if ($hasMultiStreamItem) {
-            $totals .= self::familyInitialPaymentRow($classified['familyMainItems']);
+            $totals .= self::familyInitialPaymentRow($familyCommercialItems);
         }
 
         return ['rows' => $rows, 'totals' => $totals];

@@ -161,6 +161,24 @@ class RequestSchema
                     : null;
                 $item['inclusionItems'] = self::sanitizeInclusionItems($raw['inclusionItems'] ?? null);
                 $item['legPaymentSummaries'] = self::sanitizeLegPaymentSummaries($raw['legPaymentSummaries'] ?? null);
+                // Request/PDF/email propagation phase: the composable ("Build
+                // Your Own") occupant's own role discriminator — the one field
+                // that was silently dropped by this sanitiser, causing every
+                // downstream reader (requestLineToCartItem.ts, proposal/PDF,
+                // email) to fall back to `primary`. Absent/falsy defaults to
+                // false, identical to the isAddon pattern above, so every
+                // pre-existing Request (none of which has ever been
+                // composable) is unaffected. Write-boundary guard: composable
+                // and Add-on are mutually exclusive roles (see
+                // resolveQuoteItemRole() in utils/quote.ts) — a composable
+                // line is forced isAddon: false here regardless of what the
+                // raw payload claims, so the stored snapshot can never
+                // represent the impossible state, rather than relying on
+                // every reader to re-apply the same precedence rule.
+                $item['isComposable'] = !empty($raw['isComposable']);
+                if ($item['isComposable']) {
+                    $item['isAddon'] = false;
+                }
                 if ($item['familyId'] === ''
                     || $item['familyPlatformId'] === ''
                     || $item['tierInstanceId'] === ''
@@ -382,6 +400,7 @@ class RequestSchema
                         'tierPlatformId'   => ['type' => 'string'],
                         'tierEditionPlatformId' => ['type' => ['string', 'null']],
                         'tierEditionTitle' => ['type' => ['string', 'null']],
+                        'isComposable'     => ['type' => 'boolean'],
                         'inclusionItems'   => [
                             'type'  => 'array',
                             'items' => [
