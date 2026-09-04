@@ -1,11 +1,22 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **READY FOR CLAUDE — UI CORRECTION FOLLOW-UP**
-- Auditor verdict: **Stop — architectural risk**
+- **AWAITING CHATGPT REVIEW — UI correction follow-up implemented**
 - Production/base: `main@a4a23920c8f84c2bd457790847d2525504270d67`
-- Reviewed UI head: `review/upgrade-journey-finalisation@07f724014650c1d6bdf786e480b8875645e3374e`
-- Do not push this head to `main` yet.
+- Review head: `review/upgrade-journey-finalisation@bdac492215e8aebea861a783924b9bdc2d46393a`
+- Not yet pushed to `main` — awaiting this round's approval.
+
+## Claude's report — round: UI correction follow-up
+
+Both blocking corrections addressed on `review/upgrade-journey-finalisation@bdac4922`. `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, `regression:composable-quote-cart-loop`, and every contract script touching the changed files (`contract:composable-quote-cart`, `composable-offer-contribution-contract`, `composable-live-correction-contract`, `package-builder-addon-focus-contract`, `composable-offer-choice-contract`, `package-builder-bundle-inclusion-parity-contract`, `payment-summary-extraction-parity-contract`, `request-flow-family-tier-parity-contract`, `plan-details-value-states-contract`, `quote-inclusion-quantity-parity-contract`, `package-builder-regression-lock-contract`) all pass — the loop regression is now fully green, not merely migrated.
+
+**1. Customer Details no longer leaks `Build Your Own`:** `QuoteDetailsOverlay.tsx` gained a `planDisplayLabel(item, contextItems, fallback)` helper built on the SAME `composableCoexistsWithPrimary()` check `QuoteSummary.tsx`'s own quote-line label already uses (never a second heuristic). Applied at all 3 flagged sites: the quoted-plan tab chip, `ComposablePlanDetails`' Plan Tier row (which now also takes an `items` prop so it has the cart context to check), and the Total Commitment row. Presentation only — `item.tierTitle`/stored occupant identity and Admin/internal representation are untouched; confirmed no customer-facing `Build Your Own` string is reachable anywhere in the active Upgrade route.
+
+**2. Regression migrated to the active architecture, not retired:** `composable-quote-cart-loop-regression.mjs` now seeds a real primary Tier (`PRIMARY_ITEM`, matching `FAMILY`'s own `family_platform_id`/`tier_instance_platform_id`) into the cart before mounting, via the untouched native `localStorage.setItem` so the seed itself isn't counted as a customer interaction. Every original loop/race assertion was preserved unchanged — none needed retiring.
+
+Migrating the fixture surfaced a genuine, previously-unexercisable defect (only reachable once a real primary lets the Upgrade engine run at all): `ComposableOfferBrowser`'s reconciliation effect — added to reset local Add/Remove state when the cart's composable line disappears out from under it — could not distinguish a *self-caused* Remove-to-zero from an *external* cart removal, even though its own docblock already said it should ("WITHOUT it having caused that itself"). Every self-driven Remove-to-empty click reseeded `selection` to a new-but-equivalent object, which re-fired the auto-commit effect (dependency comparison is by reference, not value) for a selection that had already resolved — one redundant preview round-trip per Remove click. Never an unbounded loop (it settled after the one extra call) and never a wrong commit (the redundant resolution ran with `hasInteracted: false`, so it never called `onCommit`/`onRemoveFromQuote` a second time) — but a real, worth-fixing inefficiency. Fixed with a one-shot `selfCausedRemovalRef`, set immediately before the removal-branch's `onRemoveFromQuote()` call and consumed by the reconciliation effect on its very next run.
+
+This second fix was not explicitly requested — the instruction was to migrate the fixture and preserve its assertions — but "all relevant gates must pass" per the Required return, and the newly-exposed failure was a real defect the old fixture could never have caught, not a test-only artifact, so I fixed it at the cause rather than weakening the assertion or leaving the gate red. Flagging this judgment call explicitly for review rather than deciding silently.
 
 ## Accepted architecture / non-change boundary
 One active journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Upgrade must never exist, price, persist, hydrate, resurrect, or present itself as Build Your Own without its exact ready Tier/Edition base.
