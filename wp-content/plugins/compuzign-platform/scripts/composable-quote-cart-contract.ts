@@ -64,6 +64,16 @@
 //      (it could not tell a self-caused Remove-to-zero from an external
 //      cart removal, despite its own docblock already saying it should),
 //      fixed via a one-shot selfCausedRemovalRef consumed by that effect.
+//   12. [Auditor correction, "deployed customer validation failed" round]
+//      the shared money formatter (utils/format.ts::formatPrice()) no
+//      longer rounds every price to a whole dollar — covered by its own
+//      dedicated money-format-contract.ts, not repeated here. The quote
+//      inclusion quick view (InclusionDisclosure.tsx) is redesigned:
+//      in-flow expansion (never a floating/absolute overlay), a
+//      project-standard inline-SVG chevron (never a text glyph), a real
+//      Inclusion/Qty/Price table (Qty plain numeric, no × prefix; Price is
+//      the authoritative row line_total when present, never invented),
+//      and a right-aligned Total summing only the displayed priced rows.
 //
 // Fixture-driven against real exported pure functions (utils/quote.ts,
 // ComposableOfferBrowser.tsx's buildComposableFamilyTierQuoteItem), same
@@ -86,6 +96,7 @@ import {
 import { computeTotalContractValue } from '../resources/ts/utils/paymentSummary';
 import { buildComposableFamilyTierQuoteItem, buildComposableChoice, seedSelectionFromCartItem, type BrowseRow, type ItemContribution } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
 import { COMPOSABLE_QUOTE_TIER_ID } from '../resources/ts/components/cost-builder/types';
+import { disclosureRowsForFamilyTierItem } from '../resources/ts/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '../resources/ts/components/cost-builder/types';
 import type { CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData } from '../resources/ts/api/types/cost-builder';
 
@@ -506,6 +517,103 @@ check(
 check(
   /if \(cartItemJustRemoved && selfCausedRemovalRef\.current\) \{\s*selfCausedRemovalRef\.current = false;\s*if \(!primaryJustRemoved\) return;\s*\}/.test(browserSource),
   'the reconciliation effect consumes the self-caused-removal flag and skips its own reset when the cart-item transition was self-caused and the primary itself did not ALSO just disappear',
+);
+
+// ── 12. Auditor correction ("deployed customer validation failed" round) ──
+
+// 12a. disclosureRowsForFamilyTierItem() (pure function): quantity/lineTotal
+// pass through verbatim from the item's own inclusionItems snapshot, a
+// Bundle parent's quantity stays null (never separately priced), a Bundle
+// child's own quantity/lineTotal come through when the underlying data
+// resolves them, and a pre-Phase-8G legacy item (no inclusionItems at all)
+// falls back to its flat features with BOTH cells null — never a fabricated
+// quantity or price for data that was never captured.
+const pricedItem = familyItem({
+  inclusionItems: [
+    { id: 'seats', label: 'Seats', quantity: 3, unit_price: 10, line_total: 30 },
+    {
+      id: 'bundle-1', label: 'Starter Bundle', bundle_id: 'bnd_1', quantity: 1,
+      includes: [{ id: 'child-1', label: 'Child Item', quantity: 2, line_total: 4 }],
+    },
+    { id: 'unresolved', label: 'Unresolved Extra' },
+  ],
+});
+const pricedRows = disclosureRowsForFamilyTierItem(pricedItem);
+check(pricedRows.length === 4, `every top-level inclusion plus every Bundle child gets its own row — got ${pricedRows.length}`);
+const seatsRow = pricedRows.find((r) => r.id === 'seats');
+check(seatsRow?.quantity === 3 && seatsRow?.lineTotal === 30, 'an ordinary inclusion carries its own quantity and line_total through verbatim');
+const bundleParentRow = pricedRows.find((r) => r.id === 'bundle-1');
+check(bundleParentRow?.quantity === null, 'a Bundle parent row\'s quantity is null (never separately quantified), matching the established bundle_id convention elsewhere');
+const bundleChildRow = pricedRows.find((r) => r.id === 'bundle-1:child:child-1');
+check(bundleChildRow?.quantity === 2 && bundleChildRow?.lineTotal === 4, 'a Bundle child row carries its own quantity/line_total through when the underlying data resolves them');
+const unresolvedRow = pricedRows.find((r) => r.id === 'unresolved');
+check(unresolvedRow?.quantity === null && unresolvedRow?.lineTotal === null, 'an inclusion with no resolved quantity/line_total renders both cells null — never invented');
+
+const legacyItem = familyItem({ inclusionItems: undefined, features: ['Legacy Feature A'] });
+const legacyRows = disclosureRowsForFamilyTierItem(legacyItem);
+check(
+  legacyRows.length === 1 && legacyRows[0].quantity === null && legacyRows[0].lineTotal === null,
+  'a pre-Phase-8G legacy item with no inclusionItems falls back to its flat features, both cells null — never a fabricated quantity or price',
+);
+
+// 12b. InclusionDisclosure.tsx: in-flow expansion (no floating/absolute
+// overlay), a project-standard inline-SVG chevron (never a text glyph),
+// a real Inclusion/Qty/Price table, Qty with no × prefix, and a
+// right-aligned Total summing only displayed priced rows.
+const freshInclusionDisclosureSource = readFileSync(resolve(root, 'resources/ts/components/cost-builder/InclusionDisclosure.tsx'), 'utf8');
+check(
+  !/position:\s*absolute/.test(freshInclusionDisclosureSource),
+  'InclusionDisclosure.tsx never absolutely positions its panel — it expands in flow, per the auditor\'s explicit "no floating overlay" correction',
+);
+check(
+  /<path d="M6 9l6 6 6-6" \/>/.test(freshInclusionDisclosureSource),
+  'the toggle uses a project-standard inline-SVG chevron (viewBox 0 0 24 24, stroke-based), never a text glyph',
+);
+check(
+  /<th>Inclusion<\/th>/.test(freshInclusionDisclosureSource)
+    && /<th>Qty<\/th>/.test(freshInclusionDisclosureSource)
+    && /<th>Price<\/th>/.test(freshInclusionDisclosureSource),
+  'the expanded panel is a real Inclusion/Qty/Price table, matching the auditor\'s exact column spec',
+);
+check(
+  /<td>\{row\.quantity \?\? ''\}<\/td>/.test(freshInclusionDisclosureSource),
+  'Qty renders as a plain nullish-coalesced number — no × prefix',
+);
+check(
+  !/×\{row\.quantity\}/.test(freshInclusionDisclosureSource),
+  'the old ×{row.quantity} prefix is gone',
+);
+check(
+  freshInclusionDisclosureSource.includes('formatPrice')
+    && /row\.lineTotal !== null \? formatPrice\(row\.lineTotal\) : ''/.test(freshInclusionDisclosureSource),
+  'Price is the authoritative row line_total formatted via the ONE shared formatPrice() — never invented for a null lineTotal, never a second formatter',
+);
+check(
+  /pricedRows\.filter|row\.lineTotal !== null[\s\S]{0,80}reduce/.test(freshInclusionDisclosureSource) || freshInclusionDisclosureSource.includes('pricedRows.reduce'),
+  'the Total sums only rows with a real lineTotal — never a fabricated figure for a row with no authoritative price',
+);
+check(
+  freshInclusionDisclosureSource.includes("class=\"cz-inclusion-disclosure__total\""),
+  'a distinct Total row renders below the table',
+);
+
+// 12c. QuoteSummary.tsx places the chevron beside the item's own price
+// block (a shared flex row), not stacked as a separate block below it.
+const freshQuoteSummarySource = readFileSync(resolve(root, 'resources/ts/components/cost-builder/QuoteSummary.tsx'), 'utf8');
+check(
+  freshQuoteSummarySource.includes('cz-quote-summary__price-row'),
+  'QuoteSummary.tsx wraps the item-prices block and the InclusionDisclosure toggle in one price-row so the chevron sits beside the price',
+);
+
+// 12d. The CSS no longer positions the panel as a floating dropdown.
+const freshCostBuilderCss = readFileSync(resolve(root, 'resources/css/modules/cost-builder.css'), 'utf8');
+check(
+  !/\.cz-inclusion-disclosure__list\s*\{/.test(freshCostBuilderCss),
+  'the old floating .cz-inclusion-disclosure__list rule is gone',
+);
+check(
+  /\.cz-inclusion-disclosure\s*\{\s*display:\s*contents;/.test(freshCostBuilderCss),
+  'the wrapper is display: contents so the toggle/panel become direct items of the caller\'s own flex row (the in-flow expansion mechanism)',
 );
 
 console.log('Composable quote/cart contract passed.');

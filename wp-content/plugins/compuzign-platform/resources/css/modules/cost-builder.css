@@ -898,6 +898,19 @@
    (rather than each row managing its own vertical gap) so a single
    flat-price item can still fall back to the plain .item-price span below
    without a wrapper mismatch. */
+/* Auditor correction: the inline-SVG chevron disclosure toggle sits beside
+   the quote item's own price block — flex-wrap: wrap so
+   InclusionDisclosure's own full-width panel (flex-basis: 100%, see
+   InclusionDisclosure.tsx/its CSS) drops onto its own line beneath this
+   row when open, in flow, rather than floating over anything. */
+.cz-quote-summary__price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cz-space-2);
+}
+
 .cz-quote-summary__item-prices {
   display: flex;
   flex-direction: column;
@@ -978,20 +991,28 @@
   background: rgba(255, 97, 97, 0.08);
 }
 
-/* Live-validation correction: compact inclusion quick view shared by every
-   quote line (QuoteSummary.tsx) and every Total Commitment plan row
-   (QuoteDetailsOverlay.tsx) — see InclusionDisclosure.tsx. Deliberately
-   separate from .cz-quote-summary__remove (own control, own hit target),
-   never repurposed as it. */
+/* Auditor correction ("deployed customer validation failed" round):
+   in-flow expansion (never floating/absolute) with a project-standard
+   inline-SVG chevron — shared by every quote line (QuoteSummary.tsx) and
+   every Total Commitment plan row (QuoteDetailsOverlay.tsx). `display:
+   contents` so this wrapper introduces no box of its own: the toggle
+   button and the panel become direct items of whichever flex row the
+   caller places this component in (see .cz-quote-summary__price-row /
+   .cz-package-builder__commitment-plan-header, both flex-wrap: wrap), and
+   the panel's own flex-basis: 100% below forces it onto its own full-width
+   line beneath the price/heading row it sits beside — "expands in flow and
+   pushes later content down", never an overlay. Deliberately separate from
+   .cz-quote-summary__remove (own control, own hit target), never
+   repurposed as it. */
 .cz-inclusion-disclosure {
-  position: relative;
-  align-self: flex-start;
+  display: contents;
 }
 
 .cz-inclusion-disclosure__toggle {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   width: 20px;
   height: 20px;
   padding: 0;
@@ -999,8 +1020,6 @@
   border-radius: var(--cz-radius-sm);
   background: var(--cz-color-surface);
   color: var(--cz-color-muted);
-  font-size: 13px;
-  line-height: 1;
   cursor: pointer;
   transition: color var(--cz-transition-fast), border-color var(--cz-transition-fast);
 }
@@ -1016,39 +1035,67 @@
   outline-offset: 2px;
 }
 
-.cz-inclusion-disclosure__list {
-  position: absolute;
-  z-index: 5;
-  top: calc(100% + var(--cz-space-1));
-  left: 0;
-  min-width: 200px;
-  max-width: 280px;
-  margin: 0;
-  padding: var(--cz-space-2) var(--cz-space-3);
-  list-style: none;
-  border: 1px solid var(--cz-color-line-strong);
-  border-radius: var(--cz-radius-sm);
-  background: var(--cz-color-surface);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+.cz-inclusion-disclosure__chevron {
+  transition: transform var(--cz-transition-fast);
 }
 
-.cz-inclusion-disclosure__row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--cz-space-2);
-  padding: var(--cz-space-1) 0;
+.cz-inclusion-disclosure__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.cz-inclusion-disclosure__panel {
+  flex: 1 1 100%;
+  width: 100%;
+  margin-top: var(--cz-space-2);
+  padding: var(--cz-space-2) var(--cz-space-3);
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-sm);
+  background: var(--cz-color-surface-2);
+}
+
+.cz-inclusion-disclosure__table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: var(--cz-font-size-xs);
+}
+
+.cz-inclusion-disclosure__table th {
+  padding: var(--cz-space-1) var(--cz-space-2) var(--cz-space-1) 0;
+  text-align: left;
+  font-weight: 600;
+  color: var(--cz-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+
+.cz-inclusion-disclosure__table th:nth-child(2),
+.cz-inclusion-disclosure__table td:nth-child(2) {
+  text-align: right;
+}
+
+.cz-inclusion-disclosure__table th:nth-child(3),
+.cz-inclusion-disclosure__table td:nth-child(3) {
+  text-align: right;
+}
+
+.cz-inclusion-disclosure__table td {
+  padding: var(--cz-space-1) var(--cz-space-2) var(--cz-space-1) 0;
+  border-top: 1px solid var(--cz-color-line);
   color: var(--cz-color-text);
 }
 
-.cz-inclusion-disclosure__row + .cz-inclusion-disclosure__row {
-  border-top: 1px solid var(--cz-color-line);
-}
-
-.cz-inclusion-disclosure__row-qty {
-  flex: 0 0 auto;
-  color: var(--cz-color-muted);
+.cz-inclusion-disclosure__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--cz-space-2);
+  margin-top: var(--cz-space-2);
+  padding-top: var(--cz-space-2);
+  border-top: 1px dashed var(--cz-color-line);
+  font-size: var(--cz-font-size-xs);
+  font-weight: 700;
+  color: var(--cz-color-text);
 }
 
 .cz-quote-summary__footer {
@@ -4876,9 +4923,13 @@
 }
 
 /* Live-validation correction: Total Commitment's own per-plan inclusion
-   disclosure sits beside the plan heading, not stacked under it. */
+   disclosure sits beside the plan heading, not stacked under it.
+   Auditor correction: flex-wrap: wrap so InclusionDisclosure's own
+   full-width panel (flex-basis: 100%) drops onto its own line beneath
+   this row when open, in flow, rather than floating over anything. */
 .cz-package-builder__commitment-plan-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--cz-space-2);
 }

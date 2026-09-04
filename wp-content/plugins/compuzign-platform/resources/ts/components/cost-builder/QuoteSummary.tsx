@@ -159,47 +159,49 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
                     untouched (still read by quote capture/PDF/admin
                     surfaces); this component simply stops printing them. */}
               </div>
-              <div class="cz-quote-summary__item-prices">
-                {hasStreams ? (
-                  <>
-                    {streams!.map((stream) => (
-                      <div key={stream.source} class="cz-quote-summary__stream-row">
-                        <span class="cz-quote-summary__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
-                        <span class="cz-quote-summary__stream-value">{formatPrice(stream.price)}</span>
-                      </div>
-                    ))}
-                    {/* Phase 7: "Total" (this item's own subtotal) — deliberately
-                        NOT "Total Contract Value" (that wording is reserved for
-                        the whole-cart footer below, so the two numbers are never
-                        confused for each other). Only when finite; an ongoing
-                        stream leaves just its own row(s) above, never a fake
-                        finite Total. */}
-                    {totalContractValue !== null && (
-                      <div class="cz-quote-summary__stream-row cz-quote-summary__stream-row--total">
-                        <span class="cz-quote-summary__stream-label">Total</span>
-                        <span class="cz-quote-summary__stream-value">{formatPrice(totalContractValue)}</span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <span class="cz-quote-summary__item-price">
-                    {item.price !== null ? (
-                      <>
-                        {formatPrice(item.price)}
-                        {flatCycleSuffix && (
-                          <span class="cz-quote-summary__item-cycle">{' '}{flatCycleSuffix}</span>
-                        )}
-                      </>
-                    ) : 'Custom'}
-                  </span>
+              <div class="cz-quote-summary__price-row">
+                <div class="cz-quote-summary__item-prices">
+                  {hasStreams ? (
+                    <>
+                      {streams!.map((stream) => (
+                        <div key={stream.source} class="cz-quote-summary__stream-row">
+                          <span class="cz-quote-summary__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                          <span class="cz-quote-summary__stream-value">{formatPrice(stream.price)}</span>
+                        </div>
+                      ))}
+                      {/* Phase 7: "Total" (this item's own subtotal) — deliberately
+                          NOT "Total Contract Value" (that wording is reserved for
+                          the whole-cart footer below, so the two numbers are never
+                          confused for each other). Only when finite; an ongoing
+                          stream leaves just its own row(s) above, never a fake
+                          finite Total. */}
+                      {totalContractValue !== null && (
+                        <div class="cz-quote-summary__stream-row cz-quote-summary__stream-row--total">
+                          <span class="cz-quote-summary__stream-label">Total</span>
+                          <span class="cz-quote-summary__stream-value">{formatPrice(totalContractValue)}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span class="cz-quote-summary__item-price">
+                      {item.price !== null ? (
+                        <>
+                          {formatPrice(item.price)}
+                          {flatCycleSuffix && (
+                            <span class="cz-quote-summary__item-cycle">{' '}{flatCycleSuffix}</span>
+                          )}
+                        </>
+                      ) : 'Custom'}
+                    </span>
+                  )}
+                </div>
+                {isFamilyTierQuoteItem(item) && (
+                  <InclusionDisclosure
+                    label={item.familyTitle}
+                    rows={disclosureRowsForFamilyTierItem(item)}
+                  />
                 )}
               </div>
-              {isFamilyTierQuoteItem(item) && (
-                <InclusionDisclosure
-                  label={item.familyTitle}
-                  rows={disclosureRowsForFamilyTierItem(item)}
-                />
-              )}
             </li>
           );
         })}

@@ -1,47 +1,87 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { formatPrice } from '@/utils/format';
 import type { FamilyTierQuoteItem } from './types';
 
 // Live-validation correction (project-work/2026-09-03-composable-tier-
 // admin-to-customer-validation.md, "Add compact inclusion quick views to
-// quote items"): one shared chevron/× disclosure — collapsed by default,
-// opens a compact inclusion list beneath its trigger, closes on outside
-// click or a second click on its own now-× control. Reused verbatim by
-// QuoteSummary.tsx's own per-quote-line quick view AND
-// QuoteDetailsOverlay.tsx's Total Commitment per-plan rows (the doc
-// explicitly asks for "the same disclosure behavior" in both places) —
-// never two separate implementations of the same open/close/outside-click
+// quote items", then corrected in the "deployed customer validation
+// failed" round): one shared inline-SVG-chevron disclosure — collapsed by
+// default, expands IN FLOW (never a floating/absolutely-positioned
+// overlay) into a compact Inclusion/Qty/Price table plus a right-aligned
+// Total row, closes on outside click or a second click on its own toggle.
+// Reused verbatim by QuoteSummary.tsx's own per-quote-line quick view AND
+// QuoteDetailsOverlay.tsx's Total Commitment per-plan rows — never two
+// separate implementations of the same open/close/outside-click/pricing
 // rule.
+
+// Project-standard inline-SVG icon convention (viewBox 0 0 24 24, stroke-
+// based, currentColor, aria-hidden — see PricingTiers.tsx's
+// TierInclusionCheckIcon docblock) rather than a text glyph. Rotates via
+// its own is-open class rather than swapping to a different glyph — this
+// toggle is deliberately independent of the quote line's own cart remove
+// ×, never repurposed as it.
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+      class={`cz-inclusion-disclosure__chevron${open ? ' is-open' : ''}`}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
 
 export interface DisclosureInclusionRow {
   id: string;
   label: string;
-  quantity?: number;
+  // null = no authoritative fact for this row (quantity not applicable, or
+  // a pre-Phase-8G legacy line with no resolved quantity at all) — the
+  // cell renders blank rather than a fabricated 0 or "n/a".
+  quantity: number | null;
+  // null = no authoritative Rate Sheet-resolved line total for this row —
+  // rendered blank, never computed here from quantity * some other value
+  // (that would be a second pricing source). A Bundle child is never
+  // separately priced, so it carries null here unless the underlying data
+  // genuinely resolves one.
+  lineTotal: number | null;
 }
 
 // Shared row derivation for every family_tier quote line (primary, add-on,
 // and Upgrade alike) — the exact same inclusionItems snapshot
 // QuoteDetailsOverlay's own ComposableInclusionsTable/PlanDetailsContent
-// already render, falling back to the flat `features` labels for a
-// pre-Phase-8G cart entry that predates inclusionItems. One resolver for
-// both this component's callers (QuoteSummary.tsx's quote-line quick view,
-// QuoteDetailsOverlay.tsx's Total Commitment rows) — never a second
-// derivation of what a quoted item includes.
+// already render (unit_price/line_total, Phase 2B1 ServiceInclusion —
+// additive on every occupant-sourced inclusion, composable and normal Tier
+// alike), falling back to bare labels for a pre-Phase-8G cart entry that
+// predates inclusionItems (no quantity/price facts exist for those at
+// all — both cells stay blank, never invented). One resolver for both this
+// component's callers — never a second derivation of what a quoted item
+// includes.
 export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): DisclosureInclusionRow[] {
   if (item.inclusionItems && item.inclusionItems.length > 0) {
     return item.inclusionItems.flatMap((inclusion, i) => [
       {
         id: inclusion.id || `inclusion-${i}`,
         label: inclusion.label,
-        quantity: inclusion.bundle_id ? undefined : inclusion.quantity,
+        quantity: inclusion.bundle_id ? null : (inclusion.quantity ?? null),
+        lineTotal: inclusion.line_total ?? null,
       },
       ...(inclusion.includes ?? []).map((child, ci) => ({
         id: `${inclusion.id || i}:child:${child.id || ci}`,
         label: child.label,
-        quantity: child.quantity,
+        quantity: child.quantity ?? null,
+        lineTotal: child.line_total ?? null,
       })),
     ]);
   }
-  return item.features.map((feature, i) => ({ id: `feature-${i}`, label: feature }));
+  return item.features.map((feature, i) => ({ id: `feature-${i}`, label: feature, quantity: null, lineTotal: null }));
 }
 
 interface InclusionDisclosureProps {
@@ -68,6 +108,15 @@ export function InclusionDisclosure({ label, rows }: InclusionDisclosureProps) {
 
   if (rows.length === 0) return null;
 
+  // The right-aligned Total sums only the rows this disclosure actually
+  // displays a Price for — never a fabricated figure for a row with no
+  // authoritative lineTotal, and never double-counted against the cart/
+  // Details/commitment totals elsewhere (this is a read-only presentation
+  // sum over the SAME already-resolved figures, computed once, per row,
+  // right here).
+  const pricedRows = rows.filter((row): row is DisclosureInclusionRow & { lineTotal: number } => row.lineTotal !== null);
+  const total = pricedRows.reduce((sum, row) => sum + row.lineTotal, 0);
+
   return (
     <div class="cz-inclusion-disclosure" ref={wrapRef}>
       <button
@@ -77,19 +126,35 @@ export function InclusionDisclosure({ label, rows }: InclusionDisclosureProps) {
         aria-label={open ? `Hide ${label} inclusions` : `Show ${label} inclusions`}
         onClick={() => setOpen((current) => !current)}
       >
-        <span class="cz-inclusion-disclosure__toggle-glyph" aria-hidden="true">{open ? '×' : '⌄'}</span>
+        <ChevronIcon open={open} />
       </button>
       {open && (
-        <ul class="cz-inclusion-disclosure__list">
-          {rows.map((row) => (
-            <li key={row.id} class="cz-inclusion-disclosure__row">
-              <span class="cz-inclusion-disclosure__row-label">{row.label}</span>
-              {row.quantity !== undefined && (
-                <span class="cz-inclusion-disclosure__row-qty">×{row.quantity}</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <div class="cz-inclusion-disclosure__panel">
+          <table class="cz-inclusion-disclosure__table">
+            <thead>
+              <tr>
+                <th>Inclusion</th>
+                <th>Qty</th>
+                <th>Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.label}</td>
+                  <td>{row.quantity ?? ''}</td>
+                  <td>{row.lineTotal !== null ? formatPrice(row.lineTotal) : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {pricedRows.length > 0 && (
+            <div class="cz-inclusion-disclosure__total">
+              <span>Total</span>
+              <span>{formatPrice(total)}</span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
