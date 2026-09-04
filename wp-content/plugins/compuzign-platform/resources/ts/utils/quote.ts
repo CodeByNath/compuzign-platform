@@ -300,20 +300,7 @@ export function finaliseUpgradeQuoteDraft(
     tierId: primary.tierId as TierId,
     tierTitle: primary.tierTitle,
     tierEditionTitle: primary.tierEditionTitle ?? null,
-    // FamilyTierAdapter.tsx's itemFor() — the only builder of a normal
-    // primary Family Tier item — never sets inclusionItems at all, only the
-    // flat features[] label list (a pre-existing, unrelated fact about that
-    // builder). Falling back to features here, exactly the same
-    // "inclusionItems if present, else features" convention
-    // FamilyInclusionsList (OrderSummary.tsx/QuoteProposalPreview.tsx) and
-    // familyDisplayInclusions() (NotificationTemplates.php) already use for
-    // display, is what keeps the base plan's own inclusions from silently
-    // vanishing from the composed result — confirmed live: without this,
-    // composedBase.inclusionItems was always [] for every real primary
-    // selection, so only the upgrade's own inclusions ever showed.
-    inclusionItems: (primary.inclusionItems && primary.inclusionItems.length > 0)
-      ? primary.inclusionItems
-      : primary.features.map((label) => ({ id: '', label })),
+    inclusionItems: primary.inclusionItems ?? [],
     legPaymentSummaries: primary.legPaymentSummaries ?? [],
     price: primary.price,
     billingCycle: primary.billingCycle,
