@@ -1,11 +1,33 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **READY FOR CLAUDE — live customer UI corrections**
-- Auditor verdict: **Stop — live gate not complete**
-- Validated deployed source: `main@a4a23920c8f84c2bd457790847d2525504270d67`
-- Deployment evidence already accepted: Hostinger run `33870415804`, successful for the exact SHA.
+- **AWAITING CHATGPT REVIEW — live customer UI corrections implemented**
+- Review branch: `review/upgrade-journey-finalisation@07f724014650c1d6bdf786e480b8875645e3374e`
+- Not yet pushed to `main` — awaiting this round's approval per the gate below.
 - Browser review date: 2026-09-04.
+
+## Claude's report — round: live customer UI corrections
+
+All 4 items implemented on `review/upgrade-journey-finalisation@07f72401`. `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, and every contract/regression script touching the changed files (`contract:composable-quote-cart`, `composable-offer-contribution-contract`, `composable-live-correction-contract`, `package-builder-addon-focus-contract`, `composable-offer-choice-contract`, `package-builder-bundle-inclusion-parity-contract`, `payment-summary-extraction-parity-contract`, `request-flow-family-tier-parity-contract`, `plan-details-value-states-contract`, `quote-inclusion-quantity-parity-contract`) all pass.
+
+**Affected components:**
+- `resources/ts/components/package-builder/QuoteDetailsOverlay.tsx` — item 1 (Upgrade detail table columns), item 4 (Total Commitment disclosure, tab chip carousel CSS).
+- `resources/ts/components/cost-builder/QuoteSummary.tsx` — item 2 (per-quote-line disclosure).
+- `resources/ts/components/cost-builder/InclusionDisclosure.tsx` — **new file**, the one shared chevron/× disclosure component used by both item 2 and item 4 (never two separate implementations of the same open/close/outside-click behavior).
+- `resources/ts/components/package-builder/ComposableOfferBrowser.tsx` — item 3 (compact row list, icon-only +/× actions, `ItemContribution` extended with `billingCycle` so the inline total can carry a cadence suffix).
+- `resources/css/modules/cost-builder.css` — styling for all 4 items.
+
+**1. Upgrade detail pricing:** `ComposableInclusionsTable` now renders the same 4 columns as `PlanDetailsModal.tsx`'s `ItemBreakdownTable` (Item Included, Quantity, Unit Price, Total), reading `inclusion.unit_price`/`inclusion.line_total` straight off the item's own stored `inclusionItems` snapshot via the same `formatMoney()` — no second pricing source, nothing recomputed.
+
+**2. Quote-line quick views:** every `family_tier` quote line (primary, add-on, Upgrade) in Your Quote now has a chevron toggle. Rows come from `inclusionItems` (falling back to `features` for a pre-Phase-8G cart entry). Toggle becomes × when open; a `mousedown` listener outside the wrapper closes it; the existing cart remove `×` is untouched and structurally separate. Accessibility: `aria-expanded`, `aria-label` naming the item.
+
+**3. Compact selection list:** `ComposableOfferBrowser`'s grid of oversized cards is now `.cz-package-builder__composable-list`, one row per inclusion — the same small yellow-accent category icon used in the family header, inline quantity input (unchanged behavior/guard), inline total (server-resolved contribution, never client-computed — `ItemContribution` gained a passthrough `billingCycle` field from the claiming component so the total can carry a `cycleSuffix()` like "/ mo"), and an icon-only +/× action button carrying `aria-label`/`title` for accessible name and tooltip. Filtering, sorting, pagination, selection state, and the `hasReadyPrimary` disabled/early-return guard from the prior round are all unchanged — only presentation moved.
+
+**4. Details navigation:** the plan tabs are now `flex-wrap: nowrap; overflow-x: auto` compact pill chips (was underline tabs that wrapped) — selected/hover/focus-visible states preserved, restated in the chip idiom. Total Commitment's per-plan rows each get the same shared `InclusionDisclosure` next to their heading.
+
+**Scoping note — item 3's "Ongoing" cadence text:** the doc's example list is "/ mo" and "Ongoing". "/ mo"/"/ yr" is delivered via `cycleSuffix(billingCycle)`, a direct passthrough of the claiming component's own `billing_cycle` (zero new computation). A literal per-item "Ongoing" badge is NOT included — per-item open-endedness isn't available from `resolveItemContributions()`'s per-component data without inventing a second resolver that maps each item to its own Leg's period span, which risked exceeding this round's presentation-only scope. The aggregate "Ongoing" timing per stream still renders unchanged in the preview section below the list. Flagging this for explicit sign-off rather than silently deciding it was in-scope.
+
+**Discovered, NOT fixed (out of scope):** `regression:composable-quote-cart-loop` already failed at `main@a4a23920` before this round — confirmed by stashing this round's changes and re-running against the exact deployed baseline (identical 9 failures either way). Its fixture is a standalone-composable scenario with no primary Tier ever configured, so the prior round's `hasReadyPrimary` gate makes the effect bail before any preview/commit — every assertion in that script now fails by construction, not because of a real defect in the shipped behavior. This predates this round entirely; left unfixed pending direction since it's the prior round's readiness-gate work, not this round's UI scope. The script's DOM selectors WERE updated (this round's own markup/class-name changes would otherwise have made it fail for a second, unrelated reason) so it stays current, but it does not pass as a gate today.
 
 ## Architecture and non-change boundaries
 One active journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Upgrade must never exist, price, persist, hydrate, resurrect, or act without its exact ready Tier/Edition base.
