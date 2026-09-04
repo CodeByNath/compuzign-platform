@@ -17,30 +17,29 @@ Preserve the accepted exact-base rule: native `tierOccupantId` plus exact Editio
 ## Live browser findings
 Validated on the customer pricing page in the KAIROS — IaaS route.
 
-1. **FAIL — direct Build Your Own remains exposed.**
-   - User evidence shows an upgrade-only cart line labelled `KAIROS — IaaS / BUILD YOUR OWN` with Monthly $10 and estimated monthly total $10.
-   - The upgrade surface simultaneously shows Block Storage $10 with **Remove**.
-   - This is the prohibited standalone/fallback representation. Phase 0 must never expose Build Your Own.
+1. **FAIL — the new Upgrade your build engine still contains Build Your Own authority.**
+   - The **Upgrade your build** Block Storage card can remain selected as **Remove**, retain a $10 value, and retain a `$10 / mo Ongoing` subtotal after its Upgrade item no longer exists in the cart.
+   - After the Tier/Edition base is removed, this engine can continue carrying the selected Block Storage state without any base.
+   - User evidence shows that orphaned state being materialised as `KAIROS — IaaS / BUILD YOUR OWN`, Monthly $10.
+   - Therefore the Phase 0 removal is incomplete: the Upgrade engine’s Add/Remove state or its retained projection still has standalone Build Your Own authority. It must be base-dependent Upgrade state only.
 
-2. **FAIL — cart removal is only one-way.**
-   - Starting with Business Pro selected, adding Block Storage correctly changes the card to **Remove**, adds a separate `UPGRADES / Monthly $10` cart item, and changes the total from $675 to $685.
-   - Removing that Upgrade through its cart × correctly removes the cart row and returns the total to $675.
-   - However, the upgrade card remains **Remove**, retains Block Storage $10, and retains the `$10 / mo Ongoing` upgrade subtotal. The editor therefore disagrees with the authoritative cart.
-   - Removing the Business Pro base afterwards clears the quote cart but still leaves Block Storage selected and priced in **Upgrade your build**, with no active Tier/Edition base.
-   - Adding and removing through the upgrade card itself synchronizes the cart correctly. The failure begins when the Upgrade is removed with the cart ×: the cart row disappears, but the upgrade card remains selected with its $10 subtotal. If the base is removed after that, the orphaned Upgrade still remains active in the upgrade editor and can subsequently surface as the prohibited upgrade-only Build Your Own item.
-
-These behaviors reproduce the user’s marked evidence. They also provide the stale orphan state that can surface the invalid upgrade-only Build Your Own cart item.
+2. **PASS — the existing cart performs its requested removals correctly and is not the component to amend.**
+   - With Business Pro selected, adding Block Storage produces the expected separate `UPGRADES / Monthly $10` cart row and $685 combined total.
+   - Clicking the Upgrade cart × correctly removes that row and restores the cart total to $675.
+   - Clicking the base cart × correctly removes the base from the cart.
+   - The malfunction is outside the cart: **Upgrade your build** fails to consume the resulting authoritative cart/base state and continues displaying and pricing a removed/orphaned selection.
 
 ## Exact fix request for Claude
-1. Make cart-originated removal use the same authoritative Upgrade removal transition as the upgrade-card **Remove** action. It must clear the committed Upgrade selection, preview/subtotal, selected-card state, and derived cart projection together.
-2. When a Tier/Edition base is removed by cart × or **Clear all**, atomically remove its dependent Upgrade and attached add-ons from both cart and upgrade editor state. Do not leave the Upgrade surface selected or commercially active without an exact base.
-3. Ensure no reducer, hydration/reload, fallback, or projection path can materialize an Upgrade as a `BUILD YOUR OWN` item. If no exact base exists, discard the orphan Upgrade rather than relabelling it.
-4. Keep the Phase 0 non-change boundary: no finalisation pipeline, standalone Build Your Own route, new identities, schema changes, pricing changes, or unrelated UI redesign.
-5. Add regressions for:
-   - add Upgrade, remove its cart row: card returns to **Add**, subtotal disappears, base total restores;
-   - add Upgrade, remove base through cart ×: base, Upgrade, and attached add-ons all disappear from every surface;
-   - **Clear all** performs the same cascade;
-   - reload/hydration with an orphan Upgrade does not show Upgrade UI state or a Build Your Own cart item;
-   - same exact base reconfirm preserves Upgrade, while genuinely different base replacement removes it.
+1. **Do not modify, replace, or redesign the cart removal behavior.** Treat the cart and its current × removal results as the working authority and a strict non-change boundary.
+2. Correct the new **Upgrade your build** engine so its Add/Remove selection, preview, pricing subtotal, and any retained projection are derived from and reconciled with the active exact Tier/Edition base and authoritative cart state.
+3. When the cart no longer contains the Upgrade, the Upgrade card must return to **Add**, its subtotal must disappear, and no Upgrade selection may remain cached or commercially active.
+4. When the cart no longer contains the base, **Upgrade your build** must have no active Upgrade state. It must not retain Block Storage, remain on **Remove**, show $10 ongoing, or create any quote/cart representation.
+5. Remove any remaining Build Your Own authority, label, fallback, persistence, hydration, or projection from **Upgrade your build**. An Upgrade without an exact base must be discarded; it must never become a `BUILD YOUR OWN` item.
+6. Keep the Phase 0 non-change boundary: no cart changes, no finalisation pipeline, no standalone Build Your Own route, no new identities, no schema/pricing changes, and no unrelated UI redesign.
+7. Add engine-focused regressions that leave existing cart behavior untouched:
+   - after the cart removes an Upgrade, the Upgrade engine observes that state and resets the card to **Add**, removes its subtotal, and retains no Upgrade projection;
+   - after the cart removes the base or clears the quote, the Upgrade engine clears all dependent Upgrade state;
+   - hydration/reload cannot revive an orphan Upgrade or expose Build Your Own;
+   - same exact base reconfirm may preserve Upgrade, while a genuinely different or absent base clears it.
 
-Report root cause, changed files, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
+Report the exact stale authority/root cause inside **Upgrade your build**, changed files, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
