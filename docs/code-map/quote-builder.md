@@ -6,21 +6,21 @@ Turns Cost Builder selections into a reviewed customer request, submits it, and 
 
 ## Ownership
 
-The request-flow components own only the open modal, contact draft, review step, and submission status. `RequestRepository` owns persisted requests, `RequestLifecycle` their transitions. Quote UI must not become the pricing authority after submission.
+The request-flow components own only the open modal, contact draft, review step, and submission status. `RequestRepository` owns persisted requests, `RequestLifecycle` their transitions. Quote UI must never become the pricing authority.
 
 CRM-1A: `/requests/submit` creates the durable `cz_request` (`pending`, new `CZR`) before any transient/email; the 7-day transient is view storage only. A same-ref retry reuses an identical stored payload, else `409`; identity failure fails closed. See [Platform Identifier Station](platform-identifier-station.md) for the reserve/assign/rollback shape.
 
 ## Main Entry Points
 
 - [RequestFlowModal.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/RequestFlowModal.tsx) selects the request-flow variant and supplies modal overlay, close behavior, and context.
-- [QuoteCartFlow.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteCartFlow.tsx) contains contact/review steps, validation, Back/Continue/Submit/Print actions, success/error states, reference generation, and submission.
-- The admin request-review surface was hosted in the retired Command Centre and removed; CRM-1B rebuilt it read-only in the Admin Station (mutation is CRM-1C/1D). The redundant `/accept` bridge and its unused frontend caller were removed in CRM-1A.
+- [QuoteCartFlow.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteCartFlow.tsx) contains contact/review steps, validation, Back/Continue/Submit/Print actions, success/error states, reference generation, and submission. `.cz-rf-right` sizes off `.cz-rf-body`'s own `96%`, not `100vh`; `.cz-rf-left` keeps its own scroll for Back/Continue.
+- The admin request-review surface, once in the retired Command Centre, was rebuilt read-only in the Admin Station by CRM-1B (mutation: CRM-1C/1D); CRM-1A removed the redundant `/accept` bridge and its unused frontend caller.
 
 ## UI and State
 
-- [ContactForm.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/ContactForm.tsx) renders company/contact/email/phone/notes fields and inline errors.
-- [OrderSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/OrderSummary.tsx) renders selected Services, tier pricing, totals, and review details.
-- [QuoteProposalPreview.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteProposalPreview.tsx) renders the printable proposal — also reused verbatim by the secure quote-view page.
+- [ContactForm.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/ContactForm.tsx) renders company/contact/email/phone/notes fields, inline errors.
+- [OrderSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/OrderSummary.tsx) renders selected Services, tier pricing, totals, review details.
+- [QuoteProposalPreview.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/request-flow/QuoteProposalPreview.tsx) renders the printable proposal, reused verbatim by the secure quote-view page.
 - [quote.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/quote.ts) normalizes quote items, calculates totals, and owns `classifyQuoteItems` — the shared split into normal-Tier/promotion, legacy bundle, and Tier add-on lines both files render from; see [Tier Add-on Selection](tier-addon.md). It also owns the additive `family_tier` branch: legacy lines stay Service-keyed; Family lines use their `CZPG`/`CZTG` scope and `CZT`/`CZTA` identifier, native IDs alongside.
 
 ## Backend and Persistence
@@ -39,11 +39,11 @@ CRM-1A: `/requests/submit` creates the durable `cz_request` (`pending`, new `CZR
 
 ## Runtime Flow
 
-Cost Builder opens the modal with a cart snapshot. The flow validates contact data and submits through the public API, which creates the durable, identified CRM Request before the quote-view transient and notifications. Durable records remain available for the Admin Station surface (CRM-1B/1C/1D).
+Cost Builder opens the modal with a cart snapshot; the flow validates contact data and submits through the public API, creating the durable, identified CRM Request before the quote-view transient/notifications. Durable records remain available for the Admin Station surface (CRM-1B/1C/1D).
 
 ## Validation
 
-From the plugin root: `php tests/request-schema-is-addon.php`, `php tests/request-schema-minimum-term.php`, `php tests/request-schema-family-quote-snapshot.php`, `php tests/request-schema-legacy-snapshot-description.php`, `php tests/request-durable-submission.php`, `php tests/package-family-notification.php`, `php tests/notification-templates-family-quote-parity.php`, `php tests/quote-view-access-boundary.php`, `php tests/quote-view-http-boundary.php`, `php tests/quote-view-entrypoint.php`, `php tests/quote-view-email-link.php`, `npm run contract:quote-view`, `npm run contract:quote-view-print-portal`, `npm run contract:quote-view-legacy-description`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npm run contract:request-flow-family-tier-parity`, `npm run contract:platform-identity-schema`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/request-schema-is-addon.php`, `php tests/request-schema-minimum-term.php`, `php tests/request-schema-family-quote-snapshot.php`, `php tests/request-schema-legacy-snapshot-description.php`, `php tests/request-durable-submission.php`, `php tests/package-family-notification.php`, `php tests/notification-templates-family-quote-parity.php`, `php tests/quote-view-access-boundary.php`, `php tests/quote-view-http-boundary.php`, `php tests/quote-view-entrypoint.php`, `php tests/quote-view-email-link.php`, `npm run contract:quote-view`, `npm run contract:quote-view-print-portal`, `npm run contract:quote-view-legacy-description`, `npm run contract:quote-cart-addon`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npm run contract:request-flow-family-tier-parity`, `npm run contract:platform-identity-schema`, `npm run contract:request-flow-rail-scroll`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 

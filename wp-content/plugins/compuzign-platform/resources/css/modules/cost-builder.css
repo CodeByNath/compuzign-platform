@@ -1995,14 +1995,22 @@
   margin: 0;
 }
 
-/* Right panel — floating support card; elevated above the canvas */
+/* Right panel — floating support card; elevated above the canvas.
+   max-height is a percentage of .cz-rf-body's own (definite, flex-resolved)
+   height, not a 100vh-relative calc() — the calc() guessed the header +
+   backdrop-padding overhead at a flat 80px, so it undersized that overhead
+   and let this rail grow taller than .cz-rf-body actually has room for.
+   Since .cz-rf-body is overflow:hidden (not auto), that excess height was
+   hard-clipped, not just hard-to-reach: the sticky .cz-os__actions bar and
+   .cz-os__help footer landed inside the clipped-away zone regardless of any
+   scrolling. Live-proven correction (Nath, production). */
 .cz-rf-right {
   width: clamp(380px, 32%, 420px);
   flex-shrink: 0;
   align-self: flex-start;
-  max-height: calc(100vh - 80px);
+  max-height: 96%;
   overflow-y: auto;
-  padding: var(--cz-space-5) var(--cz-space-5) var(--cz-space-8);
+  padding: var(--cz-space-5) var(--cz-space-5) 0;
   margin: var(--cz-space-4);
   background: var(--cz-color-surface);
   border: 1px solid var(--cz-color-line);
@@ -2904,13 +2912,17 @@
   margin: 0;
 }
 
-/* Help footer */
+/* Help footer — carries the bottom breathing room .cz-rf-right's own
+   padding used to reserve as a fixed reserve (see .cz-rf-right above);
+   moving it here keeps it inside the scrollable content instead of
+   inflating the rail's own box past its 96% budget. */
 .cz-os__help {
   margin: auto 0 0;
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted);
   text-align: center;
   line-height: 1.5;
+  padding-bottom: 16px;
 }
 
 .cz-os__help-link {
