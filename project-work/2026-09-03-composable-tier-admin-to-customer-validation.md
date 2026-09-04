@@ -1,58 +1,38 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING CHATGPT REVIEW — representation-aware money safeguard implemented**
-- Production/base: `main@bdac492215e8aebea861a783924b9bdc2d46393a`
-- Review head: `review/upgrade-journey-finalisation@db154aa7b081c458a0784a7d52b51449e0757531`
-- Not yet pushed to `main` — awaiting this round's approval.
+- **SOURCE PUSH APPROVED — pricing/disclosure correction through `db154aa7`**
+- Auditor verdict: **Proceed with safeguards**
+- Production/base independently confirmed: `main@bdac492215e8aebea861a783924b9bdc2d46393a`
+- Approved review head: `review/upgrade-journey-finalisation@db154aa7b081c458a0784a7d52b51449e0757531`
 
-## Claude's report — round: money precision safeguard, round 2
+## Accepted architecture / non-change boundary
+One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Preserve native `tierOccupantId` + exact Edition identity, cart authority/removal semantics, readiness/hydration guards, schema, and Rate Sheet authority.
 
-Implemented per the "Exact correction for Claude" list, on `review/upgrade-journey-finalisation@db154aa7` (one commit on top of `604c46fb`). Only `resources/ts/utils/format.ts` and `scripts/money-format-contract.ts` changed source-wise (plus rebuilt `dist/`); the accepted disclosure redesign and everything else from prior rounds is untouched.
+**Money rule:** Rate Sheet `unit_price` is an authoritative numeric rate, not inherently cent-precision. Resolver, Commercial Legs, quote snapshots, multiplication, and aggregation use raw numeric values. Presentation-only normalization may suppress IEEE-754 representation noise but must not impose a business decimal-place policy or feed back into calculations.
 
-**The numeric-noise rule, and why it follows the runtime representation rather than pricing policy:** the previous fix rounded to a fixed 6 DECIMAL PLACES — a business precision cap invented in presentation code, with no basis in the Rate Sheet schema. This version instead rounds to **15 SIGNIFICANT digits** (`Number(price.toPrecision(15))`), which is a property of the IEEE-754 double itself, not a currency decision: a double reliably round-trips through at most ~15-17 significant decimal digits regardless of where its decimal point falls, and ordinary arithmetic (`0.1 + 0.2 === 0.30000000000000004`, an 18-significant-digit value) only ever corrupts the last digit or two at that far end. Rounding to 15 significant digits removes exactly that class of noise while scaling precision with the value's own magnitude — it does NOT ask "how many places after the decimal point," so a tiny rate keeps its own full precision relative to its magnitude ($0.0000004 keeps 7 decimal places, $0.00000004 keeps 8) exactly as faithfully as $0.023 keeps its 3. `Intl.NumberFormat`'s `maximumFractionDigits: 20` is the formatting API's own technical range (a display-mechanism constant, not a decimal-place policy) — the actual digits rendered come entirely from the already-noise-suppressed value, floored at 2 decimals once any fraction is present (standard `$X.XX` convention) and 0 for an exact whole dollar.
+## Auditor review result
+Reviewed `604c46fb..db154aa7`: one narrow source correction plus rebuilt assets.
 
-```
-$0.023                      -> "$0.023"    (unchanged from round 1)
-$0.004                      -> "$0.004"    (unchanged from round 1)
-$0.20 / $36.50 / $50 / $0.10 -> unchanged from round 1
-0.1 + 0.2 (float noise)     -> "$0.30"     (unchanged from round 1)
-0.2 * 5 (exact whole)       -> "$1"        (unchanged from round 1)
-$0.0000004 (7 decimals)     -> "$0.0000004"  (NEW — survives what would have been a "$0" under the rejected 6-decimal ceiling)
-$0.00000004 (8 decimals)    -> "$0.00000004" (NEW — same)
-```
+Accepted:
+- Removed the rejected fixed six-decimal-place ceiling.
+- `formatPrice()` now normalizes to 15 significant digits via `Number(price.toPrecision(15))`, which is tied to JavaScript `number` precision rather than a fixed currency/rate decimal-place rule.
+- `Intl.NumberFormat` then presents up to its technical fraction-digit range; known KAIROS rates `$0.023` and `$0.004` survive, as do deeper non-zero fixtures `$0.0000004` and `$0.00000004`.
+- Whole/fractional conventions remain `$50`, `$0.20`, `$36.50`, `$0.10`; `0.1 + 0.2` presents `$0.30`.
+- No calculation path was changed: multiplication/sums continue on original numeric values; formatted values remain presentation-only.
+- The previously accepted in-flow Inclusion/Qty/Price disclosure redesign and Upgrade/cart/readiness/hydration/no-Build-Your-Own safeguards are untouched.
+- Claude reports typecheck, build, docs check, money-format contract, composable quote/cart contract, and real-DOM loop regression all green.
 
-**Sums/multiplication:** unchanged and reconfirmed — `InclusionDisclosure.tsx`'s Total row still sums raw `row.lineTotal` numbers before ever calling `formatPrice()`; no other aggregate (cart footer, Details, Total Commitment, Initial Payment) was touched this round, and none was touched in round 1 either — only the final render call's own precision logic changed.
+Safeguard: 15 significant digits is a runtime representation normalization, **not a Rate Sheet schema precision guarantee**. Do not document it later as a commercial precision limit. If Rate Sheet storage ever moves from JS `number` semantics to exact decimal/string money, this formatter contract must be revisited rather than inherited as business policy.
 
-**Tests:** `scripts/money-format-contract.ts` extended with this round's own required deep fixtures ($0.0000004, $0.00000004) alongside every fixture from both prior rounds (all still passing unchanged). `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, `npm run contract:money-format`, `npm run contract:composable-quote-cart`, and the real-DOM `regression:composable-quote-cart-loop` all pass.
+## Next action for Claude
+Fast-forward/push **only the reviewed work through `db154aa7`** to `main`, deploy through the normal GitHub Actions -> Hostinger path, record exact `main` SHA and workflow/run result here, then set **AWAITING LIVE VALIDATION**.
 
-## Accepted work
-The prior diagnosis stands: the live `$0` storage-rate defect was presentation-side, not proven upstream truncation. The disclosure redesign remains accepted: in-flow panel, SVG chevron, Inclusion/Qty/Price, authoritative `line_total`, subtotal, independent remove control.
+Live browser gate must verify:
+1. Block Storage `$0.10`, Object Storage `$0.023`, Archive/Cold `$0.004` and a whole-number control render correctly where those authoritative values are present.
+2. Quantity changes update Upgrade row price/subtotal/cart/Details/Total Commitment consistently.
+3. Quote disclosure expands in-flow, pushes later rows, shows Inclusion/Qty/Price + Total, and the chevron/remove controls remain independent.
+4. No customer-facing Build Your Own label appears in the active Upgrade route.
+5. Removing/swapping the base or removing Upgrade clears/disables state; reload does not resurrect it.
 
-`604c46fb` correctly fixes the known `$0.023` and `$0.004` examples and keeps calculations on raw numeric values.
-
-## Blocking architecture issue
-`formatPrice()` now executes `Math.round(price * 1e6) / 1e6` and sets `maximumFractionDigits: 6`.
-
-That is still a **business precision ceiling invented in presentation code**. The previous locked rule explicitly said not to hardcode a future Rate Sheet precision limit without schema evidence/policy. Current Rate Sheet `unit_price` is a numeric rate with no six-decimal contract. A legitimate future non-zero rate below `0.0000005`, or material precision beyond six decimals, can again display as zero or be altered.
-
-Do not solve IEEE-754 noise by declaring Rate Sheets six-decimal data.
-
-## Locked distinction
-- **Business precision:** owned by the authoritative Rate Sheet value/schema; currently no decimal-place cap is defined.
-- **Runtime numeric noise:** an implementation property of JavaScript `number`, not a pricing policy.
-- Calculations continue using the original numeric values; no rounding before multiplication or aggregation.
-- Presentation may normalize machine noise, but that normalization must be justified by the numeric representation (IEEE-754/significant precision), not by an arbitrary number of decimal places.
-- A non-zero authoritative rate must not become zero because of display policy.
-
-## Exact correction for Claude
-Keep this round limited to the shared formatter + its contract/rebuilt assets.
-
-1. Remove the `1e6` / six-decimal rate ceiling.
-2. Use a representation-aware noise strategy: preserve material digits supported by the current JavaScript `number` model while suppressing artifacts such as `0.30000000000000004`. Do not encode a Rate Sheet decimal-place limit unless the schema explicitly gains one.
-3. Whole-dollar `$50`, `$0.20`, `$36.50`, `$0.023`, `$0.004`, `$0.10`, and floating-noise `0.1 + 0.2` must retain the accepted outputs.
-4. Add deeper non-zero fixtures (for example `0.0000004` and `0.00000004`) proving the formatter does not collapse values merely because they exceed six fractional places.
-5. Keep all sums/multiplication on raw numerics; formatted strings never feed calculations.
-6. Preserve the accepted disclosure/Upgrade/cart/readiness/hydration/no-Build-Your-Own behavior unchanged.
-
-Report the exact numeric-noise rule and why it follows the runtime representation rather than pricing policy. Re-run `contract:money-format`, composable quote/cart, real-DOM loop regression, typecheck, build and docs check. Return **AWAITING CHATGPT REVIEW**.
+Do not begin `CZTU`/`CZTEU` work until this live gate passes.
