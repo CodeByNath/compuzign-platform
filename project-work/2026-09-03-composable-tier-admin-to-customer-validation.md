@@ -4,59 +4,48 @@
 - **READY FOR CLAUDE — deployed customer validation failed**
 - Auditor verdict: **Stop — pricing integrity and presentation correction required**
 - Validated deployed source: `main@bdac492215e8aebea861a783924b9bdc2d46393a`
-- Deployment evidence already accepted: Hostinger run `33877602142`, successful.
+- Deployment evidence accepted: Hostinger run `33877602142`, successful.
 - Browser validation date: 2026-09-05.
 
-## Architecture / non-change boundary
-One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Preserve native `tierOccupantId` plus exact Edition identity, cart authority/removal semantics, schema, prior readiness/hydration guards, and the existing authoritative rate source.
+## Locked architecture / non-change boundary
+One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Preserve native `tierOccupantId` + exact Edition identity, cart mutation/removal semantics, schema, readiness/hydration guards, and Rate Sheet authority.
 
-Do not repair this by changing stored source prices, rounding them to whole currency units, introducing a second calculator, or redesigning the cart. The cost builder must faithfully consume the existing decimal monetary values.
+**Money rule now explicit:** Rate Sheets own monetary facts. Every downstream layer must carry the authoritative numeric value unchanged through resolver -> commercial component -> quote snapshot -> totals. Quantity multiplication and aggregation operate on those numeric values. Currency formatting is presentation-only and must never become an input to another calculation.
 
-## Live browser findings
+Do not change stored rates, invent a second calculator, or round/truncate before the final rendering boundary.
 
-### 1. FAIL — decimal prices are lost in the cost builder
-The live Upgrade list shows:
+## Auditor source finding — important correction to the browser diagnosis
+The live `$0` display does **not yet prove decimal transport loss**.
 
-- 2 vCPU: `$36 per unit` (whole-number rate survives);
-- Block Storage: `$0 per unit`;
-- Backup Storage — BaaS: quantity 1 and `$0 / mo`;
-- Upgrade subtotal/cart line: `$0`.
+Current authoritative backend code already sanitizes Rate Sheet/Price Option values as floats and computes `line_total = unit_price * quantity`; the Package Family public presenter passes occupant pricing through without integer conversion.
 
-The affected storage rates contain fractional currency values. Values after the decimal point are reaching the cost builder as zero or being truncated before display/calculation. This is an overall decimal transport/normalisation defect, not a legitimate zero-price state.
+However the shared customer formatter `resources/ts/utils/format.ts::formatPrice()` is hard-coded to `minimumFractionDigits: 0` and `maximumFractionDigits: 0`. That means a real fractional value such as `$0.20` is rendered as `$0`, and `$36.50` as `$37`, even if the underlying calculation remains correct.
 
-### 2. FAIL — quote inclusion disclosure is visually and commercially unclear
-The open quick view currently appears as a narrow floating panel and formats quantities as `×2`, `×500`, etc. It omits a visible price column and does not show a subtotal immediately beneath the included rows.
+### Required pricing audit/fix
+1. First prove the numeric value at each boundary with explicit fixtures (fractional storage rate + whole-number control). Do not diagnose a calculation defect from formatted text alone.
+2. If the numeric path remains exact, fix the **shared money presentation contract**, not each individual Upgrade component.
+3. The formatter must preserve cents when materially present while keeping normal whole-dollar presentation sensible. Use one established shared formatter/path across Cost Builder customer surfaces; do not create Upgrade-only formatting.
+4. Verify row price, quantity multiplication, Upgrade subtotal, cart line, Details, Initial Payment, and Total Commitment all consume unrounded numeric values exactly once.
+5. If any actual numeric truncation exists elsewhere, report its exact boundary separately and fix it at the owning normalization/resolver layer.
 
-## Exact corrections
+Representative regression values must include a fractional sub-dollar rate, a fractional >$1 rate, and an exact whole-dollar rate.
 
-### Decimal pricing integrity
-1. Trace decimal money from the existing authoritative Rate Sheet response through parsing, normalisation, Upgrade preview, inline row display, Upgrade subtotal, cart projection, Details, and total commitment.
-2. Preserve decimal precision at every boundary. Do not use integer parsing, truthy/falsy fallbacks that convert fractional values to zero, or premature whole-dollar formatting.
-3. For every inclusion, calculate `line total = authoritative unit price × quantity`; recalculate when quantity changes.
-4. Aggregate those exact line totals once into the Upgrade cadence subtotal and existing cart/commitment totals.
-5. Apply currency rounding only at the final display boundary, using the product’s established money formatter. Zero is valid only when the authoritative rate is actually zero.
-6. Verify representative fractional rates such as Block Storage and Backup Storage — BaaS, plus a whole-number control such as 2 vCPU.
-
-### Quote inclusion quick view
-1. Keep inclusions collapsed by default. Place a small, proper project-standard inline SVG chevron beside the quote item’s price—not as a detached floating control.
-2. Opening it must expand an in-flow dropdown attached to that quote item. It must push the following content downward and visually read as part of the item, not float over neighboring quote rows.
-3. Render a clear three-column list:
-   - **Inclusion**
-   - **Qty**
-   - **Price**
-4. Do not prefix quantities with `×`. Show plain numeric quantities in the Qty column.
-5. Price must be the calculated price for that row from the same authoritative unit price and quantity used by the cost builder.
-6. Directly below the final inclusion row, show a right-aligned **Total** equal to the sum of the displayed inclusion prices. Its placement must make clear that it totals the rows above.
-7. Keep the disclosure control separate from the existing cart remove ×. Preserve outside-click closing, keyboard operation, accessible expanded state/name, and independent disclosure state per quote item.
-8. Apply the same structured disclosure presentation to plan, add-on, and Upgrade quick views where pricing data is available. Do not invent prices when the authoritative response does not provide them.
+## Quote inclusion quick view correction
+- Keep collapsed by default.
+- Project-standard inline SVG chevron beside the quote item price; independent cart remove ×.
+- Opening expands **in flow** and pushes later content down; no floating overlay.
+- Three columns: **Inclusion | Qty | Price**.
+- Qty is plain numeric, no `×` prefix.
+- Price is the authoritative row line total when available; never invent a value.
+- Directly below rows show right-aligned **Total** = sum of displayed priced rows.
+- Same structured disclosure for plan/add-on/Upgrade where authoritative price facts exist.
+- Preserve outside-click close, keyboard use, `aria-expanded`, independent disclosure state.
 
 ## Required regressions
-- Decimal unit prices survive API/model normalisation and do not become `0` or `.00`.
-- Quantity changes update row price, Upgrade subtotal, cart total, Details, and commitment total consistently and exactly once.
-- Mixed whole and fractional unit prices aggregate correctly.
-- Quick view renders Inclusion/Qty/Price without `×`, followed by the correct subtotal.
-- Opening a disclosure increases the quote item’s layout height and pushes later rows; it does not overlay them.
-- Chevron uses the established inline SVG pattern and sits beside price; remove × remains independent.
-- Existing primary readiness, base removal/swap, cart removal, hydration protection, and no-Build-Your-Own guarantees remain green.
+- Fractional values survive numerically end-to-end and are displayed without whole-dollar truncation/rounding.
+- Quantity changes update line, Upgrade subtotal, cart, Details, and commitment exactly once.
+- Mixed whole/fractional values aggregate correctly.
+- Disclosure uses Inclusion/Qty/Price + subtotal, in-flow expansion, SVG chevron beside price, independent remove ×.
+- Existing primary readiness, base removal/swap, cart removal, hydration, and no-Build-Your-Own guarantees remain green.
 
-Report the decimal-loss root cause and exact boundary, affected components, before/after numeric fixtures, screenshots, accessibility behavior, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
+Report the proven root cause(s), before/after numeric fixtures, changed files, tests, review SHA, screenshots/accessibility behavior. Set **AWAITING CHATGPT REVIEW** when ready. Do not push source until audited.
