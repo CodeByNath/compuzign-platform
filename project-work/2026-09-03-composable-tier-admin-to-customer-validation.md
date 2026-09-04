@@ -27,7 +27,7 @@ Validated on the customer pricing page in the KAIROS — IaaS route.
    - Removing that Upgrade through its cart × correctly removes the cart row and returns the total to $675.
    - However, the upgrade card remains **Remove**, retains Block Storage $10, and retains the `$10 / mo Ongoing` upgrade subtotal. The editor therefore disagrees with the authoritative cart.
    - Removing the Business Pro base afterwards clears the quote cart but still leaves Block Storage selected and priced in **Upgrade your build**, with no active Tier/Edition base.
-   - Adding/removing through the upgrade card itself synchronizes the cart correctly; the defect is specifically cart-originated removal and its dependent cleanup.
+   - Adding and removing through the upgrade card itself synchronizes the cart correctly. The failure begins when the Upgrade is removed with the cart ×: the cart row disappears, but the upgrade card remains selected with its $10 subtotal. If the base is removed after that, the orphaned Upgrade still remains active in the upgrade editor and can subsequently surface as the prohibited upgrade-only Build Your Own item.
 
 These behaviors reproduce the user’s marked evidence. They also provide the stale orphan state that can surface the invalid upgrade-only Build Your Own cart item.
 
