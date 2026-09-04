@@ -49,6 +49,21 @@
 //      an interactive component); the compact selection list's Add/Remove
 //      control is icon-only with an accessible name/tooltip, preserving
 //      the ready-primary disabled/early-return guard from item 9 above.
+//   11. [Auditor correction, "UI CORRECTION FOLLOW-UP" round] QuoteDetailsOverlay.tsx's
+//      three remaining item.tierTitle fallbacks (the quoted-plan chip,
+//      ComposablePlanDetails' Plan Tier row, the Total Commitment row) all
+//      read "Upgrades" — via the SAME composableCoexistsWithPrimary() check
+//      QuoteSummary.tsx's own quote-line label already uses — for a
+//      composable line with a sibling primary, never leaking the raw
+//      Build Your Own occupant title on this customer surface. The
+//      composable-quote-cart-loop-regression.mjs fixture is migrated to
+//      seed a ready primary before mounting (the active architecture's
+//      Upgrade engine refuses to act without one) rather than staying a
+//      knowingly-failing standalone-only regression; doing so surfaced a
+//      genuine redundant-preview-call defect in the reconciliation effect
+//      (it could not tell a self-caused Remove-to-zero from an external
+//      cart removal, despite its own docblock already saying it should),
+//      fixed via a one-shot selfCausedRemovalRef consumed by that effect.
 //
 // Fixture-driven against real exported pure functions (utils/quote.ts,
 // ComposableOfferBrowser.tsx's buildComposableFamilyTierQuoteItem), same
@@ -448,6 +463,49 @@ check(
 check(
   /aria-label=\{`\$\{isSelected \? 'Remove' : 'Add'\}/.test(browserSource) && /title=\{isSelected \? 'Remove' : 'Add'\}/.test(browserSource),
   'the compact list\'s icon-only Add/Remove control still carries an accessible name (aria-label) and a native tooltip (title), even though its visible glyph is now +/×',
+);
+
+// ── 11. Auditor correction ("UI CORRECTION FOLLOW-UP" round) — source-scan ──
+
+// 11a. Customer Details no longer leaks Build Your Own: all 3 sites use
+// the shared planDisplayLabel() helper, itself built on
+// composableCoexistsWithPrimary() — the SAME rule QuoteSummary.tsx's own
+// quote-line label already applies, never a second heuristic.
+check(
+  /function planDisplayLabel\(item: FamilyTierQuoteItem, contextItems: CartItem\[\], fallback: string\): string \{\s*return composableCoexistsWithPrimary\(item, contextItems\) \? 'Upgrades' : fallback;/.test(quoteDetailsOverlaySource),
+  'QuoteDetailsOverlay.tsx defines planDisplayLabel() on top of the SAME composableCoexistsWithPrimary() check QuoteSummary.tsx already uses for its own quote-line label',
+);
+const planDisplayLabelCallCount = (quoteDetailsOverlaySource.match(/planDisplayLabel\(item, items,/g) ?? []).length;
+check(
+  planDisplayLabelCallCount === 3,
+  `all 3 customer-facing sites (quoted-plan tab chip, ComposablePlanDetails' Plan Tier row, Total Commitment row) call planDisplayLabel — found ${planDisplayLabelCallCount}`,
+);
+check(
+  !/<dd>\{item\.tierTitle\}<\/dd>/.test(quoteDetailsOverlaySource),
+  'ComposablePlanDetails\' Plan Tier row no longer falls back to the raw item.tierTitle unconditionally',
+);
+
+// 11b. composable-quote-cart-loop-regression.mjs is migrated to the active
+// architecture (a ready primary seeded before mount), not left as a
+// knowingly-failing standalone-only regression.
+const loopRegressionSource = readFileSync(resolve(root, 'scripts/composable-quote-cart-loop-regression.mjs'), 'utf8');
+check(
+  loopRegressionSource.includes('PRIMARY_ITEM') && loopRegressionSource.includes("nativeSetItem.call(window.localStorage, CART_KEY"),
+  'the loop regression fixture seeds a ready primary Tier into the cart (via the unpatched native setItem, so seeding itself is not counted as a customer interaction) before mounting — the active architecture\'s Upgrade engine refuses to act without one',
+);
+
+// 11c. The reconciliation effect distinguishes a self-caused Remove-to-zero
+// from an external cart removal — its own docblock always said it should
+// ("WITHOUT it having caused that itself"), but the implementation never
+// actually checked that until this round's regression migration surfaced
+// the redundant-preview-call defect.
+check(
+  /selfCausedRemovalRef\.current = true;\s*onRemoveFromQuote\(\);/.test(browserSource),
+  'the self-caused-removal flag is set immediately before the ONE call that can drive initialCartItem to null from this component\'s own action',
+);
+check(
+  /if \(cartItemJustRemoved && selfCausedRemovalRef\.current\) \{\s*selfCausedRemovalRef\.current = false;\s*if \(!primaryJustRemoved\) return;\s*\}/.test(browserSource),
+  'the reconciliation effect consumes the self-caused-removal flag and skips its own reset when the cart-item transition was self-caused and the primary itself did not ALSO just disappear',
 );
 
 console.log('Composable quote/cart contract passed.');

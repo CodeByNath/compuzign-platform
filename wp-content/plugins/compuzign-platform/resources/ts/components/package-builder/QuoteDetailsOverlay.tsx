@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { resolveEffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
 import { computeTotalContractValue, startingPaymentsByCycle, chargeTypeLabel } from '@/utils/paymentSummary';
 import { formatPrice } from '@/utils/format';
-import { isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
+import { composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { InclusionDisclosure, disclosureRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
@@ -37,6 +37,23 @@ const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 const TOTAL_COMMITMENT_KEY = '__total_commitment__';
+
+// Auditor correction (project-work/2026-09-03-composable-tier-admin-to-
+// customer-validation.md, "Customer Details still leaks Build Your Own"):
+// a composable ("Upgrade your build") line reached with a sibling primary
+// already in the cart must read as "Upgrades" on every customer-facing
+// surface in this file — the SAME rule QuoteSummary.tsx's own quote-line
+// label already applies via composableCoexistsWithPrimary(), reused
+// verbatim rather than a second "is this Build Your Own" heuristic.
+// Presentation only: never touches stored occupant identity/title
+// (item.tierTitle) or Admin/internal representation. `contextItems` need
+// only contain the sibling primary for the SAME Family+Tier-Instance, not
+// literally the whole cart — every call site below already has such a
+// list in scope (the full cart, or Total Commitment's own primary+
+// composable population for every family).
+function planDisplayLabel(item: FamilyTierQuoteItem, contextItems: CartItem[], fallback: string): string {
+  return composableCoexistsWithPrimary(item, contextItems) ? 'Upgrades' : fallback;
+}
 
 // Re-derives the SAME facts PlanDetailsModal's own single-target trigger in
 // FamilyTierAdapter.tsx resolves (family/tierData -> editionId via the
@@ -142,7 +159,7 @@ function ComposableInclusionsTable({ items }: { items: ServiceInclusion[] }) {
   );
 }
 
-function ComposablePlanDetails({ item }: { item: FamilyTierQuoteItem }) {
+function ComposablePlanDetails({ item, items }: { item: FamilyTierQuoteItem; items: CartItem[] }) {
   const streams = item.legPaymentSummaries ?? [];
   const hasStreams = streams.length > 0;
   const total = hasStreams ? computeTotalContractValue(streams) : null;
@@ -157,7 +174,7 @@ function ComposablePlanDetails({ item }: { item: FamilyTierQuoteItem }) {
           </div>
           <div class="cz-package-builder__details-overview-row">
             <dt>Plan Tier</dt>
-            <dd>{item.tierTitle}</dd>
+            <dd>{planDisplayLabel(item, items, item.tierTitle)}</dd>
           </div>
         </dl>
       </section>
@@ -220,7 +237,7 @@ function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuote
       <section class="cz-package-builder__details-section">
         {items.map((item, index) => {
           const resolved = resolvePlanDetails(item, families, tiers);
-          const planLabel = resolved?.planLabel ?? item.tierTitle;
+          const planLabel = planDisplayLabel(item, items, resolved?.planLabel ?? item.tierTitle);
           const streams = item.legPaymentSummaries ?? [];
           const total = totalContractValues[index];
           return (
@@ -358,7 +375,7 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
             {allFamilyTierItems.map((item) => {
               const key = quoteItemKey(item);
               const resolved = resolvePlanDetails(item, families, tiers);
-              const planLabel = resolved?.planLabel ?? item.tierTitle;
+              const planLabel = planDisplayLabel(item, items, resolved?.planLabel ?? item.tierTitle);
               return (
                 <button
                   key={key}
@@ -386,7 +403,7 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
           {activeKey === TOTAL_COMMITMENT_KEY ? (
             <TotalCommitmentTab items={primaryFamilyTierItems} families={families} tiers={tiers} />
           ) : activeItem?.isComposable ? (
-            <ComposablePlanDetails item={activeItem} />
+            <ComposablePlanDetails item={activeItem} items={items} />
           ) : activeResolved ? (
             <PlanDetailsContent
               familyTitle={activeResolved.familyTitle}

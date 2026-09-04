@@ -381,6 +381,22 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
   // the other having fired.
   const hadCartItemRef = useRef(initialCartItem !== null);
   const hadReadyPrimaryRef = useRef(hasReadyPrimary);
+  // Live-validation correction (regression migration round): the docblock
+  // above already said this effect should fire "WITHOUT it having caused
+  // that itself" — the implementation never actually checked that. Set
+  // right before the ONE call that can drive initialCartItem to null from
+  // this component's own action (the auto-commit effect's own
+  // onRemoveFromQuote() below, a genuine customer Remove-to-zero) and
+  // consumed the very next time this effect observes that transition.
+  // Without it, a self-driven removal reseeds `selection` to a NEW-but-
+  // equivalent object, which — because the auto-commit effect below
+  // compares dependencies by reference, not value — re-fires an entirely
+  // redundant preview request for a selection that was already known and
+  // already resolved. Not a loop (it settles after the one extra call),
+  // but a real wasted round-trip on every ordinary Remove-to-empty click,
+  // only ever exercisable once a real primary is present to let this
+  // effect run at all — see composable-quote-cart-loop-regression.mjs.
+  const selfCausedRemovalRef = useRef(false);
   useEffect(() => {
     const hadCartItem = hadCartItemRef.current;
     const hadReadyPrimary = hadReadyPrimaryRef.current;
@@ -388,6 +404,10 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
     hadReadyPrimaryRef.current = hasReadyPrimary;
     const cartItemJustRemoved = hadCartItem && initialCartItem === null;
     const primaryJustRemoved = hadReadyPrimary && !hasReadyPrimary;
+    if (cartItemJustRemoved && selfCausedRemovalRef.current) {
+      selfCausedRemovalRef.current = false;
+      if (!primaryJustRemoved) return;
+    }
     if (cartItemJustRemoved || primaryJustRemoved) {
       setSelection(seedSelectionFromCartItem(rows, null));
       setHasInteracted(false);
@@ -505,6 +525,7 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
           if (offer && hasInteracted) {
             const hasAnyIncluded = choice.some((entry) => entry.selected === undefined || entry.selected === true);
             if (!hasAnyIncluded) {
+              selfCausedRemovalRef.current = true;
               onRemoveFromQuote();
             } else {
               onCommit(buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows));

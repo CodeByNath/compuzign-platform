@@ -25,6 +25,23 @@
 // the full family object) as deps, constructed before the component's
 // loading/error/empty early returns (Rules of Hooks).
 //
+// Live-validation correction (project-work/2026-09-03-composable-tier-
+// admin-to-customer-validation.md, "Do not merge a knowingly failing
+// standalone regression"): the composable Upgrade engine now refuses to
+// even start a preview without an exact ready primary Tier already in the
+// cart (ComposableOfferBrowser.tsx's hasReadyPrimary gate) — standalone
+// "Build Your Own" with no primary is the disabled route. This fixture
+// used to mount with an EMPTY cart, which made every assertion below fail
+// by construction (previewCalls stuck at 0) once that gate landed — not a
+// real regression, just a fixture that had drifted out of the active
+// architecture. Fixed by seeding the cart with a real primary Tier line
+// (PRIMARY_ITEM below) for the SAME Family+Tier-Instance BEFORE mount, via
+// the untouched native localStorage.setItem (not the cart-write spy's
+// patched version — seeding the fixture is not itself an "interaction" the
+// assertions below should count). Every original loop/race assertion is
+// otherwise unchanged: this only supplies the ready primary the active
+// Upgrade route now requires before it will do anything at all.
+//
 // Usage: npm run regression:composable-quote-cart-loop
 //    or: node scripts/composable-quote-cart-loop-regression.mjs
 
@@ -81,6 +98,23 @@ const FAMILY = {
       },
     },
   },
+};
+
+// Live-validation correction: a real primary Tier line for the SAME
+// Family+Tier-Instance as FAMILY above (matched by familyPlatformId +
+// tierInstancePlatformId — see familyTierSystemKey() in utils/quote.ts) —
+// the exact ready primary ComposableOfferBrowser's own hasReadyPrimary
+// gate now requires before it will start a preview/commit at all. Seeded
+// into the cart before mount (see below), never committed through the
+// application's own onAdd flow — this fixture only needs the primary to
+// already exist, not to exercise how primaries get added.
+const PRIMARY_ITEM = {
+  offer_type: 'family_tier',
+  familyId: FAMILY.family_id, familyPlatformId: FAMILY.family_platform_id, familyTitle: FAMILY.title,
+  tierInstanceId: FAMILY.tier_instance_id, tierInstancePlatformId: FAMILY.tier_instance_platform_id,
+  tierOccupantId: 'occ_basic', tierPlatformId: 'CZT-KAIROS001', tierEditionPlatformId: null,
+  tierId: 'basic', tierTitle: 'Basic', price: 50, billingCycle: 'monthly', features: [],
+  isAddon: false, minimumTermValue: null, minimumTermUnit: null,
 };
 
 // ── Fetch mock — the only faked boundary ────────────────────────────────
@@ -222,7 +256,15 @@ function check(label, cond, detail) {
 
 console.log('Composable quote/cart reactive-sync loop regression\n');
 
-console.log('1) Mount PackageBuilderApp and let the initial fetch settle');
+// Live-validation correction: seed the cart with PRIMARY_ITEM via the
+// UNPATCHED native setItem — establishing the fixture's ready primary is
+// not itself a customer interaction, so it must not count toward
+// cartWrites (which every assertion below measures deltas against).
+nativeSetItem.call(window.localStorage, CART_KEY, JSON.stringify({
+  version: 1, expiresAt: Date.now() + 60 * 60 * 1000, updatedAt: Date.now(), items: [PRIMARY_ITEM],
+}));
+
+console.log('1) Mount PackageBuilderApp (cart pre-seeded with a ready primary) and let the initial fetch settle');
 render(h(PackageBuilderApp), container);
 let result = await waitToSettle();
 check('initial mount settles within the observation window (no unbounded loop)', result.settled, `hit hard cap at ${result.ticks} ticks`);
@@ -233,13 +275,14 @@ check('initial mount settles within the observation window (no unbounded loop)',
 // default-seeding (hasInteracted gates the commit, not the preview itself).
 check('exactly one preview call from the default-seeded mount (pre-existing preview-on-load behavior, unchanged)', previewCalls === 1, `previewCalls=${previewCalls}`);
 // PackageBuilderApp's own [items] effect runs on first mount too (items
-// starts as an empty loadCart() result), calling clearCart() once
-// regardless of whether there was ever anything to clear — a pre-existing
-// baseline write, not a composable-specific symptom. Captured as the
+// starts as PRIMARY_ITEM, seeded above via loadCart()), calling
+// saveCart(items) once regardless — a pre-existing baseline write (was a
+// clearCart() call before this fixture had a seeded primary; same single
+// write either way), not a composable-specific symptom. Captured as the
 // baseline every later delta is measured against, rather than asserted to
 // be zero.
 const cartWritesAfterMount = cartWrites;
-check('no cart write is caused BY the default-seeded preview specifically (only the pre-existing mount-time clearCart() baseline)', cartWritesAfterMount <= 1, `cartWrites=${cartWrites}`);
+check('no cart write is caused BY the default-seeded preview specifically (only the pre-existing mount-time saveCart() baseline)', cartWritesAfterMount <= 1, `cartWrites=${cartWrites}`);
 
 console.log('2) Click "Add" on the one optional inclusion (real DOM click)');
 // Live-validation correction: the compact list's Add/Remove control is now
