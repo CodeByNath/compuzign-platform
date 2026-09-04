@@ -1,11 +1,11 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — live-validation correction only**
-- Auditor verdict: **Proceed with safeguards**
-- Validated deployed source/base: `main@3e021964aea127840b00c278c322214c46e1c1b6`
-- Approved review head: `review/upgrade-journey-finalisation@b6d8d05ab6cfc702670151c3a6543b4faa62c232`
-- Existing deployment evidence for base: Hostinger run `33864290139`.
+- **AWAITING LIVE VALIDATION**
+- Auditor verdict (prior round): **Proceed with safeguards**
+- `main` pushed and deployed: `main@b6d8d05ab6cfc702670151c3a6543b4faa62c232` (fast-forward from `3e021964`, exactly the approved correction head — no unrelated commits included)
+- Deployment evidence: GitHub Actions **Deploy to Hostinger**, run `33867191849` (`#946`), `head_sha=b6d8d05a...`, `status=completed`, `conclusion=success`, started `2026-09-04T11:16:51Z`, finished `2026-09-04T11:24:22Z`
+- Prior base deployment evidence (for reference): Hostinger run `33864290139`.
 
 ## Accepted Phase 0 architecture
 One active journey only: **Upgrade your plan/build**. Standalone Build Your Own is deferred and disabled. Upgrade must never fall through, relabel, transition, survive, hydrate, or resurrect as standalone Build Your Own.
@@ -22,10 +22,8 @@ Reviewed correction is acceptable:
 - No new identity model, schema path, finalisation pipeline, pricing rule, or standalone route was introduced.
 - Contracts cover no-primary/wrong-system/matching-primary insert behavior, local-state reset/rehydration, and the earlier remove/swap identity cases.
 
-## Next action for Claude
-Push **only `b6d8d05a`** to `main`. Record exact `main` SHA and Hostinger workflow/run here, then set **AWAITING LIVE VALIDATION**.
-
-Live browser gate must repeat the failing KAIROS route and verify:
+## Next action
+Pushed and deployed per Status above (`main` fast-forwarded by the user after auditor approval; Claude verified the exact SHA and the Hostinger run). Auditor/browser agent to repeat the failing KAIROS route against `main@b6d8d05a` and verify:
 1. remove Upgrade with cart × -> Upgrade card returns to **Add**, $10 subtotal disappears, and it stays gone;
 2. remove base -> Upgrade engine disappears/clears and cannot produce any cart line;
 3. swap base -> old Upgrade clears and cannot resurrect;
