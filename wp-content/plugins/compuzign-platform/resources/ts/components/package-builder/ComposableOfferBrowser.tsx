@@ -117,6 +117,59 @@ export function buildComposableChoice(
   return choice;
 }
 
+/**
+ * Upgrade Journey Finalisation — order-independent equality over two
+ * resolved choice arrays, by item_id + selected + quantity. Exported so a
+ * contract script can exercise it directly, same precedent as
+ * buildComposableChoice()/resolveItemContributions() above.
+ */
+export function composableChoicesMatch(a: ComposablePreviewChoiceItem[], b: ComposablePreviewChoiceItem[]): boolean {
+  if (a.length !== b.length) return false;
+  const key = (entry: ComposablePreviewChoiceItem) => `${entry.item_id}:${entry.selected ?? ''}:${entry.quantity ?? ''}`;
+  const bKeys = new Set(b.map(key));
+  return a.every((entry) => bKeys.has(key(entry)));
+}
+
+/**
+ * Upgrade Journey Finalisation — the auditor-required guard against
+ * finalising a stale draft: Finalise must stay disabled from the instant a
+ * customer edits their upgrade selection until that EXACT edit has
+ * successfully resolved and been committed to the cart, not merely until
+ * SOME draft with the same base identity exists.
+ *
+ * `currentChoice` is the local selection's own live-derived choice
+ * (buildComposableChoice(rows, selection)), which changes synchronously the
+ * moment the customer clicks Add/Remove or edits a quantity — before the
+ * 400ms debounce timer even starts, well before any preview/commit
+ * round-trip. Comparing it against `initialCartItem.composableSelection`
+ * (what is actually committed in the cart right now) is what catches the
+ * race: they diverge immediately on edit and only re-converge once onCommit
+ * has updated initialCartItem to match this exact choice — a stale/older
+ * committed draft with the identical base identity but a different
+ * selection never satisfies this. previewLoading and a failed/not-yet-ok
+ * preview are additional explicit disables per the auditor's own checklist
+ * ("disabled while preview/debounce/request is pending or failed").
+ *
+ * Exported so a contract script can exercise every branch directly without
+ * mounting the component or faking timers.
+ */
+export function isFinaliseBuildReady(params: {
+  context: 'build_your_own' | 'upgrade_your_build';
+  previewLoading: boolean;
+  previewOk: boolean;
+  currentChoice: ComposablePreviewChoiceItem[];
+  initialCartItem: FamilyTierQuoteItem | null;
+  primaryItem: FamilyTierQuoteItem | null;
+}): boolean {
+  const { context, previewLoading, previewOk, currentChoice, initialCartItem, primaryItem } = params;
+  if (context !== 'upgrade_your_build') return false;
+  if (previewLoading || !previewOk) return false;
+  if (!initialCartItem?.upgradeDraftBase || !primaryItem) return false;
+  if (initialCartItem.upgradeDraftBase.tierPlatformId !== primaryItem.tierPlatformId) return false;
+  if (initialCartItem.upgradeDraftBase.tierEditionPlatformId !== primaryItem.tierEditionPlatformId) return false;
+  return composableChoicesMatch(currentChoice, initialCartItem.composableSelection ?? []);
+}
+
 // One item_id's resolved contribution, read verbatim off the server's own
 // resolved Period/component rows — never computed by multiplying a
 // published unit price by a client-held quantity. `ambiguous: true` means
@@ -455,14 +508,21 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, prima
   // Upgrade Journey Finalisation: the Finalise action is only offered once
   // there is an actually-committed draft (initialCartItem — the cart's own
   // current state, not merely a staged/unsaved selection) whose recorded
-  // base matches primaryItem exactly. Mirrors composableDraftIsStale()'s
-  // own matching rule (utils/quote.ts) without importing the cart-array
-  // form of that check into this catalog-facing component.
-  const canFinaliseBuild = context === 'upgrade_your_build'
-    && !!initialCartItem?.upgradeDraftBase
-    && !!primaryItem
-    && initialCartItem.upgradeDraftBase.tierPlatformId === primaryItem.tierPlatformId
-    && initialCartItem.upgradeDraftBase.tierEditionPlatformId === primaryItem.tierEditionPlatformId;
+  // base matches primaryItem exactly, AND that committed draft's own
+  // composableSelection matches the current local selection exactly — see
+  // isFinaliseBuildReady()'s own docblock above for why the latter is
+  // required: without it, an edit made just before clicking Finalise (while
+  // its own 400ms debounce/preview/commit round-trip is still in flight)
+  // could silently finalise the OLDER committed draft instead of the
+  // customer's latest edit.
+  const canFinaliseBuild = isFinaliseBuildReady({
+    context,
+    previewLoading,
+    previewOk: preview.ok,
+    currentChoice: buildComposableChoice(rows, selection),
+    initialCartItem,
+    primaryItem,
+  });
 
   return (
     <section class="cz-package-builder__composable" aria-labelledby="cz-composable-heading">
