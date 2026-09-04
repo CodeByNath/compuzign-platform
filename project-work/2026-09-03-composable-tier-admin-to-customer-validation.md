@@ -1,44 +1,52 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING LIVE VALIDATION — hidden scrollbar chrome deployed and self-validated live.**
+- **READY FOR CLAUDE — audit/plan Upgrade Journey Finalisation before final UI/UX refinement.**
 - Auditor verdict: **Proceed with safeguards.**
-- Nath gave explicit go-ahead to push to `main` on 2026-09-04.
-- Approved review head: `review/request-flow-hidden-scrollbars@aa820596`, pushed to `main` as a fast-forward (`5112f5f5..aa820596`).
-- Production now: `main@aa820596e9cdb9bb496d2a5d9292e31e7b0801b2`. Hostinger workflow run `33835470825` succeeded on that exact SHA.
+- Production remains `main@aa820596e9cdb9bb496d2a5d9292e31e7b0801b2`; Hostinger run `33835470825` succeeded on that exact SHA.
 
-## Claude live validation — hidden scrollbar chrome
+## Accepted live state retained
+- Request/Review right rail: `max-height:96%`, bottom padding `0`, help padding `16px`.
+- `.cz-rf-left` and `.cz-rf-right` remain scrollable but scrollbar chrome is hidden.
+- Previous composable architecture, pricing, resolver, Rate Sheet, identity, Request persistence/email and quote snapshot rules stay locked.
+- Remaining representation checks (Upgrades label, composable Quote Details, Admin Request detail, proposal/PDF/public quote exact-once, totals once, no raw IDs) still need closure.
 
-Re-tested the deployed site (`https://compuzign.weerax.com/pricing/`, same 3-Family multi-stream quote, Review & Finalise modal, 1100×650): `getComputedStyle` confirms both `.cz-rf-left` and `.cz-rf-right` keep `overflow-y:auto` and now report `scrollbar-width:none`; real wheel input over each panel still moved `scrollTop` (right rail 0→632, left panel 0→344); Submit Quote Request confirmed reachable in-viewport after scrolling. Screenshot shows no scrollbar track on either panel — matches the pre-deploy static-harness prediction exactly. Still outstanding: Upgrades label, composable Quote Details, Admin Request stored detail, proposal/PDF/public quote exact-once rendering, totals once, no raw IDs — not yet checked.
+## New required phase — Upgrade Journey Finalisation
+Nath clarified that **Upgrade your build** and standalone **Build Your Own** are different customer journeys.
 
-## Accepted deployed correction retained
-The Request/Review right-rail clipping fix stays locked:
-- `.cz-rf-right { max-height:96%; padding-bottom:0; overflow-y:auto; }`
-- `.cz-os__help { padding-bottom:16px; }`
-- `.cz-rf-left { overflow-y:auto; }` retained because `.cz-rf-body { overflow:hidden }` and long Contact/Review content needs a scroll owner.
-- prior quote-list desktop single-scroll-owner simplification remains.
-- no pricing, totals, composable identity, Request persistence/email, resolver, Rate Sheet, entity/identity, occurrence-month, or copy changes.
+### Upgrade journey
+1. Starts only from an already-selected normal Tier/Edition.
+2. Customer enters **Upgrade your build** and adds/removes only Admin-authorised composable inclusions/quantities.
+3. While in this journey, the upgrade composition is **dependent on the selected base Tier/Edition**. It must not silently survive as an independent Build Your Own line if that base is removed/replaced.
+4. Customer gets an explicit **Finalise build** transition.
+5. Finalising converts the working `base plan + upgrades` configuration into the final **Build Your Own** quote representation/snapshot.
+6. After finalisation it behaves as the composed Build Your Own result, not as “primary + loose upgrades”.
 
-## Auditor review — hidden scrollbar chrome
-Independent Git compare confirms `aa820596...` is exactly **1 commit ahead / 0 behind** production and changes only:
-- source CSS;
-- rebuilt CSS;
-- the focused Request-flow rail scroll contract.
+### Standalone Build Your Own — deferred
+Do **not** design or implement the standalone Build Your Own journey yet. Nath explicitly wants that as a separate journey later; it should not simply load alongside the normal Tier cards. We will plan that only after the Upgrade journey is established.
 
-Source inspection confirms the requested presentation rule is applied exactly to `.cz-rf-left` and `.cz-rf-right`:
-- `scrollbar-width:none`;
-- `-ms-overflow-style:none`;
-- `::-webkit-scrollbar { display:none; }`.
+## Important current mismatch to audit
+Current cart code deliberately treats the composable line as independent:
+- `upsertFamilyComposableQuoteItem()` is independent of the primary;
+- `removeFamilyTierSystemQuoteItems()` preserves composable when primary is removed;
+- `composableCoexistsWithPrimary()` derives the current “Upgrades” label contextually from coexistence.
+That is insufficient for the new behavioral distinction because removal/replacement of the primary can change semantics implicitly.
 
-Both panels still retain `overflow-y:auto`; therefore this hides scrollbar chrome without removing wheel/trackpad/touch/keyboard/focus scrolling. The accepted `max-height:96%` rail geometry and help padding remain unchanged. No unrelated/global scrollbar hiding is introduced.
+## Claude instruction — audit/plan only first
+Before editing source, audit the current customer/cart/quote/request paths and propose the **smallest explicit quote-time state/transition** needed to represent:
+- in-progress upgrade tied to an exact base Tier/Edition;
+- explicit Finalise Build transition;
+- final composed Build Your Own snapshot;
+- safe behavior if base Tier/Edition is removed/replaced before finalisation.
 
-Claude reports the extended focused contract, quote-sidebar contract, isolation contract, typecheck, build and docs checks all pass; static wheel validation confirms both panels still scroll.
+Do not create a new platform entity, second Tier System, customer-owned Legs, or mutate the published composable occupant. Keep this as bounded quote/customer workflow semantics. Do not start standalone Build Your Own UX or the final broad UI/UX refinement yet.
 
-## Push authorization
-Claude may fast-forward **only `aa820596e9cdb9bb496d2a5d9292e31e7b0801b2`** to `main`, with no cleanup/refactor additions. After push, record exact `main` SHA and matching Hostinger workflow result here and set **AWAITING LIVE VALIDATION**.
+Record the proposed state shape, mutation rules, affected files, persistence/request/PDF implications, migration/legacy handling, and focused contracts in this same file. Set **AWAITING CHATGPT REVIEW**. No source push to `main`.
 
-## Remaining live gate
-After deploy, visually confirm both Request-modal scrollbar tracks are hidden while both panels remain scrollable/reachable. Then continue the still-open representation checks: Upgrades label; composable Quote Details; Admin Request stored detail; proposal/PDF/public quote exact-once rendering; totals once; no raw IDs. Fresh production Request/customer email remains separately gated by Nath's explicit authorization.
-
-## Final planned phase
-After this chain passes, begin the dedicated customer UI/UX refinement pass across pricing, focused-plan/composable, quote/cart, Review & Finalise, and proposal/PDF responsive presentation. Visual/interaction refinement only; accepted architecture stays locked.
+## Work journey update
+Sequence is now:
+1. close remaining representation validation;
+2. establish **Upgrade Journey Finalisation** semantics;
+3. implement/review/deploy/live-validate that phase;
+4. only then begin the dedicated customer UI/UX refinement pass;
+5. standalone Build Your Own journey is a later separate phase.
