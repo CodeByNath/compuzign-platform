@@ -4874,14 +4874,6 @@
   gap: var(--cz-space-2);
 }
 
-/* Upgrade Journey Finalisation: distinguishes a composed item's Plan vs
-   Upgrade billing streams — see .cz-quote-summary__stream-provenance for
-   the same cue elsewhere. */
-.cz-package-builder__stream-provenance {
-  color: var(--cz-color-muted-2);
-  font-style: italic;
-}
-
 .cz-package-builder__commitment-row--grand-total {
   font-size: var(--cz-font-size-lg);
   font-weight: 700;

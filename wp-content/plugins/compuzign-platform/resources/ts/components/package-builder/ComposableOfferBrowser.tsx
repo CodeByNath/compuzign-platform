@@ -153,27 +153,6 @@ export function composableChoicesMatch(a: ComposablePreviewChoiceItem[], b: Comp
  * Exported so a contract script can exercise every branch directly without
  * mounting the component or faking timers.
  */
-/**
- * Upgrade Journey Finalisation live-validation regression: whether the
- * debounced auto-commit effect below should run at all for the current
- * committed cart line. False once `initialCartItem` is already a finalised
- * composed result (isComposedUpgrade) — Finalise itself removes the
- * primary, which flips context ('upgrade_your_build' -> 'build_your_own')
- * and primaryItem (-> null), both deps of that effect, even though the
- * customer did nothing new. Without this guard that alone re-fires the
- * effect 400ms later and silently overwrites composedBase/composedUpgrade
- * (the base+upgrade projection) with a fresh standalone snapshot built from
- * whatever this browser's own local `selection` still holds — the
- * upgrade-only choice from before Finalise — dropping the base entirely. A
- * finalised composed line is immutable via this surface: see
- * FamilyTierQuoteItem.composedBase's own docblock ("never independently
- * edited"). Exported so a contract script can exercise it directly, same
- * precedent as isFinaliseBuildReady()/composableChoicesMatch() below.
- */
-export function shouldAutoCommitComposableSelection(initialCartItem: FamilyTierQuoteItem | null): boolean {
-  return !initialCartItem?.isComposedUpgrade;
-}
-
 export function isFinaliseBuildReady(params: {
   context: 'build_your_own' | 'upgrade_your_build';
   previewLoading: boolean;
@@ -449,7 +428,6 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, prima
 
   useEffect(() => {
     if (rows.length === 0) return;
-    if (!shouldAutoCommitComposableSelection(initialCartItem)) return;
     const choice = buildComposableChoice(rows, selection);
 
     let cancelled = false;
@@ -520,13 +498,6 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, prima
     // always changes family_id (the row/offer set is re-derived from it via
     // `rows`/`offer` anyway), so this avoids re-fetching merely because the
     // parent handed down a new-identity-but-same-content family object.
-    // `initialCartItem` is deliberately not a dependency either, same
-    // reasoning as the reseed effect above: it changes on every commit THIS
-    // effect itself makes, and including it would re-trigger on its own
-    // commit — the shouldAutoCommitComposableSelection() guard above still
-    // reads its current (non-stale) value every render regardless, since
-    // the effect callback itself is freshly created each render; it just
-    // isn't what decides whether this effect body reruns.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote, context, primaryItem]);
 
