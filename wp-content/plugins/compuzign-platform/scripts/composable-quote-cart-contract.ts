@@ -31,9 +31,16 @@
 //      cart, a hard invariant at the cart's own data boundary, never merely
 //      trusted to a UI entry-point gate. seedSelectionFromCartItem(rows, null)
 //      — what the browser's own reconciliation effect resets local Add/
-//      Remove state to once the cart's authoritative composable line
-//      disappears out from under it — returns every optional row to its
-//      policy default (never a "leftover selected" shape).
+//      Remove state to once the cart's authoritative composable line OR the
+//      primary itself disappears out from under it — returns every optional
+//      row to its policy default (never a "leftover selected" shape).
+//   9. [Live-validation correction, 2nd round] the Upgrade engine cannot be
+//      fired at all without an exact ready primary already present — the
+//      Add/Remove control and the debounced auto-commit effect both derive
+//      a hasReadyPrimary boundary check straight from a primaryItem prop
+//      (never re-derived from context/any other proxy) and refuse to
+//      start preview/pricing/persistence/projection without it, enforced
+//      independently of FamilyTierAdapter.tsx's own render gate.
 //
 // Fixture-driven against real exported pure functions (utils/quote.ts,
 // ComposableOfferBrowser.tsx's buildComposableFamilyTierQuoteItem), same
@@ -337,9 +344,9 @@ const commitCallIndex = browserSource.indexOf('onCommit(buildComposableFamilyTie
 const okBranchIndex = browserSource.indexOf('setPreview({ ok: true');
 check(commitCallIndex > okBranchIndex && okBranchIndex > -1, 'onCommit is only ever reached after the successful (ok: true) branch has already run, never from the failure/catch branches above it');
 
-// ── 8b. Live-validation correction: the reconciliation effect exists and resets both selection AND hasInteracted (source-scan) ──
-// This is a component-effect timing property (a present -> absent
-// transition detected via a ref across renders), not a pure function —
+// ── 8b. Live-validation correction: the reconciliation effect exists and resets both selection AND hasInteracted on EITHER trigger (source-scan) ──
+// This is a component-effect timing property (present -> absent
+// transitions detected via refs across renders), not a pure function —
 // same precedent as section 4 above; the pure half of this same fix
 // (seedSelectionFromCartItem, upsertFamilyComposableQuoteItem's hard
 // invariant) is exercised directly in section 8 above.
@@ -349,12 +356,45 @@ check(
   'the reconciliation effect tracks the cart\'s own composable-line presence across renders via a ref, not merely reading the current prop value',
 );
 check(
-  /if \(hadCartItem && initialCartItem === null\) \{\s*setSelection\(seedSelectionFromCartItem\(rows, null\)\);\s*setHasInteracted\(false\);\s*\}/.test(browserSource),
-  'the reconciliation effect resets BOTH local selection (back to policy defaults) AND hasInteracted (disarming the auto-commit gate) on a present -> absent transition — resetting only one would either still show stale Add/Remove state or leave the auto-commit effect able to silently resurrect the removed line',
+  /hadReadyPrimaryRef = useRef\(hasReadyPrimary\)/.test(browserSource),
+  'the reconciliation effect ALSO tracks primary readiness across renders via its own ref — a customer can interact before ever having a committed Upgrade line, so the cart-item ref alone cannot catch a primary disappearing',
+);
+check(
+  /const cartItemJustRemoved = hadCartItem && initialCartItem === null;/.test(browserSource)
+    && /const primaryJustRemoved = hadReadyPrimary && !hasReadyPrimary;/.test(browserSource)
+    && /if \(cartItemJustRemoved \|\| primaryJustRemoved\) \{\s*setSelection\(seedSelectionFromCartItem\(rows, null\)\);\s*setHasInteracted\(false\);\s*\}/.test(browserSource),
+  'the reconciliation effect resets BOTH local selection (back to policy defaults) AND hasInteracted (disarming the auto-commit gate) whenever EITHER the cart\'s composable line OR the primary itself transitions present -> absent — resetting only one field, or reacting to only one trigger, would leave a gap the live-validation findings already caught',
 );
 check(
   browserSource.includes('}, [family.family_id, rowIdsKey]);'),
   'the mount/Family-switch reseed effect still excludes initialCartItem from its own dependency array — the reconciliation above is a SEPARATE, narrowly-scoped effect, never merged into that one (which would refire on every ordinary commit echo and fight the customer\'s own next click)',
+);
+
+// ── 8c. Live-validation correction (2nd round): Add/Remove and the auto-commit effect refuse to act without an exact ready primary (source-scan) ──
+// The auditor's exact finding: with the cart empty (no primary), the
+// Upgrade card still showed an enabled Add button, and clicking it could
+// locally reach "Remove"/a subtotal even though the cart correctly refused
+// to represent it (an Upgrade-engine misfire, not a cart defect). Fixed at
+// both the render gate (FamilyTierAdapter.tsx, unchanged this round) and
+// here, independently, per the auditor's explicit "enforced at both UI and
+// Upgrade-engine/domain boundaries" requirement.
+
+check(
+  /const hasReadyPrimary = primaryItem !== null;/.test(browserSource),
+  'hasReadyPrimary is derived directly from the primaryItem prop — the domain-boundary readiness signal, not re-derived from context or any other proxy',
+);
+check(
+  /if \(!hasReadyPrimary\) return;/.test(browserSource),
+  'the debounced auto-commit effect bails out before starting a preview request at all when there is no ready primary — not merely before the eventual onCommit/onRemoveFromQuote call at the end of it',
+);
+check(
+  browserSource.includes('hasInteracted, onCommit, onRemoveFromQuote, hasReadyPrimary]);'),
+  'hasReadyPrimary is a dependency of the auto-commit effect — a primary disappearing mid-debounce tears down any in-flight preview request via this effect\'s own cleanup, exactly like a Family switch already does',
+);
+const addButtonSection = browserSource.slice(browserSource.indexOf('<button'), browserSource.indexOf('{isSelected ? \'Remove\' : \'Add\'}'));
+check(
+  /disabled=\{!hasReadyPrimary\}/.test(addButtonSection) && /if \(!hasReadyPrimary\) return;/.test(addButtonSection),
+  'the Add/Remove button is disabled AND its own click handler independently refuses to act without a ready primary — belt and suspenders against a stale handler or programmatic dispatch bypassing the disabled attribute',
 );
 
 console.log('Composable quote/cart contract passed.');

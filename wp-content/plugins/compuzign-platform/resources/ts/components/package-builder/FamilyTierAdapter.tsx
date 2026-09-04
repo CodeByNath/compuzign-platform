@@ -417,6 +417,15 @@ interface FamilyTierAdapterProps {
   selectedComposableItem: FamilyTierQuoteItem | null;
   onComposableCommit: (item: FamilyTierQuoteItem) => void;
   onComposableRemove: () => void;
+  // Live-validation correction: the full quoted primary item, or null —
+  // forwarded to ComposableOfferBrowser as its own primaryItem prop so it
+  // can independently verify an exact ready base exists, rather than
+  // relying solely on this component's own selectedTierId !== null render
+  // gate below to keep it from ever committing/pricing an Upgrade with no
+  // base. Same "belt and suspenders" reasoning as selectedComposableItem
+  // above — a second, domain-boundary layer, not a replacement for the
+  // render gate.
+  selectedPrimaryItem: FamilyTierQuoteItem | null;
 }
 
 const CUSTOMER_GROUPS = [
@@ -453,6 +462,7 @@ export function FamilyTierAdapter({
   selectedComposableItem,
   onComposableCommit,
   onComposableRemove,
+  selectedPrimaryItem,
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
@@ -1236,12 +1246,19 @@ export function FamilyTierAdapter({
           route out of reach without touching ComposableOfferBrowser's own
           'build_your_own' context branch (still there, unused, for the
           later standalone phase). TODO(next phase): re-enable a standalone
-          Build Your Own entry point once that journey is designed. */}
+          Build Your Own entry point once that journey is designed.
+          Live-validation correction: selectedPrimaryItem is also passed
+          straight through as primaryItem — this render gate is the belt,
+          ComposableOfferBrowser's own internal readiness check (Add/Remove
+          disabled, auto-commit effect refusing to run) is the suspenders,
+          so a base-less Upgrade can never start pricing/persistence even
+          if this gate alone were ever bypassed or raced. */}
       {selectedTierId !== null && (
         <ComposableOfferBrowser
           family={family}
           context="upgrade_your_build"
           initialCartItem={selectedComposableItem}
+          primaryItem={selectedPrimaryItem}
           onCommit={onComposableCommit}
           onRemoveFromQuote={onComposableRemove}
         />

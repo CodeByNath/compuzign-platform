@@ -50,6 +50,17 @@ interface ComposableOfferBrowserProps {
   // the composable line entirely rather than committing a zero-value
   // placeholder cart item.
   onRemoveFromQuote: () => void;
+  // Live-validation correction (project-work/2026-09-03-composable-tier-
+  // admin-to-customer-validation.md, "Upgrade your build accepts an
+  // Upgrade while the cart has no primary"): the CURRENT authoritative
+  // primary Tier/Edition for this Family+Instance, straight from the cart
+  // — null when none is committed. FamilyTierAdapter.tsx's own render gate
+  // (selectedTierId !== null) is the belt; this is the suspenders — every
+  // Add/Remove control and the debounced auto-commit effect below refuse
+  // to act without it, so a click, a stale handler, a race during unmount,
+  // or hydration can never start preview/pricing/persistence/projection
+  // for an Upgrade with no exact base.
+  primaryItem: FamilyTierQuoteItem | null;
 }
 
 export interface BrowseRow {
@@ -254,9 +265,13 @@ export function buildComposableFamilyTierQuoteItem(
   };
 }
 
-export function ComposableOfferBrowser({ family, context, initialCartItem, onCommit, onRemoveFromQuote }: ComposableOfferBrowserProps) {
+export function ComposableOfferBrowser({ family, context, initialCartItem, onCommit, onRemoveFromQuote, primaryItem }: ComposableOfferBrowserProps) {
   const offer = family.pricing.composable_offer ?? null;
   const policy = offer?.customer_policy ?? null;
+  // Live-validation correction: the domain-boundary readiness check every
+  // Add/Remove control and the auto-commit effect below gate on — see
+  // primaryItem's own docblock above.
+  const hasReadyPrimary = primaryItem !== null;
 
   // Join inclusions (label/price/categories/service — browse metadata) with
   // the customer_policy entry sharing the same item_id (authorization/
@@ -345,15 +360,28 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
   // primary) is the second, structural layer of this same guarantee — an
   // Upgrade must never be able to live in the cart alone, by data
   // invariant, not merely by this component behaving correctly.
+  // Live-validation correction, second round: the SAME reset also fires
+  // when the primary itself disappears (hasReadyPrimary true -> false),
+  // tracked independently of initialCartItem above — a customer can
+  // interact (hasInteracted: true, something "selected") before ever
+  // having a committed Upgrade line to lose, so initialCartItem alone
+  // (still null throughout that case) would never catch it. Either
+  // transition independently triggers the same reset; neither depends on
+  // the other having fired.
   const hadCartItemRef = useRef(initialCartItem !== null);
+  const hadReadyPrimaryRef = useRef(hasReadyPrimary);
   useEffect(() => {
     const hadCartItem = hadCartItemRef.current;
+    const hadReadyPrimary = hadReadyPrimaryRef.current;
     hadCartItemRef.current = initialCartItem !== null;
-    if (hadCartItem && initialCartItem === null) {
+    hadReadyPrimaryRef.current = hasReadyPrimary;
+    const cartItemJustRemoved = hadCartItem && initialCartItem === null;
+    const primaryJustRemoved = hadReadyPrimary && !hasReadyPrimary;
+    if (cartItemJustRemoved || primaryJustRemoved) {
       setSelection(seedSelectionFromCartItem(rows, null));
       setHasInteracted(false);
     }
-  }, [initialCartItem, rows]);
+  }, [initialCartItem, hasReadyPrimary, rows]);
 
   const categories = useMemo(
     () => Array.from(new Set(rows.flatMap((row) => row.categories))).sort(),
@@ -411,6 +439,17 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
 
   useEffect(() => {
     if (rows.length === 0) return;
+    // Live-validation correction: without an exact ready primary, this
+    // effect must not even START a preview request — not merely skip the
+    // eventual onCommit/onRemoveFromQuote call at the end of it. Bailing
+    // out here, before setPreviewLoading/the debounce timer, is what
+    // satisfies "a click, stale handler, hydration, or programmatic call
+    // must not start preview, pricing, persistence, or projection without
+    // the exact primary." hasReadyPrimary is also a dependency below, so a
+    // primary disappearing mid-debounce tears down any in-flight timer via
+    // this same effect's own cleanup, exactly like a Family switch already
+    // does.
+    if (!hasReadyPrimary) return;
     const choice = buildComposableChoice(rows, selection);
 
     let cancelled = false;
@@ -474,7 +513,7 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
     // `rows`/`offer` anyway), so this avoids re-fetching merely because the
     // parent handed down a new-identity-but-same-content family object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote]);
+  }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote, hasReadyPrimary]);
 
   if (!offer || !policy || rows.length === 0) return null;
 
@@ -569,7 +608,12 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
                   step={row.policy.quantity.step}
                   value={current?.quantity ?? row.policy.quantity.default}
                   aria-label={`${row.label} quantity`}
+                  // Live-validation correction: disabled AND the handler
+                  // itself refuses to act without hasReadyPrimary — belt and
+                  // suspenders, matching the auto-commit effect's own guard.
+                  disabled={!hasReadyPrimary}
                   onInput={(event) => {
+                    if (!hasReadyPrimary) return;
                     const raw = Number((event.target as HTMLInputElement).value);
                     setSelection((prev) => ({ ...prev, [row.item_id]: { selected: true, quantity: raw } }));
                     setHasInteracted(true);
@@ -579,7 +623,14 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
               <button
                 type="button"
                 class={`cz-btn ${isSelected ? 'cz-btn-secondary' : 'cz-btn-primary'}`}
+                // Live-validation correction: without an exact ready
+                // primary this control must be non-interactive — a native
+                // disabled button already blocks the click, and the
+                // handler's own early return is the second layer for a
+                // stale handler/programmatic dispatch.
+                disabled={!hasReadyPrimary}
                 onClick={() => {
+                  if (!hasReadyPrimary) return;
                   setSelection((prev) => ({
                     ...prev,
                     [row.item_id]: {

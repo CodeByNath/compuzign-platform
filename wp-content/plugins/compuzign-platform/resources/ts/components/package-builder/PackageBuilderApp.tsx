@@ -197,6 +197,7 @@ export function PackageBuilderApp() {
               selectedComposableItem={composableItem}
               onComposableCommit={addComposable}
               onComposableRemove={removeComposable}
+              selectedPrimaryItem={primary}
             />
           </Card>
         </main>
