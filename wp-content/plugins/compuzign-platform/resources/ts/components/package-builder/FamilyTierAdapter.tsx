@@ -1226,16 +1226,26 @@ export function FamilyTierAdapter({
       {planDetailsOverlay}
       {/* Phase 2B1 — same sibling posture as planDetailsOverlay above: reads
           only `family` (composable_offer/customer_policy) plus its own
-          candidate state, never mainContent's live locals. context flips
-          purely on whether a normal Tier/Edition is currently selected —
-          it never changes which occupant this reads or how it resolves. */}
-      <ComposableOfferBrowser
-        family={family}
-        context={selectedTierId === null ? 'build_your_own' : 'upgrade_your_build'}
-        initialCartItem={selectedComposableItem}
-        onCommit={onComposableCommit}
-        onRemoveFromQuote={onComposableRemove}
-      />
+          candidate state, never mainContent's live locals.
+          Phase 0 clean reset (project-work/2026-09-03-composable-tier-
+          admin-to-customer-validation.md): there is one active customer
+          journey only — Upgrade your build, reached from an already-
+          selected primary Tier/Edition. Standalone "Build Your Own" (no
+          primary selected, selectedTierId === null) is deferred; gating
+          this entry point on selectedTierId !== null is what keeps that
+          route out of reach without touching ComposableOfferBrowser's own
+          'build_your_own' context branch (still there, unused, for the
+          later standalone phase). TODO(next phase): re-enable a standalone
+          Build Your Own entry point once that journey is designed. */}
+      {selectedTierId !== null && (
+        <ComposableOfferBrowser
+          family={family}
+          context="upgrade_your_build"
+          initialCartItem={selectedComposableItem}
+          onCommit={onComposableCommit}
+          onRemoveFromQuote={onComposableRemove}
+        />
+      )}
     </>
   );
 }
