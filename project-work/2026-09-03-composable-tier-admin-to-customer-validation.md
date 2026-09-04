@@ -1,35 +1,63 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- Pushed and deployed: `main@db154aa7b081c458a0784a7d52b51449e0757531` (fast-forward from `bdac4922`, pushed directly — no conflicts).
-- Hostinger deploy: run `33889999906`, **success**, `2026-09-04T15:31:48Z`–`15:32:32Z` (~44s).
+- **READY FOR CLAUDE — deployed customer UI validation failed**
+- Auditor verdict: **Stop — scoped interaction and token corrections required**
+- Validated deployed source: `main@db154aa7b081c458a0784a7d52b51449e0757531`
+- Deployment evidence already accepted: Hostinger run `33889999906`, successful.
+- Browser validation date: 2026-09-05.
 
-## Accepted architecture / non-change boundary
-One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Preserve native `tierOccupantId` + exact Edition identity, cart authority/removal semantics, readiness/hydration guards, schema, and Rate Sheet authority.
+## Architecture / non-change boundaries
+One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Preserve native `tierOccupantId` plus exact Edition identity, cart authority/removal semantics, readiness/hydration guards, schema, and Rate Sheet authority.
 
-**Money rule:** Rate Sheet `unit_price` is an authoritative numeric rate, not inherently cent-precision. Resolver, Commercial Legs, quote snapshots, multiplication, and aggregation use raw numeric values. Presentation-only normalization may suppress IEEE-754 representation noise but must not impose a business decimal-place policy or feed back into calculations.
+Preserve the accepted raw-number money pipeline and presentation-only precision normalisation. The live decimal correction now works: the Upgrade rows and cart correctly show $36, $0.10, $0.05 and the $36.15 aggregate. Do not reopen pricing calculations.
 
-## Auditor review result
-Reviewed `604c46fb..db154aa7`: one narrow source correction plus rebuilt assets.
+Do not change cart removal behavior, commercial totals, identity, or unrelated page layout.
 
-Accepted:
-- Removed the rejected fixed six-decimal-place ceiling.
-- `formatPrice()` now normalizes to 15 significant digits via `Number(price.toPrecision(15))`, which is tied to JavaScript `number` precision rather than a fixed currency/rate decimal-place rule.
-- `Intl.NumberFormat` then presents up to its technical fraction-digit range; known KAIROS rates `$0.023` and `$0.004` survive, as do deeper non-zero fixtures `$0.0000004` and `$0.00000004`.
-- Whole/fractional conventions remain `$50`, `$0.20`, `$36.50`, `$0.10`; `0.1 + 0.2` presents `$0.30`.
-- No calculation path was changed: multiplication/sums continue on original numeric values; formatted values remain presentation-only.
-- The previously accepted in-flow Inclusion/Qty/Price disclosure redesign and Upgrade/cart/readiness/hydration/no-Build-Your-Own safeguards are untouched.
-- Claude reports typecheck, build, docs check, money-format contract, composable quote/cart contract, and real-DOM loop regression all green.
+## Live browser findings and exact corrections
 
-Safeguard: 15 significant digits is a runtime representation normalization, **not a Rate Sheet schema precision guarantee**. Do not document it later as a commercial precision limit. If Rate Sheet storage ever moves from JS `number` semantics to exact decimal/string money, this formatter contract must be revisited rather than inherited as business policy.
+### 1. Upgrade-list icon styling does not match the cart
+The inclusion marker and +/× controls currently introduce yellow/red accent treatments that do not match the quote/cart icon language.
 
-## Next action
-Pushed and deployed per Status above. Auditor/browser agent to verify from a fresh KAIROS route against `main@db154aa7`:
-1. Block Storage `$0.10`, Object Storage `$0.023`, Archive/Cold `$0.004` and a whole-number control render correctly where those authoritative values are present.
-2. Quantity changes update Upgrade row price/subtotal/cart/Details/Total Commitment consistently.
-3. Quote disclosure expands in-flow, pushes later rows, shows Inclusion/Qty/Price + Total, and the chevron/remove controls remain independent.
-4. No customer-facing Build Your Own label appears in the active Upgrade route.
-5. Removing/swapping the base or removing Upgrade clears/disables state; reload does not resurrect it.
+- Reuse the exact existing cart icon component/style, dimensions, stroke weight, neutral colors, hit area, hover, focus, and disabled treatment.
+- Do not add a new accent color to these Upgrade-list icons.
+- Keep the accessible Add/Remove names and keyboard behavior.
+- Use CompuZign design tokens/components; do not hardcode white quantity fields, red/yellow borders, fills, radii, spacing, or control colors.
+- The quantity, per-unit/line price, and action area must use the same established tokenized dark-theme controls as the rest of CompuZign.
 
-Do not begin `CZTU`/`CZTEU` work until this live gate passes.
+### 2. Quote disclosure control placement
+- Place each inclusion chevron immediately to the **left** of that quote item’s existing remove ×.
+- Keep chevron and remove × as separate controls with separate hit targets and semantics.
+- Do not move the disclosure below the price block or repurpose the cart remove ×.
+
+### 3. Disclosure switching is malfunctioning
+When one inclusion dropdown is open, clicking a different quote item’s chevron is being consumed by the outside-click close behavior instead of opening the requested item.
+
+Required behavior:
+- Clicking a closed item’s chevron opens that item.
+- If another item is open, the same click atomically closes the old dropdown and opens the newly requested dropdown.
+- Do not require a second click.
+- Chevron controls must be excluded from the generic outside-click dismissal path.
+- A genuine click outside the active dropdown wrapper and all disclosure toggles closes the active dropdown.
+- Clicking the active item’s control closes it normally.
+- At most one quote inclusion dropdown is open at a time.
+- The expanded content remains an in-flow dropdown that pushes following quote rows; it must not float or overlap.
+
+### 4. Remove the detached Upgrade aggregate
+The standalone `$36.15 / mo Ongoing` line below the Upgrade inclusion list is redundant and visually disconnected.
+
+- Remove it from layout, or hide it completely.
+- Keep each inclusion’s inline calculated price and the authoritative aggregate in the quote/cart summary.
+- Removing this display must not remove or alter the underlying aggregate used by the cart and Details.
+
+## Acceptance checks
+1. Upgrade inclusion icons and controls match the cart’s neutral icon styling and exact sizing; no new accent styling or hardcoded control values remain.
+2. Quantity controls and action cells render correctly in supported CompuZign themes using existing tokens.
+3. Every quote chevron sits directly left of its independent remove ×.
+4. Switching from one open disclosure to another works on the first click and leaves only the requested dropdown open.
+5. Outside click closes; clicks inside the dropdown or on another toggle are handled correctly.
+6. Disclosures stay in-flow and push subsequent rows.
+7. The detached Upgrade subtotal is absent, while row prices, cart aggregate, Details, and Total Commitment remain correct.
+8. Existing decimal precision, cart removal, readiness, hydration, and no-Build-Your-Own protections remain unchanged.
+
+Report affected components, reused cart icon/token primitives, interaction testsless, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
