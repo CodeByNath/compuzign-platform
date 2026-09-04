@@ -3,7 +3,7 @@ import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, composableCoexistsWithPrimary, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
-import { InclusionDisclosure, disclosureRowsForFamilyTierItem } from './InclusionDisclosure';
+import { InclusionDisclosureToggle, InclusionDisclosurePanel, disclosureRowsForFamilyTierItem, useSingleOpenDisclosure } from './InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from './types';
 
 interface QuoteSummaryProps {
@@ -26,6 +26,7 @@ interface QuoteSummaryProps {
 
 export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails }: QuoteSummaryProps) {
   const [clearPending, setClearPending] = useState(false);
+  const { openKey: openDisclosureKey, toggle: toggleDisclosure, panelRef: disclosurePanelRef } = useSingleOpenDisclosure();
 
   const handleClear = () => {
     onClear();
@@ -126,20 +127,37 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
           const streams = isFamilyTierQuoteItem(item) ? item.legPaymentSummaries : null;
           const hasStreams = !!streams && streams.length > 0;
           const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
+          const key = quoteItemKey(item);
+          const disclosureRows = isFamilyTierQuoteItem(item) ? disclosureRowsForFamilyTierItem(item) : [];
+          const disclosureOpen = openDisclosureKey === key;
           return (
-            <li key={quoteItemKey(item)} class="cz-quote-summary__item">
+            <li key={key} class="cz-quote-summary__item">
               {/* Phase 6: fixed top-right corner, independent of the content
                   column's own height below (1 line for a simple item,
                   several for a multi-stream one with its own Total row) —
-                  never competing with price text for horizontal space. */}
-              <button
-                type="button"
-                class="cz-quote-summary__remove"
-                onClick={() => onRemove(item)}
-                aria-label={`Remove ${isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}`}
-              >
-                ×
-              </button>
+                  never competing with price text for horizontal space.
+                  Auditor correction: the inclusion chevron now sits in this
+                  SAME corner cluster, immediately left of the remove × —
+                  two separate controls, separate hit targets, never one
+                  repurposed as the other. */}
+              <div class="cz-quote-summary__corner-actions">
+                {isFamilyTierQuoteItem(item) && (
+                  <InclusionDisclosureToggle
+                    label={item.familyTitle}
+                    rows={disclosureRows}
+                    open={disclosureOpen}
+                    onClick={() => toggleDisclosure(key)}
+                  />
+                )}
+                <button
+                  type="button"
+                  class="cz-quote-summary__remove"
+                  onClick={() => onRemove(item)}
+                  aria-label={`Remove ${isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}`}
+                >
+                  ×
+                </button>
+              </div>
               <div class="cz-quote-summary__item-info">
                 <span class="cz-quote-summary__item-title">{isFamilyTierQuoteItem(item) ? item.familyTitle : item.serviceTitle}</span>
                 {/* Live-correction round: a composable ("Build Your Own")
@@ -159,49 +177,44 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
                     untouched (still read by quote capture/PDF/admin
                     surfaces); this component simply stops printing them. */}
               </div>
-              <div class="cz-quote-summary__price-row">
-                <div class="cz-quote-summary__item-prices">
-                  {hasStreams ? (
-                    <>
-                      {streams!.map((stream) => (
-                        <div key={stream.source} class="cz-quote-summary__stream-row">
-                          <span class="cz-quote-summary__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
-                          <span class="cz-quote-summary__stream-value">{formatPrice(stream.price)}</span>
-                        </div>
-                      ))}
-                      {/* Phase 7: "Total" (this item's own subtotal) — deliberately
-                          NOT "Total Contract Value" (that wording is reserved for
-                          the whole-cart footer below, so the two numbers are never
-                          confused for each other). Only when finite; an ongoing
-                          stream leaves just its own row(s) above, never a fake
-                          finite Total. */}
-                      {totalContractValue !== null && (
-                        <div class="cz-quote-summary__stream-row cz-quote-summary__stream-row--total">
-                          <span class="cz-quote-summary__stream-label">Total</span>
-                          <span class="cz-quote-summary__stream-value">{formatPrice(totalContractValue)}</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <span class="cz-quote-summary__item-price">
-                      {item.price !== null ? (
-                        <>
-                          {formatPrice(item.price)}
-                          {flatCycleSuffix && (
-                            <span class="cz-quote-summary__item-cycle">{' '}{flatCycleSuffix}</span>
-                          )}
-                        </>
-                      ) : 'Custom'}
-                    </span>
-                  )}
-                </div>
-                {isFamilyTierQuoteItem(item) && (
-                  <InclusionDisclosure
-                    label={item.familyTitle}
-                    rows={disclosureRowsForFamilyTierItem(item)}
-                  />
+              <div class="cz-quote-summary__item-prices">
+                {hasStreams ? (
+                  <>
+                    {streams!.map((stream) => (
+                      <div key={stream.source} class="cz-quote-summary__stream-row">
+                        <span class="cz-quote-summary__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                        <span class="cz-quote-summary__stream-value">{formatPrice(stream.price)}</span>
+                      </div>
+                    ))}
+                    {/* Phase 7: "Total" (this item's own subtotal) — deliberately
+                        NOT "Total Contract Value" (that wording is reserved for
+                        the whole-cart footer below, so the two numbers are never
+                        confused for each other). Only when finite; an ongoing
+                        stream leaves just its own row(s) above, never a fake
+                        finite Total. */}
+                    {totalContractValue !== null && (
+                      <div class="cz-quote-summary__stream-row cz-quote-summary__stream-row--total">
+                        <span class="cz-quote-summary__stream-label">Total</span>
+                        <span class="cz-quote-summary__stream-value">{formatPrice(totalContractValue)}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <span class="cz-quote-summary__item-price">
+                    {item.price !== null ? (
+                      <>
+                        {formatPrice(item.price)}
+                        {flatCycleSuffix && (
+                          <span class="cz-quote-summary__item-cycle">{' '}{flatCycleSuffix}</span>
+                        )}
+                      </>
+                    ) : 'Custom'}
+                  </span>
                 )}
               </div>
+              {disclosureOpen && (
+                <InclusionDisclosurePanel rows={disclosureRows} panelRef={disclosurePanelRef} />
+              )}
             </li>
           );
         })}

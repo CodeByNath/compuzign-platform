@@ -3,7 +3,7 @@ import { resolveEffectiveTierDisplay } from '@/components/cost-builder/PricingTi
 import { computeTotalContractValue, startingPaymentsByCycle, chargeTypeLabel } from '@/utils/paymentSummary';
 import { formatPrice } from '@/utils/format';
 import { composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
-import { InclusionDisclosure, disclosureRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
+import { InclusionDisclosureToggle, InclusionDisclosurePanel, disclosureRowsForFamilyTierItem, useSingleOpenDisclosure } from '@/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import { periodsForVariant } from './FamilyTierAdapter';
@@ -217,6 +217,7 @@ function ComposablePlanDetails({ item, items }: { item: FamilyTierQuoteItem; ite
 }
 
 function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuoteItem[]; families: PackageBuilderFamily[]; tiers: Tier[] }) {
+  const { openKey: openDisclosureKey, toggle: toggleDisclosure, panelRef: disclosurePanelRef } = useSingleOpenDisclosure();
   // Same math as QuoteSummary.tsx's own footer (combinedPrimaryTotalContractValue/
   // initialPaymentTotal) — reused via the same exported primitives, never a
   // second re-derivation of Total Contract Value or the starting-payment rule.
@@ -240,12 +241,23 @@ function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuote
           const planLabel = planDisplayLabel(item, items, resolved?.planLabel ?? item.tierTitle);
           const streams = item.legPaymentSummaries ?? [];
           const total = totalContractValues[index];
+          const key = quoteItemKey(item);
+          const disclosureRows = disclosureRowsForFamilyTierItem(item);
+          const disclosureOpen = openDisclosureKey === key;
           return (
-            <div key={quoteItemKey(item)} class="cz-package-builder__commitment-plan">
+            <div key={key} class="cz-package-builder__commitment-plan">
               <div class="cz-package-builder__commitment-plan-header">
                 <h5 class="cz-package-builder__details-period-heading">{item.familyTitle} — {planLabel}</h5>
-                <InclusionDisclosure label={`${item.familyTitle} — ${planLabel}`} rows={disclosureRowsForFamilyTierItem(item)} />
+                <InclusionDisclosureToggle
+                  label={`${item.familyTitle} — ${planLabel}`}
+                  rows={disclosureRows}
+                  open={disclosureOpen}
+                  onClick={() => toggleDisclosure(key)}
+                />
               </div>
+              {disclosureOpen && (
+                <InclusionDisclosurePanel rows={disclosureRows} panelRef={disclosurePanelRef} />
+              )}
               {streams.length > 0 ? (
                 <>
                   {streams.map((stream) => (

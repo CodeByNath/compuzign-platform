@@ -454,19 +454,20 @@ check(
   'the Upgrade detail table\'s Unit Price/Total cells read the quoted item\'s own stored inclusionItems.unit_price/line_total verbatim — never a second re-derivation of pricing in presentation code',
 );
 
-// 10b. One shared InclusionDisclosure — chevron/× toggle, closes on outside
-// click, used by BOTH the per-quote-line quick view and Total Commitment.
+// 10b. One shared InclusionDisclosure toggle/panel pair, coordinated by
+// the shared useSingleOpenDisclosure() hook — closes on outside click,
+// used by BOTH the per-quote-line quick view and Total Commitment.
 check(
-  /aria-expanded=\{open\}/.test(inclusionDisclosureSource) && /setOpen\(false\)/.test(inclusionDisclosureSource),
+  /aria-expanded=\{open\}/.test(inclusionDisclosureSource) && inclusionDisclosureSource.includes('setOpenKey(null)'),
   'InclusionDisclosure exposes its open state via aria-expanded and closes on an outside pointerdown',
 );
 check(
-  quoteSummarySource.includes('<InclusionDisclosure'),
-  'QuoteSummary.tsx renders the shared InclusionDisclosure on its quote lines',
+  quoteSummarySource.includes('<InclusionDisclosureToggle') && quoteSummarySource.includes('<InclusionDisclosurePanel'),
+  'QuoteSummary.tsx renders the shared InclusionDisclosureToggle/Panel on its quote lines',
 );
 check(
-  quoteDetailsOverlaySource.includes('<InclusionDisclosure'),
-  'QuoteDetailsOverlay.tsx renders the SAME shared InclusionDisclosure on its Total Commitment rows — never a second implementation of the same open/close/outside-click behavior',
+  quoteDetailsOverlaySource.includes('<InclusionDisclosureToggle') && quoteDetailsOverlaySource.includes('<InclusionDisclosurePanel'),
+  'QuoteDetailsOverlay.tsx renders the SAME shared InclusionDisclosureToggle/Panel on its Total Commitment rows — never a second implementation of the same open/close/outside-click behavior',
 );
 
 // 10c. Compact selection list: icon-only Add/Remove with an accessible
@@ -597,13 +598,9 @@ check(
   'a distinct Total row renders below the table',
 );
 
-// 12c. QuoteSummary.tsx places the chevron beside the item's own price
-// block (a shared flex row), not stacked as a separate block below it.
-const freshQuoteSummarySource = readFileSync(resolve(root, 'resources/ts/components/cost-builder/QuoteSummary.tsx'), 'utf8');
-check(
-  freshQuoteSummarySource.includes('cz-quote-summary__price-row'),
-  'QuoteSummary.tsx wraps the item-prices block and the InclusionDisclosure toggle in one price-row so the chevron sits beside the price',
-);
+// 12c. [Superseded by section 13b below — the chevron no longer sits
+// beside the price block, it sits in the corner-actions cluster beside
+// the remove × per this round's correction.]
 
 // 12d. The CSS no longer positions the panel as a floating dropdown.
 const freshCostBuilderCss = readFileSync(resolve(root, 'resources/css/modules/cost-builder.css'), 'utf8');
@@ -612,8 +609,79 @@ check(
   'the old floating .cz-inclusion-disclosure__list rule is gone',
 );
 check(
-  /\.cz-inclusion-disclosure\s*\{\s*display:\s*contents;/.test(freshCostBuilderCss),
-  'the wrapper is display: contents so the toggle/panel become direct items of the caller\'s own flex row (the in-flow expansion mechanism)',
+  !/position:\s*absolute/.test(freshInclusionDisclosureSource),
+  'InclusionDisclosure.tsx still never absolutely positions its panel',
+);
+
+// ── 13. Auditor correction ("deployed customer UI validation failed" round) ──
+
+// 13a. useSingleOpenDisclosure(): a single shared openKey per list, a
+// race-safe functional toggle, and an outside-click listener that
+// explicitly excludes every chevron toggle (not just the currently-open
+// one) and the open panel's own subtree — the auditor's exact requirement
+// that chevron controls never fall through the generic dismiss path.
+check(
+  freshInclusionDisclosureSource.includes('export function useSingleOpenDisclosure'),
+  'a single shared hook owns "at most one open, atomic switch, outside-click closes" for a whole list — never per-instance state that has to stay in sync on its own',
+);
+check(
+  /setOpenKey\(\(current\) => \(current === key \? null : key\)\)/.test(freshInclusionDisclosureSource),
+  'toggle() uses the functional setState form — reads the LATEST openKey regardless of an outside-click close from the same interaction, so switching to a different item is atomic on the first click',
+);
+check(
+  /target\.closest\(`\.\$\{INCLUSION_DISCLOSURE_TOGGLE_CLASS\}`\)/.test(freshInclusionDisclosureSource),
+  'the outside-click listener explicitly excludes ANY chevron toggle (via closest(), matching every rendered toggle, not just the open item\'s own) from the generic dismiss path',
+);
+check(
+  /panelRef\.current && panelRef\.current\.contains\(target\)/.test(freshInclusionDisclosureSource),
+  'the outside-click listener also excludes clicks inside the open panel\'s own subtree',
+);
+
+// 13b. QuoteSummary.tsx: the chevron toggle sits in the SAME corner
+// cluster as the remove ×, immediately to its left — two independent
+// controls, never one repurposed as the other.
+check(
+  /<div class="cz-quote-summary__corner-actions">[\s\S]{0,400}InclusionDisclosureToggle[\s\S]{0,400}cz-quote-summary__remove/.test(quoteSummarySource),
+  'the inclusion chevron toggle renders inside .cz-quote-summary__corner-actions BEFORE the cart remove ×, so it sits immediately to its left',
+);
+
+// 13c. ComposableOfferBrowser.tsx: the detached resolved-summaries
+// aggregate is gone from render, but preview.summaries itself (and the
+// auto-commit effect that reads it) is untouched — only the presentation
+// block was removed.
+check(
+  !/preview\.summaries\.map\(\(summary\)/.test(browserSource),
+  'the standalone resolved-summaries list ("$X.XX / mo Ongoing"-style rows) no longer renders in ComposableOfferBrowser.tsx — removed as a redundant, visually-disconnected duplicate of the authoritative cart/Details aggregate',
+);
+check(
+  browserSource.includes('setPreview({ ok: true, summaries, contributions, message: null })')
+    && browserSource.includes('buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows)'),
+  'preview.summaries and the auto-commit effect that builds the committed item from it are untouched — removing the display block did not alter the underlying aggregate used by the cart and Details',
+);
+
+// 13d. ComposableOfferBrowser.tsx: the row icon and +/× action no longer
+// carry a permanent accent/danger fill — restyled to the cart's own
+// neutral-by-default, colored-on-hover-only icon language.
+const freshCostBuilderCssForIcons = freshCostBuilderCss;
+const composableRowIconRule = freshCostBuilderCssForIcons.slice(
+  freshCostBuilderCssForIcons.indexOf('.cz-package-builder__composable-row-icon {'),
+  freshCostBuilderCssForIcons.indexOf('.cz-package-builder__composable-row-label {'),
+);
+check(
+  /color:\s*var\(--cz-color-muted\)/.test(composableRowIconRule),
+  'the composable row icon is neutral (--cz-color-muted) by default, matching the cart\'s own icon language — no permanent accent fill',
+);
+const composableRowActionBaseRule = freshCostBuilderCssForIcons.slice(
+  freshCostBuilderCssForIcons.indexOf('.cz-package-builder__composable-row-action {'),
+  freshCostBuilderCssForIcons.indexOf('.cz-package-builder__composable-row-action.is-add:hover'),
+);
+check(
+  /color:\s*var\(--cz-color-muted\)/.test(composableRowActionBaseRule) && /border:\s*1px solid transparent/.test(composableRowActionBaseRule) && composableRowActionBaseRule.includes('width: 22px'),
+  'the composable list\'s +/× action is neutral by default with a transparent border and the SAME 22px sizing as .cz-quote-summary__remove — colored only on hover:not(:disabled), never a permanent accent/danger fill',
+);
+check(
+  /\.cz-package-builder__composable-row-qty\s*\{[^}]*color:\s*var\(--cz-color-text\)[^}]*background:\s*var\(--cz-color-surface\)/.test(freshCostBuilderCssForIcons),
+  'the quantity field carries explicit tokenized text/surface colors — never the browser\'s own default white input background',
 );
 
 console.log('Composable quote/cart contract passed.');

@@ -703,26 +703,18 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
         >›</button>
       </div>
 
+      {/* Auditor correction ("deployed customer UI validation failed"
+          round): the standalone resolved-summaries list (one "$X.XX / mo
+          Ongoing"-style row per commercial stream) that used to render
+          here was a detached duplicate of the SAME aggregate already
+          shown in the quote/cart summary and Details — removed as
+          redundant and visually disconnected. preview.summaries itself is
+          untouched (still read by the auto-commit effect above to decide
+          onCommit/onRemoveFromQuote and to build the committed item) —
+          only this presentation block is gone; loading/error/empty
+          feedback for the live preview request remain. */}
       <div class="cz-package-builder__composable-preview" aria-live="polite">
         {previewLoading && <span>Updating…</span>}
-        {!previewLoading && preview.ok && preview.summaries && preview.summaries.length > 0 && (
-          <ul class="cz-package-builder__composable-preview-list">
-            {preview.summaries.map((summary) => (
-              <li key={summary.source} class="cz-package-builder__composable-preview-row">
-                <span class="cz-package-builder__composable-preview-amount">
-                  {formatPrice(summary.price)}{cycleSuffix(summary.billingCycle)}
-                </span>
-                <span class="cz-package-builder__composable-preview-timing">
-                  {summary.isOngoing
-                    ? 'Ongoing'
-                    : summary.endMonth !== null
-                      ? `Month ${summary.startMonth}–${summary.endMonth}`
-                      : `From month ${summary.startMonth}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
         {!previewLoading && preview.ok && preview.summaries && preview.summaries.length === 0 && (
           <span>No inclusions selected yet.</span>
         )}

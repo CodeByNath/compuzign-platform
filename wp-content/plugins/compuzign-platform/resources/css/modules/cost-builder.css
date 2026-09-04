@@ -898,19 +898,6 @@
    (rather than each row managing its own vertical gap) so a single
    flat-price item can still fall back to the plain .item-price span below
    without a wrapper mismatch. */
-/* Auditor correction: the inline-SVG chevron disclosure toggle sits beside
-   the quote item's own price block — flex-wrap: wrap so
-   InclusionDisclosure's own full-width panel (flex-basis: 100%, see
-   InclusionDisclosure.tsx/its CSS) drops onto its own line beneath this
-   row when open, in flow, rather than floating over anything. */
-.cz-quote-summary__price-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--cz-space-2);
-}
-
 .cz-quote-summary__item-prices {
   display: flex;
   flex-direction: column;
@@ -962,13 +949,22 @@
   white-space: nowrap;
 }
 
-/* Fixed top-right corner, independent of the content column's own height
-   (1 line for a simple item, several for a multi-stream one with its own
-   Total row) — never competing with price text for horizontal space. */
-.cz-quote-summary__remove {
+/* Auditor correction: fixed top-right corner cluster, independent of the
+   content column's own height (1 line for a simple item, several for a
+   multi-stream one with its own Total row) — never competing with price
+   text for horizontal space. The inclusion chevron now lives in this SAME
+   cluster, immediately left of the remove × — two separate controls with
+   separate hit targets, never one repurposed as the other. */
+.cz-quote-summary__corner-actions {
   position: absolute;
   top: var(--cz-space-3);
   right: var(--cz-space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-1);
+}
+
+.cz-quote-summary__remove {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -994,20 +990,16 @@
 /* Auditor correction ("deployed customer validation failed" round):
    in-flow expansion (never floating/absolute) with a project-standard
    inline-SVG chevron — shared by every quote line (QuoteSummary.tsx) and
-   every Total Commitment plan row (QuoteDetailsOverlay.tsx). `display:
-   contents` so this wrapper introduces no box of its own: the toggle
-   button and the panel become direct items of whichever flex row the
-   caller places this component in (see .cz-quote-summary__price-row /
-   .cz-package-builder__commitment-plan-header, both flex-wrap: wrap), and
-   the panel's own flex-basis: 100% below forces it onto its own full-width
-   line beneath the price/heading row it sits beside — "expands in flow and
-   pushes later content down", never an overlay. Deliberately separate from
-   .cz-quote-summary__remove (own control, own hit target), never
-   repurposed as it. */
-.cz-inclusion-disclosure {
-  display: contents;
-}
-
+   every Total Commitment plan row (QuoteDetailsOverlay.tsx). Auditor
+   correction: the toggle (a plain button, no wrapping element) and the
+   panel (a plain div, no wrapping element) are now two SEPARATE
+   components rendered at two different points in the caller's own
+   markup — the toggle sits in the quote line's own top-right corner
+   cluster next to the remove × (.cz-quote-summary__corner-actions), the
+   panel renders lower in the same list item's normal document flow, full
+   width, pushing anything after it down — never an overlay. Deliberately
+   separate from .cz-quote-summary__remove (own control, own hit target),
+   never repurposed as it. */
 .cz-inclusion-disclosure__toggle {
   display: flex;
   align-items: center;
@@ -1044,7 +1036,6 @@
 }
 
 .cz-inclusion-disclosure__panel {
-  flex: 1 1 100%;
   width: 100%;
   margin-top: var(--cz-space-2);
   padding: var(--cz-space-2) var(--cz-space-3);
@@ -5223,11 +5214,19 @@
 
 /* Live-validation correction ("Upgrade selections should be a compact
    list"): the oversized per-item cards below became one compact row list —
-   small yellow-accent category icon + label on the left (the same
-   .cz-package-builder__category-icon treatment the family header already
-   uses), inline quantity/total in the middle, an icon-only +/× action on
-   the right. Filtering/sorting/pagination/selection state above are
-   unchanged; this is presentation only. */
+   a small category icon + label on the left, inline quantity/total in the
+   middle, an icon-only +/× action on the right. Filtering/sorting/
+   pagination/selection state above are unchanged; this is presentation
+   only.
+   Auditor correction ("deployed customer UI validation failed" round):
+   the icon and +/× action originally carried permanent yellow/red accent
+   styling that didn't match the cart's own neutral icon language
+   (.cz-quote-summary__remove — muted by default, colored only on hover,
+   exact 22px sizing, transparent border reserving hover space) — restyled
+   below to match that exact recipe. The quantity field also gained
+   explicit surface/text color tokens: it previously inherited the
+   browser's own default white input background instead of the app's
+   dark-theme surface. */
 .cz-package-builder__composable-list {
   display: flex;
   flex-direction: column;
@@ -5255,7 +5254,7 @@
   width: var(--cz-space-3);
   height: var(--cz-space-3);
   flex: 0 0 auto;
-  color: var(--cz-color-accent);
+  color: var(--cz-color-muted);
 }
 
 .cz-package-builder__composable-row-label {
@@ -5275,6 +5274,8 @@
   padding: var(--cz-space-1) var(--cz-space-2);
   border: 1px solid var(--cz-color-border);
   border-radius: var(--cz-radius-sm);
+  color: var(--cz-color-text);
+  background: var(--cz-color-surface);
 }
 
 .cz-package-builder__composable-row-total {
@@ -5295,41 +5296,37 @@
   font-size: var(--cz-font-size-xs);
 }
 
+/* Matches .cz-quote-summary__remove's exact neutral recipe: muted by
+   default, transparent border reserving hover space (no layout shift),
+   colored only on hover — never a permanent accent/danger fill. */
 .cz-package-builder__composable-row-action {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   padding: 0;
-  border: 1px solid var(--cz-color-line-strong);
-  border-radius: var(--cz-radius-sm);
-  background: var(--cz-color-surface);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
+  color: var(--cz-color-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--cz-radius-sm);
   cursor: pointer;
   transition: color var(--cz-transition-fast), border-color var(--cz-transition-fast), background var(--cz-transition-fast);
 }
 
-.cz-package-builder__composable-row-action.is-add {
+.cz-package-builder__composable-row-action.is-add:hover:not(:disabled) {
   color: var(--cz-color-accent);
   border-color: var(--cz-color-accent);
-}
-
-.cz-package-builder__composable-row-action.is-add:hover:not(:disabled) {
-  background: var(--cz-color-accent);
-  color: var(--cz-color-surface);
-}
-
-.cz-package-builder__composable-row-action.is-remove {
-  color: var(--cz-color-danger, #b3261e);
-  border-color: var(--cz-color-danger, #b3261e);
+  background: color-mix(in srgb, var(--cz-color-accent) 8%, transparent);
 }
 
 .cz-package-builder__composable-row-action.is-remove:hover:not(:disabled) {
-  background: var(--cz-color-danger, #b3261e);
-  color: var(--cz-color-surface);
+  color: var(--cz-color-danger);
+  border-color: var(--cz-color-danger);
+  background: color-mix(in srgb, var(--cz-color-danger) 8%, transparent);
 }
 
 .cz-package-builder__composable-row-action:disabled {
