@@ -1,47 +1,46 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- Auditor verdict (prior round): **Proceed with safeguards**
-- `main` pushed and deployed: `main@3e021964aea127840b00c278c322214c46e1c1b6` (fast-forward from `eaead453`, exactly the approved Phase 0 review head — no unrelated commits included)
-- Deployment evidence: GitHub Actions **Deploy to Hostinger**, run `33864290139` (`#945`), `head_sha=3e021964...`, `status=completed`, `conclusion=success`, started `2026-09-04T10:39:50Z`, finished `2026-09-04T10:45:34Z`
+- **READY FOR CLAUDE — Phase 0 live gate failed**
+- Auditor verdict: **Stop — architectural risk**
+- Validated deployed source: `main@3e021964aea127840b00c278c322214c46e1c1b6`
+- Deployment evidence already accepted: Hostinger run `33864290139`, successful for the exact SHA.
+- Browser validation date: 2026-09-04.
 
 ## Accepted Phase 0 architecture
 One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own is deferred and disabled. Upgrade must never fall through, relabel, transition, or survive as standalone Build Your Own.
 
-Phase 0 does **not** implement the future Upgrade identity/finalisation pipeline yet. It only removes the hybrid Upgrade->Build Your Own design and isolates the live route cleanly.
+Phase 0 does not implement the future Upgrade identity/finalisation pipeline. Do not mint `CZTU`/`CZTEU`, introduce `CZTC`/`CZTEC`, or restore the removed Finalise-to-Build-Your-Own machinery.
 
-## Platform identity direction retained for next phase
-Use the **CompuZign Platform skill**. Reuse the existing Tier/Edition occupant identity/lifecycle/persistence/allocator/resolver/order pipeline.
+Preserve the accepted exact-base rule: native `tierOccupantId` plus exact Edition identity. Removing the base must remove its Upgrade and attached add-ons; swapping to a genuinely different base must remove the Upgrade; reconfirming the same exact base may preserve it.
 
-- Tier: Default `CZT...`; Upgrade `CZTUXXXXX`; future Custom `CZTCXXXXX`
-- Edition: Default `CZTE...`; Upgrade `CZTEUXXXXX`; future Custom `CZTECXXXXX`
-- Existing `tierOccupantId` is the native identity foundation.
-- `CZTC`/`CZTEC` remain reserved for later Build Your Own and must not be minted now.
+## Live browser findings
+Validated on the customer pricing page in the KAIROS — IaaS route.
 
-## Auditor review result
-Reviewed net Phase 0 chain from `main@eaead453` through `04b871e3`, `be0e10bf`, and `3e021964`.
+1. **FAIL — direct Build Your Own remains exposed.**
+   - User evidence shows an upgrade-only cart line labelled `KAIROS — IaaS / BUILD YOUR OWN` with Monthly $10 and estimated monthly total $10.
+   - The upgrade surface simultaneously shows Block Storage $10 with **Remove**.
+   - This is the prohibited standalone/fallback representation. Phase 0 must never expose Build Your Own.
 
-Accepted findings:
-- hybrid Finalise->Build Your Own machinery and its repair patches are removed;
-- `FamilyTierAdapter` exposes composable browsing only when a Tier/Edition base exists and always in `upgrade_your_build` context;
-- standalone Build Your Own is unreachable and explicitly TODO/deferred;
-- removing the base removes dependent Upgrade + add-ons; swapping to a different base removes the Upgrade;
-- same exact base reconfirm preserves the Upgrade;
-- exact-base comparison is now correctly anchored on native `tierOccupantId` plus exact Edition identity, not display/platform fields;
-- contracts cover remove-base, swap-base, occupant-change, and same-occupant/same-Edition preservation;
-- no `CZTU`/`CZTEU` minting, new finalisation state machine, or Custom route was added.
+2. **FAIL — cart removal is only one-way.**
+   - Starting with Business Pro selected, adding Block Storage correctly changes the card to **Remove**, adds a separate `UPGRADES / Monthly $10` cart item, and changes the total from $675 to $685.
+   - Removing that Upgrade through its cart × correctly removes the cart row and returns the total to $675.
+   - However, the upgrade card remains **Remove**, retains Block Storage $10, and retains the `$10 / mo Ongoing` upgrade subtotal. The editor therefore disagrees with the authoritative cart.
+   - Removing the Business Pro base afterwards clears the quote cart but still leaves Block Storage selected and priced in **Upgrade your build**, with no active Tier/Edition base.
+   - Adding/removing through the upgrade card itself synchronizes the cart correctly; the defect is specifically cart-originated removal and its dependent cleanup.
 
-Claude reports `tsc --noEmit`, build, docs check, and the relevant composable/package-family/quote-cart/tier contracts passing.
+These behaviors reproduce the user’s marked evidence. They also provide the stale orphan state that can surface the invalid upgrade-only Build Your Own cart item.
 
-## Next action
-Pushed and deployed per Status above (`main` fast-forwarded by the user after auditor approval; Claude verified the exact SHA and the Hostinger run). Auditor/browser agent to live-validate against `main@3e021964`:
+## Exact fix request for Claude
+1. Make cart-originated removal use the same authoritative Upgrade removal transition as the upgrade-card **Remove** action. It must clear the committed Upgrade selection, preview/subtotal, selected-card state, and derived cart projection together.
+2. When a Tier/Edition base is removed by cart × or **Clear all**, atomically remove its dependent Upgrade and attached add-ons from both cart and upgrade editor state. Do not leave the Upgrade surface selected or commercially active without an exact base.
+3. Ensure no reducer, hydration/reload, fallback, or projection path can materialize an Upgrade as a `BUILD YOUR OWN` item. If no exact base exists, discard the orphan Upgrade rather than relabelling it.
+4. Keep the Phase 0 non-change boundary: no finalisation pipeline, standalone Build Your Own route, new identities, schema changes, pricing changes, or unrelated UI redesign.
+5. Add regressions for:
+   - add Upgrade, remove its cart row: card returns to **Add**, subtotal disappears, base total restores;
+   - add Upgrade, remove base through cart ×: base, Upgrade, and attached add-ons all disappear from every surface;
+   - **Clear all** performs the same cascade;
+   - reload/hydration with an orphan Upgrade does not show Upgrade UI state or a Build Your Own cart item;
+   - same exact base reconfirm preserves Upgrade, while genuinely different base replacement removes it.
 
-- no standalone Build Your Own entry point is reachable;
-- Upgrade appears only once an existing Tier/Edition base is selected;
-- removing the base removes the Upgrade + add-ons;
-- swapping to a genuinely different base removes the Upgrade;
-- reconfirming the same exact base (e.g. a plan-duration change) keeps the Upgrade;
-- no customer-facing fallback to Build Your Own anywhere.
-
-Do not begin `CZTU`/`CZTEU` implementation until this Phase 0 live gate passes.
+Report root cause, changed files, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
