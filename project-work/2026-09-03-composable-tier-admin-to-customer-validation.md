@@ -60,4 +60,4 @@ The standalone `$36.15 / mo Ongoing` line below the Upgrade inclusion list is re
 7. The detached Upgrade subtotal is absent, while row prices, cart aggregate, Details, and Total Commitment remain correct.
 8. Existing decimal precision, cart removal, readiness, hydration, and no-Build-Your-Own protections remain unchanged.
 
-Report affected components, reused cart icon/token primitives, interaction testsless, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
+Report affected components, reused cart icon/token primitives, interaction tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
