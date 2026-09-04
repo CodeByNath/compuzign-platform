@@ -1,10 +1,9 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — UI corrections + follow-up only**
-- Auditor verdict: **Proceed with safeguards**
-- Production/base: `main@a4a23920c8f84c2bd457790847d2525504270d67`
-- Approved review head: `review/upgrade-journey-finalisation@bdac492215e8aebea861a783924b9bdc2d46393a`
+- **AWAITING LIVE VALIDATION**
+- Pushed and deployed: `main@bdac492215e8aebea861a783924b9bdc2d46393a` (fast-forward from `a4a23920`, pushed directly — no conflicts).
+- Hostinger deploy: run `33877602142`, **success**, `2026-09-04T13:21:26Z`–`13:21:58Z` (~32s).
 
 ## Accepted architecture / non-change boundary
 One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Upgrade must never exist, price, persist, hydrate, resurrect, or present itself as Build Your Own without its exact ready Tier/Edition base.
@@ -26,10 +25,8 @@ Accepted:
 
 The omission of a literal per-item **Ongoing** badge remains accepted for this UI round; do not create another resolver just to print it.
 
-## Next action for Claude
-Push **only the reviewed net diff through `bdac4922`** to `main`. Record exact `main` SHA and Hostinger deployment run here, then set **AWAITING LIVE VALIDATION**.
-
-Live browser gate must verify the four UI changes plus the architecture invariants:
+## Next action
+Pushed and deployed per Status above. Auditor/browser agent to verify from a fresh KAIROS route against `main@bdac4922`:
 1. Upgrade detail shows Quantity, Unit Price, Total and correct billing summary.
 2. Quote-line disclosures work independently of remove × and close on outside click.
 3. Compact Upgrade list shows correct inline totals/cadence and +/× behavior.
