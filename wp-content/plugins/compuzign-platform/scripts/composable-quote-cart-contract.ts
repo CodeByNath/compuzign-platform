@@ -24,7 +24,16 @@
 //      compatible;
 //   7. no Request/PDF/email files changed — verified manually and recorded
 //      in the coordination doc (not a source-scannable "diff" property a
-//      standing contract can check).
+//      standing contract can check);
+//   8. [Live-validation correction] a composable ("Upgrade your build")
+//      line can never live in the cart alone — upsertFamilyComposableQuoteItem()
+//      refuses to insert one when no matching primary already exists in the
+//      cart, a hard invariant at the cart's own data boundary, never merely
+//      trusted to a UI entry-point gate. seedSelectionFromCartItem(rows, null)
+//      — what the browser's own reconciliation effect resets local Add/
+//      Remove state to once the cart's authoritative composable line
+//      disappears out from under it — returns every optional row to its
+//      policy default (never a "leftover selected" shape).
 //
 // Fixture-driven against real exported pure functions (utils/quote.ts,
 // ComposableOfferBrowser.tsx's buildComposableFamilyTierQuoteItem), same
@@ -45,7 +54,7 @@ import {
   classifyQuoteItems,
 } from '../resources/ts/utils/quote';
 import { computeTotalContractValue } from '../resources/ts/utils/paymentSummary';
-import { buildComposableFamilyTierQuoteItem, buildComposableChoice, type BrowseRow, type ItemContribution } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
+import { buildComposableFamilyTierQuoteItem, buildComposableChoice, seedSelectionFromCartItem, type BrowseRow, type ItemContribution } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
 import { COMPOSABLE_QUOTE_TIER_ID } from '../resources/ts/components/cost-builder/types';
 import type { CartItem, FamilyTierQuoteItem } from '../resources/ts/components/cost-builder/types';
 import type { CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData } from '../resources/ts/api/types/cost-builder';
@@ -200,6 +209,57 @@ const emptyChoice = buildComposableChoice(emptyRows, emptySelection);
 const emptyIncluded = emptyChoice.some((entry) => entry.selected === undefined || entry.selected === true);
 check(!emptyIncluded, 'zero required and zero selected-optional (the KAIROS Block-Storage-only case, deselected) resolves to "nothing included" — the caller must remove the composable line, never commit a zero-value placeholder');
 
+// ── 8. Live-validation correction: a composable line can never live in the cart alone ──
+
+{
+  // No primary at all for this Family+Instance — upsert must be a no-op,
+  // even though every other field on the candidate item looks perfectly
+  // valid. This is the exact hole a stale ComposableOfferBrowser re-firing
+  // its debounced auto-commit effect after the cart already removed the
+  // Upgrade (or the base) could otherwise fall through.
+  const noPrimaryCart: CartItem[] = [addonOne];
+  const resultNoPrimary = upsertFamilyComposableQuoteItem(noPrimaryCart, composable);
+  check(resultNoPrimary === noPrimaryCart, 'upsertFamilyComposableQuoteItem is a strict no-op with no matching primary present — the cart is returned unchanged, never appended to');
+  check(!resultNoPrimary.includes(composable), 'the composable line never lands in the cart when no primary exists for its Family+Instance');
+
+  // A primary exists for a DIFFERENT Family+Instance — must not count.
+  const wrongFamilyPrimary = familyItem({ familyId: 'pcg_other', familyPlatformId: 'CZPG-OTHER01', tierInstanceId: 'ti_other', tierInstancePlatformId: 'CZTG-OTHER01' });
+  const wrongFamilyCart: CartItem[] = [wrongFamilyPrimary];
+  const resultWrongFamily = upsertFamilyComposableQuoteItem(wrongFamilyCart, composable);
+  check(resultWrongFamily === wrongFamilyCart, 'a primary for a DIFFERENT Family+Instance never satisfies the guard — still a no-op');
+
+  // A primary for the SAME Family+Instance present — normal insert proceeds.
+  const withPrimaryCart: CartItem[] = [primary];
+  const resultWithPrimary = upsertFamilyComposableQuoteItem(withPrimaryCart, composable);
+  check(resultWithPrimary.includes(composable) && resultWithPrimary.includes(primary), 'with a matching primary present, the composable line inserts normally, primary untouched');
+}
+
+{
+  // seedSelectionFromCartItem(rows, null) — what the reconciliation effect
+  // resets local Add/Remove state to once the cart's own composable line
+  // disappears — must return every optional row to its policy default,
+  // required rows always selected, never a stale "still selected" entry.
+  const reconciliationRows: BrowseRow[] = [
+    { item_id: 'monitoring', label: 'Monitoring', unitPrice: 5, categories: [], service: null,
+      policy: { item_id: 'monitoring', mode: 'required', default_selected: false, quantity: null, price_option: { mode: 'fixed', allowed_price_option_ids: null, default_price_option_id: null }, featured: false } },
+    { item_id: 'block-storage', label: 'Block Storage', unitPrice: 10, categories: [], service: null,
+      policy: { item_id: 'block-storage', mode: 'optional', default_selected: false, quantity: { min: 1, max: 100, step: 1, default: 1 }, price_option: { mode: 'fixed', allowed_price_option_ids: null, default_price_option_id: null }, featured: false } },
+  ];
+  const resetToNull = seedSelectionFromCartItem(reconciliationRows, null);
+  check(resetToNull.monitoring.selected === true, 'a required row is always selected, even resetting from no cart item at all');
+  check(resetToNull['block-storage'].selected === false, 'an optional row with default_selected: false resets to unselected — never left "Remove"-selected for an item the cart no longer has');
+
+  // Confirms the seed function still correctly re-hydrates FROM a real
+  // committed cart item (the normal mount/Family-switch path), not just
+  // the null/reset case above.
+  const seededFromCommitted = familyItem({
+    tierOccupantId: 'occ_composable', tierPlatformId: 'CZT-KAIROS099', tierId: COMPOSABLE_QUOTE_TIER_ID,
+    isComposable: true, composableSelection: [{ item_id: 'block-storage', selected: true, quantity: 7 }],
+  });
+  const resetFromCommitted = seedSelectionFromCartItem(reconciliationRows, seededFromCommitted);
+  check(resetFromCommitted['block-storage'].selected === true && resetFromCommitted['block-storage'].quantity === 7, 'seedSelectionFromCartItem re-hydrates the exact prior committed selection/quantity when a real cart item is passed');
+}
+
 // ── 5. Composable TCV/payment streams use legPaymentSummaries exactly once ──
 
 const family: PackageBuilderFamily = {
@@ -276,5 +336,25 @@ check(
 const commitCallIndex = browserSource.indexOf('onCommit(buildComposableFamilyTierQuoteItem(');
 const okBranchIndex = browserSource.indexOf('setPreview({ ok: true');
 check(commitCallIndex > okBranchIndex && okBranchIndex > -1, 'onCommit is only ever reached after the successful (ok: true) branch has already run, never from the failure/catch branches above it');
+
+// ── 8b. Live-validation correction: the reconciliation effect exists and resets both selection AND hasInteracted (source-scan) ──
+// This is a component-effect timing property (a present -> absent
+// transition detected via a ref across renders), not a pure function —
+// same precedent as section 4 above; the pure half of this same fix
+// (seedSelectionFromCartItem, upsertFamilyComposableQuoteItem's hard
+// invariant) is exercised directly in section 8 above.
+
+check(
+  /hadCartItemRef = useRef\(initialCartItem !== null\)/.test(browserSource),
+  'the reconciliation effect tracks the cart\'s own composable-line presence across renders via a ref, not merely reading the current prop value',
+);
+check(
+  /if \(hadCartItem && initialCartItem === null\) \{\s*setSelection\(seedSelectionFromCartItem\(rows, null\)\);\s*setHasInteracted\(false\);\s*\}/.test(browserSource),
+  'the reconciliation effect resets BOTH local selection (back to policy defaults) AND hasInteracted (disarming the auto-commit gate) on a present -> absent transition — resetting only one would either still show stale Add/Remove state or leave the auto-commit effect able to silently resurrect the removed line',
+);
+check(
+  browserSource.includes('}, [family.family_id, rowIdsKey]);'),
+  'the mount/Family-switch reseed effect still excludes initialCartItem from its own dependency array — the reconciliation above is a SEPARATE, narrowly-scoped effect, never merged into that one (which would refire on every ordinary commit echo and fight the customer\'s own next click)',
+);
 
 console.log('Composable quote/cart contract passed.');

@@ -125,16 +125,30 @@ export function upsertFamilyAddonQuoteItem(items: CartItem[], item: FamilyTierQu
  * Add or replace the one aggregate composable ("Upgrade your build") line
  * for this Family+Instance — full-snapshot replace, never a per-item patch,
  * mirroring upsertFamilyAddonQuoteItem's own shape. Independent of the
- * primary Tier and every Add-on: it never removes them. Purely a cart-
- * mutation primitive — it does not itself enforce that a primary already
- * exists; that's FamilyTierAdapter.tsx's own gate on the one UI entry point
- * (ComposableOfferBrowser is rendered only once a primary is selected,
- * always in 'upgrade_your_build' context — standalone 'build_your_own' is
- * disabled there, Phase 0). The reverse direction — a primary being removed
- * or swapped drops this line — is replaceFamilyNormalQuoteItem()'s/
- * removeFamilyTierSystemQuoteItems()'s job, not this function's.
+ * primary Tier and every Add-on: it never removes them.
+ *
+ * Live-validation correction (project-work/2026-09-03-composable-tier-
+ * admin-to-customer-validation.md, "Upgrade your build still contains
+ * Build Your Own authority"): a primary already existing for this exact
+ * Family+Instance is a HARD invariant enforced HERE, at the cart's own
+ * data boundary — not merely a UI-entry-point gate the caller is trusted
+ * to have applied first. A relying-on-the-caller invariant is exactly what
+ * let a stale ComposableOfferBrowser re-fire its debounced auto-commit
+ * effect and resurrect a just-removed (or now-orphaned) Upgrade line
+ * straight into the cart, alone, with no base — the forbidden standalone
+ * state reached through a code path this function's own docblock
+ * previously assumed could never call it that way. No-op (returns `items`
+ * unchanged) when no matching primary exists; the reverse direction — a
+ * primary being removed or swapped drops this line — is
+ * replaceFamilyNormalQuoteItem()'s/removeFamilyTierSystemQuoteItems()'s
+ * job, not this function's.
  */
 export function upsertFamilyComposableQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
+  const systemKey = familyTierSystemKey(item);
+  const hasPrimary = items.some((existing) => isFamilyTierQuoteItem(existing)
+    && resolveQuoteItemRole(existing) === 'primary'
+    && familyTierSystemKey(existing) === systemKey);
+  if (!hasPrimary) return items;
   const key = quoteItemKey(item);
   return [...items.filter((existing) => quoteItemKey(existing) !== key), item];
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
 import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData, ServiceInclusion } from '@/api/types/cost-builder';
 import { resolveComposablePreview } from '@/api/endpoints/package-builder';
@@ -100,6 +100,34 @@ export function buildComposableChoice(
     choice.push(submitted);
   }
   return choice;
+}
+
+// Live-validation correction: the one place local Add/Remove `selection`
+// state is derived from an authoritative committed cart line (or its
+// absence) — used both at mount/Family-switch and by the reconciliation
+// effect below that fires when the cart's own composable line disappears
+// out from under this component. `cartItem: null` seeds every row back to
+// its policy default (the same "no existing cart item" behavior this
+// already had at mount) — never a special "cleared" shape of its own.
+// Exported so a contract script can exercise it directly, same precedent
+// as buildComposableChoice()/resolveItemContributions() elsewhere in this
+// file.
+export function seedSelectionFromCartItem(
+  rows: BrowseRow[],
+  cartItem: FamilyTierQuoteItem | null,
+): Record<string, CandidateEntry> {
+  const seededById = new Map(
+    (cartItem?.composableSelection ?? []).map((entry) => [entry.item_id, entry]),
+  );
+  const next: Record<string, CandidateEntry> = {};
+  for (const row of rows) {
+    const seeded = seededById.get(row.item_id);
+    next[row.item_id] = {
+      selected: row.policy.mode === 'required' ? true : (seeded?.selected ?? row.policy.default_selected),
+      quantity: seeded?.quantity ?? (row.policy.quantity ? row.policy.quantity.default : undefined),
+    };
+  }
+  return next;
 }
 
 // One item_id's resolved contribution, read verbatim off the server's own
@@ -279,18 +307,7 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
   const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
-    const seededById = new Map(
-      (initialCartItem?.composableSelection ?? []).map((entry) => [entry.item_id, entry]),
-    );
-    const next: Record<string, CandidateEntry> = {};
-    for (const row of rows) {
-      const seeded = seededById.get(row.item_id);
-      next[row.item_id] = {
-        selected: row.policy.mode === 'required' ? true : (seeded?.selected ?? row.policy.default_selected),
-        quantity: seeded?.quantity ?? (row.policy.quantity ? row.policy.quantity.default : undefined),
-      };
-    }
-    setSelection(next);
+    setSelection(seedSelectionFromCartItem(rows, initialCartItem));
     setCategory('');
     setService('');
     setPage(0);
@@ -303,6 +320,40 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
     // reasoning already applied to `family`/`rows` elsewhere in this file.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [family.family_id, rowIdsKey]);
+
+  // Live-validation correction (project-work/2026-09-03-composable-tier-
+  // admin-to-customer-validation.md, "Upgrade your build still contains
+  // Build Your Own authority"): reconcile local Add/Remove state the
+  // instant the cart's own authoritative composable line for this
+  // Family+Instance disappears out from under this component WITHOUT it
+  // having caused that itself — the cart's own × on the Upgrade row
+  // (removeFamilyComposableQuoteItem), or a base SWAP cascade
+  // (replaceFamilyNormalQuoteItem) that keeps this component mounted
+  // (unlike a full primary removal, which unmounts it via
+  // FamilyTierAdapter.tsx's own selectedTierId !== null gate — this effect
+  // is the belt to that unmount's suspenders for any timing this can't
+  // rely on). Tracked via a present -> absent transition on a ref (never
+  // fired for the ordinary absent -> present commit echo, which would
+  // otherwise fight the customer's own next click — same reasoning as the
+  // mount effect above excluding initialCartItem from its own deps) so a
+  // stale selection can never keep the card reading "Remove"/showing a
+  // subtotal for an item the cart no longer has, and hasInteracted can
+  // never stay permanently armed to silently re-fire the debounced
+  // auto-commit effect below and resurrect a removed Upgrade as a
+  // standalone cart line. upsertFamilyComposableQuoteItem()'s own hard
+  // invariant in utils/quote.ts (refuses to insert without a matching
+  // primary) is the second, structural layer of this same guarantee — an
+  // Upgrade must never be able to live in the cart alone, by data
+  // invariant, not merely by this component behaving correctly.
+  const hadCartItemRef = useRef(initialCartItem !== null);
+  useEffect(() => {
+    const hadCartItem = hadCartItemRef.current;
+    hadCartItemRef.current = initialCartItem !== null;
+    if (hadCartItem && initialCartItem === null) {
+      setSelection(seedSelectionFromCartItem(rows, null));
+      setHasInteracted(false);
+    }
+  }, [initialCartItem, rows]);
 
   const categories = useMemo(
     () => Array.from(new Set(rows.flatMap((row) => row.categories))).sort(),
