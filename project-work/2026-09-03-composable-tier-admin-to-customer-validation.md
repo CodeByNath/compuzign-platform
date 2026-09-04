@@ -3,39 +3,32 @@
 ## Status
 - **AWAITING LIVE VALIDATION — quote sidebar reachability correction deployed to production.**
 - Auditor verdict: **Proceed with safeguards.**
-- Nath gave explicit go-ahead to push to `main` on 2026-09-04.
-- Production before this correction: `main@eb200731384359041ac585fcbc9ed57f01550f0d`; Hostinger Deploy #939/run `33768478158` attempt 2 succeeded.
-- Approved review branch: `review/quote-sidebar-scroll-reachability@8751a233f609d9d828193efa23ababb321bcfc7e`, pushed to `main` as a fast-forward (`eb200731..8751a233`).
-- Production now: `main@8751a233f609d9d828193efa23ababb321bcfc7e`. Hostinger Deploy #940 / run `33825491417` (workflow "Deploy to Hostinger") succeeded on that exact SHA.
-- Independent compare: exactly 1 commit ahead / 0 behind production; 5 files changed, limited to CSS/dist, focused contract, package registration, and Code Map.
+- Production independently verified at `main@8751a233f609d9d828193efa23ababb321bcfc7e`.
+- Hostinger Deploy **#940 / run `33825491417`** independently verified `completed/success`, `head_sha=8751a233f609d9d828193efa23ababb321bcfc7e`.
 
-## Auditor review
-The correction is appropriately narrow and matches the live failure shape.
+## Accepted deployed correction
+The responsive correction remains narrowly scoped and accepted in source:
+- desktop `>=1024px` keeps the existing sticky quote sidebar as the single scroll owner;
+- only in that desktop quote-active state, `.cz-quote-summary__list` drops the nested `340px` scroll cap (`max-height:none; overflow-y:visible`);
+- `<=1023px` mobile behavior remains unchanged;
+- no quote data, totals, composable identity, Request flow, pricing, resolver, Rate Sheet, entity, identity, occurrence-month, or customer-copy changes.
 
-Accepted implementation:
-- desktop `>=1024px` keeps the existing sticky sidebar as the single scroll owner;
-- only inside that desktop quote-active scope, `.cz-quote-summary__list` drops its `340px` nested scroll cap via `max-height:none; overflow-y:visible`;
-- `<=1023px` base/mobile behavior remains unchanged, so the mobile quote bar/list behavior is not redesigned;
-- no quote/cart data, totals, composable identity, Request flow, pricing, resolver, Rate Sheet, entity, identity, or customer-copy changes;
-- source/dist alignment and a focused static scroll-owner contract are present.
+Claude's static Playwright harness could not reproduce the original live failure before or after the fix, so that evidence does not close the viewport-specific gate.
 
-This does **not** prove real-browser reachability. The browser validation is mandatory after deployment because the original failure was live/viewport-specific and the review branch has no runnable WordPress viewport harness.
+## Live validation gate — still mandatory
+Use the deployed production customer page with a populated multi-line quote and test approximately **1024, 1067, 1100/1180px** at short viewport heights. Prove:
+1. quote/cart footer actions remain reachable by normal wheel/touchpad/keyboard scrolling;
+2. no nested-scroll trap or clipped footer remains;
+3. customer **Upgrades** label is correct when composable coexists with the same primary;
+4. composable Quote Details shows stored/current inclusion quantity + payment stream, not “Details unavailable”;
+5. Review & Finalise actions remain reachable;
+6. existing Admin Request shows stored composable inclusion/quantity + stream detail;
+7. proposal/PDF/public quote render the composable aggregate exactly once, totals include it once, and no raw Platform IDs appear.
 
-## Claude addendum — static-harness empirical check (pre-deploy, not a substitute for the live validation gate)
+A fresh production Request/customer email is still separately gated by Nath's explicit authorization. Do not create or resend one without that authorization.
 
-Before pushing, I built a standalone Playwright reproduction to try to close my own earlier "no browser verification" disclosure: a static HTML harness reusing the actual `cost-builder.css` (pulled via `git show` from both `main` and the approved review commit) and the real `.cz-cost-builder__sidebar`/`.cz-quote-summary` DOM shape, populated with a 4-item multi-stream quote. Tested at 1024/1067/1100/1180px width × 650px height, with real mouse-wheel events aimed at the nested list (not `scrollTop` assignment) and keyboard Tab-to-focus, in both Chromium and WebKit engines.
+## Auditor note — current cycle
+Source/deployment boundaries are confirmed. This runtime does not expose the interactive live browser needed to reproduce width/height-specific scrolling and customer interactions, so no live PASS/FAIL is being fabricated. Keep this file at **AWAITING LIVE VALIDATION** until browser evidence is available.
 
-**Result: the CTA was reachable in every combination, in both the pre-fix and post-fix CSS.** I could not reproduce the reported nested-scroll trap in this harness — standard scroll-chaining already carried wheel input from the exhausted list to the sidebar, and focus navigation already scrolled the CTA into view, regardless of the fix.
-
-This does not contradict the fix (still a legitimate single-scroll-owner simplification, strictly no worse) but it means I cannot independently corroborate that this change is what resolves what Nath saw live. Plausible reasons for the gap: this harness isn't the literal live page (may be missing chrome/overlap present in production), and synthetic wheel events don't perfectly emulate real trackpad momentum/inertial scrolling physics. This reinforces rather than replaces the auditor's live-validation requirement below — flagging it, not treating it as resolved.
-
-## Claude next action — done
-Pushed approved commit `8751a233f609d9d828193efa23ababb321bcfc7e` to `main` as a fast-forward after Nath's explicit go-ahead. No cleanup/refactors. `main` SHA and Hostinger deploy run/status recorded above; status set to **AWAITING LIVE VALIDATION**. Not beginning the final customer UI/UX refinement pass yet — waiting on the live validation gate below.
-
-## Live validation gate
-At deployed production, test a populated multi-line quote at approximately **1024, 1067, 1100/1180px** and short viewport heights. Prove the quote/cart footer actions remain reachable by normal wheel/touchpad/keyboard scrolling and there is no nested-scroll trap. Also recheck the still-open chain: **Upgrades** label, composable Quote Details, Review/Finalise actions, Admin Request stored detail, proposal/PDF/public quote exact-once rendering, totals once, and no raw IDs.
-
-Fresh production Request/customer email remains separately gated by Nath's explicit authorization.
-
-## Final phase still planned
-After this representation/live-validation chain is accepted, continue with the dedicated **customer UI/UX refinement pass** across pricing/focused-plan/composable/cart/Review & Finalise/proposal-PDF responsive presentation. That phase is visual/interaction refinement only and must not reopen accepted architecture.
+## Final planned phase
+After this representation/live-validation chain is accepted, start the dedicated **customer UI/UX refinement pass** across pricing, focused-plan/composable, quote/cart, Review & Finalise, and proposal/PDF responsive presentation. Visual/interaction refinement only; do not reopen accepted architecture.
