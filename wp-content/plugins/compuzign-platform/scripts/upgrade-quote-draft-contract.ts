@@ -33,8 +33,13 @@ function primaryItem(overrides: Partial<FamilyTierQuoteItem> = {}): FamilyTierQu
     tierTitle: 'Starter Cloud',
     price: 150,
     billingCycle: 'monthly',
+    // Deliberately NO inclusionItems here by default — FamilyTierAdapter.tsx's
+    // itemFor(), the only real builder of a normal primary Family Tier item,
+    // never sets it, only this flat features[] label list. A fixture that
+    // populated both (the bug this file originally shipped with) hid the
+    // live-discovered defect where composedBase.inclusionItems silently
+    // dropped every real base plan's own inclusions.
     features: ['2 vCPU'],
-    inclusionItems: [{ id: 'base-item', label: '2 vCPU', quantity: 1 }],
     isAddon: false,
     minimumTermValue: 12,
     minimumTermUnit: 'months',
@@ -222,6 +227,23 @@ function addonItem(overrides: Partial<FamilyTierQuoteItem> = {}): FamilyTierQuot
   check(finalItem!.tierId === COMPOSABLE_QUOTE_TIER_ID && finalItem!.tierTitle === 'Build Your Own', 'top-level identity stays the composable occupant\'s own category label, never the base\'s');
   check(finalItem!.inclusionItems!.length === 2, 'top-level inclusionItems is the derived projection, one entry per child');
   check(finalItem!.legPaymentSummaries!.length === 2, 'top-level legPaymentSummaries is the derived projection, one entry per child');
+  // Live-discovered regression lock: primary (built by the real
+  // FamilyTierAdapter.tsx itemFor()) never has inclusionItems, only
+  // features — composedBase must fall back to features rather than
+  // silently contributing an empty inclusion list, which is exactly what
+  // shipped and was caught live before this fix.
+  check(finalItem!.composedBase!.inclusionItems.some((entry) => entry.label === '2 vCPU'), 'composedBase falls back to the primary\'s own features when it has no inclusionItems — the base plan\'s own inclusions must never silently vanish from the composed result');
+  check(finalItem!.inclusionItems!.some((entry) => entry.label === '2 vCPU' && entry.provenance === 'base'), 'the primary\'s feature-derived inclusion appears in the top-level projection, correctly tagged provenance: base');
+}
+{
+  // A primary that DOES carry real inclusionItems (a shape this builder
+  // doesn't produce today, but the type permits) must prefer them over
+  // features, never conflate the two.
+  const primary = primaryItem({ inclusionItems: [{ id: 'real-item', label: 'Real Inclusion', quantity: 3 }], features: ['2 vCPU'] });
+  const draft = draftItem({ tierPlatformId: primary.tierPlatformId, tierEditionPlatformId: primary.tierEditionPlatformId });
+  const result = finaliseUpgradeQuoteDraft([primary, draft], FAMILY_ID, TIER_INSTANCE_ID);
+  const finalItem = result.find((item) => (item as FamilyTierQuoteItem).isComposedUpgrade) as FamilyTierQuoteItem;
+  check(finalItem.composedBase!.inclusionItems.length === 1 && finalItem.composedBase!.inclusionItems[0].label === 'Real Inclusion', 'when a primary DOES have real inclusionItems, composedBase uses them, never the features fallback');
 }
 {
   // No-op cases: absent or stale draft.
