@@ -10,7 +10,6 @@
     "contract:quote-sidebar-scroll": "tsx scripts/quote-sidebar-scroll-contract.ts",
     "contract:request-flow-rail-scroll": "tsx scripts/request-flow-rail-scroll-contract.ts",
     "contract:upgrade-quote-draft": "tsx scripts/upgrade-quote-draft-contract.ts",
-    "contract:composable-finalise-race": "tsx scripts/composable-finalise-race-contract.ts",
     "contract:package-builder-regression-lock": "tsx scripts/package-builder-regression-lock-contract.ts",
     "contract:package-builder-addon-focus": "tsx scripts/package-builder-addon-focus-contract.ts",
     "contract:commercial-leg-inclusion-groups": "tsx scripts/commercial-leg-inclusion-groups-contract.ts",
