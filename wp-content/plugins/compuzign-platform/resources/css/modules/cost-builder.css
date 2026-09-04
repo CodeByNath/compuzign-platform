@@ -129,6 +129,20 @@
     overflow-y: auto;
     animation: cz-sidebar-in 0.35s var(--cz-ease) forwards;
   }
+
+  /* Reachability fix: at desktop widths the sticky sidebar above is already
+     the one scroll owner for the whole quote card (header + items +
+     footer). Letting .cz-quote-summary__list keep its own nested
+     max-height/overflow-y (needed on mobile, where the sidebar itself does
+     not scroll) stacks a second scroll region inside the first — on short
+     viewports near the 1024px boundary this could leave the footer's
+     Review/PDF actions past the inner list's own scroll end, unreachable
+     by a scroll gesture that lands on the list. Desktop keeps a single
+     scroll owner by letting the list flow into the sidebar's own scroll. */
+  .cz-cost-builder--has-quote .cz-quote-summary__list {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 @keyframes cz-sidebar-in {

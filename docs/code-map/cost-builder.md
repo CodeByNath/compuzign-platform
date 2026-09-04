@@ -25,7 +25,7 @@ Sheet inclusion sources.
 
 - [useCostBuilder.ts](../../wp-content/plugins/compuzign-platform/resources/ts/hooks/useCostBuilder.ts) owns public projection loading, errors, and refetch. Use it for fetch state.
 - [PricingTiers.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/PricingTiers.tsx) renders Tier option cards, popular treatment, prices, inclusions, and selection buttons, splitting the one projected Tier map by `is_addon` into "Choose your Tier" (exclusive) and the **Recommendations** area, an extensible container whose first group is "Optional add-ons"; `recommendationsAside` places it as the trailing card — see [Tier Add-on Selection](tier-addon.md). `resolveEffectiveTierDisplay()` also drives an in-card, mutually-exclusive Tier Edition switch (`edition_options`) inside the same shared `TierCard` — never a second card or a different selected Tier — see [Tier Edition](tier-edition.md). Use it for customer Tier choice UI.
-- [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior.
+- [QuoteSummary.tsx](../../wp-content/plugins/compuzign-platform/resources/ts/components/cost-builder/QuoteSummary.tsx) renders selected items, totals, remove actions, and request CTA. Use it for desktop quote summary behavior (`cost-builder.css`'s `@media (min-width:1024px)` clears `.cz-quote-summary__list`'s scroll cap so `.cz-cost-builder__sidebar` alone scrolls).
 - [cartStorage.ts](../../wp-content/plugins/compuzign-platform/resources/ts/utils/cartStorage.ts) loads, saves, and clears browser quote state. Use it for cart persistence format.
 - `components/package-builder/PackageBuilderApp.tsx` owns the hero Family tabs
   and reuses `PricingTiers`, the shared cart, Quote Summary, and Request Flow.
@@ -66,7 +66,7 @@ The hook fetches the public projection; selections persist locally before reques
 
 ## Validation
 
-From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-edition-public-projection.php`, `npm run contract:cost-builder-isolation`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
+From the plugin root: `php tests/tier-capability-invariants.php`, `php tests/tier-instance-public-projection.php`, `php tests/tier-public-projection-is-addon.php`, `php tests/tier-pricing-parity.php`, `php tests/tier-edition-public-projection.php`, `npm run contract:cost-builder-isolation`, `npm run contract:tier-addon-flow`, `npm run contract:tier-edition-switch`, `npm run contract:quote-sidebar-scroll`, `npx tsc --noEmit`, `npm run build`, and `npm run docs:check`.
 
 ## Related Code Maps
 
