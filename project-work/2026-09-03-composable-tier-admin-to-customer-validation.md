@@ -1,10 +1,9 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **READY FOR CLAUDE — revise composed Upgrade snapshot consistency before implementation.**
-- Auditor verdict: **Stop — architectural risk.**
+- **AWAITING CHATGPT REVIEW — fifth revision makes the server-derived projection the sole canonical source; no source changed.**
+- Auditor verdict: **Stop — architectural risk** (on the *prior* plan; revision below closes the canonicalization gap).
 - Production remains `main@aa820596e9cdb9bb496d2a5d9292e31e7b0801b2`; Hostinger run `33835470825` succeeded on that SHA.
-- No Upgrade Journey source changes approved.
 
 ## Locked journey
 **Upgrade your build** and standalone **Build Your Own** are separate journeys. Upgrade starts from an exact selected Tier/Edition, allows only Admin-authorised composable choices, stays tied to that base while in progress, requires explicit **Finalise build**, and only then becomes one final Build Your Own quote result. Standalone Build Your Own remains deferred.
@@ -39,6 +38,31 @@ Preferred rule:
 Also confirm whether payment rows need a small Base/Upgrade cue when two same-cycle streams otherwise look identical; do not merge streams.
 
 No source changes. Record the revised canonicalization design here and set **AWAITING CHATGPT REVIEW**.
+
+## Claude fifth revision — single canonical derivation, drift structurally impossible
+
+Real gap, correctly caught: storing both authoritative children and an independently-client-supplied top-level projection means the two could disagree, and sanitisation alone (copying whatever the client sent, field by field) never checks that. Fixed by making the server the sole author of the projection, not just a sanitiser of it.
+
+### One pure derivation function, not two independent truths
+New `deriveComposedProjection(base: ComposedUpgradeBase, upgrade: ComposedUpgradeExtras)` in `resources/ts/utils/quote.ts` — the single, exported, testable source for how the projection is built:
+- `inclusionItems` = `base.inclusionItems` tagged `provenance: 'base'`, concatenated with `upgrade.inclusionItems` tagged `provenance: 'upgrade'` — plain concatenation, no dedup, order preserved.
+- `legPaymentSummaries` = same concatenation/tagging over both children's streams.
+- `price`, `billingCycle`, `minimumTermValue`, `minimumTermUnit`, `planDurationMonths` = copied straight from `base` (unconditionally — matches the already-settled commitment rule).
+
+**Client side**: `finaliseUpgradeQuoteDraft()` calls this one helper to build the projection when constructing the composed cart item — never duplicates the concatenation/copy logic inline.
+
+**Server side — this is what makes drift structurally impossible, not just discouraged**: `RequestSchema.php` gets a mirrored private `deriveComposedProjection()`, following the exact precedent this codebase already uses for `resolveItemRole()` in `NotificationTemplates.php` (its own docblock: "mirrors `resolveQuoteItemRole()` in `utils/quote.ts` ... so this PHP port never scatters a raw assumption anywhere else"). After `sanitizeComposedBase()`/`sanitizeComposedUpgrade()` run, if `$item['isComposedUpgrade']` is true, the sanitizer **never reads** `$raw['inclusionItems']`/`$raw['legPaymentSummaries']`/`$raw['price']`/`$raw['billingCycle']`/`$raw['minimumTermValue']`/`$raw['minimumTermUnit']`/`$raw['planDurationMonths']` at all for that item — it always overwrites `$item`'s copies of those seven fields by calling `self::deriveComposedProjection($item['composedBase'], $item['composedUpgrade'])` on the already-sanitized children. Whatever the client submitted for the top-level projection fields on a composed item is discarded outright, not compared-and-rejected — there is only ever one code path that produces the persisted projection, and it is driven exclusively by the trusted children. A mismatched or malicious top-level payload cannot reach storage: it is never consulted in the first place. (Legacy/non-composed items are completely unaffected — this branch only runs when `isComposedUpgrade` is true.)
+
+This also resolves the instruction's option 4 cleanly: rebuild, don't validate-and-reject. Rejecting would require a fragile deep-equality check (float rounding, key ordering, array-vs-object edge cases) that could bounce a legitimate submission for a trivial serialization difference; rebuilding from the trusted children is simpler, cannot be wrong, and needs no comparison logic at all.
+
+### Payment-stream rows — confirmed: yes, add the same Base/Upgrade cue
+Settling this explicitly rather than leaving it implicit: two same-cycle streams from different children (e.g. a base "Monthly $150" and an upgrade "Monthly $50") could read as an accidental duplicate charge to a customer, the same concern as duplicate inclusion labels — the earlier "streams are self-evidently distinct because they have their own price" argument doesn't hold once asked directly, since coincidentally-similar amounts or a quick skim wouldn't make that distinction obvious. **Confirmed**: apply the same two-section Base/Upgrade grouping already specified for inclusion rows to payment-stream rows too, in the same components (`QuoteSummary.tsx`, `OrderSummary.tsx`, `QuoteProposalPreview.tsx`, `NotificationTemplates.php`'s `emailFamilyStreamsBlock()`). Streams are never merged or summed into one row — each keeps its own row and its own `source`; only the section grouping is added, reusing the identical `provenance` tag already carried on each stream. `computeTotalContractValue`/`startingPaymentsByCycle` are unaffected — they already sum the flat array regardless of how it is visually grouped.
+
+### Contracts — proves equivalence and round-trip, not just presence
+Supersedes the fourth revision's (15)-(19) with a canonicalization-focused set: (15) `deriveComposedProjection()` output matches a fixed fixture exactly (concatenation order, provenance tags, base-passthrough scalars); (16) the PHP-mirrored `deriveComposedProjection()` produces an **identical** projection to the TS version for the same fixture (cross-language parity, the same kind of check this codebase already runs for `resolveItemRole()`/`resolveQuoteItemRole()`); (17) submitting a payload whose top-level `price`/`inclusionItems`/etc. deliberately disagree with its `composedBase`/`composedUpgrade` results in the **stored** record reflecting the derived value, never the submitted one — this is the actual security-regression lock proving drift is impossible, not merely discouraged; (18) a non-composed item's top-level fields are read from `$raw` exactly as today, completely unaffected by the new branch; (19) inclusion **and** stream rows both render as two labeled sections for a composed item.
+
+### Everything else — unchanged, already accepted by the auditor
+Peer `composedBase`/`composedUpgrade` shape, admin dual-reference display, hard Request-submission gate, add-on removal via the existing cascade, and legacy/migration behavior all stand exactly as recorded in the fourth revision.
 
 ## Work journey
 Representation closure → Upgrade semantics/finalisation → implementation/review/deploy/live validation → final customer UI/UX refinement → later standalone Build Your Own journey.
