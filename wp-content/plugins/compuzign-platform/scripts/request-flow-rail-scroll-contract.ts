@@ -9,11 +9,16 @@ const root = resolve(import.meta.dirname, '..');
 const css = readFileSync(resolve(root, 'resources/css/modules/cost-builder.css'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, ' ');
 
+// Matches only a rule where `selector` is standalone (not preceded by a
+// comma, i.e. not one item of some other selector list like the
+// scrollbar-hiding `.cz-rf-left, .cz-rf-right { ... }` rule below) — so this
+// finds the real dedicated rule even when the class name also appears
+// earlier in the file as part of an unrelated multi-selector list.
 function ruleBody(selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(escaped + '\\s*\\{([^}]*)\\}');
+  const re = new RegExp('(?<!,\\s{0,40})' + escaped + '\\s*\\{([^}]*)\\}');
   const m = css.match(re);
-  check(m, `expected a rule for '${selector}' in cost-builder.css`);
+  check(m, `expected a standalone rule for '${selector}' in cost-builder.css`);
   return m![1];
 }
 
@@ -39,7 +44,22 @@ check(/padding-bottom:\s*16px/.test(helpRule), '.cz-os__help carries the 16px bo
 // Continue button once .cz-rf-body (overflow:hidden) clips the excess.
 const leftRule = ruleBody('.cz-rf-left');
 check(/overflow-y:\s*auto/.test(leftRule), '.cz-rf-left must keep overflow-y: auto — its own Continue button has no other scroll owner');
+check(/overflow-y:\s*auto/.test(rightRule), '.cz-rf-right must keep overflow-y: auto — hiding scrollbar chrome must never remove the scroll mechanism itself');
 const leftNavRule = ruleBody('.cz-rf-left__nav');
 check(!/position:\s*sticky/.test(leftNavRule), 'this contract documents the current (non-sticky) .cz-rf-left__nav shape — if it becomes sticky, .cz-rf-left\'s own scroll may become removable and this contract should be revisited');
+
+// Scrollbar chrome is hidden cross-browser on both panels, but only the
+// chrome: overflow-y:auto above (asserted for both panels) still owns the
+// actual scroll capability — wheel/trackpad/touch/keyboard/focus scrolling
+// is untouched by any of the declarations checked here.
+const hideRuleMatch = css.match(/\.cz-rf-left,\s*\n?\s*\.cz-rf-right\s*\{([^}]*)\}/);
+check(hideRuleMatch, 'expected a combined .cz-rf-left, .cz-rf-right rule hiding scrollbar chrome');
+const hideRule = hideRuleMatch![1];
+check(/scrollbar-width:\s*none/.test(hideRule), 'the combined rule sets scrollbar-width: none (Firefox)');
+check(/-ms-overflow-style:\s*none/.test(hideRule), 'the combined rule sets -ms-overflow-style: none (legacy Edge)');
+
+const webkitHideMatch = css.match(/\.cz-rf-left::-webkit-scrollbar,\s*\n?\s*\.cz-rf-right::-webkit-scrollbar\s*\{([^}]*)\}/);
+check(webkitHideMatch, 'expected a combined .cz-rf-left::-webkit-scrollbar, .cz-rf-right::-webkit-scrollbar rule');
+check(/display:\s*none/.test(webkitHideMatch![1]), 'the ::-webkit-scrollbar rule sets display: none (Chromium/WebKit)');
 
 console.log('Request flow rail scroll contract passed.');

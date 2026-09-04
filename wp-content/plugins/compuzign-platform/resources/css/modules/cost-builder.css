@@ -1953,6 +1953,21 @@
   overflow-y: auto;
 }
 
+/* Hide the scrollbar chrome on both Request-flow scroll panels — visual
+   only, scrolling itself (wheel/trackpad/touch/keyboard/focus) is
+   untouched since overflow-y:auto stays on both .cz-rf-left and
+   .cz-rf-right (see .cz-rf-right below). */
+.cz-rf-left,
+.cz-rf-right {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cz-rf-left::-webkit-scrollbar,
+.cz-rf-right::-webkit-scrollbar {
+  display: none;
+}
+
 .cz-rf-left__scroll {
   padding: var(--cz-space-6);
 }
