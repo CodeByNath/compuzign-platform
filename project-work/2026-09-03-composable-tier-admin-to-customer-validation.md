@@ -1,10 +1,23 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — Request/Review right-rail reachability correction.**
+- **AWAITING LIVE VALIDATION — Request/Review right-rail correction deployed and self-validated live; awaiting auditor's remaining live-gate items.**
 - Auditor verdict: **Proceed with safeguards.**
-- Production remains `main@8751a233f609d9d828193efa23ababb321bcfc7e`; Deploy #940/run `33825491417` succeeded.
-- Approved review head: `review/request-flow-rail-reachability@5112f5f5`, exactly 1 commit ahead / 0 behind production.
+- Nath gave explicit go-ahead to push to `main` on 2026-09-04.
+- Approved review head: `review/request-flow-rail-reachability@5112f5f5`, pushed to `main` as a fast-forward (`8751a233..5112f5f5`).
+- Production now: `main@5112f5f5f57bad65adf84e26d829323a43b5eb7570`. Hostinger workflow run `33833809714` succeeded on that exact SHA.
+
+## Claude live validation — Request/Review right-rail
+
+Re-ran the same production reproduction used pre-deploy (build a 3-Family multi-stream quote at `https://compuzign.weerax.com/pricing/`, open Review & Finalise via Playwright) against the now-deployed fix, at all 4 flagged widths × 3 heights (900/700/650):
+
+| width | height | rail overflows body | Print/Submit reachable | help reachable |
+|---|---|---|---|---|
+| 1024/1067/1100/1180 | 900 | −12 to −16px (fits) | yes | yes |
+| 1024/1067/1100/1180 | 700 | −4 to −8px (fits) | yes | yes |
+| 1024/1067/1100/1180 | 650 | −2 to −6px (fits) | yes | yes |
+
+12/12 reachable, matching the pre-deploy static-harness prediction exactly. Screenshot at 1180×650 confirms Print/Save as PDF, Submit Quote Request, and the help footer all visible after scrolling the rail. Still outstanding from the auditor's live gate below: Upgrades label, composable Quote Details, Admin Request stored detail, proposal/PDF/public quote exact-once rendering, totals once, no raw IDs — not yet checked this round.
 
 ## Accepted correction
 Independent diff/source review confirms the branch is narrowly scoped to 5 files: source CSS, rebuilt CSS, one focused contract, package script registration, and Code Map.
