@@ -1,23 +1,23 @@
 // Contract: the shared money presentation contract (utils/format.ts::formatPrice())
-// (project-work/2026-09-03-composable-tier-admin-to-customer-validation.md,
-// "deployed customer validation failed" round, then "SOURCE-PRECISION MONEY
-// SAFEGUARD" round). Auditor finding: formatPrice() was hard-coded to
-// minimumFractionDigits: 0 / maximumFractionDigits: 0, silently rounding a
-// real fractional rate to the nearest whole dollar on every Cost Builder
-// customer surface that calls it — a presentation bug, not a calculation
-// defect (no rounding/truncation exists anywhere upstream in the resolver/
-// aggregation pipeline).
+// (project-work/2026-09-03-composable-tier-admin-to-customer-validation.md
+// — "deployed customer validation failed", then "SOURCE-PRECISION MONEY
+// SAFEGUARD", then "MONEY PRECISION SAFEGUARD, ROUND 2"). Auditor finding:
+// formatPrice() was hard-coded to minimumFractionDigits: 0 /
+// maximumFractionDigits: 0, silently rounding a real fractional rate to the
+// nearest whole dollar — a presentation bug, not a calculation defect (no
+// rounding/truncation exists anywhere upstream in the resolver/aggregation
+// pipeline).
 //
-// A first-round fix (cent-precision rounding) was REJECTED: real KAIROS
-// rates go below one cent (Object Storage $0.023/GB, Archive/Cold Storage
-// $0.004/GB), and rounding to the nearest cent recreates the exact same
-// "genuine non-zero value displays as $0" failure for those. Rate Sheet
-// unit_price is a rate, not inherently 2-decimal currency — source-defined
-// fractional precision is authoritative to at least 3 decimal places, with
-// no artificially low hardcoded ceiling. formatPrice() now rounds to 6
-// decimal places purely to absorb floating-point arithmetic noise, then
-// renders the minimal fraction digits needed within [2, 6] (or 0 for an
-// exact whole dollar).
+// Two rejected fixes: (1) cent-precision rounding — real KAIROS rates go
+// below one cent ($0.023/GB, $0.004/GB), so rounding to the nearest cent
+// recreated the same "genuine non-zero value displays as $0" failure.
+// (2) a fixed 6-decimal-place rounding ceiling — still an arbitrary
+// business precision cap invented in presentation code; a real rate below
+// 0.0000005 would again collapse to $0. The accepted fix suppresses ONLY
+// floating-point arithmetic noise by rounding to 15 SIGNIFICANT digits
+// (not decimal places) — a property of the IEEE-754 double representation
+// itself, not a currency policy — so precision scales with the value's own
+// magnitude rather than being truncated at a fixed decimal position.
 
 import { formatPrice } from '../resources/ts/utils/format';
 
@@ -57,17 +57,29 @@ check(formatPrice(0.1) === '$0.10', `a $0.10 rate must render as "$0.10", never 
 check(formatPrice(0.2 * 5) === '$1', `0.20 x 5 = $1.00 exactly must render as "$1" — got ${formatPrice(0.2 * 5)}`);
 
 // 7. Floating-point arithmetic noise (0.1 + 0.2 !== 0.3 in IEEE-754) must
-// never surface as extra fraction digits — the 6-decimal absorption round
-// exists specifically for this, distinct from discarding genuine source
-// precision (see cases 4-5 above, which must NOT be rounded away).
+// never surface as extra fraction digits — the significant-digit noise
+// suppression exists specifically for this, distinct from discarding
+// genuine source precision (see cases 4-5, 8-9, which must NOT be rounded
+// away).
 check(formatPrice(0.1 + 0.2) === '$0.30', `0.1 + 0.2 (floating-point drift) must still render as "$0.30" — got ${formatPrice(0.1 + 0.2)}`);
 
 // 8. A rate needing more than 3 decimals is still shown faithfully — no
-// hardcoded ceiling below the formatter's own 6-decimal bound.
+// hardcoded decimal-place ceiling.
 check(formatPrice(0.0004) === '$0.0004', `a $0.0004 rate must render its true precision, not a hardcoded 3-decimal cap — got ${formatPrice(0.0004)}`);
 
-// 9. Null/undefined contract is unchanged — "Contact Us" for an unresolved
-// price, the same fallback every existing caller already relies on.
+// 9. Deep sub-cent fixtures (round 2's own required regressions): a rate
+// far below the rejected 6-decimal-place ceiling must still render its
+// true value — proving the formatter does not collapse a value merely
+// because it exceeds ANY fixed number of fractional places. These are
+// deliberately deeper than any known real Rate Sheet value, to prove the
+// mechanism itself (significant-digit noise suppression) has no such cap
+// baked in, not merely that today's specific rates happen to fit under one.
+check(formatPrice(0.0000004) === '$0.0000004', `a $0.0000004 rate must render its true 7-decimal precision, never collapse to "$0" merely for exceeding a hardcoded decimal-place ceiling — got ${formatPrice(0.0000004)}`);
+check(formatPrice(0.00000004) === '$0.00000004', `a $0.00000004 rate must render its true 8-decimal precision — got ${formatPrice(0.00000004)}`);
+
+// 10. Null/undefined contract is unchanged — "Contact Us" for an
+// unresolved price, the same fallback every existing caller already relies
+// on.
 check(formatPrice(null) === 'Contact Us', 'a null price still renders "Contact Us"');
 check(formatPrice(undefined) === 'Contact Us', 'an undefined price still renders "Contact Us"');
 
