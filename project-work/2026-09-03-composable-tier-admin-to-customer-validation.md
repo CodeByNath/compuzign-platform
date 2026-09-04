@@ -1,10 +1,12 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — quote sidebar reachability correction accepted for `main`.**
+- **AWAITING LIVE VALIDATION — quote sidebar reachability correction deployed to production.**
 - Auditor verdict: **Proceed with safeguards.**
+- Nath gave explicit go-ahead to push to `main` on 2026-09-04.
 - Production before this correction: `main@eb200731384359041ac585fcbc9ed57f01550f0d`; Hostinger Deploy #939/run `33768478158` attempt 2 succeeded.
-- Approved review branch: `review/quote-sidebar-scroll-reachability@8751a233f609d9d828193efa23ababb321bcfc7e`.
+- Approved review branch: `review/quote-sidebar-scroll-reachability@8751a233f609d9d828193efa23ababb321bcfc7e`, pushed to `main` as a fast-forward (`eb200731..8751a233`).
+- Production now: `main@8751a233f609d9d828193efa23ababb321bcfc7e`. Hostinger Deploy #940 / run `33825491417` (workflow "Deploy to Hostinger") succeeded on that exact SHA.
 - Independent compare: exactly 1 commit ahead / 0 behind production; 5 files changed, limited to CSS/dist, focused contract, package registration, and Code Map.
 
 ## Auditor review
@@ -27,14 +29,8 @@ Before pushing, I built a standalone Playwright reproduction to try to close my 
 
 This does not contradict the fix (still a legitimate single-scroll-owner simplification, strictly no worse) but it means I cannot independently corroborate that this change is what resolves what Nath saw live. Plausible reasons for the gap: this harness isn't the literal live page (may be missing chrome/overlap present in production), and synthetic wheel events don't perfectly emulate real trackpad momentum/inertial scrolling physics. This reinforces rather than replaces the auditor's live-validation requirement below — flagging it, not treating it as resolved.
 
-## Claude next action
-Awaiting Nath's explicit go-ahead before pushing to `main` (production auto-deploy) — auditor approval alone does not authorize that push. Once given: push only approved commit `8751a233f609d9d828193efa23ababb321bcfc7e` (or identical fast-forward result) to `main`. No cleanup/refactors.
-
-After push:
-1. record exact `main` SHA;
-2. record GitHub Actions deploy run/status and deployed SHA;
-3. set **AWAITING LIVE VALIDATION**;
-4. do not begin the final customer UI/UX refinement pass yet.
+## Claude next action — done
+Pushed approved commit `8751a233f609d9d828193efa23ababb321bcfc7e` to `main` as a fast-forward after Nath's explicit go-ahead. No cleanup/refactors. `main` SHA and Hostinger deploy run/status recorded above; status set to **AWAITING LIVE VALIDATION**. Not beginning the final customer UI/UX refinement pass yet — waiting on the live validation gate below.
 
 ## Live validation gate
 At deployed production, test a populated multi-line quote at approximately **1024, 1067, 1100/1180px** and short viewport heights. Prove the quote/cart footer actions remain reachable by normal wheel/touchpad/keyboard scrolling and there is no nested-scroll trap. Also recheck the still-open chain: **Upgrades** label, composable Quote Details, Review/Finalise actions, Admin Request stored detail, proposal/PDF/public quote exact-once rendering, totals once, and no raw IDs.
