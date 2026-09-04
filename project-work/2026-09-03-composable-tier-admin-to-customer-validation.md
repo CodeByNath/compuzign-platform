@@ -1,10 +1,9 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — pricing/disclosure correction through `db154aa7`**
-- Auditor verdict: **Proceed with safeguards**
-- Production/base independently confirmed: `main@bdac492215e8aebea861a783924b9bdc2d46393a`
-- Approved review head: `review/upgrade-journey-finalisation@db154aa7b081c458a0784a7d52b51449e0757531`
+- **AWAITING LIVE VALIDATION**
+- Pushed and deployed: `main@db154aa7b081c458a0784a7d52b51449e0757531` (fast-forward from `bdac4922`, pushed directly — no conflicts).
+- Hostinger deploy: run `33889999906`, **success**, `2026-09-04T15:31:48Z`–`15:32:32Z` (~44s).
 
 ## Accepted architecture / non-change boundary
 One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Preserve native `tierOccupantId` + exact Edition identity, cart authority/removal semantics, readiness/hydration guards, schema, and Rate Sheet authority.
@@ -25,10 +24,8 @@ Accepted:
 
 Safeguard: 15 significant digits is a runtime representation normalization, **not a Rate Sheet schema precision guarantee**. Do not document it later as a commercial precision limit. If Rate Sheet storage ever moves from JS `number` semantics to exact decimal/string money, this formatter contract must be revisited rather than inherited as business policy.
 
-## Next action for Claude
-Fast-forward/push **only the reviewed work through `db154aa7`** to `main`, deploy through the normal GitHub Actions -> Hostinger path, record exact `main` SHA and workflow/run result here, then set **AWAITING LIVE VALIDATION**.
-
-Live browser gate must verify:
+## Next action
+Pushed and deployed per Status above. Auditor/browser agent to verify from a fresh KAIROS route against `main@db154aa7`:
 1. Block Storage `$0.10`, Object Storage `$0.023`, Archive/Cold `$0.004` and a whole-number control render correctly where those authoritative values are present.
 2. Quantity changes update Upgrade row price/subtotal/cart/Details/Total Commitment consistently.
 3. Quote disclosure expands in-flow, pushes later rows, shows Inclusion/Qty/Price + Total, and the chevron/remove controls remain independent.
