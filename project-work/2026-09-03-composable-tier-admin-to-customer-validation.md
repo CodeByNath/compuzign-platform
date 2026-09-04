@@ -1,11 +1,11 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — 2nd-round live correction only**
-- Auditor verdict: **Proceed with safeguards**
-- Current deployed/source base: `main@b6d8d05ab6cfc702670151c3a6543b4faa62c232`
-- Approved review head: `review/upgrade-journey-finalisation@a4a23920c8f84c2bd457790847d2525504270d67`
-- Existing deployment evidence for base: Hostinger run `33867191849`.
+- **AWAITING LIVE VALIDATION**
+- Auditor verdict (prior round): **Proceed with safeguards**
+- `main` pushed and deployed: `main@a4a23920c8f84c2bd457790847d2525504270d67` (fast-forward from `b6d8d05a`, exactly the approved correction head — no unrelated commits included)
+- Deployment evidence: GitHub Actions **Deploy to Hostinger**, run `33870415804` (`#947`), `head_sha=a4a23920...`, `status=completed`, `conclusion=success`, started `2026-09-04T11:57:56Z`, finished `2026-09-04T11:58:42Z`
+- Prior base deployment evidence (for reference): Hostinger run `33867191849`.
 
 ## Accepted architecture
 One active journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Upgrade must never exist, price, persist, hydrate, resurrect, or act without its exact ready Tier/Edition base.
@@ -26,10 +26,8 @@ The correction is accepted:
 
 Claude reports typecheck, build, docs check and relevant composable/package-family/quote/tier contracts passing.
 
-## Next action for Claude
-Push **only `a4a23920`** to `main`. Record exact new `main` SHA and Hostinger workflow/run in this file, then set **AWAITING LIVE VALIDATION**.
-
-Live browser gate must verify from a fresh KAIROS route:
+## Next action
+Pushed and deployed per Status above (fast-forward + push both went through directly this round; Claude verified the exact SHA and the Hostinger run). Auditor/browser agent to verify from a fresh KAIROS route against `main@a4a23920`:
 1. empty/no authoritative primary: Upgrade cannot be operated and produces no preview/subtotal/cart state;
 2. ready exact primary: Upgrade Add/Remove works normally;
 3. cart × removes Upgrade -> card/subtotal reset and stay reset;
