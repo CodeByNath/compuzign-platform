@@ -70,15 +70,37 @@ export function quoteItemKey(item: CartItem): string {
   return item.isAddon ? `${item.serviceId}:addon:${item.tierId}` : `${item.serviceId}:primary`;
 }
 
+/**
+ * Replacing the primary never disturbs an existing Add-on for the same
+ * Family+Instance. An existing composable ("Upgrade your build") line is
+ * different: in the active upgrade-only regime (see
+ * project-work/2026-09-03-composable-tier-admin-to-customer-validation.md,
+ * Phase 0 correction) an Upgrade only ever exists dependent on its exact
+ * base Tier/Edition — standalone Build Your Own is disabled, so an Upgrade
+ * surviving a base SWAP would be exactly the forbidden orphaned-standalone
+ * state. Swapping to a genuinely different Tier/Edition therefore also
+ * drops the composable line; re-confirming the SAME Tier/Edition (e.g. a
+ * plan-duration change via Choose Plan, which still calls this with a
+ * freshly built item for the identical Tier/Edition) leaves it alone — the
+ * comparison is a plain Platform-ID/native-id identity check, never a
+ * revived draft/staleness state machine.
+ */
 export function replaceFamilyNormalQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
   const systemKey = familyTierSystemKey(item);
+  const previousPrimary = items.find((existing): existing is FamilyTierQuoteItem => isFamilyTierQuoteItem(existing)
+    && resolveQuoteItemRole(existing) === 'primary'
+    && familyTierSystemKey(existing) === systemKey);
+  const baseChanged = !previousPrimary
+    || previousPrimary.tierPlatformId !== item.tierPlatformId
+    || previousPrimary.tierEditionPlatformId !== item.tierEditionPlatformId;
   return [
-    ...items.filter((existing) => isFamilyTierQuoteItem(existing)
-      // Replacing the primary must never disturb an existing Add-on OR an
-      // existing composable line for the same Family+Instance — only the
-      // prior primary line itself is dropped.
-      ? resolveQuoteItemRole(existing) !== 'primary' || familyTierSystemKey(existing) !== systemKey
-      : true),
+    ...items.filter((existing) => {
+      if (!isFamilyTierQuoteItem(existing) || familyTierSystemKey(existing) !== systemKey) return true;
+      const role = resolveQuoteItemRole(existing);
+      if (role === 'primary') return false;
+      if (role === 'composable') return !baseChanged;
+      return true;
+    }),
     item,
   ];
 }
@@ -89,12 +111,17 @@ export function upsertFamilyAddonQuoteItem(items: CartItem[], item: FamilyTierQu
 }
 
 /**
- * Add or replace the one aggregate composable ("Build Your Own") line for
- * this Family+Instance — full-snapshot replace, never a per-item patch,
+ * Add or replace the one aggregate composable ("Upgrade your build") line
+ * for this Family+Instance — full-snapshot replace, never a per-item patch,
  * mirroring upsertFamilyAddonQuoteItem's own shape. Independent of the
- * primary Tier and every Add-on: it never removes them, and it is reachable
- * with or without a primary Tier already selected (the composable browser's
- * own 'build_your_own' vs 'upgrade_your_build' context).
+ * primary Tier and every Add-on: it never removes them. Purely a cart-
+ * mutation primitive — it does not itself enforce that a primary already
+ * exists; that's FamilyTierAdapter.tsx's own gate on the one UI entry point
+ * (ComposableOfferBrowser is rendered only once a primary is selected,
+ * always in 'upgrade_your_build' context — standalone 'build_your_own' is
+ * disabled there, Phase 0). The reverse direction — a primary being removed
+ * or swapped drops this line — is replaceFamilyNormalQuoteItem()'s/
+ * removeFamilyTierSystemQuoteItems()'s job, not this function's.
  */
 export function upsertFamilyComposableQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
   const key = quoteItemKey(item);
@@ -114,13 +141,13 @@ export function removeFamilyAddonQuoteItem(
 }
 
 /**
- * Remove the one composable line for this Family+Instance, if any —
- * independent of the primary Tier and every Add-on. Deliberately NOT routed
- * through removeFamilyTierSystemQuoteItems(): that function's whole-system
- * cascade is correct for Add-ons (which only make sense paired with a
- * primary Tier) but wrong here, since a standalone composable selection has
- * no primary to be "orphaned" from and must survive the primary's own
- * removal — see removeFamilyTierSystemQuoteItems()'s own comment below.
+ * Remove ONLY the one composable ("Upgrade your build") line for this
+ * Family+Instance, leaving the primary Tier and every Add-on untouched —
+ * the "remove just my Upgrade" action (ComposableOfferBrowser's own Remove
+ * flow, or the composable line's own "×" in the cart list). The reverse
+ * cascade — removing/swapping the primary also drops this line — lives in
+ * removeFamilyTierSystemQuoteItems()/replaceFamilyNormalQuoteItem() above,
+ * not here.
  */
 export function removeFamilyComposableQuoteItem(
   items: CartItem[],
@@ -134,12 +161,20 @@ export function removeFamilyComposableQuoteItem(
 }
 
 /**
- * Removes the primary Tier and every Add-on for this Family+Instance — but
- * never a composable line: unlike an Add-on, a composable ("Build Your
- * Own") selection is designed to stand alone with no primary Tier at all
- * (the composable browser's own 'build_your_own' context), so clearing the
- * primary must not also clear it, unlike the existing Add-on-orphan
- * cascade this function already performs.
+ * Removes the primary Tier, every Add-on, AND the composable ("Upgrade
+ * your build") line for this Family+Instance — the whole Tier System.
+ *
+ * Phase 0 correction (project-work/2026-09-03-composable-tier-admin-to-
+ * customer-validation.md): in the active upgrade-only regime an Upgrade
+ * only ever exists dependent on an already-selected primary Tier/Edition —
+ * standalone Build Your Own is disabled at its one entry point
+ * (FamilyTierAdapter.tsx). Letting a composable line survive the primary's
+ * removal (the pre-Phase-0 behaviour, when standalone Build Your Own was
+ * still a live, separately-reachable journey) would leave exactly that
+ * forbidden orphaned-standalone state reachable again through this route.
+ * An Add-on only makes sense paired with a primary that is about to stop
+ * existing, and now so does an Upgrade — both are cleared by the same
+ * cascade.
  */
 export function removeFamilyTierSystemQuoteItems(
   items: CartItem[],
@@ -148,8 +183,7 @@ export function removeFamilyTierSystemQuoteItems(
 ): CartItem[] {
   return items.filter((item) => !isFamilyTierQuoteItem(item)
     || item.familyId !== familyId
-    || item.tierInstanceId !== tierInstanceId
-    || resolveQuoteItemRole(item) === 'composable');
+    || item.tierInstanceId !== tierInstanceId);
 }
 
 /**

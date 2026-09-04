@@ -3,8 +3,15 @@
 // "quote/cart connection" phase). Proves the required properties the
 // coordination doc's approval named explicitly:
 //   1. primary + composable + multiple Add-ons coexist with unique stable keys;
-//   2. replacing primary never removes composable; updating composable never
-//      replaces primary/Add-ons;
+//   2. [Phase 0 correction, superseding the original "quote/cart connection"
+//      property] the active regime is upgrade-only, standalone Build Your
+//      Own is disabled — so a composable ("Upgrade your build") line only
+//      ever exists dependent on its exact base Tier/Edition: swapping the
+//      primary to a DIFFERENT Tier/Edition, or removing it outright, also
+//      drops the composable line (no orphaned-standalone state may
+//      survive); re-confirming the SAME Tier/Edition (e.g. a plan-duration
+//      change) leaves it untouched. Updating composable never replaces
+//      primary/Add-ons;
 //   3. zero-selected/no-required removes composable; required-only persists;
 //   4. stale/failed preview cannot overwrite cart (source-scan, since this is
 //      an async-effect property, not a pure-function one);
@@ -103,14 +110,24 @@ cart = upsertFamilyComposableQuoteItem(cart, composable);
 check(cart.length === 4, 'primary + two add-ons + composable all land in the cart as four distinct lines');
 check(cart.includes(primary) && cart.includes(addonOne) && cart.includes(addonTwo) && cart.includes(composable), 'every one of the four lines survives, unreplaced by any other');
 
-// ── 2. Replacing primary never removes composable; updating composable never replaces primary/Add-ons ──
+// ── 2. Phase 0 correction: swapping the base to a DIFFERENT Tier/Edition drops composable; re-confirming the SAME base does not ──
 
 const newPrimary = familyItem({ tierId: 'premium', tierTitle: 'KAIROS Premium', tierOccupantId: 'occ_premium', tierPlatformId: 'CZT-KAIROS002' });
 let afterPrimarySwitch = replaceFamilyNormalQuoteItem(cart, newPrimary);
 check(!afterPrimarySwitch.includes(primary), 'replacing the primary drops the old primary snapshot');
 check(afterPrimarySwitch.includes(newPrimary), 'replacing the primary adds the new snapshot');
 check(afterPrimarySwitch.includes(addonOne) && afterPrimarySwitch.includes(addonTwo), 'replacing the primary preserves both existing Add-ons — unchanged existing behavior');
-check(afterPrimarySwitch.includes(composable), 'replacing the primary never removes the existing composable line');
+check(!afterPrimarySwitch.includes(composable), 'swapping the primary to a DIFFERENT Tier/Edition drops the dependent Upgrade line — no orphaned-standalone state may survive (Phase 0 correction)');
+
+// Re-selecting the SAME Tier/Edition (e.g. a plan-duration change via Choose
+// Plan, which still calls replaceFamilyNormalQuoteItem with a freshly built
+// item for the identical Tier/Edition) is not a base swap — the Upgrade
+// must survive.
+const cartWithComposable = upsertFamilyComposableQuoteItem(cart, composable);
+const samePrimaryReconfirmed = familyItem({ price: 15, planDurationMonths: 24 }); // same tierPlatformId/tierEditionPlatformId as `primary`
+const afterSameBaseReconfirm = replaceFamilyNormalQuoteItem(cartWithComposable, samePrimaryReconfirmed);
+check(afterSameBaseReconfirm.includes(composable), 'reconfirming the SAME base Tier/Edition (e.g. duration change) never drops the existing Upgrade line');
+check(afterSameBaseReconfirm.includes(samePrimaryReconfirmed) && !afterSameBaseReconfirm.includes(primary), 'the primary snapshot itself is still replaced as normal');
 
 const updatedComposable = familyItem({
   tierOccupantId: 'occ_composable', tierPlatformId: 'CZT-KAIROS099', tierId: COMPOSABLE_QUOTE_TIER_ID,
@@ -118,22 +135,26 @@ const updatedComposable = familyItem({
   composableSelection: [{ item_id: 'block-storage', selected: true }, { item_id: 'monitoring', selected: true }],
   price: 25,
 });
-const afterComposableUpdate = upsertFamilyComposableQuoteItem(afterPrimarySwitch, updatedComposable);
+const afterComposableUpdate = upsertFamilyComposableQuoteItem(afterSameBaseReconfirm, updatedComposable);
 check(!afterComposableUpdate.includes(composable), 'updating composable replaces the prior composable snapshot wholesale (never a per-item patch)');
 check(afterComposableUpdate.includes(updatedComposable), 'the freshly built composable snapshot is present');
-check(afterComposableUpdate.includes(newPrimary), 'updating composable never replaces/removes the primary');
+check(afterComposableUpdate.includes(samePrimaryReconfirmed), 'updating composable never replaces/removes the primary');
 check(afterComposableUpdate.includes(addonOne) && afterComposableUpdate.includes(addonTwo), 'updating composable never replaces/removes any Add-on');
 
-// ── Primary removal cascades to Add-ons (existing behavior, unchanged) but never to composable ──
+// ── Primary removal cascades to Add-ons AND to composable (Phase 0 correction: no orphaned-standalone state may survive) ──
 
 const afterPrimaryRemoval = removeFamilyTierSystemQuoteItems(afterComposableUpdate, 'pcg_kairos', 'ti_kairos');
-check(!afterPrimaryRemoval.includes(newPrimary), 'removing the primary removes the primary itself');
+check(!afterPrimaryRemoval.includes(samePrimaryReconfirmed), 'removing the primary removes the primary itself');
 check(!afterPrimaryRemoval.includes(addonOne) && !afterPrimaryRemoval.includes(addonTwo), 'removing the primary still cascades to every Add-on — the existing Add-on-orphan rule is unchanged');
-check(afterPrimaryRemoval.includes(updatedComposable), 'removing the primary does NOT remove the composable line — it is designed to stand alone (build_your_own context), unlike an Add-on');
+check(!afterPrimaryRemoval.includes(updatedComposable), 'removing the primary ALSO removes the dependent Upgrade line — it can no longer stand alone once standalone Build Your Own is disabled (Phase 0 correction)');
+check(afterPrimaryRemoval.length === 0, 'the whole Tier System for this Family+Instance is empty after primary removal — nothing orphaned');
 
-// A standalone composable line (no primary at all) is independently removable.
-const composableOnlyRemoved = removeFamilyComposableQuoteItem(afterPrimaryRemoval, 'pcg_kairos', 'ti_kairos');
-check(composableOnlyRemoved.length === 0, 'removeFamilyComposableQuoteItem removes exactly the standalone composable line, leaving nothing else for this Family+Instance');
+// removeFamilyComposableQuoteItem still removes ONLY the Upgrade line while
+// a primary is present, leaving the primary and every Add-on untouched —
+// the "remove just my Upgrade" action, distinct from the cascade above.
+const cartWithPrimaryAndComposable: CartItem[] = [samePrimaryReconfirmed, addonOne, updatedComposable];
+const composableOnlyRemoved = removeFamilyComposableQuoteItem(cartWithPrimaryAndComposable, 'pcg_kairos', 'ti_kairos');
+check(composableOnlyRemoved.length === 2 && composableOnlyRemoved.includes(samePrimaryReconfirmed) && composableOnlyRemoved.includes(addonOne), 'removeFamilyComposableQuoteItem removes exactly the Upgrade line, leaving the primary and Add-on untouched');
 
 // ── 3. Zero-selected/no-required removes composable; required-only persists ──
 
