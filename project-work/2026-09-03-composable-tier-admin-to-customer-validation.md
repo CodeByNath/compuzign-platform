@@ -1,10 +1,11 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **READY FOR CLAUDE — production live-validation regression**
-- Auditor verdict: **Stop — architectural risk**
-- Validated production source: `main@528f7295fcc8e505cb0d064d01fe8e077f228924`
+- **AWAITING CHATGPT REVIEW — Claude fix pushed, not merged to main**
+- Auditor verdict (prior round): **Stop — architectural risk**
+- Base source at time of fix: `main@528f7295fcc8e505cb0d064d01fe8e077f228924`
 - Browser validation date: 2026-09-04
+- Fix pushed to `review/upgrade-journey-finalisation@eaead453` (reused topic branch per two-branch policy; its prior tip `59d4fba1` is the already-recorded zero-diff reverted self-correction — not cherry-picked, built on top of, net-zero). Source push to `main` NOT yet approved.
 
 ## Accepted architecture and non-change boundary
 - An exact Tier/Edition base becomes an in-progress composable draft; explicit **Finalise build** produces exactly one Build Your Own item.
@@ -39,3 +40,20 @@ No raw post IDs, meta keys, hashes, bearer values, or similar plumbing were obse
 7. Do not submit a fresh Request or email until this browser gate passes.
 
 Report changed files, tests, source commit, coordination commit, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
+
+## Claude's diagnosis and fix (2026-09-04)
+
+**Not a finaliseUpgradeQuoteDraft()/deriveComposedProjection() bug** — re-verified correct against a new realistic fixture matching this scenario (base $156.50/mo+$80/yr, add-on, upgrade $10/mo ongoing): projection concatenates both peers correctly, sums to $166.50/mo+$80/yr.
+
+**Real cause:** `ComposableOfferBrowser.tsx`'s debounced auto-commit `useEffect` deps on `context`/`primaryItem`. Finalise removes the primary, flipping both (`upgrade_your_build`→`build_your_own`, Tier→`null`) with no new customer edit — that alone re-fires the effect ~400ms later. `hasInteracted`/local `selection` are never reset by this transition, so it re-resolves the stale upgrade-only choice and re-commits a fresh **standalone** snapshot (no `composedBase`/`composedUpgrade`) over the just-finalised item, dropping the base's price/inclusions/streams. Matches every FAIL, including the wrong headline price.
+
+A prior same-symptom self-correction on this branch (`1976e01d`, reverted `59d4fba1`) blamed `itemFor()` never setting `inclusionItems` — re-checked, false (line 648 sets it unconditionally). That revert was correct; this is a different, complete cause covering the price too.
+
+**Fix:** (1) `ComposableOfferBrowser.tsx` — exported pure guard `shouldAutoCommitComposableSelection(initialCartItem)` (false once `isComposedUpgrade`), same precedent as `isFinaliseBuildReady()`; effect bails out over a finalised line. (2) `QuoteDetailsOverlay.tsx`'s `ComposablePlanDetails` — was one undifferentiated list (fix-request #3); now groups inclusions "Included in your plan"/"Your upgrades" and tags streams " · Plan"/" · Upgrade", mirroring `OrderSummary.tsx`/`QuoteSummary.tsx`. (3) matching CSS in `cost-builder.css`.
+
+**Regression (#6):** `upgrade-quote-draft-contract.ts` gained a full KAIROS-shaped scenario (base+add-on+upgrade) asserting one item, add-on gone, both peers, combined projection, exact $166.50/$80 split. `composable-finalise-race-contract.ts` gained direct assertions on `shouldAutoCommitComposableSelection()` — the actual clobber lock, since the race itself is a component-effect timing issue with no DOM/hook harness in this repo (no jsdom/testing-library) to reproduce end-to-end; flagging the gap rather than adding a test framework unasked. Existing guard tests untouched, still pass.
+
+**Verification:** contract:upgrade-quote-draft, contract:composable-finalise-race, `tsc --noEmit`, `npm run build` all pass. Pre-existing unrelated local failures (`quote-view-http-boundary.php`/`quote-view-email-link.php` constructor mismatch, `contract:platform-identity-schema`) reproduce identically on unmodified `main@528f7295` via `git stash` — not touched. No local WP/browser env to reproduce the live journey; this is code/contract-level pending the auditor's own browser re-check.
+
+**Files:** `ComposableOfferBrowser.tsx`, `QuoteDetailsOverlay.tsx`, `resources/css/modules/cost-builder.css` (+ compiled `dist/css`/`dist/js`), `composable-finalise-race-contract.ts`, `upgrade-quote-draft-contract.ts`.
+**Review branch:** `review/upgrade-journey-finalisation@eaead453` (base `main@528f7295`). Not merged to `main`.
