@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import { calcQuoteTotals, composableCoexistsWithPrimary, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, composableCoexistsWithPrimary, hasUnfinalisedUpgradeDraft, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import type { CartItem, FamilyTierQuoteItem } from './types';
@@ -163,7 +163,21 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
                   <>
                     {streams!.map((stream) => (
                       <div key={stream.source} class="cz-quote-summary__stream-row">
-                        <span class="cz-quote-summary__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
+                        <span class="cz-quote-summary__stream-label">
+                          {chargeTypeLabel(stream.billingCycle)}
+                          {/* Upgrade Journey Finalisation: a composed item's
+                              streams come from two different occupants —
+                              without this cue, two same-cycle rows (e.g.
+                              "Monthly" + "Monthly") could read as an
+                              accidental duplicate charge rather than the
+                              base plan plus a separate upgrade. Streams are
+                              never merged; each keeps its own row. */}
+                          {isFamilyTierQuoteItem(item) && item.isComposedUpgrade && stream.provenance && (
+                            <span class="cz-quote-summary__stream-provenance">
+                              {stream.provenance === 'base' ? ' · Plan' : ' · Upgrade'}
+                            </span>
+                          )}
+                        </span>
                         <span class="cz-quote-summary__stream-value">{formatPrice(stream.price)}</span>
                       </div>
                     ))}
@@ -325,10 +339,16 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
         <button
           type="button"
           class="cz-btn cz-btn-primary cz-quote-summary__cta"
+          disabled={hasUnfinalisedUpgradeDraft(items)}
           onClick={onOpenReview}
         >
           Review &amp; Finalise Quote
         </button>
+        {hasUnfinalisedUpgradeDraft(items) && (
+          <p class="cz-quote-summary__upgrade-draft-hint">
+            Finalise your build before requesting a quote.
+          </p>
+        )}
       </div>
     </div>
   );

@@ -417,6 +417,11 @@ interface FamilyTierAdapterProps {
   selectedComposableItem: FamilyTierQuoteItem | null;
   onComposableCommit: (item: FamilyTierQuoteItem) => void;
   onComposableRemove: () => void;
+  // Upgrade Journey Finalisation — the current primary's full resolved cart
+  // item (or null), forwarded to ComposableOfferBrowser purely so it can
+  // stamp/validate an Upgrade draft's exact base identity. Never read here.
+  selectedPrimaryItem: FamilyTierQuoteItem | null;
+  onFinaliseComposable: () => void;
 }
 
 const CUSTOMER_GROUPS = [
@@ -453,6 +458,8 @@ export function FamilyTierAdapter({
   selectedComposableItem,
   onComposableCommit,
   onComposableRemove,
+  selectedPrimaryItem,
+  onFinaliseComposable,
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
@@ -1233,8 +1240,10 @@ export function FamilyTierAdapter({
         family={family}
         context={selectedTierId === null ? 'build_your_own' : 'upgrade_your_build'}
         initialCartItem={selectedComposableItem}
+        primaryItem={selectedPrimaryItem}
         onCommit={onComposableCommit}
         onRemoveFromQuote={onComposableRemove}
+        onFinaliseBuild={onFinaliseComposable}
       />
     </>
   );
