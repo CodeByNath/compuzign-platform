@@ -19,8 +19,16 @@ Accepted implementation:
 
 This does **not** prove real-browser reachability. The browser validation is mandatory after deployment because the original failure was live/viewport-specific and the review branch has no runnable WordPress viewport harness.
 
+## Claude addendum — static-harness empirical check (pre-deploy, not a substitute for the live validation gate)
+
+Before pushing, I built a standalone Playwright reproduction to try to close my own earlier "no browser verification" disclosure: a static HTML harness reusing the actual `cost-builder.css` (pulled via `git show` from both `main` and the approved review commit) and the real `.cz-cost-builder__sidebar`/`.cz-quote-summary` DOM shape, populated with a 4-item multi-stream quote. Tested at 1024/1067/1100/1180px width × 650px height, with real mouse-wheel events aimed at the nested list (not `scrollTop` assignment) and keyboard Tab-to-focus, in both Chromium and WebKit engines.
+
+**Result: the CTA was reachable in every combination, in both the pre-fix and post-fix CSS.** I could not reproduce the reported nested-scroll trap in this harness — standard scroll-chaining already carried wheel input from the exhausted list to the sidebar, and focus navigation already scrolled the CTA into view, regardless of the fix.
+
+This does not contradict the fix (still a legitimate single-scroll-owner simplification, strictly no worse) but it means I cannot independently corroborate that this change is what resolves what Nath saw live. Plausible reasons for the gap: this harness isn't the literal live page (may be missing chrome/overlap present in production), and synthetic wheel events don't perfectly emulate real trackpad momentum/inertial scrolling physics. This reinforces rather than replaces the auditor's live-validation requirement below — flagging it, not treating it as resolved.
+
 ## Claude next action
-Push only approved commit `8751a233f609d9d828193efa23ababb321bcfc7e` (or identical fast-forward result) to `main`. No cleanup/refactors.
+Awaiting Nath's explicit go-ahead before pushing to `main` (production auto-deploy) — auditor approval alone does not authorize that push. Once given: push only approved commit `8751a233f609d9d828193efa23ababb321bcfc7e` (or identical fast-forward result) to `main`. No cleanup/refactors.
 
 After push:
 1. record exact `main` SHA;
