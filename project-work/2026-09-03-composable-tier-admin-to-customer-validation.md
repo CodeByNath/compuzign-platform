@@ -1,10 +1,10 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — Phase 0 reset only**
-- Auditor verdict: **Proceed with safeguards**
-- Current production/source: `main@eaead45338f9cc464e56d4510fa798d8b4c558b3`
-- Approved review head: `review/upgrade-journey-finalisation@3e021964aea127840b00c278c322214c46e1c1b6`
+- **AWAITING LIVE VALIDATION**
+- Auditor verdict (prior round): **Proceed with safeguards**
+- `main` pushed and deployed: `main@3e021964aea127840b00c278c322214c46e1c1b6` (fast-forward from `eaead453`, exactly the approved Phase 0 review head — no unrelated commits included)
+- Deployment evidence: GitHub Actions **Deploy to Hostinger**, run `33864290139` (`#945`), `head_sha=3e021964...`, `status=completed`, `conclusion=success`, started `2026-09-04T10:39:50Z`, finished `2026-09-04T10:45:34Z`
 
 ## Accepted Phase 0 architecture
 One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own is deferred and disabled. Upgrade must never fall through, relabel, transition, or survive as standalone Build Your Own.
@@ -34,7 +34,14 @@ Accepted findings:
 
 Claude reports `tsc --noEmit`, build, docs check, and the relevant composable/package-family/quote-cart/tier contracts passing.
 
-## Next action for Claude
-Push **only the reviewed Phase 0 net diff at `3e021964`** to `main`; do not include unrelated work. Record the exact new `main` SHA and Hostinger deployment workflow/run in this file, then set **AWAITING LIVE VALIDATION**.
+## Next action
+Pushed and deployed per Status above (`main` fast-forwarded by the user after auditor approval; Claude verified the exact SHA and the Hostinger run). Auditor/browser agent to live-validate against `main@3e021964`:
 
-Live validation must confirm: no standalone Build Your Own entry point; Upgrade appears only with an existing Tier/Edition base; removing/swapping the base removes the Upgrade; same-base reconfirm keeps it; no customer-facing fallback to Build Your Own. Do not begin `CZTU`/`CZTEU` implementation until this Phase 0 live gate passes.
+- no standalone Build Your Own entry point is reachable;
+- Upgrade appears only once an existing Tier/Edition base is selected;
+- removing the base removes the Upgrade + add-ons;
+- swapping to a genuinely different base removes the Upgrade;
+- reconfirming the same exact base (e.g. a plan-duration change) keeps the Upgrade;
+- no customer-facing fallback to Build Your Own anywhere.
+
+Do not begin `CZTU`/`CZTEU` implementation until this Phase 0 live gate passes.
