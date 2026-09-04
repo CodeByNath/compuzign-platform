@@ -1,10 +1,15 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — hidden Request-modal scrollbar chrome refinement.**
+- **AWAITING LIVE VALIDATION — hidden scrollbar chrome deployed and self-validated live.**
 - Auditor verdict: **Proceed with safeguards.**
-- Production remains `main@5112f5f5f57bad65adf84e26d829323a43b5eb7570` until this exact review head is pushed.
-- Approved review head: `review/request-flow-hidden-scrollbars@aa820596e9cdb9bb496d2a5d9292e31e7b0801b2`.
+- Nath gave explicit go-ahead to push to `main` on 2026-09-04.
+- Approved review head: `review/request-flow-hidden-scrollbars@aa820596`, pushed to `main` as a fast-forward (`5112f5f5..aa820596`).
+- Production now: `main@aa820596e9cdb9bb496d2a5d9292e31e7b0801b2`. Hostinger workflow run `33835470825` succeeded on that exact SHA.
+
+## Claude live validation — hidden scrollbar chrome
+
+Re-tested the deployed site (`https://compuzign.weerax.com/pricing/`, same 3-Family multi-stream quote, Review & Finalise modal, 1100×650): `getComputedStyle` confirms both `.cz-rf-left` and `.cz-rf-right` keep `overflow-y:auto` and now report `scrollbar-width:none`; real wheel input over each panel still moved `scrollTop` (right rail 0→632, left panel 0→344); Submit Quote Request confirmed reachable in-viewport after scrolling. Screenshot shows no scrollbar track on either panel — matches the pre-deploy static-harness prediction exactly. Still outstanding: Upgrades label, composable Quote Details, Admin Request stored detail, proposal/PDF/public quote exact-once rendering, totals once, no raw IDs — not yet checked.
 
 ## Accepted deployed correction retained
 The Request/Review right-rail clipping fix stays locked:
