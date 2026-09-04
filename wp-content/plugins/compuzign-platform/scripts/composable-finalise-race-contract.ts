@@ -10,7 +10,7 @@
 // driven against the real exported functions, no DOM/timers/mounted
 // component, same precedent as composable-quote-cart-contract.ts.
 
-import { composableChoicesMatch, isFinaliseBuildReady } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
+import { composableChoicesMatch, isFinaliseBuildReady, shouldAutoCommitComposableSelection } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
 import type { FamilyTierQuoteItem } from '../resources/ts/components/cost-builder/types';
 import { COMPOSABLE_QUOTE_TIER_ID } from '../resources/ts/components/cost-builder/types';
 
@@ -114,6 +114,27 @@ const primary = primaryItem();
   const b = [{ item_id: 'y', selected: true }, { item_id: 'x', selected: true, quantity: 1 }];
   check(composableChoicesMatch(a, b), 'composableChoicesMatch ignores array order');
   check(!composableChoicesMatch(a, [{ item_id: 'x', selected: true, quantity: 2 }, { item_id: 'y', selected: true }]), 'composableChoicesMatch detects a changed quantity');
+}
+
+// ── 9. Production live-validation regression: Finalise must not be
+// silently undone by the SAME debounced auto-commit effect re-firing —
+// composableChoicesMatch()/isFinaliseBuildReady() above only govern the
+// button's own enabled state; this predicate governs whether the effect
+// commits at all. Finalise removes the primary, which flips this effect's
+// own context/primaryItem deps even with no new customer edit; without
+// shouldAutoCommitComposableSelection() gating on isComposedUpgrade, that
+// alone re-fires the effect and re-commits a fresh standalone snapshot of
+// the stale local selection over the just-finalised composedBase/
+// composedUpgrade result, silently dropping the base plan back down to
+// just the upgrade's own facts (exactly the auditor's reported "Monthly
+// $10 only, base plan snapshot missing" regression). ────────────────────
+{
+  const stillDraft = committedDraft(5);
+  check(shouldAutoCommitComposableSelection(stillDraft), 'an in-progress (un-finalised) draft still auto-commits normally');
+  check(shouldAutoCommitComposableSelection(null), 'no committed composable line at all still auto-commits normally (first-time build_your_own/upgrade flow)');
+
+  const finalised: FamilyTierQuoteItem = { ...committedDraft(5), upgradeDraftBase: undefined, isComposedUpgrade: true };
+  check(!shouldAutoCommitComposableSelection(finalised), 'a finalised composed line (isComposedUpgrade) must never be auto-committed over');
 }
 
 console.log('Composable finalise race contract passed.');

@@ -148,10 +148,34 @@ function ComposablePlanDetails({ item }: { item: FamilyTierQuoteItem }) {
       </section>
 
       {item.inclusionItems && item.inclusionItems.length > 0 && (
-        <section class="cz-package-builder__details-section">
-          <h4 class="cz-package-builder__details-heading">Included</h4>
-          <ComposableInclusionsTable items={item.inclusionItems} />
-        </section>
+        // Upgrade Journey Finalisation: a composed item's inclusionItems is
+        // the concatenation of two occupants' own inclusions (see
+        // deriveComposedProjection() in utils/quote.ts) — grouped by
+        // provenance here exactly as FamilyInclusionsList (request-flow/
+        // OrderSummary.tsx) already groups the same data, so this surface
+        // doesn't silently flatten the base plan's own inclusions into an
+        // undifferentiated list alongside the upgrade's.
+        item.isComposedUpgrade ? (
+          <>
+            {item.inclusionItems.filter((entry) => entry.provenance !== 'upgrade').length > 0 && (
+              <section class="cz-package-builder__details-section">
+                <h4 class="cz-package-builder__details-heading">Included in your plan</h4>
+                <ComposableInclusionsTable items={item.inclusionItems.filter((entry) => entry.provenance !== 'upgrade')} />
+              </section>
+            )}
+            {item.inclusionItems.filter((entry) => entry.provenance === 'upgrade').length > 0 && (
+              <section class="cz-package-builder__details-section">
+                <h4 class="cz-package-builder__details-heading">Your upgrades</h4>
+                <ComposableInclusionsTable items={item.inclusionItems.filter((entry) => entry.provenance === 'upgrade')} />
+              </section>
+            )}
+          </>
+        ) : (
+          <section class="cz-package-builder__details-section">
+            <h4 class="cz-package-builder__details-heading">Included</h4>
+            <ComposableInclusionsTable items={item.inclusionItems} />
+          </section>
+        )
       )}
 
       <section class="cz-package-builder__details-section">
@@ -160,7 +184,17 @@ function ComposablePlanDetails({ item }: { item: FamilyTierQuoteItem }) {
           <>
             {streams.map((stream) => (
               <div key={stream.source} class="cz-package-builder__commitment-row">
-                <span>{chargeTypeLabel(stream.billingCycle)}</span>
+                <span>
+                  {chargeTypeLabel(stream.billingCycle)}
+                  {/* Upgrade Journey Finalisation: distinguishes a composed
+                      item's Plan vs Upgrade streams — same provenance cue
+                      QuoteSummary.tsx/OrderSummary.tsx already render. */}
+                  {item.isComposedUpgrade && stream.provenance && (
+                    <span class="cz-package-builder__stream-provenance">
+                      {stream.provenance === 'base' ? ' · Plan' : ' · Upgrade'}
+                    </span>
+                  )}
+                </span>
                 <span>{formatPrice(stream.price)}</span>
               </div>
             ))}

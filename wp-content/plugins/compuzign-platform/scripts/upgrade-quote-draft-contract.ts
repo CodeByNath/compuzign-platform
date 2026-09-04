@@ -6,6 +6,7 @@ import {
   removeFamilyTierSystemQuoteItems,
   replaceFamilyNormalQuoteItem,
 } from '../resources/ts/utils/quote';
+import { startingPaymentsByCycle } from '../resources/ts/utils/paymentSummary';
 import { COMPOSABLE_QUOTE_TIER_ID } from '../resources/ts/components/cost-builder/types';
 import type { CartItem, ComposedUpgradeBase, ComposedUpgradeExtras, FamilyTierQuoteItem } from '../resources/ts/components/cost-builder/types';
 
@@ -244,6 +245,103 @@ function addonItem(overrides: Partial<FamilyTierQuoteItem> = {}): FamilyTierQuot
   check(!hasUnfinalisedUpgradeDraft([legacyPrimary, legacyComposable]), 'a legacy standalone composable never blocks submission');
   const afterRemove = removeFamilyTierSystemQuoteItems([legacyPrimary, legacyComposable], FAMILY_ID, TIER_INSTANCE_ID);
   check(afterRemove.includes(legacyComposable), 'a legacy standalone composable survives primary removal exactly as before this feature existed');
+}
+
+// ── Production live-validation regression scenario (KAIROS — IaaS) ──────────
+// Reproduces the auditor's exact browser scenario: an exact base Tier
+// (Starter Cloud, its own multi-stream commercial legs: $156.50/month +
+// $80/year) with an add-on (Backup & DR Shield) temporarily attached, plus
+// an in-progress Upgrade draft (Block Storage, $10/month, ongoing). Asserts
+// the ONE finalised Build Your Own result retains both peers' full facts —
+// nothing about deriveComposedProjection()/finaliseUpgradeQuoteDraft()
+// itself was broken (see the isolated unit assertions above); the actual
+// production defect was a SEPARATE effect in ComposableOfferBrowser.tsx
+// re-committing over this correct result seconds later (see
+// shouldAutoCommitComposableSelection() in
+// scripts/composable-finalise-race-contract.ts for that regression).
+{
+  const FAMILY_ID = 'pcg_kairos_iaas';
+  const TIER_INSTANCE_ID = 'ti_kairos_iaas';
+
+  const starterCloud: FamilyTierQuoteItem = {
+    offer_type: 'family_tier',
+    familyId: FAMILY_ID, familyPlatformId: 'CZPG-KAIROS01', familyTitle: 'KAIROS — IaaS',
+    tierInstanceId: TIER_INSTANCE_ID, tierInstancePlatformId: 'CZTG-KAIROS01',
+    tierOccupantId: 'occ-starter', tierPlatformId: 'CZT-STARTER01', tierEditionPlatformId: null,
+    tierId: 'basic', tierTitle: 'Starter Cloud',
+    price: 156.5, billingCycle: 'monthly',
+    features: ['2 vCPU', '8 GB RAM'],
+    inclusionItems: [
+      { id: 'vcpu', label: '2 vCPU', quantity: 2 },
+      { id: 'ram', label: '8 GB RAM', quantity: 8 },
+      { id: 'os', label: 'SUSE Linux', quantity: 1 },
+      { id: 'block-storage-base', label: 'Block Storage', quantity: 50 },
+      { id: 'baas', label: 'Backup Storage — BaaS', quantity: 1 },
+      { id: 'ip', label: 'Static IP Block', quantity: 1 },
+    ],
+    isAddon: false,
+    minimumTermValue: 12, minimumTermUnit: 'months', planDurationMonths: 12,
+    legPaymentSummaries: [
+      { source: 'starter-monthly', billingCycle: 'monthly', price: 156.5, startMonth: 0, endMonth: 12, isOngoing: false, occurrenceMonths: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], subtotal: 1878 },
+      { source: 'starter-yearly', billingCycle: 'annual', price: 80, startMonth: 0, endMonth: 12, isOngoing: false, occurrenceMonths: [0], subtotal: 80 },
+    ],
+  };
+  const drShield: FamilyTierQuoteItem = {
+    offer_type: 'family_tier',
+    familyId: FAMILY_ID, familyPlatformId: 'CZPG-KAIROS01', familyTitle: 'KAIROS — IaaS',
+    tierInstanceId: TIER_INSTANCE_ID, tierInstancePlatformId: 'CZTG-KAIROS01',
+    tierOccupantId: 'occ-dr-shield', tierPlatformId: 'CZT-DRSHIELD01', tierEditionPlatformId: null,
+    tierId: 'premium', tierTitle: 'Backup & DR Shield',
+    price: 25, billingCycle: 'monthly', features: [], isAddon: true,
+    minimumTermValue: null, minimumTermUnit: null,
+  };
+  const blockStorageDraft: FamilyTierQuoteItem = {
+    offer_type: 'family_tier',
+    familyId: FAMILY_ID, familyPlatformId: 'CZPG-KAIROS01', familyTitle: 'KAIROS — IaaS',
+    tierInstanceId: TIER_INSTANCE_ID, tierInstancePlatformId: 'CZTG-KAIROS01',
+    tierOccupantId: 'occ-composable', tierPlatformId: 'CZT-COMPOSABLE01', tierEditionPlatformId: null,
+    tierId: COMPOSABLE_QUOTE_TIER_ID, tierTitle: 'Build Your Own',
+    price: 10, billingCycle: 'monthly',
+    features: ['Block Storage'],
+    inclusionItems: [{ id: 'block-storage-upgrade', label: 'Block Storage', quantity: 100 }],
+    isAddon: false, isComposable: true,
+    composableSelection: [{ item_id: 'block-storage-upgrade', selected: true, quantity: 100 }],
+    minimumTermValue: null, minimumTermUnit: null,
+    legPaymentSummaries: [
+      { source: 'block-storage-upgrade', billingCycle: 'monthly', price: 10, startMonth: 0, endMonth: null, isOngoing: true, occurrenceMonths: [], subtotal: null },
+    ],
+    upgradeDraftBase: { tierPlatformId: starterCloud.tierPlatformId, tierEditionPlatformId: starterCloud.tierEditionPlatformId },
+  };
+
+  const items: CartItem[] = [starterCloud, drShield, blockStorageDraft];
+  const result = finaliseUpgradeQuoteDraft(items, FAMILY_ID, TIER_INSTANCE_ID);
+
+  check(result.length === 1, 'finalising collapses primary + add-on + draft into exactly one item');
+  const finalItem = result[0] as FamilyTierQuoteItem;
+  check(finalItem.tierTitle === 'Build Your Own' && finalItem.isComposedUpgrade === true, 'the one remaining item is the finalised Build Your Own result');
+  check(finalItem.composedBase?.tierPlatformId === starterCloud.tierPlatformId, 'composedBase peer is present and carries the exact base identity');
+  check(finalItem.composedUpgrade?.tierPlatformId === blockStorageDraft.tierPlatformId, 'composedUpgrade peer is present and carries the exact upgrade identity');
+
+  check(finalItem.price === 156.5 && finalItem.billingCycle === 'monthly', 'headline price/cycle reflect the base plan, never the upgrade alone');
+
+  const baseInclusions = finalItem.inclusionItems!.filter((entry) => entry.provenance !== 'upgrade');
+  const upgradeInclusions = finalItem.inclusionItems!.filter((entry) => entry.provenance === 'upgrade');
+  check(baseInclusions.length === 6, 'every base inclusion (2 vCPU/8GB RAM/OS/base Block Storage/BaaS/Static IP) survives finalisation');
+  check(upgradeInclusions.length === 1 && upgradeInclusions[0].label === 'Block Storage', 'the upgrade inclusion is present alongside the base, not instead of it');
+
+  check(finalItem.legPaymentSummaries!.length === 3, 'both of the base plan\'s streams (monthly + yearly) AND the upgrade\'s stream are all present');
+  const monthlyStreams = finalItem.legPaymentSummaries!.filter((s) => s.billingCycle === 'monthly');
+  check(monthlyStreams.length === 2 && monthlyStreams.some((s) => s.price === 156.5) && monthlyStreams.some((s) => s.price === 10), 'the base plan\'s own $156.50 monthly stream is never dropped in favour of only the $10 upgrade stream');
+
+  // The exact figure the auditor found wrong ("Monthly $10" instead of the
+  // combined $166.50): startingPaymentsByCycle summed across this one
+  // finalised item's own concatenated streams must combine base + upgrade
+  // per cycle, not silently drop the base's contribution.
+  const starting = startingPaymentsByCycle([finalItem.legPaymentSummaries ?? []]);
+  const monthlyTotal = starting.find(([cycle]) => cycle === 'monthly')?.[1];
+  const annualTotal = starting.find(([cycle]) => cycle === 'annual')?.[1];
+  check(monthlyTotal === 166.5, `combined starting monthly payment is base $156.50 + upgrade $10 = $166.50 (got ${monthlyTotal})`);
+  check(annualTotal === 80, `the base plan's separate $80 yearly stream is preserved, never merged into the monthly figure (got ${annualTotal})`);
 }
 
 console.log('Upgrade quote draft contract passed.');
