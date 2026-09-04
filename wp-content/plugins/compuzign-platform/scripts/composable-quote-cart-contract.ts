@@ -10,8 +10,12 @@
 //      primary to a DIFFERENT Tier/Edition, or removing it outright, also
 //      drops the composable line (no orphaned-standalone state may
 //      survive); re-confirming the SAME Tier/Edition (e.g. a plan-duration
-//      change) leaves it untouched. Updating composable never replaces
-//      primary/Add-ons;
+//      change) leaves it untouched. [Identity safeguard, second Phase 0
+//      correction round] the base-changed comparison is anchored on
+//      tierOccupantId — the platform's own native occupant identity,
+//      mandatory here — plus tierEditionPlatformId as the exact Edition
+//      identity, never tierPlatformId/other display-facing Tier fields
+//      alone. Updating composable never replaces primary/Add-ons;
 //   3. zero-selected/no-required removes composable; required-only persists;
 //   4. stale/failed preview cannot overwrite cart (source-scan, since this is
 //      an async-effect property, not a pure-function one);
@@ -118,6 +122,26 @@ check(!afterPrimarySwitch.includes(primary), 'replacing the primary drops the ol
 check(afterPrimarySwitch.includes(newPrimary), 'replacing the primary adds the new snapshot');
 check(afterPrimarySwitch.includes(addonOne) && afterPrimarySwitch.includes(addonTwo), 'replacing the primary preserves both existing Add-ons — unchanged existing behavior');
 check(!afterPrimarySwitch.includes(composable), 'swapping the primary to a DIFFERENT Tier/Edition drops the dependent Upgrade line — no orphaned-standalone state may survive (Phase 0 correction)');
+
+// Identity safeguard (second Phase 0 correction round): the base-changed
+// comparison is anchored on tierOccupantId — the platform's own native
+// occupant identity — not tierPlatformId/other display-facing Tier fields.
+{
+  const cartForOccupantCase = upsertFamilyComposableQuoteItem(cart, composable);
+  // Same tierPlatformId/tierId/tierTitle as `primary`, but a genuinely
+  // different tierOccupantId — proves occupant identity alone drives the
+  // decision, never a Platform-ID/label match standing in for it.
+  const differentOccupantSamePlatformId = familyItem({ tierOccupantId: 'occ_different_occupant' });
+  const afterOccupantChange = replaceFamilyNormalQuoteItem(cartForOccupantCase, differentOccupantSamePlatformId);
+  check(!afterOccupantChange.includes(composable), 'a different tierOccupantId removes the Upgrade even though tierPlatformId/tierId/tierTitle all still match the old primary');
+
+  // Same tierOccupantId + same tierEditionPlatformId as `primary`, but a
+  // different tierPlatformId/tierId/tierTitle — proves occupant identity
+  // (not Platform ID) is what preserves the Upgrade on a genuine reconfirm.
+  const sameOccupantDifferentPlatformId = familyItem({ tierPlatformId: 'CZT-KAIROS001-REISSUED', tierId: 'standard', tierTitle: 'KAIROS Basic (reissued)' });
+  const afterSameOccupantReconfirm = replaceFamilyNormalQuoteItem(cartForOccupantCase, sameOccupantDifferentPlatformId);
+  check(afterSameOccupantReconfirm.includes(composable), 'the same tierOccupantId + tierEditionPlatformId preserves the Upgrade even when tierPlatformId/tierId/tierTitle differ from the old primary');
+}
 
 // Re-selecting the SAME Tier/Edition (e.g. a plan-duration change via Choose
 // Plan, which still calls replaceFamilyNormalQuoteItem with a freshly built

@@ -81,9 +81,20 @@ export function quoteItemKey(item: CartItem): string {
  * state. Swapping to a genuinely different Tier/Edition therefore also
  * drops the composable line; re-confirming the SAME Tier/Edition (e.g. a
  * plan-duration change via Choose Plan, which still calls this with a
- * freshly built item for the identical Tier/Edition) leaves it alone — the
- * comparison is a plain Platform-ID/native-id identity check, never a
- * revived draft/staleness state machine.
+ * freshly built item for the identical Tier/Edition) leaves it alone.
+ *
+ * Identity safeguard (second Phase 0 correction round): the base-changed
+ * comparison is anchored on `tierOccupantId` — the platform's own native
+ * occupant identity, mandatory here — not a Platform-ID-only check.
+ * `CZT`'s own reference shape is `(tier_instance_id, occupant_id)` (see the
+ * CompuZign Platform skill's platform-id-families.md): occupant_id is the
+ * true identity a Platform ID is minted against, so occupant_id is what
+ * this compares first, never tierPlatformId alone standing in for it.
+ * `tierEditionPlatformId` is compared alongside it as the exact Edition
+ * identity — the only Edition-identifying field this item shape carries
+ * (no separate native edition id exists on FamilyTierQuoteItem), naturally
+ * covering "no Edition" too via direct null-safe equality. Still a plain
+ * identity comparison, never a revived draft/staleness state machine.
  */
 export function replaceFamilyNormalQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
   const systemKey = familyTierSystemKey(item);
@@ -91,7 +102,7 @@ export function replaceFamilyNormalQuoteItem(items: CartItem[], item: FamilyTier
     && resolveQuoteItemRole(existing) === 'primary'
     && familyTierSystemKey(existing) === systemKey);
   const baseChanged = !previousPrimary
-    || previousPrimary.tierPlatformId !== item.tierPlatformId
+    || previousPrimary.tierOccupantId !== item.tierOccupantId
     || previousPrimary.tierEditionPlatformId !== item.tierEditionPlatformId;
   return [
     ...items.filter((existing) => {
