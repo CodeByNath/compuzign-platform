@@ -315,53 +315,6 @@ class NotificationTemplates
             return '';
         }
 
-        // Upgrade Journey Finalisation: a composed item's inclusionItems is
-        // the concatenation of two occupants' own inclusions (see
-        // RequestSchema::deriveComposedProjection()) — the same item_id can
-        // legitimately appear once per occupant. Grouping into two labeled
-        // sections (matching OrderSummary.tsx's/QuoteProposalPreview.tsx's
-        // own provenance grouping) is what keeps that truthful rather than
-        // reading as an accidental duplicate row. Detected per-entry (any
-        // `provenance` key present) rather than requiring the caller to
-        // also pass the parent item's isComposedUpgrade flag through.
-        $hasProvenance = false;
-        foreach ($inclusionItems as $inclusion) {
-            if (!empty($inclusion['provenance'])) {
-                $hasProvenance = true;
-                break;
-            }
-        }
-
-        if ($hasProvenance) {
-            $baseRows = array_filter($inclusionItems, static fn ($i) => ($i['provenance'] ?? 'base') !== 'upgrade');
-            $upgradeRows = array_filter($inclusionItems, static fn ($i) => ($i['provenance'] ?? '') === 'upgrade');
-            $sections = '';
-            if ($baseRows !== []) {
-                $sections .= self::emailInclusionGroupLabel('Included in your plan') . self::emailInclusionRows($baseRows);
-            }
-            if ($upgradeRows !== []) {
-                $sections .= self::emailInclusionGroupLabel('Your upgrades') . self::emailInclusionRows($upgradeRows);
-            }
-
-            return "
-              <tr><td colspan=\"2\" style=\"padding:0 14px 10px;\">
-                <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">{$sections}</table>
-              </td></tr>";
-        }
-
-        $rows = self::emailInclusionRows($inclusionItems);
-
-        return "
-          <tr><td colspan=\"2\" style=\"padding:0 14px 10px;\">
-            <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">{$rows}</table>
-          </td></tr>";
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $inclusionItems
-     */
-    private static function emailInclusionRows(array $inclusionItems): string
-    {
         $rows = '';
         foreach ($inclusionItems as $inclusion) {
             $label = esc_html((string) ($inclusion['label'] ?? ''));
@@ -387,15 +340,10 @@ class NotificationTemplates
             }
         }
 
-        return $rows;
-    }
-
-    private static function emailInclusionGroupLabel(string $label): string
-    {
-        $label = esc_html($label);
-
         return "
-            <tr><td colspan=\"2\" style=\"padding:6px 0 2px 14px;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.04em;\">{$label}</td></tr>";
+          <tr><td colspan=\"2\" style=\"padding:0 14px 10px;\">
+            <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">{$rows}</table>
+          </td></tr>";
     }
 
     /**
@@ -422,12 +370,6 @@ class NotificationTemplates
         $rows = '';
         foreach ($streams as $stream) {
             $label = esc_html(self::chargeTypeLabel($stream['billingCycle']));
-            // Upgrade Journey Finalisation: distinguishes a composed item's
-            // Plan vs Upgrade streams — same reasoning as
-            // emailInclusionItemsList()'s own provenance grouping above.
-            if (!empty($stream['provenance'])) {
-                $label .= $stream['provenance'] === 'upgrade' ? ' &middot; Upgrade' : ' &middot; Plan';
-            }
             $value = $stream['price'] !== null ? '$' . number_format((float) $stream['price'], 2) : 'Custom pricing';
             $rows .= "
                 <tr>
@@ -488,32 +430,9 @@ class NotificationTemplates
         if ($includeInternalIds) {
             $familyRef   = esc_html((string) ($item['familyPlatformId'] ?? ''));
             $instanceRef = esc_html((string) ($item['tierInstancePlatformId'] ?? ''));
+            $tierRef     = esc_html((string) ($item['tierPlatformId'] ?? ''));
             $editionRef  = esc_html((string) ($item['tierEditionPlatformId'] ?? ''));
-            $refs        = trim($familyRef . ' · ' . $instanceRef, ' ·');
-
-            // Upgrade Journey Finalisation: a composed item's top-level
-            // tierPlatformId identifies only the composable occupant that
-            // mediated the build — showing just that one reference here
-            // would silently lose which base Tier/Edition was actually
-            // involved, the opposite of "truthful and auditable" this
-            // internal-only reference line exists for. Show both real
-            // occupant identities explicitly instead of the single
-            // (ambiguous, for this item shape) top-level tierPlatformId.
-            if (!empty($item['isComposedUpgrade']) && is_array($item['composedBase'] ?? null) && is_array($item['composedUpgrade'] ?? null)) {
-                $baseRef = esc_html((string) ($item['composedBase']['tierPlatformId'] ?? ''));
-                $upgradeRef = esc_html((string) ($item['composedUpgrade']['tierPlatformId'] ?? ''));
-                if ($baseRef !== '') {
-                    $refs .= ' · Base ' . $baseRef;
-                }
-                if ($upgradeRef !== '') {
-                    $refs .= ' · Upgrade ' . $upgradeRef;
-                }
-            } else {
-                $tierRef = esc_html((string) ($item['tierPlatformId'] ?? ''));
-                if ($tierRef !== '') {
-                    $refs = trim($refs . ' · ' . $tierRef, ' ·');
-                }
-            }
+            $refs        = trim($familyRef . ' · ' . $instanceRef . ' · ' . $tierRef, ' ·');
             if ($editionRef !== '') {
                 $refs .= ' · Edition ' . $editionRef;
             }

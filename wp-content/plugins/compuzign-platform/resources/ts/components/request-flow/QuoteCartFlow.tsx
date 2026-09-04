@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { submitRequest } from '@/api/endpoints/requests';
-import { hasUnfinalisedUpgradeDraft, isFamilyTierQuoteItem } from '@/utils/quote';
+import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { ContactForm } from './ContactForm';
 import { OrderSummary } from './OrderSummary';
 import { StepIndicator } from './StepIndicator';
@@ -114,12 +114,7 @@ export function QuoteCartFlow({ context, onClose, onSubmitSuccess }: QuoteCartFl
 
   const isSubmitting = submitState === 'submitting';
   const isValid      = contact.contact.trim().length > 0 && EMAIL_RE.test(contact.email);
-  // Upgrade Journey Finalisation: a hard, defense-in-depth block — even if
-  // an Upgrade draft was still un-finalised when this modal opened (e.g. a
-  // restored page reload), Submit stays blocked here too, not only on the
-  // pricing page's own "Review & Finalise Quote" CTA (QuoteSummary.tsx).
-  const hasUnfinalisedUpgrade = context.type === 'quote_cart' && hasUnfinalisedUpgradeDraft(context.items);
-  const canSubmit    = step === 'review' && isValid && !isSubmitting && !hasUnfinalisedUpgrade;
+  const canSubmit    = step === 'review' && isValid && !isSubmitting;
 
   const handleBack = () => {
     if (step === 'contact') onClose();

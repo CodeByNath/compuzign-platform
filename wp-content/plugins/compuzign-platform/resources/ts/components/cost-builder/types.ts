@@ -58,51 +58,6 @@ export interface QuoteItem {
 }
 
 /**
- * Upgrade Journey Finalisation — the base Tier/Edition's own complete,
- * untouched snapshot inside a finalised composed ("Build Your Own") result.
- * A peer of ComposedUpgradeExtras below, never nested inside it and never
- * merged into it: each holds only its own real identity and commercial
- * facts, so no field here is ever asked to describe the composable
- * occupant's own facts, or vice versa. Present only via
- * FamilyTierQuoteItem.composedBase.
- */
-export interface ComposedUpgradeBase {
-  tierOccupantId: string;
-  tierPlatformId: string;
-  tierEditionPlatformId: string | null;
-  tierId: TierId;
-  tierTitle: string;
-  tierEditionTitle: string | null;
-  inclusionItems: ServiceInclusion[];
-  legPaymentSummaries: LegPaymentSummary[];
-  price: number | null;
-  billingCycle: string;
-  minimumTermValue: number | null;
-  minimumTermUnit: string | null;
-  planDurationMonths: number | null;
-}
-
-/**
- * Upgrade Journey Finalisation — the composable occupant's own complete
- * snapshot inside a finalised composed result, peer to ComposedUpgradeBase
- * above. Its own minimumTermValue/minimumTermUnit are preserved here for
- * audit only — the composed item's customer-facing commitment always comes
- * from composedBase (see deriveComposedProjection() in utils/quote.ts), so
- * this child's own term is never read for that purpose, only retained.
- */
-export interface ComposedUpgradeExtras {
-  tierOccupantId: string;
-  tierPlatformId: string;
-  inclusionItems: ServiceInclusion[];
-  legPaymentSummaries: LegPaymentSummary[];
-  price: number | null;
-  billingCycle: string;
-  minimumTermValue: number | null;
-  minimumTermUnit: string | null;
-  composableSelection: ComposablePreviewChoiceItem[];
-}
-
-/**
  * A customer selection from a Package Family's explicitly assigned Tier
  * Instance. It deliberately has no serviceId: Services are upstream inclusion
  * sources, never the identity or discovery path for this cart line.
@@ -182,33 +137,6 @@ export interface FamilyTierQuoteItem {
   // Tier); optional because carts persisted before this field existed simply
   // omit it — both cases mean "show today's single price/cycle line."
   legPaymentSummaries?: LegPaymentSummary[] | null;
-  // Upgrade Journey Finalisation — present only on an in-progress "Upgrade
-  // your build" composable line that has not yet been explicitly finalised:
-  // the exact base Tier/Edition it was built against, captured at the
-  // moment of last commit while still a draft (see
-  // ComposableOfferBrowser.tsx's commit builder). Absent for a standalone
-  // ("Build Your Own", no primary) composable line, and cleared once
-  // finaliseUpgradeQuoteDraft() (utils/quote.ts) converts a draft into the
-  // final composed result — see composedBase/composedUpgrade below. Never
-  // submitted: RequestSchema.php's allow-list sanitiser never copies it,
-  // since a draft is hard-blocked from Request submission in the first
-  // place (see hasUnfinalisedUpgradeDraft()).
-  upgradeDraftBase?: { tierPlatformId: string; tierEditionPlatformId: string | null } | null;
-  // Upgrade Journey Finalisation — present only once finaliseUpgradeQuoteDraft()
-  // has converted an in-progress draft into the final composed ("Build Your
-  // Own") result. composedBase/composedUpgrade are the ONLY canonical
-  // source of truth for this item's commercial facts; every other field on
-  // this item (inclusionItems, legPaymentSummaries, price, billingCycle,
-  // minimumTermValue, minimumTermUnit, planDurationMonths) is a
-  // deterministic display/compatibility PROJECTION derived from these two
-  // children by deriveComposedProjection() (utils/quote.ts) — never
-  // independently trusted, never independently edited. RequestSchema.php
-  // mirrors the same derivation server-side and ignores whatever the client
-  // submits for the projection fields on a composed item, so the two can
-  // never disagree in the stored record.
-  isComposedUpgrade?: boolean;
-  composedBase?: ComposedUpgradeBase;
-  composedUpgrade?: ComposedUpgradeExtras;
 }
 
 export type CartItem = QuoteItem | FamilyTierQuoteItem;

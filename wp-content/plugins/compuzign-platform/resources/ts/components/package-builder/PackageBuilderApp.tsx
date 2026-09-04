@@ -16,7 +16,6 @@ import {
   removeAddonQuoteItem,
   removeServiceQuoteItems,
   resolveQuoteItemRole,
-  finaliseUpgradeQuoteDraft,
 } from '@/utils/quote';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { TierId } from '@/api/types/cost-builder';
@@ -101,10 +100,6 @@ export function PackageBuilderApp() {
   );
   const removeComposable = useCallback(
     () => setItems((current) => removeFamilyComposableQuoteItem(current, familyKey, tierInstanceKey)),
-    [familyKey, tierInstanceKey],
-  );
-  const finaliseComposable = useCallback(
-    () => setItems((current) => finaliseUpgradeQuoteDraft(current, familyKey, tierInstanceKey)),
     [familyKey, tierInstanceKey],
   );
   const removeItem = useCallback((item: CartItem) => setItems((current) => {
@@ -202,8 +197,6 @@ export function PackageBuilderApp() {
               selectedComposableItem={composableItem}
               onComposableCommit={addComposable}
               onComposableRemove={removeComposable}
-              selectedPrimaryItem={primary}
-              onFinaliseComposable={finaliseComposable}
             />
           </Card>
         </main>

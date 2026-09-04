@@ -37,16 +37,6 @@ export interface ServiceInclusion {
   line_total?: number | null;
   categories?: string[];
   service?: string | null;
-  // Upgrade Journey Finalisation: which child of a composed Build Your Own
-  // result this entry came from — set only when it is copied into a
-  // composed item's top-level `inclusionItems` projection (see
-  // deriveComposedProjection() in utils/quote.ts). Absent on every other
-  // inclusion everywhere else in the app. The same item_id may legitimately
-  // appear once per provenance (e.g. a quantity already included in the
-  // base plan, plus more of it bought through the upgrade) — never
-  // deduplicated by id alone; provenance is what makes the two rows
-  // distinguishable rather than looking like an accidental duplicate.
-  provenance?: 'base' | 'upgrade';
 }
 
 // Phase 2B1 — Admin-authorized customer selection bounds for the composable

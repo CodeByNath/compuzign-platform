@@ -15,62 +15,35 @@ type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
 // inclusionItems.flatMap treatment in PricingTiers.tsx) when present, or
 // the flat features[] list for an old cart entry that predates this field.
 // Never re-resolved from live Family/Tier catalog data — snapshot only.
-function inclusionRows(inclusionItems: FamilyTierQuoteItem['inclusionItems']) {
-  return (inclusionItems ?? []).flatMap((inclusion, i) => [
-    <li key={inclusion.id || i} class={`cz-os__feature${inclusion.bundle_id ? ' cz-os__feature--bundle' : ''}`}>
-      {/* Phase 8I: a Bundle parent stays a quantity-less section
-          header (matches PricingTiers.tsx's own bundle_id treatment);
-          an ordinary inclusion shows its snapshot quantity, right-
-          aligned, using nullish semantics (`?? ''`) so a real 0
-          remains visible rather than reading as absent. */}
-      {inclusion.bundle_id ? inclusion.label : (
-        <span class="cz-os__feature-row">
-          <span class="cz-os__feature-label">{inclusion.label}</span>
-          <span class="cz-os__feature-qty">{inclusion.quantity ?? ''}</span>
-        </span>
-      )}
-    </li>,
-    ...(inclusion.includes ?? []).map((child, ci) => (
-      <li key={`${inclusion.id || i}:child:${child.id || ci}`} class="cz-os__feature cz-os__feature--child">
-        <span class="cz-os__feature-row">
-          <span class="cz-os__feature-label">{child.label}</span>
-          <span class="cz-os__feature-qty">{child.quantity ?? ''}</span>
-        </span>
-      </li>
-    )),
-  ]);
-}
-
 function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
   if (item.inclusionItems && item.inclusionItems.length > 0) {
-    // Upgrade Journey Finalisation: a composed item's inclusionItems is the
-    // concatenation of two occupants' own inclusions (see
-    // deriveComposedProjection() in utils/quote.ts) — the same item_id can
-    // legitimately appear once per occupant (e.g. a quantity already in the
-    // base plan, plus more of it bought through the upgrade). Grouping by
-    // provenance into two labeled sections is what makes that read as two
-    // real facts rather than an accidental duplicate row.
-    if (item.isComposedUpgrade) {
-      const baseRows = item.inclusionItems.filter((entry) => entry.provenance !== 'upgrade');
-      const upgradeRows = item.inclusionItems.filter((entry) => entry.provenance === 'upgrade');
-      return (
-        <>
-          {baseRows.length > 0 && (
-            <div class="cz-os__inclusion-group">
-              <p class="cz-os__inclusion-group-label">Included in your plan</p>
-              <ul class="cz-os__features">{inclusionRows(baseRows)}</ul>
-            </div>
-          )}
-          {upgradeRows.length > 0 && (
-            <div class="cz-os__inclusion-group">
-              <p class="cz-os__inclusion-group-label">Your upgrades</p>
-              <ul class="cz-os__features">{inclusionRows(upgradeRows)}</ul>
-            </div>
-          )}
-        </>
-      );
-    }
-    return <ul class="cz-os__features">{inclusionRows(item.inclusionItems)}</ul>;
+    return (
+      <ul class="cz-os__features">
+        {item.inclusionItems.flatMap((inclusion, i) => [
+          <li key={inclusion.id || i} class={`cz-os__feature${inclusion.bundle_id ? ' cz-os__feature--bundle' : ''}`}>
+            {/* Phase 8I: a Bundle parent stays a quantity-less section
+                header (matches PricingTiers.tsx's own bundle_id treatment);
+                an ordinary inclusion shows its snapshot quantity, right-
+                aligned, using nullish semantics (`?? ''`) so a real 0
+                remains visible rather than reading as absent. */}
+            {inclusion.bundle_id ? inclusion.label : (
+              <span class="cz-os__feature-row">
+                <span class="cz-os__feature-label">{inclusion.label}</span>
+                <span class="cz-os__feature-qty">{inclusion.quantity ?? ''}</span>
+              </span>
+            )}
+          </li>,
+          ...(inclusion.includes ?? []).map((child, ci) => (
+            <li key={`${inclusion.id || i}:child:${child.id || ci}`} class="cz-os__feature cz-os__feature--child">
+              <span class="cz-os__feature-row">
+                <span class="cz-os__feature-label">{child.label}</span>
+                <span class="cz-os__feature-qty">{child.quantity ?? ''}</span>
+              </span>
+            </li>
+          )),
+        ])}
+      </ul>
+    );
   }
   if (item.features.length > 0) {
     return (
@@ -337,18 +310,7 @@ export function OrderSummary({
                   <div class="cz-os__service-streams">
                     {streams!.map((stream) => (
                       <div key={stream.source} class="cz-os__stream-row">
-                        <span class="cz-os__stream-label">
-                          {chargeTypeLabel(stream.billingCycle)}
-                          {/* Upgrade Journey Finalisation: distinguishes a
-                              composed item's Plan vs Upgrade streams — see
-                              FamilyInclusionsList's own provenance grouping
-                              above for the same reasoning. */}
-                          {item.isComposedUpgrade && stream.provenance && (
-                            <span class="cz-os__stream-provenance">
-                              {stream.provenance === 'base' ? ' · Plan' : ' · Upgrade'}
-                            </span>
-                          )}
-                        </span>
+                        <span class="cz-os__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
                         <span class="cz-os__stream-value">{formatPrice(stream.price)}</span>
                       </div>
                     ))}

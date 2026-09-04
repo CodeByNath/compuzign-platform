@@ -36,15 +36,6 @@ interface ComposableOfferBrowserProps {
   // back (or a page reload restoring the cart) shows the same Add/Remove
   // state the customer already committed rather than resetting to defaults.
   initialCartItem: FamilyTierQuoteItem | null;
-  // Upgrade Journey Finalisation — the currently-selected primary Tier/
-  // Edition for this Family+Instance, or null. Used only to (a) stamp a
-  // live-committed 'upgrade_your_build' item with its exact base identity
-  // (upgradeDraftBase) so composableDraftIsStale() can later tell whether
-  // that base has since changed, and (b) gate the Finalise build action
-  // below on the draft still matching this exact primary. Never read for
-  // pricing/inclusions — those always come from this browser's own
-  // resolved preview, unchanged.
-  primaryItem: FamilyTierQuoteItem | null;
   // Called with a freshly built, server-resolved snapshot once the customer
   // has actually interacted with this browser AND the resolved selection is
   // non-empty (at least one required or selected-optional item) — never
@@ -59,12 +50,6 @@ interface ComposableOfferBrowserProps {
   // the composable line entirely rather than committing a zero-value
   // placeholder cart item.
   onRemoveFromQuote: () => void;
-  // Upgrade Journey Finalisation — converts the current in-progress draft
-  // into the final composed Build Your Own result (finaliseUpgradeQuoteDraft()
-  // in utils/quote.ts). Only ever called while context === 'upgrade_your_build'
-  // and the draft still matches primaryItem exactly — the button below is
-  // disabled otherwise, so a stale click can't reach this.
-  onFinaliseBuild: () => void;
 }
 
 export interface BrowseRow {
@@ -241,7 +226,7 @@ export function buildComposableFamilyTierQuoteItem(
   };
 }
 
-export function ComposableOfferBrowser({ family, context, initialCartItem, primaryItem, onCommit, onRemoveFromQuote, onFinaliseBuild }: ComposableOfferBrowserProps) {
+export function ComposableOfferBrowser({ family, context, initialCartItem, onCommit, onRemoveFromQuote }: ComposableOfferBrowserProps) {
   const offer = family.pricing.composable_offer ?? null;
   const policy = offer?.customer_policy ?? null;
 
@@ -421,15 +406,7 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, prima
             if (!hasAnyIncluded) {
               onRemoveFromQuote();
             } else {
-              const built = buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows);
-              // Upgrade Journey Finalisation: only an 'upgrade_your_build'
-              // commit (a real primary already selected) stamps its exact
-              // base identity — a 'build_your_own' commit (primaryItem null)
-              // has no base to depend on and stays exactly as before this
-              // feature existed (upgradeDraftBase omitted entirely).
-              onCommit(context === 'upgrade_your_build' && primaryItem
-                ? { ...built, upgradeDraftBase: { tierPlatformId: primaryItem.tierPlatformId, tierEditionPlatformId: primaryItem.tierEditionPlatformId } }
-                : built);
+              onCommit(buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows));
             }
           }
         })
@@ -446,45 +423,16 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, prima
     // `rows`/`offer` anyway), so this avoids re-fetching merely because the
     // parent handed down a new-identity-but-same-content family object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote, context, primaryItem]);
+  }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote]);
 
   if (!offer || !policy || rows.length === 0) return null;
 
   const heading = context === 'build_your_own' ? 'Build Your Own' : 'Upgrade your build';
 
-  // Upgrade Journey Finalisation: the Finalise action is only offered once
-  // there is an actually-committed draft (initialCartItem — the cart's own
-  // current state, not merely a staged/unsaved selection) whose recorded
-  // base matches primaryItem exactly. Mirrors composableDraftIsStale()'s
-  // own matching rule (utils/quote.ts) without importing the cart-array
-  // form of that check into this catalog-facing component.
-  const canFinaliseBuild = context === 'upgrade_your_build'
-    && !!initialCartItem?.upgradeDraftBase
-    && !!primaryItem
-    && initialCartItem.upgradeDraftBase.tierPlatformId === primaryItem.tierPlatformId
-    && initialCartItem.upgradeDraftBase.tierEditionPlatformId === primaryItem.tierEditionPlatformId;
-
   return (
     <section class="cz-package-builder__composable" aria-labelledby="cz-composable-heading">
       <h3 id="cz-composable-heading" class="cz-heading-sm">{heading}</h3>
       <p class="cz-package-builder__composable-subheading">Recommended Upgrades</p>
-      {context === 'upgrade_your_build' && (
-        <div class="cz-package-builder__composable-finalise">
-          <button
-            type="button"
-            class="cz-btn cz-btn-primary"
-            disabled={!canFinaliseBuild}
-            onClick={onFinaliseBuild}
-          >
-            Finalise build
-          </button>
-          {!canFinaliseBuild && (
-            <p class="cz-package-builder__composable-finalise-hint">
-              Add or remove an upgrade above, then finalise to combine it with your plan into one Build Your Own quote. Finalising removes any separately selected add-ons.
-            </p>
-          )}
-        </div>
-      )}
 
       <div class="cz-package-builder__composable-filters">
         <label class="cz-package-builder__composable-filter">

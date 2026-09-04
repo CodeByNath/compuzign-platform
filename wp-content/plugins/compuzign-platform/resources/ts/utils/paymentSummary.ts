@@ -35,14 +35,6 @@ export interface LegPaymentSummary {
   isOngoing: boolean;
   occurrenceMonths: number[];
   subtotal: number | null;
-  // Upgrade Journey Finalisation: same meaning/rules as ServiceInclusion's
-  // own `provenance` (api/types/cost-builder.ts) — set only on a composed
-  // item's top-level `legPaymentSummaries` projection, absent everywhere
-  // else. Two streams sharing the same `source` never occur (source
-  // already uniquely identifies a real commercial Leg), but two DIFFERENT
-  // sources, one per provenance, both billing the same cycle is expected
-  // and never merged into one row.
-  provenance?: 'base' | 'upgrade';
 }
 
 // A finite Total Contract Value is only meaningful when EVERY contributing
