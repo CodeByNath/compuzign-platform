@@ -3,6 +3,7 @@ import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { calcQuoteTotals, composableCoexistsWithPrimary, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
+import { InclusionDisclosure, disclosureRowsForFamilyTierItem } from './InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from './types';
 
 interface QuoteSummaryProps {
@@ -193,6 +194,12 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
                   </span>
                 )}
               </div>
+              {isFamilyTierQuoteItem(item) && (
+                <InclusionDisclosure
+                  label={item.familyTitle}
+                  rows={disclosureRowsForFamilyTierItem(item)}
+                />
+              )}
             </li>
           );
         })}

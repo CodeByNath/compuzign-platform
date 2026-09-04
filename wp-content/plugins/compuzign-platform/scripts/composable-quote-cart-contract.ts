@@ -41,6 +41,14 @@
 //      (never re-derived from context/any other proxy) and refuse to
 //      start preview/pricing/persistence/projection without it, enforced
 //      independently of FamilyTierAdapter.tsx's own render gate.
+//   10. [Live-validation correction, "live customer UI corrections" round]
+//      the Upgrade quote detail table carries Unit Price/Total columns
+//      identical to the established Tier detail table (never a second
+//      pricing source); every quote line/Total Commitment row gets the
+//      SAME shared InclusionDisclosure chevron/× quick view (source-scan,
+//      an interactive component); the compact selection list's Add/Remove
+//      control is icon-only with an accessible name/tooltip, preserving
+//      the ready-primary disabled/early-return guard from item 9 above.
 //
 // Fixture-driven against real exported pure functions (utils/quote.ts,
 // ComposableOfferBrowser.tsx's buildComposableFamilyTierQuoteItem), same
@@ -290,7 +298,7 @@ const periods: CommercialLegPeriod[] = [
       items: [{ item_id: 'block-storage', label: 'Block Storage', quantity: 1, price_option_id: null, unit_price: 10, line_total: 10, available: true }] },
   ] },
 ];
-const contributions: Record<string, ItemContribution> = { 'block-storage': { lineTotal: 10, quantity: 1, ambiguous: false } };
+const contributions: Record<string, ItemContribution> = { 'block-storage': { lineTotal: 10, quantity: 1, ambiguous: false, billingCycle: 'monthly' } };
 const builtRows: BrowseRow[] = [
   { item_id: 'block-storage', label: 'Block Storage', unitPrice: 10, categories: [], service: null,
     policy: { item_id: 'block-storage', mode: 'optional', default_selected: false, quantity: null, price_option: { mode: 'fixed', allowed_price_option_ids: null, default_price_option_id: null }, featured: false } },
@@ -391,10 +399,55 @@ check(
   browserSource.includes('hasInteracted, onCommit, onRemoveFromQuote, hasReadyPrimary]);'),
   'hasReadyPrimary is a dependency of the auto-commit effect — a primary disappearing mid-debounce tears down any in-flight preview request via this effect\'s own cleanup, exactly like a Family switch already does',
 );
-const addButtonSection = browserSource.slice(browserSource.indexOf('<button'), browserSource.indexOf('{isSelected ? \'Remove\' : \'Add\'}'));
+const addButtonSection = browserSource.slice(browserSource.indexOf('<button'), browserSource.indexOf('</button>'));
 check(
   /disabled=\{!hasReadyPrimary\}/.test(addButtonSection) && /if \(!hasReadyPrimary\) return;/.test(addButtonSection),
   'the Add/Remove button is disabled AND its own click handler independently refuses to act without a ready primary — belt and suspenders against a stale handler or programmatic dispatch bypassing the disabled attribute',
+);
+
+// ── 10. Live-validation correction ("live customer UI corrections" round) — source-scan ──
+
+const quoteDetailsOverlaySource = readFileSync(resolve(root, 'resources/ts/components/package-builder/QuoteDetailsOverlay.tsx'), 'utf8');
+const quoteSummarySource = readFileSync(resolve(root, 'resources/ts/components/cost-builder/QuoteSummary.tsx'), 'utf8');
+const inclusionDisclosureSource = readFileSync(resolve(root, 'resources/ts/components/cost-builder/InclusionDisclosure.tsx'), 'utf8');
+
+// 10a. Upgrade detail table: Unit Price/Total columns, sourced from the
+// item's own stored inclusionItems snapshot (unit_price/line_total) — never
+// a second pricing source, matching PlanDetailsModal.tsx's ItemBreakdownTable.
+const composableTableSection = quoteDetailsOverlaySource.slice(
+  quoteDetailsOverlaySource.indexOf('function ComposableInclusionsTable'),
+  quoteDetailsOverlaySource.indexOf('function ComposablePlanDetails'),
+);
+check(
+  /<th>Unit Price<\/th>/.test(composableTableSection) && /<th>Total<\/th>/.test(composableTableSection),
+  'the Upgrade detail table (ComposableInclusionsTable) has Unit Price and Total column headers, matching the established Tier detail table',
+);
+check(
+  /formatMoney\(inclusion\.unit_price \?\? null\)/.test(composableTableSection)
+    && /formatMoney\(inclusion\.line_total \?\? null\)/.test(composableTableSection),
+  'the Upgrade detail table\'s Unit Price/Total cells read the quoted item\'s own stored inclusionItems.unit_price/line_total verbatim — never a second re-derivation of pricing in presentation code',
+);
+
+// 10b. One shared InclusionDisclosure — chevron/× toggle, closes on outside
+// click, used by BOTH the per-quote-line quick view and Total Commitment.
+check(
+  /aria-expanded=\{open\}/.test(inclusionDisclosureSource) && /setOpen\(false\)/.test(inclusionDisclosureSource),
+  'InclusionDisclosure exposes its open state via aria-expanded and closes on an outside pointerdown',
+);
+check(
+  quoteSummarySource.includes('<InclusionDisclosure'),
+  'QuoteSummary.tsx renders the shared InclusionDisclosure on its quote lines',
+);
+check(
+  quoteDetailsOverlaySource.includes('<InclusionDisclosure'),
+  'QuoteDetailsOverlay.tsx renders the SAME shared InclusionDisclosure on its Total Commitment rows — never a second implementation of the same open/close/outside-click behavior',
+);
+
+// 10c. Compact selection list: icon-only Add/Remove with an accessible
+// name/tooltip, ready-primary guard from section 8c/9 above preserved.
+check(
+  /aria-label=\{`\$\{isSelected \? 'Remove' : 'Add'\}/.test(browserSource) && /title=\{isSelected \? 'Remove' : 'Add'\}/.test(browserSource),
+  'the compact list\'s icon-only Add/Remove control still carries an accessible name (aria-label) and a native tooltip (title), even though its visible glyph is now +/×',
 );
 
 console.log('Composable quote/cart contract passed.');

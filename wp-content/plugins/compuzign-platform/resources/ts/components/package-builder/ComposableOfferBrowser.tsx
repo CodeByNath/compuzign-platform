@@ -154,6 +154,12 @@ export interface ItemContribution {
   lineTotal: number | null;
   quantity: number;
   ambiguous: boolean;
+  // Live-validation correction ("Upgrade selections should be a compact
+  // list"): the claiming component's own billing_cycle, passed through
+  // unchanged — never a client-side inference — so each row's inline total
+  // can carry the same "/ mo"/"/ yr" cadence suffix cycleSuffix() already
+  // renders elsewhere on this surface, instead of a bare unlabeled number.
+  billingCycle: string | null;
 }
 
 // Extracted so a contract script can exercise this directly (see
@@ -177,7 +183,12 @@ export function resolveItemContributions(periods: CommercialLegPeriod[]): Record
       const perItem = new Map<string, ItemContribution>();
       for (const item of component.items) {
         if (item.available === false) continue;
-        perItem.set(item.item_id, { lineTotal: item.line_total, quantity: item.quantity, ambiguous: false });
+        perItem.set(item.item_id, {
+          lineTotal: item.line_total,
+          quantity: item.quantity,
+          ambiguous: false,
+          billingCycle: component.billing_cycle,
+        });
       }
       bySource.set(component.source, perItem);
     }
@@ -189,7 +200,7 @@ export function resolveItemContributions(periods: CommercialLegPeriod[]): Record
       if (existing === undefined) {
         out[itemId] = contribution;
       } else if (!existing.ambiguous) {
-        out[itemId] = { lineTotal: null, quantity: existing.quantity, ambiguous: true };
+        out[itemId] = { lineTotal: null, quantity: existing.quantity, ambiguous: true, billingCycle: null };
       }
     }
   }
@@ -568,11 +579,11 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
         </label>
       </div>
 
-      <ul class="cz-package-builder__composable-grid">
+      <ul class="cz-package-builder__composable-list">
         {pageRows.map((row) => {
           const current = selection[row.item_id];
           const isSelected = current?.selected ?? false;
-          // The card's price is the server-resolved contribution whenever
+          // The row's total is the server-resolved contribution whenever
           // one is available and unambiguous for a currently-selected row
           // — never a client-side unitPrice*quantity computation. A row
           // that is not selected, whose contribution hasn't resolved yet
@@ -586,23 +597,15 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
           const showResolved = resolvedContribution !== null && !resolvedContribution.ambiguous
             && resolvedContribution.lineTotal !== null;
           return (
-            <li key={row.item_id} class="cz-package-builder__composable-card">
-              <span class="cz-package-builder__composable-card-label">{row.label}</span>
-              {showResolved && (
-                <span class="cz-package-builder__composable-card-price">
-                  {formatPrice(resolvedContribution!.lineTotal)}
-                </span>
-              )}
-              {!showResolved && row.unitPrice !== null && (
-                <span class="cz-package-builder__composable-card-price">
-                  {formatPrice(row.unitPrice)}
-                  <span class="cz-package-builder__composable-card-price-note"> per unit</span>
-                </span>
-              )}
+            <li key={row.item_id} class="cz-package-builder__composable-row">
+              <svg class="cz-package-builder__composable-row-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M4.75 3.5h4.5c.69 0 1.25.56 1.25 1.25v4.5c0 .69-.56 1.25-1.25 1.25h-4.5A1.25 1.25 0 0 1 3.5 9.25v-4.5c0-.69.56-1.25 1.25-1.25Zm10 0h4.5c.69 0 1.25.56 1.25 1.25v4.5c0 .69-.56 1.25-1.25 1.25h-4.5a1.25 1.25 0 0 1-1.25-1.25v-4.5c0-.69.56-1.25 1.25-1.25Zm-10 10h4.5c.69 0 1.25.56 1.25 1.25v4.5c0 .69-.56 1.25-1.25 1.25h-4.5a1.25 1.25 0 0 1-1.25-1.25v-4.5c0-.69.56-1.25 1.25-1.25Zm10 0h4.5c.69 0 1.25.56 1.25 1.25v4.5c0 .69-.56 1.25-1.25 1.25h-4.5a1.25 1.25 0 0 1-1.25-1.25v-4.5c0-.69.56-1.25 1.25-1.25Z" />
+              </svg>
+              <span class="cz-package-builder__composable-row-label">{row.label}</span>
               {row.policy.quantity && isSelected && (
                 <input
                   type="number"
-                  class="cz-package-builder__composable-card-qty"
+                  class="cz-package-builder__composable-row-qty"
                   min={row.policy.quantity.min}
                   max={row.policy.quantity.max}
                   step={row.policy.quantity.step}
@@ -620,15 +623,28 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
                   }}
                 />
               )}
+              {showResolved && (
+                <span class="cz-package-builder__composable-row-total">
+                  {formatPrice(resolvedContribution!.lineTotal)}
+                  {cycleSuffix(resolvedContribution!.billingCycle)}
+                </span>
+              )}
+              {!showResolved && row.unitPrice !== null && (
+                <span class="cz-package-builder__composable-row-total cz-package-builder__composable-row-total--note">
+                  {formatPrice(row.unitPrice)} per unit
+                </span>
+              )}
               <button
                 type="button"
-                class={`cz-btn ${isSelected ? 'cz-btn-secondary' : 'cz-btn-primary'}`}
+                class={`cz-package-builder__composable-row-action ${isSelected ? 'is-remove' : 'is-add'}`}
                 // Live-validation correction: without an exact ready
                 // primary this control must be non-interactive — a native
                 // disabled button already blocks the click, and the
                 // handler's own early return is the second layer for a
                 // stale handler/programmatic dispatch.
                 disabled={!hasReadyPrimary}
+                aria-label={`${isSelected ? 'Remove' : 'Add'} ${row.label}`}
+                title={isSelected ? 'Remove' : 'Add'}
                 onClick={() => {
                   if (!hasReadyPrimary) return;
                   setSelection((prev) => ({
@@ -641,7 +657,7 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
                   setHasInteracted(true);
                 }}
               >
-                {isSelected ? 'Remove' : 'Add'}
+                <span aria-hidden="true">{isSelected ? '×' : '+'}</span>
               </button>
             </li>
           );

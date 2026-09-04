@@ -978,6 +978,79 @@
   background: rgba(255, 97, 97, 0.08);
 }
 
+/* Live-validation correction: compact inclusion quick view shared by every
+   quote line (QuoteSummary.tsx) and every Total Commitment plan row
+   (QuoteDetailsOverlay.tsx) — see InclusionDisclosure.tsx. Deliberately
+   separate from .cz-quote-summary__remove (own control, own hit target),
+   never repurposed as it. */
+.cz-inclusion-disclosure {
+  position: relative;
+  align-self: flex-start;
+}
+
+.cz-inclusion-disclosure__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-sm);
+  background: var(--cz-color-surface);
+  color: var(--cz-color-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--cz-transition-fast), border-color var(--cz-transition-fast);
+}
+
+.cz-inclusion-disclosure__toggle:hover,
+.cz-inclusion-disclosure__toggle[aria-expanded="true"] {
+  color: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+}
+
+.cz-inclusion-disclosure__toggle:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
+.cz-inclusion-disclosure__list {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + var(--cz-space-1));
+  left: 0;
+  min-width: 200px;
+  max-width: 280px;
+  margin: 0;
+  padding: var(--cz-space-2) var(--cz-space-3);
+  list-style: none;
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-sm);
+  background: var(--cz-color-surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.cz-inclusion-disclosure__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-1) 0;
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-text);
+}
+
+.cz-inclusion-disclosure__row + .cz-inclusion-disclosure__row {
+  border-top: 1px solid var(--cz-color-line);
+}
+
+.cz-inclusion-disclosure__row-qty {
+  flex: 0 0 auto;
+  color: var(--cz-color-muted);
+}
+
 .cz-quote-summary__footer {
   padding: var(--cz-space-5) var(--cz-space-6);
   display: flex;
@@ -4743,34 +4816,50 @@
 /* Phase 8D: the quote-details overlay's own tab row — sits above whichever
    tab's content is active (a per-plan .details-body via PlanDetailsContent,
    or the Total Commitment body below), inside the SAME chrome
-   (.details-backdrop/-panel/-modal/-close) PlanDetailsModal already uses. */
+   (.details-backdrop/-panel/-modal/-close) PlanDetailsModal already uses.
+   Live-validation correction: restyled as one horizontally scrollable row
+   of compact chips (flex-wrap: nowrap + overflow-x: auto) rather than
+   wrapping into multiple rows once many plans are quoted — selected/hover/
+   focus-visible states are preserved below, just restated in the chip
+   idiom (filled pill on selection, same as .cz-package-builder__customer-tab
+   already does elsewhere in this file, rather than an underline). */
 .cz-package-builder__details-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-behavior: smooth;
   gap: var(--cz-space-2);
-  padding: var(--cz-space-5) var(--cz-space-6) 0;
+  padding: var(--cz-space-5) var(--cz-space-6) var(--cz-space-4);
   border-bottom: 1px solid var(--cz-color-line);
 }
 
 .cz-package-builder__details-tab {
-  padding: var(--cz-space-2) var(--cz-space-3);
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
+  flex: 0 0 auto;
+  padding: var(--cz-space-2) var(--cz-space-4);
+  border: 1px solid var(--cz-color-line-strong);
+  border-radius: var(--cz-radius-pill);
+  background: var(--cz-color-surface-2);
   font-size: var(--cz-font-size-sm);
   font-weight: 600;
   color: var(--cz-color-muted);
+  white-space: nowrap;
   cursor: pointer;
-  transition: color var(--cz-transition-fast), border-color var(--cz-transition-fast);
+  transition: color var(--cz-transition-fast), background var(--cz-transition-fast), border-color var(--cz-transition-fast);
 }
 
 .cz-package-builder__details-tab:hover {
   color: var(--cz-color-text);
 }
 
+.cz-package-builder__details-tab:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
 .cz-package-builder__details-tab.is-active {
-  color: var(--cz-color-accent);
-  border-bottom-color: var(--cz-color-accent);
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: var(--cz-color-surface);
 }
 
 /* Total Commitment tab — a compact whole-quote commercial summary only
@@ -4784,6 +4873,14 @@
   padding-bottom: var(--cz-space-4);
   margin-bottom: var(--cz-space-4);
   border-bottom: 1px solid var(--cz-color-line);
+}
+
+/* Live-validation correction: Total Commitment's own per-plan inclusion
+   disclosure sits beside the plan heading, not stacked under it. */
+.cz-package-builder__commitment-plan-header {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
 }
 
 .cz-package-builder__commitment-plan:last-child {
@@ -5073,50 +5170,125 @@
   background: var(--cz-color-surface);
 }
 
-.cz-package-builder__composable-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--cz-space-4);
+/* Live-validation correction ("Upgrade selections should be a compact
+   list"): the oversized per-item cards below became one compact row list —
+   small yellow-accent category icon + label on the left (the same
+   .cz-package-builder__category-icon treatment the family header already
+   uses), inline quantity/total in the middle, an icon-only +/× action on
+   the right. Filtering/sorting/pagination/selection state above are
+   unchanged; this is presentation only. */
+.cz-package-builder__composable-list {
+  display: flex;
+  flex-direction: column;
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.cz-package-builder__composable-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--cz-space-2);
-  padding: var(--cz-space-4);
   border: 1px solid var(--cz-color-border);
   border-radius: var(--cz-radius-md);
+  overflow: hidden;
+}
+
+.cz-package-builder__composable-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-2);
+  padding: var(--cz-space-2) var(--cz-space-3);
   background: var(--cz-color-surface);
 }
 
-.cz-package-builder__composable-card-label {
-  font-weight: 600;
-  color: var(--cz-color-text);
+.cz-package-builder__composable-row + .cz-package-builder__composable-row {
+  border-top: 1px solid var(--cz-color-line);
 }
 
-.cz-package-builder__composable-card-price {
-  color: var(--cz-color-muted);
+.cz-package-builder__composable-row-icon {
+  width: var(--cz-space-3);
+  height: var(--cz-space-3);
+  flex: 0 0 auto;
+  color: var(--cz-color-accent);
+}
+
+.cz-package-builder__composable-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: var(--cz-font-size-sm);
+  font-weight: 600;
+  color: var(--cz-color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cz-package-builder__composable-row-qty {
+  flex: 0 0 auto;
+  width: 4rem;
+  padding: var(--cz-space-1) var(--cz-space-2);
+  border: 1px solid var(--cz-color-border);
+  border-radius: var(--cz-radius-sm);
+}
+
+.cz-package-builder__composable-row-total {
+  flex: 0 0 auto;
+  font-size: var(--cz-font-size-sm);
+  font-weight: 600;
+  color: var(--cz-color-text);
+  white-space: nowrap;
 }
 
 /* Only present on the published-base-price fallback (not selected, not yet
    resolved, or ambiguously claimed by more than one commercial stream) —
    distinguishes it from the server-resolved contribution shown once a row
    is selected and unambiguous. */
-.cz-package-builder__composable-card-price-note {
+.cz-package-builder__composable-row-total--note {
+  font-weight: 400;
+  color: var(--cz-color-muted);
   font-size: var(--cz-font-size-xs);
-  opacity: 0.8;
 }
 
-.cz-package-builder__composable-card-qty {
-  width: 5rem;
-  padding: var(--cz-space-1) var(--cz-space-2);
-  border: 1px solid var(--cz-color-border);
+.cz-package-builder__composable-row-action {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--cz-color-line-strong);
   border-radius: var(--cz-radius-sm);
+  background: var(--cz-color-surface);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--cz-transition-fast), border-color var(--cz-transition-fast), background var(--cz-transition-fast);
+}
+
+.cz-package-builder__composable-row-action.is-add {
+  color: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+}
+
+.cz-package-builder__composable-row-action.is-add:hover:not(:disabled) {
+  background: var(--cz-color-accent);
+  color: var(--cz-color-surface);
+}
+
+.cz-package-builder__composable-row-action.is-remove {
+  color: var(--cz-color-danger, #b3261e);
+  border-color: var(--cz-color-danger, #b3261e);
+}
+
+.cz-package-builder__composable-row-action.is-remove:hover:not(:disabled) {
+  background: var(--cz-color-danger, #b3261e);
+  color: var(--cz-color-surface);
+}
+
+.cz-package-builder__composable-row-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cz-package-builder__composable-row-action:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
 }
 
 .cz-package-builder__composable-pager {

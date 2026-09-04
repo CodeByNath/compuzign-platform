@@ -42,6 +42,7 @@ check(singleContrib.extra_seats !== undefined, 'extra_seats resolves a contribut
 check(singleContrib.extra_seats.lineTotal === 999, 'the resolved line_total is read VERBATIM from the server row (999), never unit_price*quantity (which would be 20) — no client-side multiplication');
 check(singleContrib.extra_seats.quantity === 2, 'quantity is carried through unchanged, for display purposes only');
 check(singleContrib.extra_seats.ambiguous === false, 'a single distinct commercial stream is unambiguous');
+check(singleContrib.extra_seats.billingCycle === 'monthly', 'billingCycle is passed through verbatim from the claiming component — live-validation correction, "retain the applicable cadence text" on the compact list\'s inline total');
 
 // ── 2. Changing the resolved server quantity changes the displayed
 //    contribution — proving this reacts to server state, not local state ──
@@ -77,6 +78,7 @@ const twoStreamsPeriods: CommercialLegPeriod[] = [
 const ambiguousContrib = resolveItemContributions(twoStreamsPeriods);
 check(ambiguousContrib.support.ambiguous === true, 'support is claimed by two distinct commercial streams (default + CZTL_ONBOARDING) — flagged ambiguous');
 check(ambiguousContrib.support.lineTotal === null, 'an ambiguous contribution carries no lineTotal at all — never summed (80) or picked arbitrarily (20 or 60)');
+check(ambiguousContrib.support.billingCycle === null, 'an ambiguous contribution carries no billingCycle either — two distinct streams have no single true cadence to show');
 
 // ── 5. Unavailable components/items are excluded entirely ──────────────────
 

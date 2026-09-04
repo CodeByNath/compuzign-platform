@@ -242,8 +242,11 @@ const cartWritesAfterMount = cartWrites;
 check('no cart write is caused BY the default-seeded preview specifically (only the pre-existing mount-time clearCart() baseline)', cartWritesAfterMount <= 1, `cartWrites=${cartWrites}`);
 
 console.log('2) Click "Add" on the one optional inclusion (real DOM click)');
-const findAddButton = () => [...container.querySelectorAll('.cz-package-builder__composable-grid button')]
-  .find((b) => b.textContent.trim() === 'Add');
+// Live-validation correction: the compact list's Add/Remove control is now
+// an icon-only button (+ / ×), distinguished by its own is-add/is-remove
+// class rather than textContent — see ComposableOfferBrowser.tsx's
+// composable-row-action.
+const findAddButton = () => container.querySelector('.cz-package-builder__composable-list button.is-add');
 let addButton = findAddButton();
 check('an Add button is present for the composable row', addButton != null);
 const previewCallsBeforeAdd = previewCalls;
@@ -253,7 +256,7 @@ check('the click settles within the observation window (no unbounded loop after 
 check('exactly one NEW preview call resolved for this one interaction', previewCalls === previewCallsBeforeAdd + 1, `previewCalls=${previewCalls}, before=${previewCallsBeforeAdd}`);
 check('exactly one NEW cart write (one commit) resulted from this one interaction', cartWrites === cartWritesAfterMount + 1, `cartWrites=${cartWrites}, baseline=${cartWritesAfterMount}`);
 check('the committed cart line is the composable occupant, selected and priced', lastCartComposableItem?.isComposable === true && lastCartComposableItem?.price === 10, `item=${JSON.stringify(lastCartComposableItem)}`);
-check('the row now reads Remove (selection state reflects the commit)', findAddButton() == null && [...container.querySelectorAll('.cz-package-builder__composable-grid button')].some((b) => b.textContent.trim() === 'Remove'));
+check('the row now reads Remove (selection state reflects the commit)', findAddButton() == null && container.querySelector('.cz-package-builder__composable-list button.is-remove') != null);
 
 console.log('3) Wait again with NO further interaction — the loop, if present, keeps growing here');
 const previewCallsAfterFirstCommit = previewCalls;
@@ -271,7 +274,7 @@ check(
 );
 
 console.log('4) Click "Remove" — a genuine second interaction must still produce exactly one new preview + one new commit (removal)');
-const removeButton = [...container.querySelectorAll('.cz-package-builder__composable-grid button')].find((b) => b.textContent.trim() === 'Remove');
+const removeButton = container.querySelector('.cz-package-builder__composable-list button.is-remove');
 check('a Remove button is present after the first commit', removeButton != null);
 removeButton?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 result = await waitToSettle();

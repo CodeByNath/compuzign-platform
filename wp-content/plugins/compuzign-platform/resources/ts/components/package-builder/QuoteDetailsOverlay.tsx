@@ -3,10 +3,11 @@ import { resolveEffectiveTierDisplay } from '@/components/cost-builder/PricingTi
 import { computeTotalContractValue, startingPaymentsByCycle, chargeTypeLabel } from '@/utils/paymentSummary';
 import { formatPrice } from '@/utils/format';
 import { isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
+import { InclusionDisclosure, disclosureRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import { periodsForVariant } from './FamilyTierAdapter';
-import { PlanDetailsContent } from './PlanDetailsModal';
+import { PlanDetailsContent, formatMoney } from './PlanDetailsModal';
 
 // Phase 8D: one overlay covering every quoted plan in the cart, tabbed by
 // plan, plus a final "Total Commitment" tab — replacing the idea of a
@@ -98,6 +99,14 @@ function resolvePlanDetails(item: FamilyTierQuoteItem, families: PackageBuilderF
 // request-flow components (a separate, deliberately non-shared
 // implementation — this file's own cz-package-builder__* class family,
 // theirs cz-proposal__cz-os__).
+// Live-validation correction: matches PlanDetailsModal.tsx's own
+// ItemBreakdownTable column set (Item Included, Quantity, Unit Price,
+// Total) exactly — the Upgrade quote's own detail table read only Item
+// Included + Quantity before, an incomplete pricing view compared to the
+// established Tier/Edition detail. unit_price/line_total are the SAME
+// resolved Rate Sheet facts already carried on the quoted item's own
+// inclusionItems snapshot (Phase 2B1, ServiceInclusion) — never a second
+// pricing source, never recomputed here.
 function ComposableInclusionsTable({ items }: { items: ServiceInclusion[] }) {
   return (
     <div class="cz-package-builder__details-table-wrap">
@@ -106,6 +115,8 @@ function ComposableInclusionsTable({ items }: { items: ServiceInclusion[] }) {
           <tr>
             <th>Item Included</th>
             <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -113,11 +124,15 @@ function ComposableInclusionsTable({ items }: { items: ServiceInclusion[] }) {
             <tr key={inclusion.id || i}>
               <td>{inclusion.label}</td>
               <td>{inclusion.bundle_id ? '' : (inclusion.quantity ?? '')}</td>
+              <td>{formatMoney(inclusion.unit_price ?? null)}</td>
+              <td>{formatMoney(inclusion.line_total ?? null)}</td>
             </tr>,
             ...(inclusion.includes ?? []).map((child, ci) => (
               <tr key={`${inclusion.id || i}:child:${child.id || ci}`} class="cz-package-builder__details-table-row--child">
                 <td class="cz-package-builder__details-table-child-label">{child.label}</td>
                 <td>{child.quantity ?? ''}</td>
+                <td>Included</td>
+                <td>Included</td>
               </tr>
             )),
           ])}
@@ -210,7 +225,10 @@ function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuote
           const total = totalContractValues[index];
           return (
             <div key={quoteItemKey(item)} class="cz-package-builder__commitment-plan">
-              <h5 class="cz-package-builder__details-period-heading">{item.familyTitle} — {planLabel}</h5>
+              <div class="cz-package-builder__commitment-plan-header">
+                <h5 class="cz-package-builder__details-period-heading">{item.familyTitle} — {planLabel}</h5>
+                <InclusionDisclosure label={`${item.familyTitle} — ${planLabel}`} rows={disclosureRowsForFamilyTierItem(item)} />
+              </div>
               {streams.length > 0 ? (
                 <>
                   {streams.map((stream) => (
