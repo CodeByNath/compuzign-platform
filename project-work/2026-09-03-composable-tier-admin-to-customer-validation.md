@@ -1,37 +1,62 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- Pushed and deployed: `main@bdac492215e8aebea861a783924b9bdc2d46393a` (fast-forward from `a4a23920`, pushed directly — no conflicts).
-- Hostinger deploy: run `33877602142`, **success**, `2026-09-04T13:21:26Z`–`13:21:58Z` (~32s).
+- **READY FOR CLAUDE — deployed customer validation failed**
+- Auditor verdict: **Stop — pricing integrity and presentation correction required**
+- Validated deployed source: `main@bdac492215e8aebea861a783924b9bdc2d46393a`
+- Deployment evidence already accepted: Hostinger run `33877602142`, successful.
+- Browser validation date: 2026-09-05.
 
-## Accepted architecture / non-change boundary
-One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Upgrade must never exist, price, persist, hydrate, resurrect, or present itself as Build Your Own without its exact ready Tier/Edition base.
+## Architecture / non-change boundary
+One active customer journey only: **Upgrade your plan/build**. Standalone Build Your Own remains deferred/disabled. Preserve native `tierOccupantId` plus exact Edition identity, cart authority/removal semantics, schema, prior readiness/hydration guards, and the existing authoritative rate source.
 
-No `CZTU`/`CZTEU` minting yet; `CZTC`/`CZTEC` reserved. Preserve native `tierOccupantId` + exact Edition identity, cart authority/removal semantics, source pricing, schema, and prior readiness/hydration guards.
+Do not repair this by changing stored source prices, rounding them to whole currency units, introducing a second calculator, or redesigning the cart. The cost builder must faithfully consume the existing decimal monetary values.
 
-## Auditor review result
-Reviewed the full net diff `a4a23920..bdac4922` (2 commits) and the follow-up source correction itself.
+## Live browser findings
 
-Accepted:
-- Upgrade detail table reads stored `inclusionItems.unit_price` / `line_total`; no second pricing source.
-- Shared `InclusionDisclosure` is reused for quote-line and Total Commitment quick views; cart remove control remains independent.
-- Upgrade inclusion selector is a compact list with accessible +/× controls; server-resolved inline totals/cadence passthrough retained.
-- Details plan navigation is a single horizontally-scrollable chip row.
-- Customer Details now uses the existing `composableCoexistsWithPrimary()` rule to display **Upgrades** at all previously leaking `item.tierTitle` sites; stored/internal title and identity remain untouched.
-- The loop regression is migrated to seed a real ready primary rather than weakening `hasReadyPrimary` or reviving standalone Build Your Own.
-- The newly exposed redundant self-removal preview is correctly fixed with a one-shot `selfCausedRemovalRef`; this does not change cart semantics or commercial state.
-- Claude reports `tsc --noEmit`, build, docs check, relevant contracts, and `regression:composable-quote-cart-loop` all green.
+### 1. FAIL — decimal prices are lost in the cost builder
+The live Upgrade list shows:
 
-The omission of a literal per-item **Ongoing** badge remains accepted for this UI round; do not create another resolver just to print it.
+- 2 vCPU: `$36 per unit` (whole-number rate survives);
+- Block Storage: `$0 per unit`;
+- Backup Storage — BaaS: quantity 1 and `$0 / mo`;
+- Upgrade subtotal/cart line: `$0`.
 
-## Next action
-Pushed and deployed per Status above. Auditor/browser agent to verify from a fresh KAIROS route against `main@bdac4922`:
-1. Upgrade detail shows Quantity, Unit Price, Total and correct billing summary.
-2. Quote-line disclosures work independently of remove × and close on outside click.
-3. Compact Upgrade list shows correct inline totals/cadence and +/× behavior.
-4. Details chips horizontally scroll; Total Commitment disclosures show the correct inclusions.
-5. No customer-facing **Build Your Own** label appears anywhere in the active Upgrade route.
-6. Removing/switching the base or removing the Upgrade still clears/disables Upgrade state correctly; reload does not resurrect it.
+The affected storage rates contain fractional currency values. Values after the decimal point are reaching the cost builder as zero or being truncated before display/calculation. This is an overall decimal transport/normalisation defect, not a legitimate zero-price state.
 
-Do not start `CZTU`/`CZTEU` work until this live gate passes.
+### 2. FAIL — quote inclusion disclosure is visually and commercially unclear
+The open quick view currently appears as a narrow floating panel and formats quantities as `×2`, `×500`, etc. It omits a visible price column and does not show a subtotal immediately beneath the included rows.
+
+## Exact corrections
+
+### Decimal pricing integrity
+1. Trace decimal money from the existing authoritative Rate Sheet response through parsing, normalisation, Upgrade preview, inline row display, Upgrade subtotal, cart projection, Details, and total commitment.
+2. Preserve decimal precision at every boundary. Do not use integer parsing, truthy/falsy fallbacks that convert fractional values to zero, or premature whole-dollar formatting.
+3. For every inclusion, calculate `line total = authoritative unit price × quantity`; recalculate when quantity changes.
+4. Aggregate those exact line totals once into the Upgrade cadence subtotal and existing cart/commitment totals.
+5. Apply currency rounding only at the final display boundary, using the product’s established money formatter. Zero is valid only when the authoritative rate is actually zero.
+6. Verify representative fractional rates such as Block Storage and Backup Storage — BaaS, plus a whole-number control such as 2 vCPU.
+
+### Quote inclusion quick view
+1. Keep inclusions collapsed by default. Place a small, proper project-standard inline SVG chevron beside the quote item’s price—not as a detached floating control.
+2. Opening it must expand an in-flow dropdown attached to that quote item. It must push the following content downward and visually read as part of the item, not float over neighboring quote rows.
+3. Render a clear three-column list:
+   - **Inclusion**
+   - **Qty**
+   - **Price**
+4. Do not prefix quantities with `×`. Show plain numeric quantities in the Qty column.
+5. Price must be the calculated price for that row from the same authoritative unit price and quantity used by the cost builder.
+6. Directly below the final inclusion row, show a right-aligned **Total** equal to the sum of the displayed inclusion prices. Its placement must make clear that it totals the rows above.
+7. Keep the disclosure control separate from the existing cart remove ×. Preserve outside-click closing, keyboard operation, accessible expanded state/name, and independent disclosure state per quote item.
+8. Apply the same structured disclosure presentation to plan, add-on, and Upgrade quick views where pricing data is available. Do not invent prices when the authoritative response does not provide them.
+
+## Required regressions
+- Decimal unit prices survive API/model normalisation and do not become `0` or `.00`.
+- Quantity changes update row price, Upgrade subtotal, cart total, Details, and commitment total consistently and exactly once.
+- Mixed whole and fractional unit prices aggregate correctly.
+- Quick view renders Inclusion/Qty/Price without `×`, followed by the correct subtotal.
+- Opening a disclosure increases the quote item’s layout height and pushes later rows; it does not overlay them.
+- Chevron uses the established inline SVG pattern and sits beside price; remove × remains independent.
+- Existing primary readiness, base removal/swap, cart removal, hydration protection, and no-Build-Your-Own guarantees remain green.
+
+Report the decimal-loss root cause and exact boundary, affected components, before/after numeric fixtures, screenshots, accessibility behavior, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
