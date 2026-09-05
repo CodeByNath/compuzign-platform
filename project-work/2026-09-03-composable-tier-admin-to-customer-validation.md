@@ -2,21 +2,24 @@
 
 ## Status
 - **AWAITING LIVE VALIDATION**
-- Production `main` fast-forwarded to `a42eeba88c96d2e5d0a57cd498b270afe1e9baa1` (short: `a42eeba8`), pushed and deployed.
-- GitHub Actions "Deploy to Hostinger" run #953 — **conclusion: success** (created 2026-09-05T11:41:21Z, completed 2026-09-05T11:41:52Z).
+- Auditor verdict: **Proceed with safeguards — source/deploy verified; live gate still required**
+- Production independently verified at `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`.
+- GitHub Actions "Deploy to Hostinger" run `33964003314` / run #953 independently verified **completed / success** for that exact SHA (2026-09-05T11:41:21Z → 11:41:52Z).
 
-## Push record
-Ran the approved fast-forward exactly as authorized — `git checkout main && git merge --ff-only a42eeba8 && git push origin main` — no additional source changes in that push. `origin/main` confirmed at the reviewed SHA via `git fetch`.
+## Push/deploy audit
+GitHub `main` points to the reviewed customer-quote projection commit, parent `2e49b8bf8406bf0650b8eb57ee00e054555afb71`; no later source commit is on `main`. The Actions run head SHA exactly matches `main` and the reviewed commit message. The earlier full-SHA mismatch in coordination was a transcription error only; the reviewed short SHA `a42eeba8` and deployed commit are the same source state.
 
-Note for the auditor: the previous "AWAITING CLAUDE RESPONSE" entry's approval recorded the full SHA as `a42eeba82e86397cf6a722c4780578055443f371`. The actual full SHA (confirmed both via local `git rev-parse a42eeba8` and the GitHub Actions API's `head_sha` for run #953) is `a42eeba88c96d2e5d0a57cd498b270afe1e9baa1` — same 8-char short prefix, differing thereafter, and the run's own commit message ("Strip legPaymentSummaries[].source at the customer quote-view boundary") matches exactly. Flagging as a likely transcription slip in that entry, not a different commit — the diff you reviewed and the commit now on `main` are the same one.
+No further source change is authorized from this audit round.
 
-## Required live gate (from the approval)
-Not yet performed — needs a live browser and, for item 4, a real mailbox, neither available from this session. Restating exactly what's outstanding:
-1. Cart disclosure shows Month 11 Yearly → Static IP Block, Qty 2, Unit price $40, Line total $80, subtotal $80/year.
-2. Monthly and Yearly sections remain distinct; same-period/same-cadence components do not collapse.
-3. Review/PDF, customer View/Print Quote and Total Commitment show the same attribution.
-4. Received customer email shows the same breakdown and remains deliverable.
-5. Customer quote JSON contains no `CZTL`/`CZTEL` or Rate Sheet row/item identifiers from `commercialBreakdown` or `legPaymentSummaries`.
-6. Main → Upgrade → Add-on order, TCV, initial payments, identity, recipient/idempotency and legacy quote fallback remain unchanged.
+## Live validation is required before closure
+This phase changed customer-visible cart disclosure, Review/PDF, customer View/Print Quote, email rendering, and customer quote JSON projection. Source/tests/deployment alone cannot prove those surfaces agree in production.
 
-Per `project-work/AGENTS.md`: "A browser/tool outage is infrastructure failure, not product failure; keep live validation pending rather than requesting a source change." No further source changes are proposed from this session — holding at this status until the auditor (or another agent with live/browser access) performs the gate above and either closes this work item or reports a live-observed defect.
+Validate read-only with a fresh Starter Cloud multi-leg quote, and Main + Upgrade + Add-on where practical:
+1. Cart disclosure: Month 11 Yearly → Static IP Block; Qty 2; Unit price $40; Line total $80; component subtotal $80/year.
+2. Monthly and Yearly sections stay distinct; two same-period/same-cadence components do not visually collapse.
+3. Review/PDF, Total Commitment and customer View/Print Quote show the same attribution and totals.
+4. A real received customer email contains the same breakdown and delivery still succeeds.
+5. Customer quote JSON contains no `CZTL`/`CZTEL` or Rate Sheet row/item identifiers from either `commercialBreakdown` or `legPaymentSummaries`.
+6. Main → Upgrade → Add-on order, TCV, initial payments, quote identity, recipient/idempotency and legacy fallback remain unchanged.
+
+If browser/mail access is unavailable, keep this file at **AWAITING LIVE VALIDATION**; that is an infrastructure limitation, not a source defect. Close only after the live customer behavior matches the reviewed source.
