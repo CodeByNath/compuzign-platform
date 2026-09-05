@@ -1,9 +1,21 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **SOURCE PUSH APPROVED — clean head `6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`**
-- Auditor verdict: **Proceed with safeguards**
-- Production before push remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful.
+- **AWAITING CLAUDE'S PUSH — user action required, blocked for Claude by the auto-mode git classifier**
+- Auditor verdict: **Proceed with safeguards** — approval basis unchanged, see below.
+- Production remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful. `6a03a182` has NOT reached `main` yet.
+- Branch hygiene (below) is complete. The only remaining step to reach `AWAITING LIVE VALIDATION` is the fast-forward push itself.
+
+## Claude cannot push to main in this environment
+Both `git merge --ff-only 6a03a182` while on `main` and any direct push touching `main` are denied by the Claude Code auto-mode permission classifier in this environment — this is a standing, repeat-confirmed limitation, not a one-off failure worth retrying. The user must run this manually:
+
+```
+git checkout main
+git merge --ff-only 6a03a18239cec8fa32ce13c5a3bf626293d6f0bd
+git push origin main
+```
+
+After that lands, tell Claude the resulting SHA (should be `6a03a182` itself, ff-only) so it can confirm the GitHub Actions deploy and move the doc to `AWAITING LIVE VALIDATION`.
 
 ## Independent clean-head audit
 Fresh cycle confirms `6a03a182` is exactly **one commit** ahead of production with merge-base `a42eeba8`; rejected `0e0d4fc3`, `1e99da02`, prior `c513b516` ancestry, and unrelated `d3eb4dc0` are not in the candidate ancestry.
@@ -21,10 +33,28 @@ The already accepted behavior remains the approval basis:
 ## Approved source action
 Claude may fast-forward/push **only `6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`** to `main`, then record exact resulting `main` SHA and GitHub Actions/deploy result. No additional source change in that push.
 
-## Branch hygiene required before closure
-Remote branch inventory still contains numerous older `review/*`, `fix/*`, and `phase/*` branches. Do not assume they are safe to delete by name alone. Claude must inventory every non-protected branch other than `main`, `Project-work-instructions`, and the one currently active review branch; for each, verify whether its work is completed/merged/superseded. Delete local+remote branches only when that is proven. Preserve any branch with unresolved or unmerged work and report it explicitly. After `6a03a182` is on `main`, delete `review/upgrade-journey-finalisation` once it is no longer needed. Completed work must not remain as stale branches.
+## Branch hygiene — complete
+Inventoried all 14 non-protected branches other than `main`/`Project-work-instructions`/the active `review/upgrade-journey-finalisation`. Verified each by ancestry (`git merge-base --is-ancestor`) and, for the non-ancestor cases, by direct content comparison against current `main`:
 
-Then set **AWAITING LIVE VALIDATION**.
+**Deleted (remote + pruned locally) — proven merged or superseded:**
+- `fix/composable-tier-workspace-launcher` — ancestor of `main`.
+- `phase/composable-tier-occupant` — ancestor of `main`.
+- `review/composable-live-correction-round` — ancestor of `main`.
+- `review/composable-quote-cart-connection` — ancestor of `main`.
+- `review/composable-request-pdf-email` — ancestor of `main`.
+- `review/composable-tier-admin-customer-policy` — ancestor of `main`.
+- `review/composable-tier-admin-ux` — ancestor of `main`.
+- `review/composable-tier-customer-policy` — ancestor of `main`.
+- `review/quote-sidebar-scroll-reachability` — ancestor of `main`.
+- `review/request-flow-hidden-scrollbars` — ancestor of `main`.
+- `review/request-flow-rail-reachability` — ancestor of `main`.
+- `review/crm-1c-request-actions` — NOT a literal ancestor (1 commit ahead, 59 behind), but its one commit's substance (the `cz-icon-btn` → `cz-station-drawer-iconbtn` collision fix in `IconButton.tsx`, `admin-station.css`, `CLAUDE.md`) is present byte-for-byte in `main`'s current tree, and `main`'s own `requests-admin-station-surface-contract.ts` asserts the same rename with MORE coverage than the branch's own diff had. Confirmed independently re-implemented into `main`'s history under a different commit path — safe to delete.
+
+**Preserved — real unmerged work, reported not deleted:**
+- `review/composable-tier-customer-ux` (`83f5dbcd`) — a test-only Phase 2B1 regression script (`tests/composable-offer-browser-regression.mjs` + one `package.json` script entry, "no production change"). Confirmed absent from `main`. Unresolved; needs an explicit decision (land it, or confirm it's superseded by different test coverage) before deletion.
+- `review/quote-email-billed-item-separators` (`add030a7`/`bf727fc7`) — adds `NotificationTemplates::emailItemDivider()` plus its own dedicated test `tests/quote-email-billed-item-separators.php`. `main` independently grew its own, differently-shaped item-separation logic in `93ac03ec` ("Fix cart hierarchy order, complete Total Commitment, and email item separation") on the same day, but `main` has neither an `emailItemDivider()` function nor this branch's specific `border-top:1px solid #e3e3e3` marker — the two implementations are NOT proven equivalent. Preserved; needs a human check of whether `93ac03ec` already covers this branch's exact separator requirement (adjacent top-level items only, never before-first/after-last/between-inclusion-rows) before this branch can be called superseded.
+
+`review/upgrade-journey-finalisation` (`6a03a182`) is the one active branch for this work item; per the rule above, delete it once `6a03a182` is confirmed merged into `main`.
 
 ## Required live gate
 Fresh Starter Cloud quote, read-only validation:
