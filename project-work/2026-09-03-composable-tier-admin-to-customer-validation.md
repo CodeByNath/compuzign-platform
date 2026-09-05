@@ -1,31 +1,39 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- Production remains `main@93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`, deploy `33945492532` live.
-- Review head `a42eeba8` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
+- **SOURCE PUSH APPROVED — reviewed `a42eeba82e86397cf6a722c4780578055443f371`**
+- Auditor verdict: **Proceed with safeguards**
+- Production before this push remains `main@93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`, deploy `33945492532` live.
 
-## Claude's report
+## Independent review
+The review head is exactly 4 commits ahead of production, merge-base `93ac03ec`, with the unrelated `d3eb4dc0` email-label correction excluded.
 
-### Remaining blocker fixed: legPaymentSummaries[].source no longer reaches the customer
-Per the required bounded correction:
+Accepted architecture:
+- `commercialBreakdown` is captured once from the exact resolved `CommercialLegPeriod[]` at quote creation for primary/Edition/add-on and Upgrade.
+- It preserves period/component occurrence, cadence, component price, inclusion label, quantity, unit price, line total and Bundle children without Rate Sheet/Leg identifiers.
+- Same-period/same-cadence components remain distinct through positional presentation keys and neutral charge disambiguation.
+- Existing `legPaymentSummaries` remains the compact payment/TCV snapshot and keeps `source` in stored/admin data for audit identity.
+- `QuoteViewAccess::resolve()` now projects customer quote items and removes only `legPaymentSummaries[].source`, preserving billingCycle, price, start/end, ongoing state, occurrence months and subtotal. Projection operates on a copy; canonical stored data is unchanged.
+- Customer render keys in stored quote View/Print no longer require `source`.
+- Generated-output hygiene is clean: current referenced `QuoteProposalPreview-B14mh0ba.js` only.
 
-1. **Durable Request unchanged.** `RequestSchema::sanitizeLegPaymentSummaries()` was not touched — `source` still persists there, so admin print and email (both reading the stored Request directly) keep full Leg identity for audit/history.
-2. **New projection at the read boundary.** `QuoteViewAccess::resolve()` now runs the resolved `items` through a new private `projectItemsForCustomer()` before returning — an allow-list (`billingCycle`, `price`, `startMonth`, `endMonth`, `isOngoing`, `occurrenceMonths`, `subtotal`) applied to each item's own `legPaymentSummaries` entries, dropping `source`. It operates on a copy (`array_map`, no by-reference mutation) — the stored payload the caller passed in is never touched.
-3. **No mutation of stored data / admin access.** Confirmed by an explicit test assertion (`$legSummaryPayload === $legSummaryPayloadBeforeCall` after the call).
-4. **Rendering tolerates the projected shape.** `QuoteProposalPreview.tsx`/`OrderSummary.tsx` (the only components `QuoteViewApp.tsx` — the customer View/Print Quote page — renders through) had six `key={stream.source}` React keys; all now use array position. `QuoteSummary.tsx`/`QuoteDetailsOverlay.tsx`/`PlanDetailsModal.tsx`/`FamilyTierAdapter.tsx` were left untouched — all four render only live, not-yet-submitted cart state, never the stored/returned customer quote JSON this finding is about.
-5. All seven other payment facts remain, unmodified.
-6. No business-visible identity was touched — only the Leg/Rate Sheet plumbing `source` field.
-7. **Test added**, `quote-view-access-boundary.php`: a canonical item with real-looking `CZTL-0000123`/`CZTEL-0000456` sources — asserts stored input never mutated, `json_encode()` of the customer result contains neither identifier anywhere, and every other payment fact survives unchanged. `commercialBreakdown` already needs no projection (identifier-free since last round).
-8. Full validation re-run (below).
+Validation evidence reported: focused PHP snapshot/quote-view/email fixtures, TS commercial-breakdown contracts, `tsc --noEmit`, Vite build; repository-wide failures remain the same pre-existing unrelated set. The known admin/customer email-label regression remains deliberately outside this approved head and must not be silently mixed into this push.
 
-## Validation
-- `tests/*.php` full suite: same 5 pre-existing unrelated failures, plus the still-expected reappearance of the admin/customer email-label regression in `notification-templates-composable-quote-parity.php` (`d3eb4dc0` remains deliberately excluded from this review head).
-- 85-script `contract:*`/`regression:*` sweep: same 7 pre-existing unrelated failures (unchanged from prior rounds).
-- `tsc --noEmit` clean, `vite build` clean.
-- Generated-output hygiene maintained: last round's `QuoteProposalPreview-DNBsfHLO.js` (now superseded by this round's rebuild) removed; only `QuoteProposalPreview-B14mh0ba.js` remains.
+## Approved source action
+Claude may push **only** `a42eeba82e86397cf6a722c4780578055443f371` (the reviewed 4-commit chain from `93ac03ec`) to `main`, deploy it, then record:
+- exact resulting `main` SHA;
+- GitHub Actions/deploy run and result;
+- status **AWAITING LIVE VALIDATION**.
 
-## Not independently verifiable without a live browser/real mail client
-Same disclosure as prior rounds — visual rendering, email-client display, and PDF pagination remain unverified beyond fixture/DOM-string/JSON-string assertions.
+No additional source changes in that push.
 
-Review the exact SHA `a42eeba8` on `review/upgrade-journey-finalisation` (parents `2e49b8bf` → `8eb2467b` → `fcd5e0f6` → `main@93ac03ec`) against the required correction and acceptance criteria above.
+## Required live gate after deploy
+Validate read-only with a fresh quote containing the Starter Cloud multi-leg shape and, where practical, Main + Upgrade + Add-on:
+1. Cart disclosure shows Month 11 Yearly -> Static IP Block, Qty 2, Unit price $40, Line total $80, subtotal $80/year.
+2. Monthly and Yearly sections remain distinct; same-period/same-cadence components do not collapse.
+3. Review/PDF, customer View/Print Quote and Total Commitment show the same attribution.
+4. Received customer email shows the same breakdown and remains deliverable.
+5. Customer quote JSON contains no `CZTL`/`CZTEL` or Rate Sheet row/item identifiers from `commercialBreakdown` or `legPaymentSummaries`.
+6. Main -> Upgrade -> Add-on order, TCV, initial payments, identity, recipient/idempotency and legacy quote fallback remain unchanged.
+
+Do not close until deployment and live customer behavior agree with the reviewed source.
