@@ -34,6 +34,14 @@ If an outside agent cannot operate under the auditor boundary above, it must sto
 - Keep work files concise, normally <=600 words.
 - Record decisions, scope, evidence, SHAs, files changed, validation, risks, approvals, deployment evidence, and closure state; do not paste long transcripts/full diffs.
 
+## Review branch hygiene
+- Keep **one active implementation/review branch per active work item**. Do not leave superseded review branches sitting indefinitely.
+- When a review round is rejected and further correction is required, prepare the next review from the current production `main` as a clean review state. Do not make rejected intermediate commits part of the eventual `main` ancestry merely because fixes were stacked on top of them.
+- Before asking for source-push approval, collapse/cherry-pick/squash the accepted final tree onto a fresh branch from the current production `main` so the auditor reviews one clean candidate head for that work item.
+- After a replacement review branch is independently accepted, remove superseded local/remote review branches for that same work item. Never delete `main`, protected branches, or `Project-work-instructions`.
+- Before marking work `CLOSED`, verify there is no stale implementation/review branch left for that completed work item. Completed work must not remain as an abandoned branch.
+- Branch cleanup is repository hygiene only; it must never rewrite shared production history or bypass the required diff/review/deploy/live-validation gates.
+
 ## Status behavior
 - `READY FOR CLAUDE`: Claude proceeds immediately.
 - `AWAITING CLAUDE RESPONSE`: Claude answers recorded review items in the same work file.
