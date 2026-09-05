@@ -393,11 +393,31 @@ check(
   /hadReadyPrimaryRef = useRef\(hasReadyPrimary\)/.test(browserSource),
   'the reconciliation effect ALSO tracks primary readiness across renders via its own ref — a customer can interact before ever having a committed Upgrade line, so the cart-item ref alone cannot catch a primary disappearing',
 );
+const reconciliationBlockMatch = browserSource.match(
+  /if \(cartItemJustRemoved \|\| primaryJustRemoved\) \{([\s\S]*?)\n {4}\}/,
+);
 check(
   /const cartItemJustRemoved = hadCartItem && initialCartItem === null;/.test(browserSource)
     && /const primaryJustRemoved = hadReadyPrimary && !hasReadyPrimary;/.test(browserSource)
-    && /if \(cartItemJustRemoved \|\| primaryJustRemoved\) \{\s*setSelection\(seedSelectionFromCartItem\(rows, null\)\);\s*setHasInteracted\(false\);\s*\}/.test(browserSource),
+    && !!reconciliationBlockMatch
+    && /setSelection\(seedSelectionFromCartItem\(rows, null\)\);/.test(reconciliationBlockMatch[1])
+    && /setHasInteracted\(false\);/.test(reconciliationBlockMatch[1]),
   'the reconciliation effect resets BOTH local selection (back to policy defaults) AND hasInteracted (disarming the auto-commit gate) whenever EITHER the cart\'s composable line OR the primary itself transitions present -> absent — resetting only one field, or reacting to only one trigger, would leave a gap the live-validation findings already caught',
+);
+// ── 8b-ii. Live-gate correction (2026-09-05, "filter option catalog
+// collapses after selection" / stuck-filter finding): the SAME reconciliation
+// branch (a completed transaction clears the cart without unmounting this
+// component) must ALSO reset Category/Service/Sort/page back to fresh-route
+// defaults — otherwise a customer returning to Pricing after checkout sees a
+// stale filter (e.g. a malformed/truncated value) with no obvious way to see
+// every eligible Upgrade item again.
+check(
+  !!reconciliationBlockMatch
+    && /setCategory\(''\);/.test(reconciliationBlockMatch[1])
+    && /setService\(''\);/.test(reconciliationBlockMatch[1])
+    && /setSort\('featured'\);/.test(reconciliationBlockMatch[1])
+    && /setPage\(0\);/.test(reconciliationBlockMatch[1]),
+  'the same reconciliation branch that resets selection/hasInteracted on a genuine external clear must also reset Category/Service/Sort/page to their fresh-route defaults (All Categories, All Services, Featured, page 1) — a completed transaction must not leave the Upgrade browser stuck on a stale filter',
 );
 check(
   browserSource.includes('}, [family.family_id, rowIdsKey]);'),

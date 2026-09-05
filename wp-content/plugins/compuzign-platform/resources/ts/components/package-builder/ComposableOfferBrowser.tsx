@@ -411,20 +411,37 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
     if (cartItemJustRemoved || primaryJustRemoved) {
       setSelection(seedSelectionFromCartItem(rows, null));
       setHasInteracted(false);
+      // Live-gate correction (2026-09-05, "filter option catalog collapses
+      // after selection" / stuck-filter finding): a completed transaction
+      // (PackageBuilderApp.tsx's onSubmitSuccess -> clearCart()) drives
+      // hasReadyPrimary/initialCartItem through this exact branch without
+      // unmounting this component (the customer stays on the same Family),
+      // so Category/Service/Sort/page were never reset back to the fresh-
+      // route defaults the next Upgrade browsing session should start from.
+      // Gated identically to the selection reset above (never fires for the
+      // customer's own single self-caused Remove click, only a genuine
+      // external clear), so an ordinary Remove never surprises the customer
+      // by resetting filters they're still actively using.
+      setCategory('');
+      setService('');
+      setSort('featured');
+      setPage(0);
     }
   }, [initialCartItem, hasReadyPrimary, rows]);
 
+  // Live-gate correction (2026-09-05, "filter option catalog collapses
+  // after selection"): both catalogs are derived ONLY from the full,
+  // unfiltered `rows` pool — never narrowed by the other filter's current
+  // value. Selecting a Category must not shrink the Service catalog (or
+  // vice versa); only the `filtered` result list below is narrowed by the
+  // combination of both.
   const categories = useMemo(
     () => Array.from(new Set(rows.flatMap((row) => row.categories))).sort(),
     [rows],
   );
   const services = useMemo(
-    () => Array.from(new Set(
-      rows
-        .filter((row) => category === '' || row.categories.includes(category))
-        .flatMap((row) => (row.service ? [row.service] : [])),
-    )).sort(),
-    [rows, category],
+    () => Array.from(new Set(rows.flatMap((row) => (row.service ? [row.service] : [])))).sort(),
+    [rows],
   );
 
   // Required items are always included — never a browse/Add-Remove choice
@@ -559,34 +576,40 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
       <div class="cz-package-builder__composable-filters">
         <label class="cz-package-builder__composable-filter">
           Category
-          <input
-            list="cz-composable-categories"
+          {/* Live-gate correction (2026-09-05): a free-text <input list=
+              datalist> stored whatever the customer typed (including a
+              malformed/truncated fragment, e.g. "Computu") as the filter's
+              own authoritative value, and most browsers additionally
+              self-filter the datalist's visible suggestions by the input's
+              current text — reopening the control after a selection showed
+              only options matching what was already typed, reading as a
+              collapsed catalog. A <select>, matching this row's own Sort
+              control, can only ever hold one of the real option values (or
+              "" for All), so the stored filter is always stable and every
+              option is always present when reopened. */}
+          <select
             value={category}
-            onInput={(event) => {
-              setCategory((event.target as HTMLInputElement).value);
-              setService('');
+            onChange={(event) => {
+              setCategory((event.target as HTMLSelectElement).value);
               setPage(0);
             }}
-            placeholder="All Categories"
-          />
-          <datalist id="cz-composable-categories">
-            {categories.map((option) => <option key={option} value={option} />)}
-          </datalist>
+          >
+            <option value="">All Categories</option>
+            {categories.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
         </label>
         <label class="cz-package-builder__composable-filter">
           Service
-          <input
-            list="cz-composable-services"
+          <select
             value={service}
-            onInput={(event) => {
-              setService((event.target as HTMLInputElement).value);
+            onChange={(event) => {
+              setService((event.target as HTMLSelectElement).value);
               setPage(0);
             }}
-            placeholder="All Services"
-          />
-          <datalist id="cz-composable-services">
-            {services.map((option) => <option key={option} value={option} />)}
-          </datalist>
+          >
+            <option value="">All Services</option>
+            {services.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
         </label>
         <label class="cz-package-builder__composable-filter">
           Sort

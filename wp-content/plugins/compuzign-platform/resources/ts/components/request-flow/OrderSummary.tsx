@@ -156,6 +156,23 @@ export function OrderSummary({
 
   return (
     <div class="cz-os">
+      {/* Live-gate correction (2026-09-05, "Review panel exposes scrolling
+          content through the footer gap"): the previous single scrolling
+          column (.cz-os as one flex column, gap between every child) relied
+          on position:sticky to pin .cz-os__actions near the bottom of that
+          SAME scroll box. Flexbox `gap` is painted by the flex CONTAINER,
+          not by either flanking child — so the gap space immediately above
+          and below the sticky actions block belonged to .cz-os (which has
+          no background of its own), not to .cz-os__actions's own opaque
+          background, and scrolling content behind it showed through that
+          narrow strip. Fixed structurally rather than by chasing sticky/
+          z-index edge cases: everything scrollable now lives in its own
+          .cz-os__scroll viewport (flex:1, min-height:0, overflow-y:auto);
+          Print/Save as PDF, Submit, and the help line sit in .cz-os__footer,
+          a genuinely separate, non-scrolling, opaque sibling below it — so
+          scrolling content is bounded by its own viewport's edge and can
+          never appear behind, between, or below the action buttons. */}
+      <div class="cz-os__scroll">
 
       {/* ── Header ── */}
       <div class="cz-os__header">
@@ -491,37 +508,40 @@ export function OrderSummary({
         </p>
       </div>
 
-      {/* ── Actions ── */}
-      {!isSubmitted && (
-        <div class="cz-os__actions">
-          {errorMessage && (
-            <p class="cz-os__error" role="alert">{errorMessage}</p>
-          )}
-          <button
-            type="button"
-            class="cz-btn cz-btn-secondary cz-os__print-btn"
-            onClick={onPrint}
-          >
-            Print / Save as PDF
-          </button>
-          <button
-            type="button"
-            class="cz-btn cz-btn-primary cz-os__submit-btn"
-            onClick={onSubmit}
-            disabled={submitDisabled}
-          >
-            {isSubmitting ? 'Submitting…' : 'Submit Quote Request'}
-          </button>
-        </div>
-      )}
+      </div>
 
-      {/* ── Help footer ── */}
-      <p class="cz-os__help">
-        Questions? Email us at{' '}
-        <a href="mailto:hello@compuzign.com" class="cz-os__help-link">
-          hello@compuzign.com
-        </a>
-      </p>
+      {/* ── Footer: actions + help — non-scrolling, always visible ── */}
+      <div class="cz-os__footer">
+        {!isSubmitted && (
+          <div class="cz-os__actions">
+            {errorMessage && (
+              <p class="cz-os__error" role="alert">{errorMessage}</p>
+            )}
+            <button
+              type="button"
+              class="cz-btn cz-btn-secondary cz-os__print-btn"
+              onClick={onPrint}
+            >
+              Print / Save as PDF
+            </button>
+            <button
+              type="button"
+              class="cz-btn cz-btn-primary cz-os__submit-btn"
+              onClick={onSubmit}
+              disabled={submitDisabled}
+            >
+              {isSubmitting ? 'Submitting…' : 'Submit Quote Request'}
+            </button>
+          </div>
+        )}
+
+        <p class="cz-os__help">
+          Questions? Email us at{' '}
+          <a href="mailto:hello@compuzign.com" class="cz-os__help-link">
+            hello@compuzign.com
+          </a>
+        </p>
+      </div>
 
     </div>
   );

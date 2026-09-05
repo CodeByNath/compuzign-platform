@@ -45,12 +45,20 @@ export function resolveQuoteItemRole(item: FamilyTierQuoteItem): FamilyTierQuote
  * standing alone. Contextual, not a stored fact: the same composable line
  * can gain or lose a sibling primary as the customer edits the cart, so this
  * is computed at render time from the cart array, never cached on the item
- * itself. Customer quote/cart + review surfaces (QuoteSummary.tsx,
- * OrderSummary.tsx) use this to show "Upgrades" instead of "Build Your Own"
- * for exactly this coexistence case — internal identity/keys and every
- * Admin-facing surface (requestItemDisplay.ts, the Request drawer,
- * QuoteProposalPreview.tsx shared with Admin PDF print) are unaffected and
- * keep "Build Your Own" unconditionally.
+ * itself.
+ *
+ * Correction (deployed live-gate finding, 2026-09-05): QuoteProposalPreview.tsx
+ * is NOT admin-only — it is the one shared renderer behind the customer's own
+ * Review & Finalise Print/Save-as-PDF, the standalone customer Quote View
+ * page, AND (via NotificationTemplates.php's parallel PHP rendering) the
+ * customer confirmation email, so a prior round's assumption that it could
+ * keep "Build Your Own" unconditionally was itself the leak. Every
+ * customer-facing consumer (QuoteSummary.tsx, OrderSummary.tsx,
+ * QuoteProposalPreview.tsx, and the PHP email templates) now applies this
+ * same rule to show "Upgrades" instead of "Build Your Own" for exactly this
+ * coexistence case. Internal identity/keys and the Admin Request-list
+ * surface (requestItemDisplay.ts, the Request drawer) are unaffected and
+ * keep "Build Your Own" — those never render the customer proposal markup.
  */
 export function composableCoexistsWithPrimary(item: FamilyTierQuoteItem, items: CartItem[]): boolean {
   if (resolveQuoteItemRole(item) !== 'composable') return false;

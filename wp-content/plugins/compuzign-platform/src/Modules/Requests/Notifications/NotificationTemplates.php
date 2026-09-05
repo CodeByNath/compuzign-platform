@@ -173,6 +173,42 @@ class NotificationTemplates
     }
 
     /**
+     * PHP port of familyTierSystemKey() in utils/quote.ts.
+     *
+     * @param array<string, mixed> $item
+     */
+    private static function familyTierSystemKey(array $item): string
+    {
+        return 'family:' . ($item['familyPlatformId'] ?? '') . ':instance:' . ($item['tierInstancePlatformId'] ?? '');
+    }
+
+    /**
+     * PHP port of composableCoexistsWithPrimary() in utils/quote.ts — deployed
+     * live-gate correction (2026-09-05): the customer confirmation email had
+     * no equivalent of the TS resolver at all, so a composable ("Build Your
+     * Own") item reached via the "upgrade your build" entry point still
+     * rendered its standalone identity/badge here even when the same email's
+     * cart/PDF surfaces had already been corrected to show "Upgrades". True
+     * when $item has a sibling primary Family item for the same
+     * Family+Tier-Instance among $familyMainItems.
+     *
+     * @param array<string, mixed> $item
+     * @param array<int, array<string, mixed>> $familyMainItems
+     */
+    private static function composableCoexistsWithPrimary(array $item, array $familyMainItems): bool
+    {
+        $systemKey = self::familyTierSystemKey($item);
+
+        foreach ($familyMainItems as $primary) {
+            if (self::familyTierSystemKey($primary) === $systemKey) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The same six never-merged cart-line classifications
      * quote.ts's classifyQuoteItems() defines for the browser (customer's
      * one normal Tier/promotion per Service, the legacy recommended bundle,
@@ -401,18 +437,25 @@ class NotificationTemplates
      *
      * @param array<string, mixed> $item
      * @param string $role 'primary' | 'addon' | 'composable' — see resolveItemRole().
+     * @param array<int, array<string, mixed>> $familyMainItems sibling primary Family items in the same quote — only consulted when $role === 'composable' (composableCoexistsWithPrimary()).
      */
-    private static function emailFamilyRow(array $item, string $role, bool $includeInternalIds): string
+    private static function emailFamilyRow(array $item, string $role, bool $includeInternalIds, array $familyMainItems = []): string
     {
         $familyTitle  = esc_html((string) ($item['familyTitle'] ?? ''));
         $tierTitle    = esc_html((string) ($item['tierTitle'] ?? ''));
         $editionTitle = !empty($item['tierEditionTitle']) ? esc_html((string) $item['tierEditionTitle']) : '';
 
+        // A composable item reached via "upgrade your build" (a sibling
+        // primary exists for the same Family+Tier-Instance) reads "Upgrades"
+        // here too, matching QuoteSummary.tsx/QuoteProposalPreview.tsx — never
+        // the standalone "Build Your Own" badge/title for that case.
+        $isUpgrade = $role === 'composable' && self::composableCoexistsWithPrimary($item, $familyMainItems);
+
         $badges = [
             'addon'      => ' <span style="font-size:10px;background:#f0f0f0;padding:1px 6px;border-radius:8px;color:#888;">add-on</span>',
             'composable' => ' <span style="font-size:10px;background:#eef4ff;padding:1px 6px;border-radius:8px;color:#3157c9;">Build Your Own</span>',
         ];
-        $badge = $badges[$role] ?? '';
+        $badge = $isUpgrade ? '' : ($badges[$role] ?? '');
 
         if ($role === 'addon') {
             $title         = $tierTitle;
@@ -421,9 +464,12 @@ class NotificationTemplates
             // 'primary' and 'composable' both lead with the Family name —
             // the composable row's own tierTitle already carries "Build
             // Your Own"/the offer's own label, distinguished further by the
-            // badge above, never by a raw "primary"/"composable" string.
-            $title         = $familyTitle;
-            $subtitleParts = array_filter([$tierTitle, $editionTitle], fn ($v) => $v !== '');
+            // badge above, never by a raw "primary"/"composable" string —
+            // unless $isUpgrade, in which case both the badge and this
+            // tierTitle slot are replaced with "Upgrades".
+            $title              = $familyTitle;
+            $effectiveTierTitle = $isUpgrade ? 'Upgrades' : $tierTitle;
+            $subtitleParts      = array_filter([$effectiveTierTitle, $editionTitle], fn ($v) => $v !== '');
         }
         $subtitle = implode(' &nbsp;·&nbsp; ', $subtitleParts);
 
@@ -459,12 +505,13 @@ class NotificationTemplates
     /**
      * @param array<int, array<string, mixed>> $items
      * @param string $role 'primary' | 'addon' | 'composable' — see resolveItemRole().
+     * @param array<int, array<string, mixed>> $familyMainItems see emailFamilyRow().
      */
-    private static function emailFamilyRows(array $items, string $role, bool $includeInternalIds): string
+    private static function emailFamilyRows(array $items, string $role, bool $includeInternalIds, array $familyMainItems = []): string
     {
         $html = '';
         foreach ($items as $item) {
-            $html .= self::emailFamilyRow($item, $role, $includeInternalIds);
+            $html .= self::emailFamilyRow($item, $role, $includeInternalIds, $familyMainItems);
         }
 
         return $html;
@@ -579,7 +626,7 @@ class NotificationTemplates
 
         $rows = self::emailServiceRows($classified['mainItems'])
             . self::emailFamilyRows($classified['familyMainItems'], 'primary', $includeInternalIds)
-            . self::emailFamilyRows($classified['familyComposableItems'], 'composable', $includeInternalIds)
+            . self::emailFamilyRows($classified['familyComposableItems'], 'composable', $includeInternalIds, $classified['familyMainItems'])
             . self::emailServiceRows($classified['bundleItems'])
             . self::emailServiceRows($classified['tierAddonItems'])
             . self::emailFamilyRows($classified['familyAddonItems'], 'addon', $includeInternalIds);

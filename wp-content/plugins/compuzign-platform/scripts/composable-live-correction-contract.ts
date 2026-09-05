@@ -78,12 +78,19 @@ check(quoteSummary.includes("'Upgrades'"), 'QuoteSummary.tsx has the "Upgrades" 
 check(orderSummary.includes('composableCoexistsWithPrimary'), 'OrderSummary.tsx imports/uses composableCoexistsWithPrimary()');
 check(orderSummary.includes("'Upgrades'"), 'OrderSummary.tsx has the "Upgrades" label available');
 
-// QuoteProposalPreview.tsx (shared with Admin PDF print) must NOT relabel —
-// the approval scope names only "customer quote/cart + review", explicitly
-// preserving Admin naming, and this file is read by both audiences at once.
+// Correction (deployed live-gate finding, 2026-09-05): QuoteProposalPreview.tsx
+// is NOT admin-only — it is the one shared renderer behind the customer's own
+// Review & Finalise Print/Save-as-PDF and the standalone customer Quote View
+// page, so leaving it unconditionally "Build Your Own" (the prior round's
+// assumption here) was itself the leak the live PDF/email evidence caught.
+// It must now apply the SAME conditional resolver as QuoteSummary.tsx/
+// OrderSummary.tsx — "Build Your Own" stays available as the fallback for a
+// genuinely standalone composable line, never removed outright, but a
+// coexisting-with-primary line must read "Upgrades" here too.
 const proposal = readFileSync(resolve(root, 'resources/ts/components/request-flow/QuoteProposalPreview.tsx'), 'utf8');
-check(!proposal.includes('composableCoexistsWithPrimary'), 'QuoteProposalPreview.tsx (shared with Admin PDF print) is untouched by the customer-only "Upgrades" relabel');
-check(proposal.includes('Build Your Own'), 'QuoteProposalPreview.tsx keeps its unconditional "Build Your Own" eyebrow');
+check(proposal.includes('composableCoexistsWithPrimary'), 'QuoteProposalPreview.tsx now imports/uses composableCoexistsWithPrimary() — the PDF/print path is no longer exempt from the "Upgrades" relabel');
+check(proposal.includes("'Upgrades'"), 'QuoteProposalPreview.tsx has the "Upgrades" label available for the coexisting-composable case');
+check(proposal.includes('Build Your Own'), 'QuoteProposalPreview.tsx keeps "Build Your Own" as the fallback for a genuinely standalone composable line');
 
 // requestItemDisplay.ts / RequestDrawerHost.tsx (Admin) must also stay
 // unaffected by the relabel — internal identity/Admin naming unchanged.
@@ -99,14 +106,20 @@ check(overlay.includes('activeItem?.isComposable') && overlay.includes('<Composa
 check(overlay.includes('item.inclusionItems') && overlay.includes('item.legPaymentSummaries'), 'ComposablePlanDetails reads the item\'s own stored snapshot, never a live resolver');
 check(!/ComposablePlanDetails[\s\S]*?resolveEffectiveTierDisplay/.test(overlay.slice(overlay.indexOf('function ComposablePlanDetails'), overlay.indexOf('function ComposablePlanDetails') + 3000)), 'ComposablePlanDetails never calls the live-catalog resolver');
 
-// ── 4. Sticky Print/Save as PDF — reachable without scrolling the rail. ───
+// ── 4. Print/Save as PDF — reachable without scrolling the rail, and never
+//    scrolled-through by content above it. ───────────────────────────────
+//
+// Live-gate correction (2026-09-05, "Review panel exposes scrolling content
+// through the footer gap"): the original fix here was position:sticky
+// within a single shared scroll box — that left the flex `gap` immediately
+// around the sticky element unpainted, letting scrolled content show
+// through. Superseded by a structural split (.cz-os__scroll / .cz-os__footer
+// as separate siblings) — fully covered by
+// scripts/request-flow-rail-scroll-contract.ts, not re-asserted here to
+// avoid two contracts drifting out of agreement on the same CSS shape.
 
 const css = readFileSync(resolve(root, 'resources/css/modules/cost-builder.css'), 'utf8');
-const actionsRule = css.match(/\.cz-os__actions\s*\{[^}]*\}/);
-check(!!actionsRule, '.cz-os__actions rule is present');
-check(actionsRule![0].includes('position: sticky'), '.cz-os__actions is sticky within its scroll container');
-check(actionsRule![0].includes('bottom: 0'), '.cz-os__actions sticks to the bottom of the visible rail');
-check(actionsRule![0].includes('background:'), '.cz-os__actions carries an opaque background so scrolled content does not show through beneath it');
+check(/\.cz-os__footer\s*\{[^}]*background:/.test(css), '.cz-os__footer carries an opaque background so scrolled content does not show through beneath the action buttons (see request-flow-rail-scroll-contract.ts for the full structural assertion)');
 
 // ── 5. Admin Request readback: composable inclusion/Leg detail. ──────────
 

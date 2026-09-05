@@ -2066,16 +2066,16 @@
 
 /* Hide the scrollbar chrome on both Request-flow scroll panels — visual
    only, scrolling itself (wheel/trackpad/touch/keyboard/focus) is
-   untouched since overflow-y:auto stays on both .cz-rf-left and
-   .cz-rf-right (see .cz-rf-right below). */
+   untouched. .cz-rf-right itself no longer scrolls (see below); its own
+   scrolling region is now the nested .cz-os__scroll. */
 .cz-rf-left,
-.cz-rf-right {
+.cz-os__scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
 .cz-rf-left::-webkit-scrollbar,
-.cz-rf-right::-webkit-scrollbar {
+.cz-os__scroll::-webkit-scrollbar {
   display: none;
 }
 
@@ -2127,15 +2127,26 @@
    backdrop-padding overhead at a flat 80px, so it undersized that overhead
    and let this rail grow taller than .cz-rf-body actually has room for.
    Since .cz-rf-body is overflow:hidden (not auto), that excess height was
-   hard-clipped, not just hard-to-reach: the sticky .cz-os__actions bar and
-   .cz-os__help footer landed inside the clipped-away zone regardless of any
-   scrolling. Live-proven correction (Nath, production). */
+   hard-clipped, not just hard-to-reach. Live-proven correction (Nath,
+   production).
+   Live-gate correction (2026-09-05, "Review panel exposes scrolling content
+   through the footer gap"): this panel no longer scrolls itself — it is
+   now a flex host (overflow:hidden) for .cz-os, which splits into its own
+   .cz-os__scroll viewport and a separate, non-scrolling .cz-os__footer
+   (Print/Save as PDF, Submit, help line). A single shared scroll box with
+   a position:sticky footer inside it left the flex `gap` immediately
+   around that sticky element unpainted (gap is the flex CONTAINER's
+   background, not either child's), so scrolling content behind it showed
+   through; two structurally separate boxes make that leak impossible by
+   construction rather than relying on sticky/z-index correctness. */
 .cz-rf-right {
   width: clamp(380px, 32%, 420px);
   flex-shrink: 0;
   align-self: flex-start;
   max-height: 96%;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   padding: var(--cz-space-5) var(--cz-space-5) 0;
   margin: var(--cz-space-4);
   background: var(--cz-color-surface);
@@ -2547,7 +2558,20 @@
 .cz-os {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Live-gate correction (2026-09-05): the ONLY scrolling region on the right
+   panel — see .cz-rf-right and .cz-os__footer below for why this replaced
+   a single scrolling .cz-os column with a sticky footer inside it. */
+.cz-os__scroll {
+  display: flex;
+  flex-direction: column;
   gap: var(--cz-space-8);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .cz-os__header {
@@ -3006,21 +3030,24 @@
   line-height: 1.5;
 }
 
-/* Actions — live-correction round: sticky within .cz-rf-right's own scroll
-   container (overflow-y: auto) so Print/Save as PDF and Submit stay
-   reachable without scrolling past the full services/totals list at short
-   viewport heights (e.g. 1067x701). Existing rail/action styling only, no
-   redesign — an opaque background matching the rail prevents scrolled
-   content (the help footer below) from showing through underneath. */
+/* Footer — genuinely separate, non-scrolling sibling of .cz-os__scroll (see
+   .cz-rf-right above): Print/Save as PDF, Submit, and the help line stay
+   reachable without scrolling, and structurally cannot be scrolled-through
+   by content above them since they no longer share a scroll box with it. */
+.cz-os__footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+  background: var(--cz-color-surface);
+  padding: var(--cz-space-4) 0 var(--cz-space-5);
+  border-top: 1px solid var(--cz-color-line);
+}
+
 .cz-os__actions {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-3);
-  position: sticky;
-  bottom: 0;
-  background: var(--cz-color-surface);
-  padding: var(--cz-space-3) 0;
-  z-index: 1;
 }
 
 .cz-os__print-btn,
@@ -3038,17 +3065,12 @@
   margin: 0;
 }
 
-/* Help footer — carries the bottom breathing room .cz-rf-right's own
-   padding used to reserve as a fixed reserve (see .cz-rf-right above);
-   moving it here keeps it inside the scrollable content instead of
-   inflating the rail's own box past its 96% budget. */
 .cz-os__help {
-  margin: auto 0 0;
+  margin: 0;
   font-size: var(--cz-font-size-xs);
   color: var(--cz-color-muted);
   text-align: center;
   line-height: 1.5;
-  padding-bottom: 16px;
 }
 
 .cz-os__help-link {
@@ -5226,7 +5248,17 @@
    below to match that exact recipe. The quantity field also gained
    explicit surface/text color tokens: it previously inherited the
    browser's own default white input background instead of the app's
-   dark-theme surface. */
+   dark-theme surface.
+   Live-gate correction (2026-09-05, "Upgrade list columns are not
+   aligned"): a row's qty/total/action cells are each conditionally
+   rendered (no quantity policy, unresolved/unpriced row, etc.), so plain
+   flex layout let every cell after a missing one slide left — a longer
+   label pushed the qty/price/action group further right in THAT row only.
+   Every row now shares the identical fixed-length grid-template-columns
+   below (icon / flexible label / qty / price / action); each cell is
+   pinned to its own explicit grid-column, so a track a given row leaves
+   empty still reserves its exact space rather than letting the next
+   populated cell drift into it. */
 .cz-package-builder__composable-list {
   display: flex;
   flex-direction: column;
@@ -5239,7 +5271,8 @@
 }
 
 .cz-package-builder__composable-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--cz-space-3) minmax(0, 1fr) 4.5rem 6rem 22px;
   align-items: center;
   gap: var(--cz-space-2);
   padding: var(--cz-space-2) var(--cz-space-3);
@@ -5251,14 +5284,14 @@
 }
 
 .cz-package-builder__composable-row-icon {
+  grid-column: 1;
   width: var(--cz-space-3);
   height: var(--cz-space-3);
-  flex: 0 0 auto;
   color: var(--cz-color-muted);
 }
 
 .cz-package-builder__composable-row-label {
-  flex: 1 1 auto;
+  grid-column: 2;
   min-width: 0;
   font-size: var(--cz-font-size-sm);
   font-weight: 600;
@@ -5269,8 +5302,8 @@
 }
 
 .cz-package-builder__composable-row-qty {
-  flex: 0 0 auto;
-  width: 4rem;
+  grid-column: 3;
+  width: 100%;
   padding: var(--cz-space-1) var(--cz-space-2);
   border: 1px solid var(--cz-color-border);
   border-radius: var(--cz-radius-sm);
@@ -5279,7 +5312,8 @@
 }
 
 .cz-package-builder__composable-row-total {
-  flex: 0 0 auto;
+  grid-column: 4;
+  text-align: right;
   font-size: var(--cz-font-size-sm);
   font-weight: 600;
   color: var(--cz-color-text);
@@ -5300,7 +5334,7 @@
    default, transparent border reserving hover space (no layout shift),
    colored only on hover — never a permanent accent/danger fill. */
 .cz-package-builder__composable-row-action {
-  flex: 0 0 auto;
+  grid-column: 5;
   display: flex;
   align-items: center;
   justify-content: center;

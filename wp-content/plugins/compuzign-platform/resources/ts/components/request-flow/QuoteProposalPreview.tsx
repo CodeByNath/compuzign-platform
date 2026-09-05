@@ -1,5 +1,5 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
-import { calcQuoteTotals, classifyQuoteItems, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, classifyQuoteItems, composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
@@ -254,13 +254,18 @@ export function QuoteProposalPreview({
           const streams = item.legPaymentSummaries;
           const hasStreams = !!streams && streams.length > 0;
           const totalContractValue = hasStreams ? computeTotalContractValue(streams!) : null;
+          // Phase 0 display resolver (utils/quote.ts) — same rule as
+          // QuoteSummary.tsx/QuoteDetailsOverlay.tsx: a composable occupant
+          // coexisting with its primary Tier/Edition reads "Upgrades" here
+          // too, never the standalone "Build Your Own" identity.
+          const isUpgrade = composableCoexistsWithPrimary(item, items);
           return (
             <div key={quoteItemKey(item)} class="cz-proposal__service">
               <div class="cz-proposal__service-row">
                 <div class="cz-proposal__service-info">
-                  <span class="cz-proposal__service-eyebrow">Build Your Own</span>
+                  <span class="cz-proposal__service-eyebrow">{isUpgrade ? 'Upgrades' : 'Build Your Own'}</span>
                   <h3 class="cz-proposal__service-title">{item.familyTitle}</h3>
-                  <span class="cz-proposal__service-billing">{item.tierTitle}</span>
+                  <span class="cz-proposal__service-billing">{isUpgrade ? 'Upgrades' : item.tierTitle}</span>
                 </div>
                 <div class="cz-proposal__service-price-block">
                   {hasStreams ? (
