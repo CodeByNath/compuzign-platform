@@ -320,8 +320,8 @@ export function OrderSummary({
                 </div>
                 {hasStreams ? (
                   <div class="cz-os__service-streams">
-                    {streams!.map((stream) => (
-                      <div key={stream.source} class="cz-os__stream-row">
+                    {streams!.map((stream, streamIndex) => (
+                      <div key={streamIndex} class="cz-os__stream-row">
                         <span class="cz-os__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
                         <span class="cz-os__stream-value">{formatPrice(stream.price)}</span>
                       </div>
@@ -370,8 +370,8 @@ export function OrderSummary({
                 </div>
                 {hasStreams ? (
                   <div class="cz-os__service-streams">
-                    {streams!.map((stream) => (
-                      <div key={stream.source} class="cz-os__stream-row">
+                    {streams!.map((stream, streamIndex) => (
+                      <div key={streamIndex} class="cz-os__stream-row">
                         <span class="cz-os__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
                         <span class="cz-os__stream-value">{formatPrice(stream.price)}</span>
                       </div>
@@ -444,8 +444,8 @@ export function OrderSummary({
                 </div>
                 {hasStreams ? (
                   <div class="cz-os__addon-streams">
-                    {streams!.map((stream) => (
-                      <div key={stream.source} class="cz-os__stream-row">
+                    {streams!.map((stream, streamIndex) => (
+                      <div key={streamIndex} class="cz-os__stream-row">
                         <span class="cz-os__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
                         <span class="cz-os__stream-value">{formatPrice(stream.price)}</span>
                       </div>

@@ -86,6 +86,55 @@ check_quote_view_access(
     'resolve() returns the stored commercialBreakdown verbatim — no re-resolution, no field added or removed at this boundary'
 );
 
+// Auditor correction (2026-09-05, "leg-level breakdown presentation",
+// follow-up "remaining customer quote Leg-ID leak"): legPaymentSummaries
+// is the PRE-EXISTING, durable field — RequestSchema::
+// sanitizeLegPaymentSummaries() correctly keeps persisting `source` (a real
+// CZTL/CZTEL Commercial Leg Platform ID) for admin/audit history. This
+// boundary is where it must stop for the CUSTOMER quote view specifically.
+$legSummaryPayload = $storedPayload;
+$legSummaryPayload['items'] = [[
+    'offer_type' => 'family_tier',
+    'legPaymentSummaries' => [
+        [
+            'source' => 'CZTL-0000123', 'billingCycle' => 'monthly', 'price' => 156.50,
+            'startMonth' => 0, 'endMonth' => null, 'isOngoing' => true,
+            'occurrenceMonths' => [], 'subtotal' => null,
+        ],
+        [
+            'source' => 'CZTEL-0000456', 'billingCycle' => 'annually', 'price' => 80,
+            'startMonth' => 11, 'endMonth' => null, 'isOngoing' => true,
+            'occurrenceMonths' => [], 'subtotal' => null,
+        ],
+    ],
+]];
+$legSummaryPayloadBeforeCall = $legSummaryPayload;
+$legSummaryResult = QuoteViewAccess::resolve($legSummaryPayload, 'CZ-ABC123', $secretA);
+
+check_quote_view_access($legSummaryPayload === $legSummaryPayloadBeforeCall, 'resolve() must never mutate the stored payload it was handed — the durable Request keeps its own source fields');
+
+$customerSummaries = $legSummaryResult['quote']['items'][0]['legPaymentSummaries'];
+check_quote_view_access(
+    !array_key_exists('source', $customerSummaries[0]) && !array_key_exists('source', $customerSummaries[1]),
+    'the customer quote projection strips legPaymentSummaries[].source entirely'
+);
+$customerJson = json_encode($legSummaryResult['quote']);
+check_quote_view_access(
+    !str_contains($customerJson, 'CZTL-0000123') && !str_contains($customerJson, 'CZTEL-0000456'),
+    'no CZTL/CZTEL Commercial Leg Platform ID reaches the serialized customer quote JSON anywhere'
+);
+check_quote_view_access(
+    $customerSummaries[0]['billingCycle'] === 'monthly' && $customerSummaries[0]['price'] === 156.50
+        && $customerSummaries[0]['startMonth'] === 0 && $customerSummaries[0]['endMonth'] === null
+        && $customerSummaries[0]['isOngoing'] === true && $customerSummaries[0]['occurrenceMonths'] === []
+        && $customerSummaries[0]['subtotal'] === null,
+    'every other payment summary commercial fact survives the projection unchanged'
+);
+check_quote_view_access(
+    $customerSummaries[1]['billingCycle'] === 'annually' && $customerSummaries[1]['price'] === 80,
+    'the second stream\'s own facts survive the projection unchanged too'
+);
+
 // No secret/hash leakage: the returned quote must never carry the stored
 // hash, and must not broaden PII beyond what the accepted proposal needs.
 check_quote_view_access(!array_key_exists('view_secret_hash', $result['quote']), 'resolved quote must never leak the stored hash');

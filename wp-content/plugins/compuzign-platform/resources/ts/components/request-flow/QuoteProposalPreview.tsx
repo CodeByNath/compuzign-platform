@@ -272,8 +272,8 @@ export function QuoteProposalPreview({
                   {item.tierEditionTitle && <span class="cz-proposal__service-tier">{item.tierEditionTitle}</span>}
                   {hasStreams ? (
                     <div class="cz-proposal__service-streams">
-                      {streams!.map((stream) => (
-                        <div key={stream.source} class="cz-proposal__stream-row">
+                      {streams!.map((stream, streamIndex) => (
+                        <div key={streamIndex} class="cz-proposal__stream-row">
                           <span class="cz-proposal__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
                           <span class="cz-proposal__stream-value">{formatPrice(stream.price)}</span>
                         </div>
@@ -321,8 +321,8 @@ export function QuoteProposalPreview({
                 <div class="cz-proposal__service-price-block">
                   {hasStreams ? (
                     <div class="cz-proposal__service-streams">
-                      {streams!.map((stream) => (
-                        <div key={stream.source} class="cz-proposal__stream-row">
+                      {streams!.map((stream, streamIndex) => (
+                        <div key={streamIndex} class="cz-proposal__stream-row">
                           <span class="cz-proposal__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
                           <span class="cz-proposal__stream-value">{formatPrice(stream.price)}</span>
                         </div>
@@ -436,8 +436,8 @@ export function QuoteProposalPreview({
                 </div>
                 {hasStreams ? (
                   <div class="cz-proposal__addon-streams">
-                    {streams!.map((stream) => (
-                      <div key={stream.source} class="cz-proposal__stream-row">
+                    {streams!.map((stream, streamIndex) => (
+                      <div key={streamIndex} class="cz-proposal__stream-row">
                         <span class="cz-proposal__stream-label">{chargeTypeLabel(stream.billingCycle)}</span>
                         <span class="cz-proposal__stream-value">{formatPrice(stream.price)}</span>
                       </div>
