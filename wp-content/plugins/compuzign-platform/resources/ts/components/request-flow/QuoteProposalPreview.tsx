@@ -476,7 +476,7 @@ export function QuoteProposalPreview({
             <>
               <div class="cz-proposal__total-row cz-proposal__total-row--primary">
                 <span class="cz-proposal__total-label">Contract Value</span>
-                <span class="cz-proposal__total-amount">Ongoing</span>
+                <span class="cz-proposal__total-amount">Until Cancelled</span>
               </div>
               <p class="cz-proposal__contract-note">Includes charges without a fixed end date.</p>
             </>

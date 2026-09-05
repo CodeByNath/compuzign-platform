@@ -41,10 +41,10 @@ check(!!childRowMatch, 'ItemBreakdownTable renders a child row per Bundle-suppli
 check((childRowMatch![0].match(/<td>Included<\/td>/g) ?? []).length === 2, 'child row shows "Included" for both Unit Price and Total cells');
 check(!childRowMatch![0].includes('<td>—</td>'), 'child row no longer renders a bare dash for its price cells');
 
-// 2. Until Canceled occurrences — an open-ended stream, regardless of
+// 2. Until Cancelled occurrences — an open-ended stream, regardless of
 // whether its own rate is known.
-check(occurrencesCell(summary({ isOngoing: true, price: 4000 }), 'Monthly') === 'Until Canceled', 'open-ended stream shows "Until Canceled" for Charge Occurrences');
-check(occurrencesCell(summary({ isOngoing: true, price: null }), 'Monthly') === 'Until Canceled', 'open-ended stream with unresolved price still shows "Until Canceled" for Charge Occurrences (unresolved-ness is the Subtotal cell\'s concern, not this one)');
+check(occurrencesCell(summary({ isOngoing: true, price: 4000 }), 'Monthly') === 'Until Cancelled', 'open-ended stream shows "Until Cancelled" for Charge Occurrences');
+check(occurrencesCell(summary({ isOngoing: true, price: null }), 'Monthly') === 'Until Cancelled', 'open-ended stream with unresolved price still shows "Until Cancelled" for Charge Occurrences (unresolved-ness is the Subtotal cell\'s concern, not this one)');
 
 // 3. Open-ended Subtotal repeats the known Rate figure exactly — never a
 // lifetime multiplication.
@@ -66,10 +66,10 @@ const unresolvedPriceSummaries = [summary({ isOngoing: false, subtotal: null }),
 check(totalContractValueCell(unresolvedPriceSummaries, null) === 'To be confirmed', 'Total Contract Value reads "To be confirmed" when a contributor\'s price is genuinely unresolved (not merely open-ended)');
 
 // Genuinely open-ended with every applicable rate known reads "Until
-// Canceled" instead — the two null-causing scenarios must never collapse
+// Cancelled" instead — the two null-causing scenarios must never collapse
 // into the same wording.
 const openEndedKnownRateSummaries = [summary({ isOngoing: true, price: 4000, subtotal: null })];
-check(totalContractValueCell(openEndedKnownRateSummaries, null) === 'Until Canceled', 'Total Contract Value reads "Until Canceled" when every null contributor is open-ended with a known rate');
+check(totalContractValueCell(openEndedKnownRateSummaries, null) === 'Until Cancelled', 'Total Contract Value reads "Until Cancelled" when every null contributor is open-ended with a known rate');
 check(totalContractValueCell([summary({ subtotal: 500 })], 500) === formatMoney(500), 'a finite Total Contract Value is rendered as formatted money, untouched');
 
 // 6. Mixed finite+null Period never shows a partial total — a null

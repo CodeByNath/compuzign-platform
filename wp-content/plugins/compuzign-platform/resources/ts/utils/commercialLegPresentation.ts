@@ -148,19 +148,23 @@ export function priceWithCadence(price: number | null, cycle: string | null): st
 // read periodLabel() above unchanged; this is a separate, View
 // Details-only formatter so that unrelated surface is never affected).
 //
-// A technical `0` start reads to a customer as if it were itself a whole
-// extra month inside a range ("0–48" looks like 49 months against a
-// 48-month commitment) — "Plan start" replaces the bare 0 instead. Every
-// other start month is unambiguous as a plain number. The end side stays a
-// real month number (or "Ongoing" for a still-open range) either way; it
-// only needs its own "Month" word when the start side didn't already
-// supply one (i.e. "Plan start–Month 10", vs "Month 11–48" where "Month"
-// is read once for the whole range).
+// Live-validation correction (project-work/2026-09-03-composable-tier-
+// admin-to-customer-validation.md, "customer wording/presentation
+// defects"): the prior "Plan start–Month 10"/"Plan start–Ongoing" reads as
+// raw debugger phrasing to a customer, and "Ongoing" is never
+// customer-facing wording anywhere else on these plan/term surfaces. A
+// stream beginning at the plan start (`from === 0`) now reads "Through
+// Month 10" (finite) or "Until Cancelled" (still open) — no bare start side
+// at all, since a customer never needs to be told a plan/term stream
+// starts "at the plan start". A later-starting stream keeps ordinary
+// "Month 3–11" range grammar (never prepend "Through" — that word is
+// reserved for the from-plan-start case) but still never emits the raw
+// word "Ongoing" for a still-open end.
 export function customerFacingRange(from: number, to: number | null): string {
-  const startsAtPlanStart = from === 0;
-  const startLabel = startsAtPlanStart ? 'Plan start' : `Month ${from}`;
-  const endLabel = to === null ? 'Ongoing' : (startsAtPlanStart ? `Month ${to}` : `${to}`);
-  return `${startLabel}–${endLabel}`;
+  if (from === 0) {
+    return to === null ? 'Until Cancelled' : `Through Month ${to}`;
+  }
+  return `Month ${from}–${to === null ? 'Until Cancelled' : to}`;
 }
 
 // Same payment/inclusion composition as another component of the SAME

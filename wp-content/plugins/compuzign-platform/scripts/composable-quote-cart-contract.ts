@@ -991,7 +991,7 @@ const starterCloudPeriodRows = periodBreakdownRowsForFamilyTierItem(starterCloud
 check(
   starterCloudPeriodRows.some((row) => row.kind === 'periodHeading' && row.label === customerFacingRange(0, 10))
     && starterCloudPeriodRows.some((row) => row.kind === 'periodHeading' && row.label === customerFacingRange(11, null)),
-  'periodBreakdownRowsForFamilyTierItem() shows the SAME customer-facing range wording PlanDetailsModal.tsx uses ("Plan start–Month 10", "Month 11–Ongoing") — never the raw "Month 0–10"/"Indefinite" debugger wording',
+  'periodBreakdownRowsForFamilyTierItem() shows the SAME customer-facing range wording PlanDetailsModal.tsx uses ("Through Month 10", "Month 11–Until Cancelled") — never the raw "Month 0–10"/"Indefinite" debugger wording, and never "Plan start"/"Ongoing" (live-validation correction, project-work/2026-09-03-composable-tier-admin-to-customer-validation.md)',
 );
 check(
   starterCloudPeriodRows.some((row) => row.kind === 'periodPaymentFact' && row.label === paymentCategoryLabel('monthly') && row.value === priceWithCadence(156.50, 'monthly')),
@@ -1134,6 +1134,75 @@ check(
     && periodBreakdownRowsForFamilyTierItem(starterCloudItem).some((row) => row.kind === 'inclusion' && row.label === 'Static IP Block (8 IPs, 5 usable)')
     && !periodBreakdownRowsForFamilyTierItem(starterCloudItem).some((row) => row.kind === 'inclusion' && row.label === 'Annual Backup Retention'),
   'each quote item\'s own buildQuotedCommercialBreakdown()/buildQuotedCartBreakdown() call produces independent data — a sibling item\'s rows never bleed into another item\'s own breakdown',
+);
+
+// ── Live-validation correction (project-work/2026-09-03-composable-tier-
+//    admin-to-customer-validation.md, "customer wording/presentation
+//    defects") — range wording, Contract Value fallback wording, and the
+//    finalise-quote sidebar's own compact presentation. ───────────────────
+
+// 1. customerFacingRange() — the required range-wording contract, as a pure
+//    function: a plan-start-anchored stream ("from" === 0) drops the bare
+//    "0"/"Plan start" side entirely ("Through Month N" / "Until Cancelled"
+//    when still open); a later-starting stream keeps ordinary "Month
+//    X–Y" range grammar and never prepends "Through" — but a still-open
+//    end never reads the bare debugger word "Ongoing" either way.
+check(customerFacingRange(0, 10) === 'Through Month 10', 'a plan-start-anchored finite range reads "Through Month 10" — never "Plan start–Month 10"');
+check(customerFacingRange(0, null) === 'Until Cancelled', 'a plan-start-anchored open-ended range reads "Until Cancelled" — never "Plan start–Ongoing"');
+check(customerFacingRange(3, 11) === 'Month 3–11', 'a later-starting finite range keeps ordinary range grammar, unaffected — never prepends "Through"');
+check(customerFacingRange(11, null) === 'Month 11–Until Cancelled', 'a later-starting open-ended range keeps its own start month but never reads the bare word "Ongoing" for the still-open end');
+check(!/Plan start/.test(customerFacingRange(0, 10)) && !/Ongoing/.test(customerFacingRange(11, null)), 'customerFacingRange() output never contains the rejected "Plan start"/"Ongoing" debugger wording for any input shape');
+
+// 2. Contract Value — narrow non-finite fallback wording correction only:
+//    computeTotalContractValue()'s own null/non-null decision stays
+//    authoritative (proven elsewhere against LegPaymentSummary[] input);
+//    this proves only that every one of the four customer-facing render
+//    sites now shows "Until Cancelled" (matching PlanDetailsModal.tsx's own
+//    established wording for the same open-ended concept) instead of the
+//    rejected bare "Ongoing", with the existing numeric branch untouched.
+const orderSummarySourceForWording = readFileSync(resolve(root, 'resources/ts/components/request-flow/OrderSummary.tsx'), 'utf8');
+const proposalPreviewSourceForWording = readFileSync(resolve(root, 'resources/ts/components/request-flow/QuoteProposalPreview.tsx'), 'utf8');
+check(
+  quoteSummarySource.includes('cz-quote-summary__contract-value-amount">Until Cancelled<')
+    && proposalPreviewSourceForWording.includes('cz-proposal__total-amount">Until Cancelled<')
+    && orderSummarySourceForWording.includes('cz-os__total-amount">Until Cancelled<')
+    && /<span>Contract Value<\/span>\s*<span>Until Cancelled<\/span>/.test(quoteDetailsOverlaySource),
+  'all four Contract Value non-finite fallback surfaces (QuoteSummary.tsx, QuoteProposalPreview.tsx, OrderSummary.tsx, QuoteDetailsOverlay.tsx) now read "Until Cancelled"',
+);
+check(
+  !/contract-value-amount">Ongoing</.test(quoteSummarySource)
+    && !/total-amount">Ongoing</.test(proposalPreviewSourceForWording)
+    && !/total-amount">Ongoing</.test(orderSummarySourceForWording)
+    && !/<span>Contract Value<\/span>\s*<span>Ongoing<\/span>/.test(quoteDetailsOverlaySource),
+  'none of the four Contract Value fallback surfaces render the raw word "Ongoing" any more',
+);
+check(
+  quoteSummarySource.includes('Total Contract Value') && quoteSummarySource.includes('combinedPrimaryTotalContractValue'),
+  'the existing fully-finite Contract Value branch (numeric Total Contract Value, computeTotalContractValue()-driven) is untouched — this correction only ever changes the non-finite fallback\'s wording',
+);
+
+// 3. Finalise-quote sidebar correction: OrderSummary.tsx's visible
+//    FamilyInclusionsList now reads the SAME compact base-inclusions-once +
+//    Extension-groups shape as the cart quick-view
+//    (disclosureRowsForFamilyTierItem()) instead of the fuller
+//    Period-by-Period dump — while QuoteProposalPreview.tsx (kept in the
+//    DOM specifically for print/PDF/email cloning) keeps the detailed
+//    periodBreakdownRowsForFamilyTierItem() rendering, completely
+//    unaffected by this visible-sidebar-only correction.
+check(
+  /const disclosureRows = disclosureRowsForFamilyTierItem\(item\)/.test(orderSummarySourceForWording)
+    && !/periodBreakdownRowsForFamilyTierItem\(item\)/.test(orderSummarySourceForWording),
+  'OrderSummary.tsx\'s visible finalise-quote sidebar now derives its Family inclusion rows from disclosureRowsForFamilyTierItem() (the compact cart shape) — no longer calls periodBreakdownRowsForFamilyTierItem() (the full Period-by-Period dump the auditor rejected here)',
+);
+check(
+  /const periodRows = periodBreakdownRowsForFamilyTierItem\(item\)/.test(proposalPreviewSourceForWording)
+    && !/disclosureRowsForFamilyTierItem\(item\)/.test(proposalPreviewSourceForWording),
+  'QuoteProposalPreview.tsx (the hidden .cz-proposal print/PDF/email clone) still derives its own Family inclusion rows from periodBreakdownRowsForFamilyTierItem() — the detailed View Details-derived model — completely independent of OrderSummary.tsx\'s own visible-sidebar presentation choice',
+);
+const orderSummaryFamilyRows = disclosureRowsForFamilyTierItem(starterCloudItem);
+check(
+  !orderSummaryFamilyRows.some((row) => /Month \d/.test(row.sectionLabel ?? '') || /Month \d/.test(row.label)),
+  'the same compact row derivation OrderSummary.tsx\'s sidebar now uses never surfaces a "Month X–Y" Period heading for the Starter Cloud fixture — matching the cart quick-view\'s own already-accepted compact presentation',
 );
 
 console.log('Composable quote/cart contract passed.');

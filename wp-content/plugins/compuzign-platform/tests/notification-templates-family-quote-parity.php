@@ -109,12 +109,14 @@ check_family_quote_parity(str_contains($adminHtml, '$1,188.00'), 'admin email mi
 check_family_quote_parity(str_contains($customerHtml, '$1,188.00'), 'customer email missing add-on own finite Total');
 
 // ── Combined summary: KAIROS primary has one open-ended stream, so the
-//    combined figure is "Contract Value: Ongoing", never a fabricated
-//    finite Total Contract Value. ─────────────────────────────────────────
+//    combined figure is "Contract Value: Until Cancelled" (live-validation
+//    correction, project-work/2026-09-03-composable-tier-admin-to-customer-
+//    validation.md — the raw "Ongoing" debugger word is never
+//    customer-facing), never a fabricated finite Total Contract Value. ────
 check_family_quote_parity(str_contains($adminHtml, 'Contract Value'), 'admin email missing Contract Value block');
-check_family_quote_parity(str_contains($adminHtml, 'Ongoing'), 'admin email should show Ongoing, not a fabricated finite total (open-ended stream present)');
+check_family_quote_parity(str_contains($adminHtml, 'Until Cancelled'), 'admin email should show Until Cancelled, not a fabricated finite total (open-ended stream present)');
 check_family_quote_parity(!str_contains($adminHtml, 'Total Contract Value'), 'admin email must not show a finite Total Contract Value when a primary stream is open-ended');
-check_family_quote_parity(str_contains($customerHtml, 'Ongoing'), 'customer email should show Ongoing for the same reason');
+check_family_quote_parity(str_contains($customerHtml, 'Until Cancelled'), 'customer email should show Until Cancelled for the same reason');
 
 // ── Initial Payment: earliest same-cycle streams across PRIMARY Family
 //    items only (5000 upfront + 490 monthly = 5490), add-on excluded. ────
@@ -234,13 +236,14 @@ $starterCustomerHtml = NotificationTemplates::buildCustomerHtmlEmail($starterDat
 
 foreach ([$starterAdminHtml, $starterCustomerHtml] as $index => $html) {
     $label = $index === 0 ? 'admin' : 'customer';
-    // Auditor correction (2026-09-05, "leg-level breakdown presentation
-    // customer view" follow-up "incomplete View Details parity"): the SAME
-    // customer-facing range wording PlanDetailsModal.tsx uses ("Plan
-    // start–Month 10", "Month 11–Ongoing") — never the raw "Month
-    // 0–10"/"Indefinite" debugger wording the auditor rejected.
-    check_family_quote_parity(str_contains($html, 'Plan start–Month 10'), "{$label} email missing the first Period's own customer-facing range heading");
-    check_family_quote_parity(str_contains($html, 'Month 11–Ongoing'), "{$label} email missing the second Period's own customer-facing range heading");
+    // Live-validation correction (project-work/2026-09-03-composable-tier-
+    // admin-to-customer-validation.md, "customer wording/presentation
+    // defects"): the SAME customer-facing range wording PlanDetailsModal.tsx
+    // uses ("Through Month 10", "Month 11–Until Cancelled") — never the raw
+    // "Month 0–10"/"Indefinite" debugger wording, and never the
+    // auditor-rejected "Plan start"/"Ongoing" wording either.
+    check_family_quote_parity(str_contains($html, 'Through Month 10'), "{$label} email missing the first Period's own customer-facing range heading");
+    check_family_quote_parity(str_contains($html, 'Month 11–Until Cancelled'), "{$label} email missing the second Period's own customer-facing range heading");
     check_family_quote_parity(str_contains($html, 'Static IP Block (8 IPs, 5 usable)'), "{$label} email missing the exact reported inclusion label");
     check_family_quote_parity(str_contains($html, '$80.00'), "{$label} email missing the exact reported line total this feature exists to explain");
     check_family_quote_parity(!str_contains($html, 'Generic bundled inclusion'), "{$label} email rendered the legacy flat inclusion list instead of the commercialBreakdown attribution — priority order is wrong");

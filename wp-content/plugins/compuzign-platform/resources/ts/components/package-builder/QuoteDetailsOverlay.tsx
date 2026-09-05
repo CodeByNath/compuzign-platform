@@ -301,7 +301,7 @@ function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuote
           <>
             <div class="cz-package-builder__commitment-row cz-package-builder__commitment-row--grand-total">
               <span>Contract Value</span>
-              <span>Ongoing</span>
+              <span>Until Cancelled</span>
             </div>
             <p class="cz-package-builder__details-fact">Includes charges without a fixed end date.</p>
           </>

@@ -68,11 +68,11 @@ const CADENCE_WORD: Record<string, string> = {
 // stays correct everywhere else (e.g. a top-level priced item's own Unit
 // Price/Total, never asked to change here).
 
-// Charge Occurrences cell: "Until Canceled" for an open-ended stream, never
+// Charge Occurrences cell: "Until Cancelled" for an open-ended stream, never
 // the old generic "Ongoing" wording — a finite stream keeps its existing
 // calculated occurrence count untouched.
 export function occurrencesCell(s: LegPaymentSummary, label: string): string {
-  if (s.isOngoing) return 'Until Canceled';
+  if (s.isOngoing) return 'Until Cancelled';
   return `${s.occurrenceMonths.length} ${label.toLowerCase()} charge${s.occurrenceMonths.length === 1 ? '' : 's'}`;
 }
 
@@ -90,14 +90,14 @@ export function subtotalCell(s: LegPaymentSummary): string {
 // Total Contract Value cell: a finite computed value is untouched. When
 // null, the reason matters — every subtotal-null contributor being an
 // open-ended stream with a KNOWN rate means the plan is genuinely
-// open-ended, never a data gap ("Until Canceled"); any contributor with an
+// open-ended, never a data gap ("Until Cancelled"); any contributor with an
 // unresolved price (ongoing or not) means the total is actually unknown
 // ("To be confirmed"). No explanatory note is rendered in either case.
 export function totalContractValueCell(summaries: LegPaymentSummary[], totalContractValue: number | null): string {
   if (totalContractValue !== null) return formatMoney(totalContractValue);
   const unresolved = summaries.filter((s) => s.subtotal === null);
   const allOpenEndedWithKnownRate = unresolved.length > 0 && unresolved.every((s) => s.isOngoing && s.price !== null);
-  return allOpenEndedWithKnownRate ? 'Until Canceled' : 'To be confirmed';
+  return allOpenEndedWithKnownRate ? 'Until Cancelled' : 'To be confirmed';
 }
 
 // Period breakdown total display: a null top-level line_total means that

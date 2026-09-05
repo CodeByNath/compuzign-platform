@@ -262,7 +262,7 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
             ) : (
               <>
                 <span class="cz-quote-summary__contract-value-label">Contract Value</span>
-                <span class="cz-quote-summary__contract-value-amount">Ongoing</span>
+                <span class="cz-quote-summary__contract-value-amount">Until Cancelled</span>
                 <span class="cz-quote-summary__custom-note">
                   Includes charges without a fixed end date.
                 </span>

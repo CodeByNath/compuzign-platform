@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
-import { periodBreakdownRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
+import { disclosureRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
@@ -17,35 +17,34 @@ type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
 // the flat features[] list for an old cart entry that predates this field.
 // Never re-resolved from live Family/Tier catalog data — snapshot only.
 function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
-  // Auditor correction (2026-09-05, "leg-level breakdown presentation
-  // customer view"): same reuse of periodBreakdownRowsForFamilyTierItem()
-  // as QuoteProposalPreview.tsx's own FamilyInclusionsList — see that
-  // file's docblock for the full reasoning. Kept as this file's own
-  // component (matching the existing cz-os__feature* class prefix) rather
-  // than a shared export, since the two already independently mirror the
-  // same "inclusionItems, else features" fallback shape.
-  const periodRows = periodBreakdownRowsForFamilyTierItem(item);
-  if (periodRows.length > 0) {
+  // Live-validation correction (project-work/2026-09-03-composable-tier-
+  // admin-to-customer-validation.md, "Finalise-quote sidebar correction"):
+  // this VISIBLE finalise-quote sidebar now reads the same compact base-
+  // inclusions-once + Extension-groups shape as the cart quick-view
+  // (disclosureRowsForFamilyTierItem(), cost-builder/InclusionDisclosure.tsx)
+  // instead of the fuller Period-by-Period breakdown
+  // (periodBreakdownRowsForFamilyTierItem()) — the auditor found the full
+  // per-Period dump here duplicated detail already available in the PDF/
+  // email/View-Print output. QuoteProposalPreview.tsx's OWN
+  // FamilyInclusionsList is deliberately untouched and keeps the detailed
+  // rows: it stays in the DOM specifically for print/PDF/email cloning
+  // regardless of this sidebar's own presentation.
+  const disclosureRows = disclosureRowsForFamilyTierItem(item);
+  if (disclosureRows.length > 0) {
+    let previousSectionKey: string | undefined;
     return (
       <ul class="cz-os__features">
-        {periodRows.map((row) => {
-          if (row.kind === 'periodHeading') {
-            return <li key={row.id} class="cz-os__feature cz-os__feature--group">{row.label}</li>;
-          }
-          if (row.kind === 'periodPaymentFact') {
-            return <li key={row.id} class="cz-os__feature cz-os__feature--note"><strong>{row.label}:</strong> {row.value}</li>;
-          }
-          if (row.kind === 'componentNote') {
-            return <li key={row.id} class="cz-os__feature cz-os__feature--note"><strong>{row.cadenceLabel}:</strong> {row.statusText}</li>;
-          }
-          if (row.kind === 'componentTableLabel') {
-            return <li key={row.id} class="cz-os__feature cz-os__feature--note">{row.text}</li>;
-          }
-          if (row.kind === 'componentTotal') {
-            return <li key={row.id} class="cz-os__feature cz-os__feature--total">{row.label}: {row.value}</li>;
-          }
-          return (
-            <li key={row.id} class={`cz-os__feature${row.isChild ? ' cz-os__feature--child' : ''}`}>
+        {disclosureRows.flatMap((row) => {
+          const showSectionHeading = row.sectionKey !== undefined && row.sectionKey !== previousSectionKey;
+          previousSectionKey = row.sectionKey;
+          return [
+            ...(showSectionHeading ? [
+              <li key={`${row.id}:section`} class="cz-os__feature cz-os__feature--group">
+                {row.sectionLabel}
+                {row.sectionSubtotal && <span class="cz-os__feature-price">{' '}{row.sectionSubtotal}</span>}
+              </li>,
+            ] : []),
+            <li key={row.id} class={`cz-os__feature${row.sectionKey !== undefined ? ' cz-os__feature--child' : ''}`}>
               <span class="cz-os__feature-row">
                 <span class="cz-os__feature-label">{row.label}</span>
                 <span class="cz-os__feature-qty">
@@ -58,8 +57,8 @@ function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
                   )}
                 </span>
               </span>
-            </li>
-          );
+            </li>,
+          ];
         })}
       </ul>
     );
@@ -499,7 +498,7 @@ export function OrderSummary({
             <>
               <div class="cz-os__total-row">
                 <p class="cz-os__total-label">Contract Value</p>
-                <span class="cz-os__total-amount">Ongoing</span>
+                <span class="cz-os__total-amount">Until Cancelled</span>
               </div>
               <p class="cz-os__contract-note">Includes charges without a fixed end date.</p>
             </>

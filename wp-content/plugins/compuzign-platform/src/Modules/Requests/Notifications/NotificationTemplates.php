@@ -510,17 +510,22 @@ class NotificationTemplates
 
     /**
      * PlanDetailsModal.tsx's/@/utils/commercialLegPresentation's own
-     * customerFacingRange() — "Plan start" replaces a raw Month 0 (which
-     * otherwise reads as an extra month inside the range), the end side
-     * stays a real month number or "Ongoing" for a still-open range.
+     * customerFacingRange() — live-validation correction (project-work/
+     * 2026-09-03-composable-tier-admin-to-customer-validation.md,
+     * "customer wording/presentation defects"): a stream beginning at the
+     * plan start ($from === 0) drops the bare start side entirely ("Through
+     * Month 10" when finite, "Until Cancelled" when still open — never
+     * "Plan start"/"Ongoing"); a later-starting stream keeps ordinary
+     * "Month X–Y" range grammar and never prepends "Through", but a
+     * still-open end never reads the bare word "Ongoing" either way.
      */
     private static function customerFacingRange(int $from, ?int $to): string
     {
-        $startsAtPlanStart = $from === 0;
-        $startLabel = $startsAtPlanStart ? 'Plan start' : ('Month ' . $from);
-        $endLabel = $to === null ? 'Ongoing' : ($startsAtPlanStart ? ('Month ' . $to) : (string) $to);
+        if ($from === 0) {
+            return $to === null ? 'Until Cancelled' : ('Through Month ' . $to);
+        }
 
-        return $startLabel . '–' . $endLabel;
+        return 'Month ' . $from . '–' . ($to === null ? 'Until Cancelled' : (string) $to);
     }
 
     /**
@@ -804,8 +809,8 @@ class NotificationTemplates
     /**
      * The combined "Total Contract Value" (every primary/composable Family
      * item's own Leg-stream total resolves finitely) or "Contract Value:
-     * Ongoing" block — OrderSummary.tsx's/QuoteProposalPreview.tsx's Phase 8F
-     * semantics; add-ons never enter this combined sum.
+     * Until Cancelled" block — OrderSummary.tsx's/QuoteProposalPreview.tsx's
+     * Phase 8F semantics; add-ons never enter this combined sum.
      *
      * @param array<int, array<string, mixed>> $familyCommercialItems primary + composable Family items (see buildQuoteSections())
      */
@@ -843,7 +848,7 @@ class NotificationTemplates
                      style="border-top:2px solid #111;padding-top:12px;">
                 <tr>
                   <td style="font-size:13px;color:#666;">Contract Value</td>
-                  <td style="text-align:right;font-size:16px;font-weight:700;color:#111;">Ongoing</td>
+                  <td style="text-align:right;font-size:16px;font-weight:700;color:#111;">Until Cancelled</td>
                 </tr>
               </table>
               <p style="margin:6px 0 0;font-size:11px;color:#999;">Includes charges without a fixed end date.</p>
