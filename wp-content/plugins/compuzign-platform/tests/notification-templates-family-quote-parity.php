@@ -192,11 +192,18 @@ $starterCloud = [
     // no 'source'/'id' fields — RequestSchema::sanitizeCommercialBreakdown()
     // never persists them, so a real stored commercialBreakdown this email
     // renderer consumes never carries them either.
+    // Auditor correction (2026-09-05, "leg-level breakdown presentation
+    // customer view"): the Month-11 User Seats component is IDENTICAL to
+    // Month 0-10's own (same billingCycle/price/inclusions) —
+    // continuesFromPrevious proves the "Continues unchanged" note
+    // suppresses its repeated inclusion table; the Static IP annual
+    // component is a genuinely NEW component this Period (continuesFrom
+    // Previous: false) and shows its own full detail.
     'commercialBreakdown' => [
         [
             'fromMonth' => 0, 'toMonth' => 10,
             'components' => [
-                ['billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
+                ['billingCycle' => 'monthly', 'price' => 156.50, 'continuesFromPrevious' => false, 'inclusions' => [
                     ['label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
                 ]],
             ],
@@ -204,10 +211,10 @@ $starterCloud = [
         [
             'fromMonth' => 11, 'toMonth' => null,
             'components' => [
-                ['billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
+                ['billingCycle' => 'monthly', 'price' => 156.50, 'continuesFromPrevious' => true, 'inclusions' => [
                     ['label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
                 ]],
-                ['billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
+                ['billingCycle' => 'annually', 'price' => 80, 'continuesFromPrevious' => false, 'inclusions' => [
                     ['label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
                 ]],
             ],
@@ -227,64 +234,84 @@ $starterCustomerHtml = NotificationTemplates::buildCustomerHtmlEmail($starterDat
 
 foreach ([$starterAdminHtml, $starterCustomerHtml] as $index => $html) {
     $label = $index === 0 ? 'admin' : 'customer';
-    check_family_quote_parity(str_contains($html, 'Month 11–Indefinite'), "{$label} email missing the Month 11–Indefinite Period group heading");
+    // Auditor correction (2026-09-05, "leg-level breakdown presentation
+    // customer view" follow-up "incomplete View Details parity"): the SAME
+    // customer-facing range wording PlanDetailsModal.tsx uses ("Plan
+    // start–Month 10", "Month 11–Ongoing") — never the raw "Month
+    // 0–10"/"Indefinite" debugger wording the auditor rejected.
+    check_family_quote_parity(str_contains($html, 'Plan start–Month 10'), "{$label} email missing the first Period's own customer-facing range heading");
+    check_family_quote_parity(str_contains($html, 'Month 11–Ongoing'), "{$label} email missing the second Period's own customer-facing range heading");
     check_family_quote_parity(str_contains($html, 'Static IP Block (8 IPs, 5 usable)'), "{$label} email missing the exact reported inclusion label");
     check_family_quote_parity(str_contains($html, '$80.00'), "{$label} email missing the exact reported line total this feature exists to explain");
-    check_family_quote_parity(str_contains($html, 'Month 0–10'), "{$label} email missing the first Period's own group heading");
     check_family_quote_parity(!str_contains($html, 'Generic bundled inclusion'), "{$label} email rendered the legacy flat inclusion list instead of the commercialBreakdown attribution — priority order is wrong");
-    // Auditor correction (2026-09-05, "leg-level breakdown presentation"):
-    // unit price ($40.00 ea.) must appear as its own fact, distinct from
+    // Unit price ($40.00 ea.) must appear as its own fact, distinct from
     // the $80.00 line total (qty 2) already asserted above.
     check_family_quote_parity(str_contains($html, '$40.00 ea.'), "{$label} email missing the Static IP Block's own unit price, distinct from its line total");
+    // PlanDetailsModal.tsx-style continuity — Month 11's Monthly payment
+    // reads "Continues unchanged", never a repeated User Seats table; the
+    // Annual (not "Yearly" — PLAN_BILLING_CYCLE_LABELS wording) payment is
+    // a genuinely new component and reads "Begins in Month 11". Cents-
+    // precise money (matches PlanDetailsModal.tsx's own formatMoney()).
+    check_family_quote_parity(str_contains($html, 'Monthly payment') && str_contains($html, 'Continues unchanged at $156.50 / month'), "{$label} email missing the Month 11 continuity note for the unchanged Monthly payment");
+    check_family_quote_parity(str_contains($html, 'Annual payment') && str_contains($html, 'Begins in Month 11 at $80.00 / year'), "{$label} email missing the Month 11 \"begins\" note for the new Annual payment");
+    check_family_quote_parity(substr_count($html, 'User Seats') === 1, "{$label} email must show the User Seats inclusion table only ONCE — Month 11's identical continuation must not repeat it");
+    // The Period payment/category fact line the auditor found missing
+    // entirely: a sole active component (Month 0-10) gets its real Payment
+    // Category ("Recurring payment: $156.50 / month"); the collision Period
+    // (Month 11) gets the combined "Active payments" line.
+    check_family_quote_parity(str_contains($html, 'Recurring payment') && str_contains($html, '$156.50 / month'), "{$label} email missing the Month 0-10 Payment Category fact line");
+    check_family_quote_parity(str_contains($html, 'Active payments') && str_contains($html, '$156.50 / month + $80.00 / year'), "{$label} email missing the Month 11 combined \"Active payments\" fact line");
+    // The new Static IP component's own authoritative subtotal — never
+    // omitted, never combined with the continuing Monthly component's own.
+    check_family_quote_parity(str_contains($html, 'Annual total: $80.00'), "{$label} email missing the Static IP component's own authoritative subtotal");
+    check_family_quote_parity(substr_count($html, 'Monthly total') === 1, "{$label} email must show the Monthly total exactly once — Month 11's CONTINUING Monthly component must not repeat it");
 }
 
-// ── Auditor correction (2026-09-05, "leg-level breakdown presentation"):
-//    two independent components in the SAME Period with the SAME cadence
-//    must remain visibly separate sections, each with its OWN subtotal —
-//    never collapsed just because their heading text would otherwise match. ──
+// ── Auditor correction (2026-09-05, "leg-level breakdown presentation
+//    customer view" follow-up "remaining breakdown parity defects"): a
+//    Bundle parent's own resolved line total must be the WHOLE component
+//    total — its display-only child (even one with a null lineTotal) must
+//    never be folded into or invalidate that sum. ──────────────────────────
 
-$dualYearly = [
+$bundleItem = [
     'offer_type' => 'family_tier',
-    'familyId' => 'pcg_dual', 'familyPlatformId' => 'CZPG-DUAL01', 'familyTitle' => 'Dual Yearly Family',
-    'tierInstanceId' => 'ti_dual', 'tierInstancePlatformId' => 'CZTG-DUAL01',
-    'tierOccupantId' => 'occ_dual', 'tierPlatformId' => 'CZT-DUAL001', 'tierEditionPlatformId' => null,
-    'tierId' => 'basic', 'tierTitle' => 'Dual Yearly', 'price' => 0, 'billingCycle' => 'monthly',
+    'familyId' => 'pcg_bundle', 'familyPlatformId' => 'CZPG-BUNDLE01', 'familyTitle' => 'Bundle Family',
+    'tierInstanceId' => 'ti_bundle', 'tierInstancePlatformId' => 'CZTG-BUNDLE01',
+    'tierOccupantId' => 'occ_bundle', 'tierPlatformId' => 'CZT-BUNDLE001', 'tierEditionPlatformId' => null,
+    'tierId' => 'basic', 'tierTitle' => 'Bundle Tier', 'price' => 100, 'billingCycle' => 'monthly',
     'isAddon' => false, 'features' => [],
     'commercialBreakdown' => [
         [
-            'fromMonth' => 11, 'toMonth' => null,
+            'fromMonth' => 0, 'toMonth' => null,
             'components' => [
-                ['billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
-                    ['label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
-                ]],
-                ['billingCycle' => 'annually', 'price' => 50, 'inclusions' => [
-                    ['label' => 'Annual Backup Retention', 'quantity' => 1, 'unitPrice' => 50, 'lineTotal' => 50],
+                ['billingCycle' => 'monthly', 'price' => 100, 'continuesFromPrevious' => false, 'inclusions' => [
+                    [
+                        'label' => 'Security Bundle', 'quantity' => 1, 'unitPrice' => 100, 'lineTotal' => 100,
+                        'includes' => [
+                            ['label' => 'Endpoint Protection', 'quantity' => 1, 'unitPrice' => null, 'lineTotal' => null],
+                        ],
+                    ],
                 ]],
             ],
         ],
     ],
 ];
 
-$dualYearlyData = [
-    'type' => 'quote_cart', 'quote_ref' => 'CZ-DUAL01', 'contact' => 'Jane Doe', 'company' => 'Acme Co',
+$bundleData = [
+    'type' => 'quote_cart', 'quote_ref' => 'CZ-BUNDLE1', 'contact' => 'Jane Doe', 'company' => 'Acme Co',
     'email' => 'jane@example.com', 'phone' => '', 'notes' => '', 'category' => '',
     'submitted' => '2026-09-05 00:00:00',
-    'items' => [$dualYearly],
+    'items' => [$bundleItem],
 ];
 
-$dualYearlyAdminHtml    = NotificationTemplates::buildAdminHtmlEmail($dualYearlyData);
-$dualYearlyCustomerHtml = NotificationTemplates::buildCustomerHtmlEmail($dualYearlyData, 'CompuZign');
+$bundleAdminHtml    = NotificationTemplates::buildAdminHtmlEmail($bundleData);
+$bundleCustomerHtml = NotificationTemplates::buildCustomerHtmlEmail($bundleData, 'CompuZign');
 
-foreach ([$dualYearlyAdminHtml, $dualYearlyCustomerHtml] as $index => $html) {
+foreach ([$bundleAdminHtml, $bundleCustomerHtml] as $index => $html) {
     $label = $index === 0 ? 'admin' : 'customer';
-    check_family_quote_parity(str_contains($html, 'Month 11–Indefinite · Yearly (charge 1/2)'), "{$label} email missing the first colliding section's disambiguating suffix");
-    check_family_quote_parity(str_contains($html, '(charge 2/2)'), "{$label} email missing the second colliding section's disambiguating suffix");
-    check_family_quote_parity(str_contains($html, 'Static IP Block (8 IPs, 5 usable)') && str_contains($html, 'Annual Backup Retention'), "{$label} email must show BOTH colliding sections' own inclusions, never collapsed into one");
-    check_family_quote_parity(str_contains($html, '$80.00') && str_contains($html, '$50.00'), "{$label} email must show each colliding section's OWN authoritative subtotal ($80 and $50), never a combined figure");
-    // Auditor correction (2026-09-05, "leg-level breakdown presentation"):
-    // distinguishing the two colliding sections must never leak the
-    // internal Leg Platform IDs that used to key them.
-    check_family_quote_parity(!str_contains($html, 'leg_static_ip') && !str_contains($html, 'leg_backup_yearly'), "{$label} email must never render the internal Leg source identifiers");
+    check_family_quote_parity(str_contains($html, 'Endpoint Protection'), "{$label} email missing the Bundle child's own display row");
+    check_family_quote_parity(str_contains($html, 'Monthly total: $100.00'), "{$label} email's Bundle parent total must be its own \$100.00 line total — the display-only child (null lineTotal) must never invalidate or contribute to the sum");
+    check_family_quote_parity(!str_contains($html, 'To be confirmed'), "{$label} email must never fabricate \"To be confirmed\" for a fully-resolved Bundle parent just because its display-only child carries no price of its own");
 }
 
 echo "Notification templates family quote parity checks passed.\n";

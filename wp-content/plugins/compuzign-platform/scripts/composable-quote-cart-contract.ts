@@ -96,10 +96,10 @@ import {
 } from '../resources/ts/utils/quote';
 import { computeTotalContractValue } from '../resources/ts/utils/paymentSummary';
 import { formatPrice } from '../resources/ts/utils/format';
-import { buildQuotedCommercialBreakdown } from '../resources/ts/components/cost-builder/PricingTiers';
+import { buildQuotedCommercialBreakdown, buildQuotedCartBreakdown, formatMoney, priceWithCadence, customerFacingRange, frequencyLabel, paymentCategoryLabel } from '../resources/ts/utils/commercialLegPresentation';
 import { buildComposableFamilyTierQuoteItem, buildComposableChoice, seedSelectionFromCartItem, type BrowseRow, type ItemContribution } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
 import { COMPOSABLE_QUOTE_TIER_ID } from '../resources/ts/components/cost-builder/types';
-import { disclosureRowsForFamilyTierItem } from '../resources/ts/components/cost-builder/InclusionDisclosure';
+import { disclosureRowsForFamilyTierItem, periodBreakdownRowsForFamilyTierItem } from '../resources/ts/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '../resources/ts/components/cost-builder/types';
 import type { CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData } from '../resources/ts/api/types/cost-builder';
 
@@ -853,6 +853,7 @@ check(
 // QuotedBreakdownComponent carries no `source` at all (customer-visible
 // snapshot) — found by its own inclusion label instead of the internal Leg
 // identity that used to key it.
+const defaultMonth11Component = starterCloudBreakdown[1].components.find((c) => c.inclusions.some((i) => i.label === 'User Seats'))!;
 const staticIpComponent = starterCloudBreakdown[1].components.find((c) => c.inclusions.some((i) => i.label === 'Static IP Block (8 IPs, 5 usable)'))!;
 check(staticIpComponent.billingCycle === 'annually', 'the Static IP component keeps its own annual cadence, distinct from the monthly Default Leg in the SAME Period');
 check(
@@ -866,57 +867,208 @@ check(
     && staticIpComponent.inclusions[0].lineTotal === 80,
   'the exact reported inclusion — label, quantity, unit price, and the $80 line total this whole feature exists to explain — survives intact',
 );
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view"): continuesFromPrevious — the Month-11 Default Leg
+// component is structurally identical to Month 0-10's own (same cadence/
+// price/inclusions), so it reads as continuing; the genuinely new Static
+// IP component (absent from Month 0-10 entirely) does not.
+check(defaultMonth11Component.continuesFromPrevious === true, 'the Month-11 Default Leg component, identical to its own Month 0-10 appearance, is marked continuesFromPrevious');
+check(staticIpComponent.continuesFromPrevious === false, 'the genuinely new Static IP component (absent from the preceding Period) is never marked as continuing');
+check(starterCloudBreakdown[0].components[0].continuesFromPrevious === false, 'a Period\'s own FIRST component (no preceding Period at all) is never marked as continuing');
 
-// disclosureRowsForFamilyTierItem() takes priority when commercialBreakdown
-// is present, and produces the expected Period/cadence section labels.
+// buildQuotedCartBreakdown() — the compact cart quick-view shape: the
+// Headline (Default) Leg's own items shown once, the Static IP Additional
+// Leg (overlapping the Headline only from Month 11) as its own "Extensions
+// billed Annually" group — auditor-rejected raw Period tables replaced.
+const starterCloudCartBreakdown = buildQuotedCartBreakdown(starterCloudPeriods, 'leg_default');
+check(
+  starterCloudCartBreakdown.baseInclusions.length === 1 && starterCloudCartBreakdown.baseInclusions[0].label === 'User Seats',
+  'buildQuotedCartBreakdown() shows the Headline Leg\'s own base inclusions ONCE — never once per Period',
+);
+check(starterCloudCartBreakdown.extensionGroups.length === 1, 'the Static IP Additional Leg becomes exactly one Extension group');
+const starterCloudExtension = starterCloudCartBreakdown.extensionGroups[0];
+check(
+  starterCloudExtension.heading === 'Extensions billed Annually'
+    && starterCloudExtension.billingCycle === 'annually'
+    && starterCloudExtension.price === 80
+    && starterCloudExtension.inclusions[0].label === 'Static IP Block (8 IPs, 5 usable)'
+    && starterCloudExtension.inclusions[0].quantity === 2,
+  'the Extension group carries the exact reported "Extensions billed Annually" heading, cadence, its own $80 price, and the Static IP Block qty 2 detail',
+);
+check(!('source' in starterCloudExtension), 'the Extension group carries no source/Leg identity — presentation-only');
+
+// disclosureRowsForFamilyTierItem() — the CART's own compact view — now
+// reads cartBreakdown exclusively; never a Period table (auditor-rejected
+// "raw pricing dump").
 const starterCloudItem: FamilyTierQuoteItem = {
   offer_type: 'family_tier',
   familyId: 'pcg_starter', familyPlatformId: 'CZPG-STARTER01', familyTitle: 'Starter Cloud Family',
   tierInstanceId: 'ti_starter', tierInstancePlatformId: 'CZTG-STARTER01',
   tierOccupantId: 'occ_starter', tierPlatformId: 'CZT-STARTER001', tierEditionPlatformId: null,
   tierId: 'basic', tierTitle: 'Starter Cloud', price: 156.50, billingCycle: 'monthly',
-  features: ['Generic bundled inclusion — must not render once commercialBreakdown is present'],
+  features: ['Generic bundled inclusion — must not render once cartBreakdown is present'],
   isAddon: false, minimumTermValue: null, minimumTermUnit: null,
   commercialBreakdown: starterCloudBreakdown,
+  cartBreakdown: starterCloudCartBreakdown,
 };
-const starterCloudRows = disclosureRowsForFamilyTierItem(starterCloudItem);
+const starterCloudCartRows = disclosureRowsForFamilyTierItem(starterCloudItem);
 check(
-  starterCloudRows.every((row) => row.sectionKey !== undefined),
-  'every row derived from commercialBreakdown carries a sectionKey — the legacy flat fallback (features/inclusionItems) never sets one',
+  !starterCloudCartRows.some((row) => /Month \d/.test(row.sectionLabel ?? '') || /Month \d/.test(row.label)),
+  'the cart disclosure never shows a "Month X–Y" Period heading anywhere — that debugger-style dump is exactly what the auditor rejected',
 );
-const staticIpDisclosureRow = starterCloudRows.find((row) => row.label === 'Static IP Block (8 IPs, 5 usable)')!;
+const baseSeatsRow = starterCloudCartRows.find((row) => row.label === 'User Seats')!;
+check(baseSeatsRow.sectionKey === undefined, 'the base (Headline) inclusion has no section heading at all — it is simply the primary list');
+const extensionRow = starterCloudCartRows.find((row) => row.label === 'Static IP Block (8 IPs, 5 usable)')!;
 check(
-  staticIpDisclosureRow.sectionLabel === 'Month 11–Indefinite · Yearly'
-    && staticIpDisclosureRow.quantity === 2
-    && staticIpDisclosureRow.unitPrice === 40
-    && staticIpDisclosureRow.lineTotal === 80,
-  'the Static IP Block row carries the exact "Month 11–Indefinite · Yearly" section label, Qty 2, Unit price $40 and Line total $80 — unit price kept distinct from line total (qty > 1)',
-);
-check(
-  staticIpDisclosureRow.sectionSubtotal === `${formatPrice(80)} / yr`,
-  'the section carries the component\'s OWN authoritative snapshot price ($80) as its subtotal, with the existing customer cadence wording — never a sum of the section\'s own inclusion rows',
+  extensionRow.sectionKey !== undefined && extensionRow.sectionLabel === 'Extensions billed Annually' && extensionRow.sectionSubtotal === `${formatPrice(80)} / yr`,
+  'the Extension row carries the "Extensions billed Annually" section heading and its own $80/yr subtotal — the exact target Starter Cloud cart shape',
 );
 check(
-  !starterCloudRows.some((row) => row.label.includes('Generic bundled inclusion')),
-  'the legacy features[] fallback never renders once commercialBreakdown is present and non-empty',
+  !starterCloudCartRows.some((row) => row.label.includes('Generic bundled inclusion')),
+  'the legacy features[] fallback never renders once cartBreakdown is present and non-empty',
 );
 
-// Legacy item with no commercialBreakdown still falls through to the
-// existing inclusionItems/features rendering, completely unaffected.
-const noBreakdownItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: null };
-const noBreakdownRows = disclosureRowsForFamilyTierItem(noBreakdownItem);
+// Legacy item with no cartBreakdown still falls through to the existing
+// inclusionItems/features rendering, completely unaffected.
+const noCartBreakdownItem: FamilyTierQuoteItem = { ...starterCloudItem, cartBreakdown: null };
+const noCartBreakdownRows = disclosureRowsForFamilyTierItem(noCartBreakdownItem);
 check(
-  noBreakdownRows.length === 1
-    && noBreakdownRows[0].sectionKey === undefined
-    && noBreakdownRows[0].unitPrice === null
-    && noBreakdownRows[0].label.includes('Generic bundled inclusion'),
-  'a legacy item with no commercialBreakdown (or commercialBreakdown: null) falls back to the existing features[] rendering, with no sectionKey/unitPrice at all',
+  noCartBreakdownRows.length === 1
+    && noCartBreakdownRows[0].sectionKey === undefined
+    && noCartBreakdownRows[0].unitPrice === null
+    && noCartBreakdownRows[0].label.includes('Generic bundled inclusion'),
+  'a legacy item with no cartBreakdown (or cartBreakdown: null) falls back to the existing features[] rendering, with no sectionKey/unitPrice at all',
 );
 
-// Auditor correction (2026-09-05, "leg-level breakdown presentation"): two
-// independent components in the SAME Period with the SAME cadence must
-// remain visibly separate — never collapsed into one section just because
-// their heading text happens to match.
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "remaining breakdown parity defects"):
+// buildQuotedCartBreakdown() with MULTIPLE resolved Legs and no valid
+// Headline identity must return NO derived cart breakdown at all — never
+// merge independent Legs' claims into one fabricated base list (an
+// earlier revision did exactly that for starterCloudPeriods' two Legs).
+const noHeadlineCartBreakdown = buildQuotedCartBreakdown(starterCloudPeriods, null);
+check(
+  noHeadlineCartBreakdown.baseInclusions.length === 0 && noHeadlineCartBreakdown.extensionGroups.length === 0,
+  'multiple resolved Legs with no valid Headline identity produce NO derived cart breakdown — never a fabricated merged base list',
+);
+const multiLegNoHeadlineItem: FamilyTierQuoteItem = { ...starterCloudItem, cartBreakdown: noHeadlineCartBreakdown };
+check(
+  disclosureRowsForFamilyTierItem(multiLegNoHeadlineItem).every((row) => row.label.includes('Generic bundled inclusion')),
+  'an item whose cartBreakdown ends up empty (multi-Leg, no valid headline) falls all the way through to the existing generic inclusionItems/features fallback, exactly like an absent cartBreakdown',
+);
+
+// A genuinely simple one-Leg Tier with no headline resolved is still
+// harmless — that one Leg's own claims ARE the base quick-view (there is
+// nothing to extend against with only one Leg anyway).
+const singleLegPeriods: CommercialLegPeriod[] = [
+  {
+    from_month: 0, to_month: null,
+    components: [
+      { source: 'leg_only', billing_cycle: 'monthly', price: 19.99, available: true, items: [
+        { item_id: 'itm_basic', label: 'Basic Hosting', quantity: 1, price_option_id: null, unit_price: 19.99, line_total: 19.99, available: true },
+      ] },
+    ],
+  },
+];
+const singleLegCartBreakdown = buildQuotedCartBreakdown(singleLegPeriods, null);
+check(
+  singleLegCartBreakdown.baseInclusions.length === 1
+    && singleLegCartBreakdown.baseInclusions[0].label === 'Basic Hosting'
+    && singleLegCartBreakdown.extensionGroups.length === 0,
+  'a genuinely simple one-Leg Tier with no resolved headline still shows that one Leg\'s own claims as the base quick-view — this ambiguity-free case is harmless, unlike the multi-Leg case above',
+);
+
+// periodBreakdownRowsForFamilyTierItem() — the fuller PDF/Review/View-Print/
+// email "View Details" experience: reuses PlanDetailsModal.tsx's own
+// Billing Breakdown by Period semantics EXACTLY (customerFacingRange()
+// wording, the Period payment/category fact line, a payment-timing note
+// per component, and the inclusion table SUPPRESSED for a component
+// continuing unchanged from the immediately preceding Period) — the
+// auditor's required "same semantic derivation" as the live PlanDetailsModal
+// popup (which calls this exact same function after its own
+// buildQuotedCommercialBreakdown() conversion).
+const starterCloudPeriodRows = periodBreakdownRowsForFamilyTierItem(starterCloudItem);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'periodHeading' && row.label === customerFacingRange(0, 10))
+    && starterCloudPeriodRows.some((row) => row.kind === 'periodHeading' && row.label === customerFacingRange(11, null)),
+  'periodBreakdownRowsForFamilyTierItem() shows the SAME customer-facing range wording PlanDetailsModal.tsx uses ("Plan start–Month 10", "Month 11–Ongoing") — never the raw "Month 0–10"/"Indefinite" debugger wording',
+);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'periodPaymentFact' && row.label === paymentCategoryLabel('monthly') && row.value === priceWithCadence(156.50, 'monthly')),
+  'a sole active component (Month 0-10) gets the real Payment Category fact line (Recurring payment: $156.50 / month) — the exact fact the auditor found missing entirely',
+);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'periodPaymentFact' && row.label === 'Active payments' && row.value === `${priceWithCadence(156.50, 'monthly')} + ${priceWithCadence(80, 'annually')}`),
+  'a collision Period (Month 11: Monthly + Annual both active) gets the combined "Active payments" fact line summing every active component',
+);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'componentNote' && row.cadenceLabel === `${frequencyLabel('monthly')} payment` && row.statusText === `Continues unchanged at ${priceWithCadence(156.50, 'monthly')}`),
+  'the unchanged Month-11 Monthly component reads "Continues unchanged", mirroring PlanDetailsModal.tsx exactly',
+);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'componentNote' && row.cadenceLabel === `${frequencyLabel('annually')} payment` && row.statusText === `Begins in Month 11 at ${priceWithCadence(80, 'annually')}`),
+  'the genuinely new Static IP component reads "Begins in Month 11" — Annual (not Yearly), matching PLAN_BILLING_CYCLE_LABELS exactly',
+);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'componentTableLabel' && row.text === `${frequencyLabel('annually')} payment breakdown:`)
+    && !starterCloudPeriodRows.some((row) => row.kind === 'componentTableLabel' && row.text === `${frequencyLabel('monthly')} payment breakdown:`),
+  'the collision Period labels the NEW Annual component\'s own table ("Annual payment breakdown:") — the CONTINUING Monthly component gets no table (and so no table label either), matching PlanDetailsModal.tsx\'s own suppression rule',
+);
+check(
+  starterCloudPeriodRows.filter((row) => row.kind === 'inclusion' && row.label === 'User Seats').length === 1,
+  'the User Seats inclusion table renders exactly ONCE — Month 11\'s identical continuation must not repeat it',
+);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'inclusion' && row.label === 'Static IP Block (8 IPs, 5 usable)' && row.quantity === 2 && row.unitPrice === 40 && row.lineTotal === 80),
+  'the new Static IP component still gets its own full inclusion detail — Qty 2, Unit price $40, Line total $80',
+);
+check(
+  starterCloudPeriodRows.some((row) => row.kind === 'componentTotal' && row.label === `${frequencyLabel('annually')} total` && row.value === formatMoney(80)),
+  'the new Static IP component gets its own authoritative subtotal line ("Annual total: $80.00") — never omitted, never a combined figure with the Monthly component',
+);
+check(
+  starterCloudPeriodRows.filter((row) => row.kind === 'componentTotal' && row.label === `${frequencyLabel('monthly')} total`).length === 1,
+  'the Monthly total appears exactly ONCE (from its first, non-continuing Month 0-10 appearance) — Month 11\'s CONTINUING Monthly component gets no repeated total, no table, matching PlanDetailsModal.tsx\'s own suppression rule exactly',
+);
+
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "remaining breakdown parity defects"): a
+// Bundle parent's own resolved line total must be the WHOLE component
+// total — its display-only children (even one with a null lineTotal, or
+// one with a real lineTotal of its own) must never be folded into or
+// invalidate that sum, mirroring PlanDetailsModal.tsx's own
+// periodItemsTotalDisplay() (top-level items only) exactly. An earlier
+// revision recursed into Bundle children here, which could turn a fully
+// resolved Bundle parent into a fabricated "To be confirmed".
+const bundlePeriods: CommercialLegPeriod[] = [
+  {
+    from_month: 0, to_month: null,
+    components: [
+      { source: 'leg_bundle', billing_cycle: 'monthly', price: 100, available: true, items: [
+        {
+          item_id: 'itm_bundle', label: 'Security Bundle', quantity: 1, price_option_id: null, unit_price: 100, line_total: 100, available: true,
+          includes: [
+            { item_id: 'itm_child_a', label: 'Endpoint Protection', quantity: 1, price_option_id: null, unit_price: null, line_total: null, available: true },
+          ],
+        },
+      ] },
+    ],
+  },
+];
+const bundleBreakdown = buildQuotedCommercialBreakdown(bundlePeriods);
+const bundleItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: bundleBreakdown, cartBreakdown: null };
+const bundleRows = periodBreakdownRowsForFamilyTierItem(bundleItem);
+check(
+  bundleRows.some((row) => row.kind === 'componentTotal' && row.value === formatMoney(100)),
+  'a Bundle parent\'s own resolved $100 line total is the component total, even though its display-only child carries a null lineTotal — the child must never invalidate or contribute to the sum',
+);
+
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view"): two independent components in the SAME Period with the
+// SAME cadence (a "collision") each get their own payment-timing note and
+// their own full inclusion table — the auditor's earlier
+// disambiguation-by-suffix mechanism is gone entirely; distinctness now
+// comes from each having its own note/table, never a shared section.
 const dualYearlyPeriods: CommercialLegPeriod[] = [
   {
     from_month: 11, to_month: null,
@@ -931,35 +1083,57 @@ const dualYearlyPeriods: CommercialLegPeriod[] = [
   },
 ];
 const dualYearlyBreakdown = buildQuotedCommercialBreakdown(dualYearlyPeriods);
-const dualYearlyItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: dualYearlyBreakdown };
-const dualYearlyRows = disclosureRowsForFamilyTierItem(dualYearlyItem);
-const staticIpDualRow = dualYearlyRows.find((row) => row.label === 'Static IP Block (8 IPs, 5 usable)')!;
-const backupDualRow = dualYearlyRows.find((row) => row.label === 'Annual Backup Retention')!;
+const dualYearlyItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: dualYearlyBreakdown, cartBreakdown: null };
+const dualYearlyPeriodRows = periodBreakdownRowsForFamilyTierItem(dualYearlyItem);
 check(
-  staticIpDualRow.sectionKey !== backupDualRow.sectionKey,
-  'two independent same-cadence components active in the same Period get distinct sectionKeys — section identity never depends on the (possibly identical) heading text',
+  dualYearlyPeriodRows.some((row) => row.kind === 'componentNote' && row.statusText === `Begins in Month 11 at ${priceWithCadence(80, 'annually')}`)
+    && dualYearlyPeriodRows.some((row) => row.kind === 'componentNote' && row.statusText === `Begins in Month 11 at ${priceWithCadence(50, 'annually')}`),
+  'both colliding same-Period/same-cadence components get their OWN payment-timing note, distinguished by their own price, never a shared/collapsed one',
 );
 check(
-  staticIpDualRow.sectionLabel === 'Month 11–Indefinite · Yearly (charge 1/2)'
-    && backupDualRow.sectionLabel === 'Month 11–Indefinite · Yearly (charge 2/2)',
-  'colliding same-Period/same-cadence sections get a neutral presentation-only disambiguating suffix, never a Leg ID/Rate Sheet key',
+  dualYearlyPeriodRows.some((row) => row.kind === 'inclusion' && row.label === 'Static IP Block (8 IPs, 5 usable)')
+    && dualYearlyPeriodRows.some((row) => row.kind === 'inclusion' && row.label === 'Annual Backup Retention'),
+  'both colliding components show their own full inclusion detail — neither is collapsed/suppressed (collision, not continuity)',
 );
 check(
-  staticIpDualRow.sectionSubtotal === `${formatPrice(80)} / yr` && backupDualRow.sectionSubtotal === `${formatPrice(50)} / yr`,
-  'each of the two colliding sections still shows its OWN authoritative component price as its subtotal, never a combined figure',
+  dualYearlyPeriodRows.some((row) => row.kind === 'componentTotal' && row.value === formatMoney(80))
+    && dualYearlyPeriodRows.some((row) => row.kind === 'componentTotal' && row.value === formatMoney(50)),
+  'each colliding component keeps its own authoritative subtotal — never a combined $130 figure',
+);
+
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "incomplete View Details parity"): "reuse/
+// ownership drift" — PlanDetailsModal.tsx itself must consume the SAME
+// shared periodBreakdownRows()/buildQuotedCommercialBreakdown() the
+// durable rendering calls, never a second hand-copied implementation of
+// its own Billing Breakdown by Period logic. Source-string proof (the
+// pure-function checks above already prove the shared functions themselves
+// behave correctly; this proves the LIVE popup actually calls them).
+const planDetailsModalSource = readFileSync(resolve(root, 'resources/ts/components/package-builder/PlanDetailsModal.tsx'), 'utf8');
+check(
+  /periodBreakdownRows\(buildQuotedCommercialBreakdown\(periods\)\)/.test(planDetailsModalSource),
+  'PlanDetailsModal.tsx renders from periodBreakdownRows(buildQuotedCommercialBreakdown(periods)) — the same shared derivation the durable snapshot rendering consumes, never its own parallel Billing Breakdown by Period logic',
+);
+check(
+  !/function sameComposition/.test(planDetailsModalSource) && !/function customerFacingRange/.test(planDetailsModalSource) && !/function priceWithCadence/.test(planDetailsModalSource),
+  'PlanDetailsModal.tsx no longer defines its own sameComposition()/customerFacingRange()/priceWithCadence() — these are imported from @/utils/commercialLegPresentation, the one shared location',
+);
+const familyTierAdapterSource = readFileSync(resolve(root, 'resources/ts/components/package-builder/FamilyTierAdapter.tsx'), 'utf8');
+check(
+  !/^export function commercialLegInclusionGroups/m.test(familyTierAdapterSource) && !/^export function commercialLegExtensionGroups/m.test(familyTierAdapterSource),
+  'FamilyTierAdapter.tsx no longer DEFINES commercialLegInclusionGroups()/commercialLegExtensionGroups() itself — it re-exports them from @/utils/commercialLegPresentation, the one shared location buildQuotedCartBreakdown() also reads from',
 );
 
 // Auditor correction: Main + Upgrade + add-on quote items are built
 // independently (FamilyTierAdapter.tsx's itemFor(), ComposableOfferBrowser.tsx's
 // buildComposableFamilyTierQuoteItem()) and must each retain only its own
-// commercialBreakdown — never a shared reference/array leaking rows across
-// items sharing the same underlying catalog data.
-const secondFamilyItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: buildQuotedCommercialBreakdown(dualYearlyPeriods) };
+// breakdown — never a shared reference/array leaking rows across items
+// sharing the same underlying catalog data.
 check(
-  secondFamilyItem.commercialBreakdown !== starterCloudItem.commercialBreakdown
-    && disclosureRowsForFamilyTierItem(starterCloudItem).some((row) => row.label === 'Static IP Block (8 IPs, 5 usable)')
-    && !disclosureRowsForFamilyTierItem(starterCloudItem).some((row) => row.label === 'Annual Backup Retention'),
-  'each quote item\'s own buildQuotedCommercialBreakdown() call produces an independent array — a sibling item\'s rows never bleed into another item\'s own disclosure',
+  dualYearlyItem.commercialBreakdown !== starterCloudItem.commercialBreakdown
+    && periodBreakdownRowsForFamilyTierItem(starterCloudItem).some((row) => row.kind === 'inclusion' && row.label === 'Static IP Block (8 IPs, 5 usable)')
+    && !periodBreakdownRowsForFamilyTierItem(starterCloudItem).some((row) => row.kind === 'inclusion' && row.label === 'Annual Backup Retention'),
+  'each quote item\'s own buildQuotedCommercialBreakdown()/buildQuotedCartBreakdown() call produces independent data — a sibling item\'s rows never bleed into another item\'s own breakdown',
 );
 
 console.log('Composable quote/cart contract passed.');

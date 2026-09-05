@@ -1,7 +1,7 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
-import { disclosureRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
+import { periodBreakdownRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
@@ -21,38 +21,39 @@ interface QuoteProposalPreviewProps {
 // the flat features[] list for an old cart entry that predates this field.
 // Never re-resolved from live Family/Tier catalog data — snapshot only.
 function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
-  // Live-gate correction (2026-09-05, "preserve period/leg inclusion
-  // attribution"; corrected "leg-level breakdown presentation"): reuses the
-  // SAME shared row derivation the quote disclosure/Total Commitment
-  // tables already call (disclosureRowsForFamilyTierItem(),
-  // cost-builder/InclusionDisclosure.tsx) rather than a second
-  // period-walking implementation — when the commercialBreakdown snapshot
-  // exists, its rows carry a sectionKey/sectionLabel/sectionSubtotal this
-  // list renders as a section heading (with that component's own
-  // authoritative subtotal, never a summed total) before the run of rows
-  // it covers, so the printed/emailed-link proposal explains WHICH
-  // inclusion, at what quantity/unit price, produced a given charge.
-  // Absent for the legacy inclusionItems/features fallback below
-  // (untouched), in which case every row's sectionKey is undefined and no
-  // heading ever renders here.
-  const breakdownRows = disclosureRowsForFamilyTierItem(item).filter((row) => row.sectionKey !== undefined);
-  if (breakdownRows.length > 0) {
-    let previousSectionKey: string | undefined;
+  // Auditor correction (2026-09-05, "leg-level breakdown presentation
+  // customer view"): reuses the shared Period+continuity row derivation
+  // (periodBreakdownRowsForFamilyTierItem(), cost-builder/
+  // InclusionDisclosure.tsx) — the fuller "View Details" experience
+  // PlanDetailsModal.tsx's own Billing Breakdown by Period already
+  // established, never a second/diverging implementation, and never the
+  // compact cart-only base/Extensions shape (disclosureRowsForFamilyTierItem()
+  // now reads that instead). A component unchanged from the immediately
+  // preceding Period renders its own payment note only, never a repeated
+  // inclusion table. Absent for the legacy inclusionItems/features
+  // fallback below (untouched).
+  const periodRows = periodBreakdownRowsForFamilyTierItem(item);
+  if (periodRows.length > 0) {
     return (
       <ul class="cz-proposal__features">
-        {breakdownRows.flatMap((row) => {
-          const showSectionHeading = row.sectionKey !== previousSectionKey;
-          previousSectionKey = row.sectionKey;
-          return [
-            ...(showSectionHeading ? [
-              <li key={`${row.id}:group`} class="cz-proposal__feature cz-proposal__feature--group">
-                <span class="cz-proposal__feature-row">
-                  <span>{row.sectionLabel}</span>
-                  {row.sectionSubtotal && <span class="cz-proposal__feature-price">{row.sectionSubtotal}</span>}
-                </span>
-              </li>,
-            ] : []),
-            <li key={row.id} class="cz-proposal__feature">
+        {periodRows.map((row) => {
+          if (row.kind === 'periodHeading') {
+            return <li key={row.id} class="cz-proposal__feature cz-proposal__feature--group">{row.label}</li>;
+          }
+          if (row.kind === 'periodPaymentFact') {
+            return <li key={row.id} class="cz-proposal__feature cz-proposal__feature--note"><strong>{row.label}:</strong> {row.value}</li>;
+          }
+          if (row.kind === 'componentNote') {
+            return <li key={row.id} class="cz-proposal__feature cz-proposal__feature--note"><strong>{row.cadenceLabel}:</strong> {row.statusText}</li>;
+          }
+          if (row.kind === 'componentTableLabel') {
+            return <li key={row.id} class="cz-proposal__feature cz-proposal__feature--note">{row.text}</li>;
+          }
+          if (row.kind === 'componentTotal') {
+            return <li key={row.id} class="cz-proposal__feature cz-proposal__feature--total">{row.label}: {row.value}</li>;
+          }
+          return (
+            <li key={row.id} class={`cz-proposal__feature${row.isChild ? ' cz-proposal__feature--child' : ''}`}>
               <span class="cz-proposal__feature-row">
                 <span class="cz-proposal__feature-label">{row.label}</span>
                 <span class="cz-proposal__feature-qty">
@@ -65,8 +66,8 @@ function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
                   )}
                 </span>
               </span>
-            </li>,
-          ];
+            </li>
+          );
         })}
       </ul>
     );

@@ -87,7 +87,7 @@ export function startingPaymentsByCycle(itemStreams: LegPaymentSummary[][]): Arr
 // price itself, "$157 / mo"). Never both on the same row: a caller using
 // this label never also appends cycleSuffix()/formatCycleLabel() to the
 // price beside it. "Yearly" (not Plan Details' "Annual" — see
-// PLAN_BILLING_CYCLE_LABELS in package-builder/commercialLegPresentation.ts)
+// PLAN_BILLING_CYCLE_LABELS in ./commercialLegPresentation.ts)
 // matches the existing admin billing-cycle vocabulary already used for the
 // customer-facing word elsewhere (TierPricingRulesEditor.tsx/
 // TierEditionOverviewFields.tsx's own 'annually' -> 'Yearly' option label).
@@ -152,6 +152,19 @@ export interface QuotedBreakdownComponent {
   billingCycle: string | null;
   price: number | null;
   inclusions: QuotedBreakdownInclusion[];
+  // Auditor correction (2026-09-05, "leg-level breakdown presentation
+  // customer view"): true when this component's own composition
+  // (billingCycle, price, and every claimed inclusion's id/quantity/unit
+  // price/line total) is IDENTICAL to the corresponding component active
+  // in the immediately preceding Period — computed once at capture time
+  // (buildQuotedCommercialBreakdown(), cost-builder/PricingTiers.tsx),
+  // where live Leg identity is still available to pair components across
+  // Periods, mirroring PlanDetailsModal.tsx's own sameComposition()/
+  // "continues unchanged" rule. The customer-facing renderer
+  // (periodBreakdownRowsForFamilyTierItem(), InclusionDisclosure.tsx) reads
+  // only this boolean — it never re-derives continuity itself, and never
+  // needs Leg identity to do so.
+  continuesFromPrevious: boolean;
 }
 
 // One resolved, time-scoped Period's own available components.
@@ -159,4 +172,40 @@ export interface QuotedBreakdownPeriod {
   fromMonth: number;
   toMonth: number | null;
   components: QuotedBreakdownComponent[];
+}
+
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view"): the cart quick-view's own compact shape — rejected the
+// raw Period-table dump commercialBreakdown above is meant for the fuller
+// PDF/Review/View-Print/email "View Details" experience, never the compact
+// cart disclosure. Mirrors FamilyTierAdapter.tsx's live
+// commercialLegInclusionGroups()/commercialLegExtensionGroups() exactly —
+// the Headline Leg's own claimed items shown once (never per-Period), any
+// OTHER Leg overlapping the Headline Leg in some Period shown as a
+// separate "Extensions billed X" group, containing only its differences/
+// additions relative to the Headline Leg's own claims. Computed once at
+// capture time (buildQuotedCartBreakdown(), cost-builder/PricingTiers.tsx)
+// from the same live-resolved CommercialLegPeriod[] that
+// buildQuotedCommercialBreakdown() reads — never re-derived from it, since
+// by the time commercialBreakdown exists the Leg identity needed to tell
+// Headline from Extension is already gone. No identifier field at all,
+// same customer-safety rule as every type above.
+export interface QuotedExtensionGroup {
+  billingCycle: string | null;
+  // The Leg's own resolved price for this group's cadence — its
+  // authoritative subtotal fact, never a sum of the group's own inclusion
+  // rows (same "component's own snapshot price, not recomputed" rule as
+  // QuotedBreakdownComponent.price above).
+  price: number | null;
+  // Presentation-only heading text ("Extensions billed Annually") — never
+  // a Leg ID/Rate Sheet key; may repeat verbatim across two independent
+  // extension groups sharing a cadence, exactly like commercialBreakdown's
+  // own disambiguation-by-position (never by this label).
+  heading: string;
+  inclusions: QuotedBreakdownInclusion[];
+}
+
+export interface QuotedCartBreakdown {
+  baseInclusions: QuotedBreakdownInclusion[];
+  extensionGroups: QuotedExtensionGroup[];
 }

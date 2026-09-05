@@ -1,5 +1,5 @@
 import type { ComposablePreviewChoiceItem, ServiceInclusion, TierId } from '@/api/types/cost-builder';
-import type { LegPaymentSummary, QuotedBreakdownPeriod } from '@/utils/paymentSummary';
+import type { LegPaymentSummary, QuotedBreakdownPeriod, QuotedCartBreakdown } from '@/utils/paymentSummary';
 
 // 'bundle' = recommended bundle; 'promotion' = active promotion tier offer
 export type QuoteItemTierId = TierId | 'bundle' | 'promotion';
@@ -156,6 +156,17 @@ export interface FamilyTierQuoteItem {
   // today's generic inclusion display (features/inclusionItems above) in
   // that case, never fabricating attribution.
   commercialBreakdown?: QuotedBreakdownPeriod[] | null;
+  // Auditor correction (2026-09-05, "leg-level breakdown presentation
+  // customer view"): the cart quick-view's own compact "base once +
+  // Extensions billed X" shape — captured alongside commercialBreakdown
+  // from the SAME resolved CommercialLegPeriod[] (see
+  // buildQuotedCartBreakdown() in PricingTiers.tsx), never re-derived from
+  // it. commercialBreakdown above stays reserved for the fuller PDF/
+  // Review/View-Print/email "View Details" experience; the cart disclosure
+  // (InclusionDisclosure.tsx) reads this field instead, never Period
+  // tables. Null/absent for every cart item that predates this field, or
+  // has no resolved commercial_legs at all.
+  cartBreakdown?: QuotedCartBreakdown | null;
 }
 
 export type CartItem = QuoteItem | FamilyTierQuoteItem;

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import { chargeTypeLabel } from '@/utils/paymentSummary';
+import { periodBreakdownRows } from '@/utils/commercialLegPresentation';
 import type { QuotedBreakdownInclusion } from '@/utils/paymentSummary';
+import type { PeriodBreakdownRow } from '@/utils/commercialLegPresentation';
 import type { FamilyTierQuoteItem } from './types';
 
 // Price-line suffix for the two cycles formatCycleLabel() (utils/format.ts)
@@ -128,10 +129,10 @@ export interface DisclosureInclusionRow {
 
 function breakdownInclusionRows(
   inclusion: QuotedBreakdownInclusion,
-  sectionKey: string,
-  sectionLabel: string,
-  sectionSubtotal: string | null,
   keyPrefix: string,
+  sectionKey?: string,
+  sectionLabel?: string,
+  sectionSubtotal?: string | null,
 ): DisclosureInclusionRow[] {
   return [
     {
@@ -145,69 +146,38 @@ function breakdownInclusionRows(
       sectionSubtotal,
     },
     ...(inclusion.includes ?? []).flatMap((child, ci) =>
-      breakdownInclusionRows(child, sectionKey, sectionLabel, sectionSubtotal, `${keyPrefix}:child:${ci}`)),
+      breakdownInclusionRows(child, `${keyPrefix}:child:${ci}`, sectionKey, sectionLabel, sectionSubtotal)),
   ];
 }
 
-// Shared row derivation for every family_tier quote line (primary, add-on,
-// and Upgrade alike) — the exact same inclusionItems snapshot
-// QuoteDetailsOverlay's own ComposableInclusionsTable/PlanDetailsContent
-// already render (unit_price/line_total, Phase 2B1 ServiceInclusion —
-// additive on every occupant-sourced inclusion, composable and normal Tier
-// alike), falling back to bare labels for a pre-Phase-8G cart entry that
-// predates inclusionItems (no quantity/price facts exist for those at
-// all — both cells stay blank, never invented). One resolver for both this
-// component's callers — never a second derivation of what a quoted item
-// includes.
+// Shared row derivation for the CART quick-view (QuoteSummary.tsx) and
+// Total Commitment overlay (QuoteDetailsOverlay.tsx) ONLY — auditor
+// correction (2026-09-05, "leg-level breakdown presentation customer
+// view"): the fuller PDF/Review/View-Print/email "View Details" experience
+// now reads periodBreakdownRowsForFamilyTierItem() below instead, since a
+// raw Period-table dump was rejected as compact cart presentation. This
+// function reads item.cartBreakdown — the pre-computed "base once +
+// Extensions billed X" shape (buildQuotedCartBreakdown(),
+// cost-builder/PricingTiers.tsx) — falling back to bare labels for a
+// pre-Phase-8G cart entry that predates inclusionItems entirely.
 export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): DisclosureInclusionRow[] {
-  // Live-gate correction (2026-09-05, "preserve period/leg inclusion
-  // attribution"; corrected "leg-level breakdown presentation"): when the
-  // richer per-Period breakdown snapshot exists, it takes priority over the
-  // flat inclusionItems/features fallback below — same "captured once at
-  // Add-to-Quote time, never re-resolved" rule as every other snapshot
-  // field on this item. Absent/empty for every cart item that predates
-  // this field (falls through to the existing flat rendering, unchanged)
-  // or has no resolved commercial_legs at all.
-  if (item.commercialBreakdown && item.commercialBreakdown.length > 0) {
-    return item.commercialBreakdown.flatMap((period, periodIndex) => {
-      const rangeLabel = `Month ${period.fromMonth}–${period.toMonth ?? 'Indefinite'}`;
-      // Count components sharing the same cadence within THIS Period, so
-      // two independent same-cadence Legs both active here (e.g. two
-      // separate Yearly charges both starting at Month 11) get a neutral
-      // disambiguating suffix on their section heading rather than reading
-      // as one collapsed section — see sectionKey's own docblock above for
-      // why identity itself never depends on this label text.
-      const cadenceCounts = new Map<string, number>();
-      for (const component of period.components) {
-        const cadence = chargeTypeLabel(component.billingCycle);
-        cadenceCounts.set(cadence, (cadenceCounts.get(cadence) ?? 0) + 1);
-      }
-      const cadenceSeen = new Map<string, number>();
-      return period.components.flatMap((component, componentIndex) => {
-        const cadence = chargeTypeLabel(component.billingCycle);
-        const totalWithSameCadence = cadenceCounts.get(cadence) ?? 1;
-        const occurrence = (cadenceSeen.get(cadence) ?? 0) + 1;
-        cadenceSeen.set(cadence, occurrence);
-        const sectionLabel = totalWithSameCadence > 1
-          ? `${rangeLabel} · ${cadence} (charge ${occurrence}/${totalWithSameCadence})`
-          : `${rangeLabel} · ${cadence}`;
-        // Auditor correction (2026-09-05, "leg-level breakdown
-        // presentation"): a presentation-only occurrence key derived
-        // purely from snapshot position (period index + component index)
-        // — never component.source (removed from the type entirely; see
-        // QuotedBreakdownComponent's own docblock, @/utils/paymentSummary)
-        // — since this key is never rendered but the underlying row.id it
-        // seeds IS carried in the DOM (React key) and must never leak a
-        // Leg Platform ID or Rate Sheet key either.
-        const sectionKey = `${periodIndex}:${componentIndex}`;
-        const cadenceSuffix = breakdownCycleSuffix(component.billingCycle);
-        const sectionSubtotal = component.price !== null
-          ? `${formatPrice(component.price)}${cadenceSuffix ? ` ${cadenceSuffix}` : ''}`
-          : null;
-        return component.inclusions.flatMap((inclusion, i) =>
-          breakdownInclusionRows(inclusion, sectionKey, sectionLabel, sectionSubtotal, `${sectionKey}:${i}`));
-      });
+  // Same "captured once at Add-to-Quote time, never re-resolved" rule as
+  // every other snapshot field on this item. Absent/empty for every cart
+  // item that predates this field (falls through to the existing flat
+  // rendering, unchanged) or has no resolved commercial_legs at all.
+  if (item.cartBreakdown && (item.cartBreakdown.baseInclusions.length > 0 || item.cartBreakdown.extensionGroups.length > 0)) {
+    const baseRows = item.cartBreakdown.baseInclusions.flatMap((inclusion, i) =>
+      breakdownInclusionRows(inclusion, `base:${i}`));
+    const extensionRows = item.cartBreakdown.extensionGroups.flatMap((group, groupIndex) => {
+      const sectionKey = `extension:${groupIndex}`;
+      const cadenceSuffix = breakdownCycleSuffix(group.billingCycle);
+      const sectionSubtotal = group.price !== null
+        ? `${formatPrice(group.price)}${cadenceSuffix ? ` ${cadenceSuffix}` : ''}`
+        : null;
+      return group.inclusions.flatMap((inclusion, i) =>
+        breakdownInclusionRows(inclusion, `${sectionKey}:${i}`, sectionKey, group.heading, sectionSubtotal));
     });
+    return [...baseRows, ...extensionRows];
   }
   if (item.inclusionItems && item.inclusionItems.length > 0) {
     return item.inclusionItems.flatMap((inclusion, i) => [
@@ -228,6 +198,21 @@ export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): Disc
     ]);
   }
   return item.features.map((feature, i) => ({ id: `feature-${i}`, label: feature, quantity: null, unitPrice: null, lineTotal: null }));
+}
+
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "incomplete View Details parity"): the fuller
+// PDF/Review/customer View-Print/email "View Details" experience now calls
+// the ONE shared periodBreakdownRows() (@/utils/commercialLegPresentation)
+// — the SAME function PlanDetailsModal.tsx's own live popup calls (after
+// converting its own periods via buildQuotedCommercialBreakdown(), same
+// file) — rather than a second/hand-copied implementation of that file's
+// Billing Breakdown by Period semantics. Thin wrapper only: this item's
+// own durable commercialBreakdown snapshot IS already the
+// QuotedBreakdownPeriod[] shape that function expects.
+export function periodBreakdownRowsForFamilyTierItem(item: FamilyTierQuoteItem): PeriodBreakdownRow[] {
+  if (!item.commercialBreakdown || item.commercialBreakdown.length === 0) return [];
+  return periodBreakdownRows(item.commercialBreakdown);
 }
 
 // The one CSS hook the caller's own shared outside-click listener matches

@@ -431,23 +431,138 @@ class NotificationTemplates
     }
 
     /**
-     * Live-gate correction (2026-09-05, "preserve period/leg inclusion
-     * attribution"; corrected "leg-level breakdown presentation"): renders
-     * the additive commercialBreakdown snapshot as Period/cadence-grouped
-     * sections — the SAME section identity/disambiguation
-     * disclosureRowsForFamilyTierItem() (InclusionDisclosure.tsx) applies
-     * on every customer-facing TS surface: one section per resolved
-     * component OCCURRENCE (never collapsed just because two independent
-     * same-cadence components in the same Period share identical heading
-     * text), each showing its own authoritative subtotal from the
-     * snapshot — never a combined total across sections. emailFamilyRow()
+     * PlanDetailsModal.tsx's/@/utils/commercialLegPresentation's own
+     * PLAN_BILLING_CYCLE_LABELS — a deliberately separate word map from
+     * chargeTypeLabel() above ("Annual", not "Yearly"; chargeTypeLabel()
+     * stays reserved for the legPaymentSummaries stream block, an unrelated
+     * surface this correction doesn't touch). Only the Billing Breakdown by
+     * Period section (emailPeriodBreakdownRows() below) uses this wording,
+     * matching PlanDetailsModal.tsx's own Frequency labels exactly.
+     */
+    private static function frequencyLabel(?string $cycle): string
+    {
+        if ($cycle === null) {
+            return 'Payment';
+        }
+
+        $labels = [
+            'monthly'   => 'Monthly',
+            'annual'    => 'Annual',
+            'annually'  => 'Annual',
+            'quarterly' => 'Quarterly',
+            'one-time'  => 'One-time',
+            'upfront'   => 'Upfront',
+        ];
+
+        return $labels[$cycle] ?? 'Payment';
+    }
+
+    /**
+     * PlanDetailsModal.tsx's/@/utils/commercialLegPresentation's own
+     * paymentCategoryLabel() — billing_cycle-derived Fixed/Recurring
+     * synthesis, reused verbatim rather than a second/diverging rule.
+     */
+    private static function paymentCategoryLabel(?string $cycle): string
+    {
+        if ($cycle === null) {
+            return 'Payment';
+        }
+
+        return ($cycle === 'one-time' || $cycle === 'upfront') ? 'Fixed payment' : 'Recurring payment';
+    }
+
+    /**
+     * PlanDetailsModal.tsx's/@/utils/commercialLegPresentation's own
+     * billingSuffixLong() — the long-form cadence suffix ("/ month", "/
+     * year") this section's wording needs, distinct from chargeTypeLabel()'s
+     * word-first convention used elsewhere in this file.
+     */
+    private static function billingSuffixLong(?string $cycle): string
+    {
+        if ($cycle === null) {
+            return '';
+        }
+
+        $suffixes = [
+            'monthly'   => '/ month',
+            'annual'    => '/ year',
+            'annually'  => '/ year',
+            'quarterly' => '/ quarter',
+            'upfront'   => '/ upfront',
+            'one-time'  => '/ once',
+        ];
+
+        return $suffixes[$cycle] ?? '';
+    }
+
+    /**
+     * PlanDetailsModal.tsx's/@/utils/commercialLegPresentation's own
+     * priceWithCadence() — cents-precise price plus the long-form cadence
+     * suffix, e.g. "$156.50 / month".
+     */
+    private static function priceWithCadence(?float $price, ?string $cycle): string
+    {
+        $suffix = self::billingSuffixLong($cycle);
+        $formatted = $price !== null ? '$' . number_format($price, 2) : '—';
+
+        return $suffix !== '' ? $formatted . ' ' . $suffix : $formatted;
+    }
+
+    /**
+     * PlanDetailsModal.tsx's/@/utils/commercialLegPresentation's own
+     * customerFacingRange() — "Plan start" replaces a raw Month 0 (which
+     * otherwise reads as an extra month inside the range), the end side
+     * stays a real month number or "Ongoing" for a still-open range.
+     */
+    private static function customerFacingRange(int $from, ?int $to): string
+    {
+        $startsAtPlanStart = $from === 0;
+        $startLabel = $startsAtPlanStart ? 'Plan start' : ('Month ' . $from);
+        $endLabel = $to === null ? 'Ongoing' : ($startsAtPlanStart ? ('Month ' . $to) : (string) $to);
+
+        return $startLabel . '–' . $endLabel;
+    }
+
+    /**
+     * @/utils/commercialLegPresentation's own componentTotalValue() —
+     * a null lineTotal on any inclusion (including Bundle children) means
+     * that component's own total is genuinely unresolved — never silently
+     * skipped into a partial sum that reads as the real total.
+     *
+     * @param array<int, array<string, mixed>> $inclusions
+     */
+    private static function emailComponentTotal(array $inclusions): string
+    {
+        foreach ($inclusions as $item) {
+            if (!isset($item['lineTotal']) || $item['lineTotal'] === null) {
+                return 'To be confirmed';
+            }
+        }
+        $total = array_sum(array_map(fn (array $item) => (float) $item['lineTotal'], $inclusions));
+
+        return '$' . number_format($total, 2);
+    }
+
+    /**
+     * Auditor correction (2026-09-05, "leg-level breakdown presentation
+     * customer view"): renders the commercialBreakdown snapshot as
+     * PlanDetailsModal.tsx's own Billing Breakdown by Period — a Period
+     * heading, a payment-timing note per component when it's continuing
+     * unchanged or sharing the Period with another active component, and
+     * the component's own inclusion table SUPPRESSED when it's continuing
+     * unchanged from the immediately preceding Period (continuesFromPrevious,
+     * computed once by the browser at capture time — see
+     * RequestSchema::sanitizeCommercialBreakdown()'s own docblock). Replaces
+     * the earlier Period/cadence-collision-disambiguated section model,
+     * which the auditor rejected as a raw pricing dump rather than the
+     * established customer "View Details" experience. emailFamilyRow()
      * falls back to emailInclusionItemsList()/familyDisplayInclusions()
      * (both unchanged) when this returns '' — a pre-existing Request, or
      * one with no resolved commercial_legs at all.
      *
      * @param array<int, array<string, mixed>> $breakdown sanitized commercialBreakdown — RequestSchema::sanitizeCommercialBreakdown()
      */
-    private static function emailCommercialBreakdownRows(array $breakdown): string
+    private static function emailPeriodBreakdownRows(array $breakdown): string
     {
         if ($breakdown === []) {
             return '';
@@ -456,44 +571,63 @@ class NotificationTemplates
         $rows = '';
         foreach ($breakdown as $period) {
             $components = (array) ($period['components'] ?? []);
+            if ($components === []) {
+                continue;
+            }
+            $fromMonth = (int) ($period['fromMonth'] ?? 0);
+            $toMonth   = $period['toMonth'] ?? null;
+            $rangeLabel = esc_html(self::customerFacingRange($fromMonth, $toMonth === null ? null : (int) $toMonth));
+            $rows .= "
+                <tr><td colspan=\"2\" style=\"padding:8px 0 2px 14px;font-size:12px;font-weight:700;color:#333;\">{$rangeLabel}</td></tr>";
 
-            // Count components sharing the same cadence within THIS
-            // Period, mirroring disclosureRowsForFamilyTierItem() exactly,
-            // so the disambiguating suffix (never a Leg ID/Rate Sheet key)
-            // matches across every customer-facing surface.
-            $cadenceCounts = [];
+            $collision = count($components) > 1;
+            $recurringCostLine = esc_html(implode(' + ', array_map(
+                fn (array $c) => self::priceWithCadence(
+                    isset($c['price']) && $c['price'] !== null ? (float) $c['price'] : null,
+                    $c['billingCycle'] ?? null
+                ),
+                $components
+            )));
+            $factLabel = $collision ? 'Active payments' : self::paymentCategoryLabel($components[0]['billingCycle'] ?? null);
+            $rows .= "
+                <tr><td colspan=\"2\" style=\"padding:2px 0 2px 14px;font-size:11px;color:#777;\"><strong>{$factLabel}:</strong> {$recurringCostLine}</td></tr>";
+
             foreach ($components as $component) {
-                $cadence = self::chargeTypeLabel($component['billingCycle'] ?? null);
-                $cadenceCounts[$cadence] = ($cadenceCounts[$cadence] ?? 0) + 1;
+                $continuing = !empty($component['continuesFromPrevious']);
+                if (!$collision && !$continuing) {
+                    continue;
+                }
+                $cadenceLabel = esc_html(self::frequencyLabel($component['billingCycle'] ?? null) . ' payment');
+                $priceLabel = self::priceWithCadence(
+                    isset($component['price']) && $component['price'] !== null ? (float) $component['price'] : null,
+                    $component['billingCycle'] ?? null
+                );
+                $statusText = $continuing
+                    ? ('Continues unchanged at ' . $priceLabel)
+                    : ('Begins in Month ' . $fromMonth . ' at ' . $priceLabel);
+                $statusText = esc_html($statusText);
+                $rows .= "
+                    <tr><td colspan=\"2\" style=\"padding:2px 0 2px 14px;font-size:11px;color:#999;\"><strong>{$cadenceLabel}:</strong> {$statusText}</td></tr>";
             }
 
-            $cadenceSeen = [];
-            $fromMonth   = (int) ($period['fromMonth'] ?? 0);
-            $toMonth     = $period['toMonth'] ?? null;
-            $rangeLabel  = 'Month ' . $fromMonth . '–' . ($toMonth === null ? 'Indefinite' : (string) $toMonth);
-
             foreach ($components as $component) {
+                if (!empty($component['continuesFromPrevious'])) {
+                    continue; // already shown, unchanged, last Period — no repeated table
+                }
                 $inclusions = (array) ($component['inclusions'] ?? []);
                 if ($inclusions === []) {
                     continue;
                 }
-                $cadence              = self::chargeTypeLabel($component['billingCycle'] ?? null);
-                $totalWithSameCadence = $cadenceCounts[$cadence] ?? 1;
-                $occurrence           = ($cadenceSeen[$cadence] ?? 0) + 1;
-                $cadenceSeen[$cadence] = $occurrence;
-                $sectionLabel = $totalWithSameCadence > 1
-                    ? $rangeLabel . ' · ' . $cadence . ' (charge ' . $occurrence . '/' . $totalWithSameCadence . ')'
-                    : $rangeLabel . ' · ' . $cadence;
-                $sectionLabel = esc_html($sectionLabel);
-                $subtotal = isset($component['price']) && $component['price'] !== null
-                    ? '$' . number_format((float) $component['price'], 2)
-                    : '';
-                $rows .= "
-                    <tr>
-                      <td style=\"padding:6px 0 2px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#888;\">{$sectionLabel}</td>
-                      <td style=\"padding:6px 0 2px;font-size:10px;font-weight:700;color:#888;text-align:right;\">{$subtotal}</td>
-                    </tr>";
+                if ($collision) {
+                    $tableLabel = esc_html(self::frequencyLabel($component['billingCycle'] ?? null) . ' payment breakdown:');
+                    $rows .= "
+                        <tr><td colspan=\"2\" style=\"padding:4px 0 2px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#888;\">{$tableLabel}</td></tr>";
+                }
                 $rows .= self::emailBreakdownInclusionRows($inclusions);
+                $totalLabel = esc_html(self::frequencyLabel($component['billingCycle'] ?? null) . ' total');
+                $totalValue = self::emailComponentTotal($inclusions);
+                $rows .= "
+                    <tr><td colspan=\"2\" style=\"padding:2px 0 4px 14px;font-size:11px;font-weight:700;color:#333;\">{$totalLabel}: {$totalValue}</td></tr>";
             }
         }
 
@@ -621,7 +755,7 @@ class NotificationTemplates
         // or one with no resolved commercial_legs at all.
         $commercialBreakdown = (array) ($item['commercialBreakdown'] ?? []);
         $inclusionRows = $commercialBreakdown !== []
-            ? self::emailCommercialBreakdownRows($commercialBreakdown)
+            ? self::emailPeriodBreakdownRows($commercialBreakdown)
             : '';
         if ($inclusionRows === '') {
             $inclusionRows = self::emailInclusionItemsList(self::familyDisplayInclusions($item));

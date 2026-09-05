@@ -86,6 +86,12 @@ $rawItems = [
                 'components' => [
                     [
                         'source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 490,
+                        // Auditor correction (2026-09-05, "leg-level
+                        // breakdown presentation customer view"): identical
+                        // to Month 0-10's own leg_default component above —
+                        // the browser captured continuesFromPrevious: true
+                        // at Add-to-Quote time; this must persist verbatim.
+                        'continuesFromPrevious' => true,
                         'inclusions' => [
                             ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 25, 'unitPrice' => 19.6, 'lineTotal' => 490],
                         ],
@@ -106,6 +112,26 @@ $rawItems = [
                                 ],
                             ],
                         ],
+                    ],
+                ],
+            ],
+        ],
+        // Auditor correction (2026-09-05, "leg-level breakdown presentation
+        // customer view"): the cart quick-view's own compact shape,
+        // captured alongside commercialBreakdown above — a real-looking
+        // source still present in the raw payload (simulating an
+        // unmodified/malicious client), to prove it never survives here
+        // either, plus an unknown nested field to prove the same
+        // allow-list discipline.
+        'cartBreakdown' => [
+            'baseInclusions' => [
+                ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 25, 'unitPrice' => 19.6, 'lineTotal' => 490, 'evil_field' => '<script>xss</script>'],
+            ],
+            'extensionGroups' => [
+                [
+                    'billingCycle' => 'annually', 'price' => 80, 'heading' => 'Extensions billed Annually',
+                    'inclusions' => [
+                        ['id' => 'itm_static_ip', 'label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
                     ],
                 ],
             ],
@@ -181,6 +207,10 @@ $secondPeriod = $item['commercialBreakdown'][1];
 check_request_schema_family_snapshot($secondPeriod['fromMonth'] === 11 && $secondPeriod['toMonth'] === null, 'second Period from/to months survive, open-ended toMonth stays null');
 check_request_schema_family_snapshot(count($secondPeriod['components']) === 3, 'the Month-11 Period keeps all three of its own components — never deduplicated by source the way legPaymentSummaries is');
 
+$continuingComponent = $secondPeriod['components'][0];
+check_request_schema_family_snapshot($continuingComponent['continuesFromPrevious'] === true, 'continuesFromPrevious survives verbatim, computed once by the browser at capture time');
+check_request_schema_family_snapshot($firstPeriod['components'][0]['continuesFromPrevious'] === false, 'a component with no continuesFromPrevious sent defaults to false, never true by omission');
+
 $staticIpComponent = $secondPeriod['components'][1];
 // Auditor correction (2026-09-05, "leg-level breakdown presentation"): the
 // raw payload above still sends 'source' => 'leg_static_ip' (simulating an
@@ -204,6 +234,20 @@ check_request_schema_family_snapshot($bundleInclusion['label'] === 'Security Bun
 check_request_schema_family_snapshot(count($bundleInclusion['includes']) === 1, 'the Bundle child survives inside commercialBreakdown');
 check_request_schema_family_snapshot($bundleInclusion['includes'][0]['label'] === 'Endpoint Protection', 'the Bundle child\'s own label survives');
 check_request_schema_family_snapshot(!array_key_exists('id', $bundleInclusion['includes'][0]), 'the Bundle child\'s own id does not survive either');
+
+// ── cartBreakdown: the cart quick-view's own compact shape ───────────────────
+$cartBreakdown = $item['cartBreakdown'];
+check_request_schema_family_snapshot(count($cartBreakdown['baseInclusions']) === 1, 'cartBreakdown.baseInclusions survives');
+$baseInclusion = $cartBreakdown['baseInclusions'][0];
+check_request_schema_family_snapshot(!array_key_exists('id', $baseInclusion) && !array_key_exists('evil_field', $baseInclusion), 'cartBreakdown.baseInclusions strips both the internal id and unknown nested fields');
+check_request_schema_family_snapshot($baseInclusion['label'] === 'User Seats' && $baseInclusion['quantity'] === 25, 'cartBreakdown.baseInclusions keeps its own label/quantity facts');
+check_request_schema_family_snapshot(count($cartBreakdown['extensionGroups']) === 1, 'cartBreakdown.extensionGroups survives');
+$extensionGroup = $cartBreakdown['extensionGroups'][0];
+check_request_schema_family_snapshot(
+    $extensionGroup['heading'] === 'Extensions billed Annually' && $extensionGroup['billingCycle'] === 'annually' && $extensionGroup['price'] === 80.0,
+    'cartBreakdown.extensionGroups keeps its own heading/billingCycle/price facts'
+);
+check_request_schema_family_snapshot(!array_key_exists('id', $extensionGroup['inclusions'][0]), 'cartBreakdown.extensionGroups\' own inclusion strips its internal id too');
 
 // Two independent components sharing the SAME Period + cadence: both must
 // still sanitize through distinctly (never merged/deduplicated) even with
@@ -250,8 +294,8 @@ check_request_schema_family_snapshot($legacy['commercialBreakdown'] === null, 'a
 $args = RequestSchema::restArgs();
 $properties = $args['items']['items']['properties'];
 check_request_schema_family_snapshot(
-    isset($properties['tierEditionTitle'], $properties['inclusionItems'], $properties['legPaymentSummaries'], $properties['commercialBreakdown']),
-    'restArgs() declares all four new cart-item fields'
+    isset($properties['tierEditionTitle'], $properties['inclusionItems'], $properties['legPaymentSummaries'], $properties['commercialBreakdown'], $properties['cartBreakdown']),
+    'restArgs() declares all five new cart-item fields'
 );
 
 echo "Request schema family quote snapshot checks passed.\n";

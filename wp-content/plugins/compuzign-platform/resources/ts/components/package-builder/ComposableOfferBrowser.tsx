@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
 import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData, ServiceInclusion } from '@/api/types/cost-builder';
 import { resolveComposablePreview } from '@/api/endpoints/package-builder';
-import { buildLegPaymentSummaries, buildQuotedCommercialBreakdown, cycleSuffix, resolveHeadlinePrice } from '@/components/cost-builder/PricingTiers';
+import { buildLegPaymentSummaries, cycleSuffix, resolveHeadlinePrice } from '@/components/cost-builder/PricingTiers';
+import { buildQuotedCommercialBreakdown, buildQuotedCartBreakdown } from '@/utils/commercialLegPresentation';
 import { formatPrice } from '@/utils/format';
 import { COMPOSABLE_QUOTE_TIER_ID, type FamilyTierQuoteItem } from '@/components/cost-builder/types';
 
@@ -278,6 +279,11 @@ export function buildComposableFamilyTierQuoteItem(
     // legPaymentSummaries above — see buildQuotedCommercialBreakdown()'s
     // own docblock (cost-builder/PricingTiers.tsx).
     commercialBreakdown: buildQuotedCommercialBreakdown(periods),
+    // Auditor correction (2026-09-05, "leg-level breakdown presentation
+    // customer view"): the cart quick-view's own compact shape, captured
+    // alongside commercialBreakdown above from the SAME resolved `periods`
+    // and the SAME headline_leg_id resolveHeadlinePrice() already reads.
+    cartBreakdown: buildQuotedCartBreakdown(periods, offer.headline_leg_id ?? null),
   };
 }
 

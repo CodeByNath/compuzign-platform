@@ -170,6 +170,14 @@ class RequestSchema
                 // (that data is already discarded by the time it's built);
                 // carried through exactly as captured, or null when absent.
                 $item['commercialBreakdown'] = self::sanitizeCommercialBreakdown($raw['commercialBreakdown'] ?? null);
+                // Auditor correction (2026-09-05, "leg-level breakdown
+                // presentation customer view"): the cart quick-view's own
+                // compact "base once + Extensions billed X" shape — see
+                // FamilyTierQuoteItem.cartBreakdown (cost-builder/types.ts)
+                // and sanitizeCartBreakdown() below. Captured/carried
+                // through exactly like commercialBreakdown above, never
+                // re-derived from it.
+                $item['cartBreakdown'] = self::sanitizeCartBreakdown($raw['cartBreakdown'] ?? null);
                 // Request/PDF/email propagation phase: the composable ("Build
                 // Your Own") occupant's own role discriminator — the one field
                 // that was silently dropped by this sanitiser, causing every
@@ -388,6 +396,15 @@ class RequestSchema
                         ? floatval($componentEntry['price'])
                         : null,
                     'inclusions'   => $inclusions,
+                    // Auditor correction (2026-09-05, "leg-level breakdown
+                    // presentation customer view"): computed once by the
+                    // browser at capture time (buildQuotedCommercialBreakdown(),
+                    // cost-builder/PricingTiers.tsx) while live Leg identity
+                    // is still available to pair this component with its own
+                    // predecessor — carried through verbatim, never
+                    // re-derived here (no Leg identity survives sanitization
+                    // to re-derive it from).
+                    'continuesFromPrevious' => !empty($componentEntry['continuesFromPrevious']),
                 ];
             }
 
@@ -405,6 +422,56 @@ class RequestSchema
         }
 
         return $periods === [] ? null : $periods;
+    }
+
+    /**
+     * Auditor correction (2026-09-05, "leg-level breakdown presentation
+     * customer view"): the cart quick-view's own compact "base once +
+     * Extensions billed X" shape — see FamilyTierQuoteItem.cartBreakdown
+     * (cost-builder/types.ts) and buildQuotedCartBreakdown() (cost-builder/
+     * PricingTiers.tsx). Same customer-safety rule as
+     * sanitizeCommercialBreakdown() above: no `source`/`id` at all.
+     *
+     * @param  mixed $raw
+     * @return array{baseInclusions: array<int, array<string, mixed>>, extensionGroups: array<int, array<string, mixed>>}|null
+     */
+    private static function sanitizeCartBreakdown($raw): ?array
+    {
+        if (!is_array($raw)) {
+            return null;
+        }
+
+        $baseInclusions = self::sanitizeCommercialBreakdownInclusions($raw['baseInclusions'] ?? null) ?? [];
+
+        $extensionGroups = [];
+        $rawGroups = $raw['extensionGroups'] ?? null;
+        if (is_array($rawGroups)) {
+            foreach ($rawGroups as $groupEntry) {
+                if (!is_array($groupEntry)) {
+                    continue;
+                }
+                $inclusions = self::sanitizeCommercialBreakdownInclusions($groupEntry['inclusions'] ?? null);
+                if ($inclusions === null) {
+                    continue;
+                }
+                $extensionGroups[] = [
+                    'billingCycle' => isset($groupEntry['billingCycle']) && $groupEntry['billingCycle'] !== null
+                        ? sanitize_text_field((string) $groupEntry['billingCycle'])
+                        : null,
+                    'price'        => isset($groupEntry['price']) && $groupEntry['price'] !== null
+                        ? floatval($groupEntry['price'])
+                        : null,
+                    'heading'      => sanitize_text_field((string) ($groupEntry['heading'] ?? '')),
+                    'inclusions'   => $inclusions,
+                ];
+            }
+        }
+
+        if ($baseInclusions === [] && $extensionGroups === []) {
+            return null;
+        }
+
+        return ['baseInclusions' => $baseInclusions, 'extensionGroups' => $extensionGroups];
     }
 
     /**
@@ -578,10 +645,29 @@ class RequestSchema
                                         'items' => [
                                             'type'       => 'object',
                                             'properties' => [
-                                                'billingCycle' => ['type' => ['string', 'null']],
-                                                'price'        => ['type' => ['number', 'null']],
-                                                'inclusions'   => ['type' => 'array'],
+                                                'billingCycle'           => ['type' => ['string', 'null']],
+                                                'price'                  => ['type' => ['number', 'null']],
+                                                'inclusions'             => ['type' => 'array'],
+                                                'continuesFromPrevious'  => ['type' => 'boolean'],
                                             ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        'cartBreakdown' => [
+                            'type'       => ['object', 'null'],
+                            'properties' => [
+                                'baseInclusions'  => ['type' => 'array'],
+                                'extensionGroups' => [
+                                    'type'  => 'array',
+                                    'items' => [
+                                        'type'       => 'object',
+                                        'properties' => [
+                                            'billingCycle' => ['type' => ['string', 'null']],
+                                            'price'        => ['type' => ['number', 'null']],
+                                            'heading'      => ['type' => 'string'],
+                                            'inclusions'   => ['type' => 'array'],
                                         ],
                                     ],
                                 ],

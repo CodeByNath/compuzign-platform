@@ -2,8 +2,8 @@ import { useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import type { LegPaymentSummary, QuotedBreakdownInclusion, QuotedBreakdownPeriod } from '@/utils/paymentSummary';
-import type { CommercialLegPeriod, CommercialLegPricedItem, PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
+import type { LegPaymentSummary } from '@/utils/paymentSummary';
+import type { CommercialLegComponent, CommercialLegPeriod, PricingEditionOption, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import type { QuoteItemTierId } from './types';
 
 export interface EffectiveTierDisplay {
@@ -243,55 +243,15 @@ export function buildLegPaymentSummaries(
 // @/utils/paymentSummary (CRM-1C) — extracted so Admin Print can use them
 // without importing this whole customer pricing UI component tree.
 
-// Auditor correction (2026-09-05, "leg-level breakdown presentation"):
-// deliberately drops item.item_id — a Rate Sheet item key — since this
-// snapshot is submitted/persisted/returned to the customer verbatim (see
-// QuotedBreakdownInclusion's own docblock, @/utils/paymentSummary).
-function mapBreakdownInclusion(item: CommercialLegPricedItem): QuotedBreakdownInclusion {
-  return {
-    label: item.label,
-    quantity: item.quantity,
-    unitPrice: item.unit_price,
-    lineTotal: item.line_total,
-    includes: item.includes ? item.includes.map(mapBreakdownInclusion) : null,
-  };
-}
-
-// Preserves every Period/component/inclusion occurrence from the resolved
-// CommercialLegPeriod[] EXACTLY ONCE — the deliberate opposite of
-// buildLegPaymentSummaries() above (which deduplicates by component.source
-// into one continuous stream, discarding component.items entirely) and
-// never commercialLegInclusionGroups()'s (FamilyTierAdapter.tsx) first-
-// seen-wins live-display shape either — both exist to answer a different
-// question, and neither retains which specific inclusion, at what
-// quantity/unit price/line total, produced a given Period's charge. This is
-// the one place that preserves it, captured once at Add-to-Quote time (see
-// FamilyTierAdapter.tsx's itemFor(), ComposableOfferBrowser.tsx's
-// buildComposableFamilyTierQuoteItem()) so customer-facing surfaces can
-// EXPLAIN — not just state — a quoted charge, without ever re-resolving
-// live catalog/Rate Sheet data. Stays here (not @/utils/paymentSummary,
-// where its own return type lives) for the exact same reason
-// buildLegPaymentSummaries() does: it consumes raw CommercialLegPeriod[],
-// which only ever exists during live resolution — Admin Print and every
-// other durable-snapshot consumer only ever sees the already-built result
-// on FamilyTierQuoteItem.commercialBreakdown, never these raw Periods.
-export function buildQuotedCommercialBreakdown(periods: CommercialLegPeriod[]): QuotedBreakdownPeriod[] {
-  return periods.map((period) => ({
-    fromMonth: period.from_month,
-    toMonth: period.to_month,
-    components: period.components
-      .filter((component) => component.available)
-      .map((component) => ({
-        // component.source (a Leg Platform ID) deliberately dropped — see
-        // QuotedBreakdownComponent's own docblock. Distinct component
-        // occurrences are identified by snapshot position when rendering
-        // (disclosureRowsForFamilyTierItem(), InclusionDisclosure.tsx).
-        billingCycle: component.billing_cycle,
-        price: component.price,
-        inclusions: component.items.map(mapBreakdownInclusion),
-      })),
-  }));
-}
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "incomplete View Details parity"):
+// buildQuotedCommercialBreakdown()/buildQuotedCartBreakdown() (and their
+// mapBreakdownInclusion()/sameLiveComposition() helpers) relocated to
+// @/utils/commercialLegPresentation — PlanDetailsModal.tsx (package-
+// builder) needed the exact same sameComposition()/commercialLegInclusion
+// Groups()/commercialLegExtensionGroups() rules these builders depend on,
+// and a prior round hand-copied those rules here instead of sharing one
+// definition with the package-builder files that already own them.
 
 // Price-line suffix for the two cycles the shared formatCycleLabel()
 // (utils/format.ts) doesn't cover — 'upfront' isn't in its map at all, and

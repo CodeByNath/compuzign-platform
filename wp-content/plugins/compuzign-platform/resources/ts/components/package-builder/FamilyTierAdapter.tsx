@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, buildLegPaymentSummaries, buildQuotedCommercialBreakdown, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
+import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, buildLegPaymentSummaries, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
-import { periodLabel, availablePeriodComponents, availableComponents, componentPaymentName, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
+import {
+  periodLabel, availablePeriodComponents, availableComponents, componentPaymentName, PLAN_BILLING_CYCLE_LABELS,
+  commercialLegInclusionGroups, commercialLegExtensionGroups, extensionHeading,
+  buildQuotedCommercialBreakdown, buildQuotedCartBreakdown,
+} from '@/utils/commercialLegPresentation';
+export { commercialLegInclusionGroups, commercialLegExtensionGroups } from '@/utils/commercialLegPresentation';
+export type { CommercialLegInclusionGroup, CommercialLegExtensionGroup } from '@/utils/commercialLegPresentation';
 import { PlanDetailsModal } from './PlanDetailsModal';
 import { ComposableOfferBrowser } from './ComposableOfferBrowser';
 
@@ -85,86 +91,15 @@ function periodPriceOverride(period: CommercialLegPeriod | null, declaredInclusi
   };
 }
 
-// One resolved commercial identity's (Default or one Additional Leg) own
-// billing cadence + claimed inclusions, collapsed to a SINGLE entry no
-// matter how many resolved Periods that same `source` appears active in —
-// Phase 2 of the focused Tier/Edition inclusion blueprint (see the Phase 1
-// audit report). Grouping key is component.source alone, never billing_cycle
-// (two different Legs sharing a cadence stay two groups) and never Default-
-// vs-Additional classification (deliberately out of scope this phase).
-export interface CommercialLegInclusionGroup {
-  source: string;
-  billingCycle: string | null;
-  items: CommercialLegPricedItem[];
-}
-
-// First-seen-wins per source is safe, not an unproven shortcut: a Leg's own
-// billing_cycle and claimed items[] are built ONCE from the container's
-// static declaration (PackageManagerSchema::commercialLegTimelineChildren()
-// / bucketRateSheetItemsByCommercialLegChild()) — every Period only decides
-// WHETHER that Leg is active, never re-derives what it claims. So every
-// repeated appearance of the same source is structurally guaranteed
-// identical; there is nothing to reconcile between them.
-export function commercialLegInclusionGroups(periods: CommercialLegPeriod[]): CommercialLegInclusionGroup[] {
-  const groups: CommercialLegInclusionGroup[] = [];
-  const seen = new Set<string>();
-  for (const component of availableComponents(periods)) {
-    if (seen.has(component.source)) continue;
-    seen.add(component.source);
-    groups.push({ source: component.source, billingCycle: component.billing_cycle, items: component.items });
-  }
-  return groups;
-}
-
-// Focused-card "Extensions" — Phase 5C. Same shape as CommercialLegInclusionGroup
-// (a distinct name only so a future renderer reads as Extension-specific,
-// never a second interface to keep in sync).
-export type CommercialLegExtensionGroup = CommercialLegInclusionGroup;
-
-// Headline-Leg-relative, not "any two Legs collide": the Headline Leg
-// (component.source === headlineLegId — the same real Leg resolveHeadlinePrice()
-// already resolves the card's own headline price/cycle from) is the one
-// fixed reference point every other Leg is compared against. An Other Leg
-// is an Extension candidate only if IT SPECIFICALLY overlaps the Headline
-// Leg in some resolved Period (never a generic pairwise collision among
-// arbitrary Legs); once eligible, only its differences/additions relative
-// to the Headline Leg's own items[] (by exact item_id) are shown — an item
-// identical to the Headline Leg's own claim (same item_id, same quantity)
-// is already fully explained there and is never repeated as an Extension.
-export function commercialLegExtensionGroups(
-  periods: CommercialLegPeriod[],
-  headlineLegId: string | null | undefined,
-): CommercialLegExtensionGroup[] {
-  if (!headlineLegId) return [];
-  const legGroups = commercialLegInclusionGroups(periods);
-  const headlineGroup = legGroups.find((group) => group.source === headlineLegId);
-  if (!headlineGroup) return [];
-  const headlineItemsById = new Map(headlineGroup.items.map((item) => [item.item_id, item]));
-
-  // Other Leg sources that are available in the SAME resolved Period as the
-  // Headline Leg — Headline <-> Other only, read straight off activePeriods.
-  const overlappingOtherSources = new Set<string>();
-  for (const period of periods) {
-    const availableSources = availablePeriodComponents(period).map((component) => component.source);
-    if (!availableSources.includes(headlineLegId)) continue;
-    for (const source of availableSources) {
-      if (source !== headlineLegId) overlappingOtherSources.add(source);
-    }
-  }
-
-  const groups: CommercialLegExtensionGroup[] = [];
-  for (const group of legGroups) {
-    if (group.source === headlineLegId) continue; // the Headline Leg is the baseline, never its own Extension
-    if (!overlappingOtherSources.has(group.source)) continue; // never overlaps the Headline Leg -> no Extension group at all
-    const items = group.items.filter((item) => {
-      const headlineItem = headlineItemsById.get(item.item_id);
-      return !headlineItem || headlineItem.quantity !== item.quantity; // addition (Headline doesn't claim it) or a differing quantity
-    });
-    if (items.length === 0) continue;
-    groups.push({ source: group.source, billingCycle: group.billingCycle, items });
-  }
-  return groups;
-}
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "incomplete View Details parity"):
+// CommercialLegInclusionGroup/commercialLegInclusionGroups()/
+// CommercialLegExtensionGroup/commercialLegExtensionGroups() relocated to
+// @/utils/commercialLegPresentation — the durable customer snapshot
+// builder (buildQuotedCartBreakdown(), same file) needed this exact rule
+// too, and a prior round hand-copied it there instead of sharing one
+// definition. Re-exported above so every existing importer of this file
+// (contract scripts included) keeps working unchanged.
 
 // Short, subordinate explanation of one component's own calculation rhythm
 // — the same billing-cycle vocabulary componentPaymentName() (see
@@ -268,27 +203,8 @@ function planBillingSummary(components: CommercialLegComponent[]): string {
   return labels.join(' + ');
 }
 
-// Extension group heading — "Extensions billed {cycle}" (e.g. "Extensions
-// billed Annually"). A fourth, deliberately separate cycle-word map: neither
-// billingWording() ('Billed annually'/'One-time Payment' — full sentences,
-// wrong shape for this heading) nor PLAN_BILLING_CYCLE_LABELS above (collapses
-// annual/annually to 'Annual', not the 'Annually' this heading needs) fits
-// verbatim. Same never-leak-the-raw-cycle-string rule as every other map in
-// this file: an unmapped/null cycle falls back to the bare 'Extensions'
-// heading, never the raw backend string.
-const EXTENSION_BILLING_CYCLE_LABELS: Record<string, string> = {
-  monthly: 'Monthly',
-  annual: 'Annually',
-  annually: 'Annually',
-  quarterly: 'Quarterly',
-  'one-time': 'One-time',
-  upfront: 'Upfront',
-};
-
-function extensionHeading(billingCycle: string | null): string {
-  const label = billingCycle !== null ? EXTENSION_BILLING_CYCLE_LABELS[billingCycle] : undefined;
-  return label ? `Extensions billed ${label}` : 'Extensions';
-}
+// extensionHeading() relocated to @/utils/commercialLegPresentation
+// alongside commercialLegExtensionGroups() above.
 
 // One selectable destination on the cue-ball selector below — `id: null` is
 // the Tier's own permanent Default declaration, matching the exact
@@ -640,6 +556,18 @@ export function FamilyTierAdapter({
     const commercialBreakdown = activeCommercialLegs
       ? buildQuotedCommercialBreakdown(activeCommercialLegs)
       : null;
+    // Auditor correction (2026-09-05, "leg-level breakdown presentation
+    // customer view"): the cart quick-view's own compact shape, captured
+    // alongside commercialBreakdown above from the SAME activeCommercialLegs
+    // — same Headline Leg pointer used elsewhere in this file (focusedHeadlineLegId)
+    // and by TierCard's own resolveHeadlinePrice() (PricingTiers.tsx), never
+    // a second/independent resolution of "which Leg is headline."
+    const headlineLegId = effective.selectedEdition
+      ? effective.selectedEdition.headline_leg_id
+      : tierData?.headline_leg_id;
+    const cartBreakdown = activeCommercialLegs
+      ? buildQuotedCartBreakdown(activeCommercialLegs, headlineLegId ?? null)
+      : null;
     return {
       offer_type: 'family_tier',
       familyId: family.family_id,
@@ -663,6 +591,7 @@ export function FamilyTierAdapter({
       planDurationMonths,
       legPaymentSummaries,
       commercialBreakdown,
+      cartBreakdown,
     };
   };
 

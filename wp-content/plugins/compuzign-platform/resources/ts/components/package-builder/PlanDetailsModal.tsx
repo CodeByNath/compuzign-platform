@@ -1,9 +1,14 @@
 import { useEffect, useRef } from 'preact/hooks';
-import { buildLegPaymentSummaries, cycleSuffix } from '@/components/cost-builder/PricingTiers';
+import type { ComponentChildren } from 'preact';
+import { buildLegPaymentSummaries } from '@/components/cost-builder/PricingTiers';
 import { computeTotalContractValue } from '@/utils/paymentSummary';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
-import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem } from '@/api/types/cost-builder';
-import { availablePeriodComponents, PLAN_BILLING_CYCLE_LABELS } from './commercialLegPresentation';
+import type { CommercialLegPeriod, CommercialLegPricedItem } from '@/api/types/cost-builder';
+import {
+  frequencyLabel, formatMoney, customerFacingRange, buildQuotedCommercialBreakdown, periodBreakdownRows,
+} from '@/utils/commercialLegPresentation';
+export { formatMoney } from '@/utils/commercialLegPresentation';
+import type { PeriodBreakdownRow } from '@/utils/commercialLegPresentation';
 
 // Phase 7 — View Plan Details popup. Presentation only: every number here is
 // read straight from the SAME resolved Periods/components/items the focused
@@ -37,66 +42,14 @@ export type PlanDetailsContentProps = Omit<PlanDetailsModalProps, 'onClose'>;
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-// Cents-precise currency — deliberately NOT utils/format.ts's formatPrice()
-// (which rounds to whole dollars for the card/summary price displays
-// elsewhere). This popup's own per-item Unit Price/Total figures are
-// genuinely sub-dollar (see e.g. a $0.05 unit price) and would silently
-// round to $0 under that helper, misstating a real line item — so this is a
-// second formatter covering a different display need, not a duplicate of
-// the same one.
-export function formatMoney(value: number | null): string {
-  if (value === null) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-// Spelled-out cadence suffix ("/ month", "/ year") for this document-style
-// popup's own longer-form copy — the focused shell's compact stage cards use
-// cycleSuffix()'s abbreviated "/ mo"/"/ yr" instead (see
-// commercialLegPresentation.ts); one-time/upfront already read as full words
-// there ('/ once', '/ upfront'), so those fall through to it unchanged.
-const LONG_CADENCE_SUFFIX: Record<string, string> = {
-  monthly: '/ month',
-  annual: '/ year',
-  annually: '/ year',
-  quarterly: '/ quarter',
-};
-
-function billingSuffixLong(cycle: string | null): string {
-  if (cycle === null) return '';
-  return LONG_CADENCE_SUFFIX[cycle] ?? cycleSuffix(cycle);
-}
-
-function priceWithCadence(price: number | null, cycle: string | null): string {
-  const suffix = billingSuffixLong(cycle);
-  return suffix ? `${formatMoney(price)} ${suffix}` : formatMoney(price);
-}
-
-// Phase 7B: customer-facing month range — this popup's own presentation
-// only, never the resolver's/backend's raw from_month/to_month values,
-// which are untouched everywhere else (the left timeline's own stage
-// headers still read periodLabel() in commercialLegPresentation.ts
-// unchanged; this is a separate, Plan-Details-only formatter so that
-// unrelated surface is never affected).
-//
-// A technical `0` start reads to a customer as if it were itself a whole
-// extra month inside a range ("0–48" looks like 49 months against a
-// 48-month commitment) — "Plan start" replaces the bare 0 instead. Every
-// other start month is unambiguous as a plain number. The end side stays a
-// real month number (or "Ongoing" for a still-open range) either way; it
-// only needs its own "Month" word when the start side didn't already
-// supply one (i.e. "Plan start–Month 10", vs "Month 11–48" where "Month"
-// is read once for the whole range).
-function customerFacingRange(from: number, to: number | null): string {
-  const startsAtPlanStart = from === 0;
-  const startLabel = startsAtPlanStart ? 'Plan start' : `Month ${from}`;
-  const endLabel = to === null ? 'Ongoing' : (startsAtPlanStart ? `Month ${to}` : `${to}`);
-  return `${startLabel}–${endLabel}`;
-}
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "incomplete View Details parity"): formatMoney,
+// billingSuffixLong/priceWithCadence, customerFacingRange, sameComposition,
+// and frequencyLabel relocated to @/utils/commercialLegPresentation — the
+// durable PDF/Review/customer View-Print/email rendering needed this exact
+// same Billing Breakdown by Period semantic, and a prior round hand-copied
+// it there instead of sharing one definition. formatMoney is re-exported
+// above so every existing importer of this file keeps working unchanged.
 
 const CADENCE_WORD: Record<string, string> = {
   monthly: 'month',
@@ -104,30 +57,6 @@ const CADENCE_WORD: Record<string, string> = {
   annual: 'year',
   annually: 'year',
 };
-
-// Same payment/inclusion composition as another component of the SAME
-// source — billing_cycle, price, and every claimed item (id/quantity/unit
-// price/line total) all identical. Used only to decide whether a Period's
-// rendered breakdown for this component is a genuine repeat of the
-// IMMEDIATELY PRECEDING Period's own (never any earlier one, never a
-// same-Period different-source comparison) — never a resolver-level
-// dedupe, never merges/changes what's rendered elsewhere.
-function sameComposition(a: CommercialLegComponent, b: CommercialLegComponent): boolean {
-  if (a.billing_cycle !== b.billing_cycle || a.price !== b.price) return false;
-  if (a.items.length !== b.items.length) return false;
-  return a.items.every((item, i) => {
-    const other = b.items[i];
-    return other
-      && item.item_id === other.item_id
-      && item.quantity === other.quantity
-      && item.unit_price === other.unit_price
-      && item.line_total === other.line_total;
-  });
-}
-
-function frequencyLabel(cycle: string | null): string {
-  return cycle !== null ? (PLAN_BILLING_CYCLE_LABELS[cycle] ?? 'Payment') : 'Payment';
-}
 
 // Phase 8H: three distinct value states a resolved commercial amount can be
 // in — a genuinely known finite number (formatMoney handles this, including
@@ -194,20 +123,9 @@ export function dueAtPlanStartDisplay(summaries: LegPaymentSummary[], planStartM
   return formatMoney(dueAtStart);
 }
 
-// Phase 7C: Payment Category — the exact same billing_cycle-derived
-// synthesis the admin Pricing Rules/Edition editors already use
-// (paymentCategoryOf() in TierPricingRulesEditor.tsx /
-// TierEditionOverviewFields.tsx: "No separate stored field: derived from
-// billing_cycle itself"). billing_cycle stays the one source of truth; no
-// payment_category field added anywhere. The one addition beyond the raw
-// admin rule: a `null` cycle is never confidently called Fixed or
-// Recurring, same neutral-fallback convention frequencyLabel() above and
-// componentPaymentName() (commercialLegPresentation.ts) already use for a
-// null cycle.
-function paymentCategoryLabel(cycle: string | null): string {
-  if (cycle === null) return 'Payment';
-  return cycle === 'one-time' || cycle === 'upfront' ? 'Fixed payment' : 'Recurring payment';
-}
+// paymentCategoryLabel() relocated to @/utils/commercialLegPresentation —
+// periodBreakdownRows() there calls it directly; this file no longer needs
+// its own copy for the Billing Breakdown by Period section.
 
 // Phase 7D: Payment Timing's own single-point month mentions — the same
 // customer-facing "don't show a raw 0" semantic customerFacingRange()
@@ -266,6 +184,85 @@ function paymentTimingSentence(
   }
 
   return `${label} Payment: ${price} charged ${pointInPlanPhrase(first)}, then again in ${monthsPhrase(rest)}.`;
+}
+
+// Auditor correction (2026-09-05, "leg-level breakdown presentation
+// customer view" follow-up "incomplete View Details parity"): renders the
+// shared periodBreakdownRows() output — reconstructs the exact same
+// wrapper structure the original hand-written JSX produced (one
+// .details-period div per Period, consecutive 'inclusion' rows grouped
+// under one .details-table-wrap/table with ItemBreakdownTable's own Item
+// Included/Quantity/Unit Price/Total header, closed at the next
+// non-inclusion row or the end of the Period).
+function renderPeriodBreakdownRows(rows: PeriodBreakdownRow[], formatMoneyFn: (value: number | null) => string) {
+  const periodsOut: ComponentChildren[] = [];
+  let currentPeriodKey: string | null = null;
+  let currentPeriodChildren: ComponentChildren[] = [];
+  let pendingInclusions: Extract<PeriodBreakdownRow, { kind: 'inclusion' }>[] = [];
+
+  const flushTable = () => {
+    if (pendingInclusions.length === 0) return;
+    const tableRows = pendingInclusions;
+    pendingInclusions = [];
+    currentPeriodChildren.push(
+      <div class="cz-package-builder__details-table-wrap" key={`table:${tableRows[0].id}`}>
+        <table class="cz-package-builder__details-table">
+          <thead>
+            <tr>
+              <th>Item Included</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableRows.map((row) => (
+              <tr key={row.id} class={row.isChild ? 'cz-package-builder__details-table-row--child' : undefined}>
+                <td class={row.isChild ? 'cz-package-builder__details-table-child-label' : undefined}>{row.label}</td>
+                <td>{row.quantity ?? ''}</td>
+                <td>{row.isChild ? 'Included' : formatMoneyFn(row.unitPrice)}</td>
+                <td>{row.isChild ? 'Included' : formatMoneyFn(row.lineTotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>,
+    );
+  };
+
+  const flushPeriod = () => {
+    flushTable();
+    if (currentPeriodKey !== null) {
+      periodsOut.push(<div class="cz-package-builder__details-period" key={currentPeriodKey}>{currentPeriodChildren}</div>);
+    }
+    currentPeriodChildren = [];
+  };
+
+  for (const row of rows) {
+    if (row.kind === 'periodHeading') {
+      flushPeriod();
+      currentPeriodKey = row.id;
+      currentPeriodChildren.push(<h5 class="cz-package-builder__details-period-heading" key={row.id}>{row.label}</h5>);
+      continue;
+    }
+    if (row.kind === 'inclusion') {
+      pendingInclusions.push(row);
+      continue;
+    }
+    flushTable();
+    if (row.kind === 'periodPaymentFact') {
+      currentPeriodChildren.push(<p class="cz-package-builder__details-fact" key={row.id}><strong>{row.label}:</strong> {row.value}</p>);
+    } else if (row.kind === 'componentNote') {
+      currentPeriodChildren.push(<p class="cz-package-builder__details-fact" key={row.id}><strong>{row.cadenceLabel}:</strong> {row.statusText}</p>);
+    } else if (row.kind === 'componentTableLabel') {
+      currentPeriodChildren.push(<p class="cz-package-builder__details-table-label" key={row.id}>{row.text}</p>);
+    } else if (row.kind === 'componentTotal') {
+      currentPeriodChildren.push(<p class="cz-package-builder__details-table-total" key={row.id}>{row.label}: {row.value}</p>);
+    }
+  }
+  flushPeriod();
+
+  return periodsOut;
 }
 
 function ItemBreakdownTable({ items, cycle }: { items: CommercialLegPricedItem[]; cycle: string | null }) {
@@ -361,66 +358,17 @@ export function PlanDetailsContent({
 
           <section class="cz-package-builder__details-section">
             <h4 class="cz-package-builder__details-heading">Billing Breakdown by Period</h4>
-            {periods.map((period, index) => {
-              const components = availablePeriodComponents(period);
-              if (components.length === 0) return null;
-              const recurringCostLine = components
-                .map((component) => priceWithCadence(component.price, component.billing_cycle))
-                .join(' + ');
-              const collision = components.length > 1;
-              const previousComponentsBySource = new Map(
-                (index > 0 ? availablePeriodComponents(periods[index - 1]) : []).map((c) => [c.source, c]),
-              );
-              return (
-                <div class="cz-package-builder__details-period" key={period.from_month}>
-                  <h5 class="cz-package-builder__details-period-heading">{customerFacingRange(period.from_month, period.to_month)}</h5>
-                  {/* Phase 7C: a sole active component gets its own real
-                      Payment Category label (Fixed/Recurring, derived from
-                      its own billing_cycle — never assumed "Recurring" for
-                      a one-time/upfront Leg); multiple simultaneously
-                      active components keep the existing neutral aggregate,
-                      since a mixed Period isn't itself Fixed or Recurring. */}
-                  <p class="cz-package-builder__details-fact">
-                    <strong>{collision ? 'Active payments' : paymentCategoryLabel(components[0].billing_cycle)}:</strong> {recurringCostLine}
-                  </p>
-                  {/* Collision-Period wording only — a sole active component
-                      never gets a standalone "Begins in Month X" line (the
-                      Payment Category line above already says everything a
-                      first/only appearance needs to say). A CONTINUING sole
-                      component still gets this line, though, since that's
-                      the one thing "describe it as continuing unchanged"
-                      requires regardless of collision. */}
-                  {components.map((component) => {
-                    const previous = previousComponentsBySource.get(component.source);
-                    const continuing = previous !== undefined && sameComposition(previous, component);
-                    if (!collision && !continuing) return null;
-                    return (
-                      <p class="cz-package-builder__details-fact" key={component.source}>
-                        <strong>{frequencyLabel(component.billing_cycle)} payment:</strong>{' '}
-                        {continuing
-                          ? `Continues unchanged at ${priceWithCadence(component.price, component.billing_cycle)}`
-                          : `Begins in Month ${period.from_month} at ${priceWithCadence(component.price, component.billing_cycle)}`}
-                      </p>
-                    );
-                  })}
-                  {components.map((component) => {
-                    const previous = previousComponentsBySource.get(component.source);
-                    const continuing = previous !== undefined && sameComposition(previous, component);
-                    if (continuing) return null; // already active with this exact composition last Period — no repeated table
-                    return (
-                      <div key={component.source}>
-                        {collision && (
-                          <p class="cz-package-builder__details-table-label">
-                            {frequencyLabel(component.billing_cycle)} payment breakdown:
-                          </p>
-                        )}
-                        <ItemBreakdownTable items={component.items} cycle={component.billing_cycle} />
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+            {/* Auditor correction (2026-09-05, "leg-level breakdown
+                presentation customer view" follow-up "incomplete View
+                Details parity"): renders from periodBreakdownRows()
+                (@/utils/commercialLegPresentation) — the SAME shared row
+                derivation the durable PDF/Review/customer View-Print/email
+                rendering calls too (periodBreakdownRowsForFamilyTierItem(),
+                cost-builder/InclusionDisclosure.tsx), fed here by first
+                converting this popup's own live periods through
+                buildQuotedCommercialBreakdown() (same file) — never two
+                separate implementations of the same rule. */}
+            {renderPeriodBreakdownRows(periodBreakdownRows(buildQuotedCommercialBreakdown(periods)), formatMoney)}
           </section>
 
           <section class="cz-package-builder__details-section">
