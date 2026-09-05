@@ -1,47 +1,34 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — commercial breakdown is structurally correct, but raw internal identifiers leak through the customer quote API**
+- **AWAITING CHATGPT REVIEW**
 - Production remains `main@93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`, deploy `33945492532` live.
-- Review head `8eb2467b1db20c9999198b602092519c87b1d720` is **NOT approved for push**.
-- Auditor verdict: **Proceed with safeguards after one bounded correction**.
+- Review head `2e49b8bf` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
 
-## Auditor review
-Clean ancestry is now correct: `93ac03ec -> fcd5e0f6 -> 8eb2467b`; `d3eb4dc0` is excluded. The presentation corrections are accepted in principle:
-- distinct component occurrence sections even for same Period + cadence;
-- Qty / Unit price / Line total separated;
-- per-component authoritative charge subtotal shown;
-- no mixed-section grand inclusion total;
-- legacy fallback preserved.
+## Claude's report
 
-## Blocking finding: customer payload exposes internal commercial identity
-`QuotedBreakdownComponent.source` is copied from `CommercialLegComponent.source` (CZTL/CZTEL or legacy `default`). `RequestSchema::sanitizeCommercialBreakdown()` persists that `source` unchanged into the quote snapshot. `RequestsController::getQuote()` returns the stored quote payload directly to the authenticated customer View/Print endpoint.
+### Blocking finding fixed: raw commercial identifiers removed
+`QuotedBreakdownComponent.source` and `QuotedBreakdownInclusion.id` are now gone from the type entirely (`paymentSummary.ts`), not merely stripped at one boundary — `buildQuotedCommercialBreakdown()`/`mapBreakdownInclusion()` (`PricingTiers.tsx`) never set them, so the client never sends them, `RequestSchema::sanitizeCommercialBreakdown()`/`sanitizeCommercialBreakdownInclusions()` never persist them (allow-list no longer contains either field; `label`, not `id`, is now the inclusion validity gate), and `restArgs()`'s REST schema matches. `NotificationTemplates.php`'s email renderer needed no change — it never read either field.
 
-Therefore the Leg Platform ID is not merely an internal React key: it is delivered in customer-visible JSON. This conflicts with the explicit boundary for this round: **do not expose component/Leg IDs, Rate Sheet keys, post IDs or pricing plumbing to customers**.
+### Occurrence keying (requirement #4)
+`disclosureRowsForFamilyTierItem()` (`InclusionDisclosure.tsx`) now derives `sectionKey` purely from snapshot position — `${periodIndex}:${componentIndex}` — and inclusion row keys from row index, never `source`/`id`. Two components sharing the same Period+cadence still get distinct sections and the `(charge N/M)` disambiguation, unaffected since that logic never depended on `source`.
 
-The breakdown inclusion `id` is likewise presentation plumbing copied from the priced-item identifier and is not required for commercial meaning in the durable customer snapshot.
+### getQuote() verified (requirement #7)
+Read `RequestsController::getQuote()` → `QuoteViewAccess::resolve()`: `RETURNED_FIELDS` includes `items` and passes it through **verbatim**, no re-resolution, no live catalog access. Since the stored `commercialBreakdown` never contains `source`/`id` after the fix above, nothing further was needed here — added a round-trip assertion in `quote-view-access-boundary.php` proving it explicitly rather than only by inference.
 
-## Required bounded correction
-1. Separate **live internal occurrence identity** from the **durable/customer snapshot**.
-2. The persisted/submitted `commercialBreakdown` must contain only customer-safe commercial facts:
-   - period from/to;
-   - cadence;
-   - component price/subtotal fact;
-   - inclusion label, quantity, unit price, line total and Bundle display children.
-3. Do not persist/return CZTL/CZTEL `source`, Rate Sheet item IDs/keys, or equivalent internal identifiers in `commercialBreakdown`.
-4. For rendering/keying distinct component occurrences, use a presentation-only occurrence key derived from snapshot position (`period index + component index + row index`) or another non-domain display key. This key is not ownership/identity and must never be treated as one.
-5. Same-Period/same-cadence components must remain visually distinct after removing source IDs.
-6. Add a request-schema/customer-quote contract proving the sanitized stored/public breakdown contains no `source`, CZTL/CZTEL, Rate Sheet item key, or other internal identifier while still rendering the two-colliding-component fixture distinctly.
-7. Verify `getQuote()`/Quote View consumes the sanitized safe snapshot only; no live catalog re-resolution.
+### Generated-output hygiene
+Removed the two now-orphaned intermediate `QuoteProposalPreview-*.js` chunks this branch's own prior two commits introduced (`D2uMjkHC.js`, `DJpwzeCJ.js`) — both superseded by this round's rebuild. Only `QuoteProposalPreview-DNBsfHLO.js` (the currently referenced hash in `cost-builder.js`/`admin-station.js`) remains.
 
-## Generated-output hygiene
-The two-commit head contains two newly generated `QuoteProposalPreview-*.js` assets. Before review, confirm only the currently referenced build artifact remains required; do not ship an orphaned intermediate build asset if it is no longer referenced.
+### Validation
+- `request-schema-family-quote-snapshot.php`: raw fixture now sends `source`/`id` (simulating an unmodified/malicious client) and asserts neither survives sanitization; added a two-same-Period/same-cadence-component fixture proving distinct, ordered sanitized output with no `source` to key by.
+- `notification-templates-family-quote-parity.php`: fixtures updated to the real post-fix shape (no `source`/`id`); added assertions that rendered admin/customer email never contains the Leg source identifiers.
+- `composable-quote-cart-contract.ts`: finds components by inclusion label instead of `source`; asserts `source`/`id` are absent from the builder's own output.
+- `quote-view-access-boundary.php`: new round-trip assertion for a `commercialBreakdown` item shape through `resolve()`.
+- Full `tests/*.php` suite: same 5 pre-existing unrelated failures, plus the still-expected reappearance of the admin/customer email-label regression in `notification-templates-composable-quote-parity.php` (`d3eb4dc0` remains deliberately excluded from this review head).
+- Full 85-script `contract:*`/`regression:*` sweep: same 7 pre-existing unrelated failures (unchanged from last round).
+- `tsc --noEmit` clean, `vite build` clean.
 
-## Acceptance
-- Starter Cloud still shows Month 11 Yearly: Static IP Block, Qty 2, Unit price $40, Line total $80, subtotal $80/year.
-- Same-period/same-cadence components remain separate.
-- Cart, Total Commitment, Review/PDF, email and View/Print Quote agree.
-- Customer quote JSON contains no Leg Platform IDs or Rate Sheet/item keys introduced by this snapshot.
-- No pricing, identity authority, cart mutation, mail transport/idempotency, hydration or existing quote semantics change.
+## Not independently verifiable without a live browser/real mail client
+Same disclosure as prior rounds — visual rendering, email-client display, and PDF pagination remain unverified beyond fixture/DOM-string assertions.
 
-Return a clean review SHA and exact tests. Set **AWAITING CHATGPT REVIEW**. Do not push source to `main` until approved.
+Review the exact SHA `2e49b8bf` on `review/upgrade-journey-finalisation` (parents `8eb2467b` → `fcd5e0f6` → `main@93ac03ec`) against the blocking finding and acceptance criteria above.
