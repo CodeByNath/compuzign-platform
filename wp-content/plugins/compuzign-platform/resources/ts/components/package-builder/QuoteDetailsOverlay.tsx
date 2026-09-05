@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { resolveEffectiveTierDisplay } from '@/components/cost-builder/PricingTiers';
 import { computeTotalContractValue, startingPaymentsByCycle, chargeTypeLabel } from '@/utils/paymentSummary';
 import { formatPrice } from '@/utils/format';
-import { composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
+import { composableCoexistsWithPrimary, isFamilyTierQuoteItem, orderedQuoteItems, quoteItemKey } from '@/utils/quote';
 import { InclusionDisclosureToggle, InclusionDisclosurePanel, disclosureRowsForFamilyTierItem, useSingleOpenDisclosure } from '@/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
@@ -16,14 +16,21 @@ import { PlanDetailsContent, formatMoney } from './PlanDetailsModal';
 // Live-validation correction: EVERY quoted family_tier item — primary AND
 // add-on alike — gets its own plan tab (an earlier round excluded add-ons
 // here and routed them into a separate direct-focus shortcut instead;
-// that bypassed this overlay entirely and was reversed). Total
-// Commitment stays PRIMARY-only, matching the exact population
-// QuoteSummary.tsx's own Contract Value / Initial Payment math already
-// restricts itself to (no canonical finite-contract math exists for
-// add-ons yet) — so the plan tabs and the Total Commitment tab can
-// legitimately describe different populations: every quoted plan has its
-// own Details tab, but only primaries roll up into the cart-level
-// commitment figure.
+// that bypassed this overlay entirely and was reversed).
+//
+// Live-gate correction (2026-09-05, "Complete Total Commitment"): Total
+// Commitment used to filter to primary-only (`!item.isAddon`), on the
+// stated assumption that "no canonical finite-contract math exists for
+// add-ons yet" — that assumption was itself wrong: computeTotalContractValue()/
+// startingPaymentsByCycle() (utils/paymentSummary.ts) are already fully
+// generic over any item's own legPaymentSummaries, with no primary-only
+// special-casing anywhere in either function. Excluding add-ons here just
+// silently under-counted the cart's real combined commitment whenever an
+// add-on carried its own finite Leg schedule. Total Commitment now
+// aggregates the COMPLETE quoted Family population for every Family/Tier
+// system — primary, Upgrade (composable), and add-ons alike, each exactly
+// once — using the exact same per-item helpers, never a second pricing
+// calculator and never inferred from which plan tabs happen to be open.
 
 interface QuoteDetailsOverlayProps {
   items: CartItem[];
@@ -49,8 +56,8 @@ const TOTAL_COMMITMENT_KEY = '__total_commitment__';
 // (item.tierTitle) or Admin/internal representation. `contextItems` need
 // only contain the sibling primary for the SAME Family+Tier-Instance, not
 // literally the whole cart — every call site below already has such a
-// list in scope (the full cart, or Total Commitment's own primary+
-// composable population for every family).
+// list in scope (the full cart, or Total Commitment's own complete
+// primary+Upgrade+add-on population for every family).
 function planDisplayLabel(item: FamilyTierQuoteItem, contextItems: CartItem[], fallback: string): string {
   return composableCoexistsWithPrimary(item, contextItems) ? 'Upgrades' : fallback;
 }
@@ -311,10 +318,15 @@ function TotalCommitmentTab({ items, families, tiers }: { items: FamilyTierQuote
 }
 
 export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onClose }: QuoteDetailsOverlayProps) {
-  // Every quoted plan — primary and add-on alike — gets its own tab.
-  const allFamilyTierItems = items.filter(isFamilyTierQuoteItem);
-  // Total Commitment stays primary-only — see the file header comment.
-  const primaryFamilyTierItems = allFamilyTierItems.filter((item) => !item.isAddon);
+  // Every quoted plan — primary, Upgrade, and add-on alike — gets its own
+  // tab, and (see the file header comment) Total Commitment now aggregates
+  // this exact same complete population, each item exactly once.
+  // orderedQuoteItems() (utils/quote.ts) is the SAME shared hierarchy
+  // derivation QuoteSummary.tsx's cart list uses — reused here rather than
+  // a second hand-sort — so both the tab order and the Total Commitment
+  // breakdown read main plan, then Upgrade, then add-ons, matching the
+  // cart's own presentation.
+  const allFamilyTierItems = orderedQuoteItems(items).filter(isFamilyTierQuoteItem);
 
   const [activeKey, setActiveKey] = useState<string>(
     initialTarget === 'cart' ? TOTAL_COMMITMENT_KEY : quoteItemKey(initialTarget),
@@ -413,7 +425,7 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
           </div>
 
           {activeKey === TOTAL_COMMITMENT_KEY ? (
-            <TotalCommitmentTab items={primaryFamilyTierItems} families={families} tiers={tiers} />
+            <TotalCommitmentTab items={allFamilyTierItems} families={families} tiers={tiers} />
           ) : activeItem?.isComposable ? (
             <ComposablePlanDetails item={activeItem} items={items} />
           ) : activeResolved ? (

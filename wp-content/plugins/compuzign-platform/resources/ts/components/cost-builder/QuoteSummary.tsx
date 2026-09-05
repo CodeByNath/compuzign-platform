@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import { calcQuoteTotals, composableCoexistsWithPrimary, quoteItemKey } from '@/utils/quote';
+import { calcQuoteTotals, composableCoexistsWithPrimary, orderedQuoteItems, quoteItemKey } from '@/utils/quote';
 import { isFamilyTierQuoteItem } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import { InclusionDisclosureToggle, InclusionDisclosurePanel, disclosureRowsForFamilyTierItem, useSingleOpenDisclosure } from './InclusionDisclosure';
@@ -85,6 +85,16 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
   );
   const initialPaymentTotal = startingPayments.reduce((sum, [, amount]) => sum + amount, 0);
 
+  // Live-gate correction (2026-09-05, "cart hierarchy requirement"):
+  // presentation order only — every total/sum above stays derived from the
+  // original `items` prop (order-independent), never this reordered view.
+  // Main plan, then its Upgrade when present, then its add-ons, per
+  // Family/Tier system; unrelated items keep their existing relative
+  // position. See orderedQuoteItems() in utils/quote.ts for the single
+  // shared derivation — never hand-sorted here.
+  const displayItems = orderedQuoteItems(items);
+  const orderedFamilyTierItems = displayItems.filter(isFamilyTierQuoteItem);
+
   return (
     <div class="cz-quote-summary">
       <div class="cz-quote-summary__header">
@@ -111,7 +121,7 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
       </div>
 
       <ul class="cz-quote-summary__list">
-        {items.map((item) => {
+        {displayItems.map((item) => {
           const flatCycleSuffix = formatCycleLabel(item.billingCycle);
           // Phase 5/7: this quoted option's own resolved commercial payment
           // streams (buildLegPaymentSummaries(), captured at Add to Quote
@@ -325,20 +335,23 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
         {/* Nath refinement: ONE cart-level "View details" entry point only
             — the earlier per-item buttons above are gone, so this is now
             the sole way into the quote-details overlay. Opens on the
-            FIRST quoted plan's own tab (cart order — familyTierItems[0]
-            is items.filter() in cart order, the same order
-            QuoteDetailsOverlay's own tab list already follows), never
-            Total Commitment; the customer reaches every other plan tab
-            and Total Commitment by navigating inside that one overlay.
-            Gated on any quoted family_tier item existing (a quoted
-            add-on can never exist without its own primary — confirmed by
-            the cart's whole-Tier-System removal rule — so this is exactly
-            "is there anything to show a plan tab for"). */}
-        {onOpenDetails && familyTierItems.length > 0 && (
+            FIRST quoted plan in HIERARCHY order (main plan first — see
+            orderedFamilyTierItems above), never raw cart-insertion order:
+            a base Tier swap re-appends the replacement primary at the END
+            of `items` (replaceFamilyNormalQuoteItem(), utils/quote.ts), so
+            insertion order could previously land on an add-on's tab
+            instead of the main plan's. Never Total Commitment; the
+            customer reaches every other plan tab and Total Commitment by
+            navigating inside that one overlay. Gated on any quoted
+            family_tier item existing (a quoted add-on can never exist
+            without its own primary — confirmed by the cart's whole-Tier-
+            System removal rule — so this is exactly "is there anything to
+            show a plan tab for"). */}
+        {onOpenDetails && orderedFamilyTierItems.length > 0 && (
           <button
             type="button"
             class="cz-quote-summary__view-details cz-quote-summary__view-details--cart"
-            onClick={() => onOpenDetails(familyTierItems[0])}
+            onClick={() => onOpenDetails(orderedFamilyTierItems[0])}
           >
             View details
           </button>

@@ -92,6 +92,7 @@ import {
   removeFamilyComposableQuoteItem,
   removeFamilyTierSystemQuoteItems,
   classifyQuoteItems,
+  orderedQuoteItems,
 } from '../resources/ts/utils/quote';
 import { computeTotalContractValue } from '../resources/ts/utils/paymentSummary';
 import { buildComposableFamilyTierQuoteItem, buildComposableChoice, seedSelectionFromCartItem, type BrowseRow, type ItemContribution } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
@@ -702,6 +703,99 @@ check(
 check(
   /\.cz-package-builder__composable-row-qty\s*\{[^}]*color:\s*var\(--cz-color-text\)[^}]*background:\s*var\(--cz-color-surface\)/.test(freshCostBuilderCssForIcons),
   'the quantity field carries explicit tokenized text/surface colors — never the browser\'s own default white input background',
+);
+
+// ── 14. Live-gate correction (2026-09-05, "cart hierarchy requirement" +
+//    "Complete Total Commitment" + "Customer email structure") ───────────
+//
+// orderedQuoteItems() (utils/quote.ts) — the exact required regressions
+// named in the coordination doc, exercised directly as a pure function.
+
+check(
+  JSON.stringify(orderedQuoteItems([primary, addonOne])) === JSON.stringify([primary, addonOne]),
+  'main + add-on => main, add-on',
+);
+check(
+  JSON.stringify(orderedQuoteItems([primary, addonOne, composable])) === JSON.stringify([primary, composable, addonOne]),
+  'main + Upgrade + add-on => main, Upgrade, add-on, regardless of the input array\'s own insertion order',
+);
+// The actual reported bug shape: a base-Tier swap re-appends the
+// replacement primary at the END of the array (replaceFamilyNormalQuoteItem()),
+// so a real cart could hold [addon, composable, primary] — insertion-order
+// rendering would show Add-on, Upgrade, Main; hierarchy order must not.
+check(
+  JSON.stringify(orderedQuoteItems([addonOne, composable, primary])) === JSON.stringify([primary, composable, addonOne]),
+  'adding/re-adding the main plan LAST (the base-swap re-append shape) still resolves to main, Upgrade, add-on — hierarchy order is derived from role/identity, never insertion history',
+);
+check(
+  JSON.stringify(orderedQuoteItems([primary, addonOne])) === JSON.stringify([primary, addonOne]),
+  'removing the Upgrade (simply absent from the input) restores main, add-on',
+);
+check(
+  JSON.stringify(orderedQuoteItems([primary, addonTwo, addonOne])) === JSON.stringify([primary, addonTwo, addonOne]),
+  'multiple add-ons preserve their own existing relative order (addonTwo before addonOne here) — never re-sorted amongst themselves',
+);
+{
+  const input = [addonOne, composable, primary];
+  const result = orderedQuoteItems(input);
+  check(
+    result.every((item) => input.includes(item)) && result.length === input.length,
+    'orderedQuoteItems() returns the SAME item references (no cloning, no snapshot rewriting) — a pure presentation reorder',
+  );
+  check(
+    JSON.stringify(input) === JSON.stringify([addonOne, composable, primary]),
+    'orderedQuoteItems() never mutates its own input array',
+  );
+}
+{
+  // A non-Family item must stay exactly where it is relative to a Family
+  // system's own block — this function only reorders WITHIN a system.
+  const legacyServiceItem = {
+    offer_type: 'promotion_tier' as const, serviceId: 501, categoryName: 'Cloud', serviceTitle: 'Legacy Service',
+    tierId: 'basic' as const, tierTitle: 'Basic', price: 20, billingCycle: 'monthly', features: [], isAddon: false,
+  };
+  const mixed = [legacyServiceItem, addonOne, composable, primary];
+  const result = orderedQuoteItems(mixed);
+  check(
+    result[0] === legacyServiceItem,
+    'a non-Family item ahead of a Family system\'s own block stays ahead of it — only the Family system\'s own items reorder amongst themselves',
+  );
+  check(
+    JSON.stringify(result.slice(1)) === JSON.stringify([primary, composable, addonOne]),
+    'the Family system\'s own block still resolves to main, Upgrade, add-on immediately after the untouched legacy item',
+  );
+}
+
+// ── 14b. QuoteSummary.tsx / QuoteDetailsOverlay.tsx wire the SAME shared
+//    helper for cart display order — source-scan (see also
+//    package-builder-addon-focus-contract.ts's own coverage of the
+//    QuoteDetailsOverlay/Total Commitment wiring in more detail). ────────
+
+const freshQuoteSummarySource = readFileSync(resolve(root, 'resources/ts/components/cost-builder/QuoteSummary.tsx'), 'utf8');
+check(
+  freshQuoteSummarySource.includes("displayItems.map((item) => {"),
+  'QuoteSummary.tsx renders its cart list from the hierarchy-ordered displayItems view, never raw items.map(...)',
+);
+check(
+  !/<ul class="cz-quote-summary__list">\s*\{items\.map/.test(freshQuoteSummarySource),
+  'the raw insertion-order items.map(...) render is gone from the cart list',
+);
+
+// ── 14c. Customer email structure — each Family item's own visible
+//    boundary line moved from between its own header and its own
+//    inclusions to AFTER its inclusions, before the next item. ──────────
+
+const notificationTemplatesSource = readFileSync(
+  resolve(root, 'src/Modules/Requests/Notifications/NotificationTemplates.php'),
+  'utf8',
+);
+check(
+  /\$headerBorder = \$inclusionRows === '' \? 'border-bottom:1px solid #f0f0f0;' : '';/.test(notificationTemplatesSource),
+  'emailFamilyRow() only puts the boundary line on its own header row when there are no inclusion rows to trail it',
+);
+check(
+  /padding:0 14px 10px;border-bottom:1px solid #f0f0f0;/.test(notificationTemplatesSource),
+  'emailInclusionItemsList()\'s wrapper <td> — always the last visible row of its own item\'s block — now carries the boundary line',
 );
 
 console.log('Composable quote/cart contract passed.');

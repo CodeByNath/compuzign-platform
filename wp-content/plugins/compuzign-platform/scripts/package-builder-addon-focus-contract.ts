@@ -5,10 +5,11 @@
 // shows "View details" through the SAME Quote Details overlay every
 // primary already uses (an earlier round routed it into a separate
 // direct-focus shortcut instead; that bypassed the overlay and was
-// reversed). QuoteDetailsOverlay now gives every quoted plan — primary
-// AND add-on — its own tab, resolved with fail-closed exact Tier +
-// Edition identity, while Total Commitment stays primary-only (no
-// canonical add-on TCV math exists). Static source checks, matching
+// reversed). QuoteDetailsOverlay now gives every quoted plan — primary,
+// Upgrade, AND add-on — its own tab, resolved with fail-closed exact Tier +
+// Edition identity; Total Commitment (2026-09-05 correction) now aggregates
+// that same complete population instead of a primary-only subset. Static
+// source checks, matching
 // package-builder-regression-lock-contract.ts's own readFileSync style —
 // there is no DOM/CSS-cascade runtime here to assert against directly, so
 // this locks the exact source facts that produce the intended behavior
@@ -67,12 +68,17 @@ check(
   'no per-item button calls onOpenDetails(item) inside the cart list anymore',
 );
 check(
-  /onOpenDetails && familyTierItems\.length > 0/.test(quoteSummarySource),
-  'the one footer "View details" button is gated on any quoted family_tier item existing (not primaryFamilyTierItems — an add-on can never exist without its own primary, so this is exactly "is there a plan to show")',
+  /onOpenDetails && orderedFamilyTierItems\.length > 0/.test(quoteSummarySource),
+  'the one footer "View details" button is gated on any quoted family_tier item existing (an add-on can never exist without its own primary, so this is exactly "is there a plan to show")',
 );
 check(
-  /onClick=\{\(\) => onOpenDetails\(familyTierItems\[0\]\)\}/.test(quoteSummarySource),
-  'the one footer button opens on the FIRST quoted plan (cart order) — never onOpenDetails(null)/Total Commitment',
+  /onClick=\{\(\) => onOpenDetails\(orderedFamilyTierItems\[0\]\)\}/.test(quoteSummarySource),
+  'the one footer button opens on the FIRST quoted plan in HIERARCHY order (main plan first, via orderedQuoteItems() — 2026-09-05 cart hierarchy correction), never raw cart-insertion order, and never onOpenDetails(null)/Total Commitment',
+);
+check(
+  /const displayItems = orderedQuoteItems\(items\);/.test(quoteSummarySource)
+    && /const orderedFamilyTierItems = displayItems\.filter\(isFamilyTierQuoteItem\);/.test(quoteSummarySource),
+  'QuoteSummary.tsx derives its display order and the "View details" target from the SAME shared orderedQuoteItems() helper (utils/quote.ts), never a second hand-sort',
 );
 
 const cartViewDetailsCssMatch = cssSource.match(/\.cz-quote-summary__view-details--cart\s*\{([^}]*)\}/);
@@ -92,27 +98,32 @@ check(
 );
 
 // ── QuoteDetailsOverlay: every quoted plan gets a tab; Total Commitment
-//    stays primary-only; identity resolution fails closed. ─────────────
+//    now aggregates that SAME complete population (2026-09-05 "Complete
+//    Total Commitment" correction — reversing the prior primary-only
+//    filter, which rested on the now-disproven assumption that no
+//    canonical add-on TCV math exists; computeTotalContractValue()/
+//    startingPaymentsByCycle() are fully generic per-item, no primary-only
+//    special-casing anywhere); identity resolution fails closed. ────────
 
 check(
-  /const allFamilyTierItems = items\.filter\(isFamilyTierQuoteItem\);/.test(quoteDetailsOverlaySource),
-  'every quoted family_tier item (primary and add-on) is collected for the tab list',
+  /const allFamilyTierItems = orderedQuoteItems\(items\)\.filter\(isFamilyTierQuoteItem\);/.test(quoteDetailsOverlaySource),
+  'every quoted family_tier item (primary, Upgrade, and add-on) is collected for the tab list, in cart-hierarchy order via the SAME shared orderedQuoteItems() helper QuoteSummary.tsx uses — never a second hand-sort',
 );
 check(
-  /const primaryFamilyTierItems = allFamilyTierItems\.filter\(\(item\) => !item\.isAddon\);/.test(quoteDetailsOverlaySource),
-  'primaryFamilyTierItems is derived from allFamilyTierItems and stays add-on-excluded for Total Commitment',
+  !/primaryFamilyTierItems/.test(quoteDetailsOverlaySource),
+  'the old add-on-excluded primaryFamilyTierItems population is gone — Total Commitment now reads the complete allFamilyTierItems population directly',
 );
 check(
   /allFamilyTierItems\.find\(\(item\) => quoteItemKey\(item\) === activeKey\)/.test(quoteDetailsOverlaySource),
-  'the active tab can resolve to ANY quoted plan (primary or add-on), not only primaries',
+  'the active tab can resolve to ANY quoted plan (primary, Upgrade, or add-on), not only primaries',
 );
 check(
   /allFamilyTierItems\.map\(\(item\) => \{/.test(quoteDetailsOverlaySource),
-  'the tab bar itself renders one tab per quoted plan (primary or add-on)',
+  'the tab bar itself renders one tab per quoted plan (primary, Upgrade, or add-on)',
 );
 check(
-  /<TotalCommitmentTab items=\{primaryFamilyTierItems\}/.test(quoteDetailsOverlaySource),
-  'the Total Commitment tab still only ever sees primary items — no invented add-on TCV math',
+  /<TotalCommitmentTab items=\{allFamilyTierItems\}/.test(quoteDetailsOverlaySource),
+  'the Total Commitment tab now sees the COMPLETE quoted Family population — primary, Upgrade, and add-ons, each exactly once — not a primary-only subset',
 );
 
 // Fail-closed exact identity inside resolvePlanDetails() — isolate the

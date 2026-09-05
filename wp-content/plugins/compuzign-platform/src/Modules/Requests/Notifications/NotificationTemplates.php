@@ -376,8 +376,13 @@ class NotificationTemplates
             }
         }
 
+        // Live-gate correction (2026-09-05, "Customer email structure"): this
+        // wrapper <td> is always the LAST visible row of its own Family
+        // item's block (header row above it, then this) — the boundary line
+        // between one quoted item and the next belongs here, not on the
+        // header row above (see emailFamilyRow()'s own correction comment).
         return "
-          <tr><td colspan=\"2\" style=\"padding:0 14px 10px;\">
+          <tr><td colspan=\"2\" style=\"padding:0 14px 10px;border-bottom:1px solid #f0f0f0;\">
             <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">{$rows}</table>
           </td></tr>";
     }
@@ -490,13 +495,26 @@ class NotificationTemplates
         $priceBlock    = self::emailFamilyStreamsBlock($item);
         $inclusionRows = self::emailInclusionItemsList(self::familyDisplayInclusions($item));
 
+        // Live-gate correction (2026-09-05, "Customer email structure"): root
+        // cause of the reported missing item-to-item separation — this
+        // header row's own border-bottom used to be unconditional, so for
+        // any item WITH an inclusion list it drew a divider line THROUGH the
+        // middle of that one item's own block (between its header and its
+        // own inclusions), while the true boundary — after this item's
+        // inclusions, before the NEXT item's header — carried no line at
+        // all. The header row now only carries the boundary line when there
+        // are no inclusion rows to trail it (emailInclusionItemsList()
+        // itself carries the line in the other case), so every item ends
+        // with exactly one visible divider before the next one starts.
+        $headerBorder = $inclusionRows === '' ? 'border-bottom:1px solid #f0f0f0;' : '';
+
         return "
           <tr>
-            <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;\">
+            <td style=\"padding:11px 14px;{$headerBorder}\">
               <div style=\"font-size:13px;font-weight:600;color:#111;\">{$title}{$badge}</div>
               <div style=\"font-size:11px;color:#999;margin-top:2px;\">{$subtitle}</div>
             </td>
-            <td style=\"padding:11px 14px;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;vertical-align:top;\">
+            <td style=\"padding:11px 14px;{$headerBorder}text-align:right;white-space:nowrap;vertical-align:top;\">
               {$priceBlock}
             </td>
           </tr>{$inclusionRows}";

@@ -68,6 +68,58 @@ export function composableCoexistsWithPrimary(item: FamilyTierQuoteItem, items: 
     && familyTierSystemKey(other) === systemKey);
 }
 
+const ROLE_HIERARCHY_RANK: Record<FamilyTierQuoteItemRole, number> = {
+  primary: 0,
+  composable: 1,
+  addon: 2,
+};
+
+/**
+ * Live-gate correction (2026-09-05, "cart hierarchy requirement"): a
+ * customer-facing, presentation-only reordering of the cart — main plan
+ * first, its Upgrade (composable) second when present, its add-ons last —
+ * deterministic by Family+Tier-system identity and role, never by
+ * insertion history. `QuoteSummary.tsx` previously rendered raw
+ * `items.map(...)`, so an Upgrade added after an add-on (or a base Tier
+ * swap, which re-appends the replaced primary at the END of the array —
+ * see replaceFamilyNormalQuoteItem() above) visibly reordered the list in
+ * a way that tracked WHEN something was added/changed, not what it is.
+ *
+ * A stable sort, never a mutation of `items` itself or of canonical cart
+ * storage: each Family+Tier-system's items are kept together as one block,
+ * positioned wherever that system FIRST appears among the other items in
+ * the array (so unrelated Services/other Family systems keep their own
+ * existing relative position); within a system's own block, items sort by
+ * role (primary, then composable/Upgrade, then addon); items sharing a
+ * block+role (multiple add-ons) keep their original relative order via the
+ * final index tie-break. A non-Family item is its own single-item "system"
+ * (keyed by its own index), so it is untouched relative to every other
+ * item — this function only ever reorders WITHIN a Family+Tier-system's
+ * own cluster.
+ */
+export function orderedQuoteItems(items: CartItem[]): CartItem[] {
+  const systemAnchor = new Map<string, number>();
+  const systemKeyAt = (item: CartItem, index: number): string =>
+    isFamilyTierQuoteItem(item) ? familyTierSystemKey(item) : `__solo__:${index}`;
+  items.forEach((item, index) => {
+    const key = systemKeyAt(item, index);
+    if (!systemAnchor.has(key)) systemAnchor.set(key, index);
+  });
+  const roleRankOf = (item: CartItem): number =>
+    isFamilyTierQuoteItem(item) ? ROLE_HIERARCHY_RANK[resolveQuoteItemRole(item)] : 0;
+
+  return items
+    .map((item, index) => ({ item, index, systemKey: systemKeyAt(item, index) }))
+    .sort((a, b) => {
+      const anchorDiff = systemAnchor.get(a.systemKey)! - systemAnchor.get(b.systemKey)!;
+      if (anchorDiff !== 0) return anchorDiff;
+      const roleDiff = roleRankOf(a.item) - roleRankOf(b.item);
+      if (roleDiff !== 0) return roleDiff;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.item);
+}
+
 export function quoteItemKey(item: CartItem): string {
   if (isFamilyTierQuoteItem(item)) {
     const systemKey = familyTierSystemKey(item);
