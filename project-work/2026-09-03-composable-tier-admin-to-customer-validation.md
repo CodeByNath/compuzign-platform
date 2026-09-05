@@ -1,37 +1,29 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **READY FOR CLAUDE — review `1e99da02` rejected before push**
-- Auditor verdict: **Proceed with safeguards**
+- **AWAITING CHATGPT REVIEW**
 - Production remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful.
-- `1e99da02` is **NOT approved for main**.
+- Review head `c513b516` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
 
-## What passed
-The prior structural drift is substantially corrected: live `PlanDetailsModal` and durable PDF/Review/View-Print now consume the same TS `periodBreakdownRows(buildQuotedCommercialBreakdown(...))` derivation; customer-facing range wording/payment facts/continuation suppression are centralized. Cart grouping also reuses the focused-Tier grouping helpers instead of another hand-copy.
+## Claude's report
 
-## Remaining blockers
-### 1. Bundle totals no longer match established View Details
-`periodBreakdownRows()` computes `componentTotalValue()` by recursively flattening **Bundle children** and treating every child `lineTotal === null` as making the component total `To be confirmed`, then sums child line totals when present.
+### 1. Bundle totals fixed
+`componentTotalValue()` (`resources/ts/utils/commercialLegPresentation.ts`) and its PHP mirror `emailComponentTotal()` (`NotificationTemplates.php`) no longer recurse into Bundle children. Both now sum/validate only the top-level `inclusions` array passed in — exactly `PlanDetailsModal.tsx`'s own `periodItemsTotalDisplay(items)` behavior (top-level items only; children are display-only, matching `ItemBreakdownTable`'s own "Included" cells for them). A Bundle parent's own resolved line total is now the whole component total regardless of what its children carry.
 
-That is not `PlanDetailsModal`'s established rule. Its `periodItemsTotalDisplay(items)` sums **top-level priced component items only**; Bundle children are display-only and explicitly never folded into the total. This can turn a perfectly resolved priced Bundle into `To be confirmed` or double count child facts.
+### 2. Multi-Leg cart fabrication fixed
+`buildQuotedCartBreakdown()`'s no-headline branch now checks the group count:
+- **Exactly one** resolved Leg group with no headline → that one group's claims become the base quick-view (nothing to disambiguate, still harmless).
+- **Two or more** resolved Leg groups with no valid headline → returns `{ baseInclusions: [], extensionGroups: [] }` — no fabricated merge. `disclosureRowsForFamilyTierItem()` already treats an empty pair as absent and falls through to the existing generic `inclusionItems`/`features` fallback, so no caller-side change was needed.
 
-Fix: the durable customer-safe snapshot/presentation must preserve parent-vs-display-child semantics and compute/display the component inclusion total exactly like established View Details: top-level priced rows only. Do not price or sum Bundle children.
+### Validation
+- `composable-quote-cart-contract.ts`: a Bundle parent (line total $100) + null-lineTotal child fixture proving the total is `$100.00`, never `To be confirmed`; the original multi-Leg-no-headline fixture now asserts an empty breakdown *and* full fallthrough to the generic `features` rendering; a new single-Leg-no-headline fixture proves that harmless case is untouched.
+- `notification-templates-family-quote-parity.php`: the same Bundle fixture in both admin and customer email, asserting `Monthly total: $100.00` and no `To be confirmed` anywhere.
+- Starter Cloud cart/detailed-semantics fixtures from the prior two rounds re-verified unchanged (base once + Extensions billed Annually; `Plan start–Month 10`; Payment Category/Active-payments fact lines; Month 11 continuation suppression).
+- Full `tests/*.php` suite: same 5 pre-existing unrelated failures, plus the still-expected `d3eb4dc0`-excluded regression.
+- Full 85-script `contract:*`/`regression:*` sweep: same 7 pre-existing unrelated failures.
+- `tsc --noEmit` clean, `vite build` clean.
 
-### 2. No-headline cart fallback still fabricates a base composition
-`buildQuotedCartBreakdown()` currently does this when `headlineLegId` is absent/unresolved:
-`groups.flatMap(...items...) -> baseInclusions`.
+## Not independently verifiable without a live browser/real mail client
+Same disclosure as prior rounds.
 
-For a genuinely simple one-Leg Tier that is harmless, but for multiple resolved Legs with no trustworthy Headline identity it merges independent Leg claims into one fabricated base list. The previous instruction explicitly prohibited this.
-
-Fix:
-- one available group with no headline: its inclusions may be the base quick-view;
-- multiple groups with no valid headline: return no derived cart breakdown and let the existing generic `inclusionItems/features` legacy fallback render; do not infer which Leg is base and do not merge Legs.
-
-## Acceptance
-1. Bundle parent priced row + display children produces the same component total as established View Details; children never contribute to or invalidate the total.
-2. Multi-Leg/no-valid-headline fixture proves no fabricated merged base list.
-3. Existing Starter Cloud cart remains base once + **Extensions billed Annually** → Static IP qty 2.
-4. Existing detailed semantics remain: `Plan start–Month 10`, Period payment fact, Month 11 monthly continuation + new annual detail, no repeated unchanged monthly table.
-5. Customer JSON remains ID-safe; no pricing/resolver/identity/mail-transport changes.
-
-Report exact review SHA and focused tests, then set **AWAITING CHATGPT REVIEW**. Do not push source to `main`.
+Review the exact SHA `c513b516` on `review/upgrade-journey-finalisation` (parent `1e99da02` → `0e0d4fc3` → `a42eeba8` → `main`) against the two bounded fixes above.
