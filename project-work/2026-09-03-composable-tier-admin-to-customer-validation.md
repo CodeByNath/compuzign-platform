@@ -11,18 +11,29 @@ Fresh quote/PDF `CZ-FP7VKT` shows rejected wording:
 - `PLAN START–MONTH 10`
 - `PLAN START–ONGOING`
 - `Contract Value Ongoing`
-while the established Plan Summary already uses **Until Canceled**.
 
 The cart quick-view presentation is good: base inclusions once + **Extensions billed Annually**. The finalise-quote sidebar instead expands every Family item into the full period breakdown, duplicating detail already available in the PDF/email/View-Print output.
 
-## Required wording contract
+## Required range wording contract
 Customer-facing range formatter must stop using `Plan start–...`.
-- Only when a period/stream begins at the plan start (`from/start = 0`), replace the start-range grammar with **Through**:
-  - finite end: `Through Month 10`, `Through Year 2`, etc., using the existing unit/context available to that surface;
-  - open-ended: use the established **Until Canceled** wording. Do not output `Ongoing` anywhere customer-facing.
-- For later ranges such as `Month 3–11`, keep normal range grammar; never prepend `Through`.
-- Contract Value with any genuinely open-ended contributing charge must display **Until Canceled**, not `Ongoing`.
-- Apply consistently to Plan Details, quote/PDF, customer View/Print, email, cart/finalise quote and any shared customer range/value helper. Do not change resolver/storage semantics (`null` remains the internal open end).
+- Only when a period/stream begins at the plan start (`from/start = 0`):
+  - finite end: `Through Month 10`, `Through Year 2`, etc., using the existing unit/context already owned by that surface;
+  - open-ended: **Until Cancelled**.
+- Later ranges such as `Month 3–11` keep normal range grammar; never prepend `Through`.
+- Do not output customer-facing `Ongoing` for these plan/term displays. Internal `null` remains the resolver/storage open-end representation.
+- Apply through the shared customer range presentation used by Plan Details, quote/PDF, customer View/Print, email and other repeated customer surfaces; do not create per-surface copies.
+
+## Contract Value — narrow correction only
+Do **not** rename Contract Value / Total Contract Value and do **not** change TCV arithmetic.
+
+Keep the existing behavior when the quote is fully finite:
+- all contributing items/streams finite -> show the existing numeric **Total Contract Value** (e.g. `$208,000`).
+
+Only the non-finite fallback wording changes:
+- all contributing items/streams indefinite -> show **Until Cancelled** instead of `Ongoing`;
+- mixed finite + indefinite -> show **Until Cancelled** instead of `Ongoing`.
+
+So the existing `computeTotalContractValue()` null/non-null decision remains authoritative: non-null -> numeric value; null because any contributing stream is open-ended -> **Until Cancelled**. Initial Payment remains numeric and unchanged. This should be a minimal shared presentation change, not a new commitment model.
 
 ## Finalise-quote sidebar correction
 `OrderSummary.tsx` currently renders `FamilyInclusionsList()` with `periodBreakdownRowsForFamilyTierItem()`, causing the screenshot-4 full period dump. This visible sidebar may safely use the same compact Family disclosure semantics as the cart because `QuoteProposalPreview` is separately kept in the DOM specifically for print cloning (`.cz-proposal`) regardless of expand state. Therefore:
@@ -40,9 +51,10 @@ Customer-facing range formatter must stop using `Plan start–...`.
 
 ## Acceptance
 1. Starter Cloud detailed output: `Through Month 10`; Month 11–23 unchanged continuation + annual detail; no `Ongoing`.
-2. Open-ended Upgrade/Add-on: **Until Canceled** (not `Plan start–Ongoing`).
-3. Contract Value: **Until Canceled**.
-4. Finalise sidebar matches compact cart presentation; PDF/email/View-Print remain detailed and unchanged structurally.
-5. Add focused contracts for wording and for print-preview independence from visible sidebar rendering.
+2. Specifically open-ended Upgrade/Add-on range: **Until Cancelled**.
+3. Fully finite Contract Value remains numeric exactly as today.
+4. Mixed or indefinite Contract Value shows **Until Cancelled**; Initial Payment remains numeric.
+5. Finalise sidebar matches compact cart presentation; PDF/email/View-Print remain detailed and unchanged structurally.
+6. Add focused contracts for range wording, finite vs non-finite Contract Value fallback, and print-preview independence from visible sidebar rendering.
 
 Report changed files/tests/clean review SHA and set **AWAITING CHATGPT REVIEW**. Do not push to `main` before review.
