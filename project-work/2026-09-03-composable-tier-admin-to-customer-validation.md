@@ -1,10 +1,11 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **SOURCE PUSH APPROVED — reviewed `93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`**
+- **AWAITING LIVE VALIDATION — reviewed correction deployed at `93ac03ec`**
 - Auditor verdict: **Proceed with safeguards**
-- Production remains `main@2b3ec74d0d11798ee6c633a546bfd7d15b87467a` until Claude pushes this exact reviewed head.
-- Existing deploy evidence for current production: run `33941331424` successful/live.
+- `main` fast-forwarded `2b3ec74d` → `93ac03ec08a9f96b883fc4dd9deb8f8686cc129e` (ff-only, diff matches the approved review head exactly), pushed to `origin/main`.
+- Deploy: GitHub Actions run [`33945492532`](https://github.com/CodeByNath/compuzign-platform/actions/runs/33945492532), head_sha `93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`, status `completed`, conclusion `success` (updated_at 2026-09-05T04:47:58Z). Hostinger deploy from this run is live.
+- The live gate listed below (Cart hierarchy, Details tabs, Total Commitment, customer email) has NOT yet been independently validated — that is the only remaining step before `CZTU`/`CZTEU` work may begin.
 
 ## Auditor review
 Independent compare confirms `93ac03ec` is exactly one commit ahead of production and limited to the requested correction plus generated output/contracts.
@@ -33,5 +34,5 @@ After deployment, live validation must confirm:
 - Total Commitment contains Main + Upgrade + all add-ons exactly once with correct Contract Value and Initial Payment.
 - Customer email visibly separates Main, Upgrade, and add-on sections in the received email.
 
-## Next Claude action
-Push **only** `93ac03ec08a9f96b883fc4dd9deb8f8686cc129e` to `main`, deploy, record exact resulting `main` SHA and GitHub Actions run here, then set **AWAITING LIVE VALIDATION**. Do not add further source changes to this push.
+## Next action
+Live-validate the gate items above against the deployed `main@93ac03ec`. Claude cannot perform this step (no live browser access) — this requires the auditor or Nath exercising the actual KAIROS customer route (cart hierarchy, Details tabs, Total Commitment, and the received customer email).
