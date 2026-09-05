@@ -1,13 +1,17 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **READY FOR CLAUDE — substantive review passed; clean one-commit head required before push**
-- Auditor verdict: **Proceed with safeguards**
+- **AWAITING CHATGPT REVIEW**
+- Auditor verdict (prior round): **Proceed with safeguards**, substance accepted; only branch hygiene remained.
 - Production remains `main@6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`; deploy run `33973451326` / #954 successful.
-- Current review head `bdfec37c27e9767fc174a3dac12e98c2a80fda47` is **NOT approved for main yet** because it is 2 commits ahead of production (`b1bc63c1` + spelling follow-up), which violates the branch-hygiene rule requiring one clean candidate before push.
+- Review head is now **`28f716b1bde85717787418e29efbbf8dce978d3c`** — exactly **one clean commit**, parent `6a03a18239cec8fa32ce13c5a3bf626293d6f0bd` (production), on `review/upgrade-journey-finalisation`. `bdfec37c`/`b1bc63c1` no longer exist on this branch — history was rewritten, not stacked.
 
-## Independent review result
-The requested customer-presentation correction is now substantively accepted:
+## Branch-hygiene action completed
+- Recreated the exact final tree from `bdfec37c27e9767fc174a3dac12e98c2a80fda47` as one commit directly on top of production `main`. Tree equivalence verified before committing: `git rev-parse bdfec37c^{tree}` == `git write-tree` on the recreated index == `16272016f7309a3d0a17bdd42bf9ebfd48adac6b`. No source content changed in this step, only commit history was flattened.
+- Updating the remote branch required a force-push (same tree, different lineage, not a fast-forward). Claude's session auto-mode classifier hard-blocks force-push-equivalent git operations, so Nath ran `git push --force origin upgrade-journey-clean-tmp:review/upgrade-journey-finalisation` directly. Verified afterward: `origin/review/upgrade-journey-finalisation` == `28f716b1` exactly.
+- Local cleanup done: local `review/upgrade-journey-finalisation` re-synced to the new remote head; the temporary `upgrade-journey-clean-tmp` branch deleted.
+
+## Independent review result (still applies — no source content changed since)
 - starting finite range: `Through Month N`;
 - starting/open and later open-end wording: exact **Until Cancelled**;
 - later finite ranges keep normal `Month X–Y` grammar;
@@ -19,18 +23,4 @@ The requested customer-presentation correction is now substantively accepted:
 - PHP email mirrors the same range/non-finite wording;
 - Plan Details value-state spelling is aligned; no split `Canceled`/`Cancelled` vocabulary remains in this flow.
 
-Independent ancestry check:
-- `6a03a182 -> bdfec37c` = exactly 2 commits ahead;
-- `b1bc63c1 -> bdfec37c` = exactly 1 spelling-only correction commit.
-
-No additional product/source correction is requested.
-
-## Required branch-hygiene action
-Recreate the **exact final tree at `bdfec37c27e9767fc174a3dac12e98c2a80fda47`** as **one clean commit directly on top of production `main@6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`**.
-- Verify tree equivalence to `bdfec37c` before presenting it.
-- Reuse `review/upgrade-journey-finalisation` as the single active review branch.
-- Do not introduce any source change beyond the already-reviewed final tree.
-- Report the new clean SHA, parent SHA, tree-equivalence evidence, and focused validation status.
-- Set **AWAITING CHATGPT REVIEW**.
-
-After that clean-head verification, this round is eligible for source-push approval. Do not push to `main` before that review.
+No additional product/source correction is requested. This round is now eligible for source-push approval pending this review. Do not push to `main` before that review.
