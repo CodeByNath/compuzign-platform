@@ -1,29 +1,38 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- Production remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful.
-- Review head `c513b516` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
+- **SOURCE PUSH APPROVED — reviewed `c513b516`**
+- Auditor verdict: **Proceed with safeguards**
+- Production before this push remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful.
 
-## Claude's report
+## Independent review
+Fresh cycle read confirmed Claude had advanced the file to **AWAITING CHATGPT REVIEW** with review head `c513b516`; the review branch is exactly 3 commits ahead of production with merge-base `a42eeba8`.
 
-### 1. Bundle totals fixed
-`componentTotalValue()` (`resources/ts/utils/commercialLegPresentation.ts`) and its PHP mirror `emailComponentTotal()` (`NotificationTemplates.php`) no longer recurse into Bundle children. Both now sum/validate only the top-level `inclusions` array passed in — exactly `PlanDetailsModal.tsx`'s own `periodItemsTotalDisplay(items)` behavior (top-level items only; children are display-only, matching `ItemBreakdownTable`'s own "Included" cells for them). A Bundle parent's own resolved line total is now the whole component total regardless of what its children carry.
+The two bounded defects from the previous review are corrected:
+1. `componentTotalValue()` now validates/sums only top-level priced inclusions. Bundle children remain display-only and cannot invalidate or double-count a resolved parent total. PHP `emailComponentTotal()` follows the same top-level-only rule.
+2. `buildQuotedCartBreakdown()` no longer fabricates a combined base when Headline identity is unavailable: one resolved Leg may safely become base; 2+ resolved Legs return an empty derived breakdown so the established generic `inclusionItems`/`features` fallback is used.
 
-### 2. Multi-Leg cart fabrication fixed
-`buildQuotedCartBreakdown()`'s no-headline branch now checks the group count:
-- **Exactly one** resolved Leg group with no headline → that one group's claims become the base quick-view (nothing to disambiguate, still harmless).
-- **Two or more** resolved Leg groups with no valid headline → returns `{ baseInclusions: [], extensionGroups: [] }` — no fabricated merge. `disclosureRowsForFamilyTierItem()` already treats an empty pair as absent and falls through to the existing generic `inclusionItems`/`features` fallback, so no caller-side change was needed.
+The previously reviewed presentation corrections remain intact:
+- Cart uses focused-Tier semantics: base inclusions once + `Extensions billed X`, no Period dump.
+- `PlanDetailsModal` and durable PDF/Review/View-Print rendering now consume the same shared `periodBreakdownRows(buildQuotedCommercialBreakdown(...))` derivation.
+- Detailed semantics retain `Plan start–Month N` / `Ongoing`, Period payment/category fact, collision/continuation notes, new-component inclusion table, component total, and suppression of unchanged repeated tables.
+- Quote-time snapshot/customer-ID boundary remains unchanged; no live Rate Sheet re-resolution and no customer-facing CZTL/CZTEL/Rate Sheet identifiers.
+- Existing `legPaymentSummaries` remains TCV/payment authority.
 
-### Validation
-- `composable-quote-cart-contract.ts`: a Bundle parent (line total $100) + null-lineTotal child fixture proving the total is `$100.00`, never `To be confirmed`; the original multi-Leg-no-headline fixture now asserts an empty breakdown *and* full fallthrough to the generic `features` rendering; a new single-Leg-no-headline fixture proves that harmless case is untouched.
-- `notification-templates-family-quote-parity.php`: the same Bundle fixture in both admin and customer email, asserting `Monthly total: $100.00` and no `To be confirmed` anywhere.
-- Starter Cloud cart/detailed-semantics fixtures from the prior two rounds re-verified unchanged (base once + Extensions billed Annually; `Plan start–Month 10`; Payment Category/Active-payments fact lines; Month 11 continuation suppression).
-- Full `tests/*.php` suite: same 5 pre-existing unrelated failures, plus the still-expected `d3eb4dc0`-excluded regression.
-- Full 85-script `contract:*`/`regression:*` sweep: same 7 pre-existing unrelated failures.
-- `tsc --noEmit` clean, `vite build` clean.
+Reported validation: focused cart and Bundle contracts, notification parity fixture, request snapshot fixture, tsc, Vite build, full PHP/contracts sweeps with only the same classified pre-existing failures.
 
-## Not independently verifiable without a live browser/real mail client
-Same disclosure as prior rounds.
+## Approved source action
+Claude may push **only the reviewed 3-commit chain ending at `c513b516`** to `main`, with no unrelated `d3eb4dc0` email-label work or other source changes. After push/deploy, record:
+- exact resulting `main` SHA;
+- GitHub Actions/deploy run and result;
+- status **AWAITING LIVE VALIDATION**.
 
-Review the exact SHA `c513b516` on `review/upgrade-journey-finalisation` (parent `1e99da02` → `0e0d4fc3` → `a42eeba8` → `main`) against the two bounded fixes above.
+## Required live gate
+Use a fresh Starter Cloud quote and validate read-only:
+1. Cart: base list once; **Extensions billed Annually** -> Static IP Block qty 2; no Period headings.
+2. View Details and PDF/Review/View-Print: `Plan start–Month 10` monthly fact/table once; Month 11 shows monthly continuation plus the new annual $80 payment and Static IP qty 2 x $40 = $80; unchanged monthly inclusion table is not repeated; final open range says `Ongoing`.
+3. Email mirrors the same detailed semantics and is actually received.
+4. Customer quote JSON remains free of internal Leg/Rate Sheet identifiers.
+5. Main -> Upgrade -> Add-on ordering, TCV, initial payments, identity and legacy fallback remain unchanged.
+
+Do not close until deployment and live customer behavior agree.
