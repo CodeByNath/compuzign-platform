@@ -1,68 +1,51 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **READY FOR CLAUDE — payment-leg attribution missing from customer outputs**
+- **READY FOR CLAUDE — preserve period/leg inclusion attribution in quote snapshots**
 - Auditor verdict: **Stop — commercial presentation is incomplete**
-- Validated deployed source: `main@93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`
-- Deploy run `33945492532` remains successful/live.
-- Browser/email validation date: 2026-09-05.
+- Validated production: `main@93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`, deploy `33945492532` live.
+- Prior email-delivery concern is closed for this validation instance: real customer email received. Do not change mail transport/idempotent-send behavior.
 
-## Delivery incident result
-A real customer HTML email has now been received. That closes the prior “missing email” runtime gate for this validation instance. Preserve the existing durable-request/idempotent-send behavior and do not modify mail transport or retry semantics for the presentation issue below.
+## Live defect
+Starter Cloud shows Monthly `$156.50`, Yearly `$80`, Total `$7,592`, but cart disclosure, Review/PDF, received email, customer View/Print Quote and Total Commitment expose only a generic inclusion list. They do not explain that the yearly charge beginning Month 11 is **Static IP Block (8 IPs, 5 usable), qty 2 x $40 = $80/year**.
 
-## Architecture and non-change boundaries
-Use the existing authoritative Commercial Legs / Billing Breakdown by Period data. Do not infer yearly attribution from summary totals, duplicate the pricing engine, flatten payment legs, change Rate Sheet facts, alter cart authority, or rewrite identity.
+View Details -> Billing Breakdown by Period already has the authoritative explanation. Customer outputs must preserve it.
 
-A single inclusion may participate in multiple payment legs with different cadence, effective period, quantity, unit price, and total. Customer outputs must preserve those distinctions and count every leg exactly once.
+## Auditor architecture correction before implementation
+Current snapshot shapes are insufficient:
+- `FamilyTierQuoteItem.inclusionItems` is one generic flattened inclusion snapshot.
+- `LegPaymentSummary` deliberately deduplicates by `component.source` across Periods and contains no inclusion rows.
+- `buildLegPaymentSummaries()` therefore cannot recover period-level inclusion attribution later.
+- Durable customer quote view/Request rendering must not re-resolve live Family/Rate Sheet catalog data after submission.
 
-## Live finding
-The selected Starter Cloud quote shows:
+Therefore **do not try to reconstruct this presentation from `legPaymentSummaries`, `inclusionItems`, headline totals, or current live catalog data**.
 
-- Monthly: $156.50
-- Yearly: $80
-- Total: $7,592
+Create an **additive quoted commercial-breakdown snapshot** at the existing Add-to-Quote/preview boundary, sourced directly from the already-resolved `CommercialLegPeriod[]` for the exact Tier/Edition/Upgrade selection. Preserve, per period and available component:
+- from/to month;
+- component source internally for stable grouping only;
+- billing cadence;
+- component price/subtotal fact;
+- each priced inclusion's label, quantity, unit price, line total, Bundle display children where already projected.
 
-However, the cart inclusion dropdown, PDF/preview, received email, and linked customer **View / Print Quote** show only one generic inclusion list. They do not explain which inclusion, quantity, price, or effective period produces the $80 yearly charge.
+Do not expose component/Leg IDs or Rate Sheet keys to customers. Do not replace existing `legPaymentSummaries`; they remain the compact payment/TCV snapshot. This new field explains those numbers.
 
-The existing **View Details → Billing Breakdown by Period** contains the missing authoritative explanation. In the observed composition:
+Do **not** use `commercialLegInclusionGroups()` as the persistence shape: it intentionally first-seen-deduplicates each Leg source and drops Period boundaries. A display helper may consume the new snapshot, but the stored snapshot must retain the original period/component occurrences exactly once.
 
-- **Plan start–Month 10:** monthly inclusions produce $156.50/month.
-- **Month 11–23:** monthly payment continues at $156.50/month and an annual payment begins at $80/year.
-- The annual breakdown attributes that leg to **Static IP Block (8 IPs, 5 usable)**, quantity 2, unit price $40, total $80.
-- Later periods must follow the remaining authoritative breakdown rather than being guessed or collapsed.
+## Required implementation
+1. Audit all quote producers: primary Tier, Edition, add-on, and Upgrade preview. Capture the same exact resolved breakdown for each item at successful quote creation.
+2. Thread the additive snapshot through request sanitization/persistence without live re-resolution.
+3. Build one pure shared customer presentation derivation over that snapshot.
+4. Reuse it in cart disclosure, Total Commitment disclosure, Review/PDF, customer email, and View/Print Quote.
+5. Keep top-level Monthly/Yearly/Total unchanged; breakdown only explains them.
+6. Same inclusion in multiple Legs/Periods remains separate. No merging/deduping across components or periods.
+7. Primary + Upgrade + add-on never cross-assign breakdown rows.
+8. Legacy snapshots lacking the new field fall back to today's generic inclusion display; never fabricate attribution.
 
-This is not merely a missing “Yearly $80” label—the amount is already present. The defect is missing inclusion-level payment-leg attribution.
+## Acceptance
+- Starter Cloud explicitly shows Month 11 yearly Static IP Block qty 2 x $40 = $80.
+- All customer surfaces agree on period, cadence, inclusion, qty, unit price, line total and leg subtotal.
+- Breakdown reconciles to existing stream totals/TCV without a second pricing calculator.
+- Submitted quote remains stable if live Rate Sheet/Tier data later changes.
+- No identity, pricing authority, cart mutation, recipient, mail transport, filter, hydration or PDF-name behavior changes.
 
-## Exact fix request
-1. Create or reuse one shared read-only payment-leg presentation model sourced directly from the same settled Commercial Legs used by **View Details → Billing Breakdown by Period**.
-2. Apply it consistently to:
-   - cart inclusion dropdown;
-   - review/PDF preview and generated PDF;
-   - customer HTML email;
-   - the email’s **View / Print Quote** destination/customer quote view;
-   - Total Commitment disclosures where the same item is shown.
-3. Within each quoted item, group inclusion charges by their authoritative cadence/effective period. At minimum distinguish the recurring monthly leg from the annual/yearly leg.
-4. For every leg show:
-   - effective period/start;
-   - cadence;
-   - inclusion name;
-   - quantity for that leg;
-   - unit price;
-   - calculated line total;
-   - leg subtotal.
-5. If the same inclusion exists in multiple legs or periods with different quantities/payment combinations, render each occurrence under its correct leg. Do not merge it into one generic quantity row.
-6. For the observed Starter Cloud fixture, customers must be able to see that the $80 yearly charge beginning in Month 11 is Static IP Block quantity 2 × $40.
-7. Keep the compact top-level Monthly/Yearly/Total summary. The expanded breakdown explains those amounts; it does not replace or recalculate them.
-8. Use email-safe semantic HTML/table sections and clear dividers for the email version. Preserve the existing **Upgrades** naming correction and item grouping.
-9. Do not expose internal IDs, Rate Sheet keys, leg IDs, post IDs, or pricing plumbing.
-
-## Acceptance checks
-- Cart dropdown accounts for both $156.50/month and $80/year and identifies the charged inclusions for each leg.
-- View Details, cart dropdown, PDF, received email, customer quote view/print, and Total Commitment agree on period, cadence, inclusion, quantity, unit price, and subtotal.
-- Starter Cloud fixture shows Static IP Block quantity 2 at $40 = $80/year beginning Month 11.
-- Same inclusion appearing across multiple legs remains distinct and is never double-counted.
-- All displayed leg subtotals reconcile exactly to the existing Monthly/Yearly/Total and contract value.
-- Primary + Upgrade + add-on fixtures preserve each item’s own legs without cross-assignment.
-- Existing email delivery/idempotency, decimal precision, cart behavior, identity, filter, disclosure, PDF naming, and hydration safeguards remain green.
-
-Report the lost-attribution boundary, affected shared model/consumers, before/after fixtures for multi-leg inclusions, rendered email/PDF/customer-view evidence, tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
+Report the exact lost-attribution boundary, new snapshot field/producer/consumers, legacy fallback, fixtures/tests and review SHA. Set **AWAITING CHATGPT REVIEW** when ready. Do not push source to `main` until reviewed.
