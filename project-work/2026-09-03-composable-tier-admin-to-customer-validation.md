@@ -33,7 +33,9 @@ The live PDF preview prints the Upgrade block as:
 - `Build Your Own`
 - Monthly $36.15
 
-This is a prohibited customer-facing Build Your Own fallback. The on-screen quote correctly identifies the same item as **Upgrades**; the PDF is consuming a different/legacy title path.
+This is a prohibited customer-facing Build Your Own fallback.
+
+The received customer email independently confirms the same leak: the Upgrade block is rendered as `KAIROS — IaaS` with a **Build Your Own** badge, a `Build Your Own` subtitle, Monthly $36.15, and the Upgrade inclusions. Therefore the legacy route is not PDF-only. Cart/quote presentation, PDF/print, and email still have divergent display consumers capable of carrying Build Your Own authority.
 
 ## Exact fix request
 
@@ -62,7 +64,8 @@ This is a prohibited customer-facing Build Your Own fallback. The on-screen quot
 1. Make PDF/print consume the same Phase 0 display resolver used by the customer cart/details: the item is **Upgrades**, not Build Your Own.
 2. Remove every `Build Your Own` heading/subtitle/fallback from the PDF path for a composable item coexisting with its primary Tier/Edition.
 3. Preserve the internal stored title/identity and pricing; this is a customer-facing display correction, not identity rewriting.
-4. Audit preview, generated PDF, customer quote view, and email/print consumers for the same legacy fallback.
+4. Use one shared Phase 0 display resolver across cart/quote presentation, review preview, generated PDF/print, customer quote view, and customer email. For a composable item attached to its primary Tier/Edition, every one of these consumers must render **Upgrades**.
+5. Remove the email’s **Build Your Own** badge and subtitle for this route. Do not patch only the email template with hardcoded wording; eliminate the legacy/fallback resolver path that supplies it.
 
 ## Required regressions
 - Varied inclusion-name lengths retain identical Qty/Price/Action column positions at supported breakpoints.
@@ -70,6 +73,7 @@ This is a prohibited customer-facing Build Your Own fallback. The on-screen quot
 - Closing a completed transaction returns to a fresh usable Upgrade filter state with all eligible items available.
 - Review content cannot paint or scroll through the footer/button gap.
 - Cart, review preview, generated PDF, customer quote view, and email all label the Phase 0 item **Upgrades** and never Build Your Own.
+- A captured/rendered customer email fixture for the observed KAIROS scenario contains **Upgrades**, $36.15, and the correct inclusions, with no `Build Your Own` badge, heading, subtitle, or fallback text.
 - Existing decimal precision, disclosure coordination, cart authority, readiness, removal, and hydration safeguards remain green.
 
 Report root causes, affected components, browser screenshots, PDF fixture/output comparison, interaction tests, source/review SHAs, and deployed SHA. Set this file to **AWAITING CHATGPT REVIEW** when ready. Do not push product source until the gate permits it.
