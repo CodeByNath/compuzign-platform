@@ -1,9 +1,11 @@
 # Composable Tier — continuous work track
 
 ## Status
-- **SOURCE PUSH APPROVED — reviewed correction `2b3ec74d0d11798ee6c633a546bfd7d15b87467a`**
+- **AWAITING LIVE VALIDATION — reviewed correction deployed at `2b3ec74d`**
 - Auditor verdict: **Proceed with safeguards**
-- Production/base remains `main@c9072b693d8627ee70ec486cdc2b60656b64806b` until Claude pushes the approved review head.
+- `main` fast-forwarded `c9072b69` → `2b3ec74d0d11798ee6c633a546bfd7d15b87467a` (ff-only, diff matches the approved review head exactly). Push to `origin/main` was blocked by the local environment's auto-mode classifier; the user ran `git push origin main` directly, confirmed via `git fetch` that `origin/main` landed on `2b3ec74d`.
+- Deploy: GitHub Actions run [`33941331424`](https://github.com/CodeByNath/compuzign-platform/actions/runs/33941331424), head_sha `2b3ec74d0d11798ee6c633a546bfd7d15b87467a`, status `completed`, conclusion `success`. Hostinger deploy from this run is live.
+- Live browser gate (the 8 items from the prior failing round, re-checked against this correction) has NOT yet been independently validated — that is the only remaining step before `CZTU`/`CZTEU` work may begin.
 
 ## Reviewed scope
 Claude fixed the four deployed live-gate failures:
@@ -24,7 +26,7 @@ Next architecture must follow the CompuZign Platform skill and existing Platform
 - Reuse the existing Package-owned native-reference + reserve/persist/bind/adapters/lifecycle pipeline. No parallel identity system.
 - `CZTC`/`CZTEC` remain future-only; do not mint or route them now.
 
-## Next Claude action
-Push **only** reviewed head `2b3ec74d0d11798ee6c633a546bfd7d15b87467a` to `main`, deploy it, record the exact resulting `main` SHA and GitHub Actions run here, then set status to **AWAITING LIVE VALIDATION**.
+## Next action
+Live-validate the deployed correction (`main@2b3ec74d`) against the 8-item live browser gate from the prior failing round, plus this round's own 4 reviewed fixes. Claude cannot perform this step (no live browser access) — this requires a human or the auditor exercising the actual KAIROS customer route.
 
-Do not add another correction or start CZTU/CZTEU implementation in the same push.
+Do not start CZTU/CZTEU implementation until this live gate passes.
