@@ -1,47 +1,31 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — review head mixes prior unrelated fix and breakdown presentation is incomplete**
-- Auditor verdict: **Proceed with safeguards — architecture direction accepted, review head not pushable yet**
+- **AWAITING CHATGPT REVIEW**
 - Production remains `main@93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`, deploy `33945492532` live.
-- Review head `e9fac9bf11accc58448a059a81b01f41a858697d` is **NOT approved for push**.
+- Clean review head `8eb2467b` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
 
-## Independent audit
-The additive `commercialBreakdown` snapshot direction is correct: capture exact resolved `CommercialLegPeriod[]` at quote creation, preserve period/component/inclusion occurrences, sanitize/persist it, and render from the stored snapshot without live re-resolution.
-
-However, two corrections are required before approval.
+## Claude's report
 
 ### 1. Clean review ancestry
-`e9fac9bf` is **two commits ahead** of production because it is based on `d3eb4dc0`, the separate admin/customer email-label correction that was explicitly kept out of this regression. The commercial-breakdown implementation itself is one commit on top of `d3eb4dc0`.
+Rewound `review/upgrade-journey-finalisation` to `main@93ac03ec` and cherry-picked only the commercial-breakdown commit on top: `fcd5e0f6` — one commit directly on production, `d3eb4dc0` excluded entirely (kept local/unpushed as its own separate follow-up candidate, untouched by this round).
 
-Produce a clean review head based directly on `93ac03ec` containing only the commercial-breakdown work. Do not include `d3eb4dc0` or its test changes in this round. Keep that fix separate for later review/deployment.
+### 2. Presentation corrections (commit `8eb2467b`, on top of `fcd5e0f6`)
+- `InclusionDisclosure.tsx`: `DisclosureInclusionRow` gains `unitPrice`; `groupLabel` replaced by `sectionKey` (internal identity — one per resolved component *occurrence*, keyed by `${fromMonth}:${source}:${componentIndex}`, never derived from label text, never rendered), `sectionLabel`, `sectionSubtotal` (the component's own snapshot `price`, formatted with existing cadence wording, e.g. `$80 / yr` — never a sum of its own rows). Two components sharing a Period+cadence get a neutral `(charge N/M)` suffix on the label; identity itself never depends on that text. `InclusionDisclosurePanel` is now Inclusion/Qty/**Unit price**/**Line total**, each section's own subtotal on its heading row, and the combined grand total is suppressed entirely once any row belongs to a section (existing top-level Monthly/Yearly/Total stays the one summary in that case).
+- `QuoteProposalPreview.tsx`/`OrderSummary.tsx`: their `FamilyInclusionsList` mirrors the same section+subtotal+unit-price model — covers Review/PDF, customer View/Print Quote, Admin print.
+- `NotificationTemplates.php`: `emailCommercialBreakdownRows()`/`emailBreakdownInclusionRows()` mirror the same section identity, disambiguation, unit price, and per-component subtotal for customer/admin email.
+- Legacy fallback (no `commercialBreakdown`) is byte-identical to before: `unitPrice` stays `null`, no section heading, combined total renders exactly as it did.
 
-### 2. Customer breakdown still loses required leg facts at presentation
-`QuotedBreakdownInclusion` correctly stores `unitPrice` and `lineTotal`, and each component stores its own `source`, cadence and price. But `disclosureRowsForFamilyTierItem()` currently drops `unitPrice` and component subtotal/price from the display row model. `InclusionDisclosurePanel` renders only **Inclusion / Qty / Price**, where Price is the line total, and then one total across the whole disclosure.
+### Starter Cloud acceptance check
+Month 11 Yearly section now reads: Static IP Block, Qty 2, Unit price $40, Line total $80, section subtotal `$80 / yr` — verified via extended fixtures on both sides (below), reproducing the auditor's literal example.
 
-This does not satisfy the approved contract:
-- customer must see **unit price** separately from line total;
-- each Commercial Leg/component occurrence needs its own **leg subtotal**;
-- two components in the same Period with the same cadence must remain visibly separate;
-- current grouping by only `"Month X–Y · Cadence"` collapses adjacent same-period/same-cadence components into one visual group because identical `groupLabel` values are treated as the same section.
+### Validation
+- New fixtures (TS `composable-quote-cart-contract.ts`, PHP `notification-templates-family-quote-parity.php`): two independent same-cadence components in one Period (distinct `sectionKey`s, `(charge 1/2)`/`(charge 2/2)` labels, independent subtotals `$80`/`$50`, never combined); unit price ($40) distinct from line total ($80); component subtotal sourced from the snapshot, not recomputed; a second item's own independent `buildQuotedCommercialBreakdown()` call proven not to leak rows into a sibling item's disclosure (Main/Upgrade/add-on independence).
+- Full `tests/*.php` suite: same 5 pre-existing unrelated failures (Service route fixtures, Tier capability routes, RequestsController test constructor signature ×2, `tier-occupant-first-save` Package schema stub), **plus the expected reappearance of the admin/customer email-label regression** in `notification-templates-composable-quote-parity.php` — that regression's fix (`d3eb4dc0`) is deliberately excluded from this review head per your instruction; it is a real, already-live `main@93ac03ec` bug, not something this round introduced or should silently absorb.
+- Full 85-script `contract:*`/`regression:*` sweep: same 7 pre-existing unrelated failures (`admin-station-css` Rate Sheet Tool classes, `package-builder-flow` stale file reference, `platform-identity-schema` Rate Sheet/Requests prefixes, 4 Tier Admin `regression:tier-*` scripts — none touch Family/cost-builder/request-flow).
+- `tsc --noEmit` clean, `vite build` clean.
 
-## Required correction
-1. Keep component `source` internal only as stable section identity/key; never render it.
-2. Shared presentation derivation must preserve one distinct section per snapshot component occurrence, even when Period and cadence are identical.
-3. Customer section header may repeat the same human text when two independent same-cadence components coexist; section identity must not depend on that label. If disambiguation is needed, use neutral presentation-only wording such as `Yearly charge 1/2`, never Leg IDs/Rate Sheet keys.
-4. Each inclusion row must expose separate columns/facts: Inclusion, Qty, **Unit price**, **Line total**.
-5. Each component section must show its own authoritative component subtotal/price from the snapshot as **Leg/charge subtotal**; do not recompute pricing authority. Row sums may be used only as a test reconciliation check, not the displayed source of truth.
-6. Do not show one grand inclusion-list total that can be mistaken for a Leg subtotal across mixed periods/components. Existing top-level Monthly/Yearly/Total remains the commercial summary.
-7. Apply the same corrected section model to cart disclosure, Total Commitment disclosure, Review/PDF/customer View-Print, and customer email.
-8. Starter Cloud must visibly read, under the Month 11 yearly section: Static IP Block, Qty 2, Unit price `$40`, Line total `$80`, section subtotal `$80/year` (using existing customer cadence wording).
-9. Preserve legacy fallback for snapshots without `commercialBreakdown`.
+## Not independently verifiable without a live browser/real mail client
+Same disclosure as the prior round — visual disambiguation-suffix readability, email-client rendering of the section-subtotal column alignment, and PDF pagination of a multi-section breakdown are unverified beyond fixture/DOM-string assertions.
 
-## Validation required
-Add fixtures for:
-- two independent components in the same Period with the same cadence — both sections remain distinct;
-- unit price != line total (qty > 1) — both values render correctly;
-- component subtotal displayed from stored snapshot;
-- Main + Upgrade + add-on each retains only its own breakdown;
-- sanitized/persisted quote remains stable after live catalog changes.
-
-Return exact clean review SHA, changed files and focused test evidence, then set **AWAITING CHATGPT REVIEW**. Do not push source to `main`.
+Review the exact SHA `8eb2467b` on `review/upgrade-journey-finalisation` (parent `fcd5e0f6`, grandparent `main@93ac03ec`) against the required-correction list above.
