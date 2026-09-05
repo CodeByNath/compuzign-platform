@@ -1,44 +1,23 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- Auditor verdict: **Proceed with safeguards**
-- Pushed and deployed: `main@28f716b1bde85717787418e29efbbf8dce978d3c` (fast-forward from `6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`, run by Nath directly — a plain fast-forward push, no force needed). Deploy run `33981064376` / #955, workflow "Deploy to Hostinger", conclusion **success**.
-- `review/upgrade-journey-finalisation` deleted both locally and on origin now that it is fully merged into `main`.
+- **CLOSED — production and live customer validation accepted.**
+- Auditor verdict: **Proceed**.
+- Production: `main@28f716b1bde85717787418e29efbbf8dce978d3c`.
+- Deploy run `33981064376` / #955 succeeded for that exact SHA.
+- `review/upgrade-journey-finalisation` was deleted after merge.
 
-## Independent clean-head verification
-Fresh cycle confirms `28f716b1` is exactly **one commit** ahead of production with merge-base/parent `6a03a182`.
+## Accepted production contract
+- Starting finite customer range uses `Through Month N`.
+- Starting/open and later open-end customer wording uses exact **Until Cancelled**; no customer-facing `Ongoing`/`Canceled` remains in this flow.
+- Later finite ranges retain normal `Month X–Y` grammar.
+- Fully finite Total Contract Value remains numeric.
+- Any non-finite contributing stream uses **Until Cancelled** as the Contract Value fallback; Initial Payment remains numeric.
+- Cart and visible finalise-quote sidebar use compact base-inclusions-once + Extension-group disclosure.
+- Detailed `QuoteProposalPreview` remains the Period-by-Period model for Review/PDF/customer View-Print; PHP email mirrors the same detailed customer wording.
+- Quote-time commercial snapshots, TCV/payment authority, customer-safe identifier projection, Main → Upgrade → Add-on ordering, Bundle totals, identity, persistence, resolver behavior, mail transport/idempotency and legacy fallback remain unchanged.
 
-Git object verification confirms the clean candidate tree SHA is `16272016f7309a3d0a17bdd42bf9ebfd48adac6b`, exactly the same tree SHA as the previously reviewed final state `bdfec37c`. Therefore the clean candidate is byte-for-byte the accepted source state with rejected/intermediate history removed.
+## Final live gate
+Nath completed the production browser validation after deploy and reported **passed**. This satisfies the remaining live gate for the customer wording, compact finalise sidebar, detailed print/PDF/View-Print behavior and quoted-value preservation.
 
-Accepted behavior:
-- starting finite customer range: `Through Month N`;
-- starting/open and later open-end wording: exact **Until Cancelled**;
-- later finite ranges retain normal `Month X–Y` grammar;
-- fully finite Total Contract Value remains numeric;
-- any non-finite contributing stream uses **Until Cancelled** as the Contract Value fallback;
-- Initial Payment remains numeric and unchanged;
-- visible finalise-quote sidebar uses compact cart disclosure (`disclosureRowsForFamilyTierItem()`);
-- detailed `QuoteProposalPreview` remains the print/PDF/View-Print period model;
-- PHP email mirrors the same customer wording;
-- Plan Details spelling is aligned;
-- no pricing/resolver/identity/persistence/snapshot/order/Bundle/mail/legacy behavior changes.
-
-## Approved source action
-Claude/user may fast-forward/push **only `28f716b1bde85717787418e29efbbf8dce978d3c`** to `main`. No other source change may be included.
-
-After push/deploy, record:
-- exact resulting `main` SHA;
-- GitHub Actions/deploy run/result;
-- deletion of `review/upgrade-journey-finalisation` once merged;
-- status **AWAITING LIVE VALIDATION**.
-
-## Live gate
-Validate a fresh quote read-only:
-1. Starter Cloud detailed output says `Through Month 10`; later `Month 11–23`; no `Ongoing`/`Canceled`.
-2. Open-ended Upgrade/Add-on says **Until Cancelled**.
-3. Fully finite Total Contract Value remains numeric; mixed/indefinite Contract Value says **Until Cancelled**; Initial Payment remains numeric.
-4. Finalise sidebar matches compact cart disclosure; PDF/email/View-Print keep the detailed period breakdown.
-5. Main → Upgrade → Add-on ordering and all quoted amounts remain unchanged.
-
-Do not close until deployment and live customer behavior match.
+This work item is closed and immutable. Later Platform Identification work or UI refinement must use a separate work item.
