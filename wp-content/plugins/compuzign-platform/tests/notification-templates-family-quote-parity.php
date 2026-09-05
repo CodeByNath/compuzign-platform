@@ -188,23 +188,27 @@ $starterCloud = [
         ['source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 156.50, 'startMonth' => 0, 'endMonth' => null, 'isOngoing' => true, 'occurrenceMonths' => [], 'subtotal' => null],
         ['source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80, 'startMonth' => 11, 'endMonth' => null, 'isOngoing' => true, 'occurrenceMonths' => [], 'subtotal' => null],
     ],
+    // Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+    // no 'source'/'id' fields — RequestSchema::sanitizeCommercialBreakdown()
+    // never persists them, so a real stored commercialBreakdown this email
+    // renderer consumes never carries them either.
     'commercialBreakdown' => [
         [
             'fromMonth' => 0, 'toMonth' => 10,
             'components' => [
-                ['source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
-                    ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
+                ['billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
+                    ['label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
                 ]],
             ],
         ],
         [
             'fromMonth' => 11, 'toMonth' => null,
             'components' => [
-                ['source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
-                    ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
+                ['billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
+                    ['label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
                 ]],
-                ['source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
-                    ['id' => 'itm_static_ip', 'label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
+                ['billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
+                    ['label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
                 ]],
             ],
         ],
@@ -250,11 +254,11 @@ $dualYearly = [
         [
             'fromMonth' => 11, 'toMonth' => null,
             'components' => [
-                ['source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
-                    ['id' => 'itm_static_ip', 'label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
+                ['billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
+                    ['label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
                 ]],
-                ['source' => 'leg_backup_yearly', 'billingCycle' => 'annually', 'price' => 50, 'inclusions' => [
-                    ['id' => 'itm_backup', 'label' => 'Annual Backup Retention', 'quantity' => 1, 'unitPrice' => 50, 'lineTotal' => 50],
+                ['billingCycle' => 'annually', 'price' => 50, 'inclusions' => [
+                    ['label' => 'Annual Backup Retention', 'quantity' => 1, 'unitPrice' => 50, 'lineTotal' => 50],
                 ]],
             ],
         ],
@@ -277,6 +281,10 @@ foreach ([$dualYearlyAdminHtml, $dualYearlyCustomerHtml] as $index => $html) {
     check_family_quote_parity(str_contains($html, '(charge 2/2)'), "{$label} email missing the second colliding section's disambiguating suffix");
     check_family_quote_parity(str_contains($html, 'Static IP Block (8 IPs, 5 usable)') && str_contains($html, 'Annual Backup Retention'), "{$label} email must show BOTH colliding sections' own inclusions, never collapsed into one");
     check_family_quote_parity(str_contains($html, '$80.00') && str_contains($html, '$50.00'), "{$label} email must show each colliding section's OWN authoritative subtotal ($80 and $50), never a combined figure");
+    // Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+    // distinguishing the two colliding sections must never leak the
+    // internal Leg Platform IDs that used to key them.
+    check_family_quote_parity(!str_contains($html, 'leg_static_ip') && !str_contains($html, 'leg_backup_yearly'), "{$label} email must never render the internal Leg source identifiers");
 }
 
 echo "Notification templates family quote parity checks passed.\n";

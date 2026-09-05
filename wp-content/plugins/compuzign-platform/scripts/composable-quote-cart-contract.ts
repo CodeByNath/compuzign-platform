@@ -849,8 +849,16 @@ check(
   starterCloudBreakdown[1].components.length === 2,
   'the unavailable leg_excluded component is dropped, but BOTH available components (leg_default AND leg_static_ip) survive together — never deduplicated by source the way buildLegPaymentSummaries() does',
 );
-const staticIpComponent = starterCloudBreakdown[1].components.find((c) => c.source === 'leg_static_ip')!;
+// Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+// QuotedBreakdownComponent carries no `source` at all (customer-visible
+// snapshot) — found by its own inclusion label instead of the internal Leg
+// identity that used to key it.
+const staticIpComponent = starterCloudBreakdown[1].components.find((c) => c.inclusions.some((i) => i.label === 'Static IP Block (8 IPs, 5 usable)'))!;
 check(staticIpComponent.billingCycle === 'annually', 'the Static IP component keeps its own annual cadence, distinct from the monthly Default Leg in the SAME Period');
+check(
+  !('source' in staticIpComponent) && !('id' in staticIpComponent.inclusions[0]),
+  'the customer-visible commercialBreakdown snapshot carries no source/id — no Leg Platform ID or Rate Sheet item key at all',
+);
 check(
   staticIpComponent.inclusions[0].label === 'Static IP Block (8 IPs, 5 usable)'
     && staticIpComponent.inclusions[0].quantity === 2

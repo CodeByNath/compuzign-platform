@@ -145,7 +145,7 @@ function breakdownInclusionRows(
       sectionSubtotal,
     },
     ...(inclusion.includes ?? []).flatMap((child, ci) =>
-      breakdownInclusionRows(child, sectionKey, sectionLabel, sectionSubtotal, `${keyPrefix}:child:${child.id || ci}`)),
+      breakdownInclusionRows(child, sectionKey, sectionLabel, sectionSubtotal, `${keyPrefix}:child:${ci}`)),
   ];
 }
 
@@ -169,7 +169,7 @@ export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): Disc
   // this field (falls through to the existing flat rendering, unchanged)
   // or has no resolved commercial_legs at all.
   if (item.commercialBreakdown && item.commercialBreakdown.length > 0) {
-    return item.commercialBreakdown.flatMap((period) => {
+    return item.commercialBreakdown.flatMap((period, periodIndex) => {
       const rangeLabel = `Month ${period.fromMonth}–${period.toMonth ?? 'Indefinite'}`;
       // Count components sharing the same cadence within THIS Period, so
       // two independent same-cadence Legs both active here (e.g. two
@@ -191,13 +191,21 @@ export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): Disc
         const sectionLabel = totalWithSameCadence > 1
           ? `${rangeLabel} · ${cadence} (charge ${occurrence}/${totalWithSameCadence})`
           : `${rangeLabel} · ${cadence}`;
-        const sectionKey = `${period.fromMonth}:${component.source}:${componentIndex}`;
+        // Auditor correction (2026-09-05, "leg-level breakdown
+        // presentation"): a presentation-only occurrence key derived
+        // purely from snapshot position (period index + component index)
+        // — never component.source (removed from the type entirely; see
+        // QuotedBreakdownComponent's own docblock, @/utils/paymentSummary)
+        // — since this key is never rendered but the underlying row.id it
+        // seeds IS carried in the DOM (React key) and must never leak a
+        // Leg Platform ID or Rate Sheet key either.
+        const sectionKey = `${periodIndex}:${componentIndex}`;
         const cadenceSuffix = breakdownCycleSuffix(component.billingCycle);
         const sectionSubtotal = component.price !== null
           ? `${formatPrice(component.price)}${cadenceSuffix ? ` ${cadenceSuffix}` : ''}`
           : null;
         return component.inclusions.flatMap((inclusion, i) =>
-          breakdownInclusionRows(inclusion, sectionKey, sectionLabel, sectionSubtotal, `${sectionKey}:${inclusion.id || i}`));
+          breakdownInclusionRows(inclusion, sectionKey, sectionLabel, sectionSubtotal, `${sectionKey}:${i}`));
       });
     });
   }

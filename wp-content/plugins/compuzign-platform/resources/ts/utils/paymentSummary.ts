@@ -121,13 +121,17 @@ export function chargeTypeLabel(cycle: string | null): string {
 // FamilyTierQuoteItem.commercialBreakdown (cost-builder/types.ts) for where
 // it's captured once at Add-to-Quote time.
 
-// One priced inclusion's full commercial attribution, mirroring
-// CommercialLegPricedItem (@/api/types/cost-builder) field-for-field.
-// Bundle children travel via `includes`, same display-only convention as
-// ServiceInclusion.includes/CommercialLegPricedItem.includes — never
-// separately priced/selectable entries of their own.
+// One priced inclusion's own customer-safe commercial facts — label,
+// quantity, unit price, line total, Bundle display children. Auditor
+// correction (2026-09-05, "leg-level breakdown presentation"): deliberately
+// carries NO identifier field at all (no `id`/item_id/Rate Sheet key) —
+// this snapshot is submitted to the server, persisted, and returned
+// verbatim to the authenticated customer View/Print Quote endpoint, so
+// anything on it is customer-visible JSON, never merely an internal React
+// key. Occurrence keying for rendering/reconciliation uses snapshot
+// position (period/component/row index) instead — see
+// disclosureRowsForFamilyTierItem() (InclusionDisclosure.tsx).
 export interface QuotedBreakdownInclusion {
-  id: string;
   label: string;
   quantity: number;
   unitPrice: number | null;
@@ -136,12 +140,15 @@ export interface QuotedBreakdownInclusion {
 }
 
 // One resolved commercial component's (a Leg's) own priced inclusions
-// within ONE Period. `source` is kept ONLY for stable internal grouping —
-// it matches CommercialLegComponent.source (a Leg Platform ID, or the
-// literal 'default' legacy fallback) and must never be shown to a
-// customer.
+// within ONE Period. Auditor correction (2026-09-05, "leg-level breakdown
+// presentation"): carries no `source`/Leg Platform ID — an earlier revision
+// of this type kept `source` "for stable internal grouping only, never
+// shown to a customer", but RequestSchema::sanitizeCommercialBreakdown()
+// persisted it unchanged and RequestsController::getQuote() returned the
+// stored snapshot straight to the customer, so it was never actually
+// internal-only. Distinct component occurrences (including two sharing the
+// same Period+cadence) are now identified by snapshot position alone.
 export interface QuotedBreakdownComponent {
-  source: string;
   billingCycle: string | null;
   price: number | null;
   inclusions: QuotedBreakdownInclusion[];

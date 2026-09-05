@@ -342,6 +342,18 @@ class RequestSchema
      * sanitizeInclusionItems() above. Preserves every Period/component
      * occurrence exactly once; never deduplicated by source.
      *
+     * Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+     * this is a durable snapshot returned verbatim to the authenticated
+     * customer via RequestsController::getQuote() — never a merely-internal
+     * shape. Deliberately excludes `source` (a Leg Platform ID) here and
+     * `id` (a Rate Sheet item key) in sanitizeCommercialBreakdownInclusions()
+     * below — neither is required for commercial meaning, and an earlier
+     * revision persisted `source` unchanged, leaking internal commercial
+     * identity into customer-visible JSON. Distinct component occurrences
+     * (including two sharing the same Period+cadence) are identified purely
+     * by snapshot position when rendering — see
+     * disclosureRowsForFamilyTierItem() (InclusionDisclosure.tsx).
+     *
      * @param  mixed $raw
      * @return array<int, array<string, mixed>>|null
      */
@@ -363,18 +375,12 @@ class RequestSchema
                     continue;
                 }
 
-                $source = sanitize_text_field((string) ($componentEntry['source'] ?? ''));
-                if ($source === '') {
-                    continue;
-                }
-
                 $inclusions = self::sanitizeCommercialBreakdownInclusions($componentEntry['inclusions'] ?? null);
                 if ($inclusions === null) {
                     continue;
                 }
 
                 $components[] = [
-                    'source'       => $source,
                     'billingCycle' => isset($componentEntry['billingCycle']) && $componentEntry['billingCycle'] !== null
                         ? sanitize_text_field((string) $componentEntry['billingCycle'])
                         : null,
@@ -402,6 +408,12 @@ class RequestSchema
     }
 
     /**
+     * Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+     * `id` (a Rate Sheet item key) is deliberately excluded — see
+     * sanitizeCommercialBreakdown()'s own docblock above. `label` is the
+     * validity gate instead (an inclusion with no label carries nothing
+     * customer-meaningful to sanitize).
+     *
      * @param  mixed $raw
      * @return array<int, array<string, mixed>>|null
      */
@@ -417,14 +429,13 @@ class RequestSchema
                 continue;
             }
 
-            $id = sanitize_text_field((string) ($entry['id'] ?? ''));
-            if ($id === '') {
+            $label = sanitize_text_field((string) ($entry['label'] ?? ''));
+            if ($label === '') {
                 continue;
             }
 
             $inclusion = [
-                'id'        => $id,
-                'label'     => sanitize_text_field((string) ($entry['label'] ?? '')),
+                'label'     => $label,
                 'quantity'  => intval($entry['quantity'] ?? 0),
                 'unitPrice' => isset($entry['unitPrice']) && $entry['unitPrice'] !== null
                     ? floatval($entry['unitPrice'])
@@ -567,7 +578,6 @@ class RequestSchema
                                         'items' => [
                                             'type'       => 'object',
                                             'properties' => [
-                                                'source'       => ['type' => 'string'],
                                                 'billingCycle' => ['type' => ['string', 'null']],
                                                 'price'        => ['type' => ['number', 'null']],
                                                 'inclusions'   => ['type' => 'array'],

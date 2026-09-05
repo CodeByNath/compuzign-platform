@@ -182,9 +182,14 @@ check_request_schema_family_snapshot($secondPeriod['fromMonth'] === 11 && $secon
 check_request_schema_family_snapshot(count($secondPeriod['components']) === 3, 'the Month-11 Period keeps all three of its own components — never deduplicated by source the way legPaymentSummaries is');
 
 $staticIpComponent = $secondPeriod['components'][1];
-check_request_schema_family_snapshot($staticIpComponent['source'] === 'leg_static_ip', 'the Static IP Block component\'s source survives (internal grouping only)');
+// Auditor correction (2026-09-05, "leg-level breakdown presentation"): the
+// raw payload above still sends 'source' => 'leg_static_ip' (simulating an
+// unmodified/malicious client) — it must never survive into the durable
+// snapshot RequestsController::getQuote() returns verbatim to the customer.
+check_request_schema_family_snapshot(!array_key_exists('source', $staticIpComponent), 'the component\'s internal Leg Platform ID (source) does NOT survive into the customer-visible snapshot');
 check_request_schema_family_snapshot($staticIpComponent['billingCycle'] === 'annually', 'the Static IP Block component\'s billing cadence survives');
 $staticIpInclusion = $staticIpComponent['inclusions'][0];
+check_request_schema_family_snapshot(!array_key_exists('id', $staticIpInclusion), 'the inclusion\'s internal Rate Sheet item key (id) does NOT survive into the customer-visible snapshot');
 check_request_schema_family_snapshot($staticIpInclusion['label'] === 'Static IP Block (8 IPs, 5 usable)', 'the exact reported inclusion label survives');
 check_request_schema_family_snapshot($staticIpInclusion['quantity'] === 2, 'the exact reported quantity (2) survives');
 check_request_schema_family_snapshot($staticIpInclusion['unitPrice'] === 40.0, 'the exact reported unit price ($40) survives');
@@ -192,10 +197,45 @@ check_request_schema_family_snapshot($staticIpInclusion['lineTotal'] === 80.0, '
 check_request_schema_family_snapshot(!array_key_exists('evil_field', $staticIpInclusion), 'unknown nested fields are not blindly retained inside commercialBreakdown either');
 
 $bundleComponent = $secondPeriod['components'][2];
+check_request_schema_family_snapshot(!array_key_exists('source', $bundleComponent), 'the Bundle Leg\'s own source does not survive either');
 $bundleInclusion = $bundleComponent['inclusions'][0];
-check_request_schema_family_snapshot($bundleInclusion['id'] === 'itm_bundle', 'the Bundle parent inclusion survives inside commercialBreakdown');
+check_request_schema_family_snapshot(!array_key_exists('id', $bundleInclusion), 'the Bundle parent inclusion\'s id does not survive');
+check_request_schema_family_snapshot($bundleInclusion['label'] === 'Security Bundle', 'the Bundle parent inclusion survives inside commercialBreakdown, identified by label instead of id');
 check_request_schema_family_snapshot(count($bundleInclusion['includes']) === 1, 'the Bundle child survives inside commercialBreakdown');
 check_request_schema_family_snapshot($bundleInclusion['includes'][0]['label'] === 'Endpoint Protection', 'the Bundle child\'s own label survives');
+check_request_schema_family_snapshot(!array_key_exists('id', $bundleInclusion['includes'][0]), 'the Bundle child\'s own id does not survive either');
+
+// Two independent components sharing the SAME Period + cadence: both must
+// still sanitize through distinctly (never merged/deduplicated) even with
+// no `source` to tell them apart — RequestSchema preserves array order and
+// position, which is all disclosureRowsForFamilyTierItem() needs.
+$collidingRaw = [[
+    'offer_type' => 'family_tier',
+    'familyId' => 'pcg_dual', 'familyPlatformId' => 'CZPG-DUAL01', 'familyTitle' => 'Dual Yearly',
+    'tierInstanceId' => 'ti_dual', 'tierInstancePlatformId' => 'CZTG-DUAL01',
+    'tierOccupantId' => 'occ_dual', 'tierPlatformId' => 'CZT-DUAL001', 'tierEditionPlatformId' => null,
+    'tierId' => 'basic', 'tierTitle' => 'Dual Yearly', 'price' => 0, 'isAddon' => false,
+    'commercialBreakdown' => [[
+        'fromMonth' => 11, 'toMonth' => null,
+        'components' => [
+            ['source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
+                ['id' => 'itm_static_ip', 'label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
+            ]],
+            ['source' => 'leg_backup_yearly', 'billingCycle' => 'annually', 'price' => 50, 'inclusions' => [
+                ['id' => 'itm_backup', 'label' => 'Annual Backup Retention', 'quantity' => 1, 'unitPrice' => 50, 'lineTotal' => 50],
+            ]],
+        ],
+    ]],
+]];
+$collidingItem = RequestSchema::sanitizeItems($collidingRaw)[0];
+$collidingComponents = $collidingItem['commercialBreakdown'][0]['components'];
+check_request_schema_family_snapshot(
+    count($collidingComponents) === 2
+        && $collidingComponents[0]['inclusions'][0]['label'] === 'Static IP Block (8 IPs, 5 usable)'
+        && $collidingComponents[1]['inclusions'][0]['label'] === 'Annual Backup Retention'
+        && !array_key_exists('source', $collidingComponents[0]) && !array_key_exists('source', $collidingComponents[1]),
+    'two independent same-Period/same-cadence components both sanitize through distinctly, in order, with no source field to tell them apart'
+);
 
 // A legacy line predating these fields defaults every new key to null, never
 // an empty array masquerading as "no data was ever configured".

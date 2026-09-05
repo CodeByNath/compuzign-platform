@@ -243,9 +243,12 @@ export function buildLegPaymentSummaries(
 // @/utils/paymentSummary (CRM-1C) — extracted so Admin Print can use them
 // without importing this whole customer pricing UI component tree.
 
+// Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+// deliberately drops item.item_id — a Rate Sheet item key — since this
+// snapshot is submitted/persisted/returned to the customer verbatim (see
+// QuotedBreakdownInclusion's own docblock, @/utils/paymentSummary).
 function mapBreakdownInclusion(item: CommercialLegPricedItem): QuotedBreakdownInclusion {
   return {
-    id: item.item_id,
     label: item.label,
     quantity: item.quantity,
     unitPrice: item.unit_price,
@@ -279,7 +282,10 @@ export function buildQuotedCommercialBreakdown(periods: CommercialLegPeriod[]): 
     components: period.components
       .filter((component) => component.available)
       .map((component) => ({
-        source: component.source,
+        // component.source (a Leg Platform ID) deliberately dropped — see
+        // QuotedBreakdownComponent's own docblock. Distinct component
+        // occurrences are identified by snapshot position when rendering
+        // (disclosureRowsForFamilyTierItem(), InclusionDisclosure.tsx).
         billingCycle: component.billing_cycle,
         price: component.price,
         inclusions: component.items.map(mapBreakdownInclusion),

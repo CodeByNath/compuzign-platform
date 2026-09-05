@@ -62,6 +62,30 @@ check_quote_view_access($result['quote']['quote_ref'] === 'CZ-ABC123', 'resolved
 check_quote_view_access($result['quote']['contact'] === 'Jane Doe', 'resolved quote must carry contact');
 check_quote_view_access($result['quote']['items'] === [['serviceId' => 1, 'price' => 49]], 'resolved quote must carry the stored items snapshot');
 
+// Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+// getQuote()/resolve() must consume the already-sanitized stored snapshot
+// verbatim — no live catalog re-resolution, and no widening of what
+// RequestSchema::sanitizeCommercialBreakdown() already stripped. Proven
+// here by round-tripping a commercialBreakdown shape that (correctly)
+// carries no source/id at all.
+$breakdownPayload = $storedPayload;
+$breakdownPayload['items'] = [[
+    'offer_type' => 'family_tier',
+    'commercialBreakdown' => [[
+        'fromMonth' => 11, 'toMonth' => null,
+        'components' => [
+            ['billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
+                ['label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
+            ]],
+        ],
+    ]],
+]];
+$breakdownResult = QuoteViewAccess::resolve($breakdownPayload, 'CZ-ABC123', $secretA);
+check_quote_view_access(
+    $breakdownResult['quote']['items'] === $breakdownPayload['items'],
+    'resolve() returns the stored commercialBreakdown verbatim — no re-resolution, no field added or removed at this boundary'
+);
+
 // No secret/hash leakage: the returned quote must never carry the stored
 // hash, and must not broaden PII beyond what the accepted proposal needs.
 check_quote_view_access(!array_key_exists('view_secret_hash', $result['quote']), 'resolved quote must never leak the stored hash');
