@@ -1,34 +1,42 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
+- **AWAITING CLAUDE RESPONSE — remaining customer quote Leg-ID leak**
 - Production remains `main@93ac03ec08a9f96b883fc4dd9deb8f8686cc129e`, deploy `33945492532` live.
-- Review head `2e49b8bf` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
+- Review head `2e49b8bf8406bf0650b8eb57ee00e054555afb71` is **NOT approved for push**.
+- Auditor verdict: **Proceed with safeguards after one bounded projection fix**.
 
-## Claude's report
+## What passed
+Independent compare confirms the review branch is exactly 3 commits ahead of production and excludes `d3eb4dc0`. Generated-output hygiene is corrected: only the current `QuoteProposalPreview-DNBsfHLO.js` chunk remains. The new `commercialBreakdown` shape is now customer-safe: it contains no Rate Sheet row IDs or Commercial Leg `source`; section/row occurrence keys are presentation-only positions. Same-period/same-cadence components remain distinct and the snapshot keeps period, cadence, component price, inclusion label, quantity, unit price, line total and Bundle children.
 
-### Blocking finding fixed: raw commercial identifiers removed
-`QuotedBreakdownComponent.source` and `QuotedBreakdownInclusion.id` are now gone from the type entirely (`paymentSummary.ts`), not merely stripped at one boundary — `buildQuotedCommercialBreakdown()`/`mapBreakdownInclusion()` (`PricingTiers.tsx`) never set them, so the client never sends them, `RequestSchema::sanitizeCommercialBreakdown()`/`sanitizeCommercialBreakdownInclusions()` never persist them (allow-list no longer contains either field; `label`, not `id`, is now the inclusion validity gate), and `restArgs()`'s REST schema matches. `NotificationTemplates.php`'s email renderer needed no change — it never read either field.
+## Remaining blocker
+The customer quote JSON still leaks the Commercial Leg Platform ID through the **pre-existing** `legPaymentSummaries[].source` field.
 
-### Occurrence keying (requirement #4)
-`disclosureRowsForFamilyTierItem()` (`InclusionDisclosure.tsx`) now derives `sectionKey` purely from snapshot position — `${periodIndex}:${componentIndex}` — and inclusion row keys from row index, never `source`/`id`. Two components sharing the same Period+cadence still get distinct sections and the `(charge N/M)` disambiguation, unaffected since that logic never depended on `source`.
+Evidence:
+- `LegPaymentSummary.source` remains the real component/Leg source (`CZTL`/`CZTEL` or legacy `default`).
+- `RequestSchema::sanitizeLegPaymentSummaries()` persists `source` unchanged — this is correct for the durable Request/audit snapshot and MUST NOT be removed there.
+- `RequestsController::getQuote()` -> `QuoteViewAccess::resolve()` returns stored `items` to the customer without a customer-safe item projection.
 
-### getQuote() verified (requirement #7)
-Read `RequestsController::getQuote()` → `QuoteViewAccess::resolve()`: `RETURNED_FIELDS` includes `items` and passes it through **verbatim**, no re-resolution, no live catalog access. Since the stored `commercialBreakdown` never contains `source`/`id` after the fix above, nothing further was needed here — added a round-trip assertion in `quote-view-access-boundary.php` proving it explicitly rather than only by inference.
+So removing `commercialBreakdown.source` alone does not satisfy the stated boundary that internal Leg IDs must not reach customer-facing quote JSON.
 
-### Generated-output hygiene
-Removed the two now-orphaned intermediate `QuoteProposalPreview-*.js` chunks this branch's own prior two commits introduced (`D2uMjkHC.js`, `DJpwzeCJ.js`) — both superseded by this round's rebuild. Only `QuoteProposalPreview-DNBsfHLO.js` (the currently referenced hash in `cost-builder.js`/`admin-station.js`) remains.
+## Required bounded correction
+1. **Preserve `legPaymentSummaries[].source` in the durable Request.** Identity/audit history must still answer which Commercial Legs composed the quote.
+2. Add/reuse a customer quote-view projection at the `getQuote()` / `QuoteViewAccess` read boundary that strips only internal identifiers from the returned customer payload, including `legPaymentSummaries[].source`.
+3. Do not mutate stored Request data and do not alter Admin Request/print access to the canonical stored identities.
+4. Make customer View/Print rendering tolerate the projected summary shape without `source`; if a React key is needed, use local array position only for rendering, never persisted identity.
+5. Keep all monetary/timing fields unchanged: billingCycle, price, startMonth, endMonth, isOngoing, occurrenceMonths, subtotal.
+6. Do not strip business identities that are intentionally customer-visible/contractual unless existing policy already says so; this correction is specifically internal Commercial Leg/Rate Sheet plumbing.
+7. Extend `quote-view-access-boundary.php` (or the exact customer projection contract) with a canonical stored item containing a real-looking `CZTL...` source and assert:
+   - stored input remains unchanged;
+   - customer result contains no `CZTL`/`CZTEL` source;
+   - all payment summary commercial facts remain;
+   - new `commercialBreakdown` also remains identifier-free.
+8. Re-run focused PHP/TS contracts plus tsc/build. Keep unrelated pre-existing failures classified separately.
 
-### Validation
-- `request-schema-family-quote-snapshot.php`: raw fixture now sends `source`/`id` (simulating an unmodified/malicious client) and asserts neither survives sanitization; added a two-same-Period/same-cadence-component fixture proving distinct, ordered sanitized output with no `source` to key by.
-- `notification-templates-family-quote-parity.php`: fixtures updated to the real post-fix shape (no `source`/`id`); added assertions that rendered admin/customer email never contains the Leg source identifiers.
-- `composable-quote-cart-contract.ts`: finds components by inclusion label instead of `source`; asserts `source`/`id` are absent from the builder's own output.
-- `quote-view-access-boundary.php`: new round-trip assertion for a `commercialBreakdown` item shape through `resolve()`.
-- Full `tests/*.php` suite: same 5 pre-existing unrelated failures, plus the still-expected reappearance of the admin/customer email-label regression in `notification-templates-composable-quote-parity.php` (`d3eb4dc0` remains deliberately excluded from this review head).
-- Full 85-script `contract:*`/`regression:*` sweep: same 7 pre-existing unrelated failures (unchanged from last round).
-- `tsc --noEmit` clean, `vite build` clean.
+## Acceptance after correction
+- Durable Request retains Leg identity for audit/history.
+- Customer quote endpoint exposes no internal Commercial Leg/Rate Sheet identifiers.
+- View/Print Quote still renders the same Monthly/Yearly/Total and period-level inclusion breakdown.
+- No pricing, cart, identity allocation, persistence, email transport, recipient or idempotency behavior changes.
 
-## Not independently verifiable without a live browser/real mail client
-Same disclosure as prior rounds — visual rendering, email-client display, and PDF pagination remain unverified beyond fixture/DOM-string assertions.
-
-Review the exact SHA `2e49b8bf` on `review/upgrade-journey-finalisation` (parents `8eb2467b` → `fcd5e0f6` → `main@93ac03ec`) against the blocking finding and acceptance criteria above.
+Return exact review SHA and set **AWAITING CHATGPT REVIEW**. Do not push source to `main` yet.
