@@ -18,29 +18,38 @@ type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
 // Never re-resolved from live Family/Tier catalog data — snapshot only.
 function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
   // Live-gate correction (2026-09-05, "preserve period/leg inclusion
-  // attribution"): same reuse of disclosureRowsForFamilyTierItem() as
-  // QuoteProposalPreview.tsx's own FamilyInclusionsList — see that file's
-  // docblock for the full reasoning. Kept as this file's own component
-  // (matching the existing cz-os__feature* class prefix) rather than a
-  // shared export, since the two already independently mirror the same
-  // "inclusionItems, else features" fallback shape.
-  const breakdownRows = disclosureRowsForFamilyTierItem(item).filter((row) => row.groupLabel !== undefined);
+  // attribution"; corrected "leg-level breakdown presentation"): same reuse
+  // of disclosureRowsForFamilyTierItem() as QuoteProposalPreview.tsx's own
+  // FamilyInclusionsList — see that file's docblock for the full
+  // reasoning. Kept as this file's own component (matching the existing
+  // cz-os__feature* class prefix) rather than a shared export, since the
+  // two already independently mirror the same "inclusionItems, else
+  // features" fallback shape.
+  const breakdownRows = disclosureRowsForFamilyTierItem(item).filter((row) => row.sectionKey !== undefined);
   if (breakdownRows.length > 0) {
-    let previousGroupLabel: string | undefined;
+    let previousSectionKey: string | undefined;
     return (
       <ul class="cz-os__features">
         {breakdownRows.flatMap((row) => {
-          const showGroupHeading = row.groupLabel !== previousGroupLabel;
-          previousGroupLabel = row.groupLabel;
+          const showSectionHeading = row.sectionKey !== previousSectionKey;
+          previousSectionKey = row.sectionKey;
           return [
-            ...(showGroupHeading ? [
-              <li key={`${row.id}:group`} class="cz-os__feature cz-os__feature--group">{row.groupLabel}</li>,
+            ...(showSectionHeading ? [
+              <li key={`${row.id}:group`} class="cz-os__feature cz-os__feature--group">
+                <span class="cz-os__feature-row">
+                  <span>{row.sectionLabel}</span>
+                  {row.sectionSubtotal && <span class="cz-os__feature-price">{row.sectionSubtotal}</span>}
+                </span>
+              </li>,
             ] : []),
             <li key={row.id} class="cz-os__feature">
               <span class="cz-os__feature-row">
                 <span class="cz-os__feature-label">{row.label}</span>
                 <span class="cz-os__feature-qty">
                   {row.quantity ?? ''}
+                  {row.unitPrice !== null && (
+                    <span class="cz-os__feature-unit-price">{' '}{formatPrice(row.unitPrice)} ea.</span>
+                  )}
                   {row.lineTotal !== null && (
                     <span class="cz-os__feature-price">{' '}{formatPrice(row.lineTotal)}</span>
                   )}

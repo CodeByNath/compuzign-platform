@@ -397,11 +397,25 @@ class NotificationTemplates
         $rows   = '';
         foreach ($inclusions as $inclusion) {
             $label = esc_html((string) ($inclusion['label'] ?? ''));
-            $qty   = isset($inclusion['quantity']) ? esc_html((string) $inclusion['quantity']) : '';
-            $price = isset($inclusion['lineTotal']) && $inclusion['lineTotal'] !== null
-                ? '<strong style="color:#111;">$' . number_format((float) $inclusion['lineTotal'], 2) . '</strong>'
-                : '';
-            $qtyPrice = trim($qty . ($price !== '' ? ' ' . $price : ''));
+
+            // Live-gate correction (2026-09-05, "leg-level breakdown
+            // presentation"): unit price is a distinct fact from line
+            // total (quantity * unit) — e.g. Static IP Block qty 2 reads
+            // "Qty 2 · $40.00 ea. · $80.00", never collapsed into one
+            // figure, matching disclosureRowsForFamilyTierItem()'s
+            // Unit price/Line total columns.
+            $parts = [];
+            if (isset($inclusion['quantity'])) {
+                $parts[] = 'Qty ' . esc_html((string) $inclusion['quantity']);
+            }
+            if (isset($inclusion['unitPrice']) && $inclusion['unitPrice'] !== null) {
+                $parts[] = '$' . number_format((float) $inclusion['unitPrice'], 2) . ' ea.';
+            }
+            if (isset($inclusion['lineTotal']) && $inclusion['lineTotal'] !== null) {
+                $parts[] = '<strong style="color:#111;">$' . number_format((float) $inclusion['lineTotal'], 2) . '</strong>';
+            }
+            $qtyPrice = implode(' &middot; ', $parts);
+
             $rows .= "
                 <tr>
                   <td style=\"padding:3px 0 3px {$indent}px;font-size:11px;color:{$color};\">{$label}</td>
@@ -418,15 +432,18 @@ class NotificationTemplates
 
     /**
      * Live-gate correction (2026-09-05, "preserve period/leg inclusion
-     * attribution"): renders the additive commercialBreakdown snapshot as
-     * Period/cadence-grouped rows — the SAME grouping
-     * disclosureRowsForFamilyTierItem() (InclusionDisclosure.tsx) applies on
-     * every customer-facing TS surface, so the email explains a charge
-     * (WHICH inclusion, at what quantity/unit price, produced it) rather
-     * than merely stating a generic inclusion list. emailFamilyRow() falls
-     * back to emailInclusionItemsList()/familyDisplayInclusions() (both
-     * unchanged) when this returns '' — a pre-existing Request, or one with
-     * no resolved commercial_legs at all.
+     * attribution"; corrected "leg-level breakdown presentation"): renders
+     * the additive commercialBreakdown snapshot as Period/cadence-grouped
+     * sections — the SAME section identity/disambiguation
+     * disclosureRowsForFamilyTierItem() (InclusionDisclosure.tsx) applies
+     * on every customer-facing TS surface: one section per resolved
+     * component OCCURRENCE (never collapsed just because two independent
+     * same-cadence components in the same Period share identical heading
+     * text), each showing its own authoritative subtotal from the
+     * snapshot — never a combined total across sections. emailFamilyRow()
+     * falls back to emailInclusionItemsList()/familyDisplayInclusions()
+     * (both unchanged) when this returns '' — a pre-existing Request, or
+     * one with no resolved commercial_legs at all.
      *
      * @param array<int, array<string, mixed>> $breakdown sanitized commercialBreakdown — RequestSchema::sanitizeCommercialBreakdown()
      */
@@ -439,18 +456,43 @@ class NotificationTemplates
         $rows = '';
         foreach ($breakdown as $period) {
             $components = (array) ($period['components'] ?? []);
+
+            // Count components sharing the same cadence within THIS
+            // Period, mirroring disclosureRowsForFamilyTierItem() exactly,
+            // so the disambiguating suffix (never a Leg ID/Rate Sheet key)
+            // matches across every customer-facing surface.
+            $cadenceCounts = [];
+            foreach ($components as $component) {
+                $cadence = self::chargeTypeLabel($component['billingCycle'] ?? null);
+                $cadenceCounts[$cadence] = ($cadenceCounts[$cadence] ?? 0) + 1;
+            }
+
+            $cadenceSeen = [];
+            $fromMonth   = (int) ($period['fromMonth'] ?? 0);
+            $toMonth     = $period['toMonth'] ?? null;
+            $rangeLabel  = 'Month ' . $fromMonth . '–' . ($toMonth === null ? 'Indefinite' : (string) $toMonth);
+
             foreach ($components as $component) {
                 $inclusions = (array) ($component['inclusions'] ?? []);
                 if ($inclusions === []) {
                     continue;
                 }
-                $fromMonth  = (int) ($period['fromMonth'] ?? 0);
-                $toMonth    = $period['toMonth'] ?? null;
-                $rangeLabel = 'Month ' . $fromMonth . '–' . ($toMonth === null ? 'Indefinite' : (string) $toMonth);
-                $cadence    = self::chargeTypeLabel($component['billingCycle'] ?? null);
-                $groupLabel = esc_html($rangeLabel . ' · ' . $cadence);
+                $cadence              = self::chargeTypeLabel($component['billingCycle'] ?? null);
+                $totalWithSameCadence = $cadenceCounts[$cadence] ?? 1;
+                $occurrence           = ($cadenceSeen[$cadence] ?? 0) + 1;
+                $cadenceSeen[$cadence] = $occurrence;
+                $sectionLabel = $totalWithSameCadence > 1
+                    ? $rangeLabel . ' · ' . $cadence . ' (charge ' . $occurrence . '/' . $totalWithSameCadence . ')'
+                    : $rangeLabel . ' · ' . $cadence;
+                $sectionLabel = esc_html($sectionLabel);
+                $subtotal = isset($component['price']) && $component['price'] !== null
+                    ? '$' . number_format((float) $component['price'], 2)
+                    : '';
                 $rows .= "
-                    <tr><td colspan=\"2\" style=\"padding:6px 0 2px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#888;\">{$groupLabel}</td></tr>";
+                    <tr>
+                      <td style=\"padding:6px 0 2px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#888;\">{$sectionLabel}</td>
+                      <td style=\"padding:6px 0 2px;font-size:10px;font-weight:700;color:#888;text-align:right;\">{$subtotal}</td>
+                    </tr>";
                 $rows .= self::emailBreakdownInclusionRows($inclusions);
             }
         }

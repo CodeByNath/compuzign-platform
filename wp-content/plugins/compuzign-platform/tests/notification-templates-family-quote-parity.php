@@ -228,6 +228,55 @@ foreach ([$starterAdminHtml, $starterCustomerHtml] as $index => $html) {
     check_family_quote_parity(str_contains($html, '$80.00'), "{$label} email missing the exact reported line total this feature exists to explain");
     check_family_quote_parity(str_contains($html, 'Month 0–10'), "{$label} email missing the first Period's own group heading");
     check_family_quote_parity(!str_contains($html, 'Generic bundled inclusion'), "{$label} email rendered the legacy flat inclusion list instead of the commercialBreakdown attribution — priority order is wrong");
+    // Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+    // unit price ($40.00 ea.) must appear as its own fact, distinct from
+    // the $80.00 line total (qty 2) already asserted above.
+    check_family_quote_parity(str_contains($html, '$40.00 ea.'), "{$label} email missing the Static IP Block's own unit price, distinct from its line total");
+}
+
+// ── Auditor correction (2026-09-05, "leg-level breakdown presentation"):
+//    two independent components in the SAME Period with the SAME cadence
+//    must remain visibly separate sections, each with its OWN subtotal —
+//    never collapsed just because their heading text would otherwise match. ──
+
+$dualYearly = [
+    'offer_type' => 'family_tier',
+    'familyId' => 'pcg_dual', 'familyPlatformId' => 'CZPG-DUAL01', 'familyTitle' => 'Dual Yearly Family',
+    'tierInstanceId' => 'ti_dual', 'tierInstancePlatformId' => 'CZTG-DUAL01',
+    'tierOccupantId' => 'occ_dual', 'tierPlatformId' => 'CZT-DUAL001', 'tierEditionPlatformId' => null,
+    'tierId' => 'basic', 'tierTitle' => 'Dual Yearly', 'price' => 0, 'billingCycle' => 'monthly',
+    'isAddon' => false, 'features' => [],
+    'commercialBreakdown' => [
+        [
+            'fromMonth' => 11, 'toMonth' => null,
+            'components' => [
+                ['source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
+                    ['id' => 'itm_static_ip', 'label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
+                ]],
+                ['source' => 'leg_backup_yearly', 'billingCycle' => 'annually', 'price' => 50, 'inclusions' => [
+                    ['id' => 'itm_backup', 'label' => 'Annual Backup Retention', 'quantity' => 1, 'unitPrice' => 50, 'lineTotal' => 50],
+                ]],
+            ],
+        ],
+    ],
+];
+
+$dualYearlyData = [
+    'type' => 'quote_cart', 'quote_ref' => 'CZ-DUAL01', 'contact' => 'Jane Doe', 'company' => 'Acme Co',
+    'email' => 'jane@example.com', 'phone' => '', 'notes' => '', 'category' => '',
+    'submitted' => '2026-09-05 00:00:00',
+    'items' => [$dualYearly],
+];
+
+$dualYearlyAdminHtml    = NotificationTemplates::buildAdminHtmlEmail($dualYearlyData);
+$dualYearlyCustomerHtml = NotificationTemplates::buildCustomerHtmlEmail($dualYearlyData, 'CompuZign');
+
+foreach ([$dualYearlyAdminHtml, $dualYearlyCustomerHtml] as $index => $html) {
+    $label = $index === 0 ? 'admin' : 'customer';
+    check_family_quote_parity(str_contains($html, 'Month 11–Indefinite · Yearly (charge 1/2)'), "{$label} email missing the first colliding section's disambiguating suffix");
+    check_family_quote_parity(str_contains($html, '(charge 2/2)'), "{$label} email missing the second colliding section's disambiguating suffix");
+    check_family_quote_parity(str_contains($html, 'Static IP Block (8 IPs, 5 usable)') && str_contains($html, 'Annual Backup Retention'), "{$label} email must show BOTH colliding sections' own inclusions, never collapsed into one");
+    check_family_quote_parity(str_contains($html, '$80.00') && str_contains($html, '$50.00'), "{$label} email must show each colliding section's OWN authoritative subtotal ($80 and $50), never a combined figure");
 }
 
 echo "Notification templates family quote parity checks passed.\n";

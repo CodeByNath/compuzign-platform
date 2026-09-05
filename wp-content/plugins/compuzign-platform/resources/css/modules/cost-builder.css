@@ -1061,12 +1061,11 @@
 }
 
 .cz-inclusion-disclosure__table th:nth-child(2),
-.cz-inclusion-disclosure__table td:nth-child(2) {
-  text-align: right;
-}
-
+.cz-inclusion-disclosure__table td:nth-child(2),
 .cz-inclusion-disclosure__table th:nth-child(3),
-.cz-inclusion-disclosure__table td:nth-child(3) {
+.cz-inclusion-disclosure__table td:nth-child(3),
+.cz-inclusion-disclosure__table th:nth-child(4),
+.cz-inclusion-disclosure__table td:nth-child(4) {
   text-align: right;
 }
 
@@ -1077,9 +1076,11 @@
 }
 
 /* Live-gate correction (2026-09-05, "preserve period/leg inclusion
-   attribution"): the Period/cadence group heading row precedes the first
-   row of each distinct group (e.g. "Month 11–Indefinite · Yearly") — never
-   present in the legacy flat-list rendering. */
+   attribution"; corrected "leg-level breakdown presentation"): the
+   Period/cadence section heading row precedes the first row of each
+   distinct component occurrence (e.g. "Month 11–Indefinite · Yearly"),
+   with that component's own authoritative subtotal right-aligned in the
+   Line total column — never present in the legacy flat-list rendering. */
 .cz-inclusion-disclosure__group-row td {
   padding: var(--cz-space-2) var(--cz-space-2) var(--cz-space-1) 0;
   border-top: none;
@@ -1092,6 +1093,12 @@
 
 .cz-inclusion-disclosure__group-row:first-child td {
   padding-top: 0;
+}
+
+.cz-inclusion-disclosure__section-subtotal {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--cz-color-text);
 }
 
 .cz-inclusion-disclosure__total {
@@ -2830,6 +2837,13 @@
   font-weight: 600;
 }
 
+/* Live-gate correction (2026-09-05, "leg-level breakdown presentation"):
+   the per-unit price, kept visually lighter than the line total beside it
+   so the two never read as one ambiguous figure. */
+.cz-os__feature-unit-price {
+  color: var(--cz-color-muted);
+}
+
 .cz-os__service-icon {
   display: flex;
   align-items: center;
@@ -3452,6 +3466,13 @@
 .cz-proposal__feature-price {
   color: #111111;
   font-weight: 600;
+}
+
+/* Live-gate correction (2026-09-05, "leg-level breakdown presentation"):
+   the per-unit price, kept visually lighter than the line total beside it
+   so the two never read as one ambiguous figure. */
+.cz-proposal__feature-unit-price {
+  color: #888888;
 }
 
 .cz-proposal__addons {

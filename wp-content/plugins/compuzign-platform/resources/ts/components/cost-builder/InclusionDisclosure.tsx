@@ -1,8 +1,27 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { formatPrice } from '@/utils/format';
+import { formatPrice, formatCycleLabel } from '@/utils/format';
 import { chargeTypeLabel } from '@/utils/paymentSummary';
 import type { QuotedBreakdownInclusion } from '@/utils/paymentSummary';
 import type { FamilyTierQuoteItem } from './types';
+
+// Price-line suffix for the two cycles formatCycleLabel() (utils/format.ts)
+// doesn't cover — mirrors PricingTiers.tsx's own TIER_CYCLE_SUFFIX_OVERRIDES
+// verbatim, kept as its own small local copy rather than a shared import:
+// importing from PricingTiers.tsx here would pull that file's whole
+// customer pricing UI component tree into the Admin print bundle, which
+// this module (reused by NotificationTemplates.php's TS-free PHP mirror's
+// sibling, and read by Admin print via disclosureRowsForFamilyTierItem())
+// is deliberately kept free of — same reasoning as paymentSummary.ts's own
+// CRM-1C extraction.
+const BREAKDOWN_CYCLE_SUFFIX_OVERRIDES: Record<string, string> = {
+  upfront: '/ upfront',
+  'one-time': '/ once',
+};
+
+function breakdownCycleSuffix(cycle: string | null): string {
+  if (cycle === null) return '';
+  return BREAKDOWN_CYCLE_SUFFIX_OVERRIDES[cycle] ?? formatCycleLabel(cycle);
+}
 
 // Live-validation correction (project-work/2026-09-03-composable-tier-
 // admin-to-customer-validation.md, "Add compact inclusion quick views to
@@ -64,30 +83,69 @@ export interface DisclosureInclusionRow {
   // a pre-Phase-8G legacy line with no resolved quantity at all) — the
   // cell renders blank rather than a fabricated 0 or "n/a".
   quantity: number | null;
+  // Live-gate correction (2026-09-05, "leg-level breakdown presentation"):
+  // the per-unit price, kept distinct from lineTotal (quantity * unit) —
+  // e.g. Static IP Block qty 2 reads Unit price $40 / Line total $80, never
+  // collapsed into one figure. null for every row the legacy
+  // inclusionItems/features fallback below produces (that shape never
+  // carried a separate unit price fact) — the cell renders blank there,
+  // preserving today's exact legacy look; never derived here by dividing
+  // lineTotal, which would be a second, unauthoritative pricing source.
+  unitPrice: number | null;
   // null = no authoritative Rate Sheet-resolved line total for this row —
   // rendered blank, never computed here from quantity * some other value
   // (that would be a second pricing source). A Bundle child is never
   // separately priced, so it carries null here unless the underlying data
   // genuinely resolves one.
   lineTotal: number | null;
-  // Live-gate correction (2026-09-05, "preserve period/leg inclusion
-  // attribution"): which Period/cadence this row's charge belongs to — e.g.
-  // "Month 11–Indefinite · Yearly" — present only for rows derived from
-  // item.commercialBreakdown below. Undefined for the legacy flat-list
+  // Live-gate correction (2026-09-05, "leg-level breakdown presentation"):
+  // stable internal identity for this row's commercialBreakdown component
+  // OCCURRENCE — one distinct value per Period+component, deliberately
+  // never derived from sectionLabel's own human-readable text, so two
+  // independent same-cadence components active in the same Period never
+  // collapse into a single visual section merely because their headings
+  // read identically. Never rendered. Undefined for the legacy flat-list
   // fallback (inclusionItems/features), in which case the panel renders no
-  // group headings at all, exactly as it always has.
-  groupLabel?: string;
+  // section headings at all, exactly as it always has.
+  sectionKey?: string;
+  // Display heading text for this row's section — e.g. "Month
+  // 11–Indefinite · Yearly". May legitimately repeat verbatim across two
+  // different sectionKeys (two independent same-cadence components in the
+  // same Period); when that happens a neutral " (charge N/M)" suffix is
+  // appended (see disclosureRowsForFamilyTierItem() below) — never a Leg
+  // ID/Rate Sheet key.
+  sectionLabel?: string;
+  // The component's OWN authoritative snapshot price
+  // (QuotedBreakdownComponent.price), pre-formatted with the existing
+  // customer cadence wording (e.g. "$80.00 / yr") — rendered once, on this
+  // row's section heading, never a sum of this section's own inclusion
+  // rows (row sums are a test-only reconciliation check, never the
+  // displayed source of truth — see composable-quote-cart-contract.ts).
+  // null when the component itself carries no resolved price; undefined
+  // for the legacy fallback.
+  sectionSubtotal?: string | null;
 }
 
 function breakdownInclusionRows(
   inclusion: QuotedBreakdownInclusion,
-  groupLabel: string,
+  sectionKey: string,
+  sectionLabel: string,
+  sectionSubtotal: string | null,
   keyPrefix: string,
 ): DisclosureInclusionRow[] {
   return [
-    { id: keyPrefix, label: inclusion.label, quantity: inclusion.quantity, lineTotal: inclusion.lineTotal, groupLabel },
+    {
+      id: keyPrefix,
+      label: inclusion.label,
+      quantity: inclusion.quantity,
+      unitPrice: inclusion.unitPrice,
+      lineTotal: inclusion.lineTotal,
+      sectionKey,
+      sectionLabel,
+      sectionSubtotal,
+    },
     ...(inclusion.includes ?? []).flatMap((child, ci) =>
-      breakdownInclusionRows(child, groupLabel, `${keyPrefix}:child:${child.id || ci}`)),
+      breakdownInclusionRows(child, sectionKey, sectionLabel, sectionSubtotal, `${keyPrefix}:child:${child.id || ci}`)),
   ];
 }
 
@@ -103,19 +161,43 @@ function breakdownInclusionRows(
 // includes.
 export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): DisclosureInclusionRow[] {
   // Live-gate correction (2026-09-05, "preserve period/leg inclusion
-  // attribution"): when the richer per-Period breakdown snapshot exists,
-  // it takes priority over the flat inclusionItems/features fallback below
-  // — same "captured once at Add-to-Quote time, never re-resolved" rule as
-  // every other snapshot field on this item. Absent/empty for every cart
-  // item that predates this field (falls through to the existing flat
-  // rendering, unchanged) or has no resolved commercial_legs at all.
+  // attribution"; corrected "leg-level breakdown presentation"): when the
+  // richer per-Period breakdown snapshot exists, it takes priority over the
+  // flat inclusionItems/features fallback below — same "captured once at
+  // Add-to-Quote time, never re-resolved" rule as every other snapshot
+  // field on this item. Absent/empty for every cart item that predates
+  // this field (falls through to the existing flat rendering, unchanged)
+  // or has no resolved commercial_legs at all.
   if (item.commercialBreakdown && item.commercialBreakdown.length > 0) {
     return item.commercialBreakdown.flatMap((period) => {
       const rangeLabel = `Month ${period.fromMonth}–${period.toMonth ?? 'Indefinite'}`;
-      return period.components.flatMap((component) => {
-        const groupLabel = `${rangeLabel} · ${chargeTypeLabel(component.billingCycle)}`;
+      // Count components sharing the same cadence within THIS Period, so
+      // two independent same-cadence Legs both active here (e.g. two
+      // separate Yearly charges both starting at Month 11) get a neutral
+      // disambiguating suffix on their section heading rather than reading
+      // as one collapsed section — see sectionKey's own docblock above for
+      // why identity itself never depends on this label text.
+      const cadenceCounts = new Map<string, number>();
+      for (const component of period.components) {
+        const cadence = chargeTypeLabel(component.billingCycle);
+        cadenceCounts.set(cadence, (cadenceCounts.get(cadence) ?? 0) + 1);
+      }
+      const cadenceSeen = new Map<string, number>();
+      return period.components.flatMap((component, componentIndex) => {
+        const cadence = chargeTypeLabel(component.billingCycle);
+        const totalWithSameCadence = cadenceCounts.get(cadence) ?? 1;
+        const occurrence = (cadenceSeen.get(cadence) ?? 0) + 1;
+        cadenceSeen.set(cadence, occurrence);
+        const sectionLabel = totalWithSameCadence > 1
+          ? `${rangeLabel} · ${cadence} (charge ${occurrence}/${totalWithSameCadence})`
+          : `${rangeLabel} · ${cadence}`;
+        const sectionKey = `${period.fromMonth}:${component.source}:${componentIndex}`;
+        const cadenceSuffix = breakdownCycleSuffix(component.billingCycle);
+        const sectionSubtotal = component.price !== null
+          ? `${formatPrice(component.price)}${cadenceSuffix ? ` ${cadenceSuffix}` : ''}`
+          : null;
         return component.inclusions.flatMap((inclusion, i) =>
-          breakdownInclusionRows(inclusion, groupLabel, `${period.fromMonth}:${component.source}:${inclusion.id || i}`));
+          breakdownInclusionRows(inclusion, sectionKey, sectionLabel, sectionSubtotal, `${sectionKey}:${inclusion.id || i}`));
       });
     });
   }
@@ -125,17 +207,19 @@ export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): Disc
         id: inclusion.id || `inclusion-${i}`,
         label: inclusion.label,
         quantity: inclusion.bundle_id ? null : (inclusion.quantity ?? null),
+        unitPrice: null,
         lineTotal: inclusion.line_total ?? null,
       },
       ...(inclusion.includes ?? []).map((child, ci) => ({
         id: `${inclusion.id || i}:child:${child.id || ci}`,
         label: child.label,
         quantity: child.quantity ?? null,
+        unitPrice: null,
         lineTotal: child.line_total ?? null,
       })),
     ]);
   }
-  return item.features.map((feature, i) => ({ id: `feature-${i}`, label: feature, quantity: null, lineTotal: null }));
+  return item.features.map((feature, i) => ({ id: `feature-${i}`, label: feature, quantity: null, unitPrice: null, lineTotal: null }));
 }
 
 // The one CSS hook the caller's own shared outside-click listener matches
@@ -218,12 +302,16 @@ interface InclusionDisclosurePanelProps {
 export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosurePanelProps) {
   if (rows.length === 0) return null;
 
-  // The right-aligned Total sums only the rows this disclosure actually
-  // displays a Price for — never a fabricated figure for a row with no
-  // authoritative lineTotal, and never double-counted against the cart/
-  // Details/commitment totals elsewhere (this is a read-only presentation
-  // sum over the SAME already-resolved figures, computed once, per row,
-  // right here).
+  // Live-gate correction (2026-09-05, "leg-level breakdown presentation"):
+  // a combined grand total across the whole disclosure is only ever shown
+  // for the legacy flat-list rendering (no row carries a sectionKey) —
+  // once ANY row belongs to a commercialBreakdown section, each section
+  // shows its OWN authoritative subtotal instead (the group-heading row
+  // below), since summing across sections here could be mistaken for one
+  // Leg's own subtotal across mixed Periods/components. The existing
+  // top-level Monthly/Yearly/Total elsewhere on the page remains the one
+  // commercial summary in that case.
+  const hasSections = rows.some((row) => row.sectionKey !== undefined);
   const pricedRows = rows.filter((row): row is DisclosureInclusionRow & { lineTotal: number } => row.lineTotal !== null);
   const total = pricedRows.reduce((sum, row) => sum + row.lineTotal, 0);
 
@@ -234,29 +322,34 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
           <tr>
             <th>Inclusion</th>
             <th>Qty</th>
-            <th>Price</th>
+            <th>Unit price</th>
+            <th>Line total</th>
           </tr>
         </thead>
         <tbody>
           {/* Live-gate correction (2026-09-05, "preserve period/leg
-              inclusion attribution"): a group-heading row precedes the
-              first row of each distinct groupLabel run — never for the
-              legacy flat rendering, where every row's groupLabel is
-              undefined and no heading ever renders. */}
+              inclusion attribution"; corrected "leg-level breakdown
+              presentation"): a section-heading row precedes the first row
+              of each distinct sectionKey run, showing that component's own
+              authoritative subtotal — never for the legacy flat rendering,
+              where every row's sectionKey is undefined and no heading ever
+              renders. */}
           {(() => {
-            let previousGroupLabel: string | undefined;
+            let previousSectionKey: string | undefined;
             return rows.flatMap((row) => {
-              const showGroupHeading = row.groupLabel !== undefined && row.groupLabel !== previousGroupLabel;
-              previousGroupLabel = row.groupLabel;
+              const showSectionHeading = row.sectionKey !== undefined && row.sectionKey !== previousSectionKey;
+              previousSectionKey = row.sectionKey;
               return [
-                ...(showGroupHeading ? [
-                  <tr key={`${row.id}:group`} class="cz-inclusion-disclosure__group-row">
-                    <td colSpan={3}>{row.groupLabel}</td>
+                ...(showSectionHeading ? [
+                  <tr key={`${row.id}:section`} class="cz-inclusion-disclosure__group-row">
+                    <td colSpan={3}>{row.sectionLabel}</td>
+                    <td class="cz-inclusion-disclosure__section-subtotal">{row.sectionSubtotal ?? ''}</td>
                   </tr>,
                 ] : []),
                 <tr key={row.id}>
                   <td>{row.label}</td>
                   <td>{row.quantity ?? ''}</td>
+                  <td>{row.unitPrice !== null ? formatPrice(row.unitPrice) : ''}</td>
                   <td>{row.lineTotal !== null ? formatPrice(row.lineTotal) : ''}</td>
                 </tr>,
               ];
@@ -264,7 +357,7 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
           })()}
         </tbody>
       </table>
-      {pricedRows.length > 0 && (
+      {!hasSections && pricedRows.length > 0 && (
         <div class="cz-inclusion-disclosure__total">
           <span>Total</span>
           <span>{formatPrice(total)}</span>

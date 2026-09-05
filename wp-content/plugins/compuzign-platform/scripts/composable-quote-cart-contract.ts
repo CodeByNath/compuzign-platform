@@ -95,6 +95,7 @@ import {
   orderedQuoteItems,
 } from '../resources/ts/utils/quote';
 import { computeTotalContractValue } from '../resources/ts/utils/paymentSummary';
+import { formatPrice } from '../resources/ts/utils/format';
 import { buildQuotedCommercialBreakdown } from '../resources/ts/components/cost-builder/PricingTiers';
 import { buildComposableFamilyTierQuoteItem, buildComposableChoice, seedSelectionFromCartItem, type BrowseRow, type ItemContribution } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
 import { COMPOSABLE_QUOTE_TIER_ID } from '../resources/ts/components/cost-builder/types';
@@ -583,6 +584,12 @@ check(
 // overlay), a project-standard inline-SVG chevron (never a text glyph),
 // a real Inclusion/Qty/Price table, Qty with no × prefix, and a
 // right-aligned Total summing only displayed priced rows.
+//
+// Auditor correction (2026-09-05, "leg-level breakdown presentation"): the
+// original Inclusion/Qty/Price 3-column spec below is deliberately
+// superseded by Inclusion/Qty/Unit price/Line total — the customer must
+// see unit price separately from line total, which a single "Price" column
+// could not carry.
 const freshInclusionDisclosureSource = readFileSync(resolve(root, 'resources/ts/components/cost-builder/InclusionDisclosure.tsx'), 'utf8');
 check(
   !/position:\s*absolute/.test(freshInclusionDisclosureSource),
@@ -595,8 +602,9 @@ check(
 check(
   /<th>Inclusion<\/th>/.test(freshInclusionDisclosureSource)
     && /<th>Qty<\/th>/.test(freshInclusionDisclosureSource)
-    && /<th>Price<\/th>/.test(freshInclusionDisclosureSource),
-  'the expanded panel is a real Inclusion/Qty/Price table, matching the auditor\'s exact column spec',
+    && /<th>Unit price<\/th>/.test(freshInclusionDisclosureSource)
+    && /<th>Line total<\/th>/.test(freshInclusionDisclosureSource),
+  'the expanded panel is a real Inclusion/Qty/Unit price/Line total table, matching the auditor\'s corrected column spec (supersedes the original 3-column Inclusion/Qty/Price spec)',
 );
 check(
   /<td>\{row\.quantity \?\? ''\}<\/td>/.test(freshInclusionDisclosureSource),
@@ -852,7 +860,7 @@ check(
 );
 
 // disclosureRowsForFamilyTierItem() takes priority when commercialBreakdown
-// is present, and produces the expected Period/cadence group labels.
+// is present, and produces the expected Period/cadence section labels.
 const starterCloudItem: FamilyTierQuoteItem = {
   offer_type: 'family_tier',
   familyId: 'pcg_starter', familyPlatformId: 'CZPG-STARTER01', familyTitle: 'Starter Cloud Family',
@@ -865,12 +873,20 @@ const starterCloudItem: FamilyTierQuoteItem = {
 };
 const starterCloudRows = disclosureRowsForFamilyTierItem(starterCloudItem);
 check(
-  starterCloudRows.every((row) => row.groupLabel !== undefined),
-  'every row derived from commercialBreakdown carries a groupLabel — the legacy flat fallback (features/inclusionItems) never sets one',
+  starterCloudRows.every((row) => row.sectionKey !== undefined),
+  'every row derived from commercialBreakdown carries a sectionKey — the legacy flat fallback (features/inclusionItems) never sets one',
+);
+const staticIpDisclosureRow = starterCloudRows.find((row) => row.label === 'Static IP Block (8 IPs, 5 usable)')!;
+check(
+  staticIpDisclosureRow.sectionLabel === 'Month 11–Indefinite · Yearly'
+    && staticIpDisclosureRow.quantity === 2
+    && staticIpDisclosureRow.unitPrice === 40
+    && staticIpDisclosureRow.lineTotal === 80,
+  'the Static IP Block row carries the exact "Month 11–Indefinite · Yearly" section label, Qty 2, Unit price $40 and Line total $80 — unit price kept distinct from line total (qty > 1)',
 );
 check(
-  starterCloudRows.some((row) => row.groupLabel === 'Month 11–Indefinite · Yearly' && row.label === 'Static IP Block (8 IPs, 5 usable)' && row.lineTotal === 80),
-  'the Static IP Block row carries the exact "Month 11–Indefinite · Yearly" group label alongside its $80 line total',
+  staticIpDisclosureRow.sectionSubtotal === `${formatPrice(80)} / yr`,
+  'the section carries the component\'s OWN authoritative snapshot price ($80) as its subtotal, with the existing customer cadence wording — never a sum of the section\'s own inclusion rows',
 );
 check(
   !starterCloudRows.some((row) => row.label.includes('Generic bundled inclusion')),
@@ -882,8 +898,60 @@ check(
 const noBreakdownItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: null };
 const noBreakdownRows = disclosureRowsForFamilyTierItem(noBreakdownItem);
 check(
-  noBreakdownRows.length === 1 && noBreakdownRows[0].groupLabel === undefined && noBreakdownRows[0].label.includes('Generic bundled inclusion'),
-  'a legacy item with no commercialBreakdown (or commercialBreakdown: null) falls back to the existing features[] rendering, with no groupLabel at all',
+  noBreakdownRows.length === 1
+    && noBreakdownRows[0].sectionKey === undefined
+    && noBreakdownRows[0].unitPrice === null
+    && noBreakdownRows[0].label.includes('Generic bundled inclusion'),
+  'a legacy item with no commercialBreakdown (or commercialBreakdown: null) falls back to the existing features[] rendering, with no sectionKey/unitPrice at all',
+);
+
+// Auditor correction (2026-09-05, "leg-level breakdown presentation"): two
+// independent components in the SAME Period with the SAME cadence must
+// remain visibly separate — never collapsed into one section just because
+// their heading text happens to match.
+const dualYearlyPeriods: CommercialLegPeriod[] = [
+  {
+    from_month: 11, to_month: null,
+    components: [
+      { source: 'leg_static_ip', billing_cycle: 'annually', price: 80, available: true, items: [
+        { item_id: 'itm_static_ip', label: 'Static IP Block (8 IPs, 5 usable)', quantity: 2, price_option_id: null, unit_price: 40, line_total: 80, available: true },
+      ] },
+      { source: 'leg_backup_yearly', billing_cycle: 'annually', price: 50, available: true, items: [
+        { item_id: 'itm_backup', label: 'Annual Backup Retention', quantity: 1, price_option_id: null, unit_price: 50, line_total: 50, available: true },
+      ] },
+    ],
+  },
+];
+const dualYearlyBreakdown = buildQuotedCommercialBreakdown(dualYearlyPeriods);
+const dualYearlyItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: dualYearlyBreakdown };
+const dualYearlyRows = disclosureRowsForFamilyTierItem(dualYearlyItem);
+const staticIpDualRow = dualYearlyRows.find((row) => row.label === 'Static IP Block (8 IPs, 5 usable)')!;
+const backupDualRow = dualYearlyRows.find((row) => row.label === 'Annual Backup Retention')!;
+check(
+  staticIpDualRow.sectionKey !== backupDualRow.sectionKey,
+  'two independent same-cadence components active in the same Period get distinct sectionKeys — section identity never depends on the (possibly identical) heading text',
+);
+check(
+  staticIpDualRow.sectionLabel === 'Month 11–Indefinite · Yearly (charge 1/2)'
+    && backupDualRow.sectionLabel === 'Month 11–Indefinite · Yearly (charge 2/2)',
+  'colliding same-Period/same-cadence sections get a neutral presentation-only disambiguating suffix, never a Leg ID/Rate Sheet key',
+);
+check(
+  staticIpDualRow.sectionSubtotal === `${formatPrice(80)} / yr` && backupDualRow.sectionSubtotal === `${formatPrice(50)} / yr`,
+  'each of the two colliding sections still shows its OWN authoritative component price as its subtotal, never a combined figure',
+);
+
+// Auditor correction: Main + Upgrade + add-on quote items are built
+// independently (FamilyTierAdapter.tsx's itemFor(), ComposableOfferBrowser.tsx's
+// buildComposableFamilyTierQuoteItem()) and must each retain only its own
+// commercialBreakdown — never a shared reference/array leaking rows across
+// items sharing the same underlying catalog data.
+const secondFamilyItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: buildQuotedCommercialBreakdown(dualYearlyPeriods) };
+check(
+  secondFamilyItem.commercialBreakdown !== starterCloudItem.commercialBreakdown
+    && disclosureRowsForFamilyTierItem(starterCloudItem).some((row) => row.label === 'Static IP Block (8 IPs, 5 usable)')
+    && !disclosureRowsForFamilyTierItem(starterCloudItem).some((row) => row.label === 'Annual Backup Retention'),
+  'each quote item\'s own buildQuotedCommercialBreakdown() call produces an independent array — a sibling item\'s rows never bleed into another item\'s own disclosure',
 );
 
 console.log('Composable quote/cart contract passed.');

@@ -22,34 +22,44 @@ interface QuoteProposalPreviewProps {
 // Never re-resolved from live Family/Tier catalog data — snapshot only.
 function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
   // Live-gate correction (2026-09-05, "preserve period/leg inclusion
-  // attribution"): reuses the SAME shared row derivation the quote
-  // disclosure/Total Commitment tables already call
-  // (disclosureRowsForFamilyTierItem(), cost-builder/InclusionDisclosure.tsx)
-  // rather than a second period-walking implementation — when the
-  // commercialBreakdown snapshot exists, its rows carry a groupLabel (e.g.
-  // "Month 11–Indefinite · Yearly") this list renders as a section heading
-  // before the run of rows it covers, so the printed/emailed-link proposal
-  // explains WHICH inclusion produced a given charge, not just that it
-  // exists. Absent for the legacy inclusionItems/features fallback below
-  // (untouched), in which case every row's groupLabel is undefined and no
+  // attribution"; corrected "leg-level breakdown presentation"): reuses the
+  // SAME shared row derivation the quote disclosure/Total Commitment
+  // tables already call (disclosureRowsForFamilyTierItem(),
+  // cost-builder/InclusionDisclosure.tsx) rather than a second
+  // period-walking implementation — when the commercialBreakdown snapshot
+  // exists, its rows carry a sectionKey/sectionLabel/sectionSubtotal this
+  // list renders as a section heading (with that component's own
+  // authoritative subtotal, never a summed total) before the run of rows
+  // it covers, so the printed/emailed-link proposal explains WHICH
+  // inclusion, at what quantity/unit price, produced a given charge.
+  // Absent for the legacy inclusionItems/features fallback below
+  // (untouched), in which case every row's sectionKey is undefined and no
   // heading ever renders here.
-  const breakdownRows = disclosureRowsForFamilyTierItem(item).filter((row) => row.groupLabel !== undefined);
+  const breakdownRows = disclosureRowsForFamilyTierItem(item).filter((row) => row.sectionKey !== undefined);
   if (breakdownRows.length > 0) {
-    let previousGroupLabel: string | undefined;
+    let previousSectionKey: string | undefined;
     return (
       <ul class="cz-proposal__features">
         {breakdownRows.flatMap((row) => {
-          const showGroupHeading = row.groupLabel !== previousGroupLabel;
-          previousGroupLabel = row.groupLabel;
+          const showSectionHeading = row.sectionKey !== previousSectionKey;
+          previousSectionKey = row.sectionKey;
           return [
-            ...(showGroupHeading ? [
-              <li key={`${row.id}:group`} class="cz-proposal__feature cz-proposal__feature--group">{row.groupLabel}</li>,
+            ...(showSectionHeading ? [
+              <li key={`${row.id}:group`} class="cz-proposal__feature cz-proposal__feature--group">
+                <span class="cz-proposal__feature-row">
+                  <span>{row.sectionLabel}</span>
+                  {row.sectionSubtotal && <span class="cz-proposal__feature-price">{row.sectionSubtotal}</span>}
+                </span>
+              </li>,
             ] : []),
             <li key={row.id} class="cz-proposal__feature">
               <span class="cz-proposal__feature-row">
                 <span class="cz-proposal__feature-label">{row.label}</span>
                 <span class="cz-proposal__feature-qty">
                   {row.quantity ?? ''}
+                  {row.unitPrice !== null && (
+                    <span class="cz-proposal__feature-unit-price">{' '}{formatPrice(row.unitPrice)} ea.</span>
+                  )}
                   {row.lineTotal !== null && (
                     <span class="cz-proposal__feature-price">{' '}{formatPrice(row.lineTotal)}</span>
                   )}
