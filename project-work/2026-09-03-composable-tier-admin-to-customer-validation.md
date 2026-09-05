@@ -1,29 +1,27 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **READY FOR CLAUDE — clean review branch required before source push**
-- Auditor verdict: **Proceed with safeguards**
+- **AWAITING CHATGPT REVIEW**
 - Production remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful.
-- Previous review head `c513b516` is functionally accepted, but its stacked rejected ancestry must **not** be fast-forwarded to `main`.
+- Clean review head `6a03a182` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
 
-## Required branch cleanup
-The final tree at `c513b516` is the accepted source state, but its ancestry contains rejected intermediate review commits. Clean that before any push:
-1. Start from current production `main@a42eeba8`.
-2. Create/replace the single active review branch for this work item.
-3. Recreate the **exact final tree represented by `c513b516`** as one clean candidate commit (or otherwise one clean review state) directly on top of `a42eeba8`.
-4. Do not include rejected intermediate commits `0e0d4fc3` / `1e99da02` in the eventual `main` ancestry.
-5. Do not include unrelated `d3eb4dc0` email-label work or any other source changes.
-6. Remove superseded local/remote review branches for this same work item once the clean replacement branch is ready and verified. Keep only the one active review branch. Never delete `main`, protected branches, or `Project-work-instructions`.
-7. Report the exact new clean review SHA and prove its tree/diff against `a42eeba8` is equivalent to the already accepted final `c513b516` state.
-8. Set **AWAITING CHATGPT REVIEW**. Do not push source to `main` yet.
+## Claude's report: branch cleanup complete
 
-## Accepted source behavior that must remain byte/semantically equivalent
-- Cart: focused-Tier presentation only — base inclusions once + `Extensions billed X`, no Period dump.
-- Detailed surfaces: same shared View Details derivation with `Plan start–Month N` / `Ongoing`, Period payment/category fact, continuation handling, component tables/totals, unchanged-table suppression.
-- Bundle totals use top-level priced inclusions only; children display-only.
-- Multi-Leg/no-valid-headline does not fabricate a merged base.
-- Quote-time commercial snapshot/customer-ID boundary remains safe; no live Rate Sheet re-resolution; no customer-facing CZTL/CZTEL/Rate Sheet identifiers.
-- `legPaymentSummaries` remains TCV/payment authority.
+### Clean review SHA
+`6a03a182` — **exactly one commit** on top of production `main@a42eeba8`. Merge-base is `a42eeba8`; the rejected intermediate commits `0e0d4fc3` and `1e99da02` are not in its ancestry at all (nor is the unrelated `d3eb4dc0`).
 
-## After clean review approval
-Only the clean candidate may be pushed to `main`, then deploy and set **AWAITING LIVE VALIDATION**. Live gate remains the same: Starter Cloud cart grouping, View Details/PDF/Review/View-Print continuity semantics, received email parity, customer JSON identifier safety, and no regression to ordering/TCV/identity/legacy fallback.
+### Proof of tree equivalence
+Built by checking out the full tree of the previously-accepted `c513b516` onto a fresh branch created from `main@a42eeba8`, then committing once. Verified `git diff --cached c513b516` returned **empty** before committing — the new commit's tree is byte-for-byte identical to the accepted `c513b516` state, not a re-typed approximation of it. (Two stale build artifacts that only existed because they were carried over from `main`'s own current tree — `dist/js/QuoteProposalPreview-B14mh0ba.js` and the old `package-builder/commercialLegPresentation.ts`, both already superseded/deleted by the accepted work — were removed to reach that exact match.)
+
+### Branch hygiene
+`review/upgrade-journey-finalisation` (the one active branch for this work item) now points directly at `6a03a182`; the temporary branch used to build it was deleted immediately after. No second/duplicate branch left for this work item. Remote force-pushed to match.
+
+### Re-validated on the clean tree
+- `tsc --noEmit` clean, `vite build` clean (identical output hash `QuoteProposalPreview-BX7DYxSx.js` — confirms byte-identical source).
+- Full `tests/*.php` suite: same 5 pre-existing unrelated failures, plus the still-expected `d3eb4dc0`-excluded regression (6 total, unchanged from every prior round).
+- `contract:composable-quote-cart` (the primary fixture for this whole work item) passes on the clean tree.
+
+## Not independently verifiable without a live browser/real mail client
+Same disclosure as prior rounds.
+
+Review the exact SHA `6a03a182` on `review/upgrade-journey-finalisation` — one commit directly on `main@a42eeba8`, tree-equivalent to the already-accepted `c513b516` — and confirm it is push-ready.
