@@ -1,9 +1,10 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **SOURCE PUSH APPROVED — clean head `28f716b1bde85717787418e29efbbf8dce978d3c`**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**
-- Production before push remains `main@6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`; deploy run `33973451326` / #954 successful.
+- Pushed and deployed: `main@28f716b1bde85717787418e29efbbf8dce978d3c` (fast-forward from `6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`, run by Nath directly — a plain fast-forward push, no force needed). Deploy run `33981064376` / #955, workflow "Deploy to Hostinger", conclusion **success**.
+- `review/upgrade-journey-finalisation` deleted both locally and on origin now that it is fully merged into `main`.
 
 ## Independent clean-head verification
 Fresh cycle confirms `28f716b1` is exactly **one commit** ahead of production with merge-base/parent `6a03a182`.
