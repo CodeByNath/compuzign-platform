@@ -1,27 +1,37 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- Production remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful.
-- Clean review head `6a03a182` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
+- **SOURCE PUSH APPROVED — clean head `6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`**
+- Auditor verdict: **Proceed with safeguards**
+- Production before push remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy `33964003314` / #953 successful.
 
-## Claude's report: branch cleanup complete
+## Independent clean-head audit
+Fresh cycle confirms `6a03a182` is exactly **one commit** ahead of production with merge-base `a42eeba8`; rejected `0e0d4fc3`, `1e99da02`, prior `c513b516` ancestry, and unrelated `d3eb4dc0` are not in the candidate ancestry.
 
-### Clean review SHA
-`6a03a182` — **exactly one commit** on top of production `main@a42eeba8`. Merge-base is `a42eeba8`; the rejected intermediate commits `0e0d4fc3` and `1e99da02` are not in its ancestry at all (nor is the unrelated `d3eb4dc0`).
+Git object verification is stronger than the reported empty diff: both accepted final state `c513b516` and clean candidate `6a03a182` point to the **same tree SHA `0e1757948075075e83f4a4a9fe6f209fe07e291a`**. Therefore the clean candidate is byte-for-byte the previously audited final tree, with clean ancestry.
 
-### Proof of tree equivalence
-Built by checking out the full tree of the previously-accepted `c513b516` onto a fresh branch created from `main@a42eeba8`, then committing once. Verified `git diff --cached c513b516` returned **empty** before committing — the new commit's tree is byte-for-byte identical to the accepted `c513b516` state, not a re-typed approximation of it. (Two stale build artifacts that only existed because they were carried over from `main`'s own current tree — `dist/js/QuoteProposalPreview-B14mh0ba.js` and the old `package-builder/commercialLegPresentation.ts`, both already superseded/deleted by the accepted work — were removed to reach that exact match.)
+The already accepted behavior remains the approval basis:
+- cart = focused-Tier base inclusions once + `Extensions billed X`, no raw Period dump;
+- detailed Review/PDF/View-Print = shared View Details period semantics, with unchanged continuations suppressed;
+- Bundle children display-only in totals;
+- no fabricated multi-Leg base when Headline is unresolved;
+- customer quote snapshot remains identifier-safe and never live-re-resolved;
+- `legPaymentSummaries` remains TCV/payment authority.
 
-### Branch hygiene
-`review/upgrade-journey-finalisation` (the one active branch for this work item) now points directly at `6a03a182`; the temporary branch used to build it was deleted immediately after. No second/duplicate branch left for this work item. Remote force-pushed to match.
+## Approved source action
+Claude may fast-forward/push **only `6a03a18239cec8fa32ce13c5a3bf626293d6f0bd`** to `main`, then record exact resulting `main` SHA and GitHub Actions/deploy result. No additional source change in that push.
 
-### Re-validated on the clean tree
-- `tsc --noEmit` clean, `vite build` clean (identical output hash `QuoteProposalPreview-BX7DYxSx.js` — confirms byte-identical source).
-- Full `tests/*.php` suite: same 5 pre-existing unrelated failures, plus the still-expected `d3eb4dc0`-excluded regression (6 total, unchanged from every prior round).
-- `contract:composable-quote-cart` (the primary fixture for this whole work item) passes on the clean tree.
+## Branch hygiene required before closure
+Remote branch inventory still contains numerous older `review/*`, `fix/*`, and `phase/*` branches. Do not assume they are safe to delete by name alone. Claude must inventory every non-protected branch other than `main`, `Project-work-instructions`, and the one currently active review branch; for each, verify whether its work is completed/merged/superseded. Delete local+remote branches only when that is proven. Preserve any branch with unresolved or unmerged work and report it explicitly. After `6a03a182` is on `main`, delete `review/upgrade-journey-finalisation` once it is no longer needed. Completed work must not remain as stale branches.
 
-## Not independently verifiable without a live browser/real mail client
-Same disclosure as prior rounds.
+Then set **AWAITING LIVE VALIDATION**.
 
-Review the exact SHA `6a03a182` on `review/upgrade-journey-finalisation` — one commit directly on `main@a42eeba8`, tree-equivalent to the already-accepted `c513b516` — and confirm it is push-ready.
+## Required live gate
+Fresh Starter Cloud quote, read-only validation:
+1. Cart: base list once; **Extensions billed Annually** -> Static IP Block qty 2; no Period headings.
+2. View Details and PDF/Review/View-Print: `Plan start–Month 10` monthly fact/table once; Month 11 shows monthly continuation + new annual $80 and Static IP qty 2 x $40 = $80; unchanged monthly table not repeated; final open range says `Ongoing`.
+3. Email mirrors the same semantics and is actually received.
+4. Customer quote JSON exposes no internal Leg/Rate Sheet identifiers.
+5. Main -> Upgrade -> Add-on ordering, TCV, initial payments, quote identity and legacy fallback remain unchanged.
+
+Do not close until deployment, branch hygiene report, and live customer behavior agree.
