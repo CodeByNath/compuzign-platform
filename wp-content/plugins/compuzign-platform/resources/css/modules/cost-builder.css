@@ -1076,6 +1076,24 @@
   color: var(--cz-color-text);
 }
 
+/* Live-gate correction (2026-09-05, "preserve period/leg inclusion
+   attribution"): the Period/cadence group heading row precedes the first
+   row of each distinct group (e.g. "Month 11–Indefinite · Yearly") — never
+   present in the legacy flat-list rendering. */
+.cz-inclusion-disclosure__group-row td {
+  padding: var(--cz-space-2) var(--cz-space-2) var(--cz-space-1) 0;
+  border-top: none;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cz-color-muted);
+}
+
+.cz-inclusion-disclosure__group-row:first-child td {
+  padding-top: 0;
+}
+
 .cz-inclusion-disclosure__total {
   display: flex;
   align-items: baseline;
@@ -2771,6 +2789,25 @@
   padding-left: var(--cz-space-4);
 }
 
+/* Live-gate correction (2026-09-05, "preserve period/leg inclusion
+   attribution"): same treatment as .cz-proposal__feature--group. */
+.cz-os__feature--group {
+  font-weight: 700;
+  color: var(--cz-color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  margin-top: var(--cz-space-2);
+}
+
+.cz-os__feature--group:first-child {
+  margin-top: 0;
+}
+
+.cz-os__feature--group::before {
+  content: '';
+}
+
 /* Phase 8I: label/quantity split for an ordinary inclusion or Bundle child
    row — quantity right-aligned in the same row, never concatenated into
    one ambiguous string. A Bundle parent header has neither span (see
@@ -2786,6 +2823,11 @@
 .cz-os__feature-qty {
   flex-shrink: 0;
   color: var(--cz-color-muted);
+}
+
+.cz-os__feature-price {
+  color: var(--cz-color-text);
+  font-weight: 600;
 }
 
 .cz-os__service-icon {
@@ -3366,6 +3408,28 @@
   padding-left: var(--cz-space-4);
 }
 
+/* Live-gate correction (2026-09-05, "preserve period/leg inclusion
+   attribution"): the Period/cadence group heading (e.g. "Month
+   11–Indefinite · Yearly") preceding a run of breakdown rows — same
+   no-checkmark, section-header treatment as a Bundle parent above, plus
+   top spacing to separate it from the previous group's rows. */
+.cz-proposal__feature--group {
+  font-weight: 700;
+  color: #111111;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+  margin-top: var(--cz-space-2);
+}
+
+.cz-proposal__feature--group:first-child {
+  margin-top: 0;
+}
+
+.cz-proposal__feature--group::before {
+  content: '';
+}
+
 /* Phase 8I: label/quantity split for an ordinary inclusion or Bundle child
    row — quantity right-aligned in the same row, never concatenated into
    one ambiguous string. A Bundle parent header has neither span (see
@@ -3383,6 +3447,11 @@
 .cz-proposal__feature-qty {
   flex-shrink: 0;
   color: #888888;
+}
+
+.cz-proposal__feature-price {
+  color: #111111;
+  font-weight: 600;
 }
 
 .cz-proposal__addons {

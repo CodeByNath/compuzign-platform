@@ -164,4 +164,70 @@ check_family_quote_parity(str_contains($legacyCustomerHtml, '$15.00'), 'legacy F
 check_family_quote_parity(!str_contains($legacyCustomerHtml, 'CZPG-KAIROS02'), 'legacy Family fallback: customer email still must not leak raw IDs');
 check_family_quote_parity(!str_contains($legacyAdminHtml, 'Contract Value'), 'legacy Family fallback: no combined Family block when nothing is multi-stream');
 
+// ── Live-gate correction (2026-09-05, "preserve period/leg inclusion
+//    attribution"): the exact reported "Starter Cloud" production shape —
+//    Monthly $156.50, Yearly $80 beginning Month 11 — must explain the
+//    Yearly charge as Static IP Block (8 IPs, 5 usable), qty 2 x $40 = $80,
+//    in BOTH admin and customer email, with a visible Period/cadence group
+//    heading, and take priority over the legacy flat inclusionItems list. ──
+
+$starterCloud = [
+    'offer_type' => 'family_tier',
+    'familyId' => 'pcg_starter', 'familyPlatformId' => 'CZPG-STARTER01', 'familyTitle' => 'Starter Cloud Family',
+    'tierInstanceId' => 'ti_starter', 'tierInstancePlatformId' => 'CZTG-STARTER01',
+    'tierOccupantId' => 'occ_starter', 'tierPlatformId' => 'CZT-STARTER001', 'tierEditionPlatformId' => null,
+    'tierId' => 'basic', 'tierTitle' => 'Starter Cloud',
+    'price' => 156.50, 'billingCycle' => 'monthly', 'isAddon' => false, 'features' => [],
+    // Deliberately present alongside commercialBreakdown, to prove the
+    // breakdown takes priority — if this generic list rendered instead, the
+    // group heading / per-Period attribution assertions below would fail.
+    'inclusionItems' => [
+        ['id' => 'itm_generic', 'label' => 'Generic bundled inclusion', 'quantity' => 1],
+    ],
+    'legPaymentSummaries' => [
+        ['source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 156.50, 'startMonth' => 0, 'endMonth' => null, 'isOngoing' => true, 'occurrenceMonths' => [], 'subtotal' => null],
+        ['source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80, 'startMonth' => 11, 'endMonth' => null, 'isOngoing' => true, 'occurrenceMonths' => [], 'subtotal' => null],
+    ],
+    'commercialBreakdown' => [
+        [
+            'fromMonth' => 0, 'toMonth' => 10,
+            'components' => [
+                ['source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
+                    ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
+                ]],
+            ],
+        ],
+        [
+            'fromMonth' => 11, 'toMonth' => null,
+            'components' => [
+                ['source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 156.50, 'inclusions' => [
+                    ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 5, 'unitPrice' => 31.30, 'lineTotal' => 156.50],
+                ]],
+                ['source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80, 'inclusions' => [
+                    ['id' => 'itm_static_ip', 'label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
+                ]],
+            ],
+        ],
+    ],
+];
+
+$starterData = [
+    'type' => 'quote_cart', 'quote_ref' => 'CZ-STARTER1', 'contact' => 'Jane Doe', 'company' => 'Acme Co',
+    'email' => 'jane@example.com', 'phone' => '', 'notes' => '', 'category' => '',
+    'submitted' => '2026-09-05 00:00:00',
+    'items' => [$starterCloud],
+];
+
+$starterAdminHtml    = NotificationTemplates::buildAdminHtmlEmail($starterData);
+$starterCustomerHtml = NotificationTemplates::buildCustomerHtmlEmail($starterData, 'CompuZign');
+
+foreach ([$starterAdminHtml, $starterCustomerHtml] as $index => $html) {
+    $label = $index === 0 ? 'admin' : 'customer';
+    check_family_quote_parity(str_contains($html, 'Month 11–Indefinite'), "{$label} email missing the Month 11–Indefinite Period group heading");
+    check_family_quote_parity(str_contains($html, 'Static IP Block (8 IPs, 5 usable)'), "{$label} email missing the exact reported inclusion label");
+    check_family_quote_parity(str_contains($html, '$80.00'), "{$label} email missing the exact reported line total this feature exists to explain");
+    check_family_quote_parity(str_contains($html, 'Month 0–10'), "{$label} email missing the first Period's own group heading");
+    check_family_quote_parity(!str_contains($html, 'Generic bundled inclusion'), "{$label} email rendered the legacy flat inclusion list instead of the commercialBreakdown attribution — priority order is wrong");
+}
+
 echo "Notification templates family quote parity checks passed.\n";

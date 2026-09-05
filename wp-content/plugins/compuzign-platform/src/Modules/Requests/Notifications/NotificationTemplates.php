@@ -388,6 +388,84 @@ class NotificationTemplates
     }
 
     /**
+     * @param array<int, array<string, mixed>> $inclusions
+     */
+    private static function emailBreakdownInclusionRows(array $inclusions, int $depth = 0): string
+    {
+        $indent = 14 + ($depth * 14);
+        $color  = $depth === 0 ? '#777' : '#999';
+        $rows   = '';
+        foreach ($inclusions as $inclusion) {
+            $label = esc_html((string) ($inclusion['label'] ?? ''));
+            $qty   = isset($inclusion['quantity']) ? esc_html((string) $inclusion['quantity']) : '';
+            $price = isset($inclusion['lineTotal']) && $inclusion['lineTotal'] !== null
+                ? '<strong style="color:#111;">$' . number_format((float) $inclusion['lineTotal'], 2) . '</strong>'
+                : '';
+            $qtyPrice = trim($qty . ($price !== '' ? ' ' . $price : ''));
+            $rows .= "
+                <tr>
+                  <td style=\"padding:3px 0 3px {$indent}px;font-size:11px;color:{$color};\">{$label}</td>
+                  <td style=\"padding:3px 0;font-size:11px;color:{$color};text-align:right;\">{$qtyPrice}</td>
+                </tr>";
+            $children = (array) ($inclusion['includes'] ?? []);
+            if ($children !== []) {
+                $rows .= self::emailBreakdownInclusionRows($children, $depth + 1);
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Live-gate correction (2026-09-05, "preserve period/leg inclusion
+     * attribution"): renders the additive commercialBreakdown snapshot as
+     * Period/cadence-grouped rows — the SAME grouping
+     * disclosureRowsForFamilyTierItem() (InclusionDisclosure.tsx) applies on
+     * every customer-facing TS surface, so the email explains a charge
+     * (WHICH inclusion, at what quantity/unit price, produced it) rather
+     * than merely stating a generic inclusion list. emailFamilyRow() falls
+     * back to emailInclusionItemsList()/familyDisplayInclusions() (both
+     * unchanged) when this returns '' — a pre-existing Request, or one with
+     * no resolved commercial_legs at all.
+     *
+     * @param array<int, array<string, mixed>> $breakdown sanitized commercialBreakdown — RequestSchema::sanitizeCommercialBreakdown()
+     */
+    private static function emailCommercialBreakdownRows(array $breakdown): string
+    {
+        if ($breakdown === []) {
+            return '';
+        }
+
+        $rows = '';
+        foreach ($breakdown as $period) {
+            $components = (array) ($period['components'] ?? []);
+            foreach ($components as $component) {
+                $inclusions = (array) ($component['inclusions'] ?? []);
+                if ($inclusions === []) {
+                    continue;
+                }
+                $fromMonth  = (int) ($period['fromMonth'] ?? 0);
+                $toMonth    = $period['toMonth'] ?? null;
+                $rangeLabel = 'Month ' . $fromMonth . '–' . ($toMonth === null ? 'Indefinite' : (string) $toMonth);
+                $cadence    = self::chargeTypeLabel($component['billingCycle'] ?? null);
+                $groupLabel = esc_html($rangeLabel . ' · ' . $cadence);
+                $rows .= "
+                    <tr><td colspan=\"2\" style=\"padding:6px 0 2px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#888;\">{$groupLabel}</td></tr>";
+                $rows .= self::emailBreakdownInclusionRows($inclusions);
+            }
+        }
+
+        if ($rows === '') {
+            return '';
+        }
+
+        return "
+          <tr><td colspan=\"2\" style=\"padding:0 14px 10px;border-bottom:1px solid #f0f0f0;\">
+            <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">{$rows}</table>
+          </td></tr>";
+    }
+
+    /**
      * A Family item's own price cell — its snapshotted legPaymentSummaries
      * rendered as separate payment streams plus a finite Total when every
      * stream resolves one (OrderSummary.tsx's/QuoteProposalPreview.tsx's
@@ -492,8 +570,20 @@ class NotificationTemplates
             }
         }
 
-        $priceBlock    = self::emailFamilyStreamsBlock($item);
-        $inclusionRows = self::emailInclusionItemsList(self::familyDisplayInclusions($item));
+        $priceBlock = self::emailFamilyStreamsBlock($item);
+        // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+        // attribution"): the richer per-Period breakdown takes priority over
+        // the flat inclusionItems/features fallback — same "captured once
+        // at Add-to-Quote time" rule as every other snapshot field. Falls
+        // through to the existing flat rendering for a pre-existing Request
+        // or one with no resolved commercial_legs at all.
+        $commercialBreakdown = (array) ($item['commercialBreakdown'] ?? []);
+        $inclusionRows = $commercialBreakdown !== []
+            ? self::emailCommercialBreakdownRows($commercialBreakdown)
+            : '';
+        if ($inclusionRows === '') {
+            $inclusionRows = self::emailInclusionItemsList(self::familyDisplayInclusions($item));
+        }
 
         // Live-gate correction (2026-09-05, "Customer email structure"): root
         // cause of the reported missing item-to-item separation — this

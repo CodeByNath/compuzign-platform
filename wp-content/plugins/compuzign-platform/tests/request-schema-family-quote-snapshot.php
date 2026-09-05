@@ -63,6 +63,53 @@ $rawItems = [
                 'occurrenceMonths' => [], 'subtotal' => null,
             ],
         ],
+        // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+        // attribution"): the additive breakdown behind legPaymentSummaries
+        // above — the exact "Starter Cloud" reported shape (a Yearly $80
+        // charge beginning Month 11, explained as Static IP Block qty 2 x
+        // $40), plus a Bundle parent/child pair and an unknown nested field
+        // to prove the same allow-list discipline as inclusionItems above.
+        'commercialBreakdown' => [
+            [
+                'fromMonth' => 0, 'toMonth' => 10,
+                'components' => [
+                    [
+                        'source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 490,
+                        'inclusions' => [
+                            ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 25, 'unitPrice' => 19.6, 'lineTotal' => 490, 'evil_field' => '<script>xss</script>'],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'fromMonth' => 11, 'toMonth' => null,
+                'components' => [
+                    [
+                        'source' => 'leg_default', 'billingCycle' => 'monthly', 'price' => 490,
+                        'inclusions' => [
+                            ['id' => 'itm_seats', 'label' => 'User Seats', 'quantity' => 25, 'unitPrice' => 19.6, 'lineTotal' => 490],
+                        ],
+                    ],
+                    [
+                        'source' => 'leg_static_ip', 'billingCycle' => 'annually', 'price' => 80,
+                        'inclusions' => [
+                            ['id' => 'itm_static_ip', 'label' => 'Static IP Block (8 IPs, 5 usable)', 'quantity' => 2, 'unitPrice' => 40, 'lineTotal' => 80],
+                        ],
+                    ],
+                    [
+                        'source' => 'leg_bundle', 'billingCycle' => 'monthly', 'price' => 0,
+                        'inclusions' => [
+                            [
+                                'id' => 'itm_bundle', 'label' => 'Security Bundle', 'quantity' => 0, 'unitPrice' => null, 'lineTotal' => null,
+                                'includes' => [
+                                    ['id' => 'itm_child_a', 'label' => 'Endpoint Protection', 'quantity' => 25, 'unitPrice' => null, 'lineTotal' => null],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
     ],
     // A pre-Phase-5/8G Family line predating these capabilities entirely —
     // none of the new keys present at all.
@@ -121,20 +168,50 @@ check_request_schema_family_snapshot(count($bundle['includes']) === 2, 'both Bun
 check_request_schema_family_snapshot($bundle['includes'][0]['quantity'] === 25, 'a Bundle child keeps its own quantity');
 check_request_schema_family_snapshot(!array_key_exists('quantity', $bundle['includes'][1]), 'a Bundle child with no quantity stays absent, not coerced to zero');
 
+// Commercial breakdown — the "Starter Cloud" reported shape: both Periods
+// survive, the Month-11-onward Period carries THREE components (the
+// continuing base Leg, the new Static IP Block Leg, and the Bundle Leg),
+// each with its own inclusions, unknown nested fields stripped, and the
+// Bundle parent/child pair preserved exactly like inclusionItems above.
+check_request_schema_family_snapshot(count($item['commercialBreakdown']) === 2, 'both Periods survive');
+$firstPeriod = $item['commercialBreakdown'][0];
+check_request_schema_family_snapshot($firstPeriod['fromMonth'] === 0 && $firstPeriod['toMonth'] === 10, 'first Period from/to months survive');
+check_request_schema_family_snapshot(count($firstPeriod['components']) === 1, 'first Period has exactly one component');
+$secondPeriod = $item['commercialBreakdown'][1];
+check_request_schema_family_snapshot($secondPeriod['fromMonth'] === 11 && $secondPeriod['toMonth'] === null, 'second Period from/to months survive, open-ended toMonth stays null');
+check_request_schema_family_snapshot(count($secondPeriod['components']) === 3, 'the Month-11 Period keeps all three of its own components — never deduplicated by source the way legPaymentSummaries is');
+
+$staticIpComponent = $secondPeriod['components'][1];
+check_request_schema_family_snapshot($staticIpComponent['source'] === 'leg_static_ip', 'the Static IP Block component\'s source survives (internal grouping only)');
+check_request_schema_family_snapshot($staticIpComponent['billingCycle'] === 'annually', 'the Static IP Block component\'s billing cadence survives');
+$staticIpInclusion = $staticIpComponent['inclusions'][0];
+check_request_schema_family_snapshot($staticIpInclusion['label'] === 'Static IP Block (8 IPs, 5 usable)', 'the exact reported inclusion label survives');
+check_request_schema_family_snapshot($staticIpInclusion['quantity'] === 2, 'the exact reported quantity (2) survives');
+check_request_schema_family_snapshot($staticIpInclusion['unitPrice'] === 40.0, 'the exact reported unit price ($40) survives');
+check_request_schema_family_snapshot($staticIpInclusion['lineTotal'] === 80.0, 'the exact reported line total ($80) survives — the number this whole feature exists to explain');
+check_request_schema_family_snapshot(!array_key_exists('evil_field', $staticIpInclusion), 'unknown nested fields are not blindly retained inside commercialBreakdown either');
+
+$bundleComponent = $secondPeriod['components'][2];
+$bundleInclusion = $bundleComponent['inclusions'][0];
+check_request_schema_family_snapshot($bundleInclusion['id'] === 'itm_bundle', 'the Bundle parent inclusion survives inside commercialBreakdown');
+check_request_schema_family_snapshot(count($bundleInclusion['includes']) === 1, 'the Bundle child survives inside commercialBreakdown');
+check_request_schema_family_snapshot($bundleInclusion['includes'][0]['label'] === 'Endpoint Protection', 'the Bundle child\'s own label survives');
+
 // A legacy line predating these fields defaults every new key to null, never
 // an empty array masquerading as "no data was ever configured".
 $legacy = $items[1];
 check_request_schema_family_snapshot($legacy['tierEditionTitle'] === null, 'a legacy line with no tierEditionTitle defaults to null');
 check_request_schema_family_snapshot($legacy['inclusionItems'] === null, 'a legacy line with no inclusionItems defaults to null, not []');
 check_request_schema_family_snapshot($legacy['legPaymentSummaries'] === null, 'a legacy line with no legPaymentSummaries defaults to null, not []');
+check_request_schema_family_snapshot($legacy['commercialBreakdown'] === null, 'a legacy line with no commercialBreakdown defaults to null, not []');
 
 // ── restArgs() schema carries the new fields ─────────────────────────────────
 
 $args = RequestSchema::restArgs();
 $properties = $args['items']['items']['properties'];
 check_request_schema_family_snapshot(
-    isset($properties['tierEditionTitle'], $properties['inclusionItems'], $properties['legPaymentSummaries']),
-    'restArgs() declares all three new cart-item fields'
+    isset($properties['tierEditionTitle'], $properties['inclusionItems'], $properties['legPaymentSummaries'], $properties['commercialBreakdown']),
+    'restArgs() declares all four new cart-item fields'
 );
 
 echo "Request schema family quote snapshot checks passed.\n";

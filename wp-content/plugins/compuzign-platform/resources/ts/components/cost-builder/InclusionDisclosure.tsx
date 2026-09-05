@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { formatPrice } from '@/utils/format';
+import { chargeTypeLabel } from '@/utils/paymentSummary';
+import type { QuotedBreakdownInclusion } from '@/utils/paymentSummary';
 import type { FamilyTierQuoteItem } from './types';
 
 // Live-validation correction (project-work/2026-09-03-composable-tier-
@@ -68,6 +70,25 @@ export interface DisclosureInclusionRow {
   // separately priced, so it carries null here unless the underlying data
   // genuinely resolves one.
   lineTotal: number | null;
+  // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+  // attribution"): which Period/cadence this row's charge belongs to — e.g.
+  // "Month 11–Indefinite · Yearly" — present only for rows derived from
+  // item.commercialBreakdown below. Undefined for the legacy flat-list
+  // fallback (inclusionItems/features), in which case the panel renders no
+  // group headings at all, exactly as it always has.
+  groupLabel?: string;
+}
+
+function breakdownInclusionRows(
+  inclusion: QuotedBreakdownInclusion,
+  groupLabel: string,
+  keyPrefix: string,
+): DisclosureInclusionRow[] {
+  return [
+    { id: keyPrefix, label: inclusion.label, quantity: inclusion.quantity, lineTotal: inclusion.lineTotal, groupLabel },
+    ...(inclusion.includes ?? []).flatMap((child, ci) =>
+      breakdownInclusionRows(child, groupLabel, `${keyPrefix}:child:${child.id || ci}`)),
+  ];
 }
 
 // Shared row derivation for every family_tier quote line (primary, add-on,
@@ -81,6 +102,23 @@ export interface DisclosureInclusionRow {
 // component's callers — never a second derivation of what a quoted item
 // includes.
 export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): DisclosureInclusionRow[] {
+  // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+  // attribution"): when the richer per-Period breakdown snapshot exists,
+  // it takes priority over the flat inclusionItems/features fallback below
+  // — same "captured once at Add-to-Quote time, never re-resolved" rule as
+  // every other snapshot field on this item. Absent/empty for every cart
+  // item that predates this field (falls through to the existing flat
+  // rendering, unchanged) or has no resolved commercial_legs at all.
+  if (item.commercialBreakdown && item.commercialBreakdown.length > 0) {
+    return item.commercialBreakdown.flatMap((period) => {
+      const rangeLabel = `Month ${period.fromMonth}–${period.toMonth ?? 'Indefinite'}`;
+      return period.components.flatMap((component) => {
+        const groupLabel = `${rangeLabel} · ${chargeTypeLabel(component.billingCycle)}`;
+        return component.inclusions.flatMap((inclusion, i) =>
+          breakdownInclusionRows(inclusion, groupLabel, `${period.fromMonth}:${component.source}:${inclusion.id || i}`));
+      });
+    });
+  }
   if (item.inclusionItems && item.inclusionItems.length > 0) {
     return item.inclusionItems.flatMap((inclusion, i) => [
       {
@@ -200,13 +238,30 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td>{row.label}</td>
-              <td>{row.quantity ?? ''}</td>
-              <td>{row.lineTotal !== null ? formatPrice(row.lineTotal) : ''}</td>
-            </tr>
-          ))}
+          {/* Live-gate correction (2026-09-05, "preserve period/leg
+              inclusion attribution"): a group-heading row precedes the
+              first row of each distinct groupLabel run — never for the
+              legacy flat rendering, where every row's groupLabel is
+              undefined and no heading ever renders. */}
+          {(() => {
+            let previousGroupLabel: string | undefined;
+            return rows.flatMap((row) => {
+              const showGroupHeading = row.groupLabel !== undefined && row.groupLabel !== previousGroupLabel;
+              previousGroupLabel = row.groupLabel;
+              return [
+                ...(showGroupHeading ? [
+                  <tr key={`${row.id}:group`} class="cz-inclusion-disclosure__group-row">
+                    <td colSpan={3}>{row.groupLabel}</td>
+                  </tr>,
+                ] : []),
+                <tr key={row.id}>
+                  <td>{row.label}</td>
+                  <td>{row.quantity ?? ''}</td>
+                  <td>{row.lineTotal !== null ? formatPrice(row.lineTotal) : ''}</td>
+                </tr>,
+              ];
+            });
+          })()}
         </tbody>
       </table>
       {pricedRows.length > 0 && (

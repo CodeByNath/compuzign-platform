@@ -95,6 +95,7 @@ import {
   orderedQuoteItems,
 } from '../resources/ts/utils/quote';
 import { computeTotalContractValue } from '../resources/ts/utils/paymentSummary';
+import { buildQuotedCommercialBreakdown } from '../resources/ts/components/cost-builder/PricingTiers';
 import { buildComposableFamilyTierQuoteItem, buildComposableChoice, seedSelectionFromCartItem, type BrowseRow, type ItemContribution } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
 import { COMPOSABLE_QUOTE_TIER_ID } from '../resources/ts/components/cost-builder/types';
 import { disclosureRowsForFamilyTierItem } from '../resources/ts/components/cost-builder/InclusionDisclosure';
@@ -796,6 +797,93 @@ check(
 check(
   /padding:0 14px 10px;border-bottom:1px solid #f0f0f0;/.test(notificationTemplatesSource),
   'emailInclusionItemsList()\'s wrapper <td> — always the last visible row of its own item\'s block — now carries the boundary line',
+);
+
+// ── 15. Live-gate correction (2026-09-05, "preserve period/leg inclusion
+//    attribution in quote snapshots") ─────────────────────────────────────
+//
+// buildQuotedCommercialBreakdown() — the exact reported "Starter Cloud"
+// shape: Monthly $156.50 throughout, Yearly $80 beginning Month 11 =
+// Static IP Block (8 IPs, 5 usable), qty 2 x $40.
+
+const starterCloudPeriods: CommercialLegPeriod[] = [
+  {
+    from_month: 0, to_month: 10,
+    components: [
+      { source: 'leg_default', billing_cycle: 'monthly', price: 156.50, available: true, items: [
+        { item_id: 'itm_seats', label: 'User Seats', quantity: 5, price_option_id: null, unit_price: 31.30, line_total: 156.50, available: true },
+      ] },
+    ],
+  },
+  {
+    from_month: 11, to_month: null,
+    components: [
+      { source: 'leg_default', billing_cycle: 'monthly', price: 156.50, available: true, items: [
+        { item_id: 'itm_seats', label: 'User Seats', quantity: 5, price_option_id: null, unit_price: 31.30, line_total: 156.50, available: true },
+      ] },
+      { source: 'leg_static_ip', billing_cycle: 'annually', price: 80, available: true, items: [
+        { item_id: 'itm_static_ip', label: 'Static IP Block (8 IPs, 5 usable)', quantity: 2, price_option_id: null, unit_price: 40, line_total: 80, available: true },
+      ] },
+      // An unavailable component must never contribute rows.
+      { source: 'leg_excluded', billing_cycle: 'monthly', price: 12, available: false, items: [
+        { item_id: 'itm_excluded', label: 'Excluded Item', quantity: 1, price_option_id: null, unit_price: 12, line_total: 12, available: true },
+      ] },
+    ],
+  },
+];
+
+const starterCloudBreakdown = buildQuotedCommercialBreakdown(starterCloudPeriods);
+
+check(starterCloudBreakdown.length === 2, 'buildQuotedCommercialBreakdown() preserves both Periods, never collapsing them');
+check(starterCloudBreakdown[0].fromMonth === 0 && starterCloudBreakdown[0].toMonth === 10, 'first Period keeps its own from/to months');
+check(starterCloudBreakdown[1].fromMonth === 11 && starterCloudBreakdown[1].toMonth === null, 'second (open-ended) Period keeps toMonth null, never coerced to a commitment fallback the way LegPaymentSummary does');
+check(
+  starterCloudBreakdown[1].components.length === 2,
+  'the unavailable leg_excluded component is dropped, but BOTH available components (leg_default AND leg_static_ip) survive together — never deduplicated by source the way buildLegPaymentSummaries() does',
+);
+const staticIpComponent = starterCloudBreakdown[1].components.find((c) => c.source === 'leg_static_ip')!;
+check(staticIpComponent.billingCycle === 'annually', 'the Static IP component keeps its own annual cadence, distinct from the monthly Default Leg in the SAME Period');
+check(
+  staticIpComponent.inclusions[0].label === 'Static IP Block (8 IPs, 5 usable)'
+    && staticIpComponent.inclusions[0].quantity === 2
+    && staticIpComponent.inclusions[0].unitPrice === 40
+    && staticIpComponent.inclusions[0].lineTotal === 80,
+  'the exact reported inclusion — label, quantity, unit price, and the $80 line total this whole feature exists to explain — survives intact',
+);
+
+// disclosureRowsForFamilyTierItem() takes priority when commercialBreakdown
+// is present, and produces the expected Period/cadence group labels.
+const starterCloudItem: FamilyTierQuoteItem = {
+  offer_type: 'family_tier',
+  familyId: 'pcg_starter', familyPlatformId: 'CZPG-STARTER01', familyTitle: 'Starter Cloud Family',
+  tierInstanceId: 'ti_starter', tierInstancePlatformId: 'CZTG-STARTER01',
+  tierOccupantId: 'occ_starter', tierPlatformId: 'CZT-STARTER001', tierEditionPlatformId: null,
+  tierId: 'basic', tierTitle: 'Starter Cloud', price: 156.50, billingCycle: 'monthly',
+  features: ['Generic bundled inclusion — must not render once commercialBreakdown is present'],
+  isAddon: false, minimumTermValue: null, minimumTermUnit: null,
+  commercialBreakdown: starterCloudBreakdown,
+};
+const starterCloudRows = disclosureRowsForFamilyTierItem(starterCloudItem);
+check(
+  starterCloudRows.every((row) => row.groupLabel !== undefined),
+  'every row derived from commercialBreakdown carries a groupLabel — the legacy flat fallback (features/inclusionItems) never sets one',
+);
+check(
+  starterCloudRows.some((row) => row.groupLabel === 'Month 11–Indefinite · Yearly' && row.label === 'Static IP Block (8 IPs, 5 usable)' && row.lineTotal === 80),
+  'the Static IP Block row carries the exact "Month 11–Indefinite · Yearly" group label alongside its $80 line total',
+);
+check(
+  !starterCloudRows.some((row) => row.label.includes('Generic bundled inclusion')),
+  'the legacy features[] fallback never renders once commercialBreakdown is present and non-empty',
+);
+
+// Legacy item with no commercialBreakdown still falls through to the
+// existing inclusionItems/features rendering, completely unaffected.
+const noBreakdownItem: FamilyTierQuoteItem = { ...starterCloudItem, commercialBreakdown: null };
+const noBreakdownRows = disclosureRowsForFamilyTierItem(noBreakdownItem);
+check(
+  noBreakdownRows.length === 1 && noBreakdownRows[0].groupLabel === undefined && noBreakdownRows[0].label.includes('Generic bundled inclusion'),
+  'a legacy item with no commercialBreakdown (or commercialBreakdown: null) falls back to the existing features[] rendering, with no groupLabel at all',
 );
 
 console.log('Composable quote/cart contract passed.');

@@ -104,3 +104,52 @@ export function chargeTypeLabel(cycle: string | null): string {
   if (cycle === null) return 'Payment';
   return CHARGE_TYPE_LABELS[cycle] ?? 'Payment';
 }
+
+// Live-gate correction (2026-09-05, "preserve period/leg inclusion
+// attribution in quote snapshots"): the additive, attribution-preserving
+// sibling of LegPaymentSummary above. LegPaymentSummary answers "what do I
+// pay and when" by deduplicating every Period a Leg source appears in down
+// to one continuous stream — deliberately discarding which specific
+// inclusion, at what quantity/unit price/line total, produced that figure
+// (see buildLegPaymentSummaries(), cost-builder/PricingTiers.tsx, which
+// never reads component.items at all). These three types answer "what does
+// that charge actually include": one entry per Period, per available
+// component, per priced inclusion — the ORIGINAL occurrences, never
+// deduplicated across Periods, since the same Leg's own inclusion set can
+// genuinely differ Period to Period. See buildQuotedCommercialBreakdown()
+// (cost-builder/PricingTiers.tsx) for the producer, and
+// FamilyTierQuoteItem.commercialBreakdown (cost-builder/types.ts) for where
+// it's captured once at Add-to-Quote time.
+
+// One priced inclusion's full commercial attribution, mirroring
+// CommercialLegPricedItem (@/api/types/cost-builder) field-for-field.
+// Bundle children travel via `includes`, same display-only convention as
+// ServiceInclusion.includes/CommercialLegPricedItem.includes — never
+// separately priced/selectable entries of their own.
+export interface QuotedBreakdownInclusion {
+  id: string;
+  label: string;
+  quantity: number;
+  unitPrice: number | null;
+  lineTotal: number | null;
+  includes?: QuotedBreakdownInclusion[] | null;
+}
+
+// One resolved commercial component's (a Leg's) own priced inclusions
+// within ONE Period. `source` is kept ONLY for stable internal grouping —
+// it matches CommercialLegComponent.source (a Leg Platform ID, or the
+// literal 'default' legacy fallback) and must never be shown to a
+// customer.
+export interface QuotedBreakdownComponent {
+  source: string;
+  billingCycle: string | null;
+  price: number | null;
+  inclusions: QuotedBreakdownInclusion[];
+}
+
+// One resolved, time-scoped Period's own available components.
+export interface QuotedBreakdownPeriod {
+  fromMonth: number;
+  toMonth: number | null;
+  components: QuotedBreakdownComponent[];
+}

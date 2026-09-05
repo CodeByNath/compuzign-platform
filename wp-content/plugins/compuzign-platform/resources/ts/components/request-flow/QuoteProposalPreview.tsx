@@ -1,6 +1,7 @@
 import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
+import { disclosureRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
 import type { ContactFormValues } from './types';
@@ -20,6 +21,46 @@ interface QuoteProposalPreviewProps {
 // the flat features[] list for an old cart entry that predates this field.
 // Never re-resolved from live Family/Tier catalog data — snapshot only.
 function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
+  // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+  // attribution"): reuses the SAME shared row derivation the quote
+  // disclosure/Total Commitment tables already call
+  // (disclosureRowsForFamilyTierItem(), cost-builder/InclusionDisclosure.tsx)
+  // rather than a second period-walking implementation — when the
+  // commercialBreakdown snapshot exists, its rows carry a groupLabel (e.g.
+  // "Month 11–Indefinite · Yearly") this list renders as a section heading
+  // before the run of rows it covers, so the printed/emailed-link proposal
+  // explains WHICH inclusion produced a given charge, not just that it
+  // exists. Absent for the legacy inclusionItems/features fallback below
+  // (untouched), in which case every row's groupLabel is undefined and no
+  // heading ever renders here.
+  const breakdownRows = disclosureRowsForFamilyTierItem(item).filter((row) => row.groupLabel !== undefined);
+  if (breakdownRows.length > 0) {
+    let previousGroupLabel: string | undefined;
+    return (
+      <ul class="cz-proposal__features">
+        {breakdownRows.flatMap((row) => {
+          const showGroupHeading = row.groupLabel !== previousGroupLabel;
+          previousGroupLabel = row.groupLabel;
+          return [
+            ...(showGroupHeading ? [
+              <li key={`${row.id}:group`} class="cz-proposal__feature cz-proposal__feature--group">{row.groupLabel}</li>,
+            ] : []),
+            <li key={row.id} class="cz-proposal__feature">
+              <span class="cz-proposal__feature-row">
+                <span class="cz-proposal__feature-label">{row.label}</span>
+                <span class="cz-proposal__feature-qty">
+                  {row.quantity ?? ''}
+                  {row.lineTotal !== null && (
+                    <span class="cz-proposal__feature-price">{' '}{formatPrice(row.lineTotal)}</span>
+                  )}
+                </span>
+              </span>
+            </li>,
+          ];
+        })}
+      </ul>
+    );
+  }
   if (item.inclusionItems && item.inclusionItems.length > 0) {
     return (
       <ul class="cz-proposal__features">

@@ -1,5 +1,5 @@
 import type { ComposablePreviewChoiceItem, ServiceInclusion, TierId } from '@/api/types/cost-builder';
-import type { LegPaymentSummary } from '@/utils/paymentSummary';
+import type { LegPaymentSummary, QuotedBreakdownPeriod } from '@/utils/paymentSummary';
 
 // 'bundle' = recommended bundle; 'promotion' = active promotion tier offer
 export type QuoteItemTierId = TierId | 'bundle' | 'promotion';
@@ -137,6 +137,25 @@ export interface FamilyTierQuoteItem {
   // Tier); optional because carts persisted before this field existed simply
   // omit it — both cases mean "show today's single price/cycle line."
   legPaymentSummaries?: LegPaymentSummary[] | null;
+  // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+  // attribution in quote snapshots"): the exact resolved breakdown behind
+  // legPaymentSummaries above — WHICH inclusion, at what quantity/unit
+  // price/line total, in which Period/component — captured once at Add to
+  // Quote time from the SAME resolved CommercialLegPeriod[] (see
+  // FamilyTierAdapter.tsx's itemFor(), ComposableOfferBrowser.tsx's
+  // buildComposableFamilyTierQuoteItem(), buildQuotedCommercialBreakdown()
+  // in PricingTiers.tsx). Additive alongside legPaymentSummaries — never
+  // replaces it and is never itself a pricing source: every Monthly/Yearly/
+  // Total figure a customer sees still comes from legPaymentSummaries/price
+  // above exactly as before; this field only EXPLAINS those figures.
+  // Preserves every Period/component occurrence exactly once — never
+  // deduplicated by Leg source the way legPaymentSummaries is, since the
+  // same Leg's own inclusion set can genuinely differ Period to Period.
+  // Null/absent for every cart item that predates this field, or has no
+  // resolved commercial_legs at all — customer surfaces fall back to
+  // today's generic inclusion display (features/inclusionItems above) in
+  // that case, never fabricating attribution.
+  commercialBreakdown?: QuotedBreakdownPeriod[] | null;
 }
 
 export type CartItem = QuoteItem | FamilyTierQuoteItem;

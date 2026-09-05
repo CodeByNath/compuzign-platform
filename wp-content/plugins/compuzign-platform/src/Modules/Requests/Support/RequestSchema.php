@@ -161,6 +161,15 @@ class RequestSchema
                     : null;
                 $item['inclusionItems'] = self::sanitizeInclusionItems($raw['inclusionItems'] ?? null);
                 $item['legPaymentSummaries'] = self::sanitizeLegPaymentSummaries($raw['legPaymentSummaries'] ?? null);
+                // Live-gate correction (2026-09-05, "preserve period/leg
+                // inclusion attribution in quote snapshots"): the additive
+                // breakdown behind legPaymentSummaries above — see
+                // FamilyTierQuoteItem.commercialBreakdown (cost-builder/
+                // types.ts) and sanitizeCommercialBreakdown() below for the
+                // full reasoning. Never re-derived from legPaymentSummaries
+                // (that data is already discarded by the time it's built);
+                // carried through exactly as captured, or null when absent.
+                $item['commercialBreakdown'] = self::sanitizeCommercialBreakdown($raw['commercialBreakdown'] ?? null);
                 // Request/PDF/email propagation phase: the composable ("Build
                 // Your Own") occupant's own role discriminator — the one field
                 // that was silently dropped by this sanitiser, causing every
@@ -321,6 +330,122 @@ class RequestSchema
     }
 
     /**
+     * Sanitise a snapshot `commercialBreakdown` list (Phase 2026-09-05
+     * structure) — the additive, attribution-preserving breakdown behind
+     * `legPaymentSummaries`: which specific inclusion, at what quantity/unit
+     * price/line total, in which Period/component, the browser captured
+     * once at Add to Quote time (see FamilyTierAdapter.tsx's itemFor(),
+     * ComposableOfferBrowser.tsx's buildComposableFamilyTierQuoteItem(),
+     * buildQuotedCommercialBreakdown() in cost-builder/PricingTiers.tsx).
+     * Explicit per-field allow-list at every nesting level, applied
+     * recursively for a Bundle child's own `includes` — same convention as
+     * sanitizeInclusionItems() above. Preserves every Period/component
+     * occurrence exactly once; never deduplicated by source.
+     *
+     * @param  mixed $raw
+     * @return array<int, array<string, mixed>>|null
+     */
+    private static function sanitizeCommercialBreakdown($raw): ?array
+    {
+        if (!is_array($raw) || $raw === []) {
+            return null;
+        }
+
+        $periods = [];
+        foreach ($raw as $periodEntry) {
+            if (!is_array($periodEntry) || !isset($periodEntry['components']) || !is_array($periodEntry['components'])) {
+                continue;
+            }
+
+            $components = [];
+            foreach ($periodEntry['components'] as $componentEntry) {
+                if (!is_array($componentEntry)) {
+                    continue;
+                }
+
+                $source = sanitize_text_field((string) ($componentEntry['source'] ?? ''));
+                if ($source === '') {
+                    continue;
+                }
+
+                $inclusions = self::sanitizeCommercialBreakdownInclusions($componentEntry['inclusions'] ?? null);
+                if ($inclusions === null) {
+                    continue;
+                }
+
+                $components[] = [
+                    'source'       => $source,
+                    'billingCycle' => isset($componentEntry['billingCycle']) && $componentEntry['billingCycle'] !== null
+                        ? sanitize_text_field((string) $componentEntry['billingCycle'])
+                        : null,
+                    'price'        => isset($componentEntry['price']) && $componentEntry['price'] !== null
+                        ? floatval($componentEntry['price'])
+                        : null,
+                    'inclusions'   => $inclusions,
+                ];
+            }
+
+            if ($components === []) {
+                continue;
+            }
+
+            $periods[] = [
+                'fromMonth'  => intval($periodEntry['fromMonth'] ?? 0),
+                'toMonth'    => isset($periodEntry['toMonth']) && $periodEntry['toMonth'] !== null
+                    ? intval($periodEntry['toMonth'])
+                    : null,
+                'components' => $components,
+            ];
+        }
+
+        return $periods === [] ? null : $periods;
+    }
+
+    /**
+     * @param  mixed $raw
+     * @return array<int, array<string, mixed>>|null
+     */
+    private static function sanitizeCommercialBreakdownInclusions($raw): ?array
+    {
+        if (!is_array($raw) || $raw === []) {
+            return null;
+        }
+
+        $inclusions = [];
+        foreach ($raw as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $id = sanitize_text_field((string) ($entry['id'] ?? ''));
+            if ($id === '') {
+                continue;
+            }
+
+            $inclusion = [
+                'id'        => $id,
+                'label'     => sanitize_text_field((string) ($entry['label'] ?? '')),
+                'quantity'  => intval($entry['quantity'] ?? 0),
+                'unitPrice' => isset($entry['unitPrice']) && $entry['unitPrice'] !== null
+                    ? floatval($entry['unitPrice'])
+                    : null,
+                'lineTotal' => isset($entry['lineTotal']) && $entry['lineTotal'] !== null
+                    ? floatval($entry['lineTotal'])
+                    : null,
+            ];
+
+            $children = self::sanitizeCommercialBreakdownInclusions($entry['includes'] ?? null);
+            if ($children !== null) {
+                $inclusion['includes'] = $children;
+            }
+
+            $inclusions[] = $inclusion;
+        }
+
+        return $inclusions === [] ? null : $inclusions;
+    }
+
+    /**
      * REST args schema for the /requests/submit route.
      * Used by register_rest_route() 'args' key (Patch 6).
      *
@@ -427,6 +552,28 @@ class RequestSchema
                                     'isOngoing'        => ['type' => 'boolean'],
                                     'occurrenceMonths' => ['type' => 'array', 'items' => ['type' => 'integer']],
                                     'subtotal'         => ['type' => ['number', 'null']],
+                                ],
+                            ],
+                        ],
+                        'commercialBreakdown' => [
+                            'type'  => ['array', 'null'],
+                            'items' => [
+                                'type'       => 'object',
+                                'properties' => [
+                                    'fromMonth'  => ['type' => 'integer'],
+                                    'toMonth'    => ['type' => ['integer', 'null']],
+                                    'components' => [
+                                        'type'  => 'array',
+                                        'items' => [
+                                            'type'       => 'object',
+                                            'properties' => [
+                                                'source'       => ['type' => 'string'],
+                                                'billingCycle' => ['type' => ['string', 'null']],
+                                                'price'        => ['type' => ['number', 'null']],
+                                                'inclusions'   => ['type' => 'array'],
+                                            ],
+                                        ],
+                                    ],
                                 ],
                             ],
                         ],

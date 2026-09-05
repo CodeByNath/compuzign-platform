@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
 import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData, ServiceInclusion } from '@/api/types/cost-builder';
 import { resolveComposablePreview } from '@/api/endpoints/package-builder';
-import { buildLegPaymentSummaries, cycleSuffix, resolveHeadlinePrice } from '@/components/cost-builder/PricingTiers';
+import { buildLegPaymentSummaries, buildQuotedCommercialBreakdown, cycleSuffix, resolveHeadlinePrice } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
 import { COMPOSABLE_QUOTE_TIER_ID, type FamilyTierQuoteItem } from '@/components/cost-builder/types';
 
@@ -273,6 +273,11 @@ export function buildComposableFamilyTierQuoteItem(
     minimumTermUnit: offer.minimum_term_unit ?? null,
     planDurationMonths: null,
     legPaymentSummaries,
+    // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+    // attribution"): captured from the SAME resolved `periods` alongside
+    // legPaymentSummaries above — see buildQuotedCommercialBreakdown()'s
+    // own docblock (cost-builder/PricingTiers.tsx).
+    commercialBreakdown: buildQuotedCommercialBreakdown(periods),
   };
 }
 

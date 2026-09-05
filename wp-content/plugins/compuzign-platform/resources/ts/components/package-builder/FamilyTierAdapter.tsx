@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, buildLegPaymentSummaries, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
+import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, buildLegPaymentSummaries, buildQuotedCommercialBreakdown, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
 import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
@@ -632,6 +632,14 @@ export function FamilyTierAdapter({
     const legPaymentSummaries = activeCommercialLegs
       ? buildLegPaymentSummaries(activeCommercialLegs, commitmentMonths)
       : null;
+    // Live-gate correction (2026-09-05, "preserve period/leg inclusion
+    // attribution"): captured from the SAME activeCommercialLegs alongside
+    // legPaymentSummaries above, never re-derived from it — see
+    // buildQuotedCommercialBreakdown()'s own docblock for why this can't be
+    // reconstructed from legPaymentSummaries after the fact.
+    const commercialBreakdown = activeCommercialLegs
+      ? buildQuotedCommercialBreakdown(activeCommercialLegs)
+      : null;
     return {
       offer_type: 'family_tier',
       familyId: family.family_id,
@@ -654,6 +662,7 @@ export function FamilyTierAdapter({
       minimumTermUnit: effective.minimumTermUnit,
       planDurationMonths,
       legPaymentSummaries,
+      commercialBreakdown,
     };
   };
 
