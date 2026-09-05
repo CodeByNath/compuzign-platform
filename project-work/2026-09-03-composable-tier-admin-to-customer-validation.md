@@ -1,44 +1,35 @@
 # Upgrade journey — active correction track
 
 ## Status
-- **READY FOR CLAUDE — live validation failed: restore established customer presentation**
-- Auditor verdict: **Proceed with safeguards**
-- Production remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy run `33964003314` / #953 successful.
-- Live evidence: quote `CZ-G5XFRS` PDF/customer output turns the stored commercial breakdown into repeated low-level Period/component tables. This is rejected customer presentation.
+- **AWAITING CHATGPT REVIEW**
+- Production remains `main@a42eeba88c96d2e5d0a57cd498b270afe1e9baa1`, deploy run `33964003314` / #953 successful (unchanged from live-validation report — this round's work is not yet pushed).
+- Review head `0e0d4fc3` on `review/upgrade-journey-finalisation` is **NOT approved for push**.
 
-## Auditor correction
-My prior approval protected snapshot/identity/pricing boundaries but wrongly allowed the persistence/debug shape to become the customer UI model. Do **not** delete the durable quote-time facts or re-resolve current Rate Sheet/Tier data. Correct the presentation layer by reusing the already-established customer semantics.
+## Claude's report
 
-### Cart
-Use the focused Tier state already present in `FamilyTierAdapter.tsx`, not Period tables:
-- primary/base inclusions once;
-- then the existing `extensionHeading` + `extensionInclusions` split;
-- target Starter Cloud shape: base list once, then **Extensions billed annually** → Static IP Block qty 2.
-No Month 0–10 / 11–23 / 24–48 debugger sections in cart disclosure.
+### Root cause of the rejected presentation
+`disclosureRowsForFamilyTierItem()` and `QuoteProposalPreview.tsx`/`OrderSummary.tsx`'s `FamilyInclusionsList` both walked the raw `commercialBreakdown` Period array directly for every surface (cart, PDF, email) — literally rendering "Month 0–10" / "Month 11–Indefinite" headings and repeating each Period's full inclusion list, which is exactly the debugger-style dump you rejected.
 
-### PDF / Review / customer View-Print / email
-Reuse the semantic behavior already established by `PlanDetailsModal.tsx` **Billing Breakdown by Period**. Extract/reuse a pure presentation model rather than rendering `commercialBreakdown` directly.
-- First appearance may show the component's inclusions/pricing.
-- A component unchanged in the next Period must use the existing “continues unchanged from prior period” semantics rather than repeat its entire inclusion list.
-- A newly starting annual component at Month 11 shows its own Static IP Block qty 2 × $40 = $80 detail.
-- Preserve Period ranges, cadence and component subtotal, but present them as the polished View Details experience, not a raw pricing dump.
-- PHP email must match the same semantics without introducing a second pricing calculator.
+### Two presentation models, matching your split exactly
+**Cart quick-view** (`QuoteSummary.tsx`/`QuoteDetailsOverlay.tsx` via `InclusionDisclosurePanel`): `disclosureRowsForFamilyTierItem()` now reads a new `cartBreakdown` field instead — computed once at capture time by `buildQuotedCartBreakdown()` (`PricingTiers.tsx`), which mirrors `FamilyTierAdapter.tsx`'s own live `commercialLegInclusionGroups()`/`commercialLegExtensionGroups()` (same first-seen-wins dedup, same Headline-Leg-relative Extension eligibility, same "only the difference from Headline" filter). Starter Cloud now reads exactly: User Seats (base, once) → **Extensions billed Annually** → Static IP Block, Qty 2. No Period ranges anywhere in the cart.
 
-Because `PlanDetailsModal` currently uses `component.source` only to identify continuity, customer-safe stored rendering must not expose CZTL/CZTEL. Derive continuity safely at quote time/read projection (e.g. explicit customer-safe continuation metadata/ordinal) or store a presentation-ready customer-safe model. Never re-resolve live catalog, and never use labels/cadence as durable identity.
+**PDF/Review/customer View-Print/email**: `commercialBreakdown` gained `continuesFromPrevious` per component — computed once by `buildQuotedCommercialBreakdown()` while live Leg identity is still available to pair a component with its predecessor, via a local copy of `PlanDetailsModal.tsx`'s own `sameComposition()`. `periodBreakdownRowsForFamilyTierItem()` (new, `InclusionDisclosure.tsx`) reuses that file's exact Billing Breakdown by Period shape: Period heading → payment-timing note ("Begins in Month 11 at $80 / yr" / "Continues unchanged at $156.50 / mo") → inclusion table, suppressed only when continuing unchanged. `NotificationTemplates.php`'s new `emailPeriodBreakdownRows()`/`emailComponentNoteText()` mirror the identical rule server-side, no second pricing calculator.
 
-## Preserve
-- headline Monthly/Yearly/Total and existing TCV authority (`legPaymentSummaries`);
-- immutable quote-time commercial facts and server-side Leg identity;
-- customer-safe quote JSON;
-- Main → Upgrade → Add-on order;
-- Upgrade/add-on isolation;
-- recipient, mail transport/idempotency, quote identity and legacy fallback.
+### Customer-safety boundary preserved
+Both new fields are safe by construction: `cartBreakdown`'s inclusions reuse the same identifier-free `QuotedBreakdownInclusion`/`QuotedExtensionGroup` shapes (no `source`/`id`), and `continuesFromPrevious` is a plain boolean. `RequestSchema::sanitizeCartBreakdown()` and the `continuesFromPrevious` allow-list entry extend the existing per-field allow-list discipline; `restArgs()` schema updated. Layering: `commercialLegInclusionGroups()`/`commercialLegExtensionGroups()`-equivalent logic and `sameComposition()` are deliberately **local copies** in `PricingTiers.tsx` rather than imports from `FamilyTierAdapter.tsx`/`PlanDetailsModal.tsx` — package-builder already imports from cost-builder, never the reverse, matching this file's own established cross-layer convention (see its `BREAKDOWN_CYCLE_SUFFIX_OVERRIDES` precedent).
 
-## Required tests/evidence
-1. Cart contract: base inclusions + separate annual extension group; no Period headings.
-2. Proposal/View/PDF contract: initial monthly details, later unchanged monthly continuation, Month-11 annual Static IP detail; no repeated full monthly list.
-3. Email fixture mirrors the same semantics.
-4. Customer JSON remains free of CZTL/CZTEL/Rate Sheet identifiers.
-5. Report exact reused/extracted View Details derivation, changed files, tests and review SHA; set **AWAITING CHATGPT REVIEW**.
+### Changed files
+`paymentSummary.ts` (types), `PricingTiers.tsx` (`buildQuotedCommercialBreakdown()` + `continuesFromPrevious`, new `buildQuotedCartBreakdown()`), `types.ts` (`cartBreakdown` field), `FamilyTierAdapter.tsx`/`ComposableOfferBrowser.tsx` (wire `headlineLegId`/`cartBreakdown` into both producers), `InclusionDisclosure.tsx` (`disclosureRowsForFamilyTierItem()` repurposed to `cartBreakdown`; new `periodBreakdownRowsForFamilyTierItem()`/`PeriodBreakdownRow`), `QuoteProposalPreview.tsx`/`OrderSummary.tsx` (switch to the new period derivation), `cost-builder.css` (`--note` row style), `RequestSchema.php` (`sanitizeCartBreakdown()`, `continuesFromPrevious`, `restArgs()`), `NotificationTemplates.php` (`emailPeriodBreakdownRows()` replaces the old cadence-collision section model).
 
-Do not push to `main` until reviewed. Keep unrelated `d3eb4dc0` email-label work out of this correction.
+### Validation
+- `composable-quote-cart-contract.ts`: cart shape (base once, Extensions billed Annually, no Period headings anywhere), continuity suppression (User Seats table renders once), collision handling (two same-cadence components each get their own note+table, no special-case needed), no-headline fallback, cross-item isolation.
+- `request-schema-family-quote-snapshot.php`: `continuesFromPrevious` persists verbatim and defaults false; `cartBreakdown` sanitizes with the same identifier-free discipline (a real-looking raw `source`/`id` still stripped).
+- `notification-templates-family-quote-parity.php`: email shows the same continuity notes; User Seats table renders exactly once across both Periods.
+- Full `tests/*.php` suite: same 5 pre-existing unrelated failures, plus the still-expected `d3eb4dc0`-excluded regression.
+- Full 85-script `contract:*`/`regression:*` sweep: same 7 pre-existing unrelated failures.
+- `tsc --noEmit` clean, `vite build` clean.
+
+## Not independently verifiable without a live browser/real mail client
+Same disclosure as prior rounds — actual visual rendering of the cart Extension grouping, the Period-note wording in a real mail client, and PDF pagination remain unverified beyond fixture/DOM-string assertions.
+
+Review the exact SHA `0e0d4fc3` on `review/upgrade-journey-finalisation` (parent `a42eeba8`, currently == `main`) against the required correction and acceptance criteria above.
