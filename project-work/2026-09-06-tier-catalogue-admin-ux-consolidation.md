@@ -1,7 +1,7 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — Phase 2 live validation partial pass**
+- **AWAITING LIVE VALIDATION — navigation targets reported below**
 - Auditor verdict: **Proceed with safeguards**.
 - Phase 2 remains `main@3cc88e83f93e57fec7b61419129cd93a8432809b`, deployed successfully by GitHub Actions run `34033325117` (#964).
 - Phase 3 remains blocked.
@@ -27,12 +27,17 @@ The browser agent could not verify deployment correspondence, but the auditor al
 - customer-facing Upgrade Your Build parity: offered/required/optional state, defaults, quantity behavior, Featured ordering unchanged.
 - save sequencing cannot be proven from visible UI alone; source review already confirms features save first then customer-policy save, with policy failure surfaced as Save failure. Live validation only needs to ensure UI does not falsely report full success when a real save error is observed; do not manufacture an error by mutating runtime/infrastructure.
 
-## Next action — Claude
-Do not change source. Provide the browser auditor with exact read-only navigation targets from current deployed/stored data:
-1. one published Build Your Own/Tier Catalogue occupant that has a selected inclusion with Additional Commercial Leg assignment(s), including service/package/tier identifiers and where to open it in Admin;
-2. one published Build Your Own/Tier Catalogue occupant with a selected Bundle row that exposes supplied child inclusions, including exact identifiers/navigation path;
-3. the exact deployed customer URL/route for the current live **Upgrade Your Build** flow and, if needed, the specific family/tier fixture that already exercises required/optional/default/quantity/Featured policy states.
+## Claude response — navigation targets
 
-If no such live fixture exists for item 1 or 2, state that explicitly and identify the nearest existing source/test fixture proving the invariant; do not create or modify production data just for validation.
+No source change made. I have no access to the live WordPress database/stored occupant records myself (source-only review) — I cannot identify which specific published occupant/Family already has a Leg-assigned or Bundle-backed selected inclusion in production today. Reporting what source alone establishes, per the "no live fixture → nearest existing fixture" fallback:
 
-After reporting those targets in this same file, set **AWAITING LIVE VALIDATION**. Do not start Phase 3 or Edition UI work.
+**1. Leg assignment + customer_policy — no live identifier available; nearest fixture exists and is genuinely combined.**
+`tests/composable-customer-policy-resolver.php`, §3 (lines 236–267): item `hosting` is claimed by both the Default row and an Additional Leg (`leg_assignments`) at once, with exactly ONE `customer_policy` entry for `item_id: 'hosting'` governing both — excluding it removes it from both components simultaneously, proving the policy is authored once per `item_id`, never duplicated per Leg assignment. This is a real data fixture, not a static source-text check. The browser auditor should find/create (read-only browse only, never mutate production) any published Build Your Own occupant whose Inclusions already has ≥1 row with an Additional Leg assignment — if none exists live, this PHP fixture is the accepted proof for that invariant instead.
+
+**2. Bundle-backed row + supplied children + customer_policy — no live identifier available; genuine coverage gap.**
+Closest fixture: same file, §7 (lines 409–416) — item `addon_bundle` carries `bundle_id` and a `customer_policy` entry keyed to it, proving policy authoring targets the Bundle row's own `item_id` correctly. **But this fixture's `includes` is `null`** — no populated supplied children — so it does NOT exercise a Bundle with real supplied content alongside a policy. No test anywhere (`tests/rate-sheet-bundle.php`, `scripts/tier-occupant-inclusions-bundle-contract.ts`, `scripts/tier-rate-sheet-catalogue-bundle-contract.ts`) combines a populated Bundle with `customer_policy`. The "never per supplied child" claim is currently proven only statically (`tier-inclusions-customer-policy-merge-contract.ts:98-102` — the supplied-content sub-list block never contains `CustomerPolicyItemFields`), never against a live/data-driven Bundle-with-children case. **Flagging this as a real gap**, not overstating coverage: if no published occupant with a Bundle row that has actual supplied children exists live, this invariant currently rests on static source-scan proof only, not an end-to-end fixture.
+
+**3. "Upgrade Your Build" is a UI state, not a separate route.**
+`ComposableOfferBrowser.tsx` renders both "Build Your Own" and "Upgrade your build" as two states of the SAME component (confirmed in `docs/code-map/tier-composable-occupant-customer-ux.md`) — there is no distinct URL. It mounts wherever WordPress renders the `[compuzign_package_builder]` shortcode (registered in `CostBuilderModule.php`, template `app/modules/cost-builder/templates/package-builder.php`). The actual page slug/URL is WordPress page content, not in this repo's source — the auditor needs to locate the live page by searching WP admin/Pages for that shortcode string, not by a guessed slug.
+
+Do not start Phase 3 or Edition UI work.
