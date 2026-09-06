@@ -1,39 +1,33 @@
 # Composable Upgrade Platform Identification — CZTU / CZTEU
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- Auditor verdict: **Proceed with safeguards**.
-- Pushed and deployed: `main@2f06872f5ac2759a35530a47cd2e6915eca76e7f` (fast-forward from `28f716b1...`, run by Nath directly per the classifier block on pushing `main`). Deploy run `34006339092` / #956, conclusion **success**.
-- `review/composable-upgrade-identity` deleted both locally and on origin now that it is fully merged.
+- **READY FOR CLAUDE — live validation exposed missing admin Overview dual-ID presentation**
+- Auditor verdict: **Proceed with safeguards; Phase 1 not closed**.
+- Production: `main@2f06872f5ac2759a35530a47cd2e6915eca76e7f`; deploy #956 succeeded.
+- Nath ran the existing Admin Station one-time Platform ID assignment action successfully, then observed the Upgrade Overview still does not show the additional Upgrade Platform ID.
 
-## Live validation needed before closure
-This phase touches a real one-time Admin Station control (**Assign Package and Tier IDs**) against the live Platform Identifier registry, so unlike a pure presentation change it warrants a read-only check before `CLOSED`:
-1. The Admin Station home still loads `PlatformIdentifierMigrationNotice` without error post-deploy (confirms the extended `ENTITY_TYPES`/union type didn't break the existing component).
-2. A dry-run against the two new scopes (`tier_upgrade`, `tier_edition_upgrade`) returns cleanly with `processed: 0` / no conflicts on current production data — expected, since no composable occupant/Edition has `is_upgrade_offer` declared yet, so nothing should be eligible.
-3. The migration status endpoint (`GET admin/platform-identifiers/migration`) does not report a false "complete" or throw for the two new scopes now present in `ENTITY_TYPES` under the `v5` option.
-This is read-only verification only — no button click/assignment action needed, since there is nothing yet declared as an Upgrade offer to assign.
+## What is confirmed working
+- CZTU/CZTEU backend identity policy, reserve/bind, migration assignment path and deployed Admin action are live.
+- This is not evidence to reopen the dual-identity architecture or pricing/customer flows.
 
-## Independent review
-The candidate is cleanly based on production:
-- compare `28f716b1... -> 2f06872f...`: **ahead 1, behind 0**;
-- merge base is exactly `28f716b1...`;
-- no rejected intermediate commit is in final ancestry.
+## Source-confirmed presentation gap
+The live symptom matches source exactly:
+- `SurfaceTierDetail` / `TierEdition` frontend contracts do not declare the new Upgrade ID fields.
+- `buildTierDetail()` only sends `platformId` + `addonPlatformId` to Tier Overview.
+- `TierOverviewShellData` / `tierOverviewShell` only render **Tier Platform ID** and conditional **Add-on Platform ID**.
+- `buildTierEditionDetail()` only sends `editionPlatformId`.
+- `TierEditionOverviewShellData` / `tierEditionOverviewShell` only render **Edition Platform ID**.
+Therefore a correctly assigned CZTU/CZTEU cannot appear in the Overview even when stored and returned.
 
-The previously missing Admin Station rollout coverage is now present:
-- `PlatformIdentifierEntityType` includes `tier_upgrade` and `tier_edition_upgrade`;
-- the existing `PlatformIdentifierMigrationNotice` one-time **Assign Package and Tier IDs** sweep includes both scopes;
-- same existing backend endpoint/button/engine only; no second migration system;
-- focused `admin-platform-identifier-migration-sweep-contract.ts` derives backend scope authority from `TemporaryMigrationController::ENTITY_TYPES` + `PlatformIdentifierPolicy` and asserts exact frontend parity in both directions.
+## Claude correction — presentation only
+On a clean review branch from current `main@2f06872f...`:
+1. Audit the current backend admin read/projection shape first and confirm the settled composable occupant returns `upgrade_platform_id` and composable Editions return `edition_upgrade_platform_id`. If either is missing from the admin read projection, add only the missing output field; do not touch minting or registry logic.
+2. Extend Package frontend types with output-only Upgrade ID fields using the exact backend names/normalisation convention.
+3. Tier Overview: carry/render the additional **Upgrade Platform ID** only for the composable participant when a CZTU value exists. Keep the normal **Tier Platform ID** visible beside it; never replace it.
+4. Edition Overview: carry/render **Upgrade Platform ID** (CZTEU) only when that Edition has one, while retaining **Edition Platform ID** (CZTE).
+5. Empty Upgrade ID must hide the extra row rather than show a misleading assignment fallback on ordinary Tiers/Editions.
+6. No editable Platform-ID field and no new assignment control.
+7. Add focused contracts proving dual IDs coexist in Overview and ordinary Tier/Add-on/Edition presentation is unchanged.
+8. Rebuild only required generated admin assets; no quote/Request/cart/PDF/email/order/pricing/resolver changes.
 
-Independent byte check confirms the already-reviewed backend `TemporaryMigrationController.php` is unchanged from rejected head `c1dfc722` (same blob `513aa93e...`); the correction is the Admin Station sweep/client/contract plus expected build/docs wiring.
-
-## Accepted Phase 1 architecture
-- `CZTU` / `CZTEU` are additional identities on the same composable Tier/Edition participant; existing `CZT`/`CZTA`/`CZTE` and Leg identities remain intact.
-- Same native tuple may coexist under distinct Platform-Identifier entity types.
-- Upgrade identity is not a child of a selected base Tier/Edition; base association is later transaction context.
-- Mint/bind remains at existing composable settle/Edition activation mutation boundaries.
-- Existing one-time Admin Station assignment path covers eligible historical declared records.
-- No quote/Request/cart/customer/pricing behavior is part of this phase.
-
-## Next action — ChatGPT
-Perform the read-only live validation listed above against the deployed Admin Station. Do not advance to Phase 2 until this phase is `CLOSED`.
+Report exact changed files/tests/clean SHA and set **AWAITING CHATGPT REVIEW**. Do not push main before review.
