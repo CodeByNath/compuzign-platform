@@ -19,7 +19,7 @@ import { resolveLegsCoverageCorrection, totalCommitmentMonths } from './tierDeta
 export interface TierModuleEditingArgs {
   pkg:                 PackageStation;
   editingTierId:       string | null;
-  initialTierSection?: 'tier-overview';
+  initialTierSection?: 'tier-overview' | 'tier-inclusions';
   setSaveErr: (err: string | null) => void;
   setSaveOk:  (ok: boolean) => void;
 }

@@ -15,6 +15,7 @@ import type {
   TierInstanceSummary,
 } from '../../types';
 import { TIER_KEYS, TIER_LABELS, COMPOSABLE_TIER_ID } from '../../vocabulary';
+import type { ComposableDeclarationScope } from './composableMiddleShell';
 
 /** Package Family fields used by the workspace and its authoritative summary. */
 export interface WorkspaceFamilyScope {
@@ -44,6 +45,11 @@ export interface WorkspaceTierSlot {
   // field stays permanently null, so a fixed slot never populates this).
   // Additive, Admin UX restructuring's composable middle shell.
   customerPolicy: CustomerPolicy | null;
+  // Every Customer Selection Rules panel scope — Default plus one entry per
+  // existing Build Your Own Edition (project-work/2026-09-06-tier-catalogue-
+  // admin-ux-consolidation.md, Phase 3 correction). Empty for a fixed slot,
+  // which has no customer_policy/Edition concept at all.
+  declarationScopes: ComposableDeclarationScope[];
 }
 
 /**
@@ -64,6 +70,7 @@ export function projectWorkspaceTierSlots(
       isAddon: occupant?.isAddon ?? null,
       isPopular: occupant?.isPopular ?? false,
       customerPolicy: null,
+      declarationScopes: [],
     };
   });
 }
@@ -81,6 +88,7 @@ export function projectComposableWorkspaceSlot(
   occupantId: string | null,
   item: CategoryGroupCardItem | null,
   customerPolicy: CustomerPolicy | null = null,
+  declarationScopes: ComposableDeclarationScope[] = [],
 ): WorkspaceTierSlot {
   return {
     slotId: COMPOSABLE_TIER_ID,
@@ -90,6 +98,7 @@ export function projectComposableWorkspaceSlot(
     isAddon: null,
     isPopular: false,
     customerPolicy,
+    declarationScopes,
   };
 }
 

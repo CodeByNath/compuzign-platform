@@ -677,6 +677,16 @@ export interface TierEdition {
   // faq_refs; non-empty is this Edition's deliberate declaration override.
   inclusions_override: InclusionItem[];
   faq_refs: string[];
+  // This Edition's own customer selection policy (Phase 3 correction,
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md). Null
+  // inherits the parent composable occupant's own customer_policy wholesale;
+  // non-null is this Edition's complete replacement — same posture as
+  // inclusions_override above, and the same rule
+  // PackageSchema::sanitizeTierEdition() already documents/enforces
+  // server-side. Authored only via the composable-scoped Edition module
+  // save (saveComposableOccupantEditionModule) — a non-composable Tier's own
+  // Edition never gets authoring UI for this field.
+  customer_policy: CustomerPolicy | null;
 }
 
 // The Edition's one consolidated module — mirrors Package Family's own
@@ -698,6 +708,8 @@ export interface TierEditionOverviewDraft {
   headline_leg_id: string;
   inclusions_override: InclusionItem[];
   faq_refs: string[];
+  // See TierEdition.customer_policy above — same field, same semantics.
+  customer_policy: CustomerPolicy | null;
 }
 
 // Phase 6 — a narrow, occupant-owned physical bin entry. Deliberately

@@ -90,6 +90,16 @@ export function TierDrawerHost({
   if (host.error)                    return <div class="cz-station-drawer__state">{host.error}</div>;
   if (!host.service)                 return <div class="cz-station-drawer__state">No package station is available.</div>;
 
+  // For an existing occupant, 'edit' opens straight into the tier's Overview
+  // editor once it resolves to its slot; 'view' leaves every module readable.
+  //
+  // An empty slot never does that, whichever mode opened it: it lands on the
+  // readable Overview screen, where the empty Tier Overview module carries
+  // its own Pending pill, that pill's message, and the Edit action that opens
+  // this same editor — the module cycle Included Features and Common
+  // Questions already follow.
+  const fallbackTierSection = mode === 'edit' && slotTarget === null ? 'tier-overview' : undefined;
+
   if (instanceTarget !== null) {
     return (
       <TierInstanceSettingsHost
@@ -110,15 +120,14 @@ export function TierDrawerHost({
       // Empty fixed slots open by slot key. No occ_ identity is minted until
       // the authoritative Tier save creates a real occupant.
       initialTierId={slotTarget?.slotId}
-      // For an existing occupant, 'edit' opens straight into the tier's Overview
-      // editor once it resolves to its slot; 'view' leaves every module readable.
-      //
-      // An empty slot never does that, whichever mode opened it: it lands on the
-      // readable Overview screen, where the empty Tier Overview module carries
-      // its own Pending pill, that pill's message, and the Edit action that opens
-      // this same editor — the module cycle Included Features and Common
-      // Questions already follow.
-      initialTierSection={mode === 'edit' && slotTarget === null ? 'tier-overview' : undefined}
+      // The Customer Selection Rules panel's own Edit action (Phase 3
+      // correction) carries declarationId: 'default' — that always means the
+      // Default Tier Inclusions editor specifically, overriding
+      // fallbackTierSection above. An Edition declarationId is handled
+      // entirely inside useTierDrawerController (selects that Edition and
+      // opens its own Inclusions tab), so it never touches this section.
+      initialTierSection={target.declarationId === 'default' ? 'tier-inclusions' : fallbackTierSection}
+      initialDeclarationId={target.declarationId}
       bridge={bridge}
     />
   );

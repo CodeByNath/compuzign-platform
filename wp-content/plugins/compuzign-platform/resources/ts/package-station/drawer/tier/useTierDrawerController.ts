@@ -42,8 +42,14 @@ export type TierControllerArgs = TierDrawerContentProps;
 
 export function useTierDrawerController({
   serviceId, tierInstanceId, service: serviceItem, serviceBack, tierBack,
-  initialTierId, initialOccupantId, initialTierSection, bridge,
+  initialTierId, initialOccupantId, initialTierSection, initialDeclarationId, bridge,
 }: TierControllerArgs) {
+  // Phase 3 correction — a real Edition id (never the literal 'default',
+  // which the occupant's own Default Tier Inclusions section above already
+  // handles) pre-selects that Edition in Options and opens its own
+  // Inclusions tab, so the panel's Edit action never leaves the admin to
+  // find it manually.
+  const initialEditionId = initialDeclarationId && initialDeclarationId !== 'default' ? initialDeclarationId : null;
   const pkg     = usePackageStation(serviceId, tierInstanceId, bridge.onMutationComplete);
   const station = pkg.station;
   const svc     = pkg.service;
@@ -58,7 +64,7 @@ export function useTierDrawerController({
   // Support) — this screen composes directly through PlacedShell rather than
   // EntityDrawer's fixed Details/Connections bar (drawer refinement
   // blueprint, Phase 3).
-  const [tierTab, setTierTab] = useState<TierDrawerGroupId>('details');
+  const [tierTab, setTierTab] = useState<TierDrawerGroupId>(initialEditionId ? 'options' : 'details');
   // Tabs vs Accordion presentation (Phase 4). Deliberately plain component
   // state, not persisted — a view toggle for this open drawer, not a stored
   // admin preference. Resets to Tabs (the default) every time a Tier drawer
@@ -79,7 +85,7 @@ export function useTierDrawerController({
   // silently wiped back to "Default" after every Publish/Disable/Archive/…
   // click. This hook's own state survives that remount, the same reason
   // editingSection/openTierPanel already live here rather than in a child.
-  const [selectedDeclarationId, setSelectedDeclarationId] = useState<string | null>(null);
+  const [selectedDeclarationId, setSelectedDeclarationId] = useState<string | null>(initialEditionId);
   // Edition Bin exclusive-view toggle (Edition lifecycle/Bin UX cleanup) —
   // presentation/navigation state only, deliberately NOT persisted to
   // backend/localStorage, and deliberately separate from
@@ -115,7 +121,24 @@ export function useTierDrawerController({
   // a stale Edition selection must never silently carry across occupants.
   // The Bin view is likewise scoped to the Tier being viewed — never left
   // active behind the scenes when the admin moves to a different occupant.
-  useEffect(() => { setSelectedDeclarationId(null); setEditionBinActive(false); }, [editingTierId]);
+  //
+  // The composable occupant opens by occupantId, not tierId, so
+  // editingTierId starts null and only resolves to the real slot once
+  // pkg.resolveOccupantSlot() runs (below) — that FIRST null → resolved
+  // transition is the occupant simply finishing its own initial load, never
+  // an admin switching Tiers, so it must not wipe the seeded
+  // initialEditionId selection above. Any later change (a real switch)
+  // always moves between two non-null ids (or into/out of null via
+  // openTierEdit/handleBack), so this only ever skips that one specific
+  // transition.
+  const previousEditingTierId = useRef(editingTierId);
+  useEffect(() => {
+    const previous = previousEditingTierId.current;
+    previousEditingTierId.current = editingTierId;
+    if (previous === null && editingTierId !== null) return;
+    setSelectedDeclarationId(null);
+    setEditionBinActive(false);
+  }, [editingTierId]);
 
   // Re-resolve the stable occupant id after loading so stale card content can
   // never address lifecycle mutations to the wrong shell.
@@ -292,6 +315,11 @@ export function useTierDrawerController({
     // individual tier
     tierDetail, openTierPanel, setOpenTierPanel,
     selectedDeclarationId, setSelectedDeclarationId,
+    // Phase 3 correction — set only when the drawer opened addressing a
+    // real Edition scope from the Customer Selection Rules panel; consumed
+    // once by TierEditionDeclarationSwitcher to auto-open that Edition's
+    // own Inclusions tab.
+    initialEditionEditTab: initialEditionId ? ('inclusions' as const) : undefined,
     editionBinActive, setEditionBinActive,
     editionModuleEditing, setEditionModuleEditing, anyEditingActive, focusedTaskActive,
     // Options' own creation control (relocated off Overview's footer — see

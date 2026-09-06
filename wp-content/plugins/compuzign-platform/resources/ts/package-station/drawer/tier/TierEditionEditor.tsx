@@ -32,6 +32,7 @@ export function TierEditionEditor({ session }: { session: ShellEditSession }) {
   const onChange = (patch: Partial<TierEditionOverviewDraft>) => session.patch?.(patch);
   const rateSheetOptions = (session.extras?.rateSheetOptions ?? []) as AdminFieldOption[];
   const svc = session.extras?.svc as { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
+  const customerPolicyEligible = session.extras?.customerPolicyEligible as boolean | undefined;
 
   const groups: DrawerGroup<TierEditionEditorTab>[] = [
     {
@@ -44,7 +45,7 @@ export function TierEditionEditor({ session }: { session: ShellEditSession }) {
     },
     {
       id: 'inclusions', label: 'Inclusions',
-      content: <TierEditionInclusionsSection draft={draft} onChange={onChange} svc={svc} />,
+      content: <TierEditionInclusionsSection draft={draft} onChange={onChange} svc={svc} customerPolicyEligible={customerPolicyEligible} />,
     },
   ];
 

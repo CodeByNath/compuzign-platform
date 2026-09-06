@@ -72,7 +72,7 @@
 // unmounts this subtree — see useTierDrawerController's own
 // editionBinActive comment).
 
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
 import { ChildChipStrip } from '@/drawer-kit/ui/ChildChipStrip';
 import { TrashIcon } from '@/admin-station/shell/icons';
@@ -118,11 +118,24 @@ interface Props {
   // for the Edition editor itself; this is only a derived signal upward, the
   // same relationship selectedId/onSelect already have to the controller.
   onEditingActiveChange?: (active: boolean) => void;
+  // Composable occupant, already-published only (Phase 3 correction,
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md) — the
+  // same eligibility TierDrawerContent already computes for the parent
+  // occupant's own Default Tier Inclusions. Forwarded to the Edition editor's
+  // own Inclusions tab so an Edition's customer_policy is authorable through
+  // the SAME merged controls, gated identically.
+  customerPolicyEligible: boolean;
+  // Phase 3 correction — set only when the drawer opened from the Customer
+  // Selection Rules panel's own Edit action targeting this exact Edition
+  // (already reflected in `selectedId` above): auto-opens that Edition's
+  // own inline editor on this tab once, so the admin lands directly in it
+  // rather than having to find and re-click Edit under Options themselves.
+  initialEditTab?: TierEditionEditorTab;
 }
 
 export function TierEditionDeclarationSwitcher({
   ctl, rateSheetOptions, svc, selectedId, onSelect, scrollContainer, onEditingActiveChange,
-  binActive, onBinActiveChange,
+  binActive, onBinActiveChange, customerPolicyEligible, initialEditTab,
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
@@ -162,6 +175,19 @@ export function TierEditionDeclarationSwitcher({
     setEditingTab(tab);
     setLegsNotice(null);
   };
+
+  // Fires exactly once, only once `selected` has actually resolved (the
+  // panel's Edit action seeds selectedId synchronously, but this Edition's
+  // own draft-preferred data may still be loading) — never re-fires on a
+  // later manual tab switch, Save, or Cancel.
+  const initialEditApplied = useRef(false);
+  useEffect(() => {
+    if (initialEditApplied.current || !initialEditTab || !selected) return;
+    initialEditApplied.current = true;
+    openEdit(initialEditTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditTab, selected]);
+
   const cancelEdit = () => { setEditingTab(null); setDraft(null); setLegsNotice(null); };
   // Draft-only — the module stays Pending after inline Save (matching the
   // occupant's own useTierModuleEditing.saveSection). Settling a pending
@@ -201,7 +227,7 @@ export function TierEditionDeclarationSwitcher({
       saving:  ctl.saving,
       saveErr: ctl.error,
       isDirty: true,
-      extras:  { initialTab: editingTab, rateSheetOptions, svc },
+      extras:  { initialTab: editingTab, rateSheetOptions, svc, customerPolicyEligible },
     },
   } : null;
 

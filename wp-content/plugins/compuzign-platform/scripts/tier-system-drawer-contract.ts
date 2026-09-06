@@ -450,7 +450,7 @@ const tierDrawerHostSource = readFileSync(resolve(
 ), 'utf8');
 check(
   tierDrawerHostSource.includes(
-    "initialTierSection={mode === 'edit' && slotTarget === null ? 'tier-overview' : undefined}",
+    "const fallbackTierSection = mode === 'edit' && slotTarget === null ? 'tier-overview' : undefined;",
   ),
   'an empty slot opens on the readable Overview screen, never straight into the Tier Overview editor',
 );

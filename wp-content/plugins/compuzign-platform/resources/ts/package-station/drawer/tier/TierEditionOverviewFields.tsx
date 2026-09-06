@@ -57,6 +57,12 @@ interface Props {
   onChange: (patch: Partial<TierEditionOverviewDraft>) => void;
   rateSheetOptions: AdminFieldOption[];
   svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] };
+  // Composable occupant, already-published only (Phase 3 correction,
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md) — the
+  // same eligibility rule useTierModuleEditing.ts applies to the parent
+  // occupant's own Default Tier Inclusions. false/omitted renders no
+  // customer-policy controls at all, byte-identical to before this phase.
+  customerPolicyEligible?: boolean;
 }
 
 // One Commercial Leg card — mirrors the occupant's own CommercialLegCard
@@ -371,7 +377,9 @@ export function TierEditionPricingRulesSection({ draft, onChange, rateSheetOptio
 // Pricing Rules above. Reuses the SAME PoolInclusionsEditor and
 // buildRateSheetCatalogue resolver the parent occupant's own Default Tier
 // Inclusions editor uses (tierDetailModel.ts) — not a bespoke picker.
-export function TierEditionInclusionsSection({ draft, onChange, svc }: Pick<Props, 'draft' | 'onChange' | 'svc'>) {
+export function TierEditionInclusionsSection({
+  draft, onChange, svc, customerPolicyEligible,
+}: Pick<Props, 'draft' | 'onChange' | 'svc' | 'customerPolicyEligible'>) {
   // Rows selectable for whichever Rate Sheet this draft is currently bound
   // to — recomputed whenever that binding changes, exactly like the
   // occupant's own Overview/Features editor recomputes rateSheetCatalogue
@@ -392,6 +400,16 @@ export function TierEditionInclusionsSection({ draft, onChange, svc }: Pick<Prop
             onCreate={async () => null}
             rateSheetCatalogue={catalogue}
             legs={draft.legs ?? []}
+            // Composable-occupant-only Customer Selection Rules authoring for
+            // THIS Edition's own declaration (Phase 3 correction) — mirrors
+            // TierDrawerContent's own customerPolicy/onCustomerPolicyChange
+            // wiring for the parent occupant's Default Tier Inclusions
+            // exactly, via the SAME merged controls (customerPolicyFields.tsx).
+            // undefined for every non-composable Tier's own Edition, and for
+            // a composable occupant not yet published — PoolInclusionsEditor
+            // renders nothing extra in that case.
+            customerPolicy={customerPolicyEligible ? (draft.customer_policy ?? null) : undefined}
+            onCustomerPolicyChange={customerPolicyEligible ? (next) => onChange({ customer_policy: next }) : undefined}
           />
         </div>
       ) : (
@@ -401,12 +419,12 @@ export function TierEditionInclusionsSection({ draft, onChange, svc }: Pick<Prop
   );
 }
 
-export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, svc }: Props) {
+export function TierEditionOverviewFields({ draft, onChange, rateSheetOptions, svc, customerPolicyEligible }: Props) {
   return (
     <>
       <TierEditionOverviewSection draft={draft} onChange={onChange} />
       <TierEditionPricingRulesSection draft={draft} onChange={onChange} rateSheetOptions={rateSheetOptions} />
-      <TierEditionInclusionsSection draft={draft} onChange={onChange} svc={svc} />
+      <TierEditionInclusionsSection draft={draft} onChange={onChange} svc={svc} customerPolicyEligible={customerPolicyEligible} />
     </>
   );
 }

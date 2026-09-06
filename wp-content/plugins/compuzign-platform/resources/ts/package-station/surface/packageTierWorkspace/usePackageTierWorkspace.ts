@@ -15,7 +15,7 @@ import { usePackageStation } from '../../usePackageStation';
 import { useTierInstances } from '../tierInstance/useTierInstances';
 import type { TierInstancesToolState } from '../tierInstance/useTierInstances';
 import { useHostService } from '../tierSurface/useHostService';
-import { toTierOccupantCard, withComposableCustomerOptionsAction } from '../tierSurface/tierOccupantCard';
+import { toTierOccupantCard } from '../tierSurface/tierOccupantCard';
 import { resolvePackageFamilyCardStatus } from '../packageFamily/cardAdapter';
 import { COMPOSABLE_TIER_ID } from '../../vocabulary';
 import {
@@ -30,8 +30,10 @@ import {
 import {
   buildRateItemCategoryMap,
   projectTierDeck,
+  EMPTY_TIER_DECK,
   type TierDeck,
 } from './deck';
+import { buildComposableDeclarationScopes } from './composableMiddleShell';
 import {
   projectConnectionNavigation,
   type ConnectionNavigationCategory,
@@ -315,20 +317,26 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
           hasFocusedTier: true,
         });
       }
-      const composableCard = composableOccupantId ? withComposableCustomerOptionsAction(
-        toTierOccupantCard({
-          occupantId: composableOccupantId,
-          slotId: COMPOSABLE_TIER_ID,
-          view: composableView,
-          platformStatus: pkg.platformStatus,
-          isSubordinate: true,
-        }),
-        composableView?.detail.enabled === true,
-      ) : null;
+      const composableCard = composableOccupantId ? toTierOccupantCard({
+        occupantId: composableOccupantId,
+        slotId: COMPOSABLE_TIER_ID,
+        view: composableView,
+        platformStatus: pkg.platformStatus,
+        isSubordinate: true,
+      }) : null;
+      const composablePolicy = composableView?.detail.customer_policy ?? null;
       composableOccupant = projectComposableWorkspaceSlot(
         composableOccupantId,
         composableCard,
-        composableView?.detail.customer_policy ?? null,
+        composablePolicy,
+        composableOccupantId
+          ? buildComposableDeclarationScopes(
+              decks[composableOccupantId] ?? EMPTY_TIER_DECK,
+              composablePolicy,
+              composableView?.detail.tier_editions ?? [],
+              { rate_sheets: rateSheets, package_relationships: relationships },
+            )
+          : [],
       );
     }
 

@@ -8,7 +8,10 @@
 
 import type { CustomerPolicy, CustomerPolicyItem } from '@/api/types/cost-builder';
 import type { StationMetric } from '@/admin-station/presentation/StationMetricBlock';
-import type { TierDeck } from './deck';
+import type { PackageManagerItem, PackageRateSheet, TierEdition } from '../../types';
+import { buildRateSheetCatalogue } from '../../drawer/tier/tierDetailModel';
+import { draftPreferredEdition } from '../../drawer/tier/tierEditionModel';
+import { projectTierInclusions, type DeckSelection, type TierDeck } from './deck';
 
 export interface ComposableHighlightInclusion {
   itemId: string;
@@ -27,7 +30,7 @@ const HIGHLIGHT_LIMIT = 6;
  * returns empty rather than falling back to the deck's full inclusion list.
  */
 export function projectComposableHighlightInclusions(
-  deck: TierDeck,
+  deck: Pick<TierDeck, 'inclusions'>,
   policy: CustomerPolicy | null,
 ): ComposableHighlightInclusion[] {
   const inclusionByItemId = new Map(deck.inclusions.map((inclusion) => [inclusion.itemId, inclusion]));
@@ -71,5 +74,92 @@ export function summarizeComposableCustomerPolicy(policy: CustomerPolicy | null)
     { id: 'default-selected', label: 'Selected by default', value: `${defaultSelected} of ${optional.length}` },
     { id: 'quantity', label: 'Adjustable quantity', value: quantityEnabled },
     { id: 'featured', label: 'Featured', value: featured },
+  ];
+}
+
+// ── Declaration scope tabs (Phase 3 correction, project-work/2026-09-06-
+// tier-catalogue-admin-ux-consolidation.md) ─────────────────────────────────
+//
+// The auditor's final approved UX: the panel gains one scope tab per
+// declaration — Default plus every existing Build Your Own Edition — and
+// switching tabs replaces the panel's own Featured inclusions/summary counts
+// with THAT declaration's own resolved state. No new drawer, no new card
+// action, no copied Edition controller/state: this is a presentation-only
+// re-projection of data the occupant and its own tier_editions[] already
+// carry.
+
+/** One scope the Customer Selection Rules panel can show. */
+export interface ComposableDeclarationScope {
+  id: string;
+  label: string;
+  deck: Pick<TierDeck, 'inclusions'>;
+  policy: CustomerPolicy | null;
+}
+
+/**
+ * An Edition's own inclusion set, projected for display exactly the way its
+ * own Inclusions tab resolves it for editing: raw `rate_sheet_items` against
+ * its bound sheet's own catalogue (buildRateSheetCatalogue — the SAME
+ * resolver PoolInclusionsEditor/TierEditionInclusionsSection already use),
+ * then through the SAME dedup/Bundle-expansion projectTierInclusions applies
+ * to every occupant deck. An Edition carries no server-resolved
+ * `rate_sheet_selections` the way an occupant does, so this is the one place
+ * that composes those two already-existing pure functions for a read-only
+ * summary — never a third, drifting resolution algorithm.
+ */
+function projectEditionInclusions(
+  edition: TierEdition,
+  svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] },
+): TierDeck['inclusions'] {
+  const catalogue = buildRateSheetCatalogue(svc, edition.rate_sheet_id, []);
+  const byId = new Map(catalogue.map((row) => [row.item_id, row]));
+  const selections: DeckSelection[] = edition.rate_sheet_items.map((selection) => {
+    const row = byId.get(selection.item_id);
+    return {
+      item_id: selection.item_id,
+      source_type: row?.source_type ?? null,
+      source_id: row?.source_id ?? null,
+      quantity: selection.quantity,
+      resolved: row?.resolved ?? false,
+      label: row?.label ?? '(unresolved Rate Sheet item)',
+      unit_price: row?.unit_price ?? null,
+      per: row?.per ?? null,
+      line_total: row?.unit_price ?? null,
+      group_id: row?.group_id ?? null,
+      bundle_id: row?.bundle_id,
+      includes: row?.includes,
+    };
+  });
+  return projectTierInclusions(selections, new Map(), edition.rate_sheet_id);
+}
+
+/**
+ * Every scope the panel offers — Default first, then one entry per existing
+ * Edition in occupant order, using each Edition's own identity/title
+ * (draft-preferred, matching every other Edition display in this codebase).
+ * No synthetic catch-all tab is ever added.
+ *
+ * An Edition's own `customer_policy` is null-inherits-Default, non-null-
+ * replaces — the exact rule PackageSchema::sanitizeTierEdition() already
+ * documents and enforces server-side; this mirrors it for display only, it
+ * never re-decides the rule.
+ */
+export function buildComposableDeclarationScopes(
+  deck: TierDeck,
+  policy: CustomerPolicy | null,
+  editions: readonly TierEdition[],
+  svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] },
+): ComposableDeclarationScope[] {
+  return [
+    { id: 'default', label: 'Default', deck, policy },
+    ...editions.map((edition) => {
+      const resolved = draftPreferredEdition(edition);
+      return {
+        id: resolved.id,
+        label: resolved.title.trim() || 'Untitled Edition',
+        deck: { inclusions: projectEditionInclusions(resolved, svc) },
+        policy: resolved.customer_policy ?? policy,
+      };
+    }),
   ];
 }

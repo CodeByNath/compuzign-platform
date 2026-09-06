@@ -19,7 +19,8 @@ Each Edition carries `id`, `edition_platform_id`, `title`,
 `rate_sheet_id`/`rate_sheet_items` (same
 switch-clears-selections rule as the occupant's binding),
 `price`/`contact`/`billing_cycle`/`minimum_term_value`/`minimum_term_unit`,
-and `inclusions_override`/`faq_refs` (empty inherits the occupant's).
+`inclusions_override`/`faq_refs`, and `customer_policy` (composable only —
+see [Customer Configuration Policy](tier-composable-occupant-customer-policy.md)).
 
 There is no default-Edition pointer — an earlier `default_edition_id` field
 let an Edition *replace* the occupant's terms, inverting the model, and was

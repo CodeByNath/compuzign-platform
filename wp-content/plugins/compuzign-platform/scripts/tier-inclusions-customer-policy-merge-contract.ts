@@ -10,26 +10,29 @@
 //      required/optional/not-offered, default-selected, quantity bounds and
 //      featured — real behavior, not string-matching, since these are pure
 //      exported functions.
-//   2. CustomerPolicyEditor.tsx (the standalone drawer, kept as rollback/
-//      parity surface) and PoolInclusionsEditor.tsx (the merged row) both
-//      import that SAME pair — neither carries its own duplicated copy.
+//   2. PoolInclusionsEditor.tsx (the merged row, the ONE remaining consumer
+//      now that the standalone Customer Selection Rules drawer is retired —
+//      see project-work's Phase 3 correction) imports the shared pair rather
+//      than carrying its own duplicated copy.
 //   3. PoolInclusionsEditor mounts the merged controls exactly ONCE per
 //      selected inclusion item_id (the outer row), never inside
 //      InclusionAssignmentCard (which repeats once per Default/Additional
 //      Leg assignment) and never once per a Bundle row's own supplied
 //      children (those never leave the read-only sub-list at all).
-//   4. Ordinary Tier/Add-on occupants and every Tier Edition caller never
-//      receive the merged controls — useTierModuleEditing.ts's own gate
-//      requires isComposableOccupant(...) && the published `enabled` fact
-//      (never earlier, matching the standalone drawer's own eligibility
-//      rule), and TierEditionOverviewFields.tsx's own PoolInclusionsEditor
-//      call site never passes customerPolicy at all.
+//   4. Ordinary Tier/Add-on occupants never receive the merged controls —
+//      useTierModuleEditing.ts's own gate requires isComposableOccupant(...)
+//      && the published `enabled` fact (never earlier). A Tier Edition's own
+//      Inclusions tab (TierEditionOverviewFields.tsx) reaches the SAME
+//      controls only via its own explicit `customerPolicyEligible` prop
+//      (Phase 3 correction — TierDrawerContent computes it with the
+//      identical isComposableOccupant(...) && enabled formula), never
+//      unconditionally.
 //   5. A genuine customer_policy save failure is never silently reported as
 //      a full Tier Inclusions Save success — useTierModuleEditing.ts only
 //      attempts it after a successful Inclusions save, and its own result
 //      overwrites `ok` before the shared failure branch runs.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { findCustomerPolicyItem, patchCustomerPolicyItem } from '../resources/ts/package-station/drawer/editors/customerPolicyFields';
 import type { CustomerPolicy } from '../resources/ts/api/types/cost-builder';
@@ -68,20 +71,18 @@ check(featured.items[0].featured === true, 'featured is an independent flag, set
 const otherItemUntouched = patchCustomerPolicyItem(featured, 'seats', { mode: 'optional' });
 check(otherItemUntouched.items.length === 2 && otherItemUntouched.items.find((i) => i.item_id === 'support')?.featured === true, 'patching one item_id never disturbs another already-authored entry');
 
-// ── 2. No duplicated mutation logic — both editors import the SAME pair ────
+// ── 2. No duplicated mutation logic — the merged row imports the shared pair ─
 
-const customerPolicyEditorSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/editors/CustomerPolicyEditor.tsx'), 'utf8');
 const poolInclusionsEditorSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/editors/PoolInclusionsEditor.tsx'), 'utf8');
 
 check(
-  customerPolicyEditorSource.includes("from './customerPolicyFields'") && customerPolicyEditorSource.includes('patchCustomerPolicyItem') && customerPolicyEditorSource.includes('findCustomerPolicyItem'),
-  'the standalone drawer (CustomerPolicyEditor.tsx) imports the shared patch/find pair rather than carrying its own inline copy',
+  poolInclusionsEditorSource.includes("from './customerPolicyFields'") && poolInclusionsEditorSource.includes('patchCustomerPolicyItem') && poolInclusionsEditorSource.includes('findCustomerPolicyItem'),
+  'the merged row (PoolInclusionsEditor.tsx) imports the shared patch/find pair — one mutation-logic authority, not a local copy',
 );
 check(
-  poolInclusionsEditorSource.includes("from './customerPolicyFields'") && poolInclusionsEditorSource.includes('patchCustomerPolicyItem') && poolInclusionsEditorSource.includes('findCustomerPolicyItem'),
-  'the merged row (PoolInclusionsEditor.tsx) imports the SAME shared patch/find pair — one mutation-logic authority, not two',
+  !existsSync(resolve(root, 'resources/ts/package-station/drawer/editors/CustomerPolicyEditor.tsx')),
+  'the standalone Customer Selection Rules drawer\'s own editor (CustomerPolicyEditor.tsx) is genuinely retired (Phase 3 correction) — its former "rollback/parity surface" purpose is exhausted, not a live second consumer of customerPolicyFields.tsx',
 );
-check(!customerPolicyEditorSource.includes('DEFAULT_PRICE_OPTION'), 'CustomerPolicyEditor.tsx no longer carries its own local DEFAULT_PRICE_OPTION constant — that default now lives once, in customerPolicyFields.tsx');
 
 // ── 3. Mounted once per selected inclusion item_id, never per Leg
 //    assignment, never per Bundle child ────────────────────────────────────
@@ -105,16 +106,26 @@ check(
   'the merged block gates on the SAME row.resolved filter CustomerPolicyEditor.tsx has always used, so an unresolved Rate Sheet item is never offered customer-policy authoring either',
 );
 
-// ── 4. Ordinary Tier/Add-on and Tier Edition never receive the controls ────
+// ── 4. Ordinary Tier/Add-on never receives the controls; a Tier Edition
+//    reaches them only through its own explicit eligibility prop ──────────
 
 const useTierModuleEditingSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/useTierModuleEditing.ts'), 'utf8');
 check(
   useTierModuleEditingSource.includes('isComposableOccupant(editingTierId) && d.enabled'),
-  'the merged draft is seeded ONLY when the occupant is composable AND already published (d.enabled) — never earlier than the standalone controller\'s own eligible = detail?.enabled === true gate',
+  'the occupant\'s own merged draft is seeded ONLY when the occupant is composable AND already published (d.enabled)',
+);
+
+const tierDrawerContentSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx'), 'utf8');
+check(
+  tierDrawerContentSource.includes('customerPolicyEligible={isComposableOccupant(c.editingTierId) && detail.enabled}'),
+  'TierDrawerContent computes the Edition switcher\'s customerPolicyEligible with the IDENTICAL isComposableOccupant(...) && enabled formula the occupant\'s own gate uses — never a looser or separate rule',
 );
 
 const tierEditionOverviewFieldsSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/TierEditionOverviewFields.tsx'), 'utf8');
-check(!tierEditionOverviewFieldsSource.includes('customerPolicy'), 'Tier Edition\'s own PoolInclusionsEditor call site passes no customerPolicy prop at all — Edition UI is unchanged in this phase, matching the locked "no Edition UI change" boundary');
+check(
+  tierEditionOverviewFieldsSource.includes('customerPolicy={customerPolicyEligible ? (draft.customer_policy ?? null) : undefined}'),
+  'Tier Edition\'s own PoolInclusionsEditor call site passes customerPolicy only when customerPolicyEligible is true — undefined (no merged controls rendered) for every non-composable Tier\'s own Edition and for a not-yet-published composable occupant',
+);
 
 // ── 5. A customer_policy save failure is never falsely reported as success ─
 

@@ -10,7 +10,7 @@
 // same precedent composable-occupant-workspace-contract.ts and
 // package-tier-workspace-shell-contract.ts already follow.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { CategoryGroupCardItem } from '../resources/ts/admin-station/presentation/category-groups/types';
 import type { CustomerPolicy } from '../resources/ts/api/types/cost-builder';
@@ -114,21 +114,37 @@ check(
   'the normal-Tier focus branch never references the composable middle shell component',
 );
 
-// ── 5. Customer Options still opens the standalone tier-customer-policy drawer ──
+// ── 5. The standalone Customer Selection Rules destination is fully retired
+//    (Phase 3 correction, project-work/2026-09-06-tier-catalogue-admin-ux-
+//    consolidation.md) — its former button/drawer destination is replaced by
+//    the middle shell's own declaration scope tabs, never a third card
+//    action or a new drawer route ──────────────────────────────────────────
 
 check(
-  workspaceSource.includes("onIntent(encodeTierCustomerPolicyDrawerRecordId(instanceId), 'customer-options');"),
-  'dispatchCustomerPolicyIntent still routes through the standalone Customer Selection Rules drawer token, unchanged by this restructuring',
+  !workspaceSource.includes('dispatchCustomerPolicyIntent')
+    && !workspaceSource.includes('encodeTierCustomerPolicyDrawerRecordId')
+    && !workspaceSource.includes("'customer-options'")
+    && !workspaceSource.includes('onManageCustomerOptions'),
+  'the orchestrator carries no trace of the retired standalone Customer Selection Rules dispatcher, its drawer token, its action id, or the middle shell prop that used to fire it',
 );
 check(
-  workspaceSource.includes("actionId === 'customer-options'\n                      ? dispatchCustomerPolicyIntent()")
-    && workspaceSource.includes("actionId === 'customer-options'\n              ? dispatchCustomerPolicyIntent()"),
-  'both the tab-focused primary panel and the Grid-view box route the customer-options action through the same dispatcher — no second drawer, no duplicated routing logic',
+  (workspaceSource.match(/tool\.composableOccupant\?\.occupantId \?\? null,/g) ?? []).length === 2,
+  'both the tab-focused primary panel and the Grid-view box resolve the composable occupant id through the same expression — no special-cased branch for a retired action remains in either',
 );
 check(
-  workspaceSource.includes('onManageCustomerOptions={dispatchCustomerPolicyIntent}'),
-  "the middle shell's own View/Edit Customer Options action reuses the exact same dispatcher, never a new intent id",
+  workspaceSource.includes('scopes={tool.composableOccupant.declarationScopes}'),
+  'the middle shell now receives every declaration scope (Default + Editions) instead of a raw deck/policy pair and a button dispatcher',
 );
+check(
+  !existsSync(resolve(root, 'resources/ts/package-station/drawer/customerPolicy/TierCustomerPolicyDrawerContent.tsx'))
+    && !existsSync(resolve(root, 'resources/ts/package-station/surface/tierSurface/TierCustomerPolicyDrawerHost.tsx'))
+    && !existsSync(resolve(root, 'resources/ts/package-station/drawer/editors/CustomerPolicyEditor.tsx')),
+  'the standalone drawer\'s content, host adapter, and editor are genuinely deleted, not merely unregistered',
+);
+const registerSource = readFileSync(resolve(root, 'resources/ts/package-station/register.ts'), 'utf8');
+check(!registerSource.includes('tier-customer-policy'), 'no drawer template key still resolves to the retired standalone drawer');
+const adminStationRegisterSource = readFileSync(resolve(root, 'resources/ts/admin-station/register.ts'), 'utf8');
+check(!adminStationRegisterSource.includes("id: 'customer-options'") && !adminStationRegisterSource.includes("id: 'editions'"), 'neither the retired customer-options action intent nor a new Editions card action intent is registered');
 
 // ── 6. Existing lower-deck tabs/components are reused, not forked ───────────
 

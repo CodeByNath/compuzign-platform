@@ -78,26 +78,31 @@ Popular). `TierDrawerContent.tsx` sets `extras.hideAddonAndPopular` from
 `isComposableOccupant(editingTierId)` when constructing the `tier-overview`
 editing session.
 
-**Phase 2 merge (project-work/2026-09-06-tier-catalogue-admin-ux-
-consolidation.md):** the same `extras` seam now also threads a
-`customerPolicy`/`onCustomerPolicyChange` pair into the `tier-inclusions`
-editing session, so `PoolInclusionsEditor` mounts the standalone Customer
-Selection Rules drawer's own per-item controls (extracted to
-`drawer/editors/customerPolicyFields.tsx`, the one shared mutation/lookup
-authority — no duplicated logic) once per selected inclusion `item_id`,
-never per Leg assignment or Bundle child. `useTierModuleEditing.ts` seeds
-this second draft only when `isComposableOccupant(editingTierId) &&
-d.enabled` — never earlier than the standalone drawer's own eligibility
-gate — and coordinates its save under the SAME Tier Inclusions Save click
-as `featuresDraft`, via its own separate `saveTierCustomerPolicy` call and
-module/draft/lifecycle; a policy-save failure still fails the whole Save.
-Ordinary Tier/Add-on occupants and every Tier Edition caller never receive
-this prop (`undefined`), so they render byte-identically to before this
-merge. The standalone drawer ([Admin Customer Selection
-Rules](tier-composable-occupant-admin-customer-policy.md)) keeps working
-unchanged as a rollback/parity surface until a later phase's live
-validation allows retiring it. Locked by
-`scripts/tier-inclusions-customer-policy-merge-contract.ts`.
+**Phase 2 merge:** the same `extras` seam threads a
+`customerPolicy`/`onCustomerPolicyChange` pair into `tier-inclusions`, so
+`PoolInclusionsEditor` mounts the shared per-item controls
+(`customerPolicyFields.tsx`) once per `item_id`.
+`useTierModuleEditing.ts` seeds this draft only when
+`isComposableOccupant(editingTierId) && d.enabled`, saved under the same
+click via a separate `saveTierCustomerPolicy` call whose failure fails the
+whole Save. Locked by `scripts/tier-inclusions-customer-policy-merge-contract.ts`.
+
+**Phase 3 correction** retired the standalone drawer. Its panel
+button became a `Default | Edition 1 | ...` scope strip
+(`TierComposableMiddleShell.tsx`, one shared `StationTabSet`, never a new
+card action/drawer): switching scope re-projects Featured
+inclusions/policy counts from that declaration's own deck/policy
+(`buildComposableDeclarationScopes`), and one Edit action targets whichever
+scope is selected — `'default'` or a real Edition id rides
+`encodeTierDrawerRecordId` as an additive third segment, decoded into
+`initialTierSection`/a seeded `selectedDeclarationId`/an auto-opened
+Inclusions tab, reusing the SAME `'edit'` action/drawer every card
+dispatches. A Tier Edition now also carries its own `customer_policy`
+(riding the `overview` save the backend already accepted since Phase 2A):
+null inherits Default wholesale, non-null replaces it, authored via the
+same merged controls on that Edition's Inclusions tab, gated identically
+(`customerPolicyEligible`). No new backend route. Locked by
+`scripts/tier-catalogue-declaration-scope-contract.ts`.
 
 ## Not interactively verified
 
@@ -112,7 +117,7 @@ after source review — see the coordination doc's Phase 1B decision.
 ## Related Code Maps
 
 [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
-[Composable Tier Occupant](tier-composable-occupant.md), [Composable Tier
-Occupant — Admin Customer Selection Rules](tier-composable-occupant-admin-customer-policy.md),
+[Composable Tier Occupant](tier-composable-occupant.md),
+[Composable Tier Occupant — Customer Configuration Policy](tier-composable-occupant-customer-policy.md),
 [Tiers](tiers.md), [Tier Edition](tier-edition.md), [Drawer System](drawer-system.md), and
 [Package Station](package-station.md).

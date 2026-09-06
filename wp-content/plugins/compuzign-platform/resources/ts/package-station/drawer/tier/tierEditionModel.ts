@@ -105,5 +105,6 @@ export function draftFromTierEdition(edition: TierEdition): TierEditionOverviewD
     headline_leg_id: edition.headline_leg_id,
     inclusions_override: edition.inclusions_override,
     faq_refs: edition.faq_refs,
+    customer_policy: edition.customer_policy,
   };
 }

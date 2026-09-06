@@ -32,8 +32,8 @@ rejects it as unknown rather than falling into the trailing FAQs branch.
 Edition: travels through the existing single `overview` draft — no new
 module. **Absent/null inherits the occupant's Default policy wholesale;
 non-empty is a COMPLETE replacement**, never a per-item patch — an item
-absent from a non-empty Edition policy defaults to excluded, mirroring
-`inclusions_override`'s empty-means-inherit precedent.
+absent from a non-empty Edition policy defaults to excluded. Admin
+authoring arrived later — see [Admin UI](tier-composable-occupant-admin-ui.md).
 
 ## No TCV floor — deferred, not shipped
 
@@ -111,7 +111,6 @@ Phase 2B1 — see [Composable Tier Occupant — Customer UX](tier-composable-occ
 [Composable Tier Occupant](tier-composable-occupant.md), [Composable Tier
 Occupant — Customer UX](tier-composable-occupant-customer-ux.md),
 [Composable Tier Occupant Admin UI](tier-composable-occupant-admin-ui.md),
-[Composable Tier Occupant — Admin Customer Selection Rules](tier-composable-occupant-admin-customer-policy.md),
 [Composable Tier Occupant — Tier Workspace UI](tier-composable-occupant-workspace-ui.md),
 [Commercial Legs](commercial-legs.md), [Tier Edition](tier-edition.md),
 [Rate Sheet](rate-sheet.md), [Rate Sheet Bundle](rate-sheet-bundle.md), and

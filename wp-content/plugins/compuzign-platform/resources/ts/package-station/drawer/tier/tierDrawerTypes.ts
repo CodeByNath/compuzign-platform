@@ -26,7 +26,13 @@ export interface TierDrawerContentProps {
   // Opening intent carried from the card that dispatched the drawer.
   initialTierId?:      string;
   initialOccupantId?:  string;
-  initialTierSection?: 'tier-overview';
+  initialTierSection?: 'tier-overview' | 'tier-inclusions';
+  // Composable occupant only (Phase 3 correction, project-work/2026-09-06-
+  // tier-catalogue-admin-ux-consolidation.md) — the Customer Selection
+  // Rules panel's own Edit action carries the scope it was clicked from:
+  // the literal string 'default', or a real Edition id. See
+  // TierDrawerHost.tsx/useTierDrawerController.ts for how each resolves.
+  initialDeclarationId?: string;
   // The host seam.
   bridge: EntityDrawerHostBridge;
 }
@@ -57,9 +63,18 @@ const TIER_REGISTRATION_RECORD_PREFIX = 'tier-register:';
 // any occupant_id exists to route by instead.
 const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 'ultimate', COMPOSABLE_TIER_ID]);
 
-/** Package-owned routing token; the card itself keeps occupant_id identity. */
-export function encodeTierDrawerRecordId(instanceId: string, occupantId: string): string {
-  return `${TIER_DRAWER_RECORD_PREFIX}${instanceId}:${occupantId}`;
+/**
+ * Package-owned routing token; the card itself keeps occupant_id identity.
+ * `declarationId` is additive (Phase 3 correction) — the Customer Selection
+ * Rules panel's own Edit action carries the scope it was clicked from
+ * ('default' or a real Edition id) so the drawer opens directly into that
+ * declaration's own editor. Every other caller omits it and gets the exact
+ * two-segment token it always has.
+ */
+export function encodeTierDrawerRecordId(instanceId: string, occupantId: string, declarationId?: string): string {
+  return declarationId
+    ? `${TIER_DRAWER_RECORD_PREFIX}${instanceId}:${occupantId}:${declarationId}`
+    : `${TIER_DRAWER_RECORD_PREFIX}${instanceId}:${occupantId}`;
 }
 
 /** Whole Tier-system route. Distinct from the two-segment occupant route. */
@@ -77,10 +92,12 @@ export function decodeTierInstanceDrawerRecordId(
 
 export function decodeTierDrawerRecordId(
   recordId: string,
-): { instanceId: string; occupantId: string } | null {
+): { instanceId: string; occupantId: string; declarationId?: string } | null {
   if (!recordId.startsWith(TIER_DRAWER_RECORD_PREFIX)) return null;
-  const [instanceId, occupantId, ...extra] = recordId.slice(TIER_DRAWER_RECORD_PREFIX.length).split(':');
-  return instanceId && occupantId && extra.length === 0 ? { instanceId, occupantId } : null;
+  const [instanceId, occupantId, declarationId, ...extra] = recordId.slice(TIER_DRAWER_RECORD_PREFIX.length).split(':');
+  return instanceId && occupantId && extra.length === 0
+    ? { instanceId, occupantId, declarationId: declarationId || undefined }
+    : null;
 }
 
 /** Empty-slot route. Slot identity must never be encoded as occupant identity. */

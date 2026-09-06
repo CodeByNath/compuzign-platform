@@ -14,7 +14,6 @@ import {
   encodeTierSlotDrawerRecordId,
 } from '../../drawer/tier/tierDrawerTypes';
 import { encodeTierInclusionDrawerRecordId } from '../../drawer/inclusion/tierInclusionDrawerTypes';
-import { encodeTierCustomerPolicyDrawerRecordId } from '../../drawer/customerPolicy/tierCustomerPolicyDrawerTypes';
 import {
   encodeTierRateSheetDrawerRecordId,
   encodeTierRateSheetGroupDrawerRecordId,
@@ -133,13 +132,21 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     onIntent(recordId, actionId);
   };
 
-  // The composable occupant's own Customer Options action opens the
-  // standalone Customer Selection Rules drawer — a sibling of the Tier
-  // drawer, addressed by tier_instance_id alone (there is at most one
-  // composable occupant per instance).
-  const dispatchCustomerPolicyIntent = () => {
-    if (instanceId === null) return;
-    onIntent(encodeTierCustomerPolicyDrawerRecordId(instanceId), 'customer-options');
+  // The Customer Selection Rules panel's own edit affordance (Phase 3
+  // correction, project-work/2026-09-06-tier-catalogue-admin-ux-
+  // consolidation.md) — targets the CURRENTLY SELECTED scope, never a fixed
+  // destination: 'default' opens straight into the Default Tier Inclusions
+  // editor; an Edition id opens Options with that exact Edition pre-selected
+  // and its own Inclusions editor already open. Reuses the SAME 'edit'
+  // action intent/drawer every card's own Edit button already dispatches —
+  // the extra declarationId rides the existing recordId encoding, so no new
+  // action, drawer, or controller is introduced.
+  const dispatchDeclarationEdit = (declarationId: string) => {
+    if (instanceId === null || !tool?.composableOccupant?.occupantId) return;
+    onIntent(
+      encodeTierDrawerRecordId(instanceId, tool.composableOccupant.occupantId, declarationId),
+      'edit',
+    );
   };
 
   // A Details-lane row addresses one inclusion inside the focused slot. The slot
@@ -320,13 +327,11 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
                     familyName={tool.selectedFamily?.name ?? null}
                     hasInstance
                     isSubordinate
-                    onAction={(actionId) => actionId === 'customer-options'
-                      ? dispatchCustomerPolicyIntent()
-                      : dispatchTierIntent(
-                          COMPOSABLE_TIER_ID,
-                          tool.composableOccupant?.occupantId ?? null,
-                          actionId,
-                        )}
+                    onAction={(actionId) => dispatchTierIntent(
+                      COMPOSABLE_TIER_ID,
+                      tool.composableOccupant?.occupantId ?? null,
+                      actionId,
+                    )}
                     onOpenSettings={openTierSettings}
                   />
                 )
@@ -380,13 +385,11 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
             familyName={tool.selectedFamily?.name ?? null}
             hasInstance
             isSubordinate
-            onAction={(actionId) => actionId === 'customer-options'
-              ? dispatchCustomerPolicyIntent()
-              : dispatchTierIntent(
-                  COMPOSABLE_TIER_ID,
-                  tool.composableOccupant?.occupantId ?? null,
-                  actionId,
-                )}
+            onAction={(actionId) => dispatchTierIntent(
+              COMPOSABLE_TIER_ID,
+              tool.composableOccupant?.occupantId ?? null,
+              actionId,
+            )}
             onOpenSettings={openTierSettings}
           />
         </div>
@@ -399,9 +402,8 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           state above already covers that case). */}
       {viewMode === 'focus' && isComposableFocused && tool.composableOccupant?.item && (
         <TierComposableMiddleShell
-          deck={tool.decks[tool.composableOccupant.item.id] ?? EMPTY_TIER_DECK}
-          policy={tool.composableOccupant.customerPolicy}
-          onManageCustomerOptions={dispatchCustomerPolicyIntent}
+          scopes={tool.composableOccupant.declarationScopes}
+          onEditDeclaration={dispatchDeclarationEdit}
         />
       )}
 

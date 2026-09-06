@@ -96,25 +96,6 @@ export const tierFaqsModule: ModuleDefinition<{ count: number }> = {
   resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(count > 0, ctx),
 };
 
-// Composable occupant only — the dna for the STANDALONE Customer Selection
-// Rules drawer (drawer/schema/bindings/tierCustomerPolicy.tsx), not a module
-// of the shared Tier drawer's TIER_ENTITY (an earlier round wired it there
-// and the auditor rejected that as an architectural mismatch — see
-// docs/code-map/tier-composable-occupant-admin-customer-policy.md). An
-// absent/empty policy is a legitimate "no customer composability offered
-// yet" state, not an error — never a completeness problem, matching this
-// module's own code-map doc (customer_policy has no shipped floor/
-// requirement of its own).
-export const tierCustomerPolicyModule: ModuleDefinition<{ count: number }> = {
-  key:                'tier-customer-policy',
-  requiresParent:     true,
-  emptyPrompt:        'Edit customer selection rules.',
-  isEmpty:            ({ count }) => count === 0,
-  problems:           () => [],
-  includeDraftInTail: true,
-  resolveStatus:      ({ count }, ctx) => resolveTierModuleStatus(true, ctx),
-};
-
 // One inclusion as a single Tier uses it — the module behind the Inclusion
 // drawer's Overview. Its truth is the selection's own resolution: a selection
 // whose Rate Sheet row and Service source both resolve is complete; one that
