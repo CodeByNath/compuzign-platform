@@ -38,6 +38,7 @@
     "contract:plan-details-value-states": "tsx scripts/plan-details-value-states-contract.ts",
     "contract:quote-proposal-total-typography": "tsx scripts/quote-proposal-total-typography-contract.ts",
     "contract:quote-inclusion-quantity-parity": "tsx scripts/quote-inclusion-quantity-parity-contract.ts",
+    "contract:quote-pdf-cart-presentation-correction": "tsx scripts/quote-pdf-cart-presentation-correction-contract.ts",
     "contract:tier-addon-flow": "tsx scripts/tier-addon-flow-contract.ts",
     "contract:rate-sheet-tool": "tsx scripts/rate-sheet-tool-contract.ts",
     "contract:rate-sheet-row-platform-identity": "tsx scripts/rate-sheet-row-platform-identity-contract.ts",

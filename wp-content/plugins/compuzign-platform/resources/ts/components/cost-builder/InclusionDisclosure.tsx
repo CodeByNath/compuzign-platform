@@ -125,6 +125,17 @@ export interface DisclosureInclusionRow {
   // null when the component itself carries no resolved price; undefined
   // for the legacy fallback.
   sectionSubtotal?: string | null;
+  // Live-defect correction (2026-09-06, "quote PDF/cart presentation
+  // correction"): true for a Bundle's own nested `includes` row, false for
+  // the inclusion/Bundle-parent row itself — an independent hierarchy
+  // dimension from sectionKey above (a Bundle child inside an additional
+  // Commercial Leg group carries BOTH), never collapsed into one. Mirrors
+  // commercialLegPresentation.ts's own PeriodBreakdownRow.isChild and
+  // QuoteProposalPreview.tsx's own cz-proposal__feature--child, which this
+  // panel had no equivalent of before this correction. Always explicitly
+  // set (never undefined) so InclusionDisclosurePanel can render every row
+  // it's ever handed one consistent way.
+  isChild: boolean;
 }
 
 function breakdownInclusionRows(
@@ -133,6 +144,7 @@ function breakdownInclusionRows(
   sectionKey?: string,
   sectionLabel?: string,
   sectionSubtotal?: string | null,
+  isChild = false,
 ): DisclosureInclusionRow[] {
   return [
     {
@@ -144,9 +156,10 @@ function breakdownInclusionRows(
       sectionKey,
       sectionLabel,
       sectionSubtotal,
+      isChild,
     },
     ...(inclusion.includes ?? []).flatMap((child, ci) =>
-      breakdownInclusionRows(child, `${keyPrefix}:child:${ci}`, sectionKey, sectionLabel, sectionSubtotal)),
+      breakdownInclusionRows(child, `${keyPrefix}:child:${ci}`, sectionKey, sectionLabel, sectionSubtotal, true)),
   ];
 }
 
@@ -187,6 +200,7 @@ export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): Disc
         quantity: inclusion.bundle_id ? null : (inclusion.quantity ?? null),
         unitPrice: null,
         lineTotal: inclusion.line_total ?? null,
+        isChild: false,
       },
       ...(inclusion.includes ?? []).map((child, ci) => ({
         id: `${inclusion.id || i}:child:${child.id || ci}`,
@@ -194,10 +208,11 @@ export function disclosureRowsForFamilyTierItem(item: FamilyTierQuoteItem): Disc
         quantity: child.quantity ?? null,
         unitPrice: null,
         lineTotal: child.line_total ?? null,
+        isChild: true,
       })),
     ]);
   }
-  return item.features.map((feature, i) => ({ id: `feature-${i}`, label: feature, quantity: null, unitPrice: null, lineTotal: null }));
+  return item.features.map((feature, i) => ({ id: `feature-${i}`, label: feature, quantity: null, unitPrice: null, lineTotal: null, isChild: false }));
 }
 
 // Auditor correction (2026-09-05, "leg-level breakdown presentation
@@ -339,8 +354,25 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
                     <td class="cz-inclusion-disclosure__section-subtotal">{row.sectionSubtotal ?? ''}</td>
                   </tr>,
                 ] : []),
+                // Live-defect correction (2026-09-06, "quote PDF/cart
+                // presentation correction"): two independent, stackable
+                // indent levels on the LABEL cell only — a row under a
+                // section heading (an additional Commercial Leg group) and
+                // a Bundle's own child row are separate hierarchy
+                // dimensions, so a child row inside a section gets BOTH
+                // classes rather than one collapsing the other. Qty/Unit
+                // price/Line total cells are never touched, so those
+                // columns stay aligned with the base (unsectioned,
+                // non-child) rows above.
                 <tr key={row.id}>
-                  <td>{row.label}</td>
+                  <td
+                    class={[
+                      row.sectionKey !== undefined ? 'cz-inclusion-disclosure__label--section' : '',
+                      row.isChild ? 'cz-inclusion-disclosure__label--child' : '',
+                    ].filter(Boolean).join(' ') || undefined}
+                  >
+                    {row.label}
+                  </td>
                   <td>{row.quantity ?? ''}</td>
                   <td>{row.unitPrice !== null ? formatPrice(row.unitPrice) : ''}</td>
                   <td>{row.lineTotal !== null ? formatPrice(row.lineTotal) : ''}</td>

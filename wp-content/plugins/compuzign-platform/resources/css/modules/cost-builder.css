@@ -1075,6 +1075,29 @@
   color: var(--cz-color-text);
 }
 
+/* Live-defect correction (2026-09-06, "quote PDF/cart presentation
+   correction"): the label cell of a row under an additional Commercial Leg
+   group heading is indented one level, distinguishing it from the
+   unsectioned base rows above (and matching the group heading's own visual
+   parent/child relationship) — Qty/Unit price/Line total cells are
+   untouched, so those columns stay aligned with every other row. A Bundle's
+   own child row (independent of section membership) gets its own,
+   separately-selected indent level directly below; the compound rule after
+   it takes over — at higher specificity, so it wins regardless of source
+   order — when a row is BOTH sectioned AND a child, stacking the two
+   levels rather than collapsing them into one. */
+.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--section {
+  padding-left: var(--cz-space-3);
+}
+
+.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--child {
+  padding-left: var(--cz-space-3);
+}
+
+.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--section.cz-inclusion-disclosure__label--child {
+  padding-left: var(--cz-space-4);
+}
+
 /* Live-gate correction (2026-09-05, "preserve period/leg inclusion
    attribution"; corrected "leg-level breakdown presentation"): the
    Period/cadence section heading row precedes the first row of each
@@ -3472,6 +3495,14 @@
   font-style: italic;
 }
 
+/* Live-defect correction (2026-09-06, "quote PDF/cart presentation
+   correction"): a payment-cycle fact ("Recurring payment", "Monthly
+   payment", etc.) is not an inclusion — same no-checkmark treatment as
+   --group/--bundle above, which this modifier had been missing. */
+.cz-proposal__feature--note::before {
+  content: '';
+}
+
 /* Auditor correction (2026-09-05, "leg-level breakdown presentation
    customer view" follow-up "incomplete View Details parity"): a
    component's own "{cadence} total: $X" line — bolder than a note, since
@@ -3480,6 +3511,13 @@
   color: #111111;
   font-size: 11px;
   font-weight: 700;
+}
+
+/* Live-defect correction (2026-09-06, "quote PDF/cart presentation
+   correction"): a component subtotal ("Monthly total", "Annual total") is
+   not an inclusion either — same no-checkmark treatment as --note above. */
+.cz-proposal__feature--total::before {
+  content: '';
 }
 
 /* Phase 8I: label/quantity split for an ordinary inclusion or Bundle child
