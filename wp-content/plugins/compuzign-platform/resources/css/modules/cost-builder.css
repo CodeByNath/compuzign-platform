@@ -1076,26 +1076,15 @@
 }
 
 /* Live-defect correction (2026-09-06, "quote PDF/cart presentation
-   correction"): the label cell of a row under an additional Commercial Leg
-   group heading is indented one level, distinguishing it from the
-   unsectioned base rows above (and matching the group heading's own visual
-   parent/child relationship) — Qty/Unit price/Line total cells are
-   untouched, so those columns stay aligned with every other row. A Bundle's
-   own child row (independent of section membership) gets its own,
-   separately-selected indent level directly below; the compound rule after
-   it takes over — at higher specificity, so it wins regardless of source
-   order — when a row is BOTH sectioned AND a child, stacking the two
-   levels rather than collapsing them into one. */
-.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--section {
-  padding-left: var(--cz-space-3);
-}
-
+   correction", corrected same day): only a genuine Bundle child (its own
+   nested `includes` row) is indented — an additional Commercial Leg group
+   is an independent sibling of the base Leg, never its child, so merely
+   belonging to a section heading no longer indents a row on its own (that
+   read as "this Leg is nested under the Leg above it," which is wrong).
+   The group heading's bold/uppercase text alone marks a new section; its
+   own top-level rows render flush-left, same margin as the base rows. */
 .cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--child {
   padding-left: var(--cz-space-3);
-}
-
-.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--section.cz-inclusion-disclosure__label--child {
-  padding-left: var(--cz-space-4);
 }
 
 /* Live-gate correction (2026-09-05, "preserve period/leg inclusion
@@ -2815,23 +2804,18 @@
   content: '';
 }
 
+/* Scoped under .cz-os__features (not just the bare modifier class) so this
+   beats a generic theme-level list-item reset that might otherwise zero out
+   an unscoped padding-left. Live-defect correction (2026-09-06, "quote
+   PDF/cart presentation correction", corrected same day): applies ONLY to a
+   genuine Bundle child (its own nested `includes` row) — section membership
+   alone no longer indents, since an additional Commercial Leg group is an
+   independent sibling of the base Leg, never its child; that indent read as
+   exactly the wrong "nested under the Leg above" relationship. The group
+   heading's own bold/uppercase text is what marks a new section; its
+   top-level rows render flush-left, same margin as the base rows. */
 .cz-os__features .cz-os__feature--child {
   padding-left: var(--cz-space-4);
-}
-
-/* Live-defect correction (2026-09-06, "quote PDF/cart presentation
-   correction" follow-up): a row under an additional Commercial Leg group
-   heading — independent of --child above, which is a Bundle's own nested
-   row; the compound rule further below stacks both when a row is genuinely
-   both, rather than one collapsing the other. Scoped under .cz-os__features
-   (not just the bare modifier class) so this beats a generic theme-level
-   list-item reset that might otherwise zero out an unscoped padding-left. */
-.cz-os__features .cz-os__feature--section {
-  padding-left: var(--cz-space-4);
-}
-
-.cz-os__features .cz-os__feature--section.cz-os__feature--child {
-  padding-left: var(--cz-space-6);
 }
 
 /* Live-gate correction (2026-09-05, "preserve period/leg inclusion

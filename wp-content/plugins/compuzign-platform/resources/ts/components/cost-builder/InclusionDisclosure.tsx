@@ -355,24 +355,21 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
                   </tr>,
                 ] : []),
                 // Live-defect correction (2026-09-06, "quote PDF/cart
-                // presentation correction"): two independent, stackable
-                // indent levels on the LABEL cell only — a row under a
-                // section heading (an additional Commercial Leg group) and
-                // a Bundle's own child row are separate hierarchy
-                // dimensions, so a child row inside a section gets BOTH
-                // classes rather than one collapsing the other. Qty/Unit
-                // price/Line total cells are never touched, so those
-                // columns stay aligned with the base (unsectioned,
-                // non-child) rows above.
+                // presentation correction", corrected same day — indenting
+                // an ordinary section-member row read as "this Leg is a
+                // child of the Leg above it," which is wrong: an additional
+                // Commercial Leg is an independent sibling, never nested
+                // under the base/primary Leg. Only a genuine Bundle child
+                // (row.isChild — its own nested `includes` row, a real
+                // parent/child relationship within ONE inclusion) is ever
+                // indented; section membership alone (row.sectionKey) is
+                // NOT — a section's own top-level rows render flush-left,
+                // same margin as the base rows and the section heading
+                // itself, distinguished only by that heading's bold text.
+                // Qty/Unit price/Line total cells are never touched, so
+                // those columns stay aligned regardless.
                 <tr key={row.id}>
-                  <td
-                    class={[
-                      row.sectionKey !== undefined ? 'cz-inclusion-disclosure__label--section' : '',
-                      row.isChild ? 'cz-inclusion-disclosure__label--child' : '',
-                    ].filter(Boolean).join(' ') || undefined}
-                  >
-                    {row.label}
-                  </td>
+                  <td class={row.isChild ? 'cz-inclusion-disclosure__label--child' : undefined}>{row.label}</td>
                   <td>{row.quantity ?? ''}</td>
                   <td>{row.unitPrice !== null ? formatPrice(row.unitPrice) : ''}</td>
                   <td>{row.lineTotal !== null ? formatPrice(row.lineTotal) : ''}</td>

@@ -45,23 +45,18 @@ function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
               </li>,
             ] : []),
             // Live-defect correction (2026-09-06, "quote PDF/cart
-            // presentation correction" follow-up): this row's own
-            // sectionKey (belongs to an additional Commercial Leg group)
-            // and isChild (is a Bundle's own nested row) are two
-            // independent, stackable hierarchy dimensions — same rule as
-            // InclusionDisclosurePanel's own label--section/label--child —
-            // never collapsed into one indent level, and never confused
-            // with the legacy inclusionItems fallback's OWN, unconditional
-            // cz-os__feature--child usage below (that branch has no
-            // sections at all).
-            <li
-              key={row.id}
-              class={[
-                'cz-os__feature',
-                row.sectionKey !== undefined ? 'cz-os__feature--section' : '',
-                row.isChild ? 'cz-os__feature--child' : '',
-              ].filter(Boolean).join(' ')}
-            >
+            // presentation correction", corrected same day): section
+            // membership (row.sectionKey — this row belongs to an
+            // additional Commercial Leg group) never indents on its own —
+            // an additional Leg is an independent sibling of the base Leg,
+            // never its child, so indenting its own top-level row read as
+            // exactly that wrong relationship. Only a genuine Bundle child
+            // (row.isChild, its own nested `includes` row) is indented,
+            // same rule as InclusionDisclosurePanel and the legacy
+            // inclusionItems fallback below (which has no sections at all,
+            // only Bundle children, and keeps its own unconditional
+            // cz-os__feature--child usage unchanged).
+            <li key={row.id} class={`cz-os__feature${row.isChild ? ' cz-os__feature--child' : ''}`}>
               <span class="cz-os__feature-row">
                 <span class="cz-os__feature-label">{row.label}</span>
                 <span class="cz-os__feature-qty">

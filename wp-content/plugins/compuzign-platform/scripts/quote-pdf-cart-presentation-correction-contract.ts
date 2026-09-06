@@ -7,12 +7,14 @@
 //      real cost-builder.css, since the ✓ itself is CSS ::before content,
 //      not TS-rendered text — there is nothing for a DOM-free function test
 //      to assert about a pseudo-element's content string).
-//   2. Cart inclusion disclosure: a row under an additional Commercial Leg
-//      group heading is indented (isChild/sectionKey are two independent,
-//      stackable hierarchy dimensions — a Bundle child inside a section
-//      carries BOTH, never collapsed into one), while Qty/Unit price/Line
-//      total stay untouched so those columns remain aligned with the base
-//      (unsectioned, non-child) rows.
+//   2. Cart inclusion disclosure: ONLY a genuine Bundle child (its own
+//      nested `includes` row) is ever indented. Section membership alone
+//      (a row belonging to an additional Commercial Leg group) is NOT — an
+//      additional Leg is an independent sibling of the base Leg, never its
+//      child, so indenting a section's own top-level row would read as
+//      exactly that wrong nested relationship (a live defect this contract
+//      guards against re-introducing). Qty/Unit price/Line total stay
+//      untouched regardless, so those columns remain aligned everywhere.
 // No change to cartBreakdown/commercialBreakdown derivation, Commercial Leg
 // identity, quantities, unit prices, line totals, section subtotals, TCV,
 // Initial Payment, quote ordering, or customer Upgrade Your Build flow —
@@ -136,7 +138,7 @@ const legacyRows = disclosureRowsForFamilyTierItem(familyItem({
 check(legacyRows.length === 2, 'the legacy inclusionItems fallback still produces one parent + one child row');
 check(legacyRows[0].isChild === false && legacyRows[1].isChild === true, 'the legacy fallback marks its own nested child row isChild too, not just the cartBreakdown path');
 
-// ── 3. Rendering: indentation applies to the label cell only (source-scan) ──
+// ── 3. Rendering: only a Bundle child is ever indented (source-scan) ────────
 
 const inclusionDisclosureSource = readFileSync(
   resolve(root, 'resources/ts/components/cost-builder/InclusionDisclosure.tsx'),
@@ -144,9 +146,12 @@ const inclusionDisclosureSource = readFileSync(
 );
 
 check(
-  /cz-inclusion-disclosure__label--section/.test(inclusionDisclosureSource)
-    && /cz-inclusion-disclosure__label--child/.test(inclusionDisclosureSource),
-  'InclusionDisclosurePanel references both indent classes',
+  !/cz-inclusion-disclosure__label--section/.test(inclusionDisclosureSource),
+  'InclusionDisclosurePanel no longer has a section-only indent class — section membership alone must never indent a row',
+);
+check(
+  /cz-inclusion-disclosure__label--child/.test(inclusionDisclosureSource),
+  'InclusionDisclosurePanel still indents a genuine Bundle child row',
 );
 
 const panelRowMatch = inclusionDisclosureSource.match(
@@ -157,9 +162,8 @@ const panelRowBody = panelRowMatch![1];
 const cellMatches = [...panelRowBody.matchAll(/<td[^>]*>/g)];
 check(cellMatches.length === 4, 'the row still renders exactly four cells — Inclusion, Qty, Unit price, Line total');
 check(
-  /cz-inclusion-disclosure__label--section|cz-inclusion-disclosure__label--child/.test(cellMatches[0][0])
-    || /class=\{/.test(cellMatches[0][0]),
-  'the FIRST cell (the label) is the one carrying the conditional indent class',
+  /row\.isChild/.test(cellMatches[0][0]) && !/sectionKey/.test(cellMatches[0][0]),
+  'the label cell\'s indent class is keyed on row.isChild alone, never row.sectionKey',
 );
 for (let i = 1; i < cellMatches.length; i++) {
   check(
@@ -168,27 +172,20 @@ for (let i = 1; i < cellMatches.length; i++) {
   );
 }
 
-// ── 4. CSS specificity: the compound (section+child) rule wins over either alone ──
+// ── 4. CSS: exactly one indent rule, keyed on the child class alone ─────────
 
 check(
-  css.includes('.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--section.cz-inclusion-disclosure__label--child'),
-  'a compound selector exists for a row that is both sectioned and a child — proving the two levels stack rather than collapse',
+  !css.includes('cz-inclusion-disclosure__label--section'),
+  'no CSS rule references the removed section-only indent class',
 );
-
-const sectionOnlyPadding = ruleBody('.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--section');
 const childOnlyPadding = ruleBody('.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--child');
-const compoundPadding = ruleBody(
-  '.cz-inclusion-disclosure__table td.cz-inclusion-disclosure__label--section.cz-inclusion-disclosure__label--child',
-);
-check(/padding-left/.test(sectionOnlyPadding) && /padding-left/.test(childOnlyPadding) && /padding-left/.test(compoundPadding), 'all three rules set padding-left');
-check(compoundPadding !== sectionOnlyPadding && compoundPadding !== childOnlyPadding, 'the compound rule uses a DIFFERENT (greater) indent than either level alone — a stacked, not collapsed, hierarchy');
+check(/padding-left/.test(childOnlyPadding), 'the Bundle-child indent rule sets padding-left');
 
 // ── 5. Live-defect follow-up: OrderSummary.tsx's own "finalise-quote
 //    sidebar" reuses disclosureRowsForFamilyTierItem() with its own
-//    checkmark-list rendering (cz-os__feature) — it had the SAME
-//    section-vs-child conflation bug InclusionDisclosurePanel was fixed for
-//    above, just never caught since the original ticket's own "authoritative
-//    source already traced" list never named this file. ────────────────────
+//    checkmark-list rendering (cz-os__feature) — same rule applies there:
+//    only a genuine Bundle child is ever indented, never a section member
+//    on its own. ────────────────────────────────────────────────────────────
 
 const orderSummarySource = readFileSync(
   resolve(root, 'resources/ts/components/request-flow/OrderSummary.tsx'),
@@ -196,28 +193,23 @@ const orderSummarySource = readFileSync(
 );
 
 check(
-  !/row\.sectionKey !== undefined \? ' cz-os__feature--child'/.test(orderSummarySource),
-  'OrderSummary.tsx no longer conflates section membership with being a Bundle child (the old, incorrect single-flag class expression is gone)',
+  !/cz-os__feature--section/.test(orderSummarySource),
+  'OrderSummary.tsx no longer has a section-only indent class',
 );
 check(
-  /cz-os__feature--section/.test(orderSummarySource) && /row\.isChild \? 'cz-os__feature--child'/.test(orderSummarySource),
-  'OrderSummary.tsx now derives --section from row.sectionKey and --child from row.isChild independently, mirroring InclusionDisclosurePanel',
+  /row\.isChild \? ' cz-os__feature--child'/.test(orderSummarySource),
+  'OrderSummary.tsx indents a row only when row.isChild is true — never merely for section membership',
 );
 
 check(
-  css.includes('.cz-os__features .cz-os__feature--section.cz-os__feature--child'),
-  'a compound selector exists for OrderSummary\'s own section+child stacking, same as the cart disclosure panel',
+  !css.includes('cz-os__feature--section'),
+  'no CSS rule references the removed OrderSummary section-only indent class',
 );
-const osSectionOnlyPadding = ruleBody('.cz-os__features .cz-os__feature--section');
 const osChildOnlyPadding = ruleBody('.cz-os__features .cz-os__feature--child');
-const osCompoundPadding = ruleBody('.cz-os__features .cz-os__feature--section.cz-os__feature--child');
+check(/padding-left/.test(osChildOnlyPadding), 'OrderSummary\'s Bundle-child indent rule sets padding-left');
 check(
-  osCompoundPadding !== osSectionOnlyPadding && osCompoundPadding !== osChildOnlyPadding,
-  'OrderSummary\'s compound section+child rule also uses a distinct, greater indent than either level alone',
-);
-check(
-  /\.cz-os__features \.cz-os__feature--(child|section)\b/.test(css),
-  'the OrderSummary indent rules are scoped under .cz-os__features (not a bare single-class selector), hardening them against a generic theme-level list-item reset',
+  /\.cz-os__features \.cz-os__feature--child\b/.test(css),
+  'the OrderSummary indent rule is scoped under .cz-os__features (not a bare single-class selector), hardening it against a generic theme-level list-item reset',
 );
 
 console.log('Quote PDF/cart presentation correction contract passed.');
