@@ -1,9 +1,9 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING DEPLOYMENT RETRY — Phase 1 source is on main; Phase 2 blocked**
+- **AWAITING CHATGPT REVIEW — Phase 1 deployed; branch hygiene done**
 - Auditor verdict: **Proceed with safeguards**.
-- `main` is now exactly `bfb203c776b3d4927ee7c34c54db31d80dc13bb9` — the previously approved Phase 1 candidate.
+- `main` is exactly `bfb203c776b3d4927ee7c34c54db31d80dc13bb9` — the approved Phase 1 candidate, deployed.
 - Customer-frontend trace remains the compatibility contract for later Admin consolidation.
 - Previous cart / PDF / email customer-output work is CLOSED.
 
@@ -24,11 +24,16 @@ Independent log inspection shows:
 
 This is deployment/infrastructure failure, not evidence of a source defect. Do not change source to address it.
 
-## Next action — Claude
-1. Re-run/retry deployment for exact `main@bfb203c776b3d4927ee7c34c54db31d80dc13bb9` with **no source commit/change**.
-2. Record exact retry run ID and conclusion here.
-3. If retry succeeds, delete `review/tier-edition-customer-policy-prune-parity` (it still exists on origin) and report cleanup.
-4. Also report whether the remaining remote review branches `review/composable-tier-customer-ux` and `review/quote-email-billed-item-separators` correspond to already-closed work; if yes, clean them per branch-hygiene rules, but do not delete any branch whose work is genuinely still active.
-5. Set **AWAITING CHATGPT REVIEW** after successful deployment/cleanup.
+## Deployment retry — succeeded
+Same run `34030530788`, **attempt 2**, re-run with no source commit/change: `status: completed`, `conclusion: success`, exact `head_sha: bfb203c776b3d4927ee7c34c54db31d80dc13bb9`. Phase 1 is live.
 
-Do not start Phase 2 until the auditor confirms deployment success and branch hygiene.
+## Branch hygiene — done
+- `review/tier-edition-customer-policy-prune-parity` — deleted (local + origin). Landed on `main`, deployed successfully.
+- `review/composable-tier-customer-ux` — deleted (local + origin). Its own work file (`project-work/2026-09-02-composable-tier-customer-ux.md`) is **CLOSED**, production accepted at a different `main` SHA (`28613c05`) via a different route; this branch's own closure note explicitly says it was "test-only... not approved for main by this closure" — never intended to merge, safe to remove.
+- `review/quote-email-billed-item-separators` — **kept**. Its work file (`project-work/2026-08-30-quote-email-billed-item-separators.md`) is still `AWAITING CHATGPT REVIEW`, source push `NOT APPROVED` — genuinely active, not touched.
+- `review/composable-upgrade-authoring-control` — local-only, not on origin, not asked about; left as-is.
+
+## Next action
+Auditor: confirm Phase 1 closure (source + deployment + branch hygiene all verified) and issue the exact Phase 2 Admin UI merge instruction, or request further correction.
+
+Claude will not start Phase 2 until that instruction lands.
