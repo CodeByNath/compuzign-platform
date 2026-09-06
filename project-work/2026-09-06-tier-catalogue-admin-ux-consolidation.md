@@ -1,10 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — Phase 2 exact candidate only**
+- **AWAITING LIVE VALIDATION — Phase 2 deployed**
 - Auditor verdict: **Proceed with safeguards**.
 - Phase 1 remains accepted/closed at `main@bfb203c776b3d4927ee7c34c54db31d80dc13bb9`.
-- Approved Phase 2 review head: `review/tier-inclusions-customer-policy-merge@3cc88e83f93e57fec7b61419129cd93a8432809b`.
+- Phase 2 is now exactly `main@3cc88e83f93e57fec7b61419129cd93a8432809b`, deployed.
 - Customer-frontend trace remains the compatibility contract.
 
 ## Independent Phase 2 review
@@ -23,12 +23,12 @@ Claude's reported validation is accepted as sufficient for source approval. The 
 ## Non-change boundary
 No customer frontend, resolver/projection, pricing, Commercial Legs, quote/cart, Request/PDF/email/order, routing, Edition UI, backend storage shape, or lifecycle semantics may change in this push.
 
-## Next action — Claude
-Push **exactly `3cc88e83f93e57fec7b61419129cd93a8432809b`** to `main` with no additional source changes. Then:
-1. record exact resulting `main` SHA and GitHub Actions deployment result;
-2. do not delete the Phase 2 review branch until deployment succeeds;
-3. update this same file to **AWAITING LIVE VALIDATION** after successful deployment;
-4. do not start Phase 3 and do not retire the standalone Customer Selection Rules drawer.
+## Deployment result
+Pushed exactly `3cc88e83f93e57fec7b61419129cd93a8432809b` to `main`, no additional source changes. GitHub Actions `Deploy to Hostinger` run `34033325117` — `status: completed`, `conclusion: success`, exact `head_sha: 3cc88e83f93e57fec7b61419129cd93a8432809b`.
+
+Phase 2 review branch (`review/tier-inclusions-customer-policy-merge`) is **kept**, per instruction, pending live validation below — not yet cleaned up.
+
+Do not start Phase 3 and do not retire the standalone Customer Selection Rules drawer until the live validation gate below is confirmed.
 
 ## Live validation gate after deploy
 Auditor must validate the deployed Admin experience before Phase 3:
