@@ -1,45 +1,53 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- Customer-frontend trace recorded below. No source edited, no review branch created, Phase 1 not implemented.
+- **READY FOR CLAUDE — Phase 1 only**
+- Auditor verdict: **Proceed with safeguards**.
+- Customer-frontend trace is accepted as the compatibility contract for later Admin consolidation.
 - Previous cart / PDF / email customer-output work is **CLOSED**.
 
-## Correction to prior handoff
-Do **not** implement the previously proposed Phase 1 yet. Before approving any source change, we need an exact source-backed map of what the existing `customer_policy` fields drive on the customer frontend. This audit becomes the required gate before implementation.
+## Accepted architecture / customer coupling
+The separate Customer Selection Rules drawer is a second Admin projection over the same selected Build Your Own `rate_sheet_items`, keyed by stable `item_id`; it is not a second inclusion store. Keep backend separation: `rate_sheet_items[]` owns commercial inclusion data, `customer_policy.items[]` owns customer-selection attributes.
 
-## Confirmed Admin architecture
-The standalone Customer Selection Rules drawer is a second Admin projection over the same Build Your Own selected `rate_sheet_items`, joined by stable `item_id`; it is not a second inclusion store. Commercial inclusion data stays in `rate_sheet_items[]`; customer-selection attributes stay in `customer_policy.items[]`.
+Customer behaviour that must not change in later UI phases:
+- no policy entry = not offered/excluded;
+- `required` = mandatory, `optional` = customer selectable, `excluded`/absent = not rendered;
+- `default_selected` seeds optional state but an explicit customer deselection must stay deselected;
+- quantity min/default/max/step constrain the customer stepper and invalid submissions fail rather than clamp;
+- `featured` is merchandising only;
+- current Admin authors policy Price Option as fixed only; do not expand this here;
+- Edition policy `null` inherits the occupant policy wholesale; non-null Edition policy is a complete replacement;
+- Bundle policy applies only to the Bundle row's own `item_id`, never Bundle children;
+- unpublished occupant is not exposed; published occupant with no policy exposes no selectable rows;
+- Upgrade / future standalone Build Your Own share the same customer policy component path. Do not alter either context or their route logic in this work.
 
-Locked future direction remains:
-- one Inclusions module; no new Tier/Inclusions module, per-inclusion module overview, drawer, route, or lifecycle;
-- customer-policy controls mount once per inclusion `item_id`, not once per Commercial Leg assignment;
-- Tier Catalogue Editions use their existing consolidated Edition Inclusions/session; no new Edition route/module;
-- Featured remains derived from policy flags, never separate storage;
-- customer frontend is a hard non-change boundary unless this audit proves a required compatibility change.
+The current source finding that standalone Build Your Own has no live mounted entry point is informational only. Do not change routing or create an entry point in this work.
 
-## Customer-frontend trace — field-by-field (source-cited, `main`)
+## Locked Admin direction
+- one Inclusions module; no customer-policy module/card per inclusion;
+- mount customer-policy controls once per inclusion `item_id`, not per Commercial Leg assignment;
+- preserve the existing Admin write convention: choosing "Not offered" removes the policy item rather than persisting an explicit excluded entry;
+- preserve the published-occupant authoring eligibility rule unless a later phase explicitly audits and changes it;
+- Tier Catalogue Editions use their existing consolidated Edition session/Inclusions surface; no new Edition drawer/route/module;
+- Featured remains derived from `customer_policy.items[].featured`, never separate storage;
+- do not retire the standalone Customer Selection Rules drawer until the merged occupant UI is implemented and live-validated.
 
-| Field | Absent/edge behaviour | Resolver behaviour | Customer visible effect |
-|---|---|---|---|
-| `mode` | No entry for an `item_id` == `excluded` (`PackageSchema.php` sanitizer default; `PackageManagerSchema.php:2460` treats a missing entry as `['mode'=>'excluded']`). `presentCustomerPolicy()` (`PackageFamilyPricingBuilder.php:137-148`) strips every `excluded` entry before the customer API response. | N/A (server never offers it) | Item never appears as a row in `ComposableOfferBrowser.tsx` (`:298-321`) — no row is built for an absent/excluded item_id. |
-| `default_selected` | Meaningful only for `optional`; forced `false` for `required`/`excluded`. | Absent optional row in submitted choice == "use policy's own `default_selected`" | Seeds initial checkbox state (`ComposableOfferBrowser.tsx:127-143`). Fixed correction: `buildComposableChoice()` (`:85-115`) always sends an explicit `selected:false` for a deselected optional row — omitting it previously caused a `default_selected:true` item to silently re-select itself on every Remove click. |
-| `quantity.{default,min,max,step}` | Each clamped `min≥1`, `max=max(min,…)`, `default` clamped into range at save time. | Out-of-bounds/off-step submitted quantity **rejects the whole selection** (`PackageManagerSchema.php:2477-2488`, `code:'selection_invalid'`) — never clamps. | Bounds the stepper input (`ComposableOfferBrowser.tsx:660-679`). |
-| `featured` | N/A | **Never read** server-side — zero hits for `featured` in `PackageManagerSchema.php`; no authorization meaning. | Sort/highlight only (`ComposableOfferBrowser.tsx:466-467`). |
-| `price_option` | Admin can only author `{mode:'fixed'}` today — `CustomerPolicyEditor.tsx` hardcodes `DEFAULT_PRICE_OPTION`, no `choice` control exists (documented gap, not silent). | A submitted `price_option_id` is **silently dropped** at the public preview endpoint — `PackageRepository.php` `resolveComposableOfferSelection()`'s row builder copies only `item_id`/`selected`/`quantity`, never `price_option_id`, regardless of mode. Backend `choice`-mode validation exists in `resolveCustomerComposableSelection()` but has no live caller. | No customer Price Option control exists; a fixed-mode item keeps its published base price. |
-| Occupant vs Edition policy | `sanitizeTierEdition()`: key absent → `null` (inherit occupant's Default policy WHOLESALE); key present (even empty) → complete replacement, an item absent from a non-empty Edition policy defaults to excluded. | `publicTierEditionOptions()`: `edition.customer_policy !== null ? sanitize(edition) : sanitize(occupant)`. | An Edition with no authored policy shows the occupant's Default policy to the customer; an Edition with any authored policy shows ONLY that policy. |
-| Bundle-backed rows | A policy entry CAN target a Bundle's own `item_id` (`validateCustomerPolicyAgainstContainer()` checks only against `rate_sheet_items`, which includes Bundle rows) — as one row (quantity/mode/price_option). | N/A | Policy can never reach a Bundle's individually `supplied_content[]` children — those are presentation-only `includes[]`, never in `rate_sheet_items`, so never independently addressable. |
-| Published/unpublished eligibility | Unpublished/no minted CZT/CZTA → `enrichCompiledOccupantIdentity()` returns `null`, the whole tier entry/`composable_offer` is dropped from the response. Published + `customer_policy` null → `presentCustomerPolicy(null)` returns `null`; `ComposableOfferBrowser.tsx:304` renders zero rows; the preview endpoint fails closed (`code:'not_configured'`). Edition published, no own policy authored → inherits occupant Default (row above). | — | Customer sees nothing for an unpublished occupant; an empty browser for a published-but-unpolicied occupant. |
-| Upgrade vs Build Your Own | Same component tree (`ComposableOfferBrowser.tsx` / `FamilyTierAdapter.tsx`), same `family.pricing.composable_offer` — the occupant's own projected policy, never a selected Tier's own Edition policy. The `context` prop is presentation-only (heading text: "Build Your Own" vs "Upgrade your build"), confirmed by exhaustive search — no branch anywhere switches the policy source by context. | — | **Standalone "Build Your Own" is currently unreachable in the live UI** — `FamilyTierAdapter.tsx` gates mounting on `selectedTierId !== null`, so only "Upgrade your build" is reachable today; the `build_your_own` context branch exists in code for a later standalone phase but has no live entry point. |
+## Required parity gate for later UI phases
+Keep the existing customer-policy/resolver/preview/quote/cart/request/notification and TS choice/contribution/live-correction contracts green without changing their assertion intent. The Admin merge is presentation/authoring consolidation only; stored shape, projection, resolver and customer behaviour remain authoritative.
 
-## Hidden coupling found in the Admin editor
-`CustomerPolicyEditor.tsx` setting mode to "Not offered" calls `patchItem(itemId, null)`, which **removes the item's array entry entirely** rather than storing an explicit `excluded` record — this matches the customer-side "absent == excluded" default exactly (documented-intentional, not a bug). No other side effects found; Price Option stays hardcoded `fixed` (known gap, not a hidden one). Consolidating the editing UI into the same inclusion row must preserve this same "no entry, not an explicit `excluded` record" write behaviour, or the two representations (Admin-authored explicit-`excluded` vs Admin-authored absent) could start diverging even though both currently resolve identically.
+## Phased plan
+1. **Phase 1 — Edition stale-policy prune parity** — authorized now.
+2. Phase 2 — merge existing customer-policy controls into Build Your Own inclusion authoring as a controller/capability while preserving separate backend drafts/module semantics.
+3. Phase 3 — only after Phase 2 live validation, retire the duplicate standalone Customer Selection Rules drawer/action/route.
+4. Phase 4 — add the same inclusion-row capability to Tier Catalogue Edition Inclusions through the Edition's existing consolidated session.
+5. Later Admin shell refinement: View / Editions / Featured / other existing data.
 
-## Customer-facing parity contracts/tests to lock before any Admin UI merge
-PHP: `tests/composable-customer-policy-resolver.php`, `tests/composable-customer-ux-preview.php`, `tests/composable-customer-policy-admin-surface.php`, `tests/tier-composable-occupant.php`, `tests/composable-occupant-controller-contract.php`, `tests/request-schema-composable.php`, `tests/notification-templates-composable-quote-parity.php`. TS: `scripts/composable-offer-choice-contract.ts`, `scripts/composable-offer-contribution-contract.ts`, `scripts/composable-quote-cart-contract.ts`, `scripts/tier-customer-policy-draft-contract.ts`, `scripts/tier-customer-policy-drawer-contract.ts`, `scripts/composable-live-correction-contract.ts`. All must stay green, unmodified in assertion intent, through Phases 2-4 of the prior plan — the merge changes only which component renders the editing controls, never the stored shape, projection, or resolver.
-
-## Edition stale-policy prune fix — safe to do independently
-Confirmed safe. `pruneStaleCustomerPolicy()`'s own purpose is pure data hygiene (preventing a removed-then-re-added `item_id` from silently reactivating its old rule) — the resolver already treats a stale entry as unreachable regardless, so nothing traced above depends on the current absence of this call. The fix is a one-line addition mirroring the occupant's existing pattern in `settleTierSlot()`, inserted in `settleTierEditionOverview()` right after `pruneOrphanedLegAssignments()` and before `sanitizeTierEdition()` — no interaction with any field/behaviour traced in the table above.
-
-## New fact for scope: standalone Build Your Own is unreachable today
-Only "Upgrade your build" has a live entry point; the `context==='build_your_own'` branch is present in code but unmounted (`FamilyTierAdapter.tsx` gates on `selectedTierId !== null`). This does not change the locked non-change boundary (both contexts must stay behaviourally identical since they share one component), but it does mean any live/browser validation of the customer frontend during this work can only exercise the Upgrade path — Build Your Own has no live surface to validate against yet, independent of anything this project changes.
+## Claude — implement Phase 1 only
+From clean current `main`:
+- in `settleTierEditionOverview()`, call existing `pruneStaleCustomerPolicy()` after Edition `rate_sheet_items` are final / after `pruneOrphanedLegAssignments()`, before final sanitize, mirroring occupant settle order;
+- do not alter `pruneStaleCustomerPolicy()` semantics or any resolver/public/customer code;
+- add focused Edition regression coverage proving removed inclusion policy is pruned on settle and re-adding the same `item_id` does not resurrect the old rule;
+- run focused PHP validation and relevant existing customer-policy contracts; no browser validation is required for this backend-only phase;
+- update current Code Map only if needed to accurately record Edition prune parity;
+- push one clean review branch from current production `main`, report exact branch/SHA/files/tests here, set **AWAITING CHATGPT REVIEW**;
+- do not push `main` before auditor approval.
