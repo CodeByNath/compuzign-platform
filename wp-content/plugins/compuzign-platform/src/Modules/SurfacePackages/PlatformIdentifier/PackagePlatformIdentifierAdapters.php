@@ -74,24 +74,24 @@ final class PackagePlatformIdentifierAdapters
     }
 
     /**
-     * Composable Upgrade dual identity (`CZTU`) — same native reference
+     * Composable Catalogue dual identity (`CZTC`) — same native reference
      * tierOccupant() already builds for CZT/CZTA on this exact occupant;
-     * only the entity type and the storage field (upgrade_platform_id,
-     * PackageRepository::tierUpgradePlatformId()) differ. Coexists with,
+     * only the entity type and the storage field (catalogue_platform_id,
+     * PackageRepository::tierCataloguePlatformId()) differ. Coexists with,
      * never replaces, the occupant's own ecosystem identity.
      */
-    public function tierUpgrade(): PackagePlatformIdentifierAdapter
+    public function tierCatalogue(): PackagePlatformIdentifierAdapter
     {
         return new PackagePlatformIdentifierAdapter(
-            PlatformIdentifierPolicy::TIER_UPGRADE,
-            fn(int|string|null $cursor, int $limit): array => $this->packages->tierUpgradeAssignmentPage(
+            PlatformIdentifierPolicy::TIER_CATALOGUE,
+            fn(int|string|null $cursor, int $limit): array => $this->packages->tierCatalogueAssignmentPage(
                 is_string($cursor) && $cursor !== '' ? $cursor : null,
                 $limit
             ),
-            fn(int|string $reference): string => $this->packages->tierUpgradePlatformId((string) $reference),
-            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierUpgradePlatformId((string) $reference, $platformId),
-            fn(string $platformId): bool => $this->packages->tierUpgradePlatformIdExists($platformId),
-            fn(int|string $reference): ?array => $this->packages->tierUpgradeProjection((string) $reference)
+            fn(int|string $reference): string => $this->packages->tierCataloguePlatformId((string) $reference),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierCataloguePlatformId((string) $reference, $platformId),
+            fn(string $platformId): bool => $this->packages->tierCataloguePlatformIdExists($platformId),
+            fn(int|string $reference): ?array => $this->packages->tierCatalogueProjection((string) $reference)
         );
     }
 
@@ -116,25 +116,25 @@ final class PackagePlatformIdentifierAdapters
     }
 
     /**
-     * Composable Edition Upgrade dual identity (`CZTEU`) — same native
+     * Composable Edition Catalogue dual identity (`CZTEC`) — same native
      * reference tierEdition() already builds for CZTE on this exact
      * Edition; only the entity type and storage field
-     * (edition_upgrade_platform_id) differ, one level deeper than
-     * tierUpgrade() above, mirroring how tierEditionLeg() sits one level
+     * (edition_catalogue_platform_id) differ, one level deeper than
+     * tierCatalogue() above, mirroring how tierEditionLeg() sits one level
      * deeper than tierLeg().
      */
-    public function tierEditionUpgrade(): PackagePlatformIdentifierAdapter
+    public function tierEditionCatalogue(): PackagePlatformIdentifierAdapter
     {
         return new PackagePlatformIdentifierAdapter(
-            PlatformIdentifierPolicy::TIER_EDITION_UPGRADE,
-            fn(int|string|null $cursor, int $limit): array => $this->packages->tierEditionUpgradeAssignmentPage(
+            PlatformIdentifierPolicy::TIER_EDITION_CATALOGUE,
+            fn(int|string|null $cursor, int $limit): array => $this->packages->tierEditionCatalogueAssignmentPage(
                 is_string($cursor) && $cursor !== '' ? $cursor : null,
                 $limit
             ),
-            fn(int|string $reference): string => $this->packages->tierEditionUpgradePlatformId((string) $reference),
-            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierEditionUpgradePlatformId((string) $reference, $platformId),
-            fn(string $platformId): bool => $this->packages->tierEditionUpgradePlatformIdExists($platformId),
-            fn(int|string $reference): ?array => $this->packages->tierEditionUpgradeProjection((string) $reference)
+            fn(int|string $reference): string => $this->packages->tierEditionCataloguePlatformId((string) $reference),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierEditionCataloguePlatformId((string) $reference, $platformId),
+            fn(string $platformId): bool => $this->packages->tierEditionCataloguePlatformIdExists($platformId),
+            fn(int|string $reference): ?array => $this->packages->tierEditionCatalogueProjection((string) $reference)
         );
     }
 

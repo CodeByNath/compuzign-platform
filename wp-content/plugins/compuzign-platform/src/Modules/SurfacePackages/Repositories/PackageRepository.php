@@ -731,21 +731,21 @@ class PackageRepository
     }
 
     /**
-     * Composable Upgrade dual identity (`CZTU`) — same native reference and
+     * Composable Catalogue dual identity (`CZTC`) — same native reference and
      * same three occupant locations tierOccupantPlatformId()/CZT already
      * scans, reusing locateTierOccupant() directly: an occupant may carry
-     * `upgrade_platform_id` ALONGSIDE its own `cz_platform_id`/
+     * `catalogue_platform_id` ALONGSIDE its own `cz_platform_id`/
      * `addon_platform_id`, exactly like a Rate Sheet row carries CZPRCB
      * alongside its own CZPRCI. Never replaces the ecosystem identity, never
      * a separate child record.
      */
-    public function tierUpgradePlatformId(string $nativeReference): string
+    public function tierCataloguePlatformId(string $nativeReference): string
     {
         $located = $this->locateTierOccupant($nativeReference);
-        return $located === null ? '' : (string) ($located['occupant']['upgrade_platform_id'] ?? '');
+        return $located === null ? '' : (string) ($located['occupant']['catalogue_platform_id'] ?? '');
     }
 
-    public function claimTierUpgradePlatformId(string $nativeReference, string $platformId): bool
+    public function claimTierCataloguePlatformId(string $nativeReference, string $platformId): bool
     {
         $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-occupant', 2);
         if ($parts === null) return false;
@@ -756,9 +756,9 @@ class PackageRepository
         $matches = 0;
         foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
             if (is_array($slot['current_occupant'] ?? null) && (string) ($slot['current_occupant']['id'] ?? '') === $parts[1]) {
-                $stored = (string) ($slot['current_occupant']['upgrade_platform_id'] ?? '');
+                $stored = (string) ($slot['current_occupant']['catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['tiers'][$slotId]['current_occupant']['upgrade_platform_id'] = $platformId;
+                $instance['tiers'][$slotId]['current_occupant']['catalogue_platform_id'] = $platformId;
                 $matches++;
             }
         }
@@ -766,71 +766,73 @@ class PackageRepository
             ? $instance['composable_occupant']['current_occupant']
             : null;
         if ($composableOccupant !== null && (string) ($composableOccupant['id'] ?? '') === $parts[1]) {
-            $stored = (string) ($composableOccupant['upgrade_platform_id'] ?? '');
+            $stored = (string) ($composableOccupant['catalogue_platform_id'] ?? '');
             if ($stored !== '' && $stored !== $platformId) return false;
-            $instance['composable_occupant']['current_occupant']['upgrade_platform_id'] = $platformId;
+            $instance['composable_occupant']['current_occupant']['catalogue_platform_id'] = $platformId;
             $matches++;
         }
         foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $index => $entry) {
             if (is_array($entry['occupant'] ?? null) && (string) ($entry['occupant']['id'] ?? '') === $parts[1]) {
-                $stored = (string) ($entry['occupant']['upgrade_platform_id'] ?? '');
+                $stored = (string) ($entry['occupant']['catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['occupant_bin'][$index]['occupant']['upgrade_platform_id'] = $platformId;
+                $instance['occupant_bin'][$index]['occupant']['catalogue_platform_id'] = $platformId;
                 $matches++;
             }
         }
         if ($matches !== 1) return false;
         $station = TierInstanceSchema::withInstance($station, $parts[0], $instance);
         $this->saveStation($station);
-        return $this->tierUpgradePlatformId($nativeReference) === $platformId;
+        return $this->tierCataloguePlatformId($nativeReference) === $platformId;
     }
 
-    public function tierUpgradePlatformIdExists(string $platformId): bool
+    public function tierCataloguePlatformIdExists(string $platformId): bool
     {
         $station = $this->loadStation();
         foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
             if (!is_array($instance)) continue;
             foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
-                if (is_array($slot['current_occupant'] ?? null) && ($slot['current_occupant']['upgrade_platform_id'] ?? '') === $platformId) return true;
+                if (is_array($slot['current_occupant'] ?? null) && ($slot['current_occupant']['catalogue_platform_id'] ?? '') === $platformId) return true;
             }
             if (is_array($instance['composable_occupant']['current_occupant'] ?? null)
-                && ($instance['composable_occupant']['current_occupant']['upgrade_platform_id'] ?? '') === $platformId) {
+                && ($instance['composable_occupant']['current_occupant']['catalogue_platform_id'] ?? '') === $platformId) {
                 return true;
             }
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
-                if (is_array($entry['occupant'] ?? null) && ($entry['occupant']['upgrade_platform_id'] ?? '') === $platformId) return true;
+                if (is_array($entry['occupant'] ?? null) && ($entry['occupant']['catalogue_platform_id'] ?? '') === $platformId) return true;
             }
         }
         return false;
     }
 
     /**
-     * Only occupants explicitly declared `is_upgrade_offer` are eligible —
-     * mirrors appendEligibleOccupantReference()'s own `$addon` eligibility
-     * filter, never enumerating every occupant on the assumption identity
-     * will be assigned regardless.
+     * Eligible = is the one Tier Catalogue occupant (the composable
+     * occupant) for its Tier Instance, wherever it currently sits — its own
+     * active `composable_occupant` slot, or archived in `occupant_bin[]`
+     * with `origin_tier === PackageSchema::COMPOSABLE_OCCUPANT_ORIGIN`.
+     * Never an ordinary `tiers[]` slot — no ordinary Tier occupant is ever a
+     * Tier Catalogue occupant, so that location is never scanned here at
+     * all (unlike appendEligibleOccupantReference()'s own generic scan,
+     * which covers every occupant location for CZT/CZTA).
      *
      * @return array{items:list<string>,next_cursor:string|null,complete:bool}
      */
-    public function tierUpgradeAssignmentPage(?string $cursor, int $limit): array
+    public function tierCatalogueAssignmentPage(?string $cursor, int $limit): array
     {
-        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier Upgrade assignment limit must be between 1 and 500.');
+        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier Catalogue assignment limit must be between 1 and 500.');
         $station = $this->loadStation();
         $references = [];
         foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
             if (!is_array($instance)) continue;
             $instanceId = (string) ($instance['tier_instance_id'] ?? '');
             if ($instanceId === '') continue;
-            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
-                $this->appendEligibleUpgradeReference($references, $instanceId, is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null);
-            }
-            $this->appendEligibleUpgradeReference(
+            $this->appendEligibleCatalogueReference(
                 $references,
                 $instanceId,
                 is_array($instance['composable_occupant']['current_occupant'] ?? null) ? $instance['composable_occupant']['current_occupant'] : null
             );
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
-                $this->appendEligibleUpgradeReference($references, $instanceId, is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null);
+                if (($entry['origin_tier'] ?? null) !== PackageSchema::COMPOSABLE_OCCUPANT_ORIGIN) continue;
+                $this->appendEligibleCatalogueReference($references, $instanceId, is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null);
             }
         }
         $references = array_values(array_unique($references));
@@ -841,15 +843,15 @@ class PackageRepository
     }
 
     /** @param list<string> $references */
-    private function appendEligibleUpgradeReference(array &$references, string $instanceId, ?array $occupant): void
+    private function appendEligibleCatalogueReference(array &$references, string $instanceId, ?array $occupant): void
     {
-        if ($occupant === null || !((bool) ($occupant['is_upgrade_offer'] ?? false))) return;
+        if ($occupant === null) return;
         $occupantId = (string) ($occupant['id'] ?? '');
         if ($occupantId === '') return;
         $references[] = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
     }
 
-    public function tierUpgradeProjection(string $nativeReference): ?array
+    public function tierCatalogueProjection(string $nativeReference): ?array
     {
         $located = $this->locateTierOccupant($nativeReference);
         if ($located === null) return null;
@@ -1238,19 +1240,19 @@ class PackageRepository
     }
 
     /**
-     * Composable Edition Upgrade dual identity (`CZTEU`) — same native
+     * Composable Edition Catalogue dual identity (`CZTEC`) — same native
      * reference and same locateTierEdition() scan `edition_platform_id`/CZTE
-     * already uses: an Edition may carry `edition_upgrade_platform_id`
+     * already uses: an Edition may carry `edition_catalogue_platform_id`
      * alongside its own `edition_platform_id`, same coexisting-identity rule
-     * as tierUpgradePlatformId() above, one level deeper.
+     * as tierCataloguePlatformId() above, one level deeper.
      */
-    public function tierEditionUpgradePlatformId(string $nativeReference): string
+    public function tierEditionCataloguePlatformId(string $nativeReference): string
     {
         $located = $this->locateTierEdition($nativeReference);
-        return $located === null ? '' : (string) ($located['edition']['edition_upgrade_platform_id'] ?? '');
+        return $located === null ? '' : (string) ($located['edition']['edition_catalogue_platform_id'] ?? '');
     }
 
-    public function claimTierEditionUpgradePlatformId(string $nativeReference, string $platformId): bool
+    public function claimTierEditionCataloguePlatformId(string $nativeReference, string $platformId): bool
     {
         $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-edition', 3);
         if ($parts === null) return false;
@@ -1265,17 +1267,17 @@ class PackageRepository
             if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
             foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $index => $edition) {
                 if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
-                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                $stored = (string) ($edition['edition_catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['tiers'][$slotId]['current_occupant']['tier_editions'][$index]['edition_upgrade_platform_id'] = $platformId;
+                $instance['tiers'][$slotId]['current_occupant']['tier_editions'][$index]['edition_catalogue_platform_id'] = $platformId;
                 $matches++;
             }
             foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binIndex => $binEntry) {
                 $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
                 if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
-                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                $stored = (string) ($edition['edition_catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['tiers'][$slotId]['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_upgrade_platform_id'] = $platformId;
+                $instance['tiers'][$slotId]['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_catalogue_platform_id'] = $platformId;
                 $matches++;
             }
         }
@@ -1284,17 +1286,17 @@ class PackageRepository
             $composableOccupant = $instance['composable_occupant']['current_occupant'];
             foreach (is_array($composableOccupant['tier_editions'] ?? null) ? $composableOccupant['tier_editions'] : [] as $index => $edition) {
                 if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
-                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                $stored = (string) ($edition['edition_catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['composable_occupant']['current_occupant']['tier_editions'][$index]['edition_upgrade_platform_id'] = $platformId;
+                $instance['composable_occupant']['current_occupant']['tier_editions'][$index]['edition_catalogue_platform_id'] = $platformId;
                 $matches++;
             }
             foreach (is_array($composableOccupant['tier_edition_bin'] ?? null) ? $composableOccupant['tier_edition_bin'] : [] as $binIndex => $binEntry) {
                 $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
                 if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
-                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                $stored = (string) ($edition['edition_catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['composable_occupant']['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_upgrade_platform_id'] = $platformId;
+                $instance['composable_occupant']['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_catalogue_platform_id'] = $platformId;
                 $matches++;
             }
         }
@@ -1303,68 +1305,69 @@ class PackageRepository
             if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
             foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $index => $edition) {
                 if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
-                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                $stored = (string) ($edition['edition_catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['occupant_bin'][$binIndex]['occupant']['tier_editions'][$index]['edition_upgrade_platform_id'] = $platformId;
+                $instance['occupant_bin'][$binIndex]['occupant']['tier_editions'][$index]['edition_catalogue_platform_id'] = $platformId;
                 $matches++;
             }
             foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $editionBinIndex => $binEntry) {
                 $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
                 if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
-                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                $stored = (string) ($edition['edition_catalogue_platform_id'] ?? '');
                 if ($stored !== '' && $stored !== $platformId) return false;
-                $instance['occupant_bin'][$binIndex]['occupant']['tier_edition_bin'][$editionBinIndex]['edition']['edition_upgrade_platform_id'] = $platformId;
+                $instance['occupant_bin'][$binIndex]['occupant']['tier_edition_bin'][$editionBinIndex]['edition']['edition_catalogue_platform_id'] = $platformId;
                 $matches++;
             }
         }
         if ($matches !== 1) return false;
         $station = TierInstanceSchema::withInstance($station, $instanceId, $instance);
         $this->saveStation($station);
-        return $this->tierEditionUpgradePlatformId($nativeReference) === $platformId;
+        return $this->tierEditionCataloguePlatformId($nativeReference) === $platformId;
     }
 
-    public function tierEditionUpgradePlatformIdExists(string $platformId): bool
+    public function tierEditionCataloguePlatformIdExists(string $platformId): bool
     {
         $station = $this->loadStation();
         foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
             if (!is_array($instance)) continue;
             foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
                 $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
-                if ($this->tierEditionListHasUpgradePlatformId($occupant, $platformId)) return true;
+                if ($this->tierEditionListHasCataloguePlatformId($occupant, $platformId)) return true;
             }
-            if ($this->tierEditionListHasUpgradePlatformId($instance['composable_occupant']['current_occupant'] ?? null, $platformId)) return true;
+            if ($this->tierEditionListHasCataloguePlatformId($instance['composable_occupant']['current_occupant'] ?? null, $platformId)) return true;
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
                 $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
-                if ($this->tierEditionListHasUpgradePlatformId($occupant, $platformId)) return true;
+                if ($this->tierEditionListHasCataloguePlatformId($occupant, $platformId)) return true;
             }
         }
         return false;
     }
 
     /**
-     * Only Editions explicitly declared `is_upgrade_offer` are eligible —
-     * same eligibility-filtered enumeration rule as tierUpgradeAssignmentPage()
-     * above, one level deeper.
+     * Eligible = every Edition of the one Tier Catalogue occupant (the
+     * composable occupant) for its Tier Instance — never an ordinary Tier
+     * slot's own Editions, so `instance['tiers']` is never scanned here at
+     * all. Mirrors tierCatalogueAssignmentPage()'s own occupant-location
+     * scoping one level deeper, and appendEligibleEditionReferences()'s own
+     * `tier_editions[]` + `tier_edition_bin[]` coverage for archived
+     * Editions.
      *
      * @return array{items:list<string>,next_cursor:string|null,complete:bool}
      */
-    public function tierEditionUpgradeAssignmentPage(?string $cursor, int $limit): array
+    public function tierEditionCatalogueAssignmentPage(?string $cursor, int $limit): array
     {
-        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier Edition Upgrade assignment limit must be between 1 and 500.');
+        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier Edition Catalogue assignment limit must be between 1 and 500.');
         $station = $this->loadStation();
         $references = [];
         foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
             if (!is_array($instance)) continue;
             $instanceId = (string) ($instance['tier_instance_id'] ?? '');
             if ($instanceId === '') continue;
-            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
-                $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
-                $this->appendEligibleEditionUpgradeReferences($references, $instanceId, $occupant);
-            }
-            $this->appendEligibleEditionUpgradeReferences($references, $instanceId, $instance['composable_occupant']['current_occupant'] ?? null);
+            $this->appendEligibleEditionCatalogueReferences($references, $instanceId, $instance['composable_occupant']['current_occupant'] ?? null);
             foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                if (($entry['origin_tier'] ?? null) !== PackageSchema::COMPOSABLE_OCCUPANT_ORIGIN) continue;
                 $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
-                $this->appendEligibleEditionUpgradeReferences($references, $instanceId, $occupant);
+                $this->appendEligibleEditionCatalogueReferences($references, $instanceId, $occupant);
             }
         }
         $references = array_values(array_unique($references));
@@ -1375,20 +1378,26 @@ class PackageRepository
     }
 
     /** @param list<string> $references */
-    private function appendEligibleEditionUpgradeReferences(array &$references, string $instanceId, ?array $occupant): void
+    private function appendEligibleEditionCatalogueReferences(array &$references, string $instanceId, ?array $occupant): void
     {
         if ($occupant === null) return;
         $occupantId = (string) ($occupant['id'] ?? '');
         if ($occupantId === '') return;
         foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
-            if (!is_array($edition) || !((bool) ($edition['is_upgrade_offer'] ?? false))) continue;
+            if (!is_array($edition)) continue;
             $editionId = (string) ($edition['id'] ?? '');
+            if ($editionId === '') continue;
+            $references[] = PackagePlatformNativeReference::tierEdition($instanceId, $occupantId, $editionId);
+        }
+        foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binEntry) {
+            $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+            $editionId = is_array($edition) ? (string) ($edition['id'] ?? '') : '';
             if ($editionId === '') continue;
             $references[] = PackagePlatformNativeReference::tierEdition($instanceId, $occupantId, $editionId);
         }
     }
 
-    public function tierEditionUpgradeProjection(string $nativeReference): ?array
+    public function tierEditionCatalogueProjection(string $nativeReference): ?array
     {
         $located = $this->locateTierEdition($nativeReference);
         if ($located === null) return null;
@@ -1400,15 +1409,15 @@ class PackageRepository
         ];
     }
 
-    private function tierEditionListHasUpgradePlatformId(?array $occupant, string $platformId): bool
+    private function tierEditionListHasCataloguePlatformId(?array $occupant, string $platformId): bool
     {
         if ($occupant === null) return false;
         foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
-            if (is_array($edition) && ($edition['edition_upgrade_platform_id'] ?? '') === $platformId) return true;
+            if (is_array($edition) && ($edition['edition_catalogue_platform_id'] ?? '') === $platformId) return true;
         }
         foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binEntry) {
             $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
-            if ($edition !== null && ($edition['edition_upgrade_platform_id'] ?? '') === $platformId) return true;
+            if ($edition !== null && ($edition['edition_catalogue_platform_id'] ?? '') === $platformId) return true;
         }
         return false;
     }

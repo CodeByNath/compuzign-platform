@@ -93,7 +93,7 @@ check(
 // ── Types: the admin frontend and the backend agree on shape ────────────────
 
 for (const field of [
-  'id: string', 'edition_platform_id: string', 'edition_upgrade_platform_id: string', 'title: string', 'admin_description: string',
+  'id: string', 'edition_platform_id: string', 'edition_catalogue_platform_id: string', 'title: string', 'admin_description: string',
   'platform_status:', 'previous_platform_status: string | null', 'is_explicitly_disabled: boolean',
   'rate_sheet_id: string | null', 'rate_sheet_items: TierRateSheetSelection[]',
   'price: number | null', 'contact: boolean', 'billing_cycle: string | null',

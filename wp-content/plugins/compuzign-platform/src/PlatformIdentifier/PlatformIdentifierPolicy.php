@@ -22,8 +22,8 @@ final class PlatformIdentifierPolicy
     public const TIER_EDITION            = 'tier_edition';
     public const TIER_LEG                = 'tier_leg';
     public const TIER_EDITION_LEG        = 'tier_edition_leg';
-    public const TIER_UPGRADE            = 'tier_upgrade';
-    public const TIER_EDITION_UPGRADE    = 'tier_edition_upgrade';
+    public const TIER_CATALOGUE            = 'tier_catalogue';
+    public const TIER_EDITION_CATALOGUE    = 'tier_edition_catalogue';
     public const TIER_PROMOTION          = 'tier_promotion';
     public const PACKAGE_RATE_CARD        = 'package_rate_card';
     public const PACKAGE_RATE_CARD_GROUP  = 'package_rate_card_group';
@@ -61,13 +61,15 @@ final class PlatformIdentifierPolicy
         self::TIER_EDITION_LEG        => 'CZTEL',
         // Dual identity, mirroring CZPRCB on a Rate Sheet row: the composable
         // occupant/Edition keeps its own CZT/CZTA/CZTE ecosystem identity
-        // (native reference unchanged) and MAY ADDITIONALLY carry this
-        // Upgrade-type identity under the SAME native tuple, once an admin
-        // declares it an Upgrade offer. Same length-anchoring reasoning as
-        // CZTL/CZTEL above makes both unambiguous against every existing
-        // CZT/CZTA/CZTE/CZTG/CZTL/CZTEL/CZTP prefix.
-        self::TIER_UPGRADE            => 'CZTU',
-        self::TIER_EDITION_UPGRADE    => 'CZTEU',
+        // (native reference unchanged) and ADDITIONALLY carries this
+        // Catalogue-type identity under the SAME native tuple, unconditionally
+        // — every settled composable occupant IS the one Tier Catalogue
+        // occupant, and every one of its Editions IS a Tier Catalogue
+        // Edition, with no admin declaration to gate on. Same length-
+        // anchoring reasoning as CZTL/CZTEL above makes both unambiguous
+        // against every existing CZT/CZTA/CZTE/CZTG/CZTL/CZTEL/CZTP prefix.
+        self::TIER_CATALOGUE            => 'CZTC',
+        self::TIER_EDITION_CATALOGUE    => 'CZTEC',
         self::TIER_PROMOTION          => 'CZTP',
         self::PACKAGE_RATE_CARD        => 'CZPRC',
         self::PACKAGE_RATE_CARD_GROUP  => 'CZPRCG',

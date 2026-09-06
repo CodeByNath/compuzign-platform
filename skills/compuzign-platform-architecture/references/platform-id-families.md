@@ -23,8 +23,8 @@ pattern regardless of alphabet overlap.
 | `CZTE` | `TIER_EDITION` | `(tier_instance_id, occupant_id, editionId)` — occupant-qualified, not slot-qualified | 3 |
 | `CZTL` | `TIER_LEG` | `(tier_instance_id, occupant_id, legId)`; `legId` is `'default'` or the Leg's own id | 3 |
 | `CZTEL` | `TIER_EDITION_LEG` | same, one level deeper under the Edition | 3 |
-| `CZTU` | `TIER_UPGRADE` | `(tier_instance_id, occupant_id)` — the IDENTICAL tuple `CZT` already uses for this occupant; a coexisting dual identity gated by an explicit `is_upgrade_offer` declaration, mirroring `CZPRCB`'s own dual identity on a Rate Sheet row | 3 |
-| `CZTEU` | `TIER_EDITION_UPGRADE` | `(tier_instance_id, occupant_id, editionId)` — identical to `CZTE`'s own tuple, same dual-identity rule one level deeper | 3 |
+| `CZTC` | `TIER_CATALOGUE` | `(tier_instance_id, occupant_id)` — the IDENTICAL tuple `CZT` already uses for this occupant; a coexisting dual identity mirroring `CZPRCB`'s own dual identity on a Rate Sheet row, but minted UNCONDITIONALLY — every settled composable occupant IS the one Tier Catalogue occupant for its Tier Instance, no admin declaration to gate on | 3 |
+| `CZTEC` | `TIER_EDITION_CATALOGUE` | `(tier_instance_id, occupant_id, editionId)` — identical to `CZTE`'s own tuple, same unconditional dual-identity rule one level deeper | 3 |
 | `CZTP` | `TIER_PROMOTION` | reserved; no adapter wired yet ("deferred") | — |
 | `CZPRC` | `PACKAGE_RATE_CARD` | `rate_sheet_id` | 3 |
 | `CZPRCG` | `PACKAGE_RATE_CARD_GROUP` | `(rate_sheet_id, group_id)` | 2 |

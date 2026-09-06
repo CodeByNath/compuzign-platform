@@ -54,12 +54,12 @@ export interface TierOverviewShellData {
   popular:      boolean;         // station-level presentation flag
   platformId:   string;
   addonPlatformId: string;
-  // Composable Upgrade dual identity (CZTU) — coexists with, never
+  // Composable Catalogue dual identity (CZTC) — coexists with, never
   // replaces, platformId above. Empty for every ordinary Tier/Add-on
-  // occupant (is_upgrade_offer is never drafted there); non-empty only for
-  // the composable occupant once declared and settled. See
+  // occupant; non-empty only for the composable occupant, reserved
+  // automatically once it first settles — no admin declaration needed. See
   // project-work/2026-09-06-composable-upgrade-platform-identification.md.
-  upgradePlatformId: string;
+  cataloguePlatformId: string;
   // 1 (the occupant's own permanent Default declaration) + however many
   // additional CZTE Edition child records exist — always derived from
   // tier_editions.length, never a separately persisted count. See
@@ -128,11 +128,11 @@ export const tierOverviewShell: ShellSchema<TierOverviewShellData> = {
     {
       // No fallback text, unlike platform-id/addon-platform-id above: an
       // ordinary Tier/Add-on never has a path to mint this id at all, so
-      // "Assigned after Publish" would misleadingly suggest it's Upgrade-
-      // eligible. The row itself simply doesn't exist until CZTU does.
-      id: 'upgrade-platform-id', element: 'text', label: 'Upgrade Platform ID',
-      when: (d) => !!d.upgradePlatformId,
-      bind: (d): TextValue => ({ value: d.upgradePlatformId ?? '' }),
+      // "Assigned after Publish" would misleadingly suggest it's Catalogue-
+      // eligible. The row itself simply doesn't exist until CZTC does.
+      id: 'catalogue-platform-id', element: 'text', label: 'Catalogue Platform ID',
+      when: (d) => !!d.cataloguePlatformId,
+      bind: (d): TextValue => ({ value: d.cataloguePlatformId ?? '' }),
     },
   ],
   footer:  DETAILS_FOOTER,

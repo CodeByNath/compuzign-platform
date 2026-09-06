@@ -28,11 +28,11 @@ export interface TierEditionOverviewShellData {
   price:             number | null;
   contact:           boolean;
   editionPlatformId: string;
-  // Composable Edition Upgrade dual identity (CZTEU) — coexists with,
+  // Composable Edition Catalogue dual identity (CZTEC) — coexists with,
   // never replaces, editionPlatformId above. Empty for every ordinary
-  // (non-composable) Edition; non-empty only once this Edition's own
-  // is_upgrade_offer is declared and it first activates.
-  editionUpgradePlatformId: string;
+  // (non-composable) Edition; non-empty only once this composable Edition
+  // first activates — reserved automatically, no admin declaration needed.
+  editionCataloguePlatformId: string;
 }
 
 const OVERVIEW_ACTIONS: Record<string, ShellActionSchema> = {
@@ -75,11 +75,11 @@ export const tierEditionOverviewShell: ShellSchema<TierEditionOverviewShellData>
     },
     {
       // No fallback text, same reasoning as Tier Overview's own
-      // upgrade-platform-id row: an ordinary Edition never has a path to
-      // mint this id, so the row simply doesn't exist until CZTEU does.
-      id: 'edition-upgrade-platform-id', element: 'text', label: 'Upgrade Platform ID',
-      when: (d) => !!d.editionUpgradePlatformId,
-      bind: (d): TextValue => ({ value: d.editionUpgradePlatformId ?? '' }),
+      // catalogue-platform-id row: an ordinary Edition never has a path to
+      // mint this id, so the row simply doesn't exist until CZTEC does.
+      id: 'edition-catalogue-platform-id', element: 'text', label: 'Catalogue Platform ID',
+      when: (d) => !!d.editionCataloguePlatformId,
+      bind: (d): TextValue => ({ value: d.editionCataloguePlatformId ?? '' }),
     },
   ],
   footer:  { actions: ['discard-draft', 'edit'] },
