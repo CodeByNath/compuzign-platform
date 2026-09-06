@@ -1,8 +1,8 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — Phase 1 only**
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW**
+- Phase 1 implemented on a clean review branch from production `main`. Report below.
 - Customer-frontend trace is accepted as the compatibility contract for later Admin consolidation.
 - Previous cart / PDF / email customer-output work is **CLOSED**.
 
@@ -43,11 +43,14 @@ Keep the existing customer-policy/resolver/preview/quote/cart/request/notificati
 5. Later Admin shell refinement: View / Editions / Featured / other existing data.
 
 ## Claude — implement Phase 1 only
-From clean current `main`:
-- in `settleTierEditionOverview()`, call existing `pruneStaleCustomerPolicy()` after Edition `rate_sheet_items` are final / after `pruneOrphanedLegAssignments()`, before final sanitize, mirroring occupant settle order;
-- do not alter `pruneStaleCustomerPolicy()` semantics or any resolver/public/customer code;
-- add focused Edition regression coverage proving removed inclusion policy is pruned on settle and re-adding the same `item_id` does not resurrect the old rule;
-- run focused PHP validation and relevant existing customer-policy contracts; no browser validation is required for this backend-only phase;
-- update current Code Map only if needed to accurately record Edition prune parity;
-- push one clean review branch from current production `main`, report exact branch/SHA/files/tests here, set **AWAITING CHATGPT REVIEW**;
-- do not push `main` before auditor approval.
+
+Done. Not pushed to `main` — awaiting auditor approval per workflow.
+
+- **Branch**: `review/tier-edition-customer-policy-prune-parity`, created from production `main@4bd3a35d3825760dc78de7c14e8ed14b1215b1a4`.
+- **Commit**: `bfb203c7` — "Fix Tier Edition settle to prune stale customer_policy entries, mirroring occupant".
+- **Files changed**:
+  - `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Support/PackageSchema.php` — one call added in `settleTierEditionOverview()`, immediately after the existing `pruneOrphanedLegAssignments()` line and before `sanitizeTierEdition()`: `$edition['customer_policy'] = self::pruneStaleCustomerPolicy($edition['customer_policy'], $edition['rate_sheet_items']);` — exact call-order mirror of `settleTierSlot()`'s occupant-side call. No change to `pruneStaleCustomerPolicy()` itself, any resolver, public projection, or customer-facing code.
+  - `wp-content/plugins/compuzign-platform/tests/tier-edition-customer-policy-prune.php` (new) — exercises `PackageSchema::settleTierEditionOverview()` directly (unit-level, matching `composable-customer-policy-admin-surface.php`'s own convention): an authored Edition policy survives settle; removing an inclusion prunes its stale policy entry immediately; re-adding the same `item_id` does not resurrect the old rule; an unrelated still-selected item's policy is untouched; an Edition with no policy ever configured still settles to `null`.
+  - `docs/code-map/tier-composable-occupant-admin-customer-policy.md` — records the parity fix under "Backend plumbing gaps closed", trimmed elsewhere to stay under the 600-word Code Map limit.
+- **Validation run** (all green): `php tests/tier-edition-customer-policy-prune.php`, `php tests/composable-customer-policy-admin-surface.php`, `php tests/composable-customer-policy-resolver.php`, `php tests/composable-customer-ux-preview.php`, `php tests/tier-edition-schema.php`, `php tests/tier-edition-lifecycle.php`, `php tests/tier-edition-cascade.php`, `php tests/tier-edition-default-resolution.php`, `php tests/tier-edition-public-projection.php`, `php tests/tier-leg-assignment-orphan-pruning.php`, `php tests/tier-composable-occupant.php`, `php tests/composable-occupant-controller-contract.php`; `npm run contract:tier-customer-policy-draft`, `npm run contract:tier-customer-policy-drawer`, `npm run contract:tier-edition-admin`, `npm run contract:tier-edition-switch`, `npm run contract:tier-edition-move-to-bin`; `npx tsc --noEmit`; `npm run docs:check`. No browser validation performed (backend-only phase, matches instruction).
+- **Unresolved risks**: none identified beyond what the audit already flagged — this is a pure data-hygiene fix with no live behavioral surface before the fix (resolver already treated a stale entry as unreachable regardless).
