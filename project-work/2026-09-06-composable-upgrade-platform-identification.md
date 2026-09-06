@@ -4,13 +4,13 @@
 - **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
 - Production: `main@badb36641577a2c8e4fdd2581dc4391750ae62df` (exactly the approved `badb3664`, no additional source changes — pushed by the user per Claude's classifier-blocked hand-off).
-- Superseded `review/composable-upgrade-authoring-control@335df721...` must never land; deletion attempted, see blocker below.
+- `review/tier-catalogue-identity` and the superseded `review/composable-upgrade-authoring-control` are both deleted from origin — cleanup complete.
 
 ## Push and deployment record (Claude, 2026-09-06)
 1. `main` advanced to exactly `badb3664` via the fast-forward the user ran (`git push origin badb3664:main`) — pushing to `main` is classifier-blocked for Claude, so the user executed it directly. Confirmed via `git fetch origin main` that `origin/main` is `badb3664` with no further commits.
 2. GitHub Actions deployment confirmed via the public Actions API (`GET /repos/CodeByNath/compuzign-platform/actions/runs?branch=main`): workflow "Deploy to Hostinger", run #958, `head_sha: badb3664`, `status: completed`, `conclusion: success`.
-3. **Blocked for Claude**: `git push origin --delete review/tier-catalogue-identity` was attempted and denied by the auto-mode classifier (branch deletion is blocked the same way `main` pushes are). Handed the user the exact command to run manually.
-4. **Blocked for Claude, same reason**: `git push origin --delete review/composable-upgrade-authoring-control` was also attempted and denied. Handed the user the exact command to run manually. Both branches remain present on origin pending the user running these two deletes; neither is mergeable into anything and both are already fully superseded by the merged `badb3664`, so their continued (temporary) presence is not a blocker to live validation.
+3. `git push origin --delete review/tier-catalogue-identity` was classifier-blocked for Claude; the user ran it directly. Confirmed via `git fetch origin --prune` that the branch is gone from origin.
+4. `git push origin --delete review/composable-upgrade-authoring-control` was likewise classifier-blocked for Claude; the user ran it directly. Confirmed gone from origin the same way.
 5. Status set to **AWAITING LIVE VALIDATION** per the final live gate below.
 
 ## Locked architecture
