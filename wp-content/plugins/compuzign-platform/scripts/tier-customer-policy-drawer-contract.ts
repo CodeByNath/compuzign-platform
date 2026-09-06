@@ -2,12 +2,25 @@
 // Rules controller as a STANDALONE drawer, not a fifth module of the shared
 // Tier drawer/entity (see docs/code-map/tier-composable-occupant-admin-
 // customer-policy.md for the full architecture and why the earlier round
-// was rejected). Proves, against real exported production code:
+// was rejected). Phase 2 of project-work/2026-09-06-tier-catalogue-admin-
+// ux-consolidation.md merges this controller's OWN controls into the
+// existing Tier Inclusions ('features') editing session as extras — a
+// presentation/authoring consolidation only, never a second module/shell —
+// so check 1 below now proves the narrower invariant that still matters:
+// no customer_policy MODULE (no shell, no fifth editingSection branch, no
+// module-scoped save call written directly in this file). Proves, against
+// real exported production code:
 //
 //   1. TIER_ENTITY (the shared Tier drawer's manifest) carries no
 //      customer_policy shell/module — the normal Tier/Add-on drawer is
 //      byte-behaviorally unchanged, and its own module count stays at four
 //      (tier-system-drawer-contract.ts locks the count itself).
+//      TierDrawerContent.tsx's own customer_policy reference stays confined
+//      to threading the SAME draft into the 'features' session's `extras`
+//      (Phase 2) — never a distinct `editingSection === 'tier-customer-
+//      policy'` branch, never `pkg.saveTierCustomerPolicy(` called directly
+//      from this file (that coordination lives in useTierModuleEditing.ts's
+//      own tier-inclusions save branch, alongside featuresDraft's save).
 //   2. The composable occupant's own Customer Options card action is
 //      gated on `enabled` (published), not a bare occupant_id existence
 //      check — present once eligible, absent otherwise, and this gate is
@@ -45,7 +58,9 @@ check(!('customer_policy' in TIER_ENTITY.shells), 'TIER_ENTITY.shells no longer 
 check(!TIER_ENTITY.placements.drawer?.details.some((slot) => slot.module === 'customer_policy'), "TIER_ENTITY's own Details placement list never names customer_policy");
 
 const tierDrawerContentSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx'), 'utf8');
-check(!tierDrawerContentSource.includes('customer_policy') && !tierDrawerContentSource.includes('customerPolicy'), 'TierDrawerContent.tsx (the shared multi-module Tier screen) carries no customer_policy/customerPolicy reference at all — the earlier round\'s conditional PlacedShell and editing-session branch are fully removed');
+check(!tierDrawerContentSource.includes("editingSection === 'tier-customer-policy'"), 'TierDrawerContent.tsx carries no distinct tier-customer-policy editingSection branch — the earlier round\'s conditional PlacedShell/fifth-module branch stays fully removed');
+check(!tierDrawerContentSource.includes('saveTierCustomerPolicy('), 'TierDrawerContent.tsx never calls saveTierCustomerPolicy directly — that coordination is useTierModuleEditing.ts\'s own job, alongside featuresDraft\'s save, under the SAME Tier Inclusions Save click (Phase 2 merge)');
+check(tierDrawerContentSource.includes('customerPolicy: c.customerPolicyDraft') && tierDrawerContentSource.includes('onCustomerPolicyChange: c.setCustomerPolicyDraft'), 'TierDrawerContent.tsx\'s ONLY customer_policy involvement is threading the SAME draft/setter into the existing \'features\' editing session\'s extras (Phase 2) — not a second module, drawer, or save path');
 
 // ── 2. The composable card's Customer Options action is gated on `enabled`,
 //    never a bare occupant_id existence check, and never leaks onto a

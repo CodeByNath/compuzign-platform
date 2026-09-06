@@ -1,5 +1,6 @@
 import type { CustomerPolicy, CustomerPolicyItem } from '@/api/types/cost-builder';
 import type { TierResolvedRateSheetSelection } from '../../types';
+import { CustomerPolicyItemFields, findCustomerPolicyItem, patchCustomerPolicyItem } from './customerPolicyFields';
 
 // Admin authoring surface for the composable occupant's own customer_policy
 // — Phase 2B1.1 (see docs/code-map/tier-composable-occupant-customer-ux.md
@@ -31,34 +32,11 @@ interface Props {
   rateSheetCatalogue: TierResolvedRateSheetSelection[];
 }
 
-const DEFAULT_PRICE_OPTION: CustomerPolicyItem['price_option'] = {
-  mode: 'fixed', allowed_price_option_ids: null, default_price_option_id: null,
-};
-
-function findItem(policy: CustomerPolicy | null, itemId: string): CustomerPolicyItem | null {
-  return policy?.items.find((item) => item.item_id === itemId) ?? null;
-}
-
 export function CustomerPolicyEditor({ draft, onChange, rateSheetCatalogue }: Props) {
   const rows = rateSheetCatalogue.filter((row) => row.resolved);
 
-  const patchItem = (itemId: string, patch: Partial<CustomerPolicyItem> | null) => {
-    const items = draft?.items ?? [];
-    const others = items.filter((item) => item.item_id !== itemId);
-    if (patch === null) {
-      onChange({ items: others });
-      return;
-    }
-    const existing = items.find((item) => item.item_id === itemId);
-    const next: CustomerPolicyItem = existing
-      ? { ...existing, ...patch }
-      : {
-          item_id: itemId, mode: 'optional', default_selected: false, quantity: null,
-          price_option: DEFAULT_PRICE_OPTION, featured: false,
-          ...patch,
-        };
-    onChange({ items: [...others, next] });
-  };
+  const patchItem = (itemId: string, patch: Partial<CustomerPolicyItem> | null) =>
+    onChange(patchCustomerPolicyItem(draft, itemId, patch));
 
   if (rows.length === 0) {
     return (
@@ -73,109 +51,28 @@ export function CustomerPolicyEditor({ draft, onChange, rateSheetCatalogue }: Pr
       <div class="cz-tf-field">
         <label class="cz-tf-label">Customer Selection Rules</label>
         <div class="cz-ie-list">
-          {rows.map((row) => {
-            const item = findItem(draft, row.item_id);
-            const mode = item?.mode ?? 'excluded';
-
-            return (
-              <div key={row.item_id} class="cz-ie-entry">
-                <div class="cz-ie-row">
-                  <div class="cz-tf-input" aria-label={row.label}>{row.label}</div>
-                  <select
-                    class="cz-tf-select"
-                    aria-label={`Customer access for ${row.label}`}
-                    value={mode}
-                    onChange={(event) => {
-                      const nextMode = event.currentTarget.value as 'required' | 'optional' | 'excluded';
-                      if (nextMode === 'excluded') { patchItem(row.item_id, null); return; }
-                      patchItem(row.item_id, { mode: nextMode });
-                    }}
-                  >
-                    <option value="excluded">Not offered</option>
-                    <option value="required">Always included</option>
-                    <option value="optional">Customer Add/Remove</option>
-                  </select>
-                </div>
-
-                {mode !== 'excluded' && (
-                  <>
-                    <div class="cz-ie-divider" />
-
-                    {mode === 'optional' && (
-                      <label class="cz-ie-row">
-                        <input
-                          type="checkbox" class="cz-tf-checkbox"
-                          checked={item?.default_selected ?? false}
-                          onChange={(event) => patchItem(row.item_id, { default_selected: event.currentTarget.checked })}
-                        />
-                        <span class="cz-tf-label">Selected by default</span>
-                      </label>
-                    )}
-
-                    <label class="cz-ie-row">
-                      <input
-                        type="checkbox" class="cz-tf-checkbox"
-                        checked={item?.quantity !== null && item?.quantity !== undefined}
-                        onChange={(event) => patchItem(row.item_id, {
-                          quantity: event.currentTarget.checked
-                            ? { default: 1, min: 1, max: 1, step: 1 }
-                            : null,
-                        })}
-                      />
-                      <span class="cz-tf-label">Customer-configurable quantity</span>
-                    </label>
-                    {item?.quantity && (
-                      <div class="cz-ie-row">
-                        <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1"
-                          aria-label={`Default quantity for ${row.label}`}
-                          value={item.quantity.default}
-                          onInput={(event) => patchItem(row.item_id, { quantity: { ...item.quantity!, default: Math.max(1, Number(event.currentTarget.value) || 1) } })}
-                        />
-                        <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1"
-                          aria-label={`Minimum quantity for ${row.label}`}
-                          value={item.quantity.min}
-                          onInput={(event) => patchItem(row.item_id, { quantity: { ...item.quantity!, min: Math.max(1, Number(event.currentTarget.value) || 1) } })}
-                        />
-                        <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1"
-                          aria-label={`Maximum quantity for ${row.label}`}
-                          value={item.quantity.max}
-                          onInput={(event) => patchItem(row.item_id, { quantity: { ...item.quantity!, max: Math.max(1, Number(event.currentTarget.value) || 1) } })}
-                        />
-                        <input class="cz-tf-input cz-ie-qty-input" type="number" min="1" step="1"
-                          aria-label={`Quantity step for ${row.label}`}
-                          value={item.quantity.step}
-                          onInput={(event) => patchItem(row.item_id, { quantity: { ...item.quantity!, step: Math.max(1, Number(event.currentTarget.value) || 1) } })}
-                        />
-                      </div>
-                    )}
-
-                    {/* Price Option authoring is deliberately NOT in this
-                        drawer's scope — the auditor's own "owns only" list
-                        (project-work/2026-09-03-composable-tier-admin-to-
-                        customer-validation.md) names required/optional/
-                        excluded, default-selected, quantity bounds, and
-                        Featured only; Price Option is absent from it. Every
-                        item's price_option therefore stays permanently
-                        {mode:'fixed'} (DEFAULT_PRICE_OPTION) via patchItem's
-                        own default — the backend's already-built 'choice'
-                        mode support has no Admin authoring path from this
-                        drawer. Flagged explicitly in this round's report as
-                        a real gap, not a silent omission, in case a future
-                        round wants this drawer's scope extended to cover it. */}
-
-                    <label class="cz-ie-row">
-                      <input
-                        type="checkbox" class="cz-tf-checkbox"
-                        checked={item?.featured ?? false}
-                        onChange={(event) => patchItem(row.item_id, { featured: event.currentTarget.checked })}
-                      />
-                      <span class="cz-tf-label">Featured (Recommended Upgrades sort)</span>
-                    </label>
-                  </>
-                )}
-              </div>
-            );
-          })}
+          {/* Price Option authoring is deliberately NOT in this drawer's
+              scope — the auditor's own "owns only" list
+              (project-work/2026-09-03-composable-tier-admin-to-customer-
+              validation.md) names required/optional/excluded,
+              default-selected, quantity bounds, and Featured only; Price
+              Option is absent from it. Every item's price_option therefore
+              stays permanently {mode:'fixed'} via
+              customerPolicyFields.tsx's own default — the backend's
+              already-built 'choice' mode support has no Admin authoring
+              path from this drawer. Flagged explicitly in this round's
+              report as a real gap, not a silent omission, in case a future
+              round wants this drawer's scope extended to cover it. */}
+          {rows.map((row) => (
+            <div key={row.item_id} class="cz-ie-entry">
+              <CustomerPolicyItemFields
+                rowLabel={row.label}
+                item={findCustomerPolicyItem(draft, row.item_id)}
+                onChange={(patch) => patchItem(row.item_id, patch)}
+                leadingLabel={<div class="cz-tf-input" aria-label={row.label}>{row.label}</div>}
+              />
+            </div>
+          ))}
         </div>
       </div>
     </div>

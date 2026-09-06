@@ -78,6 +78,27 @@ Popular). `TierDrawerContent.tsx` sets `extras.hideAddonAndPopular` from
 `isComposableOccupant(editingTierId)` when constructing the `tier-overview`
 editing session.
 
+**Phase 2 merge (project-work/2026-09-06-tier-catalogue-admin-ux-
+consolidation.md):** the same `extras` seam now also threads a
+`customerPolicy`/`onCustomerPolicyChange` pair into the `tier-inclusions`
+editing session, so `PoolInclusionsEditor` mounts the standalone Customer
+Selection Rules drawer's own per-item controls (extracted to
+`drawer/editors/customerPolicyFields.tsx`, the one shared mutation/lookup
+authority — no duplicated logic) once per selected inclusion `item_id`,
+never per Leg assignment or Bundle child. `useTierModuleEditing.ts` seeds
+this second draft only when `isComposableOccupant(editingTierId) &&
+d.enabled` — never earlier than the standalone drawer's own eligibility
+gate — and coordinates its save under the SAME Tier Inclusions Save click
+as `featuresDraft`, via its own separate `saveTierCustomerPolicy` call and
+module/draft/lifecycle; a policy-save failure still fails the whole Save.
+Ordinary Tier/Add-on occupants and every Tier Edition caller never receive
+this prop (`undefined`), so they render byte-identically to before this
+merge. The standalone drawer ([Admin Customer Selection
+Rules](tier-composable-occupant-admin-customer-policy.md)) keeps working
+unchanged as a rollback/parity surface until a later phase's live
+validation allows retiring it. Locked by
+`scripts/tier-inclusions-customer-policy-merge-contract.ts`.
+
 ## Not interactively verified
 
 `TierDrawerContent.tsx`/`useTierDrawerController.ts` are the locked,

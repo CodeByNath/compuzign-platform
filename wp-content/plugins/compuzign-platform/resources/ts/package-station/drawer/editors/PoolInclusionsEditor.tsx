@@ -2,6 +2,8 @@ import { useState } from 'preact/hooks';
 import { defaultPriceLabel } from '../../rateSheetLabels';
 import type { TierCommercialLeg, TierRateSheetLegAssignment, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../types';
 import type { InclusionItem } from '@/api/types/pools';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
+import { CustomerPolicyItemFields, findCustomerPolicyItem, patchCustomerPolicyItem } from './customerPolicyFields';
 
 // One inclusion row's Leg assignment — its own Default Leg (fixed, disabled
 // Leg select; the row's own fields ARE that assignment, no stored field
@@ -94,9 +96,24 @@ interface Props {
   // reference the chosen one by identity rather than array position).
   // Absent/empty renders just Leg Default.
   legs?: TierCommercialLeg[];
+  // Composable-occupant-only Customer Selection Rules merge (Phase 2 of
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md).
+  // `undefined` — every ordinary Tier occupant and every Tier Edition caller
+  // — renders nothing extra, byte-identical to before this merge. Only the
+  // composable occupant's own eligible (published) Tier Inclusions session
+  // threads a real `CustomerPolicy | null` here, alongside its own setter.
+  // Mounted once per selected inclusion `item_id` (this row's own key),
+  // never once per Leg assignment card, and never for a Bundle's own
+  // supplied children (those are never top-level selections at all — see
+  // `suppliedContent` below). The standalone Customer Selection Rules drawer
+  // (CustomerPolicyEditor.tsx) keeps working unchanged as a rollback/parity
+  // surface — both share the same mutation logic via customerPolicyFields.tsx,
+  // never a duplicated copy.
+  customerPolicy?: CustomerPolicy | null;
+  onCustomerPolicyChange?: (next: CustomerPolicy) => void;
 }
 
-export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue, legs }: Props) {
+export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateSheetCatalogue, legs, customerPolicy, onCustomerPolicyChange }: Props) {
   const availableLegs = legs ?? [];
   const [showAdd,  setShowAdd]  = useState(false);
   const [newLabel, setNewLabel] = useState('');
@@ -195,6 +212,16 @@ export function PoolInclusionsEditor({ draft, onChange, pool, onCreate, rateShee
             ) : (
               <p class="cz-ie-sub-empty">No supplied content yet.</p>
             )
+          )}
+          {customerPolicy !== undefined && row.resolved && (
+            <>
+              <div class="cz-ie-divider" />
+              <CustomerPolicyItemFields
+                rowLabel={row.label}
+                item={findCustomerPolicyItem(customerPolicy, selection.item_id)}
+                onChange={(patch) => onCustomerPolicyChange?.(patchCustomerPolicyItem(customerPolicy ?? null, selection.item_id, patch))}
+              />
+            </>
           )}
         </div>;
       })}</div>}

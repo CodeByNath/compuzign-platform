@@ -9,6 +9,7 @@
 
 import type { TierCommercialLeg, TierRateSheetSelection, TierResolvedRateSheetSelection } from '../../../types';
 import type { InclusionItem } from '@/api/types/pools';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
 import {
   tierOverviewModule,
   tierPricingRulesModule,
@@ -270,6 +271,8 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
         onCreate={s.extras?.onCreate as (label: string) => Promise<InclusionItem | null>}
         rateSheetCatalogue={s.extras?.rateSheetCatalogue as TierResolvedRateSheetSelection[] | undefined}
         legs={s.extras?.legs as TierCommercialLeg[] | undefined}
+        customerPolicy={s.extras?.customerPolicy as CustomerPolicy | null | undefined}
+        onCustomerPolicyChange={s.extras?.onCustomerPolicyChange as ((next: CustomerPolicy) => void) | undefined}
       />
     ),
   },

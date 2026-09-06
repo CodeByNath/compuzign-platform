@@ -465,7 +465,17 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
         saving: c.pkg.saving,
         saveErr: c.saveErr,
         isDirty: true,
-        extras: { pool: [], onCreate: async () => null, rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved), legs: detail.legs ?? [] },
+        extras: {
+          pool: [], onCreate: async () => null,
+          rateSheetCatalogue: rateSheetCatalogue.filter((item) => item.resolved),
+          legs: detail.legs ?? [],
+          // Composable-occupant-only Customer Selection Rules merge (Phase 2
+          // of project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md).
+          // undefined for every ordinary Tier/Add-on occupant and every Tier
+          // Edition — see useTierModuleEditing.ts's own openSection gate.
+          customerPolicy: c.customerPolicyDraft,
+          onCustomerPolicyChange: c.setCustomerPolicyDraft,
+        },
       },
     };
   } else if (c.editingSection === 'tier-faqs' && c.faqsDraft) {

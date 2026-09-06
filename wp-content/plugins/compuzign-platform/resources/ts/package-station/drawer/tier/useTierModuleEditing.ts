@@ -8,8 +8,10 @@
 // lifecycle and bin-travel actions report through the same channel.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
+import type { CustomerPolicy } from '@/api/types/cost-builder';
 import type { TierPricingRulesDraft, TierRateSheetSelection } from '../../types';
 import type { PackageStation } from '../../usePackageStation';
+import { isComposableOccupant } from '../../vocabulary';
 import type { TierOverviewEditDraft } from '../editors/TierOverviewEditor';
 import type { TierEditingSection } from './tierDrawerTypes';
 import { resolveLegsCoverageCorrection, totalCommitmentMonths } from './tierDetailModel';
@@ -29,6 +31,15 @@ export function useTierModuleEditing({
   const [overviewDraft, setOverviewDraft] = useState<TierOverviewEditDraft | null>(null);
   const [pricingRulesDraft, setPricingRulesDraft] = useState<TierPricingRulesDraft | null>(null);
   const [featuresDraft, setFeaturesDraft] = useState<TierRateSheetSelection[] | null>(null);
+  // Composable-occupant-only Customer Selection Rules merge, coordinated
+  // alongside featuresDraft under the SAME Tier Inclusions Save (Phase 2 of
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md) —
+  // still a genuinely separate module draft/endpoint (customer_policy),
+  // never folded into featuresDraft itself. `undefined` = this editing
+  // session is not the composable occupant, or it is not yet eligible
+  // (published) — PoolInclusionsEditor renders nothing extra in that case.
+  // A real `CustomerPolicy | null` means the merged controls are live.
+  const [customerPolicyDraft, setCustomerPolicyDraft] = useState<CustomerPolicy | null | undefined>(undefined);
   const [faqsDraft,     setFaqsDraft]     = useState<string[] | null>(null);
   // Set only by the Pricing Rules save-time coverage correction below — see
   // resolveLegsCoverageCorrection's own doc comment.
@@ -75,6 +86,12 @@ export function useTierModuleEditing({
       });
     } else if (section === 'tier-inclusions') {
       setFeaturesDraft(d.rate_sheet_items.map((item) => ({ ...item })));
+      // Eligibility mirrors the standalone Customer Selection Rules drawer's
+      // own gate exactly (detail.enabled === true, i.e. genuinely published)
+      // — never earlier. Ordinary Tier/Add-on occupants are never composable,
+      // so this stays undefined for them and PoolInclusionsEditor's merged
+      // controls never render.
+      setCustomerPolicyDraft(isComposableOccupant(editingTierId) && d.enabled ? (d.customer_policy ?? null) : undefined);
     } else {
       setFaqsDraft([...d.faq_refs]);
     }
@@ -137,6 +154,17 @@ export function useTierModuleEditing({
       } else if (editingSection === 'tier-inclusions' && featuresDraft) {
         const r = await pkg.saveTierFeatures(editingTierId, featuresDraft);
         ok = !!r?.success;
+        // Coordinated under this SAME Save click, but still the
+        // customer_policy module's own separate REST call/draft/lifecycle —
+        // never collapsed into featuresDraft's own payload. A genuine
+        // failure here must surface as a failed Save even though Inclusions
+        // already persisted, rather than being silently swallowed as full
+        // success (mirrors the tier-overview branch's own saveTierOverview
+        // then setPopularTier propagation above).
+        if (ok && customerPolicyDraft !== undefined) {
+          const policyResult = await pkg.saveTierCustomerPolicy(editingTierId, customerPolicyDraft);
+          ok = !!policyResult?.success;
+        }
       } else if (editingSection === 'tier-faqs' && faqsDraft) {
         const r = await pkg.saveTierFaqs(editingTierId, faqsDraft);
         ok = !!r?.success;
@@ -147,6 +175,7 @@ export function useTierModuleEditing({
       setOverviewDraft(null);
       setPricingRulesDraft(null);
       setFeaturesDraft(null);
+      setCustomerPolicyDraft(undefined);
       setFaqsDraft(null);
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : 'Save failed.');
@@ -159,6 +188,7 @@ export function useTierModuleEditing({
     setOverviewDraft(null);
     setPricingRulesDraft(null);
     setFeaturesDraft(null);
+    setCustomerPolicyDraft(undefined);
     setFaqsDraft(null);
     setSaveErr(null);
     setSaveOk(false);
@@ -171,6 +201,7 @@ export function useTierModuleEditing({
     pricingRulesDraft, setPricingRulesDraft,
     pricingRulesNotice,
     featuresDraft, setFeaturesDraft,
+    customerPolicyDraft, setCustomerPolicyDraft,
     faqsDraft, setFaqsDraft,
     openSection, saveSection, cancelSection,
   };
