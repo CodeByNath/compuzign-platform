@@ -4,40 +4,31 @@
 - **AWAITING LIVE VALIDATION — Phase 2 deployed**
 - Auditor verdict: **Proceed with safeguards**.
 - Phase 1 remains accepted/closed at `main@bfb203c776b3d4927ee7c34c54db31d80dc13bb9`.
-- Phase 2 is now exactly `main@3cc88e83f93e57fec7b61419129cd93a8432809b`, deployed.
+- Phase 2 is independently verified on `main@3cc88e83f93e57fec7b61419129cd93a8432809b` and deployed successfully by GitHub Actions run `34033325117` (#964).
 - Customer-frontend trace remains the compatibility contract.
 
-## Independent Phase 2 review
-The review branch is cleanly based on current production: ahead 1, behind 0, merge base exactly `bfb203c7...`. Scope is 12 files: Admin TS wiring/refactor, one new focused contract, one existing contract correction, Code Map, package script, and rebuilt `dist/js/admin-station.js`; no PHP/backend/customer source changed.
-
-Accepted implementation:
-- shared `customerPolicyFields.tsx` is now the single per-item mutation/presentation authority used by both the standalone Customer Selection Rules drawer and merged Inclusions UI;
-- `PoolInclusionsEditor` renders policy controls once per resolved top-level selected inclusion `item_id`, after the inclusion/Leg UI, never per Leg assignment and never for Bundle children;
-- controls are threaded only when the editing target is the composable/Tier Catalogue occupant **and** `detail.enabled` is true, preserving the existing published-occupant gate; ordinary Tier/Add-on and Edition callers receive no policy capability;
-- commercial inclusion draft and customer-policy draft remain separate; Save performs existing features save first, then existing customer-policy save. A second-call failure reports Save failure rather than false full success. This sequential two-authority behavior is accepted for this consolidation phase; live validation must confirm the Admin does not imply atomicity beyond what the backend provides;
-- "Not offered" still removes the policy entry; Price Option authoring remains unchanged/fixed;
+## Accepted Phase 2 implementation
+- shared `customerPolicyFields.tsx` is the one per-item mutation/presentation authority for both standalone Customer Selection Rules and merged Inclusions UI;
+- `PoolInclusionsEditor` renders policy controls once per resolved top-level selected inclusion `item_id`, after inclusion/Leg authoring, never per Leg assignment and never for Bundle children;
+- controls are available only for the published composable/Tier Catalogue occupant; ordinary Tier/Add-on and Edition callers remain unchanged;
+- `rate_sheet_items[]` and `customer_policy.items[]` remain separate authorities/drafts;
+- one Save coordinates features first, then customer policy; policy-save failure must report Save failure, not false complete success;
+- "Not offered" removes the policy entry; Price Option authoring remains fixed/unchanged;
 - standalone Customer Selection Rules drawer remains intact as parity/rollback surface.
 
-Claude's reported validation is accepted as sufficient for source approval. The reported `notification-templates-composable-quote-parity.php` failure is not a Phase 2 regression because it reproduces on untouched production `main` and Phase 2 changes no PHP/email code. Do not fix that defect in this work item; its separate active quote/email work remains separate.
+## Independent production/deployment verification
+Auditor independently confirmed `main` points exactly to approved `3cc88e83...`, parent `bfb203c7...`, and Actions run `34033325117` completed successfully for the exact same head SHA. No additional source commit exists between review and production.
 
-## Non-change boundary
-No customer frontend, resolver/projection, pricing, Commercial Legs, quote/cart, Request/PDF/email/order, routing, Edition UI, backend storage shape, or lifecycle semantics may change in this push.
+## Live validation required before Phase 3
+Validate the deployed Admin UI and customer parity:
+1. Open the published Build Your Own / Tier Catalogue occupant -> **Inclusions -> Edit**. Each selected top-level inclusion must show one Customer Selection controller.
+2. For an inclusion with Additional Commercial Leg assignments, confirm the Customer Selection controls appear once for the inclusion only, not inside/repeated for each assignment.
+3. For a Bundle row, confirm there is one controller for the Bundle row and none beside its supplied child inclusions.
+4. Open a normal Tier/Add-on -> Inclusions -> Edit. No Customer Selection controls should appear.
+5. In the merged Build Your Own Inclusions editor test one row through: Not offered -> Always included -> Customer Add/Remove; optional should expose Selected by default; quantity should expose default/min/max/step; Featured should toggle.
+6. Save, close, reopen Inclusions. Confirm all values round-trip exactly.
+7. Open the old standalone **Customer Selection Rules** drawer. Confirm it shows the exact same saved policy state for those same `item_id`s; changing one value there and reopening Inclusions should show the same updated state.
+8. Confirm a normal successful Inclusions Save shows success only after both inclusion and policy save complete. If a save visibly errors, do not treat the operation as fully successful; report the exact state seen after reopening.
+9. Customer-facing **Upgrade Your Build**: confirm the same inclusions remain offered/required/optional, default selection, quantity controls and Featured ordering as before. Do not change customer data merely for validation unless necessary; read-only/parity observation is enough where existing policy already exercises the states.
 
-## Deployment result
-Pushed exactly `3cc88e83f93e57fec7b61419129cd93a8432809b` to `main`, no additional source changes. GitHub Actions `Deploy to Hostinger` run `34033325117` — `status: completed`, `conclusion: success`, exact `head_sha: 3cc88e83f93e57fec7b61419129cd93a8432809b`.
-
-Phase 2 review branch (`review/tier-inclusions-customer-policy-merge`) is **kept**, per instruction, pending live validation below — not yet cleaned up.
-
-Do not start Phase 3 and do not retire the standalone Customer Selection Rules drawer until the live validation gate below is confirmed.
-
-## Live validation gate after deploy
-Auditor must validate the deployed Admin experience before Phase 3:
-- published Build Your Own/Tier Catalogue occupant Inclusions shows one Customer Selection controller per selected top-level inclusion;
-- controls are not repeated for Commercial Leg assignments or Bundle children;
-- ordinary Tier/Add-on Inclusions do not show the controller;
-- existing standalone Customer Selection Rules drawer still works and displays equivalent saved state;
-- edit/save/reopen round-trip preserves required/optional/not-offered, default selected, quantity bounds, and Featured;
-- a failed second save must not be presented as complete success;
-- customer-facing Upgrade Your Build behavior remains unchanged.
-
-Only after successful live parity validation may the review branch be cleaned and Phase 3 (retiring the duplicate standalone drawer) be considered.
+Phase 2 review branch stays until this live validation passes. Do not start Phase 3 or Edition UI work yet.
