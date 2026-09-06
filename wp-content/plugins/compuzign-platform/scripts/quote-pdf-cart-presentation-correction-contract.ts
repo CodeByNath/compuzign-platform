@@ -183,4 +183,41 @@ const compoundPadding = ruleBody(
 check(/padding-left/.test(sectionOnlyPadding) && /padding-left/.test(childOnlyPadding) && /padding-left/.test(compoundPadding), 'all three rules set padding-left');
 check(compoundPadding !== sectionOnlyPadding && compoundPadding !== childOnlyPadding, 'the compound rule uses a DIFFERENT (greater) indent than either level alone — a stacked, not collapsed, hierarchy');
 
+// ── 5. Live-defect follow-up: OrderSummary.tsx's own "finalise-quote
+//    sidebar" reuses disclosureRowsForFamilyTierItem() with its own
+//    checkmark-list rendering (cz-os__feature) — it had the SAME
+//    section-vs-child conflation bug InclusionDisclosurePanel was fixed for
+//    above, just never caught since the original ticket's own "authoritative
+//    source already traced" list never named this file. ────────────────────
+
+const orderSummarySource = readFileSync(
+  resolve(root, 'resources/ts/components/request-flow/OrderSummary.tsx'),
+  'utf8',
+);
+
+check(
+  !/row\.sectionKey !== undefined \? ' cz-os__feature--child'/.test(orderSummarySource),
+  'OrderSummary.tsx no longer conflates section membership with being a Bundle child (the old, incorrect single-flag class expression is gone)',
+);
+check(
+  /cz-os__feature--section/.test(orderSummarySource) && /row\.isChild \? 'cz-os__feature--child'/.test(orderSummarySource),
+  'OrderSummary.tsx now derives --section from row.sectionKey and --child from row.isChild independently, mirroring InclusionDisclosurePanel',
+);
+
+check(
+  css.includes('.cz-os__features .cz-os__feature--section.cz-os__feature--child'),
+  'a compound selector exists for OrderSummary\'s own section+child stacking, same as the cart disclosure panel',
+);
+const osSectionOnlyPadding = ruleBody('.cz-os__features .cz-os__feature--section');
+const osChildOnlyPadding = ruleBody('.cz-os__features .cz-os__feature--child');
+const osCompoundPadding = ruleBody('.cz-os__features .cz-os__feature--section.cz-os__feature--child');
+check(
+  osCompoundPadding !== osSectionOnlyPadding && osCompoundPadding !== osChildOnlyPadding,
+  'OrderSummary\'s compound section+child rule also uses a distinct, greater indent than either level alone',
+);
+check(
+  /\.cz-os__features \.cz-os__feature--(child|section)\b/.test(css),
+  'the OrderSummary indent rules are scoped under .cz-os__features (not a bare single-class selector), hardening them against a generic theme-level list-item reset',
+);
+
 console.log('Quote PDF/cart presentation correction contract passed.');

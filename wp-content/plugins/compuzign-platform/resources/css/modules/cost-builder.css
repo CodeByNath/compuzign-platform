@@ -2815,8 +2815,23 @@
   content: '';
 }
 
-.cz-os__feature--child {
+.cz-os__features .cz-os__feature--child {
   padding-left: var(--cz-space-4);
+}
+
+/* Live-defect correction (2026-09-06, "quote PDF/cart presentation
+   correction" follow-up): a row under an additional Commercial Leg group
+   heading — independent of --child above, which is a Bundle's own nested
+   row; the compound rule further below stacks both when a row is genuinely
+   both, rather than one collapsing the other. Scoped under .cz-os__features
+   (not just the bare modifier class) so this beats a generic theme-level
+   list-item reset that might otherwise zero out an unscoped padding-left. */
+.cz-os__features .cz-os__feature--section {
+  padding-left: var(--cz-space-4);
+}
+
+.cz-os__features .cz-os__feature--section.cz-os__feature--child {
+  padding-left: var(--cz-space-6);
 }
 
 /* Live-gate correction (2026-09-05, "preserve period/leg inclusion
