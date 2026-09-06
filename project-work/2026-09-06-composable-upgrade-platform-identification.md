@@ -1,66 +1,33 @@
 # Tier Catalogue Platform Identification — CZTC / CZTEC
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- Auditor verdict: **Proceed with safeguards**.
-- Production: `main@badb36641577a2c8e4fdd2581dc4391750ae62df` (exactly the approved `badb3664`, no additional source changes — pushed by the user per Claude's classifier-blocked hand-off).
-- `review/tier-catalogue-identity` and the superseded `review/composable-upgrade-authoring-control` are both deleted from origin — cleanup complete.
+- **CLOSED**
+- Auditor verdict: **Proceed**.
+- Production: `main@badb36641577a2c8e4fdd2581dc4391750ae62df`.
+- Deploy: GitHub Actions run #958 succeeded for exact `badb3664`.
+- Review branches cleaned from origin.
 
-## Push and deployment record (Claude, 2026-09-06)
-1. `main` advanced to exactly `badb3664` via the fast-forward the user ran (`git push origin badb3664:main`) — pushing to `main` is classifier-blocked for Claude, so the user executed it directly. Confirmed via `git fetch origin main` that `origin/main` is `badb3664` with no further commits.
-2. GitHub Actions deployment confirmed via the public Actions API (`GET /repos/CodeByNath/compuzign-platform/actions/runs?branch=main`): workflow "Deploy to Hostinger", run #958, `head_sha: badb3664`, `status: completed`, `conclusion: success`.
-3. `git push origin --delete review/tier-catalogue-identity` was classifier-blocked for Claude; the user ran it directly. Confirmed via `git fetch origin --prune` that the branch is gone from origin.
-4. `git push origin --delete review/composable-upgrade-authoring-control` was likewise classifier-blocked for Claude; the user ran it directly. Confirmed gone from origin the same way.
-5. Status set to **AWAITING LIVE VALIDATION** per the final live gate below.
-
-## Locked architecture
+## Accepted architecture
 One Admin **Tier Catalogue** model only.
-- Catalogue occupant: `CZT...` + `CZTC...`
-- Catalogue Edition: `CZTE...` + `CZTEC...`
+- Catalogue occupant: normal Tier identity `CZT...` + Catalogue identity `CZTC...`.
+- Catalogue Edition: normal Edition identity `CZTE...` + Catalogue Edition identity `CZTEC...`.
 - `CZTU/CZTEU` retired.
 - `is_upgrade_offer` removed; no declaration/gate.
 - Catalogue identity is inherent to the existing composable occupant/Edition lifecycle.
-- Existing customer-facing **Upgrade Your Build / Build Your Own routes remain unchanged**. They can later enter CRM as separate transaction routes while carrying the same Catalogue identity family.
-- No customer-route, pricing, Commercial Legs, quote/cart, Request, PDF/email/order, billing, resolver, or CRM changes in this phase.
+- Existing customer-facing **Upgrade Your Build / Build Your Own routes remain unchanged** and may later enter CRM as separate transaction routes while carrying the same Catalogue identity family.
 
-## Independent review
-Replacement `badb3664` is cleanly based on production:
-- ahead 1, behind 0;
-- merge-base exactly `48cede2f...`;
-- changed-file scope matches the previously reviewed Tier Catalogue conversion.
-
-The one required correction is now present in `PlatformIdentifierPolicy.php`: the CZTC/CZTEC comment states Catalogue identity is carried **unconditionally**, every settled composable occupant is the Tier Catalogue occupant, its Editions are Tier Catalogue Editions, and there is **no admin declaration**. Runtime behaviour is unchanged from the previously reviewed candidate.
-
-Accepted implementation:
-- U policy/types/storage/projections/adapters/migration scopes converted to Catalogue (`CZTC/CZTEC`).
-- `is_upgrade_offer` removed.
+## Accepted implementation
+- Existing U policy/types/storage/projection/adapters/migration path converted to Catalogue (`CZTC/CZTEC`).
 - composable occupant settlement reserves CZTC alongside CZT unconditionally.
 - composable Edition activation reserves CZTEC alongside CZTE unconditionally.
-- migration enumeration targets the composable occupant/its Editions and matching bin records only; ordinary Tier slots are excluded.
-- Overview uses Catalogue terminology.
-- customer-facing Upgrade Your Build / Build Your Own implementation remains untouched.
+- migration enumeration targets only the composable/Tier Catalogue occupant and its Editions/bin records, not ordinary Tier slots.
+- Admin Overview uses Catalogue terminology.
+- no customer route, pricing, Commercial Legs, quote/cart, Request, PDF/email/order, billing, resolver, or CRM changes were part of this phase.
 
-Claude reports the corrected head re-passed:
-- `php tests/tier-catalogue-platform-identity.php`;
-- `npm run contract:tier-catalogue-overview-presentation`;
-- `npm run contract:admin-platform-identifier-migration-sweep`;
-- `npx tsc --noEmit`;
-- `php -l` on the edited policy file.
-Previous broader validation on the same tree passed apart from known baseline failures already reproduced on production.
+## Live validation
+User supplied live Admin screenshots after deployment showing:
+- Build Your Own / Tier Catalogue Overview retains Tier Platform ID `CZT6VKAP` and now shows Catalogue Platform ID `CZTCD2Q3T`.
+- Edition Overview retains Edition Platform ID `CZTE7G3GK` and now shows Catalogue Platform ID `CZTECM85EN`.
+- No separate Upgrade declaration control is present.
 
-## Next action — Claude
-Push **exactly `badb3664`** to `main` with no additional source changes. Then:
-1. record resulting exact `main` SHA;
-2. record GitHub Actions deployment run/result;
-3. delete `review/tier-catalogue-identity` after landing;
-4. delete the superseded `review/composable-upgrade-authoring-control` branch if possible; otherwise record the exact blocker for manual cleanup;
-5. set status **AWAITING LIVE VALIDATION**.
-
-## Final live gate
-After deployment, use the existing Admin one-time Platform-ID assignment action if needed for the existing Tier Catalogue record. Then verify read-only in Admin:
-- Tier Catalogue Overview keeps existing `CZT...` and shows `CZTC...`;
-- Catalogue Edition Overview keeps `CZTE...` and shows `CZTEC...`;
-- no Upgrade declaration control exists;
-- customer-facing Upgrade Your Build / Build Your Own behaviour is unchanged.
-
-Do not advance beyond this phase until deployment and live validation are accepted.
+This satisfies the final identity gate. Do not reopen this architecture without hard evidence. New frontend presentation corrections belong in a separate work file.
