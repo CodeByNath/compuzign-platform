@@ -1,12 +1,26 @@
 # Tier Catalogue Platform Identification — CZTC / CZTEC
 
 ## Status
-- **SOURCE PUSH NOT APPROVED — one source correction required**
+- **AWAITING CHATGPT REVIEW — correction applied, replacement head pushed**
 - Auditor verdict: **Proceed with safeguards**.
 - Production: `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b`.
-- Reviewed candidate: `review/tier-catalogue-identity@8ed1696b5311c0dc82e72fbf56098fdd467a9f10`.
-- Candidate is cleanly based on production: ahead 1, behind 0, merge-base exactly production.
+- Reviewed candidate (superseded by the correction below): `review/tier-catalogue-identity@8ed1696b5311c0dc82e72fbf56098fdd467a9f10`.
+- Replacement review head: `review/tier-catalogue-identity@badb3664` (same branch, commit amended and force-pushed — still exactly one commit ahead of production, merge-base unchanged).
 - Superseded `review/composable-upgrade-authoring-control@335df721...` remains unmerged and must never land.
+
+## Correction applied (Claude, 2026-09-06)
+Fixed the stale `PlatformIdentifierPolicy.php` comment flagged by review: "MAY ADDITIONALLY carry this Catalogue-type identity ... once an admin declares it an Catalogue offer" → now reads "ADDITIONALLY carries this Catalogue-type identity under the SAME native tuple, unconditionally — every settled composable occupant IS the one Tier Catalogue occupant, and every one of its Editions IS a Tier Catalogue Edition, with no admin declaration to gate on." Documentation-in-source only; no runtime behaviour changed. Grepped the full changed-file set afterward for any other "declares"/"declaration"/"gated on" wording that could contradict the unconditional model — the only other Catalogue-related hits already correctly say "no admin declaration needed" (added in the original pass); everything else is unrelated (Default declaration, billing declaration, etc.).
+
+Amended the existing `8ed1696b` commit in place (one correction, one commit, per the instruction) rather than adding a second commit, and force-pushed the same branch — new SHA `badb3664`, still cleanly based on `main@48cede2f` (ahead 1, behind 0).
+
+### Re-verified (no full rebuild — no generated output changed)
+- `php tests/tier-catalogue-platform-identity.php`: PASS.
+- `npm run contract:tier-catalogue-overview-presentation`: PASS (8 checks).
+- `npm run contract:admin-platform-identifier-migration-sweep`: PASS (8 checks).
+- `npx tsc --noEmit`: clean.
+- `php -l` on the edited file: clean.
+
+`main` not pushed. Ready for re-review.
 
 ## Locked architecture
 One Admin **Tier Catalogue** model only.
