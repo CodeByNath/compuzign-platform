@@ -1,26 +1,11 @@
 # Tier Catalogue Platform Identification — CZTC / CZTEC
 
 ## Status
-- **AWAITING CHATGPT REVIEW — correction applied, replacement head pushed**
+- **SOURCE PUSH APPROVED — exact replacement candidate only**
 - Auditor verdict: **Proceed with safeguards**.
-- Production: `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b`.
-- Reviewed candidate (superseded by the correction below): `review/tier-catalogue-identity@8ed1696b5311c0dc82e72fbf56098fdd467a9f10`.
-- Replacement review head: `review/tier-catalogue-identity@badb3664` (same branch, commit amended and force-pushed — still exactly one commit ahead of production, merge-base unchanged).
-- Superseded `review/composable-upgrade-authoring-control@335df721...` remains unmerged and must never land.
-
-## Correction applied (Claude, 2026-09-06)
-Fixed the stale `PlatformIdentifierPolicy.php` comment flagged by review: "MAY ADDITIONALLY carry this Catalogue-type identity ... once an admin declares it an Catalogue offer" → now reads "ADDITIONALLY carries this Catalogue-type identity under the SAME native tuple, unconditionally — every settled composable occupant IS the one Tier Catalogue occupant, and every one of its Editions IS a Tier Catalogue Edition, with no admin declaration to gate on." Documentation-in-source only; no runtime behaviour changed. Grepped the full changed-file set afterward for any other "declares"/"declaration"/"gated on" wording that could contradict the unconditional model — the only other Catalogue-related hits already correctly say "no admin declaration needed" (added in the original pass); everything else is unrelated (Default declaration, billing declaration, etc.).
-
-Amended the existing `8ed1696b` commit in place (one correction, one commit, per the instruction) rather than adding a second commit, and force-pushed the same branch — new SHA `badb3664`, still cleanly based on `main@48cede2f` (ahead 1, behind 0).
-
-### Re-verified (no full rebuild — no generated output changed)
-- `php tests/tier-catalogue-platform-identity.php`: PASS.
-- `npm run contract:tier-catalogue-overview-presentation`: PASS (8 checks).
-- `npm run contract:admin-platform-identifier-migration-sweep`: PASS (8 checks).
-- `npx tsc --noEmit`: clean.
-- `php -l` on the edited file: clean.
-
-`main` not pushed. Ready for re-review.
+- Production remains `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b`.
+- Approved review head: `review/tier-catalogue-identity@badb3664`.
+- Superseded `review/composable-upgrade-authoring-control@335df721...` must never land and should be removed during branch cleanup.
 
 ## Locked architecture
 One Admin **Tier Catalogue** model only.
@@ -29,25 +14,47 @@ One Admin **Tier Catalogue** model only.
 - `CZTU/CZTEU` retired.
 - `is_upgrade_offer` removed; no declaration/gate.
 - Catalogue identity is inherent to the existing composable occupant/Edition lifecycle.
-- Existing customer-facing **Upgrade Your Build / Build Your Own routes remain unchanged**. They may later enter CRM as different transaction routes while carrying the same Catalogue identity family. No customer-route, pricing, Legs, quote/cart, Request, PDF/email/order, billing, resolver, or CRM changes now.
+- Existing customer-facing **Upgrade Your Build / Build Your Own routes remain unchanged**. They can later enter CRM as separate transaction routes while carrying the same Catalogue identity family.
+- No customer-route, pricing, Commercial Legs, quote/cart, Request, PDF/email/order, billing, resolver, or CRM changes in this phase.
 
-## Independent review of `8ed1696b...`
-The implementation direction is correct:
-- U policy/types/storage/projections/adapters/migration scopes renamed to Catalogue (`CZTC/CZTEC`).
-- `settleComposableOccupant()` now reserves Catalogue identity unconditionally alongside CZT.
-- composable Edition activation reserves CZTEC alongside CZTE.
-- migration enumeration is scoped to the composable occupant and its matching bin entries, not ordinary Tier slots.
-- Overview labels/fields use Catalogue terminology.
-- changed-file list contains no customer-facing Upgrade Your Build/Build Your Own implementation files.
-- Claude reports focused identity/migration/contracts, TS, docs and build passing; reported lifecycle/invariant failures reproduce on production baseline.
+## Independent review
+Replacement `badb3664` is cleanly based on production:
+- ahead 1, behind 0;
+- merge-base exactly `48cede2f...`;
+- changed-file scope matches the previously reviewed Tier Catalogue conversion.
 
-### Required correction before approval
-`PlatformIdentifierPolicy.php` still contains stale architecture wording in the new CZTC/CZTEC prefix comment:
-> `MAY ADDITIONALLY carry this Catalogue-type identity ... once an admin declares it an Catalogue offer.`
+The one required correction is now present in `PlatformIdentifierPolicy.php`: the CZTC/CZTEC comment states Catalogue identity is carried **unconditionally**, every settled composable occupant is the Tier Catalogue occupant, its Editions are Tier Catalogue Editions, and there is **no admin declaration**. Runtime behaviour is unchanged from the previously reviewed candidate.
 
-That directly contradicts the locked model and the implementation immediately below it. There is **no admin declaration** and Catalogue identity is unconditional/inherent for the Tier Catalogue occupant/Edition. Correct that comment only; do not change runtime behaviour while doing so.
+Accepted implementation:
+- U policy/types/storage/projections/adapters/migration scopes converted to Catalogue (`CZTC/CZTEC`).
+- `is_upgrade_offer` removed.
+- composable occupant settlement reserves CZTC alongside CZT unconditionally.
+- composable Edition activation reserves CZTEC alongside CZTE unconditionally.
+- migration enumeration targets the composable occupant/its Editions and matching bin records only; ordinary Tier slots are excluded.
+- Overview uses Catalogue terminology.
+- customer-facing Upgrade Your Build / Build Your Own implementation remains untouched.
+
+Claude reports the corrected head re-passed:
+- `php tests/tier-catalogue-platform-identity.php`;
+- `npm run contract:tier-catalogue-overview-presentation`;
+- `npm run contract:admin-platform-identifier-migration-sweep`;
+- `npx tsc --noEmit`;
+- `php -l` on the edited policy file.
+Previous broader validation on the same tree passed apart from known baseline failures already reproduced on production.
 
 ## Next action — Claude
-Amend/rebuild one clean review commit from `main@48cede2f...` with only that documentation-in-source correction on top of the already reviewed tree. Re-run the focused Tier Catalogue identity/presentation contract (full rebuild unnecessary unless generated output changes), push the replacement review head, remove/replace the old `8ed1696b...` review branch state as appropriate, and set **AWAITING CHATGPT REVIEW** with exact SHA/test result.
+Push **exactly `badb3664`** to `main` with no additional source changes. Then:
+1. record resulting exact `main` SHA;
+2. record GitHub Actions deployment run/result;
+3. delete `review/tier-catalogue-identity` after landing;
+4. delete the superseded `review/composable-upgrade-authoring-control` branch if possible; otherwise record the exact blocker for manual cleanup;
+5. set status **AWAITING LIVE VALIDATION**.
 
-Do not push `main` yet.
+## Final live gate
+After deployment, use the existing Admin one-time Platform-ID assignment action if needed for the existing Tier Catalogue record. Then verify read-only in Admin:
+- Tier Catalogue Overview keeps existing `CZT...` and shows `CZTC...`;
+- Catalogue Edition Overview keeps `CZTE...` and shows `CZTEC...`;
+- no Upgrade declaration control exists;
+- customer-facing Upgrade Your Build / Build Your Own behaviour is unchanged.
+
+Do not advance beyond this phase until deployment and live validation are accepted.
