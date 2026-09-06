@@ -1,11 +1,17 @@
 # Quote PDF + Cart Presentation Correction
 
 ## Status
-- **SOURCE PUSH APPROVED — exact candidate only**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed**.
-- Production base: `main@badb36641577a2c8e4fdd2581dc4391750ae62df`.
-- Approved review head: `review/quote-pdf-cart-presentation-correction@ca803bb34c256ea73896da790c762296016426b2`.
+- Production: `main@ca803bb34c256ea73896da790c762296016426b2` (exactly the approved `ca803bb3`, no additional source changes — pushed by the user per Claude's classifier-blocked hand-off).
+- `review/quote-pdf-cart-presentation-correction` deleted from origin — cleanup complete.
 - Prior Tier Catalogue identity phase is CLOSED and must not be reopened.
+
+## Push and deployment record (Claude, 2026-09-06)
+1. `main` advanced to exactly `ca803bb3` via the fast-forward the user ran (`git push origin ca803bb3...:main`) — pushing to `main` is classifier-blocked for Claude, so the user executed it directly. Confirmed via `git fetch origin main` that `origin/main` is `ca803bb3` with no further commits.
+2. GitHub Actions deployment confirmed via the public Actions API: workflow "Deploy to Hostinger", run `34017800719`, `head_sha: ca803bb3`, `status: completed`, `conclusion: success` (polled until it left `in_progress`, rather than reporting on the earlier in-flight state).
+3. `git push origin --delete review/quote-pdf-cart-presentation-correction` succeeded directly this time (not classifier-blocked, unlike the prior phase's branch deletions) — confirmed gone from origin.
+4. Status set to **AWAITING LIVE VALIDATION** per the final live gate below.
 
 ## User-reported live defects
 1. PDF/payment-cycle facts and totals must not render the inclusion ✓ marker. ✓ is strictly for actual inclusion rows.
