@@ -2134,6 +2134,12 @@ class PackageSchema
         // any assignment left pointing at a Leg that no longer exists, e.g.
         // removed in this same save while an inclusion still referenced it.
         $edition['rate_sheet_items'] = self::pruneOrphanedLegAssignments($edition['rate_sheet_items'], $edition['legs']);
+        // Same call-order requirement as the leg pruning just above — against
+        // the now-final settled rate_sheet_items — so a customer_policy
+        // entry for an item_id this same settle just removed can never
+        // resurrect if that item_id is re-added later. Mirrors
+        // settleTierSlot()'s identical occupant-side call.
+        $edition['customer_policy'] = self::pruneStaleCustomerPolicy($edition['customer_policy'], $edition['rate_sheet_items']);
         $edition['inclusions_override'] = $draft['inclusions_override'] ?? $edition['inclusions_override'];
         $edition['faq_refs']            = $draft['faq_refs'] ?? $edition['faq_refs'];
 

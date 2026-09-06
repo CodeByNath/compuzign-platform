@@ -50,7 +50,7 @@ a variant of `tier`):
 Round 1 gated on `detail.occupant_id`, minted on first Overview Save, before
 genuine publication — too weak. Round 2 gates on `detail.enabled`, the
 pre-computed `platform_status === 'active'` fact every Tier card's status
-pill already uses, re-checked defensively in case of a stale card.
+pill already uses, re-checked defensively.
 
 ## Save / reopen — unchanged from round 1
 
@@ -66,14 +66,13 @@ module's draft-then-settle flow draws.
 
 Round 1: `normaliseTierSlot()` never surfaced settled `customer_policy` to
 admin reads (added); the composable revert route's regex omitted
-`customer_policy` (now widened), exercised by the drawer's `discard-draft`.
+`customer_policy` (now widened).
 
 Round 2, found in live validation: the editor showed every bound Rate
 Sheet row (45) instead of only selected inclusions (3) — the controller
 sourced rows through `buildRateSheetCatalogue()` (built for the Features
-"Add from Rate Sheet…" picker: full sheet, only appends missing selections,
-never filters down). Now reads `detail.rate_sheet_selections` directly
-(filtered to `resolved`), no second lookup.
+picker: full sheet, appends missing selections, never filters down). Now
+reads `detail.rate_sheet_selections` directly (filtered to `resolved`).
 
 Auditing that surfaced a worse, independent gap: `upsertOccupant()` — every
 settle path's shared write — never carried `customer_policy` forward, so
@@ -90,6 +89,10 @@ gone, so re-adding the same `item_id` later reactivated its old rule.
 `pruneOrphanedLegAssignments()`, dropping any policy item no longer
 selected — never adding one for a (re-)selected id. See
 `composable-customer-policy-admin-surface.php` §5-7.
+
+The same hazard existed for an Edition's own policy —
+`settleTierEditionOverview()` now makes the identical call (locked by
+`tests/tier-edition-customer-policy-prune.php`).
 
 ## Not yet built / out of scope this slice
 
