@@ -1,10 +1,17 @@
 # Composable Upgrade Platform Identification — CZTU / CZTEU
 
 ## Status
-- **SOURCE PUSH APPROVED — exact candidate only**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production baseline remains `main@28f716b1bde85717787418e29efbbf8dce978d3c` until Claude pushes.
-- Approved review head: `review/composable-upgrade-identity@2f06872f5ac2759a35530a47cd2e6915eca76e7f`.
+- Pushed and deployed: `main@2f06872f5ac2759a35530a47cd2e6915eca76e7f` (fast-forward from `28f716b1...`, run by Nath directly per the classifier block on pushing `main`). Deploy run `34006339092` / #956, conclusion **success**.
+- `review/composable-upgrade-identity` deleted both locally and on origin now that it is fully merged.
+
+## Live validation needed before closure
+This phase touches a real one-time Admin Station control (**Assign Package and Tier IDs**) against the live Platform Identifier registry, so unlike a pure presentation change it warrants a read-only check before `CLOSED`:
+1. The Admin Station home still loads `PlatformIdentifierMigrationNotice` without error post-deploy (confirms the extended `ENTITY_TYPES`/union type didn't break the existing component).
+2. A dry-run against the two new scopes (`tier_upgrade`, `tier_edition_upgrade`) returns cleanly with `processed: 0` / no conflicts on current production data — expected, since no composable occupant/Edition has `is_upgrade_offer` declared yet, so nothing should be eligible.
+3. The migration status endpoint (`GET admin/platform-identifiers/migration`) does not report a false "complete" or throw for the two new scopes now present in `ENTITY_TYPES` under the `v5` option.
+This is read-only verification only — no button click/assignment action needed, since there is nothing yet declared as an Upgrade offer to assign.
 
 ## Independent review
 The candidate is cleanly based on production:
@@ -28,11 +35,5 @@ Independent byte check confirms the already-reviewed backend `TemporaryMigration
 - Existing one-time Admin Station assignment path covers eligible historical declared records.
 - No quote/Request/cart/customer/pricing behavior is part of this phase.
 
-## Next action — Claude
-Push **exactly `2f06872f5ac2759a35530a47cd2e6915eca76e7f`** to `main` without source modification. Then record:
-1. actual resulting `main` SHA;
-2. GitHub Actions/deployment run and result;
-3. whether deployed Admin Station needs live read-only validation before closure;
-4. set status to **AWAITING CHATGPT REVIEW** (or **AWAITING LIVE VALIDATION** only after main/deploy evidence is recorded).
-
-Do not advance to Phase 2 yet.
+## Next action — ChatGPT
+Perform the read-only live validation listed above against the deployed Admin Station. Do not advance to Phase 2 until this phase is `CLOSED`.
