@@ -3,34 +3,25 @@
 ## Status
 - **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Pushed and deployed: `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b` (fast-forward from `2f06872f...`, run by Nath directly per the classifier block on pushing `main`). Deploy run `34009510287` / #957, conclusion **success**.
-- `review/composable-upgrade-overview-presentation` deleted both locally and on origin now that it is fully merged.
+- Production independently verified: `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b`, direct child of `2f06872f...`.
+- Deploy independently verified: GitHub Actions run `34009510287` / #957, `Deploy to Hostinger`, exact head SHA `48cede2f...`, conclusion **success**.
+- Review branch `review/composable-upgrade-overview-presentation` reported deleted after landing.
 
-## Independent review
-The correction is cleanly based on production:
-- compare `2f06872f... -> 48cede2f...`: **ahead 1, behind 0**;
-- merge base exactly `2f06872f...`;
-- changed set is presentation-only + focused contract/build/docs wiring (10 files), with no backend minting/registry, quote, Request, cart, PDF/email/order, pricing, or resolver files.
+## Accepted source/deploy state
+The deployed correction remains bounded to Overview presentation + focused contract/build/docs wiring:
+- `SurfaceTierDetail.upgrade_platform_id` and `TierEdition.edition_upgrade_platform_id` are output-only frontend fields.
+- Tier Overview preserves **Tier Platform ID** and conditionally adds **Upgrade Platform ID** when CZTU exists.
+- Edition Overview preserves **Edition Platform ID** and conditionally adds **Upgrade Platform ID** when CZTEU exists.
+- Ordinary Tier/Add-on/Edition records do not render an Upgrade row when the value is absent.
+- No new assignment control, editable Platform-ID field, minting/registry, quote/Request/cart/PDF/email/order, pricing, or resolver behavior was introduced.
 
-The implementation matches the live bug and locked dual-identity law:
-- `SurfaceTierDetail` now carries output-only `upgrade_platform_id`; `TierEdition` carries `edition_upgrade_platform_id`.
-- `buildTierDetail()` passes CZTU into Overview while retaining the existing Tier/Add-on IDs.
-- Tier Overview renders **Upgrade Platform ID** only when a real value exists; ordinary Tier/Add-on rows remain unchanged and no misleading fallback appears.
-- `buildTierEditionDetail()` passes CZTEU while retaining `edition_platform_id`.
-- Edition Overview renders its additional **Upgrade Platform ID** only when present.
-- No editable ID field or new assignment action exists.
-- The focused contract exercises the actual shell `when`/`bind` functions and verifies coexistence of CZT/CZTU and CZTE/CZTEU plus absence on ordinary records.
+## Remaining live gate only
+The current auditor environment has no authenticated live Admin Station browser session, so do **not** infer the deployed UI from source/deploy success. Keep this phase open until the live record is visually checked.
 
-Claude's reported `!!value` correction is appropriate compatibility handling for older/partial frontend fixtures where the new field may be undefined; it prevents an absent Upgrade identity from being interpreted as present.
+Nath/ChatGPT live check must confirm on the already-assigned production data:
+1. composable Tier Overview shows its existing `CZT...` and its `CZTU...` simultaneously;
+2. an Upgrade Edition, if configured/assigned, shows `CZTE...` and `CZTEU...` simultaneously;
+3. ordinary Tier/Add-on/Edition Overview shows no Upgrade Platform ID row;
+4. no existing Overview values or lifecycle behavior regressed.
 
-## Next action — ChatGPT
-Perform the final live gate below against the deployed Admin Station. Do not advance to Phase 2 until this presentation gate passes and this phase is `CLOSED`.
-
-## Final live gate
-After deployment, Nath/ChatGPT must verify the same already-assigned live composable record:
-- Tier Overview shows both its existing Tier Platform ID and CZTU Upgrade Platform ID.
-- Any Upgrade Edition shows both CZTE and CZTEU.
-- ordinary Tier/Add-on/Edition Overview shows no Upgrade Platform ID row.
-- no existing values or lifecycle/customer flows changed.
-
-Do not advance to Phase 2 until this final presentation gate passes.
+If those pass, mark this work **CLOSED — production and live Admin dual-identity presentation accepted**. Do not advance to Phase 2 before that live gate.
