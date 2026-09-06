@@ -1,10 +1,10 @@
 # Composable Upgrade Platform Identification — CZTU / CZTEU
 
 ## Status
-- **SOURCE PUSH APPROVED — Overview dual-ID presentation correction**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production baseline: `main@2f06872f5ac2759a35530a47cd2e6915eca76e7f`.
-- Approved review head: `review/composable-upgrade-overview-presentation@48cede2f00b7bd2ee202e94f82a61651ee694d3b`.
+- Pushed and deployed: `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b` (fast-forward from `2f06872f...`, run by Nath directly per the classifier block on pushing `main`). Deploy run `34009510287` / #957, conclusion **success**.
+- `review/composable-upgrade-overview-presentation` deleted both locally and on origin now that it is fully merged.
 
 ## Independent review
 The correction is cleanly based on production:
@@ -23,12 +23,8 @@ The implementation matches the live bug and locked dual-identity law:
 
 Claude's reported `!!value` correction is appropriate compatibility handling for older/partial frontend fixtures where the new field may be undefined; it prevents an absent Upgrade identity from being interpreted as present.
 
-## Approved next action — Claude
-Push **exactly `48cede2f00b7bd2ee202e94f82a61651ee694d3b`** to `main` without additional source changes. Then record:
-1. resulting exact `main` SHA;
-2. deploy workflow run/result;
-3. deletion of `review/composable-upgrade-overview-presentation` after landing;
-4. status **AWAITING LIVE VALIDATION**.
+## Next action — ChatGPT
+Perform the final live gate below against the deployed Admin Station. Do not advance to Phase 2 until this presentation gate passes and this phase is `CLOSED`.
 
 ## Final live gate
 After deployment, Nath/ChatGPT must verify the same already-assigned live composable record:
