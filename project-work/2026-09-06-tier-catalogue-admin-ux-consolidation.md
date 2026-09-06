@@ -1,37 +1,47 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION — final customer parity check only**
+- **READY FOR CLAUDE — Phase 3 only**
 - Auditor verdict: **Proceed with safeguards**.
-- Phase 2 remains `main@3cc88e83f93e57fec7b61419129cd93a8432809b`, deployed successfully by GitHub Actions run `34033325117` (#964).
-- Phase 3 remains blocked until the final live customer check passes.
+- Phase 2 is accepted on deployed `main@3cc88e83f93e57fec7b61419129cd93a8432809b`.
+- The customer Always-included initial-cart hydration defect discovered during validation is tracked separately and does not reopen Phase 2 Admin architecture.
 
-## Accepted live Admin validation
-Browser-agent evidence is accepted for:
-- exactly one Customer Selection controller on each tested Build Your Own top-level inclusion;
-- access modes and dependent-control visibility;
-- persistence of Selected by default, Featured, and quantity bounds;
-- two-way parity between merged Inclusions and standalone Customer Selection Rules drawer;
-- ordinary Tier/Add-on has no policy controls, including around an Additional Leg assignment;
-- save UX returned to Pending without observed error; original values restored; nothing published.
+## Phase 2 acceptance
+Accepted evidence:
+- merged Customer Selection controls render once per top-level Build Your Own inclusion;
+- ordinary Tier/Add-on remains unchanged;
+- access modes, Selected by default, quantity bounds and Featured persist;
+- standalone Customer Selection Rules and merged Inclusions are two-way data-equivalent;
+- Leg ownership remains one policy entry per `item_id`;
+- Bundle supplied children do not receive controllers;
+- save sequence remains separate features -> customer_policy authority;
+- deployment correspondence independently verified.
 
-## Independent residual-invariant review
-The remaining Admin structural invariants do not require production-data mutation just to manufacture fixtures:
+The standalone Customer Selection Rules drawer was intentionally retained only as a Phase 2 rollback/parity surface. Its purpose is now exhausted.
 
-**Commercial Leg claim — accepted from source/data fixture.** `tests/composable-customer-policy-resolver.php` §3 uses one `hosting` top-level row claimed by both Default and Additional Leg `CZTL_X` with a single `customer_policy` entry keyed to `hosting`. Excluding that one policy item removes the inclusion from both Default and the Additional Leg component. This independently proves policy authority is once per `item_id`, not per Leg claim.
+## Locked Phase 3 architecture
+For a selected Build Your Own / Tier Catalogue occupant, replace the duplicate Customer Selection Rules destination with a simple declaration navigation:
 
-**Bundle children — accepted for Phase 2 from implementation structure, with explicit coverage note.** The merged controller is mounted in `PoolInclusionsEditor` once on the selected top-level row, after `suppliedContent` rendering; Bundle supplied children are rendered only as read-only sub-list entries and have no `CustomerPolicyItemFields` mount. Resolver coverage also proves a Bundle row's own opaque `item_id` is policy-addressable. There is no data-driven fixture combining populated Bundle children + customer_policy today; record this as a test-coverage improvement, not a Phase 2 implementation blocker.
+`Default | Editions`
 
-**Save sequencing — source-verified.** `useTierModuleEditing.ts` awaits `saveTierFeatures()` first, then `saveTierCustomerPolicy()` only on success; customer-policy failure leaves `ok=false` and surfaces Save failed. Do not manufacture infrastructure/runtime failure merely to prove this visually.
+- **Default** is the existing Build Your Own occupant workspace. Its existing Details/Inclusions/Pricing Rules/etc. remain exactly the same; customer-selection authoring stays embedded in the existing inclusion rows.
+- **Editions** switches the same right-side Admin workspace to the existing Tier Catalogue Edition list/detail/session. Reuse the current Edition controller/state/lifecycle and CZTEC children. Do not create a second Edition system, route, entity, draft model or identity family.
+- Remove/retire the standalone **Customer Selection Rules** action/drawer/route from the Build Your Own Admin navigation only after the new navigation is wired.
+- Do not create a new Customer Selection tab/module. The policy editor no longer owns an independent Admin destination.
+- Keep backend `customer_policy` storage, draft semantics, REST authority and publish lifecycle unchanged.
+- Do not change customer frontend, resolver, pricing, quote/cart, Request/PDF/email/order, or routing in this phase.
 
-## Final live gate before Phase 3
-Only customer-facing parity remains. Validate the deployed **Upgrade Your Build** state in the existing package-builder customer page (same ComposableOfferBrowser, not a separate route):
-- same inclusions are offered/required/optional as before;
-- optional default-selected behavior is unchanged;
-- quantity controls/bounds behave unchanged;
-- Featured/recommended ordering is unchanged;
-- no new Admin terminology or customer-facing controls leaked into the customer UI.
+## Claude — implement Phase 3 only
+From clean current `main@3cc88e83...`:
+1. Identify the existing Build Your Own shell/action that opens standalone Customer Selection Rules and remove that duplicate destination from the active Admin navigation.
+2. Add `Default | Editions` as the declaration-level navigation for the selected Build Your Own occupant, using existing shell/tab patterns where possible.
+3. `Default` must render the existing occupant workspace without changing its module content or lifecycle.
+4. `Editions` must reuse the existing `useTierEditions` / Edition declaration switcher/controller/session. No duplicated Edition state, no new endpoint, no new identity semantics.
+5. Preserve selected Edition identity when switching within the Editions side where current architecture already supports it; returning to Default must not mutate Edition data.
+6. Remove only the now-obsolete standalone Customer Selection Rules Admin entry point/presentation. Do not remove the shared customer-policy fields or backend policy endpoints used by merged Inclusions.
+7. Add/update focused contracts proving: Build Your Own gets `Default | Editions`; ordinary Tier/Add-on navigation is unchanged; no standalone Customer Selection Rules destination remains for Build Your Own; merged inclusion policy controls remain; existing Edition lifecycle/controller is reused; no customer source changes.
+8. Run tsc, focused Admin/Edition/customer-policy contracts, docs check and build as required.
+9. Update affected Code Map/current docs only as needed.
+10. Push one clean review branch from current `main`, record exact branch/SHA/files/tests here, and set **AWAITING CHATGPT REVIEW**.
 
-Use the existing live customer page/fixture already used for Upgrade Your Build validation; do not alter production data merely for this check.
-
-If customer parity passes, report it in this same file as **AWAITING CHATGPT REVIEW**. Then the auditor may accept Phase 2, instruct cleanup of `review/tier-inclusions-customer-policy-merge`, and consider Phase 3. Do not start Phase 3 or Edition UI work before that.
+Do not push `main`. Do not touch the separate Always-included cart hydration defect in this phase.
