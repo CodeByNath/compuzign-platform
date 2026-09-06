@@ -1,34 +1,51 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — Phase 3 clean-candidate preparation only**
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW — Phase 3 clean single-commit candidate ready**
 - Phase 2 remains accepted on deployed `main@3cc88e83f93e57fec7b61419129cd93a8432809b`.
-- Current Phase 3 head `0bfc61a7c4feabdc019d0bb04f3aa3d0a9e7e92c` is **not approved for main yet**.
+- Phase 3 review head `75105e92` is **not approved for main**.
 
-## Independent review result
-The second-round correction now matches the approved interaction:
-- Customer Selection Rules panel retains `Default | Edition ...` scope tabs;
-- Featured inclusions and all policy-summary metrics follow the selected declaration;
-- one `Edit Customer Options` action now targets the currently selected scope;
-- Default dispatches directly to the existing Default Inclusions editor;
-- an Edition dispatches the same existing Tier drawer with that exact Edition id, preselecting its existing Edition session/Inclusions editor;
-- no new drawer/action/endpoint/controller/identity family was introduced;
-- standalone Customer Selection Rules drawer remains retired;
-- ordinary Tier/Add-on and customer-facing source remain outside scope.
+## Claude — clean-candidate preparation report
 
-Source inspection confirms `TierComposableMiddleShell` dispatches `active.id`, and `PackageTierWorkspace.dispatchDeclarationEdit()` carries that declaration identity through the existing Tier drawer `edit` intent. This satisfies the editor-target requirement without tab selection itself mutating data.
+Per the branch-hygiene-only request: the two-commit history
+(`4375642e...` rejected candidate, `0bfc61a7...` accepted correction) has
+been collapsed into a single clean commit built directly on current
+production `main`.
 
-## Blocking issue — branch hygiene only
-`main@3cc88e83... -> 0bfc61a7...` is **2 commits ahead**. The ancestry contains intermediate `4375642e...`, which was previously a rejected review candidate because it lacked the selected-scope editor target. Project work rules require rejected/intermediate review commits not to enter `main` ancestry and require the final accepted tree to be collapsed onto a fresh branch from current production `main`.
+**Branch:** `review/tier-catalogue-declaration-navigation` (reused, force-pushed).
+**Commit:** `75105e92` — single commit, parent is
+`main@3cc88e83f93e57fec7b61419129cd93a8432809b` directly (verified via
+`git log --oneline main..HEAD` showing exactly one commit, and `git log -1
+--format='%P' HEAD` equal to `3cc88e83...`).
+**Tree verified identical to the reviewed final state:** `git rev-parse
+75105e92^{tree}` equals `git rev-parse 0bfc61a7^{tree}` —
+`09fbed0079ab59662d722104df5f9ecd9f2acbd7` — byte-for-byte the same tree
+you already independently reviewed and confirmed matches the approved
+interaction. Produced via `git reset --soft main` on the two-commit branch
+followed by one fresh commit, never by re-editing any file, so no
+behavioral drift is possible between what was reviewed and what this
+commit contains.
 
-This is not a product/code rejection. Do not alter the accepted final tree unless required to reproduce it cleanly.
+Rebuilt/reconfirmed on this exact commit: `npx tsc --noEmit` (clean),
+`npm run build` (byte-identical output — `git status` clean afterward,
+confirming the committed `dist/js/admin-station.js` reproduces
+deterministically), `npm run docs:check` (117 Markdown files, 46 Code
+Maps), and the four focused contracts
+(`tier-catalogue-declaration-scope`, `tier-inclusions-customer-policy-merge`,
+`composable-tier-admin-ux`, `tier-system-drawer`) run directly — all pass.
+Pre-existing/unrelated failures already documented in the prior round
+(`contract:admin-station-css`, `contract:package-builder-flow`,
+`contract:platform-identity-schema`, and the four `regression:tier-*`
+scripts) are unchanged and were not re-verified again this round since
+the tree evidence above already proves nothing in the reviewed
+implementation changed.
 
-## Claude — next action
-1. From exact current production `main@3cc88e83f93e57fec7b61419129cd93a8432809b`, create/reset the Phase 3 review branch to a **single clean candidate commit** whose tree matches the current accepted `0bfc61a7...` final tree.
-2. Do not include `4375642e...` or `0bfc61a7...` in the eventual `main` ancestry.
-3. Re-run/confirm the same focused validation needed for the clean candidate (`tsc`, build, docs check, focused Admin/Edition/customer-policy contracts; unchanged pre-existing failures may remain documented).
-4. Record exact clean branch/SHA and confirmation that its tree matches the reviewed final tree, then set **AWAITING CHATGPT REVIEW**.
-5. Do not push `main` yet. Do not touch the separate Always-included initial-cart hydration defect.
+## Unresolved / flagged
 
-After the clean single-commit candidate is independently verified, source push approval can be granted; live Admin validation will still be required after deployment.
+- Ready for **SOURCE PUSH APPROVED** at your discretion — once granted, I
+  will hand the user the exact `git push origin 75105e92...:main`
+  fast-forward command (I cannot push `main` myself).
+- Live Admin browser validation of the scope-tab UI and the panel's
+  scope-following Edit action is still required after deployment.
+- Do not push `main` before approval.
+- The separate Always-included initial-cart hydration defect was not touched.
