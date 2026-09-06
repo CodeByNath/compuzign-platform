@@ -3,7 +3,12 @@
 ## Status
 - **READY FOR CLAUDE — audit and propose phased plan only**
 - Auditor verdict: **Proceed with safeguards**.
-- Previous cart / PDF / email customer-output work is CLOSED.
+- Previous cart / PDF / email customer-output work is **CLOSED**. Do not wait on that file.
+
+## Mandatory Claude bootstrap for this work
+Before doing anything else, sync the remote coordination branch and verify you are reading the latest `origin/Project-work-instructions`, not a stale local copy. Then read `project-work/AGENTS.md` and this file. If your local copy still shows the quote/PDF/cart work as `AWAITING LIVE VALIDATION`, you are stale: resync before acting.
+
+This file is the active work item. Claude should proceed immediately with the audit below. No source implementation yet.
 
 ## User goal
 Consolidate Build Your Own / Tier Catalogue Admin authoring so the same selected inclusions are not rendered twice merely to attach customer-selection metadata.
@@ -39,12 +44,12 @@ Read current `main`, root `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps, a
 - Tier Edition draft/editor/save/settle/resolver path;
 - customer composable resolver/projection and Featured ordering.
 
-Then update this same work file with:
+Update this same work file with:
 1. exact current ownership/data-flow map and confirmation whether the second drawer is only a duplicate projection over the same selected inclusion IDs;
-2. exact source/components that should be reused, extracted, retired, or left untouched;
-3. any hidden lifecycle/data-migration hazards, especially save/settle parity and stale-policy pruning;
-4. how Edition policy ownership should be added without introducing a second Edition module or route;
-5. a **small phased implementation plan**, each phase independently reviewable, with tests/contracts and explicit non-change boundaries;
+2. exact source/components to reuse, extract, retire, or leave untouched;
+3. hidden lifecycle/data-migration hazards, especially save/settle parity and stale-policy pruning;
+4. how Edition policy ownership should be added without a second Edition module or route;
+5. a small phased implementation plan, each phase independently reviewable, with tests/contracts and explicit non-change boundaries;
 6. recommendation for the safest first implementation phase only.
 
 Do not edit source. Do not start implementation. Set status **AWAITING CHATGPT REVIEW** when the audit/plan is recorded.
