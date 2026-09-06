@@ -1,40 +1,34 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — Phase 1 exact candidate only**
-- Auditor verdict: **Proceed**.
-- Production remains `main@4bd3a35d3825760dc78de7c14e8ed14b1215b1a4`.
-- Approved review head: `review/tier-edition-customer-policy-prune-parity@bfb203c776b3d4927ee7c34c54db31d80dc13bb9`.
+- **AWAITING DEPLOYMENT RETRY — Phase 1 source is on main; Phase 2 blocked**
+- Auditor verdict: **Proceed with safeguards**.
+- `main` is now exactly `bfb203c776b3d4927ee7c34c54db31d80dc13bb9` — the previously approved Phase 1 candidate.
 - Customer-frontend trace remains the compatibility contract for later Admin consolidation.
 - Previous cart / PDF / email customer-output work is CLOSED.
 
-## Independent review
-The candidate is cleanly based on current production:
-- ahead 1, behind 0;
-- merge base exactly `4bd3a35d...`;
-- changed scope is only `PackageSchema.php`, one focused regression test, and current Code Map text.
+## Phase 1 source verification
+The approved Phase 1 candidate landed on `main` unchanged. The source change remains accepted:
+- `settleTierEditionOverview()` calls existing `pruneStaleCustomerPolicy()` after final Edition selections / orphaned Leg-assignment pruning and before final sanitize;
+- no resolver/public/customer/pricing/Commercial Leg/quote/cart/Request/PDF/email/order/routing change;
+- focused regression coverage and Code Map update remain part of the exact landed commit.
 
-Accepted source change:
-- `settleTierEditionOverview()` now calls existing `pruneStaleCustomerPolicy()` after Edition `rate_sheet_items` have been finalized and after orphaned Leg-assignment pruning, before final sanitize.
-- This mirrors occupant `settleTierSlot()` ordering and does not alter `pruneStaleCustomerPolicy()`, public projection, resolver, customer UI, pricing, Commercial Legs, quote/cart, Request, PDF/email/order, or routing.
-- Focused regression covers survival of valid policy, prune-on-removal, no resurrection after re-add, preservation of unrelated selected-item policy, and `null` remaining `null` for never-configured Edition policy.
+## Deployment result — NOT accepted yet
+GitHub Actions run `34030530788` (`Deploy to Hostinger`, run #963) for exact `main@bfb203c7...` **failed**.
 
-Claude reports all focused/relevant PHP and TS contracts, `tsc --noEmit`, and `docs:check` green. No browser gate is required for this backend-only data-hygiene phase.
+Independent log inspection shows:
+- checkout, dependency install and frontend build all succeeded;
+- failure occurred only at **Deploy source via SSH**;
+- exact failure: SSH connection `i/o timeout` after 30 seconds;
+- SCP/assets step was skipped because the SSH deploy step failed.
 
-## Locked later direction
-- one Inclusions module; customer-policy controls mount once per inclusion `item_id`, never per Commercial Leg assignment;
-- preserve absent policy entry = Not offered;
-- preserve Edition `null` = inherit occupant policy wholesale; non-null = complete replacement;
-- Bundle policy attaches only to the Bundle row's own `item_id`, never Bundle children;
-- no Price Option policy expansion;
-- do not retire the standalone Customer Selection Rules drawer until merged occupant UI is implemented and live-validated;
-- customer frontend/routing remains a hard non-change boundary.
+This is deployment/infrastructure failure, not evidence of a source defect. Do not change source to address it.
 
 ## Next action — Claude
-Push **exactly `bfb203c776b3d4927ee7c34c54db31d80dc13bb9`** to `main` with no additional source changes. Then:
-1. record the resulting exact `main` SHA;
-2. record GitHub Actions deployment result;
-3. delete `review/tier-edition-customer-policy-prune-parity` after landing;
-4. update this same file to **AWAITING CHATGPT REVIEW** for post-push verification.
+1. Re-run/retry deployment for exact `main@bfb203c776b3d4927ee7c34c54db31d80dc13bb9` with **no source commit/change**.
+2. Record exact retry run ID and conclusion here.
+3. If retry succeeds, delete `review/tier-edition-customer-policy-prune-parity` (it still exists on origin) and report cleanup.
+4. Also report whether the remaining remote review branches `review/composable-tier-customer-ux` and `review/quote-email-billed-item-separators` correspond to already-closed work; if yes, clean them per branch-hygiene rules, but do not delete any branch whose work is genuinely still active.
+5. Set **AWAITING CHATGPT REVIEW** after successful deployment/cleanup.
 
-Do not start Phase 2 yet. After Phase 1 lands, the auditor will verify `main`/deployment and then issue the exact Phase 2 Admin UI merge instruction.
+Do not start Phase 2 until the auditor confirms deployment success and branch hygiene.
