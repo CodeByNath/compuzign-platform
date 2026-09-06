@@ -1,39 +1,46 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — Phase 1 deployed; branch hygiene done**
+- **READY FOR CLAUDE — Phase 2 only**
 - Auditor verdict: **Proceed with safeguards**.
-- `main` is exactly `bfb203c776b3d4927ee7c34c54db31d80dc13bb9` — the approved Phase 1 candidate, deployed.
-- Customer-frontend trace remains the compatibility contract for later Admin consolidation.
-- Previous cart / PDF / email customer-output work is CLOSED.
+- Phase 1 is accepted/closed within this work item: `main@bfb203c776b3d4927ee7c34c54db31d80dc13bb9`, deployment run `34030530788` attempt 2 succeeded, landed review branch removed.
+- Customer-frontend trace remains the compatibility contract.
 
-## Phase 1 source verification
-The approved Phase 1 candidate landed on `main` unchanged. The source change remains accepted:
-- `settleTierEditionOverview()` calls existing `pruneStaleCustomerPolicy()` after final Edition selections / orphaned Leg-assignment pruning and before final sanitize;
-- no resolver/public/customer/pricing/Commercial Leg/quote/cart/Request/PDF/email/order/routing change;
-- focused regression coverage and Code Map update remain part of the exact landed commit.
+## Phase 1 verification
+Independent checks confirm:
+- exact approved source is on `main`;
+- deployment retry completed successfully for exact `bfb203c7...` with no source change;
+- landed Phase 1 review branch is gone from origin;
+- `review/composable-tier-customer-ux` is also gone;
+- `review/quote-email-billed-item-separators` remains because that separate work is still active.
+No browser gate is required for the Phase 1 backend-only hygiene fix.
 
-## Deployment result — NOT accepted yet
-GitHub Actions run `34030530788` (`Deploy to Hostinger`, run #963) for exact `main@bfb203c7...` **failed**.
+## Locked architecture for Phase 2
+Merge the existing Customer Selection Rules **authoring controls** into the existing Build Your Own / Tier Catalogue occupant Inclusions editor. This is a controller/capability merge, not a new module.
 
-Independent log inspection shows:
-- checkout, dependency install and frontend build all succeeded;
-- failure occurred only at **Deploy source via SSH**;
-- exact failure: SSH connection `i/o timeout` after 30 seconds;
-- SCP/assets step was skipped because the SSH deploy step failed.
+Must remain true:
+- one Inclusions module and existing inclusion rows/cards;
+- customer-policy controls appear once per selected inclusion `item_id`, never once per Default/Additional Commercial Leg assignment;
+- commercial inclusion state remains `rate_sheet_items[]`; customer selection state remains `customer_policy.items[]`;
+- preserve separate draft/module semantics and existing REST authorities — one Admin Save interaction may coordinate them, but do not collapse backend storage or lifecycle contracts;
+- preserve published-occupant eligibility: do not enable customer-policy authoring earlier than the current standalone controller allows;
+- "Not offered" must preserve the current write convention by removing that policy item, not storing a new explicit excluded entry;
+- Bundle-backed Rate Sheet row may have one policy controller for the Bundle row `item_id`; never create controls for Bundle children;
+- no Price Option policy expansion;
+- do not change Edition UI in this phase;
+- do not retire/delete the standalone Customer Selection Rules drawer/action/route in this phase — keep it as rollback/parity surface until the merged UI is live-validated;
+- no customer frontend/resolver/projection/pricing/Commercial Legs/quote/cart/Request/PDF/email/order/routing changes.
 
-This is deployment/infrastructure failure, not evidence of a source defect. Do not change source to address it.
+## Claude — implement Phase 2 only
+From clean current `main@bfb203c7...`:
+1. Extract/reuse the existing per-item customer-policy control logic from `CustomerPolicyEditor` into a cohesive controller/presentational capability suitable for mounting inside the existing inclusion row/editor. Do not duplicate policy mutation logic.
+2. Wire that capability only for the Tier Catalogue / composable occupant's existing Inclusions surface. Ordinary Tier occupants must remain unchanged.
+3. Policy controls must bind to the inclusion's stable `item_id` and render once at the inclusion level, outside any per-Leg assignment repetition.
+4. Preserve the existing customer-policy draft tri-state and save/reopen/discard semantics. If one visible Save coordinates inclusion + policy drafts, each existing module endpoint/storage authority must still receive its own correct payload and failure must not be falsely reported as full success.
+5. Keep the current standalone Customer Selection Rules surface functional and data-equivalent during this phase.
+6. Add/extend focused contracts proving identical policy payload semantics for required/optional/not-offered, default-selected, quantity bounds and featured; prove ordinary Tier inclusions receive no policy controls; prove Bundle children receive none; keep the accepted customer-facing parity contracts green without changing assertion intent.
+7. Run `tsc`, focused Admin contracts, relevant customer-policy/resolver/preview/quote/request/notification contracts, docs check, and build if source changes require generated assets.
+8. Update affected Code Map/current docs only as needed.
+9. Push one clean review branch from current `main`, record exact branch/SHA/files/tests here, and set **AWAITING CHATGPT REVIEW**.
 
-## Deployment retry — succeeded
-Same run `34030530788`, **attempt 2**, re-run with no source commit/change: `status: completed`, `conclusion: success`, exact `head_sha: bfb203c776b3d4927ee7c34c54db31d80dc13bb9`. Phase 1 is live.
-
-## Branch hygiene — done
-- `review/tier-edition-customer-policy-prune-parity` — deleted (local + origin). Landed on `main`, deployed successfully.
-- `review/composable-tier-customer-ux` — deleted (local + origin). Its own work file (`project-work/2026-09-02-composable-tier-customer-ux.md`) is **CLOSED**, production accepted at a different `main` SHA (`28613c05`) via a different route; this branch's own closure note explicitly says it was "test-only... not approved for main by this closure" — never intended to merge, safe to remove.
-- `review/quote-email-billed-item-separators` — **kept**. Its work file (`project-work/2026-08-30-quote-email-billed-item-separators.md`) is still `AWAITING CHATGPT REVIEW`, source push `NOT APPROVED` — genuinely active, not touched.
-- `review/composable-upgrade-authoring-control` — local-only, not on origin, not asked about; left as-is.
-
-## Next action
-Auditor: confirm Phase 1 closure (source + deployment + branch hygiene all verified) and issue the exact Phase 2 Admin UI merge instruction, or request further correction.
-
-Claude will not start Phase 2 until that instruction lands.
+Do not push `main`. Do not start Phase 3 or Edition work. Live Admin validation will be required after Phase 2 is deployed before the old duplicate drawer can be retired.
