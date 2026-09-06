@@ -812,7 +812,7 @@ class PackageStationController
     {
         $body = $request->get_json_params();
         $body = is_array($body) ? $body : [];
-        $fields = ['platform_id', 'platformId', PlatformIdentifierStation::META_KEY, 'addon_platform_id', 'addonPlatformId', 'edition_platform_id', 'editionPlatformId'];
+        $fields = ['platform_id', 'platformId', PlatformIdentifierStation::META_KEY, 'addon_platform_id', 'addonPlatformId', 'edition_platform_id', 'editionPlatformId', 'upgrade_platform_id', 'upgradePlatformId', 'edition_upgrade_platform_id', 'editionUpgradePlatformId'];
         foreach ($fields as $field) {
             if ($request->get_param($field) !== null || $this->payloadContainsKey($body, $field)) {
                 return new \WP_REST_Response(['success' => false, 'message' => 'Platform identifiers are immutable and output-only.'], 422);
@@ -2435,6 +2435,11 @@ class PackageStationController
                 // module save accepts no is_addon key at all rather than
                 // silently coercing whatever a caller supplies.
                 'is_addon'      => false,
+                // Composable Upgrade type declaration (CZTU) — the one
+                // occupant-save path this flag is ever drafted through;
+                // saveTierModule()'s own normal-occupant overview branch
+                // never accepts this key. See settleComposableOccupant().
+                'is_upgrade_offer' => !empty($body['is_upgrade_offer']),
             ];
             if (array_key_exists('audience_groups', $body)) {
                 $draftValue['audience_groups'] = $PS::sanitizeTierAudienceGroups($body['audience_groups']);
@@ -2611,8 +2616,11 @@ class PackageStationController
     /**
      * Settle (Publish) the composable occupant — mirrors settlePackageStationTier's
      * identity choreography exactly, minus the is_addon/CZTA branch: this
-     * occupant is never an Add-on, so only CZT (primary) and CZTL/CZTEL
-     * (Legs) are ever reserved here.
+     * occupant is never an Add-on. CZT (primary) and CZTL/CZTEL (Legs) are
+     * always reserved here as before; CZTU (Upgrade) is ADDITIONALLY
+     * reserved, gated on the occupant's own is_upgrade_offer declaration —
+     * a coexisting dual identity (see PlatformIdentifierPolicy::TIER_UPGRADE),
+     * never a replacement for CZT.
      */
     public function settleComposableOccupant(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -2639,6 +2647,8 @@ class PackageStationController
         $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
         $primaryReservation = null;
         $primaryResumed = false;
+        $upgradeReservation = null;
+        $upgradeResumed = false;
         if ($this->identityEnabled && $occupant !== null) {
             try {
                 $existingPrimaryId = (string) ($occupant['cz_platform_id'] ?? '');
@@ -2651,8 +2661,21 @@ class PackageStationController
                     $primaryResumed = $primaryReservation->platformId() === $existingPrimaryId;
                     $slot['current_occupant']['cz_platform_id'] = $primaryReservation->platformId();
                 }
+                if ((bool) ($occupant['is_upgrade_offer'] ?? false)) {
+                    $existingUpgradeId = (string) ($occupant['upgrade_platform_id'] ?? '');
+                    if ($existingUpgradeId === '') {
+                        $upgradeReservation = $this->platformIdentity->reserve($this->identityAdapters->tierUpgrade());
+                        $slot['current_occupant']['upgrade_platform_id'] = $upgradeReservation->platformId();
+                    } elseif ($this->identityNeedsReconciliation($existingUpgradeId)) {
+                        $adapter = $this->identityAdapters->tierUpgrade();
+                        $upgradeReservation = $this->reservationForReconciliation($adapter, $existingUpgradeId);
+                        $upgradeResumed = $upgradeReservation->platformId() === $existingUpgradeId;
+                        $slot['current_occupant']['upgrade_platform_id'] = $upgradeReservation->platformId();
+                    }
+                }
             } catch (\Throwable) {
                 if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                if ($upgradeReservation !== null && !$upgradeResumed) $this->retireReservation($upgradeReservation);
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Platform identifier.'], 500);
             }
         }
@@ -2667,6 +2690,7 @@ class PackageStationController
             } catch (\Throwable) {
                 $this->retireTierLegReservations($legReservations);
                 if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                if ($upgradeReservation !== null && !$upgradeResumed) $this->retireReservation($upgradeReservation);
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a Tier Leg Platform identifier.'], 500);
             }
         }
@@ -2684,15 +2708,19 @@ class PackageStationController
         } catch (\Throwable) {
             $this->retireTierLegReservations($legReservations);
             if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+            if ($upgradeReservation !== null && !$upgradeResumed) $this->retireReservation($upgradeReservation);
             return new \WP_REST_Response(['success' => false, 'message' => 'Composable occupant settlement could not be persisted.'], 500);
         }
 
-        if ($occupant !== null && ($primaryReservation !== null || $legReservations !== [])) {
+        if ($occupant !== null && ($primaryReservation !== null || $upgradeReservation !== null || $legReservations !== [])) {
             $occupantId = (string) $slot['current_occupant']['id'];
             $nativeReference = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
             try {
                 if ($primaryReservation !== null) {
                     $this->platformIdentity->bind($this->identityAdapters->tier(), $primaryReservation, $nativeReference);
+                }
+                if ($upgradeReservation !== null) {
+                    $this->platformIdentity->bind($this->identityAdapters->tierUpgrade(), $upgradeReservation, $nativeReference);
                 }
                 $this->bindTierLegPlatformIds(
                     $this->identityAdapters->tierLeg(),
@@ -2701,6 +2729,7 @@ class PackageStationController
                 );
             } catch (\Throwable) {
                 if ($primaryReservation !== null && !$primaryResumed) $this->retireReservation($primaryReservation);
+                if ($upgradeReservation !== null && !$upgradeResumed) $this->retireReservation($upgradeReservation);
                 $this->retireTierLegReservations($legReservations);
                 return new \WP_REST_Response([
                     'success' => false,
@@ -3003,6 +3032,12 @@ class PackageStationController
      * Same engine transition (platform_status) or explicit Disable/Enable
      * mask (action) contract as updateTierEditionStatus(), including the
      * same first-Active CZTE/CZTEL reserve -> persist -> bind sequence.
+     * CZTEU (Edition Upgrade) is ADDITIONALLY reserved at the same
+     * first-Active gate, ALSO gated on this Edition's own is_upgrade_offer
+     * declaration — a coexisting dual identity alongside CZTE, never a
+     * replacement for it. Never wired into updateTierEditionStatus() (the
+     * normal, non-composable occupant's own Edition endpoint) — CZTEU only
+     * ever mints here.
      */
     public function updateComposableOccupantEditionStatus(\WP_REST_Request $request): \WP_REST_Response
     {
@@ -3031,6 +3066,8 @@ class PackageStationController
         $updatedEdition = $PS::findTierEdition($editions, $editionId);
         $reservation = null;
         $resumed = false;
+        $upgradeReservation = null;
+        $upgradeResumed = false;
         $legReservations = [];
         if ($this->identityEnabled && ($updatedEdition['platform_status'] ?? null) === $engine::STATUS_ACTIVE) {
             $existingId = (string) ($updatedEdition['edition_platform_id'] ?? '');
@@ -3049,6 +3086,25 @@ class PackageStationController
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Edition Platform identifier.'], 500);
             }
 
+            if ((bool) ($updatedEdition['is_upgrade_offer'] ?? false)) {
+                $existingUpgradeId = (string) ($updatedEdition['edition_upgrade_platform_id'] ?? '');
+                try {
+                    if ($existingUpgradeId === '') {
+                        $upgradeReservation = $this->platformIdentity->reserve($this->identityAdapters->tierEditionUpgrade());
+                        $updatedEdition['edition_upgrade_platform_id'] = $upgradeReservation->platformId();
+                    } elseif ($this->identityNeedsReconciliation($existingUpgradeId)) {
+                        $adapter = $this->identityAdapters->tierEditionUpgrade();
+                        $upgradeReservation = $this->reservationForReconciliation($adapter, $existingUpgradeId);
+                        $upgradeResumed = $upgradeReservation->platformId() === $existingUpgradeId;
+                        $updatedEdition['edition_upgrade_platform_id'] = $upgradeReservation->platformId();
+                    }
+                } catch (\Throwable) {
+                    if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                    if ($upgradeReservation !== null && !$upgradeResumed) $this->retireReservation($upgradeReservation);
+                    return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve the Tier Edition Upgrade Platform identifier.'], 500);
+                }
+            }
+
             try {
                 $legResult = $this->reserveTierLegPlatformIds($updatedEdition, $this->identityAdapters->tierEditionLeg());
                 $updatedEdition = $legResult['container'];
@@ -3057,6 +3113,7 @@ class PackageStationController
             } catch (\Throwable) {
                 $this->retireTierLegReservations($legReservations);
                 if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                if ($upgradeReservation !== null && !$upgradeResumed) $this->retireReservation($upgradeReservation);
                 return new \WP_REST_Response(['success' => false, 'message' => 'Could not reserve a Tier Edition Leg Platform identifier.'], 500);
             }
 
@@ -3067,18 +3124,21 @@ class PackageStationController
                 );
             }
 
-            if ($reservation !== null || $legReservations !== []) {
+            if ($reservation !== null || $upgradeReservation !== null || $legReservations !== []) {
                 $editions = $PS::replaceTierEdition($editions, $updatedEdition);
             }
         }
 
         $station = $this->persistComposableEditionOccupant($station, $instanceId, $instance, $occupant, $editions);
 
-        if ($reservation !== null || $legReservations !== []) {
+        if ($reservation !== null || $upgradeReservation !== null || $legReservations !== []) {
             $nativeReference = PackagePlatformNativeReference::tierEdition($instanceId, (string) $occupant['id'], $editionId);
             try {
                 if ($reservation !== null) {
                     $this->platformIdentity->bind($this->identityAdapters->tierEdition(), $reservation, $nativeReference);
+                }
+                if ($upgradeReservation !== null) {
+                    $this->platformIdentity->bind($this->identityAdapters->tierEditionUpgrade(), $upgradeReservation, $nativeReference);
                 }
                 $this->bindTierLegPlatformIds(
                     $this->identityAdapters->tierEditionLeg(),
@@ -3087,6 +3147,7 @@ class PackageStationController
                 );
             } catch (\Throwable) {
                 if ($reservation !== null && !$resumed) $this->retireReservation($reservation);
+                if ($upgradeReservation !== null && !$upgradeResumed) $this->retireReservation($upgradeReservation);
                 $this->retireTierLegReservations($legReservations);
                 return new \WP_REST_Response([
                     'success' => false,

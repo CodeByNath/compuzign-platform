@@ -25,7 +25,9 @@ export type PlatformIdentifierEntityType =
   | 'package_rate_card'
   | 'package_rate_card_item'
   | 'tier_leg'
-  | 'tier_edition_leg';
+  | 'tier_edition_leg'
+  | 'tier_upgrade'
+  | 'tier_edition_upgrade';
 
 /** One record the engine refused to act on. Never repaired from the browser. */
 export interface PlatformIdentifierConflict {

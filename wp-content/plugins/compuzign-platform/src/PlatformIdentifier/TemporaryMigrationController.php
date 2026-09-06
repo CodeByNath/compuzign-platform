@@ -21,8 +21,11 @@ final class TemporaryMigrationController
     // TIER_LEG/TIER_EDITION_LEG below means an install that already reports
     // complete=true (all v3 scopes done) must not stay stuck hiding the
     // dashboard notice before these two new scopes ever get a dry-run.
-    private const PROGRESS_OPTION = 'cz_package_entity_identifier_migration_v4';
-    private const LOCK_OPTION = 'cz_package_entity_identifier_migration_lock_v4';
+    // v5 — same reasoning again for TIER_UPGRADE/TIER_EDITION_UPGRADE
+    // (CZTU/CZTEU): a v4-complete install must get a fresh dry-run for these
+    // two new scopes rather than reporting stale completeness.
+    private const PROGRESS_OPTION = 'cz_package_entity_identifier_migration_v5';
+    private const LOCK_OPTION = 'cz_package_entity_identifier_migration_lock_v5';
     private const LIMIT = 100;
     private const LOCK_SECONDS = 45;
     private const ENTITY_TYPES = [
@@ -39,6 +42,14 @@ final class TemporaryMigrationController
         // dry-run/assign engine; only wiring them into this list was missing.
         PlatformIdentifierPolicy::TIER_LEG,
         PlatformIdentifierPolicy::TIER_EDITION_LEG,
+        // Composable Upgrade dual identity (CZTU/CZTEU) — enumerable only
+        // for occupants/Editions already declared is_upgrade_offer (see
+        // PackageRepository::tierUpgradeAssignmentPage()/
+        // tierEditionUpgradeAssignmentPage()'s own eligibility filter);
+        // never enumerates every occupant on the assumption identity will
+        // be assigned regardless.
+        PlatformIdentifierPolicy::TIER_UPGRADE,
+        PlatformIdentifierPolicy::TIER_EDITION_UPGRADE,
     ];
 
     public function __construct(
@@ -215,6 +226,8 @@ final class TemporaryMigrationController
             PlatformIdentifierPolicy::PACKAGE_RATE_CARD_ITEM => $adapters->rateSheetItem(),
             PlatformIdentifierPolicy::TIER_LEG => $adapters->tierLeg(),
             PlatformIdentifierPolicy::TIER_EDITION_LEG => $adapters->tierEditionLeg(),
+            PlatformIdentifierPolicy::TIER_UPGRADE => $adapters->tierUpgrade(),
+            PlatformIdentifierPolicy::TIER_EDITION_UPGRADE => $adapters->tierEditionUpgrade(),
             default => throw new \InvalidArgumentException('Unsupported migration entity scope.'),
         };
     }

@@ -1243,6 +1243,9 @@ class PackageSchema
                 'occupant_id'          => isset($occ['id']) ? (string) $occ['id'] : null,
                 'platform_id'          => (string) ($occ['cz_platform_id'] ?? ''),
                 'addon_platform_id'    => (string) ($occ['addon_platform_id'] ?? ''),
+                // CZTU — coexists with, never replaces, platform_id above.
+                // Empty until is_upgrade_offer is declared AND settled.
+                'upgrade_platform_id' => (string) ($occ['upgrade_platform_id'] ?? ''),
                 // CZTL — the occupant's own Default Leg identity. Same
                 // output-only, empty-until-bound convention as the two
                 // fields above; see the Leg identity architecture note.
@@ -1293,6 +1296,9 @@ class PackageSchema
                 // the customer's chosen normal Tier (true). Orthogonal to
                 // platform_status/module_status — never inferred from either.
                 'is_addon'            => (bool) ($occ['is_addon'] ?? false),
+                // Composable Upgrade type declaration — see upsertOccupant()'s
+                // own is_upgrade_offer comment. Orthogonal to is_addon.
+                'is_upgrade_offer'    => (bool) ($occ['is_upgrade_offer'] ?? false),
                 // Canonical Disabled fact — see isExplicitlyDisabled(). Never the
                 // raw unmasked platform_status: 'disabled' value, which a merely
                 // unpublished (Pending) occupant also carries.
@@ -1564,6 +1570,11 @@ class PackageSchema
         $existingRateSheetId = null;
         $existingPlatformId = '';
         $existingAddonPlatformId = '';
+        // CZTU — same output-only, empty-until-bound convention as
+        // cz_platform_id/addon_platform_id above; a coexisting identity, so
+        // it needs the exact same preserve-across-resettle treatment or a
+        // bound CZTU would be silently wiped by the next ordinary Publish.
+        $existingUpgradePlatformId = '';
         // CZTL — the occupant's own Default Leg identity. Same output-only,
         // empty-until-bound convention as cz_platform_id/addon_platform_id
         // above; see the Leg identity architecture note.
@@ -1587,6 +1598,7 @@ class PackageSchema
             $existingRateSheetId = self::normaliseRateSheetId($tierSlot['current_occupant']['rate_sheet_id'] ?? null);
             $existingPlatformId = (string) ($tierSlot['current_occupant']['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['current_occupant']['addon_platform_id'] ?? '');
+            $existingUpgradePlatformId = (string) ($tierSlot['current_occupant']['upgrade_platform_id'] ?? '');
             $existingDefaultLegPlatformId = (string) ($tierSlot['current_occupant']['default_leg_platform_id'] ?? '');
             // The occupant's own Additional Legs BEFORE this call's $data
             // overwrites them — the source reattachLegPlatformIds() below
@@ -1599,6 +1611,7 @@ class PackageSchema
         } elseif (self::hasConfiguredContent($tierSlot)) {
             $existingPlatformId = (string) ($tierSlot['cz_platform_id'] ?? '');
             $existingAddonPlatformId = (string) ($tierSlot['addon_platform_id'] ?? '');
+            $existingUpgradePlatformId = (string) ($tierSlot['upgrade_platform_id'] ?? '');
             $existingDefaultLegPlatformId = (string) ($tierSlot['default_leg_platform_id'] ?? '');
         }
 
@@ -1646,6 +1659,7 @@ class PackageSchema
                 'id'                  => $existingId ?? ('occ_' . bin2hex(random_bytes(4))),
                 'cz_platform_id'      => $existingPlatformId,
                 'addon_platform_id'   => $existingAddonPlatformId,
+                'upgrade_platform_id' => $existingUpgradePlatformId,
                 'default_leg_platform_id' => $existingDefaultLegPlatformId,
                 'platform_status'     => $enabled ? 'active' : 'disabled',
                 // Preserved across every edit that is not itself a Disable/Enable/
@@ -1658,6 +1672,14 @@ class PackageSchema
                 // stackable add-on. Defaults false — every occupant is a normal
                 // Tier unless a caller explicitly marks it an add-on.
                 'is_addon'            => (bool) ($data['is_addon'] ?? false),
+                // Composable Upgrade type declaration (CZTU) — capability,
+                // not a role: orthogonal to is_addon above and to
+                // platform_status, never toggled by anything but an explicit
+                // admin save. Defaults false for a genuinely new occupant and
+                // for every normal (non-composable) occupant, whose own
+                // $data never carries this key (saveTierModule()'s overview
+                // branch never drafts it) — see settleComposableOccupant().
+                'is_upgrade_offer'    => (bool) ($data['is_upgrade_offer'] ?? false),
                 'label'               => $data['label'] ?? '',
                 'ideal_for'           => $data['ideal_for'] ?? '',
                 'audience_groups'     => self::sanitizeTierAudienceGroups($data['audience_groups'] ?? self::DEFAULT_TIER_AUDIENCE_GROUPS),
@@ -1819,6 +1841,13 @@ class PackageSchema
             // cz_platform_id/addon_platform_id's own empty-string-until-bound
             // convention on the occupant itself.
             'edition_platform_id'      => sanitize_text_field((string) ($edition['edition_platform_id'] ?? '')),
+            // CZTEU — coexists with, never replaces, edition_platform_id
+            // above. Same output-only, empty-until-bound convention.
+            'edition_upgrade_platform_id' => sanitize_text_field((string) ($edition['edition_upgrade_platform_id'] ?? '')),
+            // Composable Edition Upgrade type declaration — this Edition's
+            // own, independent of the occupant's is_upgrade_offer. See
+            // PackageStationController::updateComposableOccupantEditionStatus().
+            'is_upgrade_offer'         => (bool) ($edition['is_upgrade_offer'] ?? false),
             // CZTEL — this Edition's own Default Leg identity. Same
             // output-only, empty-until-bound convention as
             // edition_platform_id above; see the Leg identity architecture
@@ -2010,6 +2039,9 @@ class PackageSchema
             'rate_sheet_items'     => $data['rate_sheet_items'] ?? [],
             'billing_cycle'        => $data['billing_cycle'] ?? null,
             'contact'              => $data['contact'] ?? false,
+            // Composable Edition Upgrade type declaration (CZTEU) — same
+            // draft-preferred shape as every other overview scalar here.
+            'is_upgrade_offer'     => !empty($data['is_upgrade_offer']),
             'minimum_term_value'   => $data['minimum_term_value'] ?? null,
             'minimum_term_unit'    => $data['minimum_term_unit'] ?? null,
             'from_month'           => $data['from_month'] ?? null,
@@ -2069,6 +2101,9 @@ class PackageSchema
         $edition['rate_sheet_items']    = $selections;
         $edition['billing_cycle']       = $draft['billing_cycle'] ?? $edition['billing_cycle'];
         $edition['contact']             = $draft['contact'] ?? $edition['contact'];
+        // Composable Edition Upgrade type declaration — same draft-preferred
+        // rule as contact above.
+        $edition['is_upgrade_offer']    = $draft['is_upgrade_offer'] ?? ($edition['is_upgrade_offer'] ?? false);
         $edition['minimum_term_value']  = array_key_exists('minimum_term_value', $draft) ? $draft['minimum_term_value'] : $edition['minimum_term_value'];
         $edition['minimum_term_unit']   = array_key_exists('minimum_term_unit', $draft) ? $draft['minimum_term_unit'] : $edition['minimum_term_unit'];
         $edition['from_month']          = array_key_exists('from_month', $draft) ? $draft['from_month'] : $edition['from_month'];
@@ -3180,6 +3215,14 @@ class PackageSchema
             // unsettled is_addon change wins, otherwise the settled occupant's
             // existing value carries forward untouched.
             'is_addon'            => $ov['is_addon']       ?? ($occ['is_addon']       ?? false),
+            // Composable Upgrade dual identity (CZTU) — same draft-preferred
+            // rule as is_addon above. Only saveComposableOccupantModule()'s
+            // own overview branch ever drafts this key; saveTierModule()'s
+            // normal-occupant branch never includes it, so a normal Tier
+            // occupant's own $ov['is_upgrade_offer'] is always absent here
+            // and this always resolves to the settled occupant's existing
+            // value (false, until deliberately set). See settleComposableOccupant().
+            'is_upgrade_offer'    => $ov['is_upgrade_offer'] ?? ($occ['is_upgrade_offer'] ?? false),
         ];
 
         // Authoring-time guard, separate from the resolver: a finite

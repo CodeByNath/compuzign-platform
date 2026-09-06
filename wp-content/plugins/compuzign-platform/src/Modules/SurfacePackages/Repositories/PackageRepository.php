@@ -730,6 +730,136 @@ class PackageRepository
         ];
     }
 
+    /**
+     * Composable Upgrade dual identity (`CZTU`) — same native reference and
+     * same three occupant locations tierOccupantPlatformId()/CZT already
+     * scans, reusing locateTierOccupant() directly: an occupant may carry
+     * `upgrade_platform_id` ALONGSIDE its own `cz_platform_id`/
+     * `addon_platform_id`, exactly like a Rate Sheet row carries CZPRCB
+     * alongside its own CZPRCI. Never replaces the ecosystem identity, never
+     * a separate child record.
+     */
+    public function tierUpgradePlatformId(string $nativeReference): string
+    {
+        $located = $this->locateTierOccupant($nativeReference);
+        return $located === null ? '' : (string) ($located['occupant']['upgrade_platform_id'] ?? '');
+    }
+
+    public function claimTierUpgradePlatformId(string $nativeReference, string $platformId): bool
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-occupant', 2);
+        if ($parts === null) return false;
+        $station = $this->loadStation();
+        if (!is_array($station)) return false;
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $parts[0]);
+        if ($instance === null) return false;
+        $matches = 0;
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
+            if (is_array($slot['current_occupant'] ?? null) && (string) ($slot['current_occupant']['id'] ?? '') === $parts[1]) {
+                $stored = (string) ($slot['current_occupant']['upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['tiers'][$slotId]['current_occupant']['upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
+        $composableOccupant = is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            ? $instance['composable_occupant']['current_occupant']
+            : null;
+        if ($composableOccupant !== null && (string) ($composableOccupant['id'] ?? '') === $parts[1]) {
+            $stored = (string) ($composableOccupant['upgrade_platform_id'] ?? '');
+            if ($stored !== '' && $stored !== $platformId) return false;
+            $instance['composable_occupant']['current_occupant']['upgrade_platform_id'] = $platformId;
+            $matches++;
+        }
+        foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $index => $entry) {
+            if (is_array($entry['occupant'] ?? null) && (string) ($entry['occupant']['id'] ?? '') === $parts[1]) {
+                $stored = (string) ($entry['occupant']['upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['occupant_bin'][$index]['occupant']['upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
+        if ($matches !== 1) return false;
+        $station = TierInstanceSchema::withInstance($station, $parts[0], $instance);
+        $this->saveStation($station);
+        return $this->tierUpgradePlatformId($nativeReference) === $platformId;
+    }
+
+    public function tierUpgradePlatformIdExists(string $platformId): bool
+    {
+        $station = $this->loadStation();
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                if (is_array($slot['current_occupant'] ?? null) && ($slot['current_occupant']['upgrade_platform_id'] ?? '') === $platformId) return true;
+            }
+            if (is_array($instance['composable_occupant']['current_occupant'] ?? null)
+                && ($instance['composable_occupant']['current_occupant']['upgrade_platform_id'] ?? '') === $platformId) {
+                return true;
+            }
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                if (is_array($entry['occupant'] ?? null) && ($entry['occupant']['upgrade_platform_id'] ?? '') === $platformId) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Only occupants explicitly declared `is_upgrade_offer` are eligible —
+     * mirrors appendEligibleOccupantReference()'s own `$addon` eligibility
+     * filter, never enumerating every occupant on the assumption identity
+     * will be assigned regardless.
+     *
+     * @return array{items:list<string>,next_cursor:string|null,complete:bool}
+     */
+    public function tierUpgradeAssignmentPage(?string $cursor, int $limit): array
+    {
+        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier Upgrade assignment limit must be between 1 and 500.');
+        $station = $this->loadStation();
+        $references = [];
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            $instanceId = (string) ($instance['tier_instance_id'] ?? '');
+            if ($instanceId === '') continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                $this->appendEligibleUpgradeReference($references, $instanceId, is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null);
+            }
+            $this->appendEligibleUpgradeReference(
+                $references,
+                $instanceId,
+                is_array($instance['composable_occupant']['current_occupant'] ?? null) ? $instance['composable_occupant']['current_occupant'] : null
+            );
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                $this->appendEligibleUpgradeReference($references, $instanceId, is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null);
+            }
+        }
+        $references = array_values(array_unique($references));
+        sort($references, SORT_STRING);
+        $eligible = array_values(array_filter($references, static fn(string $reference): bool => $cursor === null || strcmp($reference, $cursor) > 0));
+        $page = array_slice($eligible, 0, $limit);
+        return ['items' => $page, 'next_cursor' => $page === [] ? $cursor : $page[array_key_last($page)], 'complete' => count($eligible) <= $limit];
+    }
+
+    /** @param list<string> $references */
+    private function appendEligibleUpgradeReference(array &$references, string $instanceId, ?array $occupant): void
+    {
+        if ($occupant === null || !((bool) ($occupant['is_upgrade_offer'] ?? false))) return;
+        $occupantId = (string) ($occupant['id'] ?? '');
+        if ($occupantId === '') return;
+        $references[] = PackagePlatformNativeReference::tierOccupant($instanceId, $occupantId);
+    }
+
+    public function tierUpgradeProjection(string $nativeReference): ?array
+    {
+        $located = $this->locateTierOccupant($nativeReference);
+        if ($located === null) return null;
+        return [
+            'tier_instance_id' => $located['tier_instance_id'],
+            'location' => $located['location'],
+            'occupant' => $located['occupant'],
+        ];
+    }
+
     /** @return array{tier_instance_id:string,location:string,occupant:array}|null */
     private function locateTierOccupant(string $nativeReference): ?array
     {
@@ -1105,6 +1235,182 @@ class PackageRepository
             'location'         => $located['location'],
             'edition'          => $located['edition'],
         ];
+    }
+
+    /**
+     * Composable Edition Upgrade dual identity (`CZTEU`) — same native
+     * reference and same locateTierEdition() scan `edition_platform_id`/CZTE
+     * already uses: an Edition may carry `edition_upgrade_platform_id`
+     * alongside its own `edition_platform_id`, same coexisting-identity rule
+     * as tierUpgradePlatformId() above, one level deeper.
+     */
+    public function tierEditionUpgradePlatformId(string $nativeReference): string
+    {
+        $located = $this->locateTierEdition($nativeReference);
+        return $located === null ? '' : (string) ($located['edition']['edition_upgrade_platform_id'] ?? '');
+    }
+
+    public function claimTierEditionUpgradePlatformId(string $nativeReference, string $platformId): bool
+    {
+        $parts = PackagePlatformNativeReference::parse($nativeReference, 'tier-edition', 3);
+        if ($parts === null) return false;
+        [$instanceId, $occupantId, $editionId] = $parts;
+        $station = $this->loadStation();
+        if (!is_array($station)) return false;
+        $instance = TierInstanceSchema::findInstance($station['tier_instances'] ?? [], $instanceId);
+        if ($instance === null) return false;
+        $matches = 0;
+        foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slotId => $slot) {
+            $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+            if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
+            foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $index => $edition) {
+                if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['tiers'][$slotId]['current_occupant']['tier_editions'][$index]['edition_upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+            foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binIndex => $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['tiers'][$slotId]['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
+        if (is_array($instance['composable_occupant']['current_occupant'] ?? null)
+            && (string) ($instance['composable_occupant']['current_occupant']['id'] ?? '') === $occupantId) {
+            $composableOccupant = $instance['composable_occupant']['current_occupant'];
+            foreach (is_array($composableOccupant['tier_editions'] ?? null) ? $composableOccupant['tier_editions'] : [] as $index => $edition) {
+                if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['composable_occupant']['current_occupant']['tier_editions'][$index]['edition_upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+            foreach (is_array($composableOccupant['tier_edition_bin'] ?? null) ? $composableOccupant['tier_edition_bin'] : [] as $binIndex => $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['composable_occupant']['current_occupant']['tier_edition_bin'][$binIndex]['edition']['edition_upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
+        foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $binIndex => $entry) {
+            $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+            if ($occupant === null || (string) ($occupant['id'] ?? '') !== $occupantId) continue;
+            foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $index => $edition) {
+                if (!is_array($edition) || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['occupant_bin'][$binIndex]['occupant']['tier_editions'][$index]['edition_upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+            foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $editionBinIndex => $binEntry) {
+                $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+                if ($edition === null || (string) ($edition['id'] ?? '') !== $editionId) continue;
+                $stored = (string) ($edition['edition_upgrade_platform_id'] ?? '');
+                if ($stored !== '' && $stored !== $platformId) return false;
+                $instance['occupant_bin'][$binIndex]['occupant']['tier_edition_bin'][$editionBinIndex]['edition']['edition_upgrade_platform_id'] = $platformId;
+                $matches++;
+            }
+        }
+        if ($matches !== 1) return false;
+        $station = TierInstanceSchema::withInstance($station, $instanceId, $instance);
+        $this->saveStation($station);
+        return $this->tierEditionUpgradePlatformId($nativeReference) === $platformId;
+    }
+
+    public function tierEditionUpgradePlatformIdExists(string $platformId): bool
+    {
+        $station = $this->loadStation();
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+                if ($this->tierEditionListHasUpgradePlatformId($occupant, $platformId)) return true;
+            }
+            if ($this->tierEditionListHasUpgradePlatformId($instance['composable_occupant']['current_occupant'] ?? null, $platformId)) return true;
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+                if ($this->tierEditionListHasUpgradePlatformId($occupant, $platformId)) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Only Editions explicitly declared `is_upgrade_offer` are eligible —
+     * same eligibility-filtered enumeration rule as tierUpgradeAssignmentPage()
+     * above, one level deeper.
+     *
+     * @return array{items:list<string>,next_cursor:string|null,complete:bool}
+     */
+    public function tierEditionUpgradeAssignmentPage(?string $cursor, int $limit): array
+    {
+        if ($limit < 1 || $limit > 500) throw new \InvalidArgumentException('Tier Edition Upgrade assignment limit must be between 1 and 500.');
+        $station = $this->loadStation();
+        $references = [];
+        foreach (is_array($station['tier_instances'] ?? null) ? $station['tier_instances'] : [] as $instance) {
+            if (!is_array($instance)) continue;
+            $instanceId = (string) ($instance['tier_instance_id'] ?? '');
+            if ($instanceId === '') continue;
+            foreach (is_array($instance['tiers'] ?? null) ? $instance['tiers'] : [] as $slot) {
+                $occupant = is_array($slot['current_occupant'] ?? null) ? $slot['current_occupant'] : null;
+                $this->appendEligibleEditionUpgradeReferences($references, $instanceId, $occupant);
+            }
+            $this->appendEligibleEditionUpgradeReferences($references, $instanceId, $instance['composable_occupant']['current_occupant'] ?? null);
+            foreach (is_array($instance['occupant_bin'] ?? null) ? $instance['occupant_bin'] : [] as $entry) {
+                $occupant = is_array($entry['occupant'] ?? null) ? $entry['occupant'] : null;
+                $this->appendEligibleEditionUpgradeReferences($references, $instanceId, $occupant);
+            }
+        }
+        $references = array_values(array_unique($references));
+        sort($references, SORT_STRING);
+        $eligible = array_values(array_filter($references, static fn(string $reference): bool => $cursor === null || strcmp($reference, $cursor) > 0));
+        $page = array_slice($eligible, 0, $limit);
+        return ['items' => $page, 'next_cursor' => $page === [] ? $cursor : $page[array_key_last($page)], 'complete' => count($eligible) <= $limit];
+    }
+
+    /** @param list<string> $references */
+    private function appendEligibleEditionUpgradeReferences(array &$references, string $instanceId, ?array $occupant): void
+    {
+        if ($occupant === null) return;
+        $occupantId = (string) ($occupant['id'] ?? '');
+        if ($occupantId === '') return;
+        foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
+            if (!is_array($edition) || !((bool) ($edition['is_upgrade_offer'] ?? false))) continue;
+            $editionId = (string) ($edition['id'] ?? '');
+            if ($editionId === '') continue;
+            $references[] = PackagePlatformNativeReference::tierEdition($instanceId, $occupantId, $editionId);
+        }
+    }
+
+    public function tierEditionUpgradeProjection(string $nativeReference): ?array
+    {
+        $located = $this->locateTierEdition($nativeReference);
+        if ($located === null) return null;
+        return [
+            'tier_instance_id' => $located['tier_instance_id'],
+            'occupant_id'      => $located['occupant_id'],
+            'location'         => $located['location'],
+            'edition'          => $located['edition'],
+        ];
+    }
+
+    private function tierEditionListHasUpgradePlatformId(?array $occupant, string $platformId): bool
+    {
+        if ($occupant === null) return false;
+        foreach (is_array($occupant['tier_editions'] ?? null) ? $occupant['tier_editions'] : [] as $edition) {
+            if (is_array($edition) && ($edition['edition_upgrade_platform_id'] ?? '') === $platformId) return true;
+        }
+        foreach (is_array($occupant['tier_edition_bin'] ?? null) ? $occupant['tier_edition_bin'] : [] as $binEntry) {
+            $edition = is_array($binEntry['edition'] ?? null) ? $binEntry['edition'] : null;
+            if ($edition !== null && ($edition['edition_upgrade_platform_id'] ?? '') === $platformId) return true;
+        }
+        return false;
     }
 
     /** @return array{tier_instance_id:string,occupant_id:string,location:string,edition:array}|null */

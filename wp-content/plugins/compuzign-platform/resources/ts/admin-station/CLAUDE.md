@@ -42,4 +42,4 @@ Read [Admin Station](../../../../../../docs/code-map/admin-station.md), [Admin S
 
 ## Validation
 
-From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run contract:station-tabset`, `npm run contract:requests-admin-station-surface`, `npm run contract:supported-action-footer`, `npm run contract:request-print-isolation`, `npm run contract:payment-summary-extraction-parity`, `npm run docs:check`.
+From the plugin root: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css`, `npm run contract:station-tabset`, `npm run contract:requests-admin-station-surface`, `npm run contract:supported-action-footer`, `npm run contract:request-print-isolation`, `npm run contract:payment-summary-extraction-parity`, `npm run contract:admin-platform-identifier-migration-sweep`, `npm run docs:check`.

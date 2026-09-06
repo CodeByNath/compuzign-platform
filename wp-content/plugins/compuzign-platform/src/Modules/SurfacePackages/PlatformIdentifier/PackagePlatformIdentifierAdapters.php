@@ -74,6 +74,28 @@ final class PackagePlatformIdentifierAdapters
     }
 
     /**
+     * Composable Upgrade dual identity (`CZTU`) — same native reference
+     * tierOccupant() already builds for CZT/CZTA on this exact occupant;
+     * only the entity type and the storage field (upgrade_platform_id,
+     * PackageRepository::tierUpgradePlatformId()) differ. Coexists with,
+     * never replaces, the occupant's own ecosystem identity.
+     */
+    public function tierUpgrade(): PackagePlatformIdentifierAdapter
+    {
+        return new PackagePlatformIdentifierAdapter(
+            PlatformIdentifierPolicy::TIER_UPGRADE,
+            fn(int|string|null $cursor, int $limit): array => $this->packages->tierUpgradeAssignmentPage(
+                is_string($cursor) && $cursor !== '' ? $cursor : null,
+                $limit
+            ),
+            fn(int|string $reference): string => $this->packages->tierUpgradePlatformId((string) $reference),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierUpgradePlatformId((string) $reference, $platformId),
+            fn(string $platformId): bool => $this->packages->tierUpgradePlatformIdExists($platformId),
+            fn(int|string $reference): ?array => $this->packages->tierUpgradeProjection((string) $reference)
+        );
+    }
+
+    /**
      * A Tier occupant's own Leg — Default or Additional, distinguished by
      * native reference (see PackagePlatformNativeReference::tierLeg()), not
      * by a separate adapter. One shared CZTL entity type for both.
@@ -90,6 +112,29 @@ final class PackagePlatformIdentifierAdapters
             fn(int|string $reference, string $platformId): bool => $this->packages->claimTierLegPlatformId((string) $reference, $platformId),
             fn(string $platformId): bool => $this->packages->tierLegPlatformIdExists($platformId),
             fn(int|string $reference): ?array => $this->packages->tierLegProjection((string) $reference)
+        );
+    }
+
+    /**
+     * Composable Edition Upgrade dual identity (`CZTEU`) — same native
+     * reference tierEdition() already builds for CZTE on this exact
+     * Edition; only the entity type and storage field
+     * (edition_upgrade_platform_id) differ, one level deeper than
+     * tierUpgrade() above, mirroring how tierEditionLeg() sits one level
+     * deeper than tierLeg().
+     */
+    public function tierEditionUpgrade(): PackagePlatformIdentifierAdapter
+    {
+        return new PackagePlatformIdentifierAdapter(
+            PlatformIdentifierPolicy::TIER_EDITION_UPGRADE,
+            fn(int|string|null $cursor, int $limit): array => $this->packages->tierEditionUpgradeAssignmentPage(
+                is_string($cursor) && $cursor !== '' ? $cursor : null,
+                $limit
+            ),
+            fn(int|string $reference): string => $this->packages->tierEditionUpgradePlatformId((string) $reference),
+            fn(int|string $reference, string $platformId): bool => $this->packages->claimTierEditionUpgradePlatformId((string) $reference, $platformId),
+            fn(string $platformId): bool => $this->packages->tierEditionUpgradePlatformIdExists($platformId),
+            fn(int|string $reference): ?array => $this->packages->tierEditionUpgradeProjection((string) $reference)
         );
     }
 
