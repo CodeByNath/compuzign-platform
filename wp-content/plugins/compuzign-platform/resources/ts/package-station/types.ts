@@ -550,6 +550,8 @@ export interface SurfaceTierDetail {
   platform_id: string;
   /** Output-only permanent Add-on identity; dormant while is_addon is false. */
   addon_platform_id: string;
+  /** Output-only permanent Composable Upgrade identity (CZTU); empty until is_upgrade_offer is declared and settled. Coexists with, never replaces, platform_id above. */
+  upgrade_platform_id: string;
   /** Output-only permanent CZTL identity for this occupant's own Default Leg; empty until bound. */
   default_leg_platform_id: string;
   // Customer-facing Headline pointer — presentation metadata only, which
@@ -643,6 +645,8 @@ export interface TierEdition {
   id: string;
   /** Output-only permanent identity; empty until first Publish (Active). */
   edition_platform_id: string;
+  /** Output-only permanent Composable Edition Upgrade identity (CZTEU); empty until is_upgrade_offer is declared and this Edition first activates. Coexists with, never replaces, edition_platform_id above. */
+  edition_upgrade_platform_id: string;
   /** Output-only permanent CZTEL identity for this Edition's own Default Leg; empty until bound. */
   default_leg_platform_id: string;
   title: string;

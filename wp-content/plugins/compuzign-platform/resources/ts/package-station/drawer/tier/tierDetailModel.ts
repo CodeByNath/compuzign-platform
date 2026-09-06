@@ -275,6 +275,7 @@ export function buildTierDetail(
       popular:      isPopular,
       platformId:   detail.platform_id,
       addonPlatformId: detail.addon_platform_id,
+      upgradePlatformId: detail.upgrade_platform_id,
       // 1 (the occupant's own permanent Default) + however many additional
       // Edition child records already exist — always derived, never a
       // separately stored count. See docs/code-map/tier-edition.md.

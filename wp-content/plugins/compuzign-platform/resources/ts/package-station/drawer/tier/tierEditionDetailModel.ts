@@ -87,6 +87,7 @@ export function buildTierEditionDetail(
       price,
       contact:           edition.contact,
       editionPlatformId: edition.edition_platform_id,
+      editionUpgradePlatformId: edition.edition_upgrade_platform_id,
     },
     state:    moduleState,
     hasDraft,
