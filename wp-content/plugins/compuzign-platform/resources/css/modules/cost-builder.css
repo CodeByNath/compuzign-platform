@@ -2827,6 +2827,18 @@
   letter-spacing: 0.04em;
   font-size: 10px;
   margin-top: var(--cz-space-2);
+  /* Live-defect correction (2026-09-06, "quote PDF/cart presentation
+     correction" follow-up): this heading's own ::before is empty (content:
+     '' below) but still reserves the row's normal checkmark-to-label gap
+     as blank space, so its text sat one gap-width right of where a
+     checkmark row's own ✓ starts — outdenting it left by that exact amount
+     (--cz-space-2) aligns the heading flush with the ✓ column instead,
+     reading as a clear section boundary. Scoped to .cz-os__feature--group
+     only — the OrderSummary finalise-quote sidebar's own cart inclusions
+     list — never any other .cz-os__feature row or any cz-proposal__feature
+     equivalent. */
+  margin-left: calc(var(--cz-space-2) * -1) !important;
+  padding-bottom: var(--cz-space-2);
 }
 
 .cz-os__feature--group:first-child {
