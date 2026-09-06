@@ -1,7 +1,7 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — Phase 2 only**
+- **AWAITING CHATGPT REVIEW — Phase 2 implemented on a review branch**
 - Auditor verdict: **Proceed with safeguards**.
 - Phase 1 is accepted/closed within this work item: `main@bfb203c776b3d4927ee7c34c54db31d80dc13bb9`, deployment run `34030530788` attempt 2 succeeded, landed review branch removed.
 - Customer-frontend trace remains the compatibility contract.
@@ -31,16 +31,13 @@ Must remain true:
 - do not retire/delete the standalone Customer Selection Rules drawer/action/route in this phase — keep it as rollback/parity surface until the merged UI is live-validated;
 - no customer frontend/resolver/projection/pricing/Commercial Legs/quote/cart/Request/PDF/email/order/routing changes.
 
-## Claude — implement Phase 2 only
-From clean current `main@bfb203c7...`:
-1. Extract/reuse the existing per-item customer-policy control logic from `CustomerPolicyEditor` into a cohesive controller/presentational capability suitable for mounting inside the existing inclusion row/editor. Do not duplicate policy mutation logic.
-2. Wire that capability only for the Tier Catalogue / composable occupant's existing Inclusions surface. Ordinary Tier occupants must remain unchanged.
-3. Policy controls must bind to the inclusion's stable `item_id` and render once at the inclusion level, outside any per-Leg assignment repetition.
-4. Preserve the existing customer-policy draft tri-state and save/reopen/discard semantics. If one visible Save coordinates inclusion + policy drafts, each existing module endpoint/storage authority must still receive its own correct payload and failure must not be falsely reported as full success.
-5. Keep the current standalone Customer Selection Rules surface functional and data-equivalent during this phase.
-6. Add/extend focused contracts proving identical policy payload semantics for required/optional/not-offered, default-selected, quantity bounds and featured; prove ordinary Tier inclusions receive no policy controls; prove Bundle children receive none; keep the accepted customer-facing parity contracts green without changing assertion intent.
-7. Run `tsc`, focused Admin contracts, relevant customer-policy/resolver/preview/quote/request/notification contracts, docs check, and build if source changes require generated assets.
-8. Update affected Code Map/current docs only as needed.
-9. Push one clean review branch from current `main`, record exact branch/SHA/files/tests here, and set **AWAITING CHATGPT REVIEW**.
+## Claude — Phase 2 implementation report
 
-Do not push `main`. Do not start Phase 3 or Edition work. Live Admin validation will be required after Phase 2 is deployed before the old duplicate drawer can be retired.
+Done. Not pushed to `main`.
+
+- **Branch**: `review/tier-inclusions-customer-policy-merge`, created from production `main@bfb203c776b3d4927ee7c34c54db31d80dc13bb9`.
+- **Commit**: `3cc88e83` — "Merge Customer Selection Rules controls into the composable occupant's Tier Inclusions row".
+- **Files changed** (12): new `resources/ts/package-station/drawer/editors/customerPolicyFields.tsx` (the ONE shared `patchCustomerPolicyItem`/`findCustomerPolicyItem`/`CustomerPolicyItemFields` authority — item 1's "do not duplicate" requirement); `CustomerPolicyEditor.tsx` refactored to import it (behavior unchanged — same tri-state, same "Not offered" = remove-entry convention, item 5); `PoolInclusionsEditor.tsx` gained optional `customerPolicy`/`onCustomerPolicyChange` props, rendering the merged controls once per selected inclusion `item_id` (item 3) only when the prop is a real value; `useTierModuleEditing.ts` gained a second `customerPolicyDraft` state seeded only when `isComposableOccupant(editingTierId) && d.enabled` (item 2's "ordinary Tier unchanged" + eligibility from the locked architecture), coordinating its own `saveTierCustomerPolicy` call under the same Save after a successful features save, with failure propagating (item 4); `useTierDrawerController.ts`/`TierDrawerContent.tsx`/`bindings/tier.tsx` thread the new extras through; `scripts/tier-customer-policy-drawer-contract.ts` had its one check that literally forbade any `customerPolicy` reference in `TierDrawerContent.tsx` narrowed to the actual still-true invariant (no fifth module/second save path) — that blanket assertion is exactly what this merge legitimately supersedes; new `scripts/tier-inclusions-customer-policy-merge-contract.ts` (item 6, real payload-semantics tests against the shared pure functions plus source proofs for no-duplication/once-per-item_id/no-Bundle-children/ordinary-Tier-and-Edition-exclusion/failure-propagation); `docs/code-map/tier-composable-occupant-admin-ui.md` updated (item 8); `dist/js/admin-station.js` rebuilt; `package.json` gained the new contract's script entry.
+- **Validation run** (item 7, all green except one pre-existing unrelated failure — see below): `npx tsc --noEmit`; `npm run build`; `npm run docs:check`; `npm run contract:tier-customer-policy-draft`, `contract:tier-customer-policy-drawer`, `contract:tier-inclusions-customer-policy-merge`, `contract:tier-edition-admin`, `contract:tier-edition-switch`, `contract:tier-edition-move-to-bin`, `contract:tier-occupant-inclusions-bundle`, `contract:tier-rate-sheet-catalogue-bundle`, `contract:tier-instance-scope`, `contract:tier-overview-is-addon`, `contract:tier-catalogue-overview-presentation`, `contract:package-family-capability`, `contract:tier-system-drawer`, `contract:tier-lifecycle-menu`, `contract:composable-offer-choice`, `contract:composable-offer-contribution`, `contract:composable-quote-cart`, `contract:composable-request-line`, `contract:composable-live-correction`; `php tests/composable-customer-policy-resolver.php`, `tests/composable-customer-ux-preview.php`, `tests/request-schema-composable.php`.
+- **Pre-existing, unrelated failure found during validation**: `php tests/notification-templates-composable-quote-parity.php` fails on THIS branch — and, verified separately, fails **identically on plain production `main@bfb203c7` with zero Phase 2 changes applied**. Phase 2 touches zero PHP files, so this cannot be caused by this work; it is a pre-existing defect (admin email not showing the "Build Your Own" badge/label for the composable row) discovered incidentally. Per the locked non-change boundary (no Request/PDF/email/order changes in this phase), left untouched — flagging for a separate work item rather than fixing here.
+- **Unresolved risks**: none beyond the pre-existing email defect above. No browser/live validation performed (Admin UI change) — required before Phase 3 (retiring the standalone drawer) per the locked direction, not before this review.
