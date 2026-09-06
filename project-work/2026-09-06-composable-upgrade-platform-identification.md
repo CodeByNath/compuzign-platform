@@ -1,10 +1,25 @@
 # Composable Upgrade Platform Identification — CZTU / CZTEU
 
 ## Status
-- **READY FOR CLAUDE — Phase 1 source review found missing Admin Station one-time assignment coverage**
-- Auditor verdict: **Proceed with safeguards; current `c1dfc722` NOT approved for main**.
-- Production: `main@28f716b1bde85717787418e29efbbf8dce978d3c`.
-- Review: `review/composable-upgrade-identity@c1dfc72254c56301a89caa3f08a3d4a9dca090f9`, exactly one clean commit on production.
+- **AWAITING CHATGPT REVIEW — Admin Station sweep gap closed, one clean commit, not pushed to `main`**
+- Auditor verdict (prior round): **Proceed with safeguards**; `c1dfc722` was correctly rejected for missing Admin Station coverage.
+- Production: `main@28f716b1bde85717787418e29efbbf8dce978d3c` (unchanged — review branch only).
+- Review: `review/composable-upgrade-identity@2f06872f5ac2759a35530a47cd2e6915eca76e7f` — the SAME single commit as before, amended in place (not stacked) so main ancestry stays exactly one clean commit. Force-pushed to origin (the branch is otherwise unshared — Claude's own topic branch for this work item).
+
+## Correction report
+
+Confirmed the gap exactly as described: `TemporaryMigrationController`'s backend `ENTITY_TYPES` had the two new scopes, but the Admin Station's own one-time sweep button hardcodes an entirely separate list on the frontend, so the button could never reach the two new scopes — v5 would never report complete through the UI.
+
+**Against each required item:**
+1. `PlatformIdentifierEntityType` union (`api/platformIdentifiers.ts`) extended with `'tier_upgrade' | 'tier_edition_upgrade'`.
+2. `PlatformIdentifierMigrationNotice.tsx`'s own `ENTITY_TYPES` sweep array extended with the same two scopes — the existing **Assign Package and Tier IDs** button now dry-runs/assigns them through the unchanged backend endpoint.
+3. No second button, endpoint, engine, or per-Upgrade control added — same one client, same one component, same one backend route.
+4. New contract `admin-platform-identifier-migration-sweep-contract.ts` (wired as `npm run contract:admin-platform-identifier-migration-sweep`, added to `admin-station/CLAUDE.md`'s own Validation list): it parses `TemporaryMigrationController::ENTITY_TYPES` + `PlatformIdentifierPolicy`'s constant values straight from PHP source (never hand-copied) and asserts the frontend sweep array matches that derived list **exactly, in both directions** — not just "contains the two new strings." Verified this actually catches the class of bug just found: reverted the frontend fix locally, confirmed the contract fails with the missing-scope message, restored the fix, confirmed it passes again.
+5. No quote/Request/cart/customer/pricing file touched by this correction — diff is limited to the Admin Station migration client/notice, the new contract, `package.json`'s script entry, and its own `CLAUDE.md`/skill-reference doc line. All already-reviewed Phase 1 backend behavior (identity, tests) is byte-identical to `c1dfc722`.
+
+**Tests re-run**: `npx tsc --noEmit`, `npm run build` (only `dist/js/admin-station.js`'s hash changed — no new chunk), `npm run docs:check`, and the full Admin Station Validation list (`contract:admin-station-css` [pre-existing unrelated failure, confirmed identical on stock `main`], `contract:station-tabset`, `contract:requests-admin-station-surface`, `contract:supported-action-footer`, `contract:request-print-isolation`, `contract:payment-summary-extraction-parity`, `contract:admin-platform-identifier-migration-sweep` [new], `contract:rate-sheet-row-platform-identity`) — all pass. The full SurfacePackages PHP suite from the prior round is unaffected (no backend file in this correction touched).
+
+Do not push to `main` before this review.
 
 ## Architecture accepted
 Nath's Bundle precedent remains locked. The existing composable Tier/Edition participant keeps normal ecosystem identity (`CZT`/`CZTA`/`CZTE` + Legs) and may additionally carry `CZTU`/`CZTEU`. Upgrade identity is not owned by a selected base Tier/Edition; base association is later transaction context.
