@@ -1,43 +1,45 @@
-# Composable Upgrade Platform Identification — CZTU / CZTEU
+# Tier Catalogue Platform Identification — CZTC / CZTEC
 
 ## Status
-- **SOURCE PUSH APPROVED — exact authoring-control candidate only**
+- **READY FOR CLAUDE — replace U identity with the single Tier Catalogue C identity**
 - Auditor verdict: **Proceed with safeguards**.
-- Production baseline: `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b`.
-- Approved review head: `review/composable-upgrade-authoring-control@335df721f543808d800192cee0964c8c9cfbad79`.
+- Production remains `main@48cede2f00b7bd2ee202e94f82a61651ee694d3b`.
+- The prior authoring-control candidate `review/composable-upgrade-authoring-control@335df721...` is superseded and must not be pushed to `main`.
 
-## Independent review
-The candidate is cleanly based on production:
-- compare `48cede2f... -> 335df721...`: **ahead 1, behind 0**;
-- merge base exactly `48cede2f...`;
-- changed files are limited to Package/Admin authoring presentation, draft plumbing, focused contracts/tests, generated admin asset, and validation wiring.
+## Architecture locked
+Admin has one composable catalogue model, named **Tier Catalogue**. There are not separate Admin Upgrade and Custom declarations.
 
-The correction closes the actual live gap without changing identity architecture:
-- composable Tier Overview alone exposes **Declare as Upgrade offer**;
-- ordinary Tier/Add-on Overview remains unable to author the flag;
-- the existing Overview draft/save path carries `is_upgrade_offer`; no new endpoint/store exists;
-- composable Edition Overview gets the equivalent bounded control; ordinary Editions outside that composable occupant do not;
-- Publish/settle continues to use the already-shipped CZTU/CZTEU reserve→persist→bind path;
-- existing CZT/CZTE remain untouched and visible alongside Upgrade identity;
-- clearing the declaration after mint does not erase/reassign the permanent Upgrade ID; focused backend tests cover both CZTU and CZTEU preservation.
+Tier Catalogue occupant:
+- `CZT...` normal Tier identity
+- `CZTC...` Tier Catalogue identity
 
-One reviewed implementation detail is acceptable: `useTierModuleEditing.saveSection()` includes `is_upgrade_offer` in the existing overview payload for all occupants, but the normal Tier endpoint does not consume that key; authoring visibility is still gated to the composable occupant by the existing `isComposableOccupant()` boundary. No second eligibility rule was introduced.
+Tier Catalogue Edition:
+- `CZTE...` normal Edition identity
+- `CZTEC...` Tier Catalogue Edition identity
 
-No Platform Identifier policy/native-reference/migration-engine, quote, Request, cart, PDF/email/order, pricing, or resolver file changed.
+Reuse the already-built U identity path by converting it. Do not build a parallel identity system.
 
-## Next action — Claude
-Push **exactly `335df721f543808d800192cee0964c8c9cfbad79`** to `main` without additional source changes. Then record:
-1. resulting exact `main` SHA;
-2. deploy workflow run/result;
-3. deletion of `review/composable-upgrade-authoring-control` after landing;
-4. status **AWAITING LIVE VALIDATION**.
+Retire from the model:
+- `CZTU` / `CZTEU`
+- Upgrade-specific Platform Identifier type names
+- `is_upgrade_offer` and its proposed Admin declaration control/gating
 
-## Final live gate
-After deployment, on the same Build Your Own record Nath showed:
-1. Edit Tier Overview and confirm **Declare as Upgrade offer** is present.
-2. Check it, Save, then Publish. This mutation is explicitly authorized by Nath for this live validation step.
-3. Reopen Overview: existing `CZT...` must remain and a new `CZTU...` must appear beside it.
-4. If testing a composable Edition, its Overview must similarly allow declaration and show `CZTE...` + `CZTEU...` after activation.
-5. Ordinary Tier/Add-on/Edition editors must not expose the Upgrade declaration.
+No second Custom/C identity family is to be introduced. Production code search currently shows no `CZTC`/`CZTEC` implementation, so this replacement becomes the single C=Catalogue path.
 
-Do not advance to Phase 2 until this gate passes and the phase is closed.
+## Exact implementation instruction
+On a clean review branch from current production:
+1. Rename/reclassify the existing U Platform Identifier families to **Tier Catalogue** / **Tier Catalogue Edition**, prefixes `CZTC` / `CZTEC`.
+2. Rename U-specific storage/projection/frontend fields to Catalogue terminology consistently. Do not keep U and C as two coexisting secondary identities.
+3. Remove `is_upgrade_offer` from schema, drafts, API handling, frontend types, tests, and authoring-control work. Catalogue identity is inherent to the existing composable/Tier Catalogue record.
+4. Every settled Tier Catalogue occupant automatically reserves/persists/binds CZTC alongside CZT through the same lifecycle choreography already implemented for U.
+5. Every activated Tier Catalogue Edition automatically reserves/persists/binds CZTEC alongside CZTE through the same Edition choreography.
+6. Rename/extend the existing one-time Platform-ID migration scope so existing Tier Catalogue occupants/Editions can receive missing CZTC/CZTEC through the same Admin assignment action. No second migration UI/path.
+7. Overview shows **Tier Platform ID + Catalogue Platform ID**; Edition Overview shows **Edition Platform ID + Catalogue Platform ID** when assigned.
+8. Update affected Platform-Identifier architecture/current Code Map terminology from Upgrade identity to Tier Catalogue identity.
+9. **Customer-facing Upgrade Your Build is frozen.** Do not change customer Upgrade/Build Your Own UX, composable selection, Edition behaviour, pricing, Commercial Legs, quote/cart, Request, PDF/email/order, billing, CRM, or resolver behaviour.
+10. No customer/CRM purchased-build identity in this phase; that is future CRM work.
+
+## Safeguard
+The live validation did not produce a U identifier. Do not create an old-U compatibility family. If the implementation audit finds actual persisted/bound CZTU/CZTEU data or a migration case that would make this replacement destructive, stop and report before changing permanent identifiers.
+
+Return one clean replacement review commit from `main@48cede2f...`, report exact files/tests/SHA, and set **AWAITING CHATGPT REVIEW**. Do not push `main` before review.
