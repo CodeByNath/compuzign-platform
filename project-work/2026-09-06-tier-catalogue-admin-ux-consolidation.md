@@ -1,51 +1,38 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — Phase 3 clean single-commit candidate ready**
+- **SOURCE PUSH APPROVED — Phase 3 exact candidate only**
+- Auditor verdict: **Proceed with safeguards**.
 - Phase 2 remains accepted on deployed `main@3cc88e83f93e57fec7b61419129cd93a8432809b`.
-- Phase 3 review head `75105e92` is **not approved for main**.
+- Approved Phase 3 candidate: `review/tier-catalogue-declaration-navigation@75105e92dcdd751c27e48f46491c0cac1f486dd7`.
 
-## Claude — clean-candidate preparation report
+## Independent verification
+The clean-candidate gate passes:
+- `75105e92...` is exactly **1 commit ahead / 0 behind** current production `main@3cc88e83...`;
+- its direct parent is exact production `3cc88e83...`;
+- rejected/intermediate review commits are no longer in the candidate ancestry;
+- GitHub reports tree SHA `09fbed0079ab59662d722104df5f9ecd9f2acbd7` for `75105e92...`, exactly matching the previously reviewed final `0bfc61a7...` tree SHA, so the clean collapse introduced no file/content drift;
+- the reviewed implementation matches the approved UX: `Default | Edition ...` scope tabs inside Customer Selection Rules; Featured and policy-summary projections follow selected scope; one Edit action targets that exact selected declaration using existing Tier/Edition editor/session; standalone Customer Selection Rules drawer is retired; no third Editions card action; no new backend identity/controller/endpoint; ordinary Tier/Add-on and customer-facing source remain outside scope.
 
-Per the branch-hygiene-only request: the two-commit history
-(`4375642e...` rejected candidate, `0bfc61a7...` accepted correction) has
-been collapsed into a single clean commit built directly on current
-production `main`.
+Claude reports this exact clean commit reconfirmed with `tsc`, build, docs check, and focused declaration-scope / inclusion-policy / Admin UX / Tier drawer contracts. Previously documented unrelated baseline failures remain outside this work item.
 
-**Branch:** `review/tier-catalogue-declaration-navigation` (reused, force-pushed).
-**Commit:** `75105e92` — single commit, parent is
-`main@3cc88e83f93e57fec7b61419129cd93a8432809b` directly (verified via
-`git log --oneline main..HEAD` showing exactly one commit, and `git log -1
---format='%P' HEAD` equal to `3cc88e83...`).
-**Tree verified identical to the reviewed final state:** `git rev-parse
-75105e92^{tree}` equals `git rev-parse 0bfc61a7^{tree}` —
-`09fbed0079ab59662d722104df5f9ecd9f2acbd7` — byte-for-byte the same tree
-you already independently reviewed and confirmed matches the approved
-interaction. Produced via `git reset --soft main` on the two-commit branch
-followed by one fresh commit, never by re-editing any file, so no
-behavioral drift is possible between what was reviewed and what this
-commit contains.
+## Next action — Claude
+Push **exactly `75105e92dcdd751c27e48f46491c0cac1f486dd7`** to `main` with no additional source changes. Then:
+1. record resulting exact `main` SHA;
+2. record GitHub Actions deployment run/result for that exact head SHA;
+3. do not delete the review branch until deployment and live validation pass;
+4. after successful deployment set **AWAITING LIVE VALIDATION** in this same file;
+5. do not start any further Admin/Edition phase and do not touch the separate Always-included initial-cart hydration defect.
 
-Rebuilt/reconfirmed on this exact commit: `npx tsc --noEmit` (clean),
-`npm run build` (byte-identical output — `git status` clean afterward,
-confirming the committed `dist/js/admin-station.js` reproduces
-deterministically), `npm run docs:check` (117 Markdown files, 46 Code
-Maps), and the four focused contracts
-(`tier-catalogue-declaration-scope`, `tier-inclusions-customer-policy-merge`,
-`composable-tier-admin-ux`, `tier-system-drawer`) run directly — all pass.
-Pre-existing/unrelated failures already documented in the prior round
-(`contract:admin-station-css`, `contract:package-builder-flow`,
-`contract:platform-identity-schema`, and the four `regression:tier-*`
-scripts) are unchanged and were not re-verified again this round since
-the tree evidence above already proves nothing in the reviewed
-implementation changed.
+## Live Admin gate after deploy
+Validate read-only:
+- Customer Selection Rules panel shows `Default` plus every existing Build Your Own Edition tab;
+- Default is selected initially;
+- switching to an Edition changes Featured inclusions and every policy-summary metric to that Edition's scope;
+- inherited Edition policy renders Default-equivalent state; Edition-owned replacement renders its own state;
+- `Edit Customer Options` follows selected scope: Default opens Default Inclusions/customer-policy controls, Edition opens that exact Edition already selected with its Inclusions editor;
+- save/reopen on an Edition remains isolated to that Edition and does not overwrite Default/another Edition;
+- standalone Customer Selection Rules drawer/action is gone;
+- ordinary Tier/Add-on UI remains unchanged.
 
-## Unresolved / flagged
-
-- Ready for **SOURCE PUSH APPROVED** at your discretion — once granted, I
-  will hand the user the exact `git push origin 75105e92...:main`
-  fast-forward command (I cannot push `main` myself).
-- Live Admin browser validation of the scope-tab UI and the panel's
-  scope-following Edit action is still required after deployment.
-- Do not push `main` before approval.
-- The separate Always-included initial-cart hydration defect was not touched.
+Do not close Phase 3 until this live gate passes.
