@@ -400,4 +400,31 @@ check(
   'the existing two-column grid (.cz-tier-workspace__composable-shell) is untouched — this correction only adds layout-modifier rules, it never edits the grid itself',
 );
 
+// ── 15 (2026-09-07 correction): Edition mutations refresh the Workspace's
+//    own separate pkg instance too, not just this drawer's local one, so
+//    the Customer Selection Rules panel's scope tabs stop showing stale
+//    (Default-looking) data for an Edition whose own values were genuinely
+//    just saved. Every occupant-level mutation in usePackageStation.ts
+//    already threads onRefresh through to bridge.onMutationComplete (via
+//    useTierDrawerController.ts's own `usePackageStation(..., bridge.onMutationComplete)`
+//    call) — Edition mutations (useTierEditions.ts, a separate hook) and
+//    Edition creation (handleAddEdition) did not, since pkg.refetch() alone
+//    only reloads this drawer's own local state; bridge.onMutationComplete
+//    is the one thing wired to refresh the ORIGINATING wall (a drawer
+//    opened from the Workspace mounts its own separate usePackageStation
+//    instance from the Workspace's own — see AdminStationBody.tsx's own
+//    doc comment on this contract) ───────────────────────────────────────
+
+check(
+  drawerContentSource.includes('c.pkg.refetch();')
+    && drawerContentSource.includes('bridge.onMutationComplete?.();')
+    && drawerContentSource.includes('notifyEditionMutated,'),
+  'TierDrawerContent.tsx no longer passes c.pkg.refetch directly as useTierEditions\' onMutated callback — notifyEditionMutated calls both the drawer\'s own local refetch AND bridge.onMutationComplete, so every Edition mutation (create/save/settle/revert/publish/disable/enable/archive/restore/bin travel — all routed through useTierEditions\' one shared `run()` helper) now refreshes the originating wall too',
+);
+check(
+  controllerSource.includes('pkg.refetch();')
+    && controllerSource.includes('bridge.onMutationComplete?.();'),
+  'handleAddEdition (Edition creation) also notifies the bridge after refetching its own local pkg — the identical wiring gap as Edition mutations, fixed the same way, so a newly created Edition appears in the Workspace\'s Customer Selection Rules panel without requiring an unrelated refetch first',
+);
+
 console.log('Tier catalogue declaration scope contract: PASS');

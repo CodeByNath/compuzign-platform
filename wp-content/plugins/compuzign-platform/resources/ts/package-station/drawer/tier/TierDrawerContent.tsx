@@ -10,7 +10,7 @@
 // through useTierDrawerController, all host concerns through the
 // EntityDrawerHostBridge.
 
-import { useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useState } from 'preact/hooks';
 import { AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
 import { ReadBlock } from '@/drawer-kit/ReadBlock';
 import { DrawerTabs } from '@/drawer-kit/DrawerTabs';
@@ -60,6 +60,30 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     ? (rootEl?.closest<HTMLElement>('.cz-station-drawer__body') ?? null)
     : null;
 
+  // 2026-09-07 correction — an Edition mutation refetches only the drawer's
+  // OWN local pkg (c.pkg.refetch below), never bridge.onMutationComplete —
+  // unlike every occupant-level mutation in usePackageStation.ts, which
+  // already threads onRefresh through to bridge.onMutationComplete (see
+  // useTierDrawerController.ts's own `usePackageStation(..., bridge.onMutationComplete)`
+  // call). The bridge is the ONLY thing wired to refresh the ORIGINATING
+  // wall (AdminStationDrawerContext's notifySaved() -> that wall's own
+  // refetch — see AdminStationBody.tsx's own doc comment on this contract).
+  // A drawer opened from the Package Tier Workspace mounts its own SEPARATE
+  // usePackageStation instance from the Workspace's own — so an Edition's
+  // customer_policy/etc. saved here updated the drawer's own view
+  // correctly, but the Workspace's Customer Selection Rules panel (a
+  // DIFFERENT pkg instance, read once via buildComposableDeclarationScopes())
+  // kept showing stale pre-edit tier_editions[] data until something
+  // unrelated forced that wall's own refetch — live-testing symptom: an
+  // Edition's own configured values not appearing when its own scope tab is
+  // selected there. notifyEditionMutated calls both, exactly matching what
+  // every occupant-level mutation already does.
+  const notifyEditionMutated = useCallback(() => {
+    c.pkg.refetch();
+    bridge.onMutationComplete?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [c.pkg.refetch, bridge.onMutationComplete]);
+
   // Single-footer lifecycle command model, Phase 2: useTierEditions is
   // called ONCE, here, rather than inside TierEditionDeclarationSwitcher —
   // so the pinned TierDrawerFooter (Phase 4) can drive the selected
@@ -75,7 +99,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     c.editingTierId,
     c.tierDetail?.detail.tier_editions ?? [],
     c.tierDetail?.detail.tier_edition_bin ?? [],
-    c.pkg.refetch,
+    notifyEditionMutated,
   );
 
   // Single-footer lifecycle command model, Phase 4: derives the selected

@@ -252,7 +252,18 @@ export function useTierDrawerController({
       } else {
         await createTierEdition(serviceId, tierInstanceId, editingTierId, { title: `Edition ${existingCount + 2}` });
       }
+      // pkg.refetch() alone only reloads THIS drawer's own local pkg — it
+      // never calls bridge.onMutationComplete (refetch/load never does; only
+      // usePackageStation's own mutation methods call onRefresh inline on
+      // success). Without also notifying the bridge, a drawer opened from
+      // the Package Tier Workspace leaves that wall's own separate pkg
+      // instance stale, so a newly created Edition would not appear in the
+      // Customer Selection Rules panel's scope tabs until something
+      // unrelated forced that wall's own refetch — same root cause as
+      // TierDrawerContent.tsx's notifyEditionMutated (2026-09-07
+      // correction), fixed the same way here.
       pkg.refetch();
+      bridge.onMutationComplete?.();
     } finally {
       setAddingEdition(false);
     }
