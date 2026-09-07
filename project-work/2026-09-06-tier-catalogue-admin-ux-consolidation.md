@@ -1,34 +1,29 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — extend final cleanup with declaration Group label**
+- **READY FOR CLAUDE — final Customer Selection Rules UI cleanup only**
 - Production `main`: `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (deploy #969 success).
-- Existing UI-cleanup candidate `bd0a48d8` is one clean commit from current main and its three requested presentation changes are accepted in principle, but **do not push it yet** because Nath has added one final requirement to this same phase.
+- Existing UI-cleanup candidate `bd0a48d8` is one clean commit from current main and remains the basis for this final round.
 
-## Already-required UI cleanup — preserve
-- Remove Customer Selection Rules Edit completely, Default included.
-- Keep one normal shared tab underline only.
-- No separator above first metric row (`Always included`); later metric row separators remain.
-- Existing declaration tab filtering stays correct.
+## Final required cleanup
+- Remove Customer Selection Rules **Edit** completely, Default included.
+- Keep only the normal shared tab underline/indicator; remove the extra line creating the double underline.
+- Remove the separator above the first metric row (`Always included`); retain separators between later metric rows.
+- Preserve the now-correct declaration tab filtering/data projection.
 
-## New requirement — Group label
-Nath wants a generic admin-controlled grouping/category label for the Default declaration and each Edition, e.g. `Standard`, `Subscriptions`, `Fixed Terms`, without changing their actual identity or Edition title.
+## Superseded idea — do NOT implement
+The proposed persisted declaration `group_label` field is **cancelled for this phase**. Do not add any new Group label/category metadata, storage, sanitization, editor field, projection, or frontend behavior.
 
-Implement this as an **additive declaration metadata field** named `group_label` unless current source already has an equivalent authoritative field (prove before substituting).
+Current naming stays:
+- Default scope label remains `Default` for now.
+- Edition scope labels continue to use the existing Edition `title` (e.g. `Subscriptions`).
 
-Required behavior:
-- Default/CZT declaration can store/edit its own optional **Group label** through its existing Overview authority.
-- Each CZTE Edition can store/edit its own optional **Group label** through its existing Edition Overview session.
-- Customer Selection Rules scope tabs display `group_label` when non-empty.
-- Safe backwards-compatible fallback: Default tab = `Default`; Edition tab = existing Edition `title` when no group label exists.
-- Edition `title` remains independent and unchanged; Group label is taxonomy/presentation metadata, not identity, pricing, lifecycle, billing, or commercial authority.
-- Persist through the existing Tier/Edition draft-save-settle paths only. No new endpoint, controller, drawer, lifecycle, or parallel storage.
-- Store it authoritatively so it can be useful to customer/frontend grouping later, but **do not change current customer-facing UI or quote/cart behavior in this phase**.
+A separate grouping/taxonomy field can be reconsidered later only when there is a concrete need for category != Edition title or customer-facing grouping of multiple declarations.
 
 ## Must not change
-CZTE/CZTEC/CZT/CZTC identity, Edition ownership, Rate Sheets, Commercial Legs, pricing/resolver, lifecycle semantics, customer policy, quote/cart, or the removed Edition deep-link route. Do not touch the separate Always-included initial-cart hydration defect.
+No routing/edit architecture changes, no Edition deep-link restoration, no CZT/CZTE/CZTC/CZTEC identity changes, no persistence schema changes, no pricing/resolver, lifecycle, customer-policy, quote/cart, or customer-facing changes. Do not touch the separate Always-included initial-cart hydration defect or unrelated lifecycle-regression-script failures.
 
 ## Claude — next action
-Audit the existing Default Tier Overview and Edition Overview persistence/sanitization/draft-settle chain first, then extend the current cleanup with the smallest additive `group_label` path. Update affected current-state Code Maps/contracts.
+If `bd0a48d8` still exactly represents these three UI cleanup requirements with no Group-label work, use that clean candidate; otherwise prepare one clean replacement commit from current `main` containing only the three UI changes and necessary focused contract/Code Map/generated-asset sync.
 
-Return **one clean final review commit from current `main`** containing: the already-reviewed UI cleanup + Group label implementation + rebuilt Admin assets. Run focused `tsc`, relevant Tier/Edition/declaration contracts, `docs:check`, and build. Record exact branch/SHA, files and validation here as **AWAITING CHATGPT REVIEW**. Do not push to `main` until reviewed.
+Run focused `tsc`, relevant declaration/UI contracts, `docs:check`, and build. Record exact branch/SHA and validation here as **AWAITING CHATGPT REVIEW**. Do not push to `main` until reviewed.
