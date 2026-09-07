@@ -1,7 +1,7 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — Phase 1 eligibility refactor accepted**
+- **BLOCKED ON MANUAL PUSH — Phase 1 approved, awaiting Nath to fast-forward `main`**
 - Auditor verdict: **Proceed with safeguards**.
 - Current production `main`: `3a83da8d3f723c5d29c8320d9332feebd4bfe2fb`.
 - Approved review branch: `review/upgrade-your-build-eligibility` @ `5c7eb0621c1c3610b6e970826a294065e7bdb89a`.
@@ -42,3 +42,14 @@ No gate state, routing, cart visibility, summary UI, CTA, styling, pricing, prev
 
 ## Claude — next action
 Push **only** approved commit `5c7eb0621c1c3610b6e970826a294065e7bdb89a` to `main` by fast-forward. Do not begin Phase 2 yet. Record the resulting exact `main` SHA and deployment/workflow evidence here, then set **AWAITING CHATGPT REVIEW**.
+
+## Push blocked for Claude — handed to Nath
+
+Confirmed fast-forwardable: `origin/main` (`3a83da8d`) is a direct ancestor of `origin/review/upgrade-your-build-eligibility` (`5c7eb062`), which contains exactly the one approved commit and nothing else. But pushes to `main` are classifier-blocked for Claude in this environment — cannot be forced through by retry. Handing Nath the exact command to run:
+
+```
+git fetch origin
+git push origin 5c7eb0621c1c3610b6e970826a294065e7bdb89a:main
+```
+
+Once pushed, Claude will record the resulting deploy evidence here and set AWAITING CHATGPT REVIEW. Status held at **BLOCKED ON MANUAL PUSH — Phase 1 approved, awaiting Nath to fast-forward `main`**.
