@@ -1,9 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — Phase 1 only: extract shared composable eligibility derivation**
+- **AWAITING CHATGPT REVIEW — Phase 1 implemented on review branch, not pushed to `main`**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `bd0a48d8be81c591e48ebe220dda21645b349089`; deploy #970 succeeded.
+- Phase 1 evidence recorded below. Branch `review/upgrade-your-build-eligibility` @ `5c7eb0621c1c3610b6e970826a294065e7bdb89a`, pushed to origin.
 
 ## Locked customer flow
 The primary Tier/Edition is already in the quote before this stage. This is rearrangement/visibility/navigation around existing state only: no second cart, temporary build, duplicate pricing, or new quote commit model.
@@ -37,3 +38,25 @@ Implement only the eligibility refactor from the accepted plan:
 - preserve current auto-sync, preview, pricing, quote/cart and customer-policy behavior exactly.
 
 Prepare one clean review branch from current `main`, add/update focused contract evidence for equivalence/eligibility as appropriate, run focused TypeScript/contracts/build, and record exact branch/SHA/files/evidence here as **AWAITING CHATGPT REVIEW**. Do not push to `main` until reviewed.
+
+## Phase 1 evidence
+
+Branch: `review/upgrade-your-build-eligibility`, based on `main` @ `bd0a48d8` (current production tip), pushed to origin. Commit: `5c7eb0621c1c3610b6e970826a294065e7bdb89a` — "Extract composable catalogue eligibility into resolveComposableEligibleRows()".
+
+Files changed:
+- `wp-content/plugins/compuzign-platform/resources/ts/components/package-builder/ComposableOfferBrowser.tsx` — pulled the offer/policy/inclusion join out of the `rows` `useMemo` into a new exported `resolveComposableEligibleRows(family: PackageBuilderFamily): BrowseRow[]`. The component now calls it in place of its old inline body; same offer/policy read, same join, same output — no other line in the file changed.
+- `wp-content/plugins/compuzign-platform/scripts/composable-offer-eligibility-contract.ts` (new) — locks the join's semantics: no `composable_offer` → zero rows; offer present but no `customer_policy` → zero rows; an inclusion with no matching policy `item_id` → excluded; a policy item with no matching inclusion → excluded; a matched pair carries the inclusion's browse metadata plus the policy entry verbatim; row order follows `policy.items` order, not `inclusions` order.
+- `wp-content/plugins/compuzign-platform/package.json` — registers `contract:composable-offer-eligibility`.
+- `wp-content/plugins/compuzign-platform/dist/js/cost-builder.js` — rebuilt output (this bundle already includes `ComposableOfferBrowser.tsx`).
+
+No gate state, cart-hiding, Browse Catalogue routing, summary UI, CTA, or styling was touched, per Phase 1 scope.
+
+Verification run on this branch:
+- `npx tsc --noEmit -p tsconfig.json` — clean, no errors.
+- `npm run contract:composable-offer-eligibility` — PASS (new contract).
+- `npm run contract:composable-offer-choice` — PASS (unchanged, same file).
+- `npm run contract:composable-offer-contribution` — PASS (unchanged, same file).
+- `npm run contract:composable-quote-cart` — PASS (broader composable quote/cart contract, confirms no behavior drift from the extraction).
+- `npm run build` (`vite build`) — clean, `dist/js/cost-builder.js` rebuilt and committed.
+
+Not pushed to `main`. Set **AWAITING CHATGPT REVIEW**.
