@@ -1,39 +1,25 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION — deep-link removal pushed and deployed**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main` now at `77d5ef76e25622ac8c7756f49b4f0073395fdd2d` (pushed by Nath directly — push-to-main runs through Nath, not Claude).
-- Deploy: GitHub Actions run #968, `https://github.com/CodeByNath/compuzign-platform/actions/runs/34115224865` — **Success**, for exactly that head SHA.
-- Accepted candidate branch: `review/tier-catalogue-edition-edit-deeplink-removal` @ `77d5ef76e25622ac8c7756f49b4f0073395fdd2d` (now == `main`) — keep until the live gate below passes.
+- **AWAITING CLAUDE RESPONSE — live validation found Edition tab filtering defect**
+- Production `main`: `77d5ef76e25622ac8c7756f49b4f0073395fdd2d`.
+- Deploy: GitHub Actions run #968 — **Success** for exactly that head SHA.
+- Keep the accepted review branch until this live defect is corrected and revalidated.
 
-## Independent audit
-The final clean candidate matches Nath's superseding direction and the already-audited cleanup behavior:
+## Accepted architecture remains unchanged
 - Customer Selection Rules keeps `Default | Edition ...` scope tabs for viewing declaration-specific data.
-- Its Edit action now exists only for **Default** and still routes to the canonical Default Tier Inclusions editor.
-- No Customer Selection Rules Edition scope can seed/select/auto-open an Edition editor.
-- `initialDeclarationId`, `initialEditionId`, `initialEditionEditTab`, consume callbacks, switcher auto-open props/effect, and the seed-protection guard are removed from the special-entry chain.
-- Normal Edition authoring remains entirely under Build Your Own -> Options -> Edition -> existing module Edit, using the existing drawer/editor/save/cancel/lifecycle/publish ownership.
-- No replacement editor, drawer, footer, lifecycle, persistence route or backend authority was introduced.
-- No pricing, resolver, identity, quote/cart/customer behavior is changed.
-- Relevant Code Map is synchronized to the retired deep-link behavior.
+- Edit exists only for **Default** and routes to canonical Default Tier Inclusions.
+- Edition authoring remains under Build Your Own -> Options -> Edition -> existing module Edit.
+- No special Edition deep-link/auto-open path is to be restored.
+- No pricing, resolver, identity, quote/cart/customer behavior changes.
 
-Claude-reported validation on the final squashed candidate: `tsc` clean; focused declaration/Edition/composable/customer-policy contracts PASS; `docs:check` PASS; production build succeeded and Admin bundle rebuilt. Independent source/history/diff review finds no scope expansion.
+## Claude — fix this only
+Live validation shows the **Edition tabs are not filtering the right-side Customer Selection Rules column**. Selecting an Edition still leaves that column showing Default-scope values.
 
-## Claude — next action
-1. Push **exactly `77d5ef76e25622ac8c7756f49b4f0073395fdd2d`** to `main` with no additional source changes.
-2. Record the resulting exact `main` SHA and GitHub Actions deploy run/result in this same file.
-3. After successful deployment, set **AWAITING LIVE VALIDATION**.
-4. Keep the accepted review branch until Nath's live gate passes. Do not close yet.
-5. Do not touch the separate Always-included initial-cart hydration defect or begin another phase.
+Fix the existing `Default | Edition ...` tabs so the right-side Customer Selection Rules metrics/data are filtered by the currently selected scope. When `Edition 2` is selected, the right column must show Edition 2's values; when `Default` is selected, it must show Default's values.
 
-## Live gate — Nath performs
-After deploy, validate:
-- Default scope still shows Edit and opens Default Tier Inclusions correctly;
-- Edition scope tabs still switch the displayed Edition data;
-- Edition scopes show **no Customer Selection Rules Edit action**;
-- normal Build Your Own -> Options -> Edition -> module Edit still works with its established Save/Cancel/lifecycle behavior;
-- the removed special Edition deep-link/auto-open path cannot be reached from Customer Selection Rules;
-- ordinary Tier/Add-on behavior remains unchanged.
+Do not redesign the UI or change routing/edit behavior. This is only a tab-to-right-column filtering/state-binding correction.
 
-After Nath confirms the live gate, clean the accepted/superseded review branches per branch-hygiene rules, then close this work item.
+Push the correction to a clean review branch and report the exact SHA plus focused validation. Do not push to `main` until ChatGPT audits it.
+
+Do not touch the separate Always-included initial-cart hydration defect or begin another phase.
