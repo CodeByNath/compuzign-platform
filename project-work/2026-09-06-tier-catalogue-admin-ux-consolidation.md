@@ -1,48 +1,49 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — Phase 1 pushed to `main`, ready for Phase 2 scoping**
+- **READY FOR CLAUDE — Phase 2 only: Upgrade gate + visibility control**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `5c7eb0621c1c3610b6e970826a294065e7bdb89a` — Nath fast-forwarded `main` from `3a83da8d` to the approved Phase 1 commit; confirmed via `git fetch origin main`.
-- Phase 1 (eligibility extraction) is now live on `main`. Phases 2-5 (gate state, catalogue routing, right-side summary, mobile/polish) remain unstarted.
+- Production `main`: `5c7eb0621c1c3610b6e970826a294065e7bdb89a`.
+- Deploy independently confirmed: GitHub Actions **#972** (`Deploy to Hostinger`, run `34138809141`) completed **success** for exact `head_sha` `5c7eb0621c1c3610b6e970826a294065e7bdb89a`.
+- Phase 1 eligibility extraction is accepted/deployed. No live customer behavior change was expected from Phase 1.
 
 ## Locked customer flow
 The primary Tier/Edition is already in the quote before this stage. This is rearrangement/visibility/navigation around existing state only: no second cart, temporary build, duplicate pricing, or new quote commit model.
 
 1. Focused Tier -> existing Add to Quote.
-2. When a real Upgrade Your Build catalogue exists, hide Cart + Recommended Add-ons and show **Upgrade your build** gate.
-3. **Browse Catalogue** -> existing `ComposableOfferBrowser` in the focused shell.
+2. When `resolveComposableEligibleRows(family).length > 0`, hide Cart + Recommended Add-ons and show **Upgrade your build** gate.
+3. **Browse Catalogue** -> later Phase 3 opens existing `ComposableOfferBrowser` in the focused shell.
 4. **Maybe next time** -> end gate -> existing Recommended Add-ons if present -> Cart; otherwise Cart directly.
-5. Catalogue left remains existing filters/featured/default-selection/quantity/max-6 paging behavior.
-6. Catalogue right shows already-quoted plan + resolved upgrade `inclusionItems[]` as `label × quantity` + the same truthful commercial totals used by cart.
-7. Existing composable auto-sync remains active while browsing and must NOT close the gate.
-8. New right-side **Add to Quote** is stage-control only: no quote mutation; it ends the gate and resumes Add-ons/Cart continuation.
+5. Existing composable auto-sync must later remain active while browsing and must NOT close the gate.
+6. Future right summary uses committed `inclusionItems[]` (`label`, resolved `quantity`) and existing cart/payment calculation authorities.
+7. Future right-side **Add to Quote** is stage-control only; no quote mutation.
 
 ## Accepted phase sequence
-1. Extract/share existing composable eligibility derivation with no behavior change. **Accepted here.**
-2. Add eligibility-gated `pending|browsing|null` state; hide Cart/MobileQuoteBar/Recommendations while gated; `Maybe next time` resumes existing flow.
-3. Wire Browse Catalogue to existing `ComposableOfferBrowser`; keep auto-sync/catalogue behavior unchanged.
-4. Add right-side build summary + explicit stage-exit **Add to Quote**.
+1. Shared eligibility extraction. **Accepted/deployed.**
+2. Gate state + Cart/MobileQuoteBar/Recommendations suppression + `Maybe next time`. **Implement now.**
+3. Browse Catalogue routing to existing browser.
+4. Right-side build summary + stage-exit CTA.
 5. Mobile stacking/polish + matrix QA.
 
-## Phase 1 independent audit
-Compare `3a83da8d..5c7eb062` shows only:
-- `ComposableOfferBrowser.tsx`: exact offer/policy/inclusion join extracted to exported pure `resolveComposableEligibleRows(family)`; component now calls it from the existing memo seam.
-- new `scripts/composable-offer-eligibility-contract.ts` locking missing offer/policy, unmatched pairs, matched metadata/policy and policy-order semantics.
-- `package.json`: one contract script registration.
-- rebuilt `dist/js/cost-builder.js`.
+## Phase 2 — exact scope
+Implement only the gate shell/state and visibility control.
 
-No gate state, routing, cart visibility, summary UI, CTA, styling, pricing, preview, auto-sync, persistence, or customer-policy semantics changed. Claude-reported `tsc`, new eligibility contract, existing choice/contribution/quote-cart contracts and build all pass.
+### Must preserve
+- Existing primary Add-to-Quote mutation and `stagedTierId` recommendation behavior underneath the gate.
+- Existing add-on logic and cart contents/state; hide presentation only.
+- Phase-1 `resolveComposableEligibleRows(family)` as the sole catalogue eligibility truth.
+- Family-switch/reset behavior: gate cannot leak across Families or survive loss/replacement of the selected primary.
 
-## Safeguards retained for later phases
-- Future summary monetary facts must reuse existing exported cart/payment calculation authorities; no copied arithmetic.
-- Future `name × qty` display rows come from committed composable `inclusionItems[]` (`label`, resolved `quantity`), not `composableSelection` intent/history.
-- Do not end browsing from `onComposableCommit`.
+### Required behavior
+- In `FamilyTierAdapter`, add the smallest local gate state (`'pending' | 'browsing' | null` is acceptable, but Phase 2 only enters `pending`; do not wire browsing yet).
+- `commitSelection()` must set `pending` only when the shared eligibility result is non-empty. If no catalogue, preserve today's post-selection flow immediately.
+- While gate active, suppress the existing Recommendations/staged view and tell `PackageBuilderApp` to hide both `QuoteSummary` and `MobileQuoteBar` without altering `items`.
+- Render the real gate panel in the existing recommendation-stage visual area: copy `Your plan is already in the quote` / `Upgrade your build`; actions `Browse Catalogue` and `Maybe next time`.
+- **Maybe next time** clears the gate and reveals exactly the existing continuation already represented by `stagedTierId`: Recommendations if add-ons exist; otherwise Cart.
+- **Browse Catalogue in Phase 2 must not fake Phase 3.** Render it visibly but keep it non-destructive and do not mount/re-route the catalogue yet. Prefer a disabled/non-progressing control with an explicit phase-safe state over inventing a temporary route. If the current UI cannot support a non-broken staged CTA cleanly, stop and report rather than substituting behavior.
 
-## Phase 1 pushed to `main`
+### Must not expand
+No `ComposableOfferBrowser` routing/mount-condition change, no right-side summary, no Add-to-Quote stage-exit CTA, no pricing/preview/auto-sync changes, no new cart calculation, no add-on redesign, no Admin changes.
 
-Pushes to `main` are classifier-blocked for Claude in this environment, so Nath ran the fast-forward manually. Confirmed via `git fetch origin main`: `origin/main` now sits at `5c7eb0621c1c3610b6e970826a294065e7bdb89a`, exactly the approved commit, fast-forwarded cleanly from `3a83da8d`. Local `main` updated to match.
-
-No deploy workflow evidence beyond the SHA check is available from this side — same "no unevidenced claims about live" posture as everywhere else in this file; if a deploy pipeline runs on `main` pushes, Nath/ChatGPT should confirm its result separately.
-
-Phase 1 (eligibility extraction) is now live on `main`. Ready for Phase 2 scoping (`pending|browsing|null` gate state; hide Cart/MobileQuoteBar/Recommendations while gated; `Maybe next time` resumes existing flow) whenever ChatGPT/Nath want to proceed.
+## Claude — next action
+Prepare a clean Phase-2 review branch from current `main`, implement only the scope above, add focused contracts for gate eligibility/visibility/reset/Maybe-next-time behavior, run `tsc`, relevant contracts and build, and record exact branch/SHA/files/evidence here as **AWAITING CHATGPT REVIEW**. Do not push to `main`.
