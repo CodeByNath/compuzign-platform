@@ -120,14 +120,14 @@ export function TierDrawerHost({
       // Empty fixed slots open by slot key. No occ_ identity is minted until
       // the authoritative Tier save creates a real occupant.
       initialTierId={slotTarget?.slotId}
-      // The Customer Selection Rules panel's own Edit action (Phase 3
-      // correction) carries declarationId: 'default' — that always means the
-      // Default Tier Inclusions editor specifically, overriding
-      // fallbackTierSection above. An Edition declarationId is handled
-      // entirely inside useTierDrawerController (selects that Edition and
-      // opens its own Inclusions tab), so it never touches this section.
+      // The Customer Selection Rules panel's own Edit action carries
+      // declarationId: 'default' — that always means the Default Tier
+      // Inclusions editor specifically, overriding fallbackTierSection
+      // above. No other declarationId is ever produced by any caller
+      // (2026-09-07 reversion — an Edition deep-link used to reach this far
+      // too, corrupting the drawer's own chrome state on live validation;
+      // an Edition is reached only through the drawer's own Options tab now).
       initialTierSection={target.declarationId === 'default' ? 'tier-inclusions' : fallbackTierSection}
-      initialDeclarationId={target.declarationId}
       bridge={bridge}
     />
   );

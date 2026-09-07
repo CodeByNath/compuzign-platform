@@ -1,11 +1,10 @@
 # Composable Tier Occupant Admin UI
 
-**Phase 1B — full reuse via sentinel routing; not yet browser-verified on
-this route.** See [Composable Tier Occupant](tier-composable-occupant.md)
-for the backend foundation this builds on. Verified by `tsc`/`build`/a
-dedicated TS contract (`composable-occupant-address-contract.ts`); no
-interactive browser check has been performed on this Service-scoped route
-— see Not interactively verified below.
+**Phase 1B — full reuse via sentinel routing; not yet browser-verified.**
+See [Composable Tier Occupant](tier-composable-occupant.md) for the backend
+foundation this builds on. Verified by `tsc`/`build`/a dedicated TS contract
+(`composable-occupant-address-contract.ts`); no interactive browser check
+yet — see Not interactively verified below.
 
 This document covers only the Service-scoped Connections route
 (`TierDrawerContent.tsx`). The separate Family-first
@@ -48,7 +47,7 @@ Every existing Tier drawer/editor/lifecycle primitive is reused as-is —
 editors (`TierOverviewEditor`, `TierPricingRulesEditor`,
 `PoolInclusionsEditor`, `PoolFaqsEditor`), and `buildTierDetail`/
 `buildTierFooterModel`/`buildRateSheetCatalogue()` in `tierDetailModel.ts`
-— none forked, none touched beyond threading the sentinel through.
+— none forked, none touched beyond threading the sentinel.
 
 ## Dedicated (not reused)
 
@@ -63,8 +62,8 @@ editors (`TierOverviewEditor`, `TierPricingRulesEditor`,
 A `ReadBlock` launcher in `TierDrawerContent.tsx`'s package-overview
 Details screen — after the five `tierOccupants` cards, before the Pricing
 Summary table, never inside `TIER_KEYS`/`tierOccupants`/the "Current (N)"
-count. Its action calls the SAME `openTierEdit()` every normal Tier card
-calls, addressed at `COMPOSABLE_TIER_ID` — opening the exact same
+count. Its action calls the SAME `openTierEdit()` every normal Tier card calls,
+addressed at `COMPOSABLE_TIER_ID` — opening the same
 Details/Options/Connections/Support individual-occupant screen, footer, and
 Edition management (`TierEditionDeclarationSwitcher`) every normal Tier
 gets, covering the full Create → Pending → Pricing Rules/Features/FAQs →
@@ -87,25 +86,27 @@ editing session.
 click via a separate `saveTierCustomerPolicy` call whose failure fails the
 whole Save. Locked by `scripts/tier-inclusions-customer-policy-merge-contract.ts`.
 
-**Phase 3 correction** retired the standalone drawer. Its panel button
-became a `Default | Edition 1 | ...` scope strip (`TierComposableMiddleShell.tsx`,
-one shared `StationTabSet`). Edit targets whichever scope is selected —
-`'default'` or a real Edition id rides `encodeTierDrawerRecordId` as an
-additive third segment, decoded into `initialTierSection`/a seeded
-`selectedDeclarationId`, reusing the SAME `'edit'` action/drawer every card
-dispatches. A Tier Edition also carries its own `customer_policy`: null
-inherits Default wholesale, non-null replaces it, gated identically
-(`customerPolicyEligible`). No new backend route.
+**Phase 3 correction** retired the standalone drawer for a
+`Default | Edition 1 | ...` scope strip (`TierComposableMiddleShell.tsx`)
+that switches both columns' projection to the selected declaration — view
+only. **2026-09-07 reversion:** Edit no longer
+follows scope — it previously auto-opened a real Edition's editor via a
+seeded `initialEditionEditTab`; live validation found this corrupted the
+drawer chrome (auto-reopen, then stuck header/footer/tabs) —
+`useTierDrawerController.ts`/`TierEditionDeclarationSwitcher.tsx`/
+`TierDrawerContent.tsx` carry no seeded-Edition state (`initialDeclarationId`
+dropped from `TierDrawerContentProps`). Edit dispatches `'default'` only; an
+Edition is edited via Options → its chip → module Edit. A Tier Edition
+carries its own `customer_policy`: null inherits Default, non-null replaces
+it, gated (`customerPolicyEligible`); no new backend route.
 
-**Live-UI correction** lifted the selected-scope state out of
-`TierComposableMiddleShell` into `PackageTierWorkspace.tsx`
-(`selectedDeclarationId`/`activeDeclarationScope`), so one selection now
-drives the upper `TierDetailPanel` card (`projectDeclarationDetailCard`
-re-projects price/billing and both metric counts) together with Featured
-Inclusions and Customer Selection Rules metrics. Right column,
-top-to-bottom: tabs, policy metrics, one `Edit` primary action
-(`cz-tier-deck__button--primary`); left column is Featured Inclusions
-only. Locked by `scripts/tier-catalogue-declaration-scope-contract.ts`.
+**Live-UI correction** lifted the selected-scope state into
+`PackageTierWorkspace.tsx` (`selectedDeclarationId`/`activeDeclarationScope`),
+so one selection drives the upper `TierDetailPanel` card
+(`projectDeclarationDetailCard`) together with Featured Inclusions and
+Customer Selection Rules metrics. Right column: tabs, policy metrics, one
+`Edit` action; left column: Featured Inclusions only. Locked by
+`scripts/tier-catalogue-declaration-scope-contract.ts`.
 
 ## Not interactively verified
 

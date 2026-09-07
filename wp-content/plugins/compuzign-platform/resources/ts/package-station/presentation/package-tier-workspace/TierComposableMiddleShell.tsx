@@ -19,14 +19,20 @@
 // (buildComposableDeclarationScopes). No new drawer, no third card action,
 // no copied Edition controller/state.
 //
-// Second-round correction — the auditor confirmed a genuine gap: scope
-// selection alone left no way to EDIT that declaration from here. The panel
-// keeps one Edit action, but its TARGET now follows `active` (the
-// currently selected scope) rather than always addressing Default —
-// `onEditDeclaration(active.id)` carries that exact declaration id through
-// the existing Tier drawer 'edit' dispatch (PackageTierWorkspace.tsx),
-// which the drawer resolves into the right editor/session
-// (TierDrawerHost.tsx/useTierDrawerController.ts) — never a second editor.
+// Second-round correction (2026-09-07, REVERTED) — a prior pass made this
+// panel's Edit action follow `active` (the currently selected scope),
+// carrying a real Edition id through the Tier drawer's 'edit' dispatch so
+// it opened directly into that Edition's own inline editor. Two rounds of
+// live validation showed that deep-link corrupting the drawer's own chrome
+// state (an auto-reopen loop after every Save, then — after that fix — a
+// header/footer/tab-less render after Save/Cancel). Removed entirely rather
+// than patched again: the Edit action here now targets Default ONLY,
+// rendering only while the Default scope tab is active. The declaration
+// scope tabs below still switch both columns' projection for VIEWING any
+// scope's own resolved deck/policy — that read-only mechanism was never the
+// corrupted part and is untouched. An Edition is edited the normal way:
+// Build Your Own -> Options -> that Edition's own chip -> its own module's
+// Edit action.
 //
 // Live-UI correction (project-work/2026-09-06-tier-catalogue-admin-ux-
 // consolidation.md, Phase 3 correction): the auditor's live validation found
@@ -65,9 +71,10 @@ interface Props {
   // this file is a controlled consumer only.
   selectedId: string;
   onSelectScope: (id: string) => void;
-  // Opens the Tier drawer's own editor targeting the given declaration id
-  // ('default' or a real Edition id) — see this file's own header comment.
-  onEditDeclaration: (declarationId: string) => void;
+  // Opens the Tier drawer's own Default Tier Inclusions editor. Takes no
+  // argument — see this file's own header comment (2026-09-07 reversion):
+  // this action no longer targets whichever scope is selected.
+  onEditDeclaration: () => void;
 }
 
 export function TierComposableMiddleShell({ scopes, selectedId, onSelectScope, onEditDeclaration }: Props): VNode {
@@ -116,13 +123,15 @@ export function TierComposableMiddleShell({ scopes, selectedId, onSelectScope, o
             }}
             classes={{ list: 'cz-station-tabset__list cz-tier-workspace__scope-tabs' }}
           />
-          <button
-            type="button"
-            class="cz-tier-deck__button cz-tier-deck__button--primary cz-tier-workspace__composable-edit"
-            onClick={() => onEditDeclaration(active?.id ?? 'default')}
-          >
-            Edit
-          </button>
+          {(active?.id ?? 'default') === 'default' && (
+            <button
+              type="button"
+              class="cz-tier-deck__button cz-tier-deck__button--primary cz-tier-workspace__composable-edit"
+              onClick={onEditDeclaration}
+            >
+              Edit
+            </button>
+          )}
         </div>
       </div>
     </section>

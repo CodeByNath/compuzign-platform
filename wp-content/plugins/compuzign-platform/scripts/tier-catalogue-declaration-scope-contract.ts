@@ -26,20 +26,19 @@
 //      Sheet, never Default's or another Edition's (no cross-scope bleed).
 //   6. No standalone Customer Selection destination and no third "Editions"
 //      card action were reintroduced.
-//   7. Second-round correction (auditor confirmed the gap): the panel keeps
-//      one Edit action whose TARGET follows the currently selected scope —
-//      never a fixed 'default' — via the real encodeTierDrawerRecordId/
-//      decodeTierDrawerRecordId round trip.
-//   8. Default scope resolves to the Default Tier Inclusions editor
-//      (initialTierSection: 'tier-inclusions'); an Edition scope resolves
-//      to that EXACT Edition's own id, never another Edition's or Default's
-//      — proven both as a real id round trip and via source-scan of the
-//      resolution/seeding logic (TierDrawerHost.tsx/
-//      useTierDrawerController.ts/TierEditionDeclarationSwitcher.tsx).
-//   9. The seeded Edition selection survives the composable occupant's own
-//      null → resolved editingTierId transition (its first load), so the
-//      panel's Edit action reliably lands on the intended Edition rather
-//      than being silently reset back to none.
+//   7. REVERTED (2026-09-07): the second-round correction's scope-following
+//      Edit target and the Phase 3 correction's Edition auto-open deep-link
+//      both corrupted the drawer's own chrome state on live validation
+//      (auto-reopen loops, then a header/footer/tab-less render after
+//      Save/Cancel) and are removed entirely, not patched further. The
+//      panel's Edit action now targets Default ONLY, rendering only while
+//      the Default scope tab is active — proven below.
+//   8. No seeded Edition target reaches the drawer at all: useTierDrawerController
+//      never derives/reads an external declaration id, and
+//      TierEditionDeclarationSwitcher carries no auto-open prop/effect —
+//      proven by source-scan absence of every symbol that mechanism used.
+//   9. (absorbed into 7/8 — the "seeded selection survives first load" guard
+//      existed only to protect that now-removed seed, and is removed too.)
 //
 // Phase 3 live-UI correction (auditor: "Proceed with safeguards" — the scope
 // mechanism itself works, but the upper Build Your Own detail card never
@@ -228,83 +227,106 @@ check(
   'the composable card never grows a third action — View/Edit remain its only two, exactly like every other Tier/Add-on card',
 );
 
-// ── 7/8/9. The panel's Edit action follows the selected scope; each
-//    resolves to that exact declaration; the seed survives first load ──────
+// ── 7. The panel's Edit action targets Default ONLY (2026-09-07 reversion —
+//    it used to follow whichever scope was selected; that deep-link
+//    corrupted the drawer's own chrome state on live validation twice and
+//    was removed rather than patched again). The scope tabs themselves
+//    still switch both columns' projection for VIEWING any declaration —
+//    that read-only mechanism is untouched and proven by items 1-6 above ──
 
 check(
-  middleShellSource.includes('onClick={() => onEditDeclaration(active?.id ?? \'default\')}'),
-  'the panel\'s Edit action targets `active` (the currently selected scope), never a hardcoded \'default\'',
+  middleShellSource.includes("(active?.id ?? 'default') === 'default' &&")
+    && middleShellSource.includes('onClick={onEditDeclaration}'),
+  'the panel\'s Edit button renders ONLY while the Default scope tab is active, and dispatches with no declaration-id argument at all — it can no longer target an Edition',
+);
+check(
+  !middleShellSource.includes('onEditDeclaration(active'),
+  'no call site threads the selected scope into onEditDeclaration any more',
 );
 
-// Real round trip: encoding with a declarationId, decoding it back, never
-// bleeding across two different Editions or into Default.
+// The encode/decode round trip itself is untouched infrastructure (still
+// used for the literal 'default' token) — proven structurally sound
+// regardless of which declarationId a caller happens to pass.
 const defaultRecordId = encodeTierDrawerRecordId('ti_1', 'occ_1', 'default');
 const editionARecordId = encodeTierDrawerRecordId('ti_1', 'occ_1', 'edt_a');
-const editionBRecordId = encodeTierDrawerRecordId('ti_1', 'occ_1', 'edt_b');
-check(defaultRecordId !== editionARecordId && editionARecordId !== editionBRecordId, 'each declaration produces a structurally distinct record id');
+check(defaultRecordId !== editionARecordId, 'distinct declarations still produce structurally distinct record ids');
 check(
   decodeTierDrawerRecordId(defaultRecordId)?.declarationId === 'default'
-    && decodeTierDrawerRecordId(editionARecordId)?.declarationId === 'edt_a'
-    && decodeTierDrawerRecordId(editionBRecordId)?.declarationId === 'edt_b',
-  'decoding each record id recovers EXACTLY the declaration it was encoded with — Edition A can never resolve to Edition B or Default',
+    && decodeTierDrawerRecordId(editionARecordId)?.declarationId === 'edt_a',
+  'decoding a record id still recovers exactly the declaration it was encoded with',
 );
 check(
   decodeTierDrawerRecordId(encodeTierDrawerRecordId('ti_1', 'occ_1'))?.declarationId === undefined,
-  'every existing two-segment caller (no declarationId argument) still decodes with declarationId undefined — byte-identical to before this correction',
+  'every existing two-segment caller (no declarationId argument) still decodes with declarationId undefined',
 );
 
 check(
-  workspaceSource.includes("encodeTierDrawerRecordId(instanceId, tool.composableOccupant.occupantId, declarationId)")
+  workspaceSource.includes("encodeTierDrawerRecordId(instanceId, tool.composableOccupant.occupantId, 'default')")
     && workspaceSource.includes("'edit',"),
-  'the panel dispatches through the SAME existing \'edit\' action/drawer every card\'s own Edit button uses — no new action intent or drawer template',
+  'the panel dispatches through the SAME existing \'edit\' action/drawer every card\'s own Edit button uses, with the declarationId now a fixed \'default\' literal — never a variable that could carry a real Edition id again',
+);
+check(
+  !workspaceSource.includes('dispatchDeclarationEdit = (declarationId'),
+  'dispatchDeclarationEdit takes no parameter any more — it cannot be called with an Edition id even by a future mistake',
 );
 
 const tierDrawerHostSource = readFileSync(resolve(root, 'resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx'), 'utf8');
 check(
   tierDrawerHostSource.includes("initialTierSection={target.declarationId === 'default' ? 'tier-inclusions' : fallbackTierSection}"),
-  'declarationId \'default\' resolves to the Default Tier Inclusions editor (initialTierSection: \'tier-inclusions\'), never the generic empty-slot fallback',
+  'declarationId \'default\' still resolves to the Default Tier Inclusions editor (initialTierSection: \'tier-inclusions\'), never the generic empty-slot fallback',
 );
 check(
-  tierDrawerHostSource.includes('initialDeclarationId={target.declarationId}'),
-  'the decoded declarationId is forwarded into the drawer composition, not read only at the host level',
+  !tierDrawerHostSource.includes('initialDeclarationId'),
+  'TierDrawerHost no longer forwards a declarationId prop into the drawer composition at all — Default\'s own routing is fully resolved here via initialTierSection, and nothing downstream reads a declaration id any more (dead as of Phase 1\'s removal from useTierDrawerController)',
 );
+const tierDrawerTypesSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/tierDrawerTypes.ts'), 'utf8');
+check(
+  !tierDrawerTypesSource.includes('initialDeclarationId'),
+  'TierDrawerContentProps carries no initialDeclarationId field any more',
+);
+
+// ── 8/9 (2026-09-07 reversion): the special auto-open deep-link chain is
+//    gone entirely — Options/Edition selection is never externally seeded,
+//    and no one-shot intent auto-opens an Edition's inline editor. Live
+//    validation twice showed this deep-link route corrupting the drawer's
+//    own chrome state (auto-reopen loops, then a header/footer/tab-less
+//    "plain modules" render after Save/Cancel); the fix is removal of the
+//    entire chain, not a further patch. The normal Options tab / Edition
+//    system (chip strip, each module's own Edit, Save/Cancel, lifecycle,
+//    Publish) is untouched — this only proves the deep-link entry is gone ──
 
 const controllerSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/useTierDrawerController.ts'), 'utf8');
 check(
-  controllerSource.includes("initialDeclarationId && initialDeclarationId !== 'default' ? initialDeclarationId : null"),
-  'a real Edition declarationId (never the literal \'default\') is what seeds the Edition-scoped state below',
+  !controllerSource.includes('initialEditionId')
+    && !controllerSource.includes('initialDeclarationId')
+    && !controllerSource.includes('initialEditionEditTab')
+    && !controllerSource.includes('consumeInitialEditionEditTab'),
+  'useTierDrawerController no longer derives or seeds anything from an external declaration/Edition target — tierTab and selectedDeclarationId always start at their plain defaults (\'details\', null), regardless of how the drawer was opened',
 );
 check(
-  controllerSource.includes("useState<TierDrawerGroupId>(initialEditionId ? 'options' : 'details')")
-    && controllerSource.includes('useState<string | null>(initialEditionId)'),
-  'an Edition scope seeds BOTH the active group (Options) and the selected declaration id in one consistent step — never landing on Options with nothing selected, or vice versa',
+  controllerSource.includes("useState<TierDrawerGroupId>('details')")
+    && controllerSource.includes('useState<string | null>(null)'),
+  'the active group and the selected declaration id both start at their ordinary unseeded defaults — Options is reached only by the admin\'s own click on the tab, never by an opening prop',
 );
 check(
-  controllerSource.includes('if (previous === null && editingTierId !== null) return;'),
-  'the composable occupant\'s own first null-to-resolved editingTierId transition is recognised and skipped, so the seeded Edition selection survives it rather than being wiped by the same effect that clears a genuine Tier-to-Tier switch',
+  !controllerSource.includes('previousEditingTierId')
+    && !controllerSource.includes('if (previous === null && editingTierId !== null) return;'),
+  'the null-to-resolved editingTierId skip-guard is gone — it existed only to protect a seeded Edition selection that no longer exists, so the reset effect is unconditional again, exactly as it was before the deep-link mechanism was introduced',
 );
 
 const switcherSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/TierEditionDeclarationSwitcher.tsx'), 'utf8');
 check(
-  switcherSource.includes('if (!initialEditTab || !selected) return;')
-    && switcherSource.includes('openEdit(initialEditTab);')
-    && switcherSource.includes('onInitialEditTabConsumed?.();'),
-  'the pre-selected Edition\'s own inline editor opens automatically once its draft-preferred data resolves, then immediately reports the intent consumed',
-);
-check(
-  !switcherSource.includes('initialEditApplied'),
-  'the routing-correction rewrite (2026-09-07): the auto-open guard is no longer a component-local ref, since TierEditionDeclarationSwitcher itself unmounts on every Edition mutation refetch (including its own Save) — a local ref reset on that remount while the old derived initialEditTab value stayed truthy, re-firing the auto-open after every Save and leaving no reachable footer (the live defect the rejected first candidate only partly fixed)',
-);
-check(
-  controllerSource.includes("useState<TierEditionEditorTab | undefined>(initialEditionId ? 'inclusions' : undefined)")
-    && controllerSource.includes('const consumeInitialEditionEditTab = () => setInitialEditionEditTab(undefined);'),
-  'initialEditionEditTab is real one-shot STATE owned by useTierDrawerController (seeded once from initialEditionId, never re-derived on every render) with its own consume function — the controller instance survives the refetch-triggered remount that unmounts TierEditionDeclarationSwitcher (same reason selectedDeclarationId/editionBinActive are lifted here), so consuming it there is what actually prevents the post-Save re-open, not a guard living in the component that gets torn down',
+  !switcherSource.includes('initialEditTab')
+    && !switcherSource.includes('onInitialEditTabConsumed')
+    && !switcherSource.includes('initialEditApplied'),
+  'TierEditionDeclarationSwitcher carries no auto-open prop, effect, or guard of any kind — an Edition\'s inline editor opens ONLY through the admin\'s own click on a read card\'s Edit action (openEdit, wired to buildTierEditionDetail\'s onEdit), the same as every other module editor in this drawer',
 );
 const drawerContentSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx'), 'utf8');
 check(
-  drawerContentSource.includes('initialEditTab={c.initialEditionEditTab}')
-    && drawerContentSource.includes('onInitialEditTabConsumed={c.consumeInitialEditionEditTab}'),
-  'TierDrawerContent wires both the one-shot value and its consume callback into the switcher — Options activation, the exact Edition selection, and the switcher\'s own Save/Cancel-driven return to the normal drawer chrome are all unchanged by this correction',
+  !drawerContentSource.includes('initialEditTab')
+    && !drawerContentSource.includes('onInitialEditTabConsumed')
+    && !drawerContentSource.includes('initialEditionEditTab'),
+  'TierDrawerContent passes TierEditionDeclarationSwitcher no auto-open plumbing of any kind',
 );
 
 // ── 10/11. Each scope's own upper-card fields, genuinely different per

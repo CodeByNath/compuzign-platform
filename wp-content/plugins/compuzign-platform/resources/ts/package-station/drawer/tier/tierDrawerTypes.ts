@@ -27,12 +27,6 @@ export interface TierDrawerContentProps {
   initialTierId?:      string;
   initialOccupantId?:  string;
   initialTierSection?: 'tier-overview' | 'tier-inclusions';
-  // Composable occupant only (Phase 3 correction, project-work/2026-09-06-
-  // tier-catalogue-admin-ux-consolidation.md) — the Customer Selection
-  // Rules panel's own Edit action carries the scope it was clicked from:
-  // the literal string 'default', or a real Edition id. See
-  // TierDrawerHost.tsx/useTierDrawerController.ts for how each resolves.
-  initialDeclarationId?: string;
   // The host seam.
   bridge: EntityDrawerHostBridge;
 }
@@ -65,11 +59,15 @@ const FIXED_TIER_SLOTS = new Set(['basic', 'standard', 'premium', 'enterprise', 
 
 /**
  * Package-owned routing token; the card itself keeps occupant_id identity.
- * `declarationId` is additive (Phase 3 correction) — the Customer Selection
- * Rules panel's own Edit action carries the scope it was clicked from
- * ('default' or a real Edition id) so the drawer opens directly into that
- * declaration's own editor. Every other caller omits it and gets the exact
- * two-segment token it always has.
+ * `declarationId` is additive — the Customer Selection Rules panel's own
+ * Edit action carries the literal string 'default' so the drawer opens
+ * directly into the Default Tier Inclusions editor (see TierDrawerHost.tsx's
+ * own `target.declarationId === 'default'` check). A real Edition id is
+ * never encoded here (2026-09-07 reversion — that deep-link corrupted the
+ * drawer's own chrome state on live validation and was removed; an Edition
+ * is reached only through the drawer's own Options tab). Every other caller
+ * omits declarationId entirely and gets the exact two-segment token it
+ * always has.
  */
 export function encodeTierDrawerRecordId(instanceId: string, occupantId: string, declarationId?: string): string {
   return declarationId

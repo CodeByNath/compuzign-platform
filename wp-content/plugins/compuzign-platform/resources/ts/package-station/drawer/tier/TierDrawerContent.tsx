@@ -614,14 +614,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
             // Same eligibility rule useTierModuleEditing.ts applies to the
             // occupant's own Default Tier Inclusions (Phase 3 correction).
             customerPolicyEligible={isComposableOccupant(c.editingTierId) && detail.enabled}
-            // Set only when the drawer opened from the Customer Selection
-            // Rules panel's own Edit action targeting a real Edition scope.
-            // onInitialEditTabConsumed clears the controller-owned source of
-            // truth the instant the editor opens, so a post-Save refetch
-            // (which remounts this switcher) can never re-trigger it — see
-            // useTierDrawerController's initialEditionEditTab comment.
-            initialEditTab={c.initialEditionEditTab}
-            onInitialEditTabConsumed={c.consumeInitialEditionEditTab}
           />
         )
       ),
