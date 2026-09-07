@@ -132,8 +132,23 @@ check(
   'both the tab-focused primary panel and the Grid-view box resolve the composable occupant id through the same expression — no special-cased branch for a retired action remains in either',
 );
 check(
-  workspaceSource.includes('scopes={tool.composableOccupant.declarationScopes}'),
+  workspaceSource.includes('const composableScopes = composableOccupant?.declarationScopes ?? [];')
+    && workspaceSource.includes('scopes={composableScopes}'),
   'the middle shell now receives every declaration scope (Default + Editions) instead of a raw deck/policy pair and a button dispatcher',
+);
+// Live-UI correction (project-work/2026-09-06-tier-catalogue-admin-ux-
+// consolidation.md, Phase 3 correction): the selected scope is lifted out of
+// the middle shell into this orchestrator, so the SAME selection also drives
+// the upper Build Your Own detail card (TierDetailPanel) — never two
+// independently-drifting selections.
+check(
+  workspaceSource.includes('selectedId={activeDeclarationScope?.id ?? \'default\'}')
+    && workspaceSource.includes('onSelectScope={setSelectedDeclarationId}'),
+  'the middle shell\'s scope selection is a controlled prop sourced from this orchestrator\'s own lifted state, not a locally-owned selection',
+);
+check(
+  workspaceSource.includes('slot={composableDetailSlot}'),
+  'the upper Build Your Own detail card (TierDetailPanel) is fed the scope-projected slot, not the occupant\'s raw always-Default card',
 );
 check(
   !existsSync(resolve(root, 'resources/ts/package-station/drawer/customerPolicy/TierCustomerPolicyDrawerContent.tsx'))

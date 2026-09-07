@@ -19,6 +19,7 @@ import {
   encodeTierRateSheetGroupDrawerRecordId,
 } from '../../drawer/tier-rate-sheet/tierRateSheetDrawerTypes';
 import { EMPTY_TIER_DECK } from '../../surface/packageTierWorkspace/deck';
+import { projectDeclarationDetailCard } from '../../surface/packageTierWorkspace/composableMiddleShell';
 import { filterWorkspaceTierSlots, type TierListFilter } from '../../surface/packageTierWorkspace/projection';
 import type { ConnectionTarget } from '../../surface/packageTierWorkspace/connectionNavigation';
 import { tierSlotStates } from '../../surface/tierInstance/tierInstanceModel';
@@ -38,6 +39,15 @@ type ViewMode = 'focus' | 'grid';
 export function PackageTierWorkspace({ items, loading, error, onIntent }: TemplateKitProps): VNode {
   const tool = (items as PackageTierWorkspaceTool[])[0] ?? null;
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  // The one selected declaration scope for the composable occupant's own
+  // focused Build Your Own workspace (Phase 3 live-UI correction,
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md) —
+  // owned here, not inside TierComposableMiddleShell, so the SAME selection
+  // drives the upper Build Your Own detail card (TierDetailPanel) together
+  // with both lower columns (Featured Inclusions, Customer Selection Rules).
+  // Default remains initial, matching the prior internal
+  // `useState(scopes[0]?.id ?? 'default')`.
+  const [selectedDeclarationId, setSelectedDeclarationId] = useState('default');
   const [tierFilter, setTierFilter] = useState<TierListFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('focus');
   const [deckTab, setDeckTab] = useState<DeckTab>('details');
@@ -261,6 +271,25 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     ?? (tool.workspaceInstance ? `Unassigned · ${tool.workspaceInstance.title}` : 'Unassigned');
   const showGrid = instanceId !== null && occupants.length > 0 && viewMode === 'grid';
 
+  // The Focus view's own scope-following projection (Phase 3 live-UI
+  // correction). `composableScopes` always carries at least 'default' once
+  // the composable occupant exists — see buildComposableDeclarationScopes's
+  // own doc comment; `activeDeclarationScope` falls back the same way
+  // TierComposableMiddleShell's own `active` does, for a scope that
+  // disappeared out from under the selection (an Edition deleted/binned
+  // elsewhere).
+  const composableOccupant = tool.composableOccupant;
+  const composableScopes = composableOccupant?.declarationScopes ?? [];
+  const activeDeclarationScope = composableScopes.find((scope) => scope.id === selectedDeclarationId)
+    ?? composableScopes[0]
+    ?? null;
+  // The upper Build Your Own detail card re-projected onto the currently
+  // selected declaration scope — every other field of the occupant's own
+  // base card (name/kind/status/notifications/actions) is untouched.
+  const composableDetailSlot = composableOccupant && composableOccupant.item && activeDeclarationScope
+    ? { ...composableOccupant, item: projectDeclarationDetailCard(composableOccupant.item, activeDeclarationScope) }
+    : composableOccupant;
+
   return (
     <div ref={workspaceRef} class="cz-tier-workspace" tabIndex={-1}>
       <p class="cz-station-visually-hidden" aria-live="polite">{navigationAnnouncement}</p>
@@ -321,9 +350,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
                 composableSlot={tool.composableOccupant}
               />
               {isComposableFocused ? (
-                tool.composableOccupant && (
+                composableDetailSlot && (
                   <TierDetailPanel
-                    slot={tool.composableOccupant}
+                    slot={composableDetailSlot}
                     familyName={tool.selectedFamily?.name ?? null}
                     hasInstance
                     isSubordinate
@@ -402,7 +431,9 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           state above already covers that case). */}
       {viewMode === 'focus' && isComposableFocused && tool.composableOccupant?.item && (
         <TierComposableMiddleShell
-          scopes={tool.composableOccupant.declarationScopes}
+          scopes={composableScopes}
+          selectedId={activeDeclarationScope?.id ?? 'default'}
+          onSelectScope={setSelectedDeclarationId}
           onEditDeclaration={dispatchDeclarationEdit}
         />
       )}

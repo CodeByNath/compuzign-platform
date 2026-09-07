@@ -37,6 +37,22 @@ export function toTierCardStatus(status: string): CategoryGroupStatus {
 // avoids allocating a new empty Map on every card projection.
 const NO_CATEGORIES = new Map<string, string[]>();
 
+/**
+ * The one "$X.XX · billing_cycle" / "Pricing not configured" price-line
+ * formula a Tier declaration's own detail card uses. Extracted so the
+ * composable occupant's own declaration scopes
+ * (surface/packageTierWorkspace/composableMiddleShell.ts) can reuse the
+ * SAME formula for the upper Build Your Own detail card's price/billing
+ * display when a non-Default declaration is selected, instead of forking a
+ * second formatting rule (Phase 3 correction, project-work/2026-09-06-
+ * tier-catalogue-admin-ux-consolidation.md).
+ */
+export function formatTierPriceDisplay(price: number | null, billingCycle: string | null): string {
+  return price == null
+    ? 'Pricing not configured'
+    : `$${price.toFixed(2)} · ${billingCycle ?? 'Not available'}`;
+}
+
 export interface TierOccupantCardInput {
   occupantId: string;
   slotId: string;
@@ -79,9 +95,7 @@ export function toTierOccupantCard({
     key:  occupantId,
     name: `Package ${detail?.label?.trim() || TIER_LABELS[slotId] || slotId}`,
     kind: isSubordinate ? 'Composable occupant' : (isAddon ? 'Package Add-on' : 'Package Tier'),
-    description: price == null
-      ? 'Pricing not configured'
-      : `$${price.toFixed(2)} · ${detail?.billing_cycle ?? 'Not available'}`,
+    description: formatTierPriceDisplay(price, detail?.billing_cycle ?? null),
     icon: isSubordinate ? PackagesIcon : TiersIcon,
     status: toTierCardStatus(view?.status ?? 'pending-dim'),
     // The same notes the manager card shows, from the same generator, using

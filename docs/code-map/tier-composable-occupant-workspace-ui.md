@@ -57,10 +57,9 @@ drawer template is unaffected.
 
 ## Routing-layer gaps closed
 
-Two gaps, neither specific to this surface, had blocked reusing
-`dispatchTierIntent` for the composable occupant: `resolveOccupantSlot()`
-scanned only `station.tiers` for an `occupant_id` (same class of gap already
-fixed PHP-side for `PackageRepository`) — now `tierOccupants.ts`'s exported
+Two gaps had blocked reusing `dispatchTierIntent` for the composable
+occupant: `resolveOccupantSlot()` scanned only `station.tiers` for an
+`occupant_id` — now `tierOccupants.ts`'s exported
 `resolveOccupantSlotIncludingComposable()`, which also checks
 `composable_occupant.occupant_id`. `tierDrawerTypes.ts`'s `FIXED_TIER_SLOTS`
 rejected the sentinel, blocking an uncreated composable occupant from
@@ -87,18 +86,17 @@ sentinel, the same gap class Phase 1C closed for `tierDrawerTypes.ts`.
 A composable-only middle shell (`TierComposableMiddleShell.tsx`) mounts
 between the focus area and the lower deck only while the tab is focused and
 published. Left: up to 6 offered `customer_policy` items with a real deck
-inclusion, featured/default-selected first. Right: stat counts (required,
-Add/Remove, default-selected, adjustable-quantity, Featured) via the shared
-`StationMetricBlock`. Both are pure functions in `composableMiddleShell.ts`
+inclusion, featured/default-selected first. Right: policy stat counts via
+the shared `StationMetricBlock`. Both are pure functions in `composableMiddleShell.ts`
 reading only the already-projected `TierDeck` and a resolved
 `customer_policy` — no second read, no new endpoint. See
 `scripts/composable-tier-admin-ux-contract.ts`.
 
 **Phase 3 correction** replaced the Customer Options button with a
-`Default | Edition 1 | ...` scope strip (`StationTabSet`,
-`WorkspaceTierSlot.declarationScopes`, `buildComposableDeclarationScopes()`):
-selecting a scope re-projects both columns. See
-[Admin UI](tier-composable-occupant-admin-ui.md).
+`Default | Edition 1 | ...` scope strip. A later **live-UI correction**
+lifted that selection out of this shell into `PackageTierWorkspace.tsx`,
+so selecting a scope also re-projects the upper `TierDetailPanel` card, not
+just the lower columns. See [Admin UI](tier-composable-occupant-admin-ui.md).
 
 ## Related Code Maps
 

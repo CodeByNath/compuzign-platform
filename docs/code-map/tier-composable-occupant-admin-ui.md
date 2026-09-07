@@ -87,22 +87,25 @@ editing session.
 click via a separate `saveTierCustomerPolicy` call whose failure fails the
 whole Save. Locked by `scripts/tier-inclusions-customer-policy-merge-contract.ts`.
 
-**Phase 3 correction** retired the standalone drawer. Its panel
-button became a `Default | Edition 1 | ...` scope strip
-(`TierComposableMiddleShell.tsx`, one shared `StationTabSet`, never a new
-card action/drawer): switching scope re-projects Featured
-inclusions/policy counts from that declaration's own deck/policy
-(`buildComposableDeclarationScopes`), and one Edit action targets whichever
-scope is selected — `'default'` or a real Edition id rides
-`encodeTierDrawerRecordId` as an additive third segment, decoded into
-`initialTierSection`/a seeded `selectedDeclarationId`/an auto-opened
-Inclusions tab, reusing the SAME `'edit'` action/drawer every card
-dispatches. A Tier Edition now also carries its own `customer_policy`
-(riding the `overview` save the backend already accepted since Phase 2A):
-null inherits Default wholesale, non-null replaces it, authored via the
-same merged controls on that Edition's Inclusions tab, gated identically
-(`customerPolicyEligible`). No new backend route. Locked by
-`scripts/tier-catalogue-declaration-scope-contract.ts`.
+**Phase 3 correction** retired the standalone drawer. Its panel button
+became a `Default | Edition 1 | ...` scope strip (`TierComposableMiddleShell.tsx`,
+one shared `StationTabSet`). Edit targets whichever scope is selected —
+`'default'` or a real Edition id rides `encodeTierDrawerRecordId` as an
+additive third segment, decoded into `initialTierSection`/a seeded
+`selectedDeclarationId`, reusing the SAME `'edit'` action/drawer every card
+dispatches. A Tier Edition also carries its own `customer_policy`: null
+inherits Default wholesale, non-null replaces it, gated identically
+(`customerPolicyEligible`). No new backend route.
+
+**Live-UI correction** lifted the selected-scope state out of
+`TierComposableMiddleShell` into `PackageTierWorkspace.tsx`
+(`selectedDeclarationId`/`activeDeclarationScope`), so one selection now
+drives the upper `TierDetailPanel` card (`projectDeclarationDetailCard`
+re-projects price/billing and both metric counts) together with Featured
+Inclusions and Customer Selection Rules metrics. Right column,
+top-to-bottom: tabs, policy metrics, one `Edit` primary action
+(`cz-tier-deck__button--primary`); left column is Featured Inclusions
+only. Locked by `scripts/tier-catalogue-declaration-scope-contract.ts`.
 
 ## Not interactively verified
 

@@ -335,6 +335,11 @@ export function usePackageTierWorkspace(): PackageTierWorkspaceResult {
               composablePolicy,
               composableView?.detail.tier_editions ?? [],
               { rate_sheets: rateSheets, package_relationships: relationships },
+              {
+                price: composableView?.detail.price ?? null,
+                billing_cycle: composableView?.detail.billing_cycle ?? null,
+                faq_refs: composableView?.detail.faq_refs ?? [],
+              },
             )
           : [],
       );

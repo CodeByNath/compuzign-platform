@@ -2989,6 +2989,24 @@ button.cz-station-status-pill {
   border-top: 1px solid var(--station-card-divider);
 }
 
+/* Live-UI correction, project-work/2026-09-06-tier-catalogue-admin-ux-
+   consolidation.md, Phase 3: the declaration tabs sit at the top of the
+   right (`-rules`) column, aligned to its trailing edge — layered onto the
+   shared `cz-station-tabset__list` skin, the same additive-modifier pattern
+   TierTabSet.tsx's own `cz-tier-deck__tabs` already uses. */
+.cz-tier-workspace__scope-tabs {
+  justify-content: flex-end;
+}
+
+/* The right column's one Edit action, pinned to its trailing/bottom edge —
+   `.cz-tier-workspace__composable-rules` is already a flex column, so an
+   auto top margin pushes this last child down and `align-self` keeps it
+   from stretching to the column's full width. */
+.cz-tier-workspace__composable-edit {
+  align-self: flex-end;
+  margin-block-start: auto;
+}
+
 /* ── Tier Workspace lower deck ─────────────────────────────────────────────────
    The focused-Tier deck beneath the engine: a single elevated panel carrying a
    context bar, a tab strip (Details | Connections | Settings), and the active

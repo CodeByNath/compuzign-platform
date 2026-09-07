@@ -5,13 +5,14 @@
 // presentation-only, and switching scope swaps BOTH the Featured inclusions
 // list and every policy-summary count to that declaration's own resolved
 // state. Real behavior against buildComposableDeclarationScopes/
-// projectComposableHighlightInclusions/summarizeComposableCustomerPolicy
-// (pure exported functions), plus source-scan proof that the retired
-// button/drawer was replaced by these tabs and not by a new card action or
-// a new drawer route. Proves:
+// projectComposableHighlightInclusions/summarizeComposableCustomerPolicy/
+// projectDeclarationDetailCard (pure exported functions), plus source-scan
+// proof that the retired button/drawer was replaced by these tabs and not
+// by a new card action or a new drawer route. Proves:
 //
-//   1. Default is always the first scope, and TierComposableMiddleShell's
-//      own initial selection is Default.
+//   1. Default is always the first scope, and the ONE selected-scope state
+//      (lifted to PackageTierWorkspace.tsx by the live-UI correction below)
+//      initializes to Default.
 //   2. Tabs enumerate the occupant's REAL tier_editions[] — no synthetic
 //      catch-all entry, one scope per Edition, using that Edition's own
 //      draft-preferred title/identity.
@@ -39,12 +40,48 @@
 //      null → resolved editingTierId transition (its first load), so the
 //      panel's Edit action reliably lands on the intended Edition rather
 //      than being silently reset back to none.
+//
+// Phase 3 live-UI correction (auditor: "Proceed with safeguards" — the scope
+// mechanism itself works, but the upper Build Your Own detail card never
+// followed it, the right-column layout was wrong, and the action's copy was
+// wrong). Additionally proves:
+//
+//  10. Each scope carries its OWN upper-card fields (priceDisplay,
+//      includedFeatureCount, commonQuestionCount) — genuinely different per
+//      scope, never Default's carried over — and
+//      projectDeclarationDetailCard merges ONLY those fields onto the
+//      occupant's base card, leaving identity fields (name/kind/status/
+//      actions) untouched.
+//  11. An Edition's own empty faq_refs inherits the Default declaration's
+//      own FAQ count; a non-empty faq_refs is its own complete replacement.
+//  12. The selected-scope state that used to be TierComposableMiddleShell's
+//      own `useState` is lifted to PackageTierWorkspace.tsx instead, so ONE
+//      state can drive the upper detail card and both lower columns
+//      together — proven by source-scan (the old internal `useState` is
+//      gone from the middle shell; the same initial-selection behavior now
+//      lives in the workspace).
+//  13. The middle shell's Edit action reads exactly "Edit" (not "Edit
+//      Customer Options") and wears the established Admin primary-button
+//      class (`cz-tier-deck__button cz-tier-deck__button--primary`), the
+//      same treatment TierDetailPanel.tsx's own buttons use.
+//  14. No bespoke/hardcoded inline styling was introduced in either touched
+//      presentation file (no `style=` attributes; every class referenced is
+//      either a pre-existing established class or one of the two narrow
+//      layout-modifier classes this correction adds, both composed onto the
+//      shared `cz-station-tabset__list` / `cz-tier-deck__button` skins
+//      rather than replacing them).
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildComposableDeclarationScopes, projectComposableHighlightInclusions, summarizeComposableCustomerPolicy } from '../resources/ts/package-station/surface/packageTierWorkspace/composableMiddleShell';
+import {
+  buildComposableDeclarationScopes,
+  projectComposableHighlightInclusions,
+  projectDeclarationDetailCard,
+  summarizeComposableCustomerPolicy,
+} from '../resources/ts/package-station/surface/packageTierWorkspace/composableMiddleShell';
 import { EMPTY_TIER_DECK, type TierDeck } from '../resources/ts/package-station/surface/packageTierWorkspace/deck';
 import { decodeTierDrawerRecordId, encodeTierDrawerRecordId } from '../resources/ts/package-station/drawer/tier/tierDrawerTypes';
+import type { CategoryGroupCardItem } from '../resources/ts/admin-station/presentation/category-groups/types';
 import type { CustomerPolicy } from '../resources/ts/api/types/cost-builder';
 import type { PackageRateSheet, TierEdition } from '../resources/ts/package-station/types';
 
@@ -110,12 +147,19 @@ const editionReplaces = makeEdition({
   id: 'edt_b', title: 'Stale Title', rate_sheet_id: 'rs_edition_b',
   rate_sheet_items: [{ item_id: 'edition-b-item', quantity: 1 }],
   customer_policy: policyOf('edition-b-item', false),
-  // draft-preferred: a pending overview draft's own title must win over the
-  // stale settled one, exactly like every other Edition display already does.
-  drafts: { overview: { title: 'Edition B', admin_description: '', rate_sheet_id: 'rs_edition_b', rate_sheet_items: [{ item_id: 'edition-b-item', quantity: 1 }], billing_cycle: null, contact: false, minimum_term_value: null, minimum_term_unit: null, from_month: 0, to_month: null, legs: [], headline_leg_id: '', inclusions_override: [], faq_refs: [], customer_policy: policyOf('edition-b-item', false) } },
+  // draft-preferred: a pending overview draft's own title/billing_cycle/
+  // faq_refs must win over the stale settled ones, exactly like every other
+  // Edition display already does — including this correction's own new
+  // upper-card fields.
+  drafts: { overview: { title: 'Edition B', admin_description: '', rate_sheet_id: 'rs_edition_b', rate_sheet_items: [{ item_id: 'edition-b-item', quantity: 1 }], billing_cycle: 'Annual', contact: false, minimum_term_value: null, minimum_term_unit: null, from_month: 0, to_month: null, legs: [], headline_leg_id: '', inclusions_override: [], faq_refs: ['faq-b'], customer_policy: policyOf('edition-b-item', false) } },
 });
 
-const scopes = buildComposableDeclarationScopes(defaultDeck, defaultPolicy, [editionInherits, editionReplaces], svc);
+// The Default declaration's own upper-card inputs — 2 FAQs, so Edition A's
+// own empty faq_refs can be proven to inherit this exact count while
+// Edition B's own non-empty ['faq-b'] proves the opposite (replace) branch.
+const defaultDeclaration = { price: 42, billing_cycle: 'Monthly', faq_refs: ['faq-1', 'faq-2'] };
+
+const scopes = buildComposableDeclarationScopes(defaultDeck, defaultPolicy, [editionInherits, editionReplaces], svc, defaultDeclaration);
 
 check(scopes.length === 3, 'one scope per declaration: Default plus the two fixture Editions, no synthetic extra entry');
 check(scopes[0].id === 'default' && scopes[0].label === 'Default', 'Default is always the first scope');
@@ -163,9 +207,18 @@ check(featuredCount(editionBStats) === 0, 'Edition B\'s own Featured count refle
 // ── 6. No standalone destination, no third card action ──────────────────────
 
 const middleShellSource = readFileSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/TierComposableMiddleShell.tsx'), 'utf8');
+const workspaceSource = readFileSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx'), 'utf8');
+// Live-UI correction #12: the selection state is LIFTED OUT of the middle
+// shell — it must carry no `useState` of its own at all — and the exact
+// same "initial selection is Default" behavior now lives in
+// PackageTierWorkspace.tsx instead.
 check(
-  middleShellSource.includes("useState(scopes[0]?.id ?? 'default')"),
-  'TierComposableMiddleShell initializes its own scope selection to the first (Default) scope',
+  !middleShellSource.includes('useState'),
+  'TierComposableMiddleShell no longer owns any local state — the selected scope is a controlled prop from PackageTierWorkspace.tsx',
+);
+check(
+  workspaceSource.includes("useState('default')") || workspaceSource.includes('useState("default")'),
+  'PackageTierWorkspace.tsx now owns the lifted selected-declaration-scope state, initialized to Default — the same initial-selection behavior the middle shell used to own internally',
 );
 check(!middleShellSource.includes('onManageCustomerOptions'), 'the retired button prop is gone from the middle shell entirely — its panel-head location is the scope tab strip now');
 
@@ -200,10 +253,9 @@ check(
   'every existing two-segment caller (no declarationId argument) still decodes with declarationId undefined — byte-identical to before this correction',
 );
 
-const workspaceSource2 = readFileSync(resolve(root, 'resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx'), 'utf8');
 check(
-  workspaceSource2.includes("encodeTierDrawerRecordId(instanceId, tool.composableOccupant.occupantId, declarationId)")
-    && workspaceSource2.includes("'edit',"),
+  workspaceSource.includes("encodeTierDrawerRecordId(instanceId, tool.composableOccupant.occupantId, declarationId)")
+    && workspaceSource.includes("'edit',"),
   'the panel dispatches through the SAME existing \'edit\' action/drawer every card\'s own Edit button uses — no new action intent or drawer template',
 );
 
@@ -238,6 +290,77 @@ check(
     && switcherSource.includes('initialEditApplied.current = true;')
     && switcherSource.includes('openEdit(initialEditTab);'),
   'the pre-selected Edition\'s own inline editor opens automatically exactly once, waiting for its draft-preferred data to resolve, and never re-fires on a later manual Save/Cancel/tab switch',
+);
+
+// ── 10/11. Each scope's own upper-card fields, genuinely different per
+//    scope; projectDeclarationDetailCard merges ONLY those onto the base
+//    card ────────────────────────────────────────────────────────────────
+
+check(scopes[0].priceDisplay === '$42.00 · Monthly', 'Default\'s own priceDisplay reflects the price/billing_cycle passed in for the Default declaration');
+check(scopes[0].includedFeatureCount === 1 && scopes[0].commonQuestionCount === 2, 'Default\'s own upper-card counts match its own deck.inclusions/faq_refs');
+
+check(scopes[1].priceDisplay === 'Pricing not configured', 'Edition A binds no Rate Sheet items, so its own resolved price is null — never a fabricated figure');
+check(scopes[1].includedFeatureCount === 0, 'Edition A\'s own includedFeatureCount matches its own (empty) deck, not Default\'s');
+check(scopes[1].commonQuestionCount === 2, 'Edition A\'s own empty faq_refs INHERITS the Default declaration\'s own FAQ count (2), per TierEdition.faq_refs\'s own inherit-when-empty rule');
+
+check(scopes[2].priceDisplay === '$15.00 · Annual', 'Edition B\'s own price is resolved from ITS OWN bound rate_sheet_items/Rate Sheet (resolveRateSheetSelection), and its own draft-preferred billing_cycle wins over the stale settled null — never Default\'s $42.00/Monthly and never a naive buildRateSheetCatalogue candidate row');
+check(scopes[2].includedFeatureCount === 1, 'Edition B\'s own includedFeatureCount matches its own resolved deck (1), not Default\'s');
+check(scopes[2].commonQuestionCount === 1, 'Edition B\'s own NON-empty faq_refs (draft-preferred [\'faq-b\']) is its own complete REPLACEMENT of the Default count (2), never blended or inherited');
+
+const baseCard: CategoryGroupCardItem = {
+  id: 'occ_1', key: 'occ_1', name: 'Package Build Your Own', kind: 'Composable occupant',
+  description: 'stale description', status: 'active', notifications: [], actions: [{ id: 'edit', label: 'Edit' }],
+  metrics: [{ id: 'stale', label: 'Stale', value: 0 }],
+};
+const projectedDefault = projectDeclarationDetailCard(baseCard, scopes[0]);
+const projectedEditionB = projectDeclarationDetailCard(baseCard, scopes[2]);
+check(
+  projectedDefault.description === scopes[0].priceDisplay
+    && projectedDefault.metrics.find((m) => m.id === 'features')?.value === 1
+    && projectedDefault.metrics.find((m) => m.id === 'faqs')?.value === 2,
+  'projectDeclarationDetailCard(baseCard, Default scope) re-projects price/features/faqs from the Default scope',
+);
+check(
+  projectedEditionB.description === scopes[2].priceDisplay
+    && projectedEditionB.metrics.find((m) => m.id === 'features')?.value === 1
+    && projectedEditionB.metrics.find((m) => m.id === 'faqs')?.value === 1,
+  'projectDeclarationDetailCard(baseCard, Edition B scope) re-projects price/features/faqs from Edition B\'s own scope, genuinely different from Default\'s',
+);
+check(
+  projectedDefault.id === baseCard.id && projectedDefault.name === baseCard.name
+    && projectedDefault.kind === baseCard.kind && projectedDefault.status === baseCard.status
+    && projectedDefault.actions === baseCard.actions,
+  'projectDeclarationDetailCard touches ONLY price/feature-count/faq-count — identity fields (id/name/kind/status/actions) stay the occupant\'s own, never declaration-owned',
+);
+
+// ── 13. Exact "Edit" copy, established primary-button treatment ────────────
+
+check(
+  />\s*Edit\s*</.test(middleShellSource) && !middleShellSource.includes('Edit Customer Options'),
+  'the middle shell\'s action reads exactly "Edit" — the retired "Edit Customer Options" copy is gone entirely',
+);
+check(
+  middleShellSource.includes('cz-tier-deck__button cz-tier-deck__button--primary'),
+  'the Edit action wears the established Admin primary-button class (cz-tier-deck__button cz-tier-deck__button--primary), the same treatment TierDetailPanel.tsx\'s own buttons use — not the plain, non-primary cz-tier-deck__button it wore before this correction',
+);
+
+// ── 14. No bespoke/hardcoded styling introduced ─────────────────────────────
+
+check(!middleShellSource.includes('style='), 'TierComposableMiddleShell introduces no inline style attribute');
+check(!workspaceSource.includes('style='), 'PackageTierWorkspace.tsx introduces no inline style attribute for this correction');
+check(
+  middleShellSource.includes("classes={{ list: 'cz-station-tabset__list cz-tier-workspace__scope-tabs' }}"),
+  'the declaration tabs compose the shared cz-station-tabset__list skin with one narrow layout-modifier class (cz-tier-workspace__scope-tabs) for right-alignment — never a wholesale replacement of the shared tab skin',
+);
+
+const adminStationCssSource = readFileSync(resolve(root, 'resources/ts/admin-station/styles/admin-station.css'), 'utf8');
+check(
+  adminStationCssSource.includes('.cz-tier-workspace__scope-tabs {') && adminStationCssSource.includes('.cz-tier-workspace__composable-edit {'),
+  'the two narrow layout-modifier classes this correction needs (tab-strip right-alignment, Edit bottom-right placement) are real, token-based CSS rules, not undefined/unstyled classes or inline styles',
+);
+check(
+  adminStationCssSource.includes('grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);'),
+  'the existing two-column grid (.cz-tier-workspace__composable-shell) is untouched — this correction only adds layout-modifier rules, it never edits the grid itself',
 );
 
 console.log('Tier catalogue declaration scope contract: PASS');
