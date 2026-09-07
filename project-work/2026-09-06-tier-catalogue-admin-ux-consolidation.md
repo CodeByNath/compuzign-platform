@@ -1,29 +1,34 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION — final Customer Selection Rules UI cleanup deployed**
-- Nath pushed `bd0a48d8be81c591e48ebe220dda21645b349089` to `main` (fast-forward, exact SHA, no additional source changes).
-- Production `main`: `bd0a48d8be81c591e48ebe220dda21645b349089`.
-- Deploy: GitHub Actions run **#970**, workflow `deploy`, `head_sha` = `bd0a48d8be81c591e48ebe220dda21645b349089`, conclusion **success** (2026-09-07). Run URL: `https://github.com/CodeByNath/compuzign-platform/actions/runs/34125188009`.
+- **READY FOR CLAUDE — plan/phasing only, no source edits**
+- Production `main`: `bd0a48d8be81c591e48ebe220dda21645b349089`; deploy #970 succeeded.
+- Nath accepts the Admin result and wants the final customer-facing Upgrade Your Build stage planned before implementation.
 
-## Independent audit
-Accepted candidate contains only the requested final presentation cleanup:
-1. Customer Selection Rules **Edit** removed completely, Default included; prop/dispatch/button path removed from this panel.
-2. Redundant `.cz-tier-workspace__composable-metrics` `border-top` removed, leaving the shared `StationTabSet` underline/selected indicator as the only tab line.
-3. Because that same border was the separator above the first metric row, `Always included` now starts without an extra top border; the existing `> * + *` rule still separates later metric rows.
-4. Scope selection/filtering remains controlled by the existing selected declaration state and was not altered.
-5. Cancelled `group_label` idea is absent: no new field, persistence, sanitizer, projection, editor, or storage change.
-6. Existing Edition title labels and literal Default label remain unchanged.
+## Locked customer flow from Nath + live mockup
+The primary Tier/Edition is already in the quote before this stage begins. Do **not** create a second cart, temporary build, commit model, or duplicate pricing/total calculation.
 
-No routing/edit architecture, Edition deep-link, CZT/CZTE/CZTC/CZTEC identity, backend, persistence schema, pricing/resolver, lifecycle, customer policy, quote/cart, or customer-facing behavior changed. Relevant Code Map/contracts and generated Admin assets are synchronized.
+Flow:
+1. Existing focused Tier -> Add to Quote.
+2. Hide normal Cart and existing Recommended Add-ons while a new **Upgrade your build** gate is active in the existing recommendation-stage shell.
+3. Gate actions:
+   - **Browse Catalogue** -> open the existing Upgrade Your Build catalogue inside the focused Tier shell.
+   - **Maybe next time** -> dismiss gate and resume the existing flow unchanged: Recommended Add-ons if present, otherwise Cart.
+4. Catalogue stage reuses the existing Upgrade Your Build UI/pipeline. Left side keeps the existing filters, featured/default-selection behavior and current max-6 inclusion presentation; no new catalogue logic.
+5. Right side is a simple hydrated view of the already-existing quote/cart state: quoted Tier/Edition + selected upgrade inclusions as simple `name × qty` rows + the same totals the cart already knows. The normal cart panel stays hidden while this stage is active.
+6. The catalogue's existing **Add to Quote** keeps its existing quote behavior and additionally ends/breaks the Upgrade gate. After it, resume the same existing continuation: Recommended Add-ons if present -> Cart; otherwise Cart directly.
 
-Claude-reported re-validation: `tsc` clean; focused declaration/overview/Edition/composable contracts PASS; `docs:check` PASS; build succeeded with clean working tree afterward. No browser validation was performed by Claude.
+Visual grammar from approved mockup:
+- Gate: left copy `Your plan is already in the quote` / `Upgrade your build`; right actions `Browse Catalogue` and `Maybe next time`.
+- Catalogue: focused shell heading `Upgrade your build`; left catalogue/filter list; right `Your build` summary with quoted plan, `Upgrades`, running totals, existing `Add to Quote`.
+- Do not create a new commerce surface; this is rearrangement/visibility/navigation around existing components/state.
 
-## Claude / Nath — next action
-Deployed. Awaiting Nath's live check on production:
-- no Edit button in any scope;
-- one clean tab underline only;
-- no border above `Always included`;
-- Default/Edition tab filtering still works correctly.
+## Claude — next action
+Read the relevant current frontend Code Maps/source and **plan only**. Return in this same file:
+- exact existing components/state to reuse for gate, recommendations, catalogue and cart;
+- where the visibility gate should be owned;
+- exact continuation events for `Maybe next time` and existing catalogue `Add to Quote`;
+- a small implementation phase sequence, each phase independently reviewable/live-testable;
+- risks or source constraints that would require changing the agreed flow.
 
-Keep the accepted review branch until live validation passes. Do not touch the separate Always-included initial-cart hydration defect or unrelated lifecycle-regression-script failures.
+Do not implement, branch, build, or modify source yet. Set **AWAITING CHATGPT REVIEW** when the plan is recorded.
