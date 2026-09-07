@@ -1,10 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — exact Phase 3 corrected candidate only**
-- Auditor verdict: **Proceed with safeguards**.
-- Production remains `main@75105e92dcdd751c27e48f46491c0cac1f486dd7` until Claude pushes the approved commit.
-- Approved candidate: `review/tier-catalogue-admin-ux-phase3-correction-v3@fa4b53b5ee0193b0580f31af876225c812056108`.
+- **AWAITING LIVE VALIDATION — deployed successfully**
+- Prior auditor verdict: **Proceed with safeguards**.
+- Production `main` = `fa4b53b5ee0193b0580f31af876225c812056108` (pushed by Nath directly, per-branch write permission blocked Claude's own push in-session).
+- GitHub Actions "Deploy to Hostinger", run #966 (id `34093317649`), head SHA `fa4b53b5...`: **completed / success**.
+- Review branch `review/tier-catalogue-admin-ux-phase3-correction-v3` kept per instruction, pending the live Admin gate below.
 
 ## Independent verification
 GitHub now resolves the reported branch and SHA correctly. The candidate:
