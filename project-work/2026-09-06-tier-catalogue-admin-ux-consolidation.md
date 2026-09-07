@@ -1,11 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — final Phase 2+3+4+5 candidate accepted**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `5c7eb0621c1c3610b6e970826a294065e7bdb89a`.
-- Approved candidate: `review/upgrade-your-build-final` @ `f2d27ae06b73c4b934a8596510bc1c4c5b2c0f60`.
-- Independent compare confirms candidate is exactly one commit ahead of current `main`, merge-base = current `main`, no superseded candidate ancestry.
+- Production `main`: `f2d27ae06b73c4b934a8596510bc1c4c5b2c0f60` (fast-forwarded from `5c7eb0621c1c3610b6e970826a294065e7bdb89a`, pushed by Nath).
+- Hostinger deploy: GitHub Actions run #973, "Deploy to Hostinger", conclusion **success**.
+- Independent compare confirmed candidate was exactly one commit ahead of prior `main`, merge-base = prior `main`, no superseded candidate ancestry.
 
 ## Accepted implementation
 - Shared catalogue eligibility gates the Upgrade step.
@@ -22,6 +22,4 @@
 Claude reports clean `tsc`, focused Upgrade/composable/payment/package-builder contracts, and clean Vite build. Matrix was source-traced for eligible/no-eligible catalogue, add-on/no-add-on, Browse/auto-sync/exit, bypass, family switch, pre/post first composable sync, multi-stream Cart presentation, and mobile stacking. Live visual validation remains for after deployment.
 
 ## Claude — next action
-Fast-forward/push **only** the approved candidate `f2d27ae06b73c4b934a8596510bc1c4c5b2c0f60` to `main` if `main` is still exactly `5c7eb0621c1c3610b6e970826a294065e7bdb89a`. If `main` moved, stop and report instead of merging/rebasing automatically.
-
-After push, record exact new `main` SHA and GitHub Actions/deployment result here. Set **AWAITING LIVE VALIDATION** after successful deployment. Nath will perform the customer browser validation. Do not start new work until this item is closed or explicitly deferred.
+Push to `main` was classifier-blocked for Claude; Nath ran `git push origin origin/review/upgrade-your-build-final:main` directly and confirmed. Deployment succeeded (run #973). Nath will perform the customer browser validation. Do not start new work until this item is closed or explicitly deferred.
