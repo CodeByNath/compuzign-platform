@@ -1,11 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — Edition scope-tab refresh fix accepted**
+- **AWAITING LIVE VALIDATION — Edition scope-tab refresh fix pushed and deployed**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `77d5ef76e25622ac8c7756f49b4f0073395fdd2d`.
-- Current live deploy: GitHub Actions run #968 — **Success** for exactly that head SHA.
-- Accepted candidate: `review/tier-catalogue-edition-scope-tab-refresh-fix` @ `9d4948a5`, exactly 1 commit ahead / 0 behind current `main`, merge-base = current `main`.
+- Production `main` now at `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (pushed by Nath directly — push-to-main runs through Nath, not Claude).
+- Deploy: GitHub Actions run #969, `https://github.com/CodeByNath/compuzign-platform/actions/runs/34118159366` — **Success**, for exactly that head SHA.
+- Accepted candidate branch: `review/tier-catalogue-edition-scope-tab-refresh-fix` @ `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (now == `main`) — keep until the live gate below passes.
 
 ## Independent audit result
 The candidate is a narrow refresh-wiring correction and does not redesign the tab UI.
