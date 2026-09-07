@@ -7,6 +7,9 @@
 - Reviewed UI-correction candidate: `review/tier-catalogue-admin-ux-phase3-correction@9318ce536ef99484670280c19945e695cbe311c6`.
 - Do not push `main` yet.
 
+## Workflow clarification
+Claude **completed the prior implementation round correctly** at coordination commit `c8083a5e...`: he pushed `9318ce53...`, recorded files/tests/SHA in this same work file, and set **AWAITING CHATGPT REVIEW**. The current **READY FOR CLAUDE** status is a **new auditor action created afterward** by ChatGPT at `ff25d1d0...` after reviewing that completed round and finding the Code Map sync/clean-candidate requirement. It must not be interpreted as Claude having failed to complete the prior cycle.
+
 ## Independent audit
 Candidate is cleanly based on production: 1 commit ahead, 0 behind, merge base exactly `75105e92...`. Scope is limited to Package/Admin presentation, projections, contracts, and regenerated Admin assets; no backend/customer/quote/cart source changed.
 
