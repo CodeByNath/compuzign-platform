@@ -1,29 +1,53 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — Phase 4 correction required; source push not approved**
+- **READY FOR CLAUDE — replace bespoke Upgrade summary with scoped real-Cart presentation reuse**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `5c7eb0621c1c3610b6e970826a294065e7bdb89a`; deploy #972 succeeded.
-- Fresh combined Phase 2+3+4 candidate: `review/upgrade-your-build-summary` @ `7daf03b33efdef59f5fb8f759f7e7ce15108ef32`, one commit ahead of current main.
+- Current Phase 2+3+4 candidate `review/upgrade-your-build-summary` @ `7daf03b33efdef59f5fb8f759f7e7ce15108ef32` is **not approved for main**.
 
-## What is accepted
-Gate eligibility/visibility, Browse -> browsing, existing `ComposableOfferBrowser` reuse, Cart/MobileQuoteBar suppression, Family/primary invalidation, unchanged auto-sync, and explicit stage-exit `Add to Quote` are directionally correct.
+## Locked direction
+Do **not** keep extending `UpgradeBuildSummary` as a second simplified Cart presentation.
 
-## Blocking Phase 4 mismatch
-Nath's locked requirement is that the right side shows **the same cart-backed contents/state the customer already has**, with selected Upgrade inclusions added as simple `label × quantity` rows. The candidate weakens that:
-- `UpgradeBuildSummary` falls back to **"See Cart for full commercial breakdown"** for multi-stream items even though the real Cart is intentionally hidden during browsing.
-- It displays the primary plan from flat `price`/`billingCycle`, not the cart's real multi-stream commercial presentation.
-- `row.quantity ?? 1` invents `×1` when the resolved `inclusionItems[]` quantity is absent; this violates the resolved-data-only rule.
+Nath's requirement is simpler: the primary Tier/Edition and composable Build Your Own line already live in the real quote/cart state. During Upgrade browsing, the right side should show the **relevant slice of the existing Cart presentation**, not imitate it.
 
-This is not an acceptable "simpler summary" substitution. The hidden-stage right side must carry the truthful cart commercial facts needed while the Cart itself is withheld.
+### Desired right side while browsing
+Reuse the real Cart's existing item/payment-stream/totals presentation for only:
+- the already-quoted primary Tier/Edition;
+- the current composable/Build Your Own cart line that auto-sync already maintains.
 
-## Required correction
-Keep the current customer flow and correct only the right-side presentation/data path:
-- Reuse/extract the existing cart presentation projection/derivations from `QuoteSummary` as needed so the right side shows the same truthful commercial streams/totals for the already-quoted primary + live composable Upgrade state. Different markup/CTA is fine; weaker monetary information is not.
-- No copied arithmetic, no second pricing model/store, no staged cart, and do not mutate `QuoteSummary` behavior merely to reuse chrome.
-- Continue sourcing Upgrade rows from committed resolved `composableItem.inclusionItems[]`.
-- Show `× quantity` only when that resolved quantity is actually present; do not default/reconstruct `1` client-side.
-- Remove "See Cart" fallback because Cart is hidden in this stage.
-- Keep right-side **Add to Quote** stage-control only: it must not call commit/remove or rebuild quote data.
+Then show the Upgrade-stage **Add to Quote** action underneath. That button is stage-control only and ends the gate; it must not mutate/recommit/rebuild the quote.
 
-Update focused contracts for cart-parity monetary facts, no client quantity fallback, and stage-exit-only behavior. Run `tsc`, relevant contracts, build. Return a clean corrected candidate from current main with exact SHA/files/evidence as **AWAITING CHATGPT REVIEW**. Do not push to main.
+Do not show unrelated cart items or cart-only controls such as Clear all, Remove, Review & Finalise Quote, or other full-Cart chrome unless a specific reused presentation primitive inherently requires them; preferred solution is the smallest reusable Cart item/summary presentation slice, not rendering the entire `QuoteSummary` unchanged.
+
+## Must preserve
+- existing primary Add-to-Quote mutation;
+- Phase-1 shared catalogue eligibility;
+- pending gate + Maybe next time behavior;
+- Browse Catalogue -> existing `ComposableOfferBrowser`;
+- existing filters/paging/featured/default-selection/quantity/preview/auto-sync;
+- Cart/MobileQuoteBar visually hidden while Upgrade stage is active;
+- underlying `items` untouched;
+- normal Recommendations/Add-ons -> Cart continuation after bypass/exit.
+
+## Must remove
+- bespoke simplified `UpgradeBuildSummary` monetary presentation logic;
+- multi-stream `See Cart` fallback;
+- flat primary `price`/`billingCycle` substitute where Cart has richer commercial streams;
+- client-side `quantity ?? 1` reconstruction.
+
+## Must not substitute
+- no second Cart/store;
+- no second pricing/totals implementation;
+- no staging/commit model;
+- no reduced summary that hides information merely because the real Cart is suppressed;
+- no extra Continue/Done/Finish step.
+
+## Claude — next action
+Inspect `QuoteSummary.tsx` and its existing item/payment presentation helpers/components. Identify the **smallest truthful reusable presentation seam** for a scoped Cart view of the primary + composable lines. Reuse/extract presentation primitives only where source proves genuine shared semantics; do not rewrite full Cart behavior just to share chrome.
+
+Replace the current bespoke Upgrade summary approach with that scoped Cart presentation. Keep Upgrade `Add to Quote` as stage-exit only.
+
+Update focused contracts for: same Cart presentation authority, scoped primary+composable items only, no cart-mutating controls, no client quantity fallback, and stage-exit-only CTA. Run `tsc`, relevant contracts and build.
+
+Return a fresh clean combined Phase 2+3+4 candidate from current `main` with exact SHA/files/evidence as **AWAITING CHATGPT REVIEW**. Do not push to main.
