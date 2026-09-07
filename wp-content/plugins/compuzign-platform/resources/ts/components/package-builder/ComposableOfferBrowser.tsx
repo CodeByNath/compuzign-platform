@@ -114,6 +114,44 @@ export function buildComposableChoice(
   return choice;
 }
 
+// The single source of truth for "does this Family/Tier have a real
+// Upgrade Your Build / Build Your Own catalogue at all" — join inclusions
+// (label/price/categories/service — browse metadata) with the
+// customer_policy entry sharing the same item_id (authorization/quantity
+// bounds/featured). An inclusion with no matching policy entry is not
+// offered to the customer at all — the policy is the authorization source
+// of truth, never the inclusions list on its own. An empty result means
+// there is nothing to browse (`offer`/`policy` missing, or every inclusion
+// failed to match a policy entry).
+//
+// Exported so a contract script can exercise it directly (same precedent
+// as buildComposableChoice()/seedSelectionFromCartItem() below), and so a
+// future caller outside this component (e.g. the "Upgrade your build" gate
+// in FamilyTierAdapter.tsx, project-work/2026-09-06-tier-catalogue-admin-
+// ux-consolidation.md) can ask the identical eligibility question without
+// re-deriving this join as a second, parallel business rule.
+export function resolveComposableEligibleRows(family: PackageBuilderFamily): BrowseRow[] {
+  const offer = family.pricing.composable_offer ?? null;
+  const policy = offer?.customer_policy ?? null;
+  if (!offer || !policy) return [];
+  const inclusionsById = new Map<string, ServiceInclusion>();
+  for (const inclusion of offer.inclusions) inclusionsById.set(inclusion.id, inclusion);
+  const out: BrowseRow[] = [];
+  for (const item of policy.items) {
+    const inclusion = inclusionsById.get(item.item_id);
+    if (!inclusion) continue;
+    out.push({
+      item_id: item.item_id,
+      label: inclusion.label,
+      unitPrice: inclusion.unit_price ?? null,
+      categories: inclusion.categories ?? [],
+      service: inclusion.service ?? null,
+      policy: item,
+    });
+  }
+  return out;
+}
+
 // Live-validation correction: the one place local Add/Remove `selection`
 // state is derived from an authoritative committed cart line (or its
 // absence) — used both at mount/Family-switch and by the reconciliation
@@ -295,30 +333,13 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
   // primaryItem's own docblock above.
   const hasReadyPrimary = primaryItem !== null;
 
-  // Join inclusions (label/price/categories/service — browse metadata) with
-  // the customer_policy entry sharing the same item_id (authorization/
-  // quantity bounds/featured). An inclusion with no matching policy entry
-  // is not offered to the customer at all — the policy is the
-  // authorization source of truth, never the inclusions list on its own.
-  const rows = useMemo<BrowseRow[]>(() => {
-    if (!offer || !policy) return [];
-    const inclusionsById = new Map<string, ServiceInclusion>();
-    for (const inclusion of offer.inclusions) inclusionsById.set(inclusion.id, inclusion);
-    const out: BrowseRow[] = [];
-    for (const item of policy.items) {
-      const inclusion = inclusionsById.get(item.item_id);
-      if (!inclusion) continue;
-      out.push({
-        item_id: item.item_id,
-        label: inclusion.label,
-        unitPrice: inclusion.unit_price ?? null,
-        categories: inclusion.categories ?? [],
-        service: inclusion.service ?? null,
-        policy: item,
-      });
-    }
-    return out;
-  }, [offer, policy]);
+  // Extracted (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
+  // Phase 1) so the future "Upgrade your build" gate can ask the identical
+  // eligibility question — does this Family/Tier have any real catalogue —
+  // without re-deriving the offer/policy/inclusion join a second time as a
+  // parallel business rule. Behavior here is unchanged: same offer/policy
+  // read, same join, same output.
+  const rows = useMemo<BrowseRow[]>(() => resolveComposableEligibleRows(family), [offer, policy]);
 
   const rowIdsKey = rows.map((row) => row.item_id).join(',');
 
