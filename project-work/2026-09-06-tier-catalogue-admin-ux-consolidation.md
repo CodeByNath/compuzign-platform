@@ -1,32 +1,32 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — final Customer Selection Rules UI cleanup, confirmed**
+- **SOURCE PUSH APPROVED — final Customer Selection Rules UI cleanup accepted**
+- Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (deploy #969 success).
-- Candidate branch: `review/tier-catalogue-customer-selection-rules-ui-cleanup`, single commit `bd0a48d8be81c591e48ebe220dda21645b349089`, one clean commit from current `main` (merge-base confirmed identical to `main` HEAD, no rebase needed).
+- Accepted candidate: `review/tier-catalogue-customer-selection-rules-ui-cleanup` @ `bd0a48d8be81c591e48ebe220dda21645b349089`.
+- Independent compare confirms exactly one commit ahead / zero behind current `main`, merge-base = current `main`.
 
-## Confirmation performed this round
-Re-audited `bd0a48d8` against the "Superseded idea" note before re-verifying: the commit contains **no** Group-label code, type, sanitizer, editor field, projection, or storage — none was ever written (only a read-only audit of the persistence chain was produced and discarded once the requirement was cancelled). The commit is exactly the three-item UI cleanup, nothing more:
-1. Customer Selection Rules **Edit** removed completely, including for Default (`TierComposableMiddleShell.tsx`, `PackageTierWorkspace.tsx` — button, prop, and dispatch function all deleted).
-2. Doubled tab underline fixed — traced to a redundant `border-top` on `.cz-tier-workspace__composable-metrics` also causing symptom 3; removed, single shared `StationTabSet` underline remains.
-3. Separator above the first metric row (`Always included`) removed; the `> * + *` between-row divider rule (later metric rows) is untouched.
-4. Declaration tab filtering/data projection unaffected — not touched by this commit; the separate scope-tab refresh fix landed already on `main` (`9d4948a5`, deploy #969) prior to this round.
+## Independent audit
+Accepted candidate contains only the requested final presentation cleanup:
+1. Customer Selection Rules **Edit** removed completely, Default included; prop/dispatch/button path removed from this panel.
+2. Redundant `.cz-tier-workspace__composable-metrics` `border-top` removed, leaving the shared `StationTabSet` underline/selected indicator as the only tab line.
+3. Because that same border was the separator above the first metric row, `Always included` now starts without an extra top border; the existing `> * + *` rule still separates later metric rows.
+4. Scope selection/filtering remains controlled by the existing selected declaration state and was not altered.
+5. Cancelled `group_label` idea is absent: no new field, persistence, sanitizer, projection, editor, or storage change.
+6. Existing Edition title labels and literal Default label remain unchanged.
 
-Naming is unchanged: Default scope label is still the literal `Default`; Edition scope labels still use the existing Edition `title`.
+No routing/edit architecture, Edition deep-link, CZT/CZTE/CZTC/CZTEC identity, backend, persistence schema, pricing/resolver, lifecycle, customer policy, quote/cart, or customer-facing behavior changed. Relevant Code Map/contracts and generated Admin assets are synchronized.
 
-## Validation re-run this round (against current `main`, on `review/tier-catalogue-customer-selection-rules-ui-cleanup`)
-- `git merge-base origin/main origin/review/tier-catalogue-customer-selection-rules-ui-cleanup` == `origin/main` HEAD — branch is exactly one commit ahead, no drift, no rebase required.
-- `npx tsc --noEmit` — clean.
-- `npx tsx scripts/tier-catalogue-declaration-scope-contract.ts` — PASS.
-- `npx tsx scripts/tier-catalogue-overview-presentation-contract.ts` — PASS.
-- `npx tsx scripts/tier-edition-admin-contract.ts` — PASS.
-- `npx tsx scripts/composable-tier-admin-ux-contract.ts` — PASS.
-- `npx tsx scripts/tier-overview-is-addon-contract.ts` — PASS.
-- `npm run docs:check` — PASS (117 Markdown files, 46 Code Maps, 22 numbered history records).
-- `npm run build` — succeeded; output byte-identical to what's already committed on the branch (`git status` clean after build), confirming the committed `dist/` assets are current for this exact source tree.
+Claude-reported re-validation: `tsc` clean; focused declaration/overview/Edition/composable contracts PASS; `docs:check` PASS; build succeeded with clean working tree afterward. No browser validation was performed by Claude.
 
-## Must not change
-No routing/edit architecture changes, no Edition deep-link restoration, no CZT/CZTE/CZTC/CZTEC identity changes, no persistence schema changes, no pricing/resolver, lifecycle, customer-policy, quote/cart, or customer-facing changes. Do not touch the separate Always-included initial-cart hydration defect or unrelated lifecycle-regression-script failures.
+## Claude / Nath — next action
+Push **exactly `bd0a48d8be81c591e48ebe220dda21645b349089`** to `main` with no additional source changes. Record the exact resulting `main` SHA and GitHub Actions deploy run/result here, then set **AWAITING LIVE VALIDATION**.
 
-## Claude — next action
-None pending. Awaiting ChatGPT review of `bd0a48d8`. On approval, hand Nath the exact `git push origin bd0a48d8...:main` fast-forward command (push-to-main is classifier-blocked for Claude) and proceed to live validation once he confirms the push landed and the deploy succeeds.
+Nath live-check after deployment:
+- no Edit button in any scope;
+- one clean tab underline only;
+- no border above `Always included`;
+- Default/Edition tab filtering still works correctly.
+
+Keep the accepted review branch until live validation passes. Do not touch the separate Always-included initial-cart hydration defect or unrelated lifecycle-regression-script failures.
