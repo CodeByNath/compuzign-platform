@@ -1,66 +1,35 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — Phase 3 live UI correction implemented**
-- Prior auditor verdict: **Proceed with safeguards**.
-- `main@75105e92dcdd751c27e48f46491c0cac1f486dd7` remains the deployed/production head; not pushed to.
-- Review candidate: branch `review/tier-catalogue-admin-ux-phase3-correction`, commit `9318ce536ef99484670280c19945e695cbe311c6`, branched cleanly from `main@75105e92...`. Pushed to origin.
-- Separate Always-included initial-cart hydration defect remains untouched (out of scope for this round).
+- **READY FOR CLAUDE — documentation sync + clean candidate only**
+- Auditor verdict: **Proceed with safeguards**.
+- Production remains `main@75105e92dcdd751c27e48f46491c0cac1f486dd7`.
+- Reviewed UI-correction candidate: `review/tier-catalogue-admin-ux-phase3-correction@9318ce536ef99484670280c19945e695cbe311c6`.
+- Do not push `main` yet.
 
-## Live findings accepted
-The deployed UI proves:
-- `Default | Edition ...` tabs render and switch scope;
-- `Edit Customer Options` correctly opens the selected declaration's existing inclusion-policy editor/session;
-- no cross-scope editor-routing defect was observed;
-- standalone Customer Selection Rules drawer is gone.
+## Independent audit
+Candidate is cleanly based on production: 1 commit ahead, 0 behind, merge base exactly `75105e92...`. Scope is limited to Package/Admin presentation, projections, contracts, and regenerated Admin assets; no backend/customer/quote/cart source changed.
 
-Remaining defects are UI projection/layout:
-1. Scope selection currently changes only the Featured/policy middle area; it does **not** update the upper center Build Your Own detail card (price, included-feature count, common-question count, and other declaration-owned summary data).
-2. Customer Selection Rules controls are laid out incorrectly: tabs must live at the **top-right of the right column**; the action must live at the **bottom-right of that same right column**.
-3. Action copy must be exactly **`Edit`**.
-4. Use established Admin design-system primitives/tokens: the existing Admin drawer/tab system for the declaration tabs and the established Admin **primary button** treatment for Edit. No ad-hoc/hardcoded spacing, typography, border, color, or button/tab styling.
+Source review passes the requested behavior:
+- one `selectedDeclarationId` is now owned in `PackageTierWorkspace`, so the same active declaration drives the upper Build Your Own card and lower summary deck;
+- upper card price/billing, Included features and Common questions are re-projected from the selected declaration;
+- Edition price reuses the same `resolveRateSheetSelection` formula used by `buildTierEditionDetail`, not raw `edition.price`;
+- lower-left contains Featured inclusions only;
+- lower-right contains declaration tabs, selected-scope policy metrics, then `Edit`;
+- `Edit` still dispatches the exact selected declaration identity through the already-approved existing Tier/Edition editor route;
+- `Edit` uses existing `cz-tier-deck__button--primary`; tabs reuse `StationTabSet`, the repository's shared accessible Station tab primitive;
+- new CSS is placement-only (`justify-content`, `align-self`, logical auto margin), with no hardcoded color/type/border values.
 
-## Locked correction architecture
-There must be **one selected declaration scope state** for the focused Build Your Own workspace, owned high enough (e.g. `PackageTierWorkspace`) to drive every declaration-scoped projection. Do not keep scope selection private inside `TierComposableMiddleShell` if that prevents the upper card from following it.
+Claude-reported `tsc`, build, docs check and focused contracts are accepted for code review.
 
-Changing `Default | Edition ...` must synchronously project the same selected declaration into:
-- upper center Build Your Own detail card: declaration price/billing display, included-feature metric, common-question metric, and any other fields that card already derives from declaration data;
-- lower-left Featured Inclusions;
-- lower-right Customer Selection Rules counts/details;
-- lower-right Edit target.
+## Remaining blocker — current-state documentation
+The authoritative Code Map is now stale. `tier-composable-occupant-admin-ui.md` still says the Phase 3 scope strip only re-projects Featured/policy counts inside `TierComposableMiddleShell`. This correction materially moved scope-state ownership to `PackageTierWorkspace` and made the upper `TierDetailPanel` declaration-scoped. Repository rules require affected Code Maps to reflect current ownership/runtime flow before source approval.
 
-The two lower columns remain the same two-column deck. Left column contains **Featured Inclusions only** — no tabs/button. Right column contains, in order:
-- declaration tabs aligned top-right;
-- selected declaration's Customer Selection Rules metrics/details;
-- `Edit` primary action aligned bottom-right.
+## Claude — next action only
+1. Update the minimum affected current-state Code Map(s), at least `docs/code-map/tier-composable-occupant-admin-ui.md` and, only if its described workspace flow is now stale, `tier-composable-occupant-workspace-ui.md`.
+2. Document concisely: scope state is owned by `PackageTierWorkspace`; one active declaration drives upper card + Featured + policy metrics + Edit target; tabs remain `StationTabSet`; Edit reuses existing Tier/Edition route; no backend/customer authority changed.
+3. Do not alter accepted source behavior unless a documentation check exposes a real mismatch.
+4. Because the final production candidate must be one clean commit, collapse the documentation update plus the already-reviewed `9318ce53...` tree onto a single clean commit directly from `main@75105e92...`.
+5. Re-run docs check and focused contracts/tsc as needed, report exact new SHA/tree and set **AWAITING CHATGPT REVIEW**.
 
-Default remains initial. Edition scope must use that Edition's existing data/identity. `customer_policy = null` inherits Default policy; non-null replaces it. Do not invent copied Edition state or a second resolver.
-
-## Claude — correction only
-1. Lift/control selected declaration scope so `TierComposableMiddleShell` and the upper `TierDetailPanel`/equivalent declaration summary consume the same active scope.
-2. Reuse existing declaration projections/data already built in `declarationScopes`; extend the scope projection only as necessary to provide upper-card fields. Do not hardcode values.
-3. Ensure tabs drive **both lower columns and upper middle detail card**.
-4. Re-layout middle shell exactly as above using existing Admin layout/classes/primitives where possible.
-5. Replace `Edit Customer Options` with **`Edit`**, using the established Admin primary-button primitive/classes/tokens.
-6. Use the established Admin drawer/tab system/primitive for declaration tabs; no bespoke inline tab CSS or hardcoded visual values.
-7. Preserve current working selected-scope editor routing and identity isolation.
-8. Ordinary Tier/Add-on, backend/storage/lifecycle, customer frontend, quote/cart/PDF/email/order remain unchanged.
-9. Add focused contracts proving one selected scope drives upper detail + Featured + rule metrics + Edit target, and ordinary Tier remains unchanged. Add a presentation contract/source check preventing bespoke tab/button styling if suitable.
-10. Run tsc/build/docs check and focused Admin/Edition/customer-policy contracts. Push one clean review candidate from current `main@75105e92...`, report exact SHA/files/tests, set **AWAITING CHATGPT REVIEW**.
-
-Do not push main. Do not start another phase.
-
-## Claude — Phase 3 correction report (`9318ce53`, branched from `main@75105e92`)
-
-**Files changed** (9 source + 2 build-output files regenerated by `npm run build`):
-- `resources/ts/package-station/presentation/package-tier-workspace/PackageTierWorkspace.tsx` — lifted `selectedDeclarationId` state here (was local `useState` inside the middle shell); derives `activeDeclarationScope`/`composableDetailSlot` and passes both to `TierDetailPanel` (upper card) and `TierComposableMiddleShell` (lower deck) as one controlled selection.
-- `resources/ts/package-station/presentation/package-tier-workspace/TierComposableMiddleShell.tsx` — no longer owns any state (controlled `selectedId`/`onSelectScope` props); re-laid-out to the required order — left column Featured Inclusions only; right column: declaration tabs (top, right-aligned) → Customer Selection Rules metrics → `Edit` primary action (bottom, right-aligned). Button now reads exactly `Edit` and wears `cz-tier-deck__button cz-tier-deck__button--primary` (was plain `cz-tier-deck__button` + "Edit Customer Options").
-- `resources/ts/package-station/surface/packageTierWorkspace/composableMiddleShell.ts` — each `ComposableDeclarationScope` now also carries `priceDisplay`/`includedFeatureCount`/`commonQuestionCount`; new `projectDeclarationDetailCard()` merges only those fields onto the occupant's base card (identity/status/actions untouched). Edition price resolved via the same `resolveRateSheetSelection` the Edition's own Overview card already uses (never the raw, potentially-stale `edition.price`). Empty `faq_refs` inherits Default's count; non-empty replaces it, mirroring the existing `customer_policy` inherit/replace rule.
-- `resources/ts/package-station/surface/tierSurface/tierOccupantCard.ts` — extracted `formatTierPriceDisplay()` (the one `$X.XX · cycle` / "Pricing not configured" formula) so the new per-scope projection reuses it instead of forking a second formatter.
-- `resources/ts/package-station/surface/packageTierWorkspace/usePackageTierWorkspace.ts` — passes the Default declaration's own already-resolved `price`/`billing_cycle`/`faq_refs` into `buildComposableDeclarationScopes` (no second read).
-- `resources/ts/admin-station/styles/admin-station.css` — two additive layout-modifier rules only (`.cz-tier-workspace__scope-tabs` right-align, `.cz-tier-workspace__composable-edit` pin-to-bottom-right via existing flex-column + `margin-block-start: auto`); the existing two-column grid and both panel classes are untouched.
-- `scripts/tier-catalogue-declaration-scope-contract.ts`, `scripts/composable-tier-admin-ux-contract.ts` — extended with checks #10–14: per-scope upper-card fields genuinely differ per scope; `projectDeclarationDetailCard` touches only price/feature/faq fields; state-lift proven by source-scan (no `useState` left in the middle shell); exact `Edit` copy + primary-button class; no inline `style=` / bespoke CSS introduced.
-
-**Validation — all pass** (from `wp-content/plugins/compuzign-platform/`): `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, `npm run contract:tier-catalogue-declaration-scope`, `npm run contract:composable-tier-admin-ux`, `npm run contract:package-tier-workspace-shell`, `npm run contract:package-tier-workspace`, `npm run contract:tier-catalogue-overview-presentation`. Re-ran `tsc --noEmit` and both Phase-3 contracts independently before pushing — confirmed passing.
-
-**Judgment call flagged for review:** Edition price is resolved live via `resolveRateSheetSelection` against that Edition's own bound Rate Sheet/`rate_sheet_items` (matching the Edition's own established Overview price binding) rather than trusting the stored `edition.price` field, since that field is known to drift. No other scope beyond the 10 numbered correction items was touched; `TierEditionDeclarationSwitcher.tsx`, `useTierDrawerController.ts` declaration-id seeding, and everything backend/customer-facing are untouched.
+After that clean candidate is verified, source push can be approved. Live Admin validation remains required after deploy. The separate Always-included initial-cart hydration defect stays out of scope.
