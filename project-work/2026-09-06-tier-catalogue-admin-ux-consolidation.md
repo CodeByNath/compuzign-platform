@@ -1,9 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — plan accepted except one cart-summary derivation correction; no source edits**
+- **AWAITING CHATGPT REVIEW — Phase-4 data-path correction recorded, no source edits made**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `bd0a48d8be81c591e48ebe220dda21645b349089`; deploy #970 succeeded.
+- Correction: `UpgradeBuildSummary` takes raw cart `items` (same prop-drilling seam as `QuoteSummary`/`MobileQuoteBar`) and calls the same exported `calcQuoteTotals`/`computeTotalContractValue`/`startingPaymentsByCycle` functions `QuoteSummary` already uses — no precomputed totals prop, no second arithmetic.
 
 ## Locked customer flow
 The primary Tier/Edition is already in the quote before this stage. This is rearrangement/visibility/navigation around existing state only: no second cart, temporary build, duplicate pricing, or new quote commit model.
@@ -34,3 +35,18 @@ Claude: amend Phase 4 planning only. Identify the smallest truthful reuse seam f
 Also confirm where the simple `name × qty` rows come from (existing committed composable quote item/inclusion data) without inventing a second selection state.
 
 No implementation yet. Record the corrected Phase-4 data path and set **AWAITING CHATGPT REVIEW**.
+
+## Claude's Phase-4 correction (source read from `main`)
+
+Confirmed against source: the earlier claim was wrong. `QuoteSummary.tsx` receives only `items: CartItem[]` plus callbacks (props at `QuoteSummary.tsx:9-26`) — it is not handed precomputed totals. It performs its own derivations internally: `calcQuoteTotals(items)` (`QuoteSummary.tsx:36`, defined `utils/quote.ts:363-375`, `export function calcQuoteTotals(items: CartItem[]): QuoteTotals`), plus `computeTotalContractValue` and `startingPaymentsByCycle` from `utils/paymentSummary.ts` (`QuoteSummary.tsx:61,83,139`, exported at `paymentSummary.ts:44` and `:66`). All are pure, `export`ed functions of `items` (or of a cart item's own `legPaymentSummaries` field) — none are module-private, none live inside `QuoteSummary` itself.
+
+**Corrected reuse seam:** `UpgradeBuildSummary` does not receive precomputed totals as props, and does not import/render `QuoteSummary`. Instead:
+- `PackageBuilderApp.tsx` passes the same raw `items` state (line 48) down to `UpgradeBuildSummary` exactly as it already does to `QuoteSummary` (`PackageBuilderApp.tsx:207`) and `MobileQuoteBar` (`:216`) — an established, repeated pattern, not a new one.
+- Inside `UpgradeBuildSummary`, import and call the identical exported functions `QuoteSummary` calls — `calcQuoteTotals` from `@/utils/quote`, `computeTotalContractValue`/`startingPaymentsByCycle` from `@/utils/paymentSummary`, and `orderedQuoteItems`/`isFamilyTierQuoteItem`/`resolveQuoteItemRole` as needed to pick out the primary vs. composable rows — the same call shapes `QuoteSummary.tsx` already uses. This is a second *call* to the same authoritative pure functions on the same data, not a second *implementation* — zero new arithmetic.
+- Only `QuoteSummary`'s own markup/CTA (`Review & Finalise Quote`, clear-all, per-line remove) is skipped; its underlying calculation authority is fully reused.
+
+**`name × qty` rows:** sourced from the already-committed composable `CartItem` living in `items` (the entry `resolveQuoteItemRole` resolves as `'composable'`) — specifically its `composableSelection: ComposablePreviewChoiceItem[]` field, the same field `ComposableOfferBrowser.tsx`'s `seedSelectionFromCartItem` already reads to reseed Add/Remove state. `UpgradeBuildSummary` reads this array directly off the cart item passed down from `PackageBuilderApp`; no new selection state is created — this is display of state that already exists because auto-sync already wrote it.
+
+Phase 4 in the accepted sequence above is unchanged in scope/order; only its internal data path is corrected: `UpgradeBuildSummary` takes raw `items` (not precomputed totals) and calls the same exported `utils/quote.ts` / `utils/paymentSummary.ts` functions `QuoteSummary` uses.
+
+Set **AWAITING CHATGPT REVIEW**.
