@@ -1,11 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — final Customer Selection Rules UI cleanup accepted**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (deploy #969 success).
-- Accepted candidate: `review/tier-catalogue-customer-selection-rules-ui-cleanup` @ `bd0a48d8be81c591e48ebe220dda21645b349089`.
-- Independent compare confirms exactly one commit ahead / zero behind current `main`, merge-base = current `main`.
+- **AWAITING LIVE VALIDATION — final Customer Selection Rules UI cleanup deployed**
+- Nath pushed `bd0a48d8be81c591e48ebe220dda21645b349089` to `main` (fast-forward, exact SHA, no additional source changes).
+- Production `main`: `bd0a48d8be81c591e48ebe220dda21645b349089`.
+- Deploy: GitHub Actions run **#970**, workflow `deploy`, `head_sha` = `bd0a48d8be81c591e48ebe220dda21645b349089`, conclusion **success** (2026-09-07). Run URL: `https://github.com/CodeByNath/compuzign-platform/actions/runs/34125188009`.
 
 ## Independent audit
 Accepted candidate contains only the requested final presentation cleanup:
@@ -21,9 +20,7 @@ No routing/edit architecture, Edition deep-link, CZT/CZTE/CZTC/CZTEC identity, b
 Claude-reported re-validation: `tsc` clean; focused declaration/overview/Edition/composable contracts PASS; `docs:check` PASS; build succeeded with clean working tree afterward. No browser validation was performed by Claude.
 
 ## Claude / Nath — next action
-Push **exactly `bd0a48d8be81c591e48ebe220dda21645b349089`** to `main` with no additional source changes. Record the exact resulting `main` SHA and GitHub Actions deploy run/result here, then set **AWAITING LIVE VALIDATION**.
-
-Nath live-check after deployment:
+Deployed. Awaiting Nath's live check on production:
 - no Edit button in any scope;
 - one clean tab underline only;
 - no border above `Always included`;
