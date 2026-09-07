@@ -1,11 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — clean deep-link removal candidate accepted**
+- **AWAITING LIVE VALIDATION — deep-link removal pushed and deployed**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31` (deploy #967 success; currently-live broken deep-link state).
-- Accepted candidate: `review/tier-catalogue-edition-edit-deeplink-removal` @ `77d5ef76e25622ac8c7756f49b4f0073395fdd2d`.
-- Independent compare confirms exactly 1 commit ahead / 0 behind production `main`, merge-base exactly `56a15ad9...`, with no rejected-candidate ancestry.
+- Production `main` now at `77d5ef76e25622ac8c7756f49b4f0073395fdd2d` (pushed by Nath directly — push-to-main runs through Nath, not Claude).
+- Deploy: GitHub Actions run #968, `https://github.com/CodeByNath/compuzign-platform/actions/runs/34115224865` — **Success**, for exactly that head SHA.
+- Accepted candidate branch: `review/tier-catalogue-edition-edit-deeplink-removal` @ `77d5ef76e25622ac8c7756f49b4f0073395fdd2d` (now == `main`) — keep until the live gate below passes.
 
 ## Independent audit
 The final clean candidate matches Nath's superseding direction and the already-audited cleanup behavior:
