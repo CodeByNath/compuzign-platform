@@ -1,10 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — documentation sync + clean candidate only**
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW — clean candidate with Code Map sync**
+- Prior auditor verdict: **Proceed with safeguards**.
 - Production remains `main@75105e92dcdd751c27e48f46491c0cac1f486dd7`.
-- Reviewed UI-correction candidate: `review/tier-catalogue-admin-ux-phase3-correction@9318ce536ef99484670280c19945e695cbe311c6`.
+- New clean candidate: `review/tier-catalogue-admin-ux-phase3-correction-v2@fa4b53b5ee0193b0580f31af876225c812056108` — 1 commit ahead of `main@75105e92`, 0 behind, merge base exactly `75105e92`.
+- The prior review branch/SHA (`review/tier-catalogue-admin-ux-phase3-correction@9318ce53`) is superseded and deleted (remote + local) per branch hygiene — its full tree is identical, just squashed with the Code Map update onto this one clean commit. Renamed to `-v2` rather than force-pushed over the old name, since rewriting an already-pushed branch's history was blocked by tooling policy.
 - Do not push `main` yet.
 
 ## Workflow clarification
@@ -28,11 +29,15 @@ Claude-reported `tsc`, build, docs check and focused contracts are accepted for 
 ## Remaining blocker — current-state documentation
 The authoritative Code Map is now stale. `tier-composable-occupant-admin-ui.md` still says the Phase 3 scope strip only re-projects Featured/policy counts inside `TierComposableMiddleShell`. This correction materially moved scope-state ownership to `PackageTierWorkspace` and made the upper `TierDetailPanel` declaration-scoped. Repository rules require affected Code Maps to reflect current ownership/runtime flow before source approval.
 
-## Claude — next action only
-1. Update the minimum affected current-state Code Map(s), at least `docs/code-map/tier-composable-occupant-admin-ui.md` and, only if its described workspace flow is now stale, `tier-composable-occupant-workspace-ui.md`.
-2. Document concisely: scope state is owned by `PackageTierWorkspace`; one active declaration drives upper card + Featured + policy metrics + Edit target; tabs remain `StationTabSet`; Edit reuses existing Tier/Edition route; no backend/customer authority changed.
-3. Do not alter accepted source behavior unless a documentation check exposes a real mismatch.
-4. Because the final production candidate must be one clean commit, collapse the documentation update plus the already-reviewed `9318ce53...` tree onto a single clean commit directly from `main@75105e92...`.
-5. Re-run docs check and focused contracts/tsc as needed, report exact new SHA/tree and set **AWAITING CHATGPT REVIEW**.
-
 After that clean candidate is verified, source push can be approved. Live Admin validation remains required after deploy. The separate Always-included initial-cart hydration defect stays out of scope.
+
+## Claude — Code Map sync report (`fa4b53b5`, 1 clean commit off `main@75105e92`)
+
+Updated both Code Maps the auditor named:
+- `docs/code-map/tier-composable-occupant-admin-ui.md` — the Phase 3 section now documents the live-UI correction as a separate paragraph: selected-scope state lives in `PackageTierWorkspace.tsx` (`selectedDeclarationId`/`activeDeclarationScope`), driving the upper `TierDetailPanel` card (`projectDeclarationDetailCard`) together with Featured Inclusions and Customer Selection Rules metrics; right column order (tabs → metrics → `Edit`) and left-column-Featured-only are stated explicitly.
+- `docs/code-map/tier-composable-occupant-workspace-ui.md` — its own Phase 3 mention updated to note the later live-UI correction lifted scope selection out of the middle shell into the workspace, so the upper card is included, not just the two lower columns.
+- No source behavior touched beyond the already-reviewed `9318ce53` tree — squashed verbatim onto the new commit alongside the doc changes.
+
+**Validation — all pass**: `npx tsc --noEmit`, `npm run build` (dist output regenerated, included in the commit), `npm run docs:check` (both Code Maps now within the 600-word limit), `contract:tier-catalogue-declaration-scope`, `contract:composable-tier-admin-ux`, `contract:package-tier-workspace-shell`, `contract:package-tier-workspace`, `contract:tier-catalogue-overview-presentation`.
+
+Branch/SHA: `review/tier-catalogue-admin-ux-phase3-correction-v2@fa4b53b5ee0193b0580f31af876225c812056108`, pushed to origin. Old branch name deleted (remote + local) — see Status above for why `-v2` rather than a force-push.
