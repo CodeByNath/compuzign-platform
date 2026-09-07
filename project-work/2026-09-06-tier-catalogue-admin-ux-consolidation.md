@@ -1,52 +1,51 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION — Phase 3 deployed successfully on retry**
+- **READY FOR CLAUDE — Phase 3 live UI correction only**
 - Auditor verdict: **Proceed with safeguards**.
-- `main` is at `75105e92dcdd751c27e48f46491c0cac1f486dd7` (the approved Phase 3 candidate), deployed.
-- Phase 2 previously deployed on `main@3cc88e83f93e57fec7b61419129cd93a8432809b`.
+- `main@75105e92dcdd751c27e48f46491c0cac1f486dd7` is deployed successfully.
+- Phase 3 live validation is a **partial fail on presentation/projection only**; scope-targeted editing itself works.
+- Separate Always-included initial-cart hydration defect remains untouched.
 
-## Claude — deployment result report
+## Live findings accepted
+The deployed UI proves:
+- `Default | Edition ...` tabs render and switch scope;
+- `Edit Customer Options` correctly opens the selected declaration's existing inclusion-policy editor/session;
+- no cross-scope editor-routing defect was observed;
+- standalone Customer Selection Rules drawer is gone.
 
-`main`'s push landed cleanly (fast-forward, confirmed). GitHub Actions
-"Deploy to Hostinger" run `34064932239` for head SHA `75105e92...` failed
-on its first attempt at the `Deploy source via SSH` step (frontend
-build/`tsc` steps had already succeeded). The user re-ran the job; **run
-attempt 3 completed with `conclusion: success`**, every step green
-including `Deploy source via SSH` and `Deploy built dist assets via SCP` —
-confirming the first failure was transient/infra, not a code regression,
-as flagged in the prior report. Phase 3 is now live on production for the
-same exact reviewed/approved commit.
+Remaining defects are UI projection/layout:
+1. Scope selection currently changes only the Featured/policy middle area; it does **not** update the upper center Build Your Own detail card (price, included-feature count, common-question count, and other declaration-owned summary data).
+2. Customer Selection Rules controls are laid out incorrectly: tabs must live at the **top-right of the right column**; the action must live at the **bottom-right of that same right column**.
+3. Action copy must be exactly **`Edit`**.
+4. Use established Admin design-system primitives/tokens: the existing Admin drawer/tab system for the declaration tabs and the established Admin **primary button** treatment for Edit. No ad-hoc/hardcoded spacing, typography, border, color, or button/tab styling.
 
-Per the coordination doc's own gate, this now needs the **Live Admin
-gate** below run by whoever has live access — I have none.
+## Locked correction architecture
+There must be **one selected declaration scope state** for the focused Build Your Own workspace, owned high enough (e.g. `PackageTierWorkspace`) to drive every declaration-scoped projection. Do not keep scope selection private inside `TierComposableMiddleShell` if that prevents the upper card from following it.
 
-## Independent verification
-The clean-candidate gate passes:
-- `75105e92...` is exactly **1 commit ahead / 0 behind** current production `main@3cc88e83...`;
-- its direct parent is exact production `3cc88e83...`;
-- rejected/intermediate review commits are no longer in the candidate ancestry;
-- GitHub reports tree SHA `09fbed0079ab59662d722104df5f9ecd9f2acbd7` for `75105e92...`, exactly matching the previously reviewed final `0bfc61a7...` tree SHA, so the clean collapse introduced no file/content drift;
-- the reviewed implementation matches the approved UX: `Default | Edition ...` scope tabs inside Customer Selection Rules; Featured and policy-summary projections follow selected scope; one Edit action targets that exact selected declaration using existing Tier/Edition editor/session; standalone Customer Selection Rules drawer is retired; no third Editions card action; no new backend identity/controller/endpoint; ordinary Tier/Add-on and customer-facing source remain outside scope.
+Changing `Default | Edition ...` must synchronously project the same selected declaration into:
+- upper center Build Your Own detail card: declaration price/billing display, included-feature metric, common-question metric, and any other fields that card already derives from declaration data;
+- lower-left Featured Inclusions;
+- lower-right Customer Selection Rules counts/details;
+- lower-right Edit target.
 
-Claude reports this exact clean commit reconfirmed with `tsc`, build, docs check, and focused declaration-scope / inclusion-policy / Admin UX / Tier drawer contracts. Previously documented unrelated baseline failures remain outside this work item.
+The two lower columns remain the same two-column deck. Left column contains **Featured Inclusions only** — no tabs/button. Right column contains, in order:
+- declaration tabs aligned top-right;
+- selected declaration's Customer Selection Rules metrics/details;
+- `Edit` primary action aligned bottom-right.
 
-## Next action
-Deployment for the exact approved SHA succeeded — run the Live Admin gate
-below on the live site. The review branch stays undeleted until that gate
-passes and this doc is explicitly closed. No further Admin/Edition phase
-work starts, and the separate Always-included initial-cart hydration
-defect stays untouched, per the standing instruction.
+Default remains initial. Edition scope must use that Edition's existing data/identity. `customer_policy = null` inherits Default policy; non-null replaces it. Do not invent copied Edition state or a second resolver.
 
-## Live Admin gate after deploy
-Validate read-only:
-- Customer Selection Rules panel shows `Default` plus every existing Build Your Own Edition tab;
-- Default is selected initially;
-- switching to an Edition changes Featured inclusions and every policy-summary metric to that Edition's scope;
-- inherited Edition policy renders Default-equivalent state; Edition-owned replacement renders its own state;
-- `Edit Customer Options` follows selected scope: Default opens Default Inclusions/customer-policy controls, Edition opens that exact Edition already selected with its Inclusions editor;
-- save/reopen on an Edition remains isolated to that Edition and does not overwrite Default/another Edition;
-- standalone Customer Selection Rules drawer/action is gone;
-- ordinary Tier/Add-on UI remains unchanged.
+## Claude — correction only
+1. Lift/control selected declaration scope so `TierComposableMiddleShell` and the upper `TierDetailPanel`/equivalent declaration summary consume the same active scope.
+2. Reuse existing declaration projections/data already built in `declarationScopes`; extend the scope projection only as necessary to provide upper-card fields. Do not hardcode values.
+3. Ensure tabs drive **both lower columns and upper middle detail card**.
+4. Re-layout middle shell exactly as above using existing Admin layout/classes/primitives where possible.
+5. Replace `Edit Customer Options` with **`Edit`**, using the established Admin primary-button primitive/classes/tokens.
+6. Use the established Admin drawer/tab system/primitive for declaration tabs; no bespoke inline tab CSS or hardcoded visual values.
+7. Preserve current working selected-scope editor routing and identity isolation.
+8. Ordinary Tier/Add-on, backend/storage/lifecycle, customer frontend, quote/cart/PDF/email/order remain unchanged.
+9. Add focused contracts proving one selected scope drives upper detail + Featured + rule metrics + Edit target, and ordinary Tier remains unchanged. Add a presentation contract/source check preventing bespoke tab/button styling if suitable.
+10. Run tsc/build/docs check and focused Admin/Edition/customer-policy contracts. Push one clean review candidate from current `main@75105e92...`, report exact SHA/files/tests, set **AWAITING CHATGPT REVIEW**.
 
-Do not close Phase 3 until this live gate passes.
+Do not push main. Do not start another phase.
