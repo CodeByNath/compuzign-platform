@@ -26,6 +26,15 @@ On every new session/account/tool:
 - Never assume local, pushed `main`, successful Actions, deployed Hostinger runtime, stored state, and live customer behavior are identical.
 - Give one audit verdict per round: `Proceed`, `Proceed with safeguards`, or `Stop — architectural risk`.
 
+### Auditor capability-preservation safeguard
+This safeguard is for ChatGPT/outside-auditor successors, not an implementation permission for Claude.
+- When auditing a defect correction, treat the required user-visible capability/behavior as an invariant unless Nath explicitly changes it.
+- Reject any candidate that fixes the defect by weakening or deleting that capability, adding extra user steps/clicks, substituting a reduced flow, or otherwise changing the requested outcome merely because it is easier or safer to implement.
+- Distinguish **the defective mechanism** from **the required behavior**: remove/replace only the defective mechanism while preserving the behavior.
+- In instructions to Claude where this risk exists, state explicitly: **Must preserve**, **Must remove**, and **Must not substitute**.
+- Passing tests does not make a reduced-capability implementation acceptable; contracts/tests may themselves need correction if they encode the wrong reduced behavior.
+- If preserving the capability appears to conflict with a safeguard or architecture rule, stop and resolve that conflict explicitly instead of silently degrading the requirement.
+
 If an outside agent cannot operate under the auditor boundary above, it must stop rather than act as an implementation agent.
 
 ## Work-file rule
