@@ -1,46 +1,49 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION — deployed successfully**
-- Prior auditor verdict: **Proceed with safeguards**.
-- Production `main` = `fa4b53b5ee0193b0580f31af876225c812056108` (pushed by Nath directly, per-branch write permission blocked Claude's own push in-session).
-- GitHub Actions "Deploy to Hostinger", run #966 (id `34093317649`), head SHA `fa4b53b5...`: **completed / success**.
-- Review branch `review/tier-catalogue-admin-ux-phase3-correction-v3` kept per instruction, pending the live Admin gate below.
+- **READY FOR CLAUDE — live validation exposed an Edition Edit routing defect**
+- Auditor verdict: **Stop — architectural risk in the current isolated Edition-editor presentation.**
+- Production `main`: `fa4b53b5ee0193b0580f31af876225c812056108`.
+- Deploy #966 succeeded for that SHA.
+- Keep `review/tier-catalogue-admin-ux-phase3-correction-v3` until this correction is replaced/reviewed.
 
-## Independent verification
-GitHub now resolves the reported branch and SHA correctly. The candidate:
-- is exactly 1 commit ahead / 0 behind production `main@75105e92...`;
-- has merge base and direct parent exactly `75105e92...`;
-- includes only the reviewed Phase 3 UI correction, regenerated Admin assets, focused contracts, and the required current-state Code Map updates;
-- preserves the previously reviewed source tree: core source blobs including `PackageTierWorkspace.tsx` and `TierComposableMiddleShell.tsx` are identical to reviewed `9318ce53...`;
-- updates `tier-composable-occupant-admin-ui.md` to correctly document that `PackageTierWorkspace` owns `selectedDeclarationId` / `activeDeclarationScope` and one scope drives upper `TierDetailPanel`, Featured Inclusions, policy metrics, and Edit target.
+## Live evidence
+Nath validated the deployed Admin UI. Customer Selection Rules scope switching is present, but **Edition -> Edit** deep-links into the Edition editor as an isolated/focused drawer task. After Save the Edition becomes **Pending**, while the normal Tier drawer lifecycle context/footer is not available, leaving no normal Publish path in that presentation.
 
-Reviewed behavior remains accepted:
-- Default/Edition scope selection drives upper Build Your Own price/billing, Included features, Common questions, lower Featured Inclusions, Customer Selection Rules metrics, and Edit target;
-- left lower column is Featured only;
-- right lower column is tabs -> metrics -> `Edit`;
-- tabs reuse shared `StationTabSet`; Edit uses existing Admin primary-button treatment;
-- Edition price reuses established `resolveRateSheetSelection` logic;
-- selected-scope editor routing/identity remains unchanged;
-- no backend/customer/quote/cart authority changed.
+This must **not** be repaired by adding header/footer/lifecycle actions to the isolated view.
 
-Claude reports `tsc`, build, docs check and focused contracts all pass on this exact clean candidate. No further source redesign is requested.
+## Required correction
+Remove the special Customer Selection Rules Edition presentation/deep-link behavior that scopes the Edition editor out as a standalone focused task.
+
+Target behavior:
+1. Customer Selection Rules -> **Default -> Edit** keeps using the canonical Default Inclusions edit path.
+2. Customer Selection Rules -> **Edition X -> Edit** must route into the **canonical existing Tier drawer** exactly through its normal Edition ownership:
+   - open the Build Your Own Tier drawer;
+   - activate **Options**;
+   - select the exact real Edition X;
+   - open that Edition's existing inline editor, using the existing `TierEditionEditor` and existing draft/save path.
+3. On **Save or Cancel**, return to the normal full Tier drawer with:
+   - **Options** still active;
+   - the same Edition still selected;
+   - normal Details / Options / Connections / Support drawer groups and normal lifecycle/footer behavior available.
+
+## Non-change boundaries
+- Do **not** create another Edition editor, drawer, header, footer, lifecycle system, controller, persistence path, or publish action.
+- Do **not** add Publish/Enable/Disable/etc. into the isolated editor presentation.
+- Do **not** change Edition identity, CZTE/CZTEC ownership, `tier_editions[]`, save/settle/publish semantics, pricing, resolver, quote/cart/customer behavior, or backend routes.
+- Reuse the real Edition ID and the existing Options/Edition inline editor.
+- Remove only the extra presentation/routing machinery that causes the standalone focused-editor detour (including any now-unnecessary `initialEditTab`/auto-open plumbing if that plumbing exists only for this detour).
+- Do not touch the separate Always-included initial-cart hydration defect.
 
 ## Claude — next action
-Push **exactly `fa4b53b5ee0193b0580f31af876225c812056108`** to `main` with no additional source changes. Then:
-1. record the resulting exact `main` SHA;
-2. verify GitHub Actions deployment for that exact head SHA and record run/result;
-3. keep the review branch until deployment/live validation pass;
-4. set **AWAITING LIVE VALIDATION** after successful deployment;
-5. do not touch the separate Always-included initial-cart hydration defect and do not start another phase.
+Implement only this correction on a clean review branch from current production `main`. Update the relevant Code Map if current-state routing documentation changes. Run focused TypeScript/contracts/build checks required by the touched area.
 
-## Live Admin gate after deploy
-Read-only validation required:
-- scope tabs appear in the top-right of the right Customer Selection Rules column;
-- lower-left contains only Featured Inclusions;
-- right column shows tabs, selected-scope metrics, then bottom-right `Edit` primary action;
-- switching Default/Edition updates upper price/billing, Included features, Common questions, Featured Inclusions, rule metrics, and Edit target together;
-- Edition `Edit` opens that exact Edition Inclusions editor; Default `Edit` opens Default Inclusions;
-- ordinary Tier/Add-on UI remains unchanged.
+Then update this same work file with:
+- exact branch + candidate SHA;
+- changed files;
+- what routing/presentation code was removed or simplified;
+- proof that canonical Edition save/lifecycle ownership is unchanged;
+- validation results;
+- `AWAITING CHATGPT REVIEW`.
 
-Do not close until the deployed live gate passes and the review branch is cleaned up.
+Do **not** push to `main` until independent review approves the candidate.
