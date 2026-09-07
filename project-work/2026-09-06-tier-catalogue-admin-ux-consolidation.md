@@ -1,29 +1,32 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — final Customer Selection Rules UI cleanup only**
+- **AWAITING CHATGPT REVIEW — final Customer Selection Rules UI cleanup, confirmed**
 - Production `main`: `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (deploy #969 success).
-- Existing UI-cleanup candidate `bd0a48d8` is one clean commit from current main and remains the basis for this final round.
+- Candidate branch: `review/tier-catalogue-customer-selection-rules-ui-cleanup`, single commit `bd0a48d8be81c591e48ebe220dda21645b349089`, one clean commit from current `main` (merge-base confirmed identical to `main` HEAD, no rebase needed).
 
-## Final required cleanup
-- Remove Customer Selection Rules **Edit** completely, Default included.
-- Keep only the normal shared tab underline/indicator; remove the extra line creating the double underline.
-- Remove the separator above the first metric row (`Always included`); retain separators between later metric rows.
-- Preserve the now-correct declaration tab filtering/data projection.
+## Confirmation performed this round
+Re-audited `bd0a48d8` against the "Superseded idea" note before re-verifying: the commit contains **no** Group-label code, type, sanitizer, editor field, projection, or storage — none was ever written (only a read-only audit of the persistence chain was produced and discarded once the requirement was cancelled). The commit is exactly the three-item UI cleanup, nothing more:
+1. Customer Selection Rules **Edit** removed completely, including for Default (`TierComposableMiddleShell.tsx`, `PackageTierWorkspace.tsx` — button, prop, and dispatch function all deleted).
+2. Doubled tab underline fixed — traced to a redundant `border-top` on `.cz-tier-workspace__composable-metrics` also causing symptom 3; removed, single shared `StationTabSet` underline remains.
+3. Separator above the first metric row (`Always included`) removed; the `> * + *` between-row divider rule (later metric rows) is untouched.
+4. Declaration tab filtering/data projection unaffected — not touched by this commit; the separate scope-tab refresh fix landed already on `main` (`9d4948a5`, deploy #969) prior to this round.
 
-## Superseded idea — do NOT implement
-The proposed persisted declaration `group_label` field is **cancelled for this phase**. Do not add any new Group label/category metadata, storage, sanitization, editor field, projection, or frontend behavior.
+Naming is unchanged: Default scope label is still the literal `Default`; Edition scope labels still use the existing Edition `title`.
 
-Current naming stays:
-- Default scope label remains `Default` for now.
-- Edition scope labels continue to use the existing Edition `title` (e.g. `Subscriptions`).
-
-A separate grouping/taxonomy field can be reconsidered later only when there is a concrete need for category != Edition title or customer-facing grouping of multiple declarations.
+## Validation re-run this round (against current `main`, on `review/tier-catalogue-customer-selection-rules-ui-cleanup`)
+- `git merge-base origin/main origin/review/tier-catalogue-customer-selection-rules-ui-cleanup` == `origin/main` HEAD — branch is exactly one commit ahead, no drift, no rebase required.
+- `npx tsc --noEmit` — clean.
+- `npx tsx scripts/tier-catalogue-declaration-scope-contract.ts` — PASS.
+- `npx tsx scripts/tier-catalogue-overview-presentation-contract.ts` — PASS.
+- `npx tsx scripts/tier-edition-admin-contract.ts` — PASS.
+- `npx tsx scripts/composable-tier-admin-ux-contract.ts` — PASS.
+- `npx tsx scripts/tier-overview-is-addon-contract.ts` — PASS.
+- `npm run docs:check` — PASS (117 Markdown files, 46 Code Maps, 22 numbered history records).
+- `npm run build` — succeeded; output byte-identical to what's already committed on the branch (`git status` clean after build), confirming the committed `dist/` assets are current for this exact source tree.
 
 ## Must not change
 No routing/edit architecture changes, no Edition deep-link restoration, no CZT/CZTE/CZTC/CZTEC identity changes, no persistence schema changes, no pricing/resolver, lifecycle, customer-policy, quote/cart, or customer-facing changes. Do not touch the separate Always-included initial-cart hydration defect or unrelated lifecycle-regression-script failures.
 
 ## Claude — next action
-If `bd0a48d8` still exactly represents these three UI cleanup requirements with no Group-label work, use that clean candidate; otherwise prepare one clean replacement commit from current `main` containing only the three UI changes and necessary focused contract/Code Map/generated-asset sync.
-
-Run focused `tsc`, relevant declaration/UI contracts, `docs:check`, and build. Record exact branch/SHA and validation here as **AWAITING CHATGPT REVIEW**. Do not push to `main` until reviewed.
+None pending. Awaiting ChatGPT review of `bd0a48d8`. On approval, hand Nath the exact `git push origin bd0a48d8...:main` fast-forward command (push-to-main is classifier-blocked for Claude) and proceed to live validation once he confirms the push landed and the deploy succeeds.
