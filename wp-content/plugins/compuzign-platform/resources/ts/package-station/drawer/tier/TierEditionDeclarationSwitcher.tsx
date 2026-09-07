@@ -72,7 +72,7 @@
 // unmounts this subtree — see useTierDrawerController's own
 // editionBinActive comment).
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { PlacedShell } from '@/drawer-kit/PlacedShell';
 import { ChildChipStrip } from '@/drawer-kit/ui/ChildChipStrip';
 import { TrashIcon } from '@/admin-station/shell/icons';
@@ -125,17 +125,27 @@ interface Props {
   // own Inclusions tab so an Edition's customer_policy is authorable through
   // the SAME merged controls, gated identically.
   customerPolicyEligible: boolean;
-  // Phase 3 correction — set only when the drawer opened from the Customer
-  // Selection Rules panel's own Edit action targeting this exact Edition
-  // (already reflected in `selectedId` above): auto-opens that Edition's
-  // own inline editor on this tab once, so the admin lands directly in it
-  // rather than having to find and re-click Edit under Options themselves.
+  // Phase 3 correction (revised) — set only when the drawer opened from the
+  // Customer Selection Rules panel's own Edit action targeting this exact
+  // Edition (already reflected in `selectedId` above): auto-opens that
+  // Edition's own inline editor on this tab once, so the admin lands
+  // directly in it rather than having to find and re-click Edit under
+  // Options themselves. This prop is now the SOURCE OF TRUTH, owned by
+  // useTierDrawerController (not re-derived every render) — the effect
+  // below must call onInitialEditTabConsumed the instant it opens the
+  // editor so that source clears itself; a post-Save refetch remounts this
+  // whole component (see this file's own header comment on
+  // selectedId/onSelect), which would otherwise silently reset any
+  // component-local "already applied" guard and re-fire the auto-open
+  // forever. See useTierDrawerController's initialEditionEditTab comment
+  // for the full history.
   initialEditTab?: TierEditionEditorTab;
+  onInitialEditTabConsumed?: () => void;
 }
 
 export function TierEditionDeclarationSwitcher({
   ctl, rateSheetOptions, svc, selectedId, onSelect, scrollContainer, onEditingActiveChange,
-  binActive, onBinActiveChange, customerPolicyEligible, initialEditTab,
+  binActive, onBinActiveChange, customerPolicyEligible, initialEditTab, onInitialEditTabConsumed,
 }: Props) {
   const [editingTab, setEditingTab] = useState<TierEditionEditorTab | null>(null);
   const [draft, setDraft] = useState<TierEditionOverviewDraft | null>(null);
@@ -176,15 +186,18 @@ export function TierEditionDeclarationSwitcher({
     setLegsNotice(null);
   };
 
-  // Fires exactly once, only once `selected` has actually resolved (the
-  // panel's Edit action seeds selectedId synchronously, but this Edition's
-  // own draft-preferred data may still be loading) — never re-fires on a
-  // later manual tab switch, Save, or Cancel.
-  const initialEditApplied = useRef(false);
+  // Fires once `selected` has actually resolved (the panel's Edit action
+  // seeds selectedId synchronously, but this Edition's own draft-preferred
+  // data may still be loading). No component-local "already applied" guard
+  // here — onInitialEditTabConsumed clears initialEditTab at its source
+  // (useTierDrawerController) in the same tick, so the prop itself goes
+  // false and this effect's own guard (`!initialEditTab`) is what prevents
+  // any re-fire, including one caused by this whole component remounting
+  // after a post-Save refetch. See this prop's own doc comment above.
   useEffect(() => {
-    if (initialEditApplied.current || !initialEditTab || !selected) return;
-    initialEditApplied.current = true;
+    if (!initialEditTab || !selected) return;
     openEdit(initialEditTab);
+    onInitialEditTabConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEditTab, selected]);
 

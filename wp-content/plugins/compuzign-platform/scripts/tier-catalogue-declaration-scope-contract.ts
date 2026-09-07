@@ -286,10 +286,25 @@ check(
 
 const switcherSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/TierEditionDeclarationSwitcher.tsx'), 'utf8');
 check(
-  switcherSource.includes('if (initialEditApplied.current || !initialEditTab || !selected) return;')
-    && switcherSource.includes('initialEditApplied.current = true;')
-    && switcherSource.includes('openEdit(initialEditTab);'),
-  'the pre-selected Edition\'s own inline editor opens automatically exactly once, waiting for its draft-preferred data to resolve, and never re-fires on a later manual Save/Cancel/tab switch',
+  switcherSource.includes('if (!initialEditTab || !selected) return;')
+    && switcherSource.includes('openEdit(initialEditTab);')
+    && switcherSource.includes('onInitialEditTabConsumed?.();'),
+  'the pre-selected Edition\'s own inline editor opens automatically once its draft-preferred data resolves, then immediately reports the intent consumed',
+);
+check(
+  !switcherSource.includes('initialEditApplied'),
+  'the routing-correction rewrite (2026-09-07): the auto-open guard is no longer a component-local ref, since TierEditionDeclarationSwitcher itself unmounts on every Edition mutation refetch (including its own Save) — a local ref reset on that remount while the old derived initialEditTab value stayed truthy, re-firing the auto-open after every Save and leaving no reachable footer (the live defect the rejected first candidate only partly fixed)',
+);
+check(
+  controllerSource.includes("useState<TierEditionEditorTab | undefined>(initialEditionId ? 'inclusions' : undefined)")
+    && controllerSource.includes('const consumeInitialEditionEditTab = () => setInitialEditionEditTab(undefined);'),
+  'initialEditionEditTab is real one-shot STATE owned by useTierDrawerController (seeded once from initialEditionId, never re-derived on every render) with its own consume function — the controller instance survives the refetch-triggered remount that unmounts TierEditionDeclarationSwitcher (same reason selectedDeclarationId/editionBinActive are lifted here), so consuming it there is what actually prevents the post-Save re-open, not a guard living in the component that gets torn down',
+);
+const drawerContentSource = readFileSync(resolve(root, 'resources/ts/package-station/drawer/tier/TierDrawerContent.tsx'), 'utf8');
+check(
+  drawerContentSource.includes('initialEditTab={c.initialEditionEditTab}')
+    && drawerContentSource.includes('onInitialEditTabConsumed={c.consumeInitialEditionEditTab}'),
+  'TierDrawerContent wires both the one-shot value and its consume callback into the switcher — Options activation, the exact Edition selection, and the switcher\'s own Save/Cancel-driven return to the normal drawer chrome are all unchanged by this correction',
 );
 
 // ── 10/11. Each scope's own upper-card fields, genuinely different per

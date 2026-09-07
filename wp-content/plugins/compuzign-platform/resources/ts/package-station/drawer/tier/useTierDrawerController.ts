@@ -33,6 +33,7 @@ import { useTierModuleEditing } from './useTierModuleEditing';
 import { useTierBinTravel } from './useTierBinTravel';
 import { buildTierDetail, buildTierFooterModel } from './tierDetailModel';
 import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
+import type { TierEditionEditorTab } from './TierEditionEditor';
 
 // Re-exported from the derived-model module so TierBinList (and any other
 // consumer) keeps its established import path.
@@ -86,6 +87,28 @@ export function useTierDrawerController({
   // click. This hook's own state survives that remount, the same reason
   // editingSection/openTierPanel already live here rather than in a child.
   const [selectedDeclarationId, setSelectedDeclarationId] = useState<string | null>(initialEditionId);
+  // Pending one-shot Edition edit intent (Phase 3 correction, revised) — a
+  // real STATE value, seeded once from initialEditionId, not a value
+  // re-derived from it on every render. The original mistake here computed
+  // this directly in the return object below (`initialEditionId ? 'inclusions'
+  // : undefined`), which stayed truthy for the whole life of the mounted
+  // drawer; TierEditionDeclarationSwitcher's own local one-shot ref guard
+  // lived in that CHILD component, which unmounts (briefly replaced by
+  // <AsyncLoading/>, same reason selectedDeclarationId/editionBinActive live
+  // here — see their own comments above) on every Edition mutation refetch,
+  // including the inline editor's own Save — so the guard reset while the
+  // still-truthy derived value re-fired the auto-open on every post-Save
+  // remount, and the admin could never reach a stable footer. Mirrors
+  // useTierModuleEditing's own openedInitialSection one-shot pattern: the
+  // consuming ref/state lives at THIS level (which never unmounts — only its
+  // rendered children swap to <AsyncLoading/>), not inside the child that
+  // renders the editor. consumeInitialEditionEditTab clears this to
+  // undefined the moment TierEditionDeclarationSwitcher's own effect opens
+  // the editor, so neither a later manual tab switch nor a post-Save refetch
+  // can re-trigger it — the source of truth itself goes false, no ref needed.
+  const [initialEditionEditTab, setInitialEditionEditTab] =
+    useState<TierEditionEditorTab | undefined>(initialEditionId ? 'inclusions' : undefined);
+  const consumeInitialEditionEditTab = () => setInitialEditionEditTab(undefined);
   // Edition Bin exclusive-view toggle (Edition lifecycle/Bin UX cleanup) —
   // presentation/navigation state only, deliberately NOT persisted to
   // backend/localStorage, and deliberately separate from
@@ -315,11 +338,12 @@ export function useTierDrawerController({
     // individual tier
     tierDetail, openTierPanel, setOpenTierPanel,
     selectedDeclarationId, setSelectedDeclarationId,
-    // Phase 3 correction — set only when the drawer opened addressing a
-    // real Edition scope from the Customer Selection Rules panel; consumed
-    // once by TierEditionDeclarationSwitcher to auto-open that Edition's
-    // own Inclusions tab.
-    initialEditionEditTab: initialEditionId ? ('inclusions' as const) : undefined,
+    // Set only when the drawer opened addressing a real Edition scope from
+    // the Customer Selection Rules panel; consumed exactly once by
+    // TierEditionDeclarationSwitcher to auto-open that Edition's own
+    // Inclusions tab, then cleared via consumeInitialEditionEditTab — see
+    // this state's own declaration comment above.
+    initialEditionEditTab, consumeInitialEditionEditTab,
     editionBinActive, setEditionBinActive,
     editionModuleEditing, setEditionModuleEditing, anyEditingActive, focusedTaskActive,
     // Options' own creation control (relocated off Overview's footer — see
