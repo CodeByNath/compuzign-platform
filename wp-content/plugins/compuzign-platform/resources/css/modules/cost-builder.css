@@ -4528,6 +4528,146 @@
   outline-offset: 2px;
 }
 
+/* Phase 2 — "Upgrade your build" gate (project-work/2026-09-06-tier-
+   catalogue-admin-ux-consolidation.md). Minimal functional layout only;
+   mockup-accurate visual polish is a later phase. Left copy / right actions
+   per the approved mockup, stacking to one column on narrow viewports. */
+.cz-package-builder__upgrade-gate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cz-space-6);
+  flex-wrap: wrap;
+  padding: var(--cz-space-6);
+  background: var(--cz-color-surface-2);
+  border: 1px solid var(--cz-color-border);
+  border-radius: var(--cz-radius-sm);
+}
+
+.cz-package-builder__upgrade-gate-eyebrow {
+  margin: 0 0 var(--cz-space-1);
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-sm);
+}
+
+.cz-package-builder__upgrade-gate-heading {
+  margin: 0;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__upgrade-gate-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-4);
+  flex-wrap: wrap;
+}
+
+/* Phase 5 — browsing stage: existing catalogue (left) beside the read-only
+   "Your build" summary (right). Mobile-first, same breakpoint the real
+   Cart-vs-main relationship already uses (.cz-cost-builder__body's own
+   min-width: 1024px two-column switch above) — this replaces where that
+   sidebar would sit structurally, so it stacks/unstacks at the identical
+   width rather than an ad hoc flex-wrap point. Below 1024px: a plain
+   column, catalogue first then summary (DOM order — no `order` override
+   needed), matching every other stacked section on this page. */
+.cz-package-builder__upgrade-browsing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-8);
+}
+
+.cz-package-builder__upgrade-browsing > .cz-package-builder__composable {
+  /* This sits beside/above the summary now, not as a standalone bottom
+     section — the divider/margin that separated it from whatever was
+     above it no longer applies here. */
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+@media (min-width: 1024px) {
+  .cz-package-builder__upgrade-browsing {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .cz-package-builder__upgrade-browsing > .cz-package-builder__composable {
+    flex: 1 1 60%;
+    min-width: 0;
+  }
+
+  .cz-package-builder__upgrade-summary {
+    flex: 1 1 320px;
+    min-width: 260px;
+  }
+}
+
+/* Phase 4 correction — this container now hosts the SAME reused
+   QuoteItemPricePresentation/QuoteTotalsPresentation markup QuoteSummary
+   itself renders (.cz-quote-summary__item-info/-prices/-total etc.,
+   defined once, standalone selectors, not scoped under .cz-quote-summary)
+   so the truthful presentation carries its own existing styling here
+   unchanged. Only the outer container/list/item wrapper below is this
+   component's own concern — pure layout, no monetary presentation. */
+.cz-package-builder__upgrade-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+  padding: var(--cz-space-6);
+  background: var(--cz-color-surface-2);
+  border: 1px solid var(--cz-color-border);
+  border-radius: var(--cz-radius-sm);
+}
+
+.cz-package-builder__upgrade-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+}
+
+.cz-package-builder__upgrade-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+  padding-bottom: var(--cz-space-4);
+  border-bottom: 1px solid var(--cz-color-line);
+}
+
+.cz-package-builder__upgrade-summary-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.cz-package-builder__upgrade-summary-total {
+  padding-top: var(--cz-space-4);
+  border-top: 1px solid var(--cz-color-border);
+}
+
+/* Correction round — the selected Upgrade inclusions (disclosureRowsForFamilyTierItem()'s
+   own authoritative rows, same derivation the Cart's own inclusion
+   disclosure panel uses), always visible here (no chevron/toggle — this
+   stage has no reason to start collapsed). A simple label (+ × quantity
+   when resolved) list, not the fuller Inclusion/Qty/Unit price/Line total
+   table QuoteSummary's own disclosure panel renders — that level of detail
+   belongs to the real Cart; this stays the "simple truthful name ×
+   quantity view" the locked customer flow asks for. */
+.cz-package-builder__upgrade-summary-inclusions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  font-size: var(--cz-font-size-sm);
+}
+
+.cz-package-builder__upgrade-summary-inclusion--child {
+  padding-left: var(--cz-space-3);
+}
+
 /* Focused-Tier exit control — a circular icon-only X, not a back link (this
    isn't browser/back navigation, it's the one action that clears the
    focused-Tier state). Sized to its own content (no wrapper) so it never

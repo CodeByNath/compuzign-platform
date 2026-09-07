@@ -13,7 +13,8 @@ import {
 export { commercialLegInclusionGroups, commercialLegExtensionGroups } from '@/utils/commercialLegPresentation';
 export type { CommercialLegInclusionGroup, CommercialLegExtensionGroup } from '@/utils/commercialLegPresentation';
 import { PlanDetailsModal } from './PlanDetailsModal';
-import { ComposableOfferBrowser } from './ComposableOfferBrowser';
+import { ComposableOfferBrowser, resolveComposableEligibleRows } from './ComposableOfferBrowser';
+import { UpgradeBuildSummary } from './UpgradeBuildSummary';
 
 // Phase 7E: the Plan Details popup's own explicit target identity, resolved
 // once at "View plan details" click time from whichever Tier/Edition is
@@ -336,12 +337,21 @@ interface FamilyTierAdapterProps {
   // Live-validation correction: the full quoted primary item, or null —
   // forwarded to ComposableOfferBrowser as its own primaryItem prop so it
   // can independently verify an exact ready base exists, rather than
-  // relying solely on this component's own selectedTierId !== null render
-  // gate below to keep it from ever committing/pricing an Upgrade with no
-  // base. Same "belt and suspenders" reasoning as selectedComposableItem
-  // above — a second, domain-boundary layer, not a replacement for the
-  // render gate.
+  // relying solely on this component's own render gate below (Phase 3:
+  // upgradeGateActive === 'browsing', which itself can only ever be true
+  // once a primary is already committed) to keep it from ever committing/
+  // pricing an Upgrade with no base. Same "belt and suspenders" reasoning
+  // as selectedComposableItem above — a second, domain-boundary layer, not
+  // a replacement for the render gate.
   selectedPrimaryItem: FamilyTierQuoteItem | null;
+  // Phase 2 (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
+  // "Upgrade your build" gate) — called whenever the gate's own active/
+  // inactive state changes, so PackageBuilderApp can hide QuoteSummary/
+  // MobileQuoteBar while it is up, without touching `items` at all. This
+  // component owns no cart-visibility logic of its own, same "caller
+  // performs the actual mutation/visibility" posture as onCommit/
+  // onRemoveFromQuote above.
+  onUpgradeGateActiveChange: (active: boolean) => void;
 }
 
 const CUSTOMER_GROUPS = [
@@ -379,6 +389,7 @@ export function FamilyTierAdapter({
   onComposableCommit,
   onComposableRemove,
   selectedPrimaryItem,
+  onUpgradeGateActiveChange,
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
@@ -459,6 +470,12 @@ export function FamilyTierAdapter({
     setSelectedPeriodFromMonth(null);
     setHoveredLegSource(null);
     setPlanDetailsTarget(null);
+    // Same TierId-collision-across-Families reasoning as every other reset
+    // above: upgradeGateTierId is a TierId, not itself Family-scoped, so a
+    // same-named Tier in the NEW Family could otherwise let a stale gate
+    // reappear without ever having been re-triggered by commitSelection.
+    setUpgradeGateTierId(null);
+    setUpgradeGateStage(null);
   }, [family.family_id]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
@@ -523,6 +540,37 @@ export function FamilyTierAdapter({
   const stagedTier = stagedTierId !== null && stagedTierId === selectedTierId
     ? normalTiers.find((tier) => tier.id === stagedTierId) ?? null
     : null;
+
+  // Phase 2 — "Upgrade your build" gate (project-work/2026-09-06-tier-
+  // catalogue-admin-ux-consolidation.md). Same shape/validity pattern as
+  // stagedTierId/stagedTier above: the gate belongs to the exact tierId that
+  // opened it, so if the primary is later removed or swapped to a different
+  // Tier, upgradeGateActive derives back to null on its own — no separate
+  // reset call needed for that case (the family-switch effect below still
+  // hard-resets it, for the identical same-TierId-different-Family reason
+  // that effect already exists for focusedTierId/stagedTierId's siblings).
+  // `stage` stays 'pending' | 'browsing' | null so Phase 3 can wire
+  // 'browsing' into this same state without a shape change; Phase 2 only
+  // ever sets 'pending' (Browse Catalogue is rendered but inert this phase).
+  const [upgradeGateTierId, setUpgradeGateTierId] = useState<TierId | null>(null);
+  const [upgradeGateStage, setUpgradeGateStage] = useState<'pending' | 'browsing' | null>(null);
+  const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
+    ? upgradeGateStage
+    : null;
+
+  useEffect(() => {
+    onUpgradeGateActiveChange(upgradeGateActive !== null);
+    // onUpgradeGateActiveChange is PackageBuilderApp's raw useState setter,
+    // a stable identity by React/Preact guarantee (no useCallback needed);
+    // omitted from deps so a caller re-render can never spuriously re-fire
+    // this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upgradeGateActive]);
+
+  const dismissUpgradeGate = () => {
+    setUpgradeGateTierId(null);
+    setUpgradeGateStage(null);
+  };
 
   const itemFor = (
     tierId: TierId,
@@ -618,12 +666,22 @@ export function FamilyTierAdapter({
     setSelectedPeriodFromMonth(null);
     setPlanDetailsTarget(null);
     setStagedTierId(addonTiers.length > 0 ? tierId : null);
+    // The gate takes priority over the Recommendations/staged view above —
+    // it is shown first, immediately after Add to Quote, whenever this
+    // Family/Tier has a real Upgrade Your Build catalogue at all (Phase 1's
+    // shared eligibility truth). stagedTierId is still set unconditionally
+    // above so "Maybe next time"/the derived fallback below lands on exactly
+    // today's existing continuation once the gate ends.
+    const hasCatalogue = resolveComposableEligibleRows(family).length > 0;
+    setUpgradeGateTierId(hasCatalogue ? tierId : null);
+    setUpgradeGateStage(hasCatalogue ? 'pending' : null);
   };
 
   const select = (tierId: TierId, effective: EffectiveTierDisplay) => {
     if (selectedTierId === tierId) {
       onRemovePrimary();
       setStagedTierId(null);
+      dismissUpgradeGate();
       return;
     }
     commitSelection(tierId, effective, null);
@@ -1075,6 +1133,47 @@ export function FamilyTierAdapter({
         </div>
       </div>
     );
+  // Phase 2/3 — "Upgrade your build" gate. Takes priority over the staged
+  // Recommendations view below: the gate is the first thing shown right
+  // after Add to Quote whenever this Family/Tier has a real catalogue
+  // (commitSelection above only ever enters 'pending' in that case).
+  // Dismissing it (Maybe next time, pending-stage only — there is no
+  // browsing-stage exit yet, that is Phase 4's stage-exit CTA) falls
+  // straight through to exactly today's existing continuation — stagedTier
+  // below if Add-ons exist, otherwise the comparison grid, with Cart
+  // already reappearing via the onUpgradeGateActiveChange effect above.
+  } else if (upgradeGateActive === 'pending') {
+    mainContent = (
+      <div class="cz-package-builder__upgrade-gate">
+        <div class="cz-package-builder__upgrade-gate-copy">
+          <p class="cz-package-builder__upgrade-gate-eyebrow">Your plan is already in the quote</p>
+          <h3 class="cz-package-builder__upgrade-gate-heading">Upgrade your build</h3>
+        </div>
+        <div class="cz-package-builder__upgrade-gate-actions">
+          <button
+            type="button"
+            class="cz-cost-builder__tier-action"
+            onClick={() => setUpgradeGateStage('browsing')}
+          >
+            Browse Catalogue
+          </button>
+          <button
+            type="button"
+            class="cz-package-builder__focused-back"
+            onClick={dismissUpgradeGate}
+          >
+            Maybe next time
+          </button>
+        </div>
+      </div>
+    );
+  // Phase 3 — browsing stage: mainContent yields nothing here so the
+  // catalogue component (a sibling further down in this file, mounted only
+  // for this exact stage) is the sole visible content in this area, never
+  // stacked underneath a stale grid/staged view the way the pre-gate
+  // unconditional mount used to leave it.
+  } else if (upgradeGateActive === 'browsing') {
+    mainContent = null;
   // Selected-Tier view: the chosen Tier alone, with Recommendations beside
   // it. Reached only when recommendation content exists — today that means
   // the Tier System offers Add-ons — so this view always has something to
@@ -1180,26 +1279,52 @@ export function FamilyTierAdapter({
           journey only — Upgrade your build, reached from an already-
           selected primary Tier/Edition. Standalone "Build Your Own" (no
           primary selected, selectedTierId === null) is deferred; gating
-          this entry point on selectedTierId !== null is what keeps that
-          route out of reach without touching ComposableOfferBrowser's own
-          'build_your_own' context branch (still there, unused, for the
-          later standalone phase). TODO(next phase): re-enable a standalone
-          Build Your Own entry point once that journey is designed.
+          this entry point out of that route without touching
+          ComposableOfferBrowser's own 'build_your_own' context branch
+          (still there, unused, for the later standalone phase).
+          TODO(next phase): re-enable a standalone Build Your Own entry
+          point once that journey is designed.
           Live-validation correction: selectedPrimaryItem is also passed
           straight through as primaryItem — this render gate is the belt,
           ComposableOfferBrowser's own internal readiness check (Add/Remove
           disabled, auto-commit effect refusing to run) is the suspenders,
           so a base-less Upgrade can never start pricing/persistence even
-          if this gate alone were ever bypassed or raced. */}
-      {selectedTierId !== null && (
-        <ComposableOfferBrowser
-          family={family}
-          context="upgrade_your_build"
-          initialCartItem={selectedComposableItem}
-          primaryItem={selectedPrimaryItem}
-          onCommit={onComposableCommit}
-          onRemoveFromQuote={onComposableRemove}
-        />
+          if this gate alone were ever bypassed or raced.
+          Phase 3 (project-work/2026-09-06-tier-catalogue-admin-ux-
+          consolidation.md): mount condition narrowed from selectedTierId
+          !== null to upgradeGateActive === 'browsing' — strictly tighter
+          (browsing can only ever be true when selectedTierId is already
+          non-null, since upgradeGateTierId is only ever set alongside a
+          real onAdd in commitSelection), so the belt-and-suspenders
+          reasoning above still holds. This is also what keeps the
+          catalogue from ever appearing stacked underneath the pending gate
+          or the Recommendations/comparison views the way its old
+          unconditional mount used to.
+          Phase 4: UpgradeBuildSummary joins it here as a right-side sibling
+          inside the same wrapper — ComposableOfferBrowser itself is passed
+          the exact same props as before, completely untouched. The summary
+          is presentational-only (see its own file): reads `items` +
+          selectedPrimaryItem/selectedComposableItem, computes nothing this
+          component doesn't already have. Its one exit action calls
+          dismissUpgradeGate directly — never onComposableCommit/
+          onComposableRemove, so it can never perform a quote mutation of
+          its own. */}
+      {upgradeGateActive === 'browsing' && (
+        <div class="cz-package-builder__upgrade-browsing">
+          <ComposableOfferBrowser
+            family={family}
+            context="upgrade_your_build"
+            initialCartItem={selectedComposableItem}
+            primaryItem={selectedPrimaryItem}
+            onCommit={onComposableCommit}
+            onRemoveFromQuote={onComposableRemove}
+          />
+          <UpgradeBuildSummary
+            primaryItem={selectedPrimaryItem}
+            composableItem={selectedComposableItem}
+            onExit={dismissUpgradeGate}
+          />
+        </div>
       )}
     </>
   );

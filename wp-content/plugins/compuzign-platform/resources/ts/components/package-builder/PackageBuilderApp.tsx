@@ -55,6 +55,13 @@ export function PackageBuilderApp() {
   // families list (data.families) — a cart item can belong to a Family
   // other than whichever one FamilyTierAdapter currently has open.
   const [quoteDetailsTarget, setQuoteDetailsTarget] = useState<FamilyTierQuoteItem | 'cart' | null>(null);
+  // Phase 2 (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
+  // "Upgrade your build" gate) — FamilyTierAdapter owns the gate's own
+  // pending/browsing/dismissed state entirely; this is only the one boolean
+  // it reports up so Cart visibility below can suppress QuoteSummary/
+  // MobileQuoteBar while the gate is active, without this component ever
+  // reading/duplicating the gate's own internal state shape.
+  const [upgradeGateActive, setUpgradeGateActive] = useState(false);
 
   useEffect(() => {
     if (items.length === 0) clearCart();
@@ -198,11 +205,12 @@ export function PackageBuilderApp() {
               onComposableCommit={addComposable}
               onComposableRemove={removeComposable}
               selectedPrimaryItem={primary}
+              onUpgradeGateActiveChange={setUpgradeGateActive}
             />
           </Card>
         </main>
         <aside class="cz-cost-builder__sidebar" id={SUMMARY_ID}>
-          {items.length > 0 && (
+          {items.length > 0 && !upgradeGateActive && (
             <QuoteSummary
               items={items}
               onRemove={removeItem}
@@ -213,7 +221,7 @@ export function PackageBuilderApp() {
           )}
         </aside>
       </div>
-      <MobileQuoteBar items={items} summaryId={SUMMARY_ID} />
+      {!upgradeGateActive && <MobileQuoteBar items={items} summaryId={SUMMARY_ID} />}
       <RequestFlowModal
         isOpen={isFlowOpen}
         context={{ type: 'quote_cart', items, services: [] }}
