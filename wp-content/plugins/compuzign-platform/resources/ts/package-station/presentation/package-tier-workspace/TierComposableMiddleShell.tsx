@@ -26,13 +26,13 @@
 // live validation showed that deep-link corrupting the drawer's own chrome
 // state (an auto-reopen loop after every Save, then — after that fix — a
 // header/footer/tab-less render after Save/Cancel). Removed entirely rather
-// than patched again: the Edit action here now targets Default ONLY,
-// rendering only while the Default scope tab is active. The declaration
-// scope tabs below still switch both columns' projection for VIEWING any
-// scope's own resolved deck/policy — that read-only mechanism was never the
-// corrupted part and is untouched. An Edition is edited the normal way:
-// Build Your Own -> Options -> that Edition's own chip -> its own module's
-// Edit action.
+// than patched again — the Edit action then targeted Default only, and
+// after a further live cleanup pass (see below) is gone from this panel
+// entirely. The declaration scope tabs below still switch both columns'
+// projection for VIEWING any scope's own resolved deck/policy — that
+// read-only mechanism was never the corrupted part and is untouched. An
+// Edition is edited the normal way: Build Your Own -> Options -> that
+// Edition's own chip -> its own module's Edit action.
 //
 // Live-UI correction (project-work/2026-09-06-tier-catalogue-admin-ux-
 // consolidation.md, Phase 3 correction): the auditor's live validation found
@@ -42,15 +42,19 @@
 // selection also drives the upper Build Your Own detail card there — this
 // file no longer owns any local selection state at all. Second, this panel
 // is re-laid-out so the two-column deck's left column is Featured
-// Inclusions ONLY (no tabs/button), and the right column carries, in order:
-// the declaration tabs (aligned top-right), that declaration's own Customer
-// Selection Rules metrics, and one `Edit` primary action (aligned
-// bottom-right) — reusing the exact same
-// `cz-tier-deck__button cz-tier-deck__button--primary` treatment
-// TierDetailPanel.tsx's own buttons use, and the exact same
+// Inclusions ONLY (no tabs/button), and the right column carries the
+// declaration tabs (aligned top-right) and that declaration's own Customer
+// Selection Rules metrics — reusing the exact same
 // `cz-tier-workspace__composable-shell`/`-highlights`/`-rules` grid/columns
-// already defined in admin-station.css; only placement inside the existing
-// `-rules` column changed.
+// already defined in admin-station.css.
+//
+// 2026-09-07 final cleanup (live validation, same day) — this panel is
+// view-only: the Edit action (by then Default-only) is removed entirely,
+// including for Default, leaving only the scope tabs and their metrics.
+// Editing any declaration — Default included — happens exclusively through
+// the normal Tier drawer (Build Your Own -> Options for an Edition, or the
+// occupant's own Default Tier Inclusions editor for Default), never from
+// this panel.
 
 import type { VNode } from 'preact';
 import { StationTabSet } from '@/admin-station/presentation/StationTabSet';
@@ -71,13 +75,9 @@ interface Props {
   // this file is a controlled consumer only.
   selectedId: string;
   onSelectScope: (id: string) => void;
-  // Opens the Tier drawer's own Default Tier Inclusions editor. Takes no
-  // argument — see this file's own header comment (2026-09-07 reversion):
-  // this action no longer targets whichever scope is selected.
-  onEditDeclaration: () => void;
 }
 
-export function TierComposableMiddleShell({ scopes, selectedId, onSelectScope, onEditDeclaration }: Props): VNode {
+export function TierComposableMiddleShell({ scopes, selectedId, onSelectScope }: Props): VNode {
   // A scope can disappear out from under the selection (an Edition deleted/
   // moved to bin elsewhere) — fall back to Default rather than rendering
   // nothing.
@@ -123,15 +123,6 @@ export function TierComposableMiddleShell({ scopes, selectedId, onSelectScope, o
             }}
             classes={{ list: 'cz-station-tabset__list cz-tier-workspace__scope-tabs' }}
           />
-          {(active?.id ?? 'default') === 'default' && (
-            <button
-              type="button"
-              class="cz-tier-deck__button cz-tier-deck__button--primary cz-tier-workspace__composable-edit"
-              onClick={onEditDeclaration}
-            >
-              Edit
-            </button>
-          )}
         </div>
       </div>
     </section>

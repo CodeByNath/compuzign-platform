@@ -2973,12 +2973,16 @@ button.cz-station-status-pill {
   white-space: nowrap;
 }
 
-/* Same divided stat-row rhythm the Family summary's own metrics list uses. */
+/* Same divided stat-row rhythm the Family summary's own metrics list uses.
+   No border-top on the container itself (2026-09-07 cleanup) — the tab
+   strip immediately above already carries its own bottom border/selected-
+   tab underline (`.cz-station-tabset__list`/`[aria-selected='true']::after`),
+   so an additional top border here doubled that line; `> * + *` below still
+   divides each row from the next. */
 .cz-tier-workspace__composable-metrics {
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-top: 1px solid var(--station-card-divider);
 }
 
 .cz-tier-workspace__composable-metrics > * {
@@ -2996,15 +3000,6 @@ button.cz-station-status-pill {
    TierTabSet.tsx's own `cz-tier-deck__tabs` already uses. */
 .cz-tier-workspace__scope-tabs {
   justify-content: flex-end;
-}
-
-/* The right column's one Edit action, pinned to its trailing/bottom edge —
-   `.cz-tier-workspace__composable-rules` is already a flex column, so an
-   auto top margin pushes this last child down and `align-self` keeps it
-   from stretching to the column's full width. */
-.cz-tier-workspace__composable-edit {
-  align-self: flex-end;
-  margin-block-start: auto;
 }
 
 /* ── Tier Workspace lower deck ─────────────────────────────────────────────────

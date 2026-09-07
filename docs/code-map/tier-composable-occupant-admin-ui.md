@@ -89,23 +89,23 @@ whole Save. Locked by `scripts/tier-inclusions-customer-policy-merge-contract.ts
 **Phase 3 correction** retired the standalone drawer for a
 `Default | Edition 1 | ...` scope strip (`TierComposableMiddleShell.tsx`)
 that switches both columns' projection to the selected declaration — view
-only. **2026-09-07 reversion:** Edit no longer
-follows scope — it previously auto-opened a real Edition's editor via a
-seeded `initialEditionEditTab`; live validation found this corrupted the
-drawer chrome (auto-reopen, then stuck header/footer/tabs) —
+only. **2026-09-07 reversion:** an interim pass made Edit auto-open an
+Edition's editor via a seeded `initialEditionEditTab`; live validation found
+this corrupted drawer chrome (auto-reopen, then stuck header/footer/tabs) —
 `useTierDrawerController.ts`/`TierEditionDeclarationSwitcher.tsx`/
-`TierDrawerContent.tsx` carry no seeded-Edition state (`initialDeclarationId`
-dropped from `TierDrawerContentProps`). Edit dispatches `'default'` only; an
-Edition is edited via Options → its chip → module Edit. A Tier Edition
-carries its own `customer_policy`: null inherits Default, non-null replaces
-it, gated (`customerPolicyEligible`); no new backend route.
+`TierDrawerContent.tsx` carry no seeded-Edition state
+(`initialDeclarationId` dropped from `TierDrawerContentProps`), and a
+same-day cleanup then removed Edit from this panel ENTIRELY — pure
+view-only, Default included. A Tier Edition carries its own
+`customer_policy`: null inherits Default, non-null replaces it, gated
+(`customerPolicyEligible`); no new backend route.
 
 **Live-UI correction** lifted the selected-scope state into
 `PackageTierWorkspace.tsx` (`selectedDeclarationId`/`activeDeclarationScope`),
 so one selection drives the upper `TierDetailPanel` card
 (`projectDeclarationDetailCard`) together with Featured Inclusions and
-Customer Selection Rules metrics. Right column: tabs, policy metrics, one
-`Edit` action; left column: Featured Inclusions only. Locked by
+Customer Selection Rules metrics. Right column: tabs and policy metrics
+only, no Edit; left column: Featured Inclusions only. Locked by
 `scripts/tier-catalogue-declaration-scope-contract.ts`.
 
 ## Not interactively verified

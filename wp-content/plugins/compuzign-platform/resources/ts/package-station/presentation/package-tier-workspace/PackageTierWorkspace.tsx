@@ -142,22 +142,6 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
     onIntent(recordId, actionId);
   };
 
-  // The Customer Selection Rules panel's own edit affordance — always opens
-  // straight into the Default Tier Inclusions editor (2026-09-07 reversion:
-  // this used to also target whichever Edition scope was selected, but that
-  // deep-link corrupted the Tier drawer's own chrome state on live
-  // validation and was removed; an Edition is edited through the drawer's
-  // own Options tab now, never from here). Reuses the SAME 'edit' action
-  // intent/drawer every card's own Edit button already dispatches — the
-  // 'default' declarationId rides the existing recordId encoding, so no new
-  // action, drawer, or controller is introduced.
-  const dispatchDeclarationEdit = () => {
-    if (instanceId === null || !tool?.composableOccupant?.occupantId) return;
-    onIntent(
-      encodeTierDrawerRecordId(instanceId, tool.composableOccupant.occupantId, 'default'),
-      'edit',
-    );
-  };
 
   // A Details-lane row addresses one inclusion inside the focused slot. The slot
   // — not the occupant — is the address, because the slot is the key the Tier's
@@ -434,7 +418,6 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           scopes={composableScopes}
           selectedId={activeDeclarationScope?.id ?? 'default'}
           onSelectScope={setSelectedDeclarationId}
-          onEditDeclaration={dispatchDeclarationEdit}
         />
       )}
 

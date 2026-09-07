@@ -30,9 +30,11 @@
 //      Edit target and the Phase 3 correction's Edition auto-open deep-link
 //      both corrupted the drawer's own chrome state on live validation
 //      (auto-reopen loops, then a header/footer/tab-less render after
-//      Save/Cancel) and are removed entirely, not patched further. The
-//      panel's Edit action now targets Default ONLY, rendering only while
-//      the Default scope tab is active — proven below.
+//      Save/Cancel) and are removed entirely, not patched further. A
+//      further same-day live cleanup pass then removed the Edit action
+//      ENTIRELY (including for Default) — the panel is pure view-only now;
+//      every declaration is edited exclusively through the normal Tier
+//      drawer — proven below.
 //   8. No seeded Edition target reaches the drawer at all: useTierDrawerController
 //      never derives/reads an external declaration id, and
 //      TierEditionDeclarationSwitcher carries no auto-open prop/effect —
@@ -59,16 +61,18 @@
 //      together — proven by source-scan (the old internal `useState` is
 //      gone from the middle shell; the same initial-selection behavior now
 //      lives in the workspace).
-//  13. The middle shell's Edit action reads exactly "Edit" (not "Edit
-//      Customer Options") and wears the established Admin primary-button
-//      class (`cz-tier-deck__button cz-tier-deck__button--primary`), the
-//      same treatment TierDetailPanel.tsx's own buttons use.
+//  13. REVERTED (2026-09-07 cleanup): the middle shell carries no Edit
+//      action, copy, or button-class reference of any kind any more — see
+//      item 7 above.
 //  14. No bespoke/hardcoded inline styling was introduced in either touched
 //      presentation file (no `style=` attributes; every class referenced is
-//      either a pre-existing established class or one of the two narrow
-//      layout-modifier classes this correction adds, both composed onto the
-//      shared `cz-station-tabset__list` / `cz-tier-deck__button` skins
-//      rather than replacing them).
+//      either a pre-existing established class or the one narrow
+//      layout-modifier class this correction adds, composed onto the
+//      shared `cz-station-tabset__list` skin rather than replacing it).
+//  16. (2026-09-07 cleanup) The metrics container's own `border-top` — which
+//      sat directly beneath the scope tabs' own bottom border/selected-tab
+//      underline, doubling that line — is removed; between-row dividers
+//      still apply via the adjacent-sibling rule.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -227,26 +231,29 @@ check(
   'the composable card never grows a third action — View/Edit remain its only two, exactly like every other Tier/Add-on card',
 );
 
-// ── 7. The panel's Edit action targets Default ONLY (2026-09-07 reversion —
-//    it used to follow whichever scope was selected; that deep-link
-//    corrupted the drawer's own chrome state on live validation twice and
-//    was removed rather than patched again). The scope tabs themselves
-//    still switch both columns' projection for VIEWING any declaration —
-//    that read-only mechanism is untouched and proven by items 1-6 above ──
+// ── 7. The panel's Edit action is removed ENTIRELY, including for Default
+//    (2026-09-07 cleanup, same-day follow-up to the reversion above — a
+//    prior pass narrowed the Edit action to Default only, but live
+//    validation asked for it to be gone from this panel altogether: it is
+//    pure view-only now). The scope tabs themselves still switch both
+//    columns' projection for VIEWING any declaration — that read-only
+//    mechanism is untouched and proven by items 1-6 above ─────────────────
 
 check(
-  middleShellSource.includes("(active?.id ?? 'default') === 'default' &&")
-    && middleShellSource.includes('onClick={onEditDeclaration}'),
-  'the panel\'s Edit button renders ONLY while the Default scope tab is active, and dispatches with no declaration-id argument at all — it can no longer target an Edition',
+  !middleShellSource.includes('onEditDeclaration')
+    && !middleShellSource.includes('<button')
+    && !middleShellSource.includes('composable-edit'),
+  'TierComposableMiddleShell renders no Edit button, prop, or its retired CSS class reference at all — Default included',
 );
 check(
-  !middleShellSource.includes('onEditDeclaration(active'),
-  'no call site threads the selected scope into onEditDeclaration any more',
+  !workspaceSource.includes('dispatchDeclarationEdit')
+    && !workspaceSource.includes('onEditDeclaration'),
+  'PackageTierWorkspace.tsx no longer defines or passes any Edit-dispatch function into the middle shell',
 );
 
-// The encode/decode round trip itself is untouched infrastructure (still
-// used for the literal 'default' token) — proven structurally sound
-// regardless of which declarationId a caller happens to pass.
+// The encode/decode round trip itself is untouched infrastructure (no
+// caller anywhere passes a declarationId any more, but the functions still
+// support one correctly — proven structurally sound regardless).
 const defaultRecordId = encodeTierDrawerRecordId('ti_1', 'occ_1', 'default');
 const editionARecordId = encodeTierDrawerRecordId('ti_1', 'occ_1', 'edt_a');
 check(defaultRecordId !== editionARecordId, 'distinct declarations still produce structurally distinct record ids');
@@ -258,16 +265,6 @@ check(
 check(
   decodeTierDrawerRecordId(encodeTierDrawerRecordId('ti_1', 'occ_1'))?.declarationId === undefined,
   'every existing two-segment caller (no declarationId argument) still decodes with declarationId undefined',
-);
-
-check(
-  workspaceSource.includes("encodeTierDrawerRecordId(instanceId, tool.composableOccupant.occupantId, 'default')")
-    && workspaceSource.includes("'edit',"),
-  'the panel dispatches through the SAME existing \'edit\' action/drawer every card\'s own Edit button uses, with the declarationId now a fixed \'default\' literal — never a variable that could carry a real Edition id again',
-);
-check(
-  !workspaceSource.includes('dispatchDeclarationEdit = (declarationId'),
-  'dispatchDeclarationEdit takes no parameter any more — it cannot be called with an Edition id even by a future mistake',
 );
 
 const tierDrawerHostSource = readFileSync(resolve(root, 'resources/ts/package-station/surface/tierSurface/TierDrawerHost.tsx'), 'utf8');
@@ -370,15 +367,15 @@ check(
   'projectDeclarationDetailCard touches ONLY price/feature-count/faq-count — identity fields (id/name/kind/status/actions) stay the occupant\'s own, never declaration-owned',
 );
 
-// ── 13. Exact "Edit" copy, established primary-button treatment ────────────
+// ── 13. REVERTED — no Edit copy/class of any kind remains (see item 7) ─────
 
 check(
-  />\s*Edit\s*</.test(middleShellSource) && !middleShellSource.includes('Edit Customer Options'),
-  'the middle shell\'s action reads exactly "Edit" — the retired "Edit Customer Options" copy is gone entirely',
+  !middleShellSource.includes("'Edit'") && !middleShellSource.includes('>Edit<'),
+  'no "Edit" label/copy remains anywhere in the middle shell',
 );
 check(
-  middleShellSource.includes('cz-tier-deck__button cz-tier-deck__button--primary'),
-  'the Edit action wears the established Admin primary-button class (cz-tier-deck__button cz-tier-deck__button--primary), the same treatment TierDetailPanel.tsx\'s own buttons use — not the plain, non-primary cz-tier-deck__button it wore before this correction',
+  !middleShellSource.includes('cz-tier-deck__button'),
+  'the retired Edit button\'s own class is gone entirely, not merely unstyled',
 );
 
 // ── 14. No bespoke/hardcoded styling introduced ─────────────────────────────
@@ -392,12 +389,31 @@ check(
 
 const adminStationCssSource = readFileSync(resolve(root, 'resources/ts/admin-station/styles/admin-station.css'), 'utf8');
 check(
-  adminStationCssSource.includes('.cz-tier-workspace__scope-tabs {') && adminStationCssSource.includes('.cz-tier-workspace__composable-edit {'),
-  'the two narrow layout-modifier classes this correction needs (tab-strip right-alignment, Edit bottom-right placement) are real, token-based CSS rules, not undefined/unstyled classes or inline styles',
+  adminStationCssSource.includes('.cz-tier-workspace__scope-tabs {'),
+  'the one narrow layout-modifier class this correction needs (tab-strip right-alignment) is a real, token-based CSS rule, not an undefined/unstyled class or inline style',
+);
+check(
+  !adminStationCssSource.includes('.cz-tier-workspace__composable-edit'),
+  'the retired Edit button\'s own CSS rule is removed entirely, not left as dead/unstyled-target CSS',
 );
 check(
   adminStationCssSource.includes('grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);'),
   'the existing two-column grid (.cz-tier-workspace__composable-shell) is untouched — this correction only adds layout-modifier rules, it never edits the grid itself',
+);
+
+// ── 16. The metrics container's own border-top (which doubled the scope
+//    tabs' own underline directly beneath them) is gone; between-row
+//    dividers still apply ───────────────────────────────────────────────
+
+const metricsContainerBlock = adminStationCssSource.match(/\.cz-tier-workspace__composable-metrics \{[^}]*\}/)?.[0] ?? '';
+check(
+  metricsContainerBlock.length > 0 && !metricsContainerBlock.includes('border-top'),
+  'the metrics container itself carries no border-top any more — the line that doubled the scope tabs\' own bottom border/underline directly beneath them is gone',
+);
+check(
+  adminStationCssSource.includes('.cz-tier-workspace__composable-metrics > * + * {')
+    && adminStationCssSource.includes('border-top: 1px solid var(--station-card-divider);'),
+  'between-row dividers still apply via the adjacent-sibling selector — only the FIRST row lost its (redundant) top border, every later row still has its own separator from the one before it',
 );
 
 // ── 15 (2026-09-07 correction): Edition mutations refresh the Workspace's
