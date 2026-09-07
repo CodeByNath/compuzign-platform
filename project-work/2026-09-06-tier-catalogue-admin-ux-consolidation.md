@@ -1,43 +1,38 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION — v2 routing correction pushed and deployed**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main` now at `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31` (pushed by Nath directly — push-to-main runs through Nath, not Claude).
-- Deploy: GitHub Actions run #967, `https://github.com/CodeByNath/compuzign-platform/actions/runs/34104914511` — **Success**, for exactly that head SHA.
-- Accepted candidate branch: `review/tier-catalogue-admin-ux-phase3-edition-edit-routing-correction-v2` @ `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31` (now == `main`) — keep until the live gate below passes, per the instruction not to close until then.
-- **Branch cleanup still pending** — the rejected v1 branch (`review/tier-catalogue-admin-ux-phase3-edition-edit-routing-correction`, both local and remote) is deleted, but `review/tier-catalogue-admin-ux-phase3-correction-v3` (remote) is still present. Branch deletion is also classifier-blocked for Claude in this session; exact command still needed:
-  ```
-  git push origin --delete review/tier-catalogue-admin-ux-phase3-correction-v3
-  ```
+- **READY FOR CLAUDE — live gate failed on deployed v2**
+- Auditor verdict: **Stop — required one-click behavior still not present live**.
+- Production `main`: `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31`.
+- Deploy #967 succeeded for exactly that SHA.
+- Accepted v2 branch remains pending; do not clean/close this work yet.
 
-## Independent audit
-The v2 diff fixes the actual remount defect without reducing the required one-click behavior:
-- Customer Selection Rules -> Edition X -> Edit still opens the canonical Tier drawer, activates Options, selects exact Edition X, and auto-opens its existing `TierEditionEditor` immediately.
-- The one-shot edit intent is now state owned by `useTierDrawerController`, which survives the child subtree refetch/remount.
-- `TierEditionDeclarationSwitcher` consumes that intent immediately when opening the editor; after Save/refetch the seed is already cleared, so the editor cannot auto-reopen.
-- Existing `openEdit`/`saveEdit`/`cancelEdit`, `useTierEditions`, lifecycle/footer ownership, persistence, backend routes, Edition identity, pricing, resolver, quote/cart/customer behavior are untouched.
-- No new drawer, editor, footer, lifecycle or publish system was introduced.
-- Default Edit behavior remains unchanged.
+## Live failure evidence
+Nath tested the deployed Admin UI after #967. Customer Selection Rules -> Edition 2 -> Edit lands on the normal **Edition 2 read cards** under Options (Edition Overview / Edition Pricing Rules / Edition Inclusions). It does **not** open the existing inline Edition editor immediately.
 
-This preserves the required capability while replacing only the defective child-local guard. The relevant current Code Map already describes the same direct selected-scope routing and does not require a semantic architecture update for this internal one-shot repair.
+Therefore the v2 source-level contract claimed one-click behavior that the deployed runtime does not deliver.
 
-Claude-reported focused validation: `tsc` clean; declaration-scope, Edition switch, composable Admin UX, customer-policy and Edition Admin contracts PASS; production build succeeded and Admin bundle rebuilt. Independent source review finds no scope expansion.
+## Must preserve
+- Customer Selection Rules -> Edition X -> Edit is **one click** into the existing `TierEditionEditor` for that exact Edition.
+- Save/Cancel returns to the normal full Tier drawer with Options + Edition X selected and normal lifecycle/footer available.
+- Post-Save refetch must not reopen the editor.
+- Default Edit remains unchanged.
+
+## Must remove/fix
+Find the actual runtime break in the complete dispatch chain, not just the child auto-open effect:
+`PackageTierWorkspace dispatchDeclarationEdit` -> encoded declaration id -> Admin/Tier drawer host routing/record identity -> `initialDeclarationId` / `initialEditionId` -> controller one-shot intent -> `TierEditionDeclarationSwitcher` -> existing inline editor.
+
+Audit whether the drawer/host is reused instead of remounted, whether a `useState(initialEditionId...)` initializer is stale when routing props change, whether the declaration segment is lost/normalized before reaching the drawer, or another runtime identity/lifecycle seam prevents the one-shot intent from being armed. Do not assume which one; prove the actual cause from source.
+
+## Must not substitute
+- no second Edit click;
+- no new Edition editor/drawer;
+- no extra header/footer/lifecycle/publish controls;
+- no reduced read-card landing presented as success;
+- no persistence, identity, pricing, resolver, backend, quote/cart/customer changes;
+- do not touch Always-included initial-cart hydration.
 
 ## Claude — next action
-1. Remove superseded review branches for this work item (`review/tier-catalogue-admin-ux-phase3-edition-edit-routing-correction` and the older `review/tier-catalogue-admin-ux-phase3-correction-v3`) now that v2 is independently accepted. Keep the accepted v2 branch until deployment/live validation passes.
-2. Push **exactly `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31`** to `main` with no additional source changes.
-3. Record exact resulting `main` SHA and GitHub Actions deploy run/result for that exact head.
-4. Set **AWAITING LIVE VALIDATION** after successful deployment.
-5. Do not touch the separate Always-included initial-cart hydration defect or start another phase.
+Start from current production `main` and audit the full routing chain above before editing. Prepare a clean replacement review branch only after the root cause is proven. Update/add a focused contract that tests the actual host/routing seam responsible for the live failure, not merely string-presence assertions inside the switcher/controller.
 
-## Live gate — Nath performs
-After deploy, Nath validates:
-- Edition X -> Edit opens the existing inline Edition editor in one click;
-- Save/Cancel returns to the normal full Tier drawer with Options + Edition X still selected;
-- normal lifecycle/footer is available after Save;
-- post-Save refetch does not reopen the editor;
-- Default Edit remains correct;
-- ordinary Tier/Add-on UI remains unchanged.
-
-Do not close until Nath confirms the live gate and the accepted v2 review branch is cleaned up.
+Implement the smallest correction that preserves the one-click invariant and survives both drawer reuse and Edition save/refetch behavior. Run focused `tsc`, relevant contracts, and build. Update this same file with exact root cause, branch/SHA, changed files, evidence, and set **AWAITING CHATGPT REVIEW**. Do not push to `main` until reviewed.
