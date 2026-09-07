@@ -1,10 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — Phase 1 implemented on review branch, not pushed to `main`**
+- **SOURCE PUSH APPROVED — Phase 1 eligibility refactor accepted**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `bd0a48d8be81c591e48ebe220dda21645b349089`; deploy #970 succeeded.
-- Phase 1 evidence recorded below. Branch `review/upgrade-your-build-eligibility` @ `5c7eb0621c1c3610b6e970826a294065e7bdb89a`, pushed to origin.
+- Current production `main`: `3a83da8d3f723c5d29c8320d9332feebd4bfe2fb`.
+- Approved review branch: `review/upgrade-your-build-eligibility` @ `5c7eb0621c1c3610b6e970826a294065e7bdb89a`.
+- Independent compare against current `main` is exactly one commit ahead and contains only the four Phase-1 files listed below. Earlier work-file base `bd0a48d8` was stale because `main` had independently advanced to `3a83da8d`; the review branch correctly contains that current `main` commit as its direct parent, so no unrelated admin CSS is part of the Phase-1 diff.
 
 ## Locked customer flow
 The primary Tier/Edition is already in the quote before this stage. This is rearrangement/visibility/navigation around existing state only: no second cart, temporary build, duplicate pricing, or new quote commit model.
@@ -14,49 +15,30 @@ The primary Tier/Edition is already in the quote before this stage. This is rear
 3. **Browse Catalogue** -> existing `ComposableOfferBrowser` in the focused shell.
 4. **Maybe next time** -> end gate -> existing Recommended Add-ons if present -> Cart; otherwise Cart directly.
 5. Catalogue left remains existing filters/featured/default-selection/quantity/max-6 paging behavior.
-6. Catalogue right shows the already-quoted plan plus upgrade rows as `name × qty` and the same truthful commercial totals used by the cart.
+6. Catalogue right shows already-quoted plan + resolved upgrade `inclusionItems[]` as `label × quantity` + the same truthful commercial totals used by cart.
 7. Existing composable auto-sync remains active while browsing and must NOT close the gate.
-8. New right-side **Add to Quote** is stage-control only: no quote mutation; it ends the gate and resumes the same Add-ons/Cart continuation.
+8. New right-side **Add to Quote** is stage-control only: no quote mutation; it ends the gate and resumes Add-ons/Cart continuation.
 
 ## Accepted phase sequence
-1. Extract/share the existing composable eligibility derivation with no behavior change.
+1. Extract/share existing composable eligibility derivation with no behavior change. **Accepted here.**
 2. Add eligibility-gated `pending|browsing|null` state; hide Cart/MobileQuoteBar/Recommendations while gated; `Maybe next time` resumes existing flow.
-3. Wire Browse Catalogue to the existing `ComposableOfferBrowser`; keep existing auto-sync/catalogue behavior unchanged.
+3. Wire Browse Catalogue to existing `ComposableOfferBrowser`; keep auto-sync/catalogue behavior unchanged.
 4. Add right-side build summary + explicit stage-exit **Add to Quote**.
-5. Mobile stacking/polish + matrix QA for catalogue/add-on combinations.
+5. Mobile stacking/polish + matrix QA.
 
-## Phase-4 data-path safeguard locked now
-Claude's corrected totals direction is accepted: the future Upgrade summary may use the same exported `calcQuoteTotals` / `computeTotalContractValue` / `startingPaymentsByCycle` authorities on the same raw cart items; do not copy arithmetic or mutate `QuoteSummary` merely to reuse its CTA chrome.
+## Phase 1 independent audit
+Compare `3a83da8d..5c7eb062` shows only:
+- `ComposableOfferBrowser.tsx`: exact offer/policy/inclusion join extracted to exported pure `resolveComposableEligibleRows(family)`; component now calls it from the existing memo seam.
+- new `scripts/composable-offer-eligibility-contract.ts` locking missing offer/policy, unmatched pairs, matched metadata/policy and policy-order semantics.
+- `package.json`: one contract script registration.
+- rebuilt `dist/js/cost-builder.js`.
 
-One further source correction is required and is now locked before Phase 4: **do not use `composableSelection` as the display source for `name × qty` rows.** `buildComposableFamilyTierQuoteItem()` explicitly treats `composableSelection` as intent/history for reseeding and says price/quantity come from the resolved response. The same committed composable cart item already carries `inclusionItems[]`, built from the resolved catalogue rows with human label plus resolved quantity. Therefore the future summary's simple `name × qty` rows must display from the committed composable item's `inclusionItems[]` (`label`, resolved `quantity`), with `composableSelection` remaining reseed/history state only. No second selection state and no client-side quantity reconstruction.
+No gate state, routing, cart visibility, summary UI, CTA, styling, pricing, preview, auto-sync, persistence, or customer-policy semantics changed. Claude-reported `tsc`, new eligibility contract, existing choice/contribution/quote-cart contracts and build all pass.
 
-## Claude — Phase 1 only
-Implement only the eligibility refactor from the accepted plan:
-- extract the exact current `ComposableOfferBrowser` offer/policy/eligible-row derivation into one shared pure function;
-- have `ComposableOfferBrowser` use that function so current render eligibility and catalogue rows are behaviorally unchanged;
-- do **not** add gate state, cart hiding, Browse Catalogue routing, summary UI, CTA, or styling yet;
-- preserve current auto-sync, preview, pricing, quote/cart and customer-policy behavior exactly.
+## Safeguards retained for later phases
+- Future summary monetary facts must reuse existing exported cart/payment calculation authorities; no copied arithmetic.
+- Future `name × qty` display rows come from committed composable `inclusionItems[]` (`label`, resolved `quantity`), not `composableSelection` intent/history.
+- Do not end browsing from `onComposableCommit`.
 
-Prepare one clean review branch from current `main`, add/update focused contract evidence for equivalence/eligibility as appropriate, run focused TypeScript/contracts/build, and record exact branch/SHA/files/evidence here as **AWAITING CHATGPT REVIEW**. Do not push to `main` until reviewed.
-
-## Phase 1 evidence
-
-Branch: `review/upgrade-your-build-eligibility`, based on `main` @ `bd0a48d8` (current production tip), pushed to origin. Commit: `5c7eb0621c1c3610b6e970826a294065e7bdb89a` — "Extract composable catalogue eligibility into resolveComposableEligibleRows()".
-
-Files changed:
-- `wp-content/plugins/compuzign-platform/resources/ts/components/package-builder/ComposableOfferBrowser.tsx` — pulled the offer/policy/inclusion join out of the `rows` `useMemo` into a new exported `resolveComposableEligibleRows(family: PackageBuilderFamily): BrowseRow[]`. The component now calls it in place of its old inline body; same offer/policy read, same join, same output — no other line in the file changed.
-- `wp-content/plugins/compuzign-platform/scripts/composable-offer-eligibility-contract.ts` (new) — locks the join's semantics: no `composable_offer` → zero rows; offer present but no `customer_policy` → zero rows; an inclusion with no matching policy `item_id` → excluded; a policy item with no matching inclusion → excluded; a matched pair carries the inclusion's browse metadata plus the policy entry verbatim; row order follows `policy.items` order, not `inclusions` order.
-- `wp-content/plugins/compuzign-platform/package.json` — registers `contract:composable-offer-eligibility`.
-- `wp-content/plugins/compuzign-platform/dist/js/cost-builder.js` — rebuilt output (this bundle already includes `ComposableOfferBrowser.tsx`).
-
-No gate state, cart-hiding, Browse Catalogue routing, summary UI, CTA, or styling was touched, per Phase 1 scope.
-
-Verification run on this branch:
-- `npx tsc --noEmit -p tsconfig.json` — clean, no errors.
-- `npm run contract:composable-offer-eligibility` — PASS (new contract).
-- `npm run contract:composable-offer-choice` — PASS (unchanged, same file).
-- `npm run contract:composable-offer-contribution` — PASS (unchanged, same file).
-- `npm run contract:composable-quote-cart` — PASS (broader composable quote/cart contract, confirms no behavior drift from the extraction).
-- `npm run build` (`vite build`) — clean, `dist/js/cost-builder.js` rebuilt and committed.
-
-Not pushed to `main`. Set **AWAITING CHATGPT REVIEW**.
+## Claude — next action
+Push **only** approved commit `5c7eb0621c1c3610b6e970826a294065e7bdb89a` to `main` by fast-forward. Do not begin Phase 2 yet. Record the resulting exact `main` SHA and deployment/workflow evidence here, then set **AWAITING CHATGPT REVIEW**.
