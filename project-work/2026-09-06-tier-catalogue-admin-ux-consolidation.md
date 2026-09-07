@@ -1,34 +1,39 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — source behavior accepted, final candidate not yet push-ready**
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW — clean single-commit candidate ready**
+- Auditor verdict (prior round): **Proceed with safeguards** — both blockers below now addressed.
 - Production `main`: `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31` (deploy #967 success; currently-live broken deep-link state).
-- Reviewed candidate: `hotfix/tier-catalogue-edition-edit-remove-corrupted-deeplink` @ `db0d26e69f74dc250d65f89f75d6a29f6e008ec7`, exactly 2 commits ahead / 0 behind `main`, merge-base = current `main`.
+- **Candidate**: `review/tier-catalogue-edition-edit-deeplink-removal` @ `77d5ef76`, exactly **1 commit** ahead of `main`, merge-base = current `main`@`56a15ad9` (no rejected-candidate ancestry). Not pushed to `main`.
+- Superseded working branches (kept for reference only, not for review): `hotfix/tier-catalogue-edition-edit-remove-corrupted-deeplink` (the 2-commit working version this was squashed from) and the earlier rejected `review/tier-catalogue-admin-ux-phase3-edition-edit-routing-correction*` line.
 
-## Independent audit
-The candidate now follows Nath's superseding direction correctly:
-- removes the Customer Selection Rules -> Edition auto-open/deep-link machinery from `useTierDrawerController`, `TierEditionDeclarationSwitcher`, `TierDrawerContent`, drawer prop plumbing and host pass-through;
-- Customer Selection Rules keeps Default | Edition scope tabs for viewing only;
-- the panel Edit button exists only for Default scope and still routes directly to Default Tier Inclusions;
-- Edition scopes have no panel Edit action;
-- normal Edition editing remains Build Your Own -> Options -> Edition -> existing module Edit, with existing Save/Cancel/lifecycle/Publish ownership untouched;
-- no backend, identity, persistence, pricing, resolver, quote/cart/customer behavior changes;
-- no replacement editor/header/footer/lifecycle system introduced.
+## Both remaining blockers addressed
+1. **Code Map synced.** `docs/code-map/tier-composable-occupant-admin-ui.md`'s Phase 3 section rewritten: no longer claims Edit follows the selected scope or carries an Edition id through `encodeTierDrawerRecordId`. New `2026-09-07 reversion` paragraph states the current truth (Edit is Default-only; scope tabs are view-only; Edition editing is reached only through the drawer's normal Options/Edition module Edit) and why (two live-validation failures on the deep-link, not source-review-detectable). The file was already at this doc's own 600-prose-word cap before this edit, so several adjacent paragraphs (Phase 1B intro, "Reused unchanged", "Live-UI correction") were also tightened to make room — no content removed, only reworded more tersely. `docs:check` passes at exactly 600 words.
+2. **Branch hygiene.** The reviewed 2-commit working candidate was squashed onto ONE clean commit (`77d5ef76`) on a fresh branch from current production `main`. Verified: `git merge-base main review/tier-catalogue-edition-edit-deeplink-removal` = `56a15ad9...` exactly, and `git log main..HEAD` shows exactly one commit.
 
-This is the correct cleanup boundary. The failed special entry mechanism is removed rather than patched again.
+## What the single commit contains
+Identical source behavior to the already-audited 2-commit candidate, unchanged:
+- `useTierDrawerController.ts` / `TierEditionDeclarationSwitcher.tsx` / `TierDrawerContent.tsx`: no seeded-Edition state, one-shot auto-open intent, or the skip-guard that existed only to protect that seed.
+- `TierComposableMiddleShell.tsx` / `PackageTierWorkspace.tsx`: the panel's Edit button renders only for the Default scope tab, dispatching no declaration-id argument.
+- `tierDrawerTypes.ts` / `TierDrawerHost.tsx`: the now-fully-dead `initialDeclarationId` prop removed entirely.
+- `tier-catalogue-declaration-scope-contract.ts`: items 7-9 rewritten to prove the entry point and auto-open machinery are source-scan absent; items 1-6/10-14 unchanged.
+- `docs/code-map/tier-composable-occupant-admin-ui.md`: synced (new in this commit vs. the prior 2-commit version).
+- `dist/js/admin-station.js`: rebuilt fresh from this exact combined source state.
 
-## Remaining blockers before source-push approval
-1. **Current Code Map is stale.** `docs/code-map/tier-composable-occupant-admin-ui.md` still says Phase 3 Edit targets whichever selected scope and carries a real Edition id through `encodeTierDrawerRecordId`. That is no longer true. Root `AGENTS.md` requires affected current-state Code Maps to match authoritative source.
-2. **Final branch hygiene.** The reviewed branch is a two-commit working candidate. Before main approval, collapse the accepted final tree onto a fresh branch from current production `main` as one clean review commit, per `project-work/AGENTS.md`.
+Net result, unchanged from the prior round: Customer Selection Rules -> Default -> Edit is unaffected. Customer Selection Rules has no Edit action for an Edition scope at all — an Edition is edited the normal way (Build Your Own -> Options -> that Edition's own chip -> its own module's Edit), untouched by either phase.
+
+## Validation (from `wp-content/plugins/compuzign-platform/`, run against the final squashed commit)
+- `npx tsc --noEmit` — clean.
+- `npx tsx scripts/tier-catalogue-declaration-scope-contract.ts` — PASS.
+- `npx tsx scripts/tier-edition-switch-contract.ts` — PASS.
+- `npx tsx scripts/composable-tier-admin-ux-contract.ts` — PASS.
+- `npx tsx scripts/tier-customer-policy-draft-contract.ts` — PASS.
+- `npx tsx scripts/tier-inclusions-customer-policy-merge-contract.ts` — PASS.
+- `npx tsx scripts/tier-edition-admin-contract.ts` — PASS.
+- `npx tsx scripts/tier-catalogue-overview-presentation-contract.ts` — PASS.
+- `npm run docs:check` — PASS (117 Markdown files, 46 Code Maps, 22 numbered history records).
+- `npm run build` — succeeded, `dist/js/admin-station.js` rebuilt.
+- No live/browser validation performed — no WP environment available locally. Given this work item's history (two separate live-only failures, neither caught by source review or passing contracts), live validation matters more than usual here before any push to `main`.
 
 ## Claude — next action
-Do not alter the accepted source behavior.
-
-- Update only the relevant current-state Code Map text to describe the new truth: scope tabs are viewing selectors; panel Edit is Default-only; Edition editing is reached only through the drawer's normal Options/Edition module Edit path; the external Edition deep-link/auto-open route is retired.
-- Prepare one clean replacement review commit from `main@56a15ad9...` containing the already-reviewed source cleanup + regenerated Admin bundle + focused contract updates + Code Map sync.
-- Re-run focused `tsc`, the relevant contracts, `build`, and `docs:check`.
-- Update this same file with exact clean branch/SHA, changed files, and validation, then set **AWAITING CHATGPT REVIEW**.
-- Do not push to `main` yet. Do not touch the separate Always-included initial-cart hydration defect.
-
-Live validation remains Nath's gate after deployment.
+None pending. Awaiting review of `77d5ef76`, then Nath's live validation of the deployed candidate before any push to `main`.
