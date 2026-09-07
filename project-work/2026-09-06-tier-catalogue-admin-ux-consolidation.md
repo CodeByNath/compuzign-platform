@@ -1,40 +1,24 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION — Edition scope-tab refresh fix pushed and deployed**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main` now at `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (pushed by Nath directly — push-to-main runs through Nath, not Claude).
-- Deploy: GitHub Actions run #969, `https://github.com/CodeByNath/compuzign-platform/actions/runs/34118159366` — **Success**, for exactly that head SHA.
-- Accepted candidate branch: `review/tier-catalogue-edition-scope-tab-refresh-fix` @ `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6` (now == `main`) — keep until the live gate below passes.
+- **READY FOR CLAUDE — final Customer Selection Rules UI cleanup**
+- Production `main`: `9d4948a5db18b9a1c78f21d134ea1432ed3c76e6`.
+- Deploy #969 succeeded for exactly that SHA.
+- Nath live-validated the scope-tab refresh: tab selection now shows the correct declaration-specific values.
 
-## Independent audit result
-The candidate is a narrow refresh-wiring correction and does not redesign the tab UI.
+## Accepted behavior
+- `Default | Edition ...` tabs remain and correctly filter the displayed declaration data.
+- Customer Selection Rules is now view-only; Edition editing remains under Build Your Own -> Options -> Edition -> module Edit.
+- No special Edition deep-link/auto-open path.
+- No pricing, resolver, identity, backend, persistence, quote/cart/customer behavior changes.
 
-Verified source behavior:
-- `TierComposableMiddleShell` already renders each tab panel from that tab's own scope and policy.
-- `PackageTierWorkspace` already owns the selected declaration id and projects the active scope from `composableOccupant.declarationScopes`.
-- The actual gap was stale originating-workspace data after Edition mutations: the Tier drawer has its own `usePackageStation` instance, while Edition mutations in `useTierEditions` previously refreshed only the drawer-local instance.
-- `TierDrawerContent.tsx` now uses one `notifyEditionMutated` callback that calls both `c.pkg.refetch()` and `bridge.onMutationComplete?.()`, so successful Edition mutations also refresh the originating Workspace.
-- `useTierDrawerController.ts` applies the same bridge notification after Edition creation.
-- No Customer Selection Rules Edition Edit/deep-link route is restored.
-- No pricing, resolver, identity, backend, persistence, quote/cart/customer behavior is changed.
-- Generated Admin bundle and the focused contract were updated.
+## Claude — fix these UI details only
+1. **Remove the Customer Selection Rules Edit button completely.** There is no longer any Edit action in this panel, including Default.
+2. **Fix the double underline beneath the scope tabs.** Keep the normal shared tab underline/indicator only; remove the extra horizontal border/line creating the doubled effect.
+3. **Remove the border immediately above the first metric row (`Always included`).** The metrics should begin without that extra separator above the first row.
 
-Claude-reported validation: `tsc` clean; focused declaration/Edition/composable/customer-policy and wider drawer contracts PASS; `npm run build` succeeded. Two lifecycle regression scripts fail identically on clean current `main` due a pre-existing unrelated `audienceGroups` TypeError; do not widen this work to fix them.
+Do not redesign the panel, tabs, metrics, spacing system, routing, or Edition editing. Reuse the existing shared tab/metric presentation; this is presentation cleanup only.
 
-## Claude — next action
-1. Push **exactly `9d4948a5`** to `main` with no additional source changes.
-2. Record the resulting full `main` SHA and GitHub Actions deploy run/result in this same file.
-3. After successful deployment, set **AWAITING LIVE VALIDATION**.
-4. Keep the accepted review branch until Nath's live validation passes.
-5. Do not touch the separate Always-included initial-cart hydration defect or the unrelated lifecycle-regression-script failure in this phase.
+Prepare a clean review branch from current `main`, update focused presentation contract(s) only as needed, rebuild the Admin bundle, run focused `tsc`/contracts/build, and record exact branch/SHA + validation here as **AWAITING CHATGPT REVIEW**. Do not push to `main` until reviewed.
 
-## Live gate — Nath performs
-After deploy, recheck the existing Customer Selection Rules tabs:
-- Default shows Default metrics/data;
-- Edition 2 shows Edition 2's configured metrics/data rather than stale Default values;
-- switching between tabs updates the right-side column correctly;
-- no Edition Edit button/deep-link has returned;
-- normal Build Your Own -> Options -> Edition editing remains unchanged.
-
-Do not mark CLOSED until Nath confirms this live gate and the accepted review branch is cleaned up.
+Do not touch the separate Always-included initial-cart hydration defect or unrelated lifecycle-regression-script failures.
