@@ -1,11 +1,15 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — v2 routing correction accepted for production push**
+- **AWAITING LIVE VALIDATION — v2 routing correction pushed and deployed**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main` verified at `fa4b53b5ee0193b0580f31af876225c812056108`.
-- Accepted candidate: `review/tier-catalogue-admin-ux-phase3-edition-edit-routing-correction-v2` @ `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31`.
-- Candidate parent is exactly production `main`@`fa4b53b5...`; clean one-commit replacement, not stacked on rejected work.
+- Production `main` now at `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31` (pushed by Nath directly — push-to-main runs through Nath, not Claude).
+- Deploy: GitHub Actions run #967, `https://github.com/CodeByNath/compuzign-platform/actions/runs/34104914511` — **Success**, for exactly that head SHA.
+- Accepted candidate branch: `review/tier-catalogue-admin-ux-phase3-edition-edit-routing-correction-v2` @ `56a15ad9a4e35e46b04e96b585b6c6e42cb7ba31` (now == `main`) — keep until the live gate below passes, per the instruction not to close until then.
+- **Branch cleanup still pending** — the rejected v1 branch (`review/tier-catalogue-admin-ux-phase3-edition-edit-routing-correction`, both local and remote) is deleted, but `review/tier-catalogue-admin-ux-phase3-correction-v3` (remote) is still present. Branch deletion is also classifier-blocked for Claude in this session; exact command still needed:
+  ```
+  git push origin --delete review/tier-catalogue-admin-ux-phase3-correction-v3
+  ```
 
 ## Independent audit
 The v2 diff fixes the actual remount defect without reducing the required one-click behavior:
