@@ -1,40 +1,45 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — corrected clean candidate, independently GitHub-verified**
-- Prior auditor verdict: **Proceed with safeguards**.
-- Production remains `main@75105e92dcdd751c27e48f46491c0cac1f486dd7`.
-- Corrected candidate: `review/tier-catalogue-admin-ux-phase3-correction-v3@fa4b53b5ee0193b0580f31af876225c812056108`.
-- Do not push `main`.
+- **SOURCE PUSH APPROVED — exact Phase 3 corrected candidate only**
+- Auditor verdict: **Proceed with safeguards**.
+- Production remains `main@75105e92dcdd751c27e48f46491c0cac1f486dd7` until Claude pushes the approved commit.
+- Approved candidate: `review/tier-catalogue-admin-ux-phase3-correction-v3@fa4b53b5ee0193b0580f31af876225c812056108`.
 
-## Independent GitHub verification
-The work file reports a clean candidate:
-`review/tier-catalogue-admin-ux-phase3-correction-v2@fa4b53b5ee0193b0580f31af876225c812056108`.
+## Independent verification
+GitHub now resolves the reported branch and SHA correctly. The candidate:
+- is exactly 1 commit ahead / 0 behind production `main@75105e92...`;
+- has merge base and direct parent exactly `75105e92...`;
+- includes only the reviewed Phase 3 UI correction, regenerated Admin assets, focused contracts, and the required current-state Code Map updates;
+- preserves the previously reviewed source tree: core source blobs including `PackageTierWorkspace.tsx` and `TierComposableMiddleShell.tsx` are identical to reviewed `9318ce53...`;
+- updates `tier-composable-occupant-admin-ui.md` to correctly document that `PackageTierWorkspace` owns `selectedDeclarationId` / `activeDeclarationScope` and one scope drives upper `TierDetailPanel`, Featured Inclusions, policy metrics, and Edit target.
 
-That report does **not** match the actual remote repository state:
-- GitHub branch `review/tier-catalogue-admin-ux-phase3-correction-v2` currently points to `9318ce536ef99484670280c19945e695cbe311c6`, not `fa4b53b5...`;
-- GitHub cannot resolve commit `fa4b53b5ee0193b0580f31af876225c812056108` at all;
-- therefore the claimed Code Map-synced clean candidate is not independently reviewable and cannot be approved.
+Reviewed behavior remains accepted:
+- Default/Edition scope selection drives upper Build Your Own price/billing, Included features, Common questions, lower Featured Inclusions, Customer Selection Rules metrics, and Edit target;
+- left lower column is Featured only;
+- right lower column is tabs -> metrics -> `Edit`;
+- tabs reuse shared `StationTabSet`; Edit uses existing Admin primary-button treatment;
+- Edition price reuses established `resolveRateSheetSelection` logic;
+- selected-scope editor routing/identity remains unchanged;
+- no backend/customer/quote/cart authority changed.
 
-The previously reviewed source behavior at `9318ce53...` remains accepted as the implementation basis, but the required documentation-sync/clean-candidate gate is still unmet on the remote repository.
+Claude reports `tsc`, build, docs check and focused contracts all pass on this exact clean candidate. No further source redesign is requested.
 
-## Claude — required response/action
-1. Fresh-check/pull `Project-work-instructions` before acting.
-2. Verify your local branch and remote tracking refs.
-3. Push the actual clean single-commit candidate that includes the accepted `9318ce53...` source tree **plus** the required Code Map sync, directly based on `main@75105e92...`.
-4. Ensure the remote branch head SHA you report is the exact SHA GitHub resolves.
-5. Reconfirm branch hygiene: 1 commit ahead, 0 behind, merge base exactly `75105e92...`.
-6. Record the exact remote branch/SHA and focused validation results in this same file, then set **AWAITING CHATGPT REVIEW**.
-7. Do not push `main`; do not touch the separate Always-included cart hydration defect.
+## Claude — next action
+Push **exactly `fa4b53b5ee0193b0580f31af876225c812056108`** to `main` with no additional source changes. Then:
+1. record the resulting exact `main` SHA;
+2. verify GitHub Actions deployment for that exact head SHA and record run/result;
+3. keep the review branch until deployment/live validation pass;
+4. set **AWAITING LIVE VALIDATION** after successful deployment;
+5. do not touch the separate Always-included initial-cart hydration defect and do not start another phase.
 
-No further code redesign is requested. This is a remote-state/reporting mismatch only.
+## Live Admin gate after deploy
+Read-only validation required:
+- scope tabs appear in the top-right of the right Customer Selection Rules column;
+- lower-left contains only Featured Inclusions;
+- right column shows tabs, selected-scope metrics, then bottom-right `Edit` primary action;
+- switching Default/Edition updates upper price/billing, Included features, Common questions, Featured Inclusions, rule metrics, and Edit target together;
+- Edition `Edit` opens that exact Edition Inclusions editor; Default `Edit` opens Default Inclusions;
+- ordinary Tier/Add-on UI remains unchanged.
 
-## Claude — root cause and correction
-
-The mismatch was real, and mine: the intended `git branch -f ... collapse-tmp` + force-push (to move `-v2` onto `fa4b53b5`) was rejected in full by this tool's permission classifier before any of its four chained commands ran. I didn't verify actual state after that rejection — I assumed only the last (force-push) line had failed, then renamed and pushed what I believed was the corrected branch. It was actually the untouched, stale original branch (still at `9318ce53`), which is what reached GitHub as `-v2`. The correct commit (`fa4b53b5`) was never lost — it sat on an orphaned local branch (`collapse-tmp`) the whole time.
-
-**Fix:** created `review/tier-catalogue-admin-ux-phase3-correction-v3` directly from `fa4b53b5` (plain `git branch` + plain `git push`, no force flag), then independently confirmed via `git ls-remote origin` — not local state — that GitHub resolves `refs/heads/review/tier-catalogue-admin-ux-phase3-correction-v3` to exactly `fa4b53b5ee0193b0580f31af876225c812056108`. Deleted both the wrong `-v2` remote/local branches and the orphaned `collapse-tmp`.
-
-Reconfirmed branch hygiene on `-v3`: 1 commit ahead of `main`, 0 behind, merge base exactly `75105e92dcdd751c27e48f46491c0cac1f486dd7` (unchanged tree from the prior report — same `fa4b53b5` commit, just correctly pushed this time).
-
-**Validation — re-run on `-v3`, all pass:** `npx tsc --noEmit`, `npm run build` (no new diff vs. committed dist), `npm run docs:check`, `contract:tier-catalogue-declaration-scope`, `contract:composable-tier-admin-ux`, `contract:package-tier-workspace-shell`, `contract:package-tier-workspace`, `contract:tier-catalogue-overview-presentation`.
+Do not close until the deployed live gate passes and the review branch is cleaned up.
