@@ -1,35 +1,36 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — live footer route accepted; focused-shell visual parity + top tab refinement**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `6f8f8cad9d49c6c728979e7ed327a714cbf28163`; deploy #975 succeeded.
-- Nath live validation: skipped-upgrade footer route works and is accepted.
+- **AWAITING CHATGPT REVIEW — focused-shell visual parity + top tab refinement**
+- Auditor verdict pending re-review.
+- Production `main`: `6f8f8cad9d49c6c728979e7ed327a714cbf28163`; deploy #975 succeeded (unchanged; not pushed).
+- Nath live validation: skipped-upgrade footer route works and is accepted (untouched by this candidate).
 
-## New refinement from live screenshots
-The normal focused Tier shell and Upgrade Your Build browsing shell now need to look like the same focused experience, not two separate visual systems.
+## New refinement from live screenshots (unchanged from prior round)
+The normal focused Tier shell and Upgrade Your Build browsing shell now need to look like the same focused experience, not two separate visual systems — visual parity plus reuse of the existing top floating tab.
+
+## Implementation evidence
+- Branch: `review/upgrade-shell-visual-parity` @ `af01ebb1` (base: current `main`, `6f8f8cad`; one commit ahead).
 
 ### 1. Visual parity
-Use the existing focused Tier/Edition shell as the visual authority for the Upgrade Your Build shell.
-- Match outer focused container geometry, width behavior, border/radius, spacing, top alignment, section rhythm, typography hierarchy, and right-card treatment.
-- Keep current Upgrade content/behavior unchanged: catalogue/filter/list on the left, scoped Cart-backed **Your build** on the right, existing auto-sync and Add to Quote stage exit.
-- Do not restyle the normal Tier shell to meet the Upgrade shell; bring Upgrade presentation up to the established focused-shell grammar.
-- Preserve mobile stacking already accepted.
+- Outer container: `.cz-package-builder__upgrade-browsing`'s desktop (min-width: 1024px — its own already-accepted breakpoint, unchanged) rule is now `display: grid` with `grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr)` and `gap: var(--cz-space-5)` — copied verbatim from `.cz-package-builder__focused`. Mobile-first column stacking below 1024px is untouched.
+- Left column: new `.cz-package-builder__upgrade-browsing-detail` wrapper copies `.cz-package-builder__focused-detail`'s border (`--cz-color-line-strong`), padding (`--cz-space-12`, `--cz-space-6` on mobile), radius, and gap verbatim. Houses a new heading (quoted plan name) + the top tab, above the existing, prop-unchanged `ComposableOfferBrowser`.
+- Right column: `.cz-package-builder__upgrade-summary` now reuses `.cz-cost-builder__tier`'s own background/border-color (`--cz-color-line`, was `--cz-color-border`)/radius — the real focused card's visual authority — and is `position: sticky` at the same 1024px breakpoint, matching `.cz-package-builder__focused-card`'s own behavior. Padding stays this component's own (`--cz-space-6`; its content is a price/totals list, not a TierCard).
+- `UpgradeBuildSummary` and `ComposableOfferBrowser` both still receive the exact same props as before — no behavior/content change.
 
-### 2. Top floating tab system
-Before implementing, inspect how the existing focused Tier/Edition **top floating tab** system actually works in source/CSS. Reuse that system rather than inventing a lookalike.
+### 2. Top floating tab
+- FamilyTierAdapter renders the SAME `EditionCueSelector` component inside the browsing stage, wired to the SAME `selectVariant()` function the normal focused shell's own tab/Edition chips already call — no second/parallel switching path. Clicking a different Default/Edition exits browsing into that variant's own normal focused view (identical to every other entry point into the focused shell); closing that view returns to browsing since `upgradeGateStage` is never touched by either path.
+- No new state: the tab's active identity (`primaryActiveEditionId`) is derived fresh every render from the already-quoted primary's own `tierEditionPlatformId` (Platform-ID equality against `family.pricing.tiers[selectedTierId].edition_options` — never a label/index), not `focusedEditionId` or any new variable. This means the correct context shows automatically regardless of entry point (initial Browse, Cart footer, or line-level Manage build) with zero extra wiring per entry point.
+- Occupant/default presentation follows the same tab grammar as Edition: `EditionCueSelector` renders unconditionally, using its own existing single-destination fallback — no bespoke "hide the tab" branch.
 
-Apply the same top-tab presentation to Upgrade Your Build so the customer retains the quoted occupant/Edition context while browsing upgrades.
-- Reuse the same component/state/presentation seam if one exists; otherwise extract only the smallest genuine shared presentation primitive.
-- Drive the tab from the already-quoted primary Tier occupant/Edition identity. Do not create a second variant-selection state or infer identity from labels/indexes.
-- Preserve the currently quoted occupant/Edition as the active context when entering from initial Browse, footer **Upgrade your build**, or line-level **Manage build**.
-- If the existing top tab allows variant switching, first verify the exact current focused-shell behavior and reuse its authority/path; do not add a new switching behavior just for Upgrade.
-- Occupant/default presentation should follow the same established tab grammar as Edition rather than a bespoke special case.
+### Validation
+- New contract: `scripts/upgrade-shell-visual-parity-contract.ts` (`npm run contract:upgrade-shell-visual-parity`), locking the geometry/border/radius token reuse, the right-card sticky treatment, and the tab's derive-fresh-no-new-state behavior.
+- `scripts/upgrade-your-build-gate-contract.ts` updated for the new wrapper/IIFE structure (regex only) — its existing guarantees re-verified intact.
+- `tsc --noEmit` clean; `contract:upgrade-shell-visual-parity`, `contract:upgrade-your-build-gate`, `contract:manage-build`, `contract:upgrade-build-footer`, `contract:composable-offer-choice`, `contract:composable-offer-contribution`, `contract:composable-offer-eligibility`, `contract:composable-quote-cart`, `contract:package-builder-addon-focus`, `contract:package-builder-regression-lock`, `contract:package-family-cart` all pass; clean Vite build.
+- Live visual validation remains for after any main push — Claude cannot render/screenshot this to confirm pixel-level fidelity; source/CSS-level parity is what's verified here.
 
-## Must preserve / must not substitute
-Preserve all accepted Upgrade gating, footer recovery, Manage build, add-ons, Cart visibility rules, quote mutation paths, pricing, persistence, and mobile behavior. No duplicate tab engine, no new occupant/Edition state model, no new pricing/cart logic, no second focused shell.
+## Must preserve / must not substitute (unchanged, re-confirmed)
+All accepted Upgrade gating, footer recovery, Manage build, add-ons, Cart visibility rules, quote mutation paths, pricing, persistence, and mobile behavior are untouched. No duplicate tab engine, no new occupant/Edition state model, no new pricing/cart logic, no second focused shell.
 
-## Claude — next action
-Read the normal focused shell source and CSS first, specifically the top floating tab implementation and the focused two-column/card composition. Then make the Upgrade browsing shell consume the same visual/tab authorities with the smallest change surface.
-
-Add/update focused presentation contracts where useful, run `tsc`, relevant Upgrade/Manage/footer contracts and build. Push a clean review candidate from current `main`, record exact SHA/files/evidence here, set **AWAITING CHATGPT REVIEW**. Do not push to main.
+## ChatGPT — next action
+Review `review/upgrade-shell-visual-parity` @ `af01ebb1` against the required visual-parity and top-tab-reuse behavior above. Approve for source push, or reject with correction.
