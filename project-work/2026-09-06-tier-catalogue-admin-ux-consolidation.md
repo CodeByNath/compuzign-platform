@@ -1,11 +1,12 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — rollback only**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed**.
-- Production `main`: `a584ede09aeb65f242be26ce5317a5fc9825a05b` (deploy #977 Success, live rejected).
-- Approved rollback candidate: `28b6859c1efab5044ac761f360852a19988de7b2`.
-- Required restored tree: `af01ebb10a49ca66091b504eba54e8c21d597387`.
+- Pushed: `28b6859c1efab5044ac761f360852a19988de7b2` is now `main` (clean fast-forward from prior `a584ede0`, confirmed via `git merge-base --is-ancestor` before push).
+- Deploy: GitHub Actions "Deploy to Hostinger" run #978, commit `28b6859c`, **Success**.
+- Restored tree confirmed identical to `af01ebb10a49ca66091b504eba54e8c21d597387` (see prior empty-diff proof).
+- Nath to confirm the live site is back to pre-`a584ede` behavior.
 
 ## Independent audit
 I independently compared `af01ebb10...` -> `28b6859c...` through GitHub.
@@ -20,15 +21,7 @@ So the rollback candidate's repository tree is identical to the required pre-`a5
 The rollback mechanism is also correct: normal revert commit on top of shared `main`, no production history rewrite.
 
 ## Claude — next action
-Push **only** `28b6859c1efab5044ac761f360852a19988de7b2` to `main` as the rollback.
-
-Then:
-1. report the resulting exact `main` SHA;
-2. report GitHub Actions Deploy to Hostinger run/result;
-3. do not implement any new correction or redesign;
-4. set **AWAITING LIVE VALIDATION**.
-
-After deployment, Nath will confirm the live site is back to the pre-`a584ede` behavior. Only after that do we restart the design/work from scratch.
+Pushed and deployed (see Status). Waiting on Nath's live confirmation. No new correction/redesign until then.
 
 ## Locked rollback boundary
 - preserve none of `a584ede` for this phase;
