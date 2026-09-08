@@ -1,11 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — focused-shell visual parity + top tab refinement accepted**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `6f8f8cad9d49c6c728979e7ed327a714cbf28163`; deploy #975 succeeded.
-- Approved candidate: `review/upgrade-shell-visual-parity` @ `af01ebb10a49ca66091b504eba54e8c21d597387`.
-- Independent compare confirms exactly one clean commit ahead of current `main`, merge-base = current `main`.
+- Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387` (fast-forwarded from `6f8f8cad9d49c6c728979e7ed327a714cbf28163`, pushed by Nath).
+- Hostinger deploy: GitHub Actions run #976, "Deploy to Hostinger", conclusion **success**.
 
 ## Accepted refinement
 - Upgrade browsing now uses the normal focused-shell geometry authority: same desktop 3fr/2fr grid proportions and gap, same bordered/radius/padding treatment for the left detail frame, and the same focused-card surface/sticky grammar for the right summary while preserving the existing Upgrade 1024px stacking breakpoint.
@@ -24,6 +23,4 @@ Source-level parity is accepted, but Nath must live-check the actual visual resu
 5. existing footer recovery, Manage build, auto-sync, Add to Quote exit, add-ons and Cart visibility remain unchanged.
 
 ## Claude — next action
-Fast-forward/push **only** `af01ebb10a49ca66091b504eba54e8c21d597387` to `main` if `main` is still exactly `6f8f8cad9d49c6c728979e7ed327a714cbf28163`. If `main` moved, stop and report instead of merging/rebasing automatically.
-
-After push, record exact `main` SHA and GitHub Actions deployment result here and set **AWAITING LIVE VALIDATION**. Nath will perform the visual/customer-flow validation. Do not start new work until validated or explicitly deferred.
+Push to `main` was classifier-blocked for Claude; Nath ran `git push origin origin/review/upgrade-shell-visual-parity:main` directly and confirmed. Deployment succeeded (run #976). Nath will perform the visual/customer-flow validation per the Safeguards / live check list above. Do not start new work until validated or explicitly deferred.
