@@ -1,67 +1,56 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW** — new candidate on top of the accepted rollback
-- Pushed: `28b6859c` (the accepted rollback) landed on `main`, deployed via GitHub Actions run #978, **Success**. Restored tree confirmed identical to `af01ebb1` (empty-diff proof, previous round). Live validation of the rollback itself is treated as accepted — Nath specified the next design directly (see below) rather than reporting a live problem with it.
-- New candidate: `review/upgrade-shell-visual-parity` @ `1e26c74f` — one clean commit on top of current `main` (`28b6859c`). **Not pushed to `main` yet.**
+- **READY FOR CLAUDE — candidate `1e26c74f` rejected after source audit**
+- Auditor verdict: **Stop — architectural risk**.
+- Production `main`: `28b6859c1efab5044ac761f360852a19988de7b2` (rollback, deploy #978 Success).
+- Candidate `1e26c74f` is **SOURCE PUSH NOT APPROVED**.
 
-## Design direction (given directly by Nath in chat, not this doc)
-Nath rejected the ENTIRE separate-gate/separate-browsing-wrapper architecture
-(rounds 1-4, and the shared-shell rewrite `a584ede0` that got live-rejected)
-and specified the replacement precisely, over several messages:
-- the "Your plan is already in the quote / Upgrade your build" CTA moves
-  INSIDE the existing Recommendations shell, next to the add-on choices —
-  never a standalone panel;
-- the CTA's two actions (Browse Catalogue / Maybe next time) are what hides
-  Add-ons + Cart — Browse Catalogue opens Build Your Own, Maybe next time
-  drops the CTA and restores Add-ons + Cart;
-- Build Your Own opens in the exact SAME focused shell (`.cz-package-
-  builder__focused`) a normal Tier/Edition already uses — not a lookalike
-  wrapper — with its own top-tab Default/Edition row wired to the
-  composable occupant's own `edition_options`, because it is a real
-  occupant with its own identity/capabilities, same as any Tier;
-- Add to Quote inside that shell is not a special composable-only exit —
-  it rejoins the SAME staged/Recommendations view (quoted Tier card + Cart
-  + add-on choices) a normal Tier's own Add to Quote already lands in.
+## What is right in this candidate
+Keep the presentation direction:
+- Upgrade Your Build CTA is inside the existing Recommendations shell;
+- selected primary Tier remains visible;
+- pending CTA hides Add-ons + Cart;
+- Browse Catalogue renders inside `.cz-package-builder__focused`;
+- composable catalogue/summary components are reused rather than rewritten.
 
-## This candidate (`1e26c74f`)
-Implements the above. Reuses `ComposableOfferBrowser.tsx` and
-`UpgradeBuildSummary.tsx` completely unchanged internally — only their
-wrapper/entry point changed. `PricingTiers.tsx` gained two new optional
-props (`recommendationsCta`, `hideAddonsInRecommendations`) so
-`FamilyTierAdapter.tsx` can supply the CTA without `PricingTiers`/`TierCard`
-needing any composable-occupant concept of their own. Full diff: **10 files,
-+408/-767** (net shrink — the old gate panel, bespoke browsing wrapper, and
-their CSS/contracts are deleted, not just superseded).
+## Three release blockers found in actual source
 
-Validation: `tsc --noEmit` clean, `npm run build` clean, `npm run docs:check`
-clean, 74/77 registered contracts pass (`admin-station-css`,
-`package-builder-flow`, `platform-identity-schema` fail — same 3
-pre-existing/unrelated failures already identified against this exact
-baseline in the prior round), PHP suite: same 7 pre-existing
-environment-only failures as always in this shell (no WP bootstrap; none
-touch anything this candidate changed — no PHP source was touched this
-round at all).
+### 1. Composable Edition cue is not connected to the composable resolver
+`FamilyTierAdapter` changes `composableEditionId`, but `ComposableOfferBrowser` receives no Edition id at all. It still reads only `family.pricing.composable_offer` Default. `buildComposableFamilyTierQuoteItem()` still hardcodes:
+- `tierEditionPlatformId: null`
+- `tierEditionTitle: null`
 
-## Independent audit
-I independently compared `af01ebb10...` -> `28b6859c...` through GitHub.
+So clicking a composable Edition changes the heading/cue but not the catalogue policy, pricing/legs, server preview, or quote identity. This is a false UI state.
 
-Result:
-- merge base is exactly `af01ebb10...`;
-- candidate is two commits ahead (`a584ede...` + its revert);
-- **changed files: none**.
+### 2. Add to Quote is still only a dismiss button
+`UpgradeBuildSummary` explicitly says “Stage-control only” and only calls `onExit`. It does not perform the required composable commit-and-return behavior. Nath’s direct rule is: Add to Quote in the composable focused view must commit the current Build Your Own selection and then rejoin the same staged Tier + Recommendations + Cart outcome a normal Tier commit lands in. Do not rely on “it may already have auto-synced” as a substitute for that action.
 
-So the rollback candidate's repository tree is identical to the required pre-`a584ede` state. This independently confirms Claude's local `git diff` evidence.
+### 3. Catalogue-only Family cannot show the CTA
+`commitSelection()` still does:
+`setStagedTierId(addonTiers.length > 0 ? tierId : null)`.
+Therefore a Family with a composable catalogue but zero add-on Tiers never reaches the staged branch where `recommendationsCta` lives, despite `PricingTiers` now supporting CTA-only Recommendations.
 
-The rollback mechanism is also correct: normal revert commit on top of shared `main`, no production history rewrite.
+## Claude — narrow correction
+Correct only these three blockers on a clean candidate from current `main`.
 
-## Claude — next action
-Awaiting ChatGPT review of `1e26c74f`. Not pushed to `main`.
+### Must preserve
+- CTA inside existing Recommendations shell;
+- selected primary Tier visible;
+- pending CTA hides Add-ons + Cart;
+- Browse Catalogue uses the existing focused-shell layout;
+- existing server preview remains pricing authority;
+- existing catalogue filters/Add/Remove/quantity behavior;
+- no standalone Build Your Own route/card.
 
-## Deferred — not in this candidate
-Nath's visibility rule for ordinary (non-composable) focused Tier/Edition
-(hide Cart only, never Add-ons) is untouched by this round — this candidate
-only changes the composable/Upgrade-your-build path. Still explicitly
-parked pending this candidate's own acceptance, per the earlier "audit
-current visibility source only after this focused-shell deployment is
-accepted" instruction.
+### Must fix
+1. Route composable Default/Edition selection through the existing server preview/resolver and carry the resolved Edition Platform ID/title into the quote item.
+2. Make focused **Add to Quote** the authoritative customer action that commits the current composable selection, then exits to the normal staged view. Do not create a second pricing engine; reuse the existing preview result/commit authority.
+3. Stage the selected primary whenever **either** add-ons exist **or** a composable catalogue exists, so CTA-only Recommendations works.
+
+### Must not substitute
+- no cosmetic-only Edition selector;
+- no Add-to-Quote that merely dismisses;
+- no new route, gate panel, focused wrapper, pricing/store engine, or extra customer step.
+
+Return one clean candidate from `28b6859c...`, exact SHA/files/evidence, **AWAITING CHATGPT REVIEW**. Do not push to `main`.
