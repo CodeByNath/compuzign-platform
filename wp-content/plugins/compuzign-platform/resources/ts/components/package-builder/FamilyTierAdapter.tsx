@@ -1417,23 +1417,75 @@ export function FamilyTierAdapter({
           dismissUpgradeGate directly — never onComposableCommit/
           onComposableRemove, so it can never perform a quote mutation of
           its own. */}
-      {upgradeGateActive === 'browsing' && (
-        <div class="cz-package-builder__upgrade-browsing">
-          <ComposableOfferBrowser
-            family={family}
-            context="upgrade_your_build"
-            initialCartItem={selectedComposableItem}
-            primaryItem={selectedPrimaryItem}
-            onCommit={onComposableCommit}
-            onRemoveFromQuote={onComposableRemove}
-          />
-          <UpgradeBuildSummary
-            primaryItem={selectedPrimaryItem}
-            composableItem={selectedComposableItem}
-            onExit={dismissUpgradeGate}
-          />
-        </div>
-      )}
+      {/* Auditor correction ("focused-shell visual parity and top tab
+          refinement"): selectedTierId !== null is a defensive belt here —
+          upgradeGateActive can only ever be 'browsing' once a primary is
+          already committed (see commitSelection/upgradeGateActive above),
+          so this never actually excludes a real case; it only lets the
+          identity lookups below skip a null check on every read. */}
+      {upgradeGateActive === 'browsing' && selectedTierId !== null && (() => {
+        // Top floating tab reuse: the SAME EditionCueSelector + selectVariant
+        // authority the normal focused shell uses above — never a second
+        // variant-selection state. Identity is derived FRESH every render
+        // from the already-quoted primary's own tierEditionPlatformId
+        // (never focusedEditionId, which belongs to the unrelated normal-
+        // focused-shell state and is untouched by any of the three
+        // Upgrade-browsing entry points — initial Browse Catalogue, the
+        // Cart footer's Upgrade your build, and line-level Manage build),
+        // using the exact same Platform-ID-equality identity comparison
+        // already used throughout this file (isExactQuotedOption etc.) —
+        // never inferred from label/array position. This is also what
+        // makes the tab automatically show the right context regardless of
+        // entry point, with no extra wiring per entry point.
+        const primaryTierData = family.pricing.tiers[selectedTierId];
+        const primaryEditionOptions = primaryTierData?.edition_options ?? [];
+        const primaryActiveEditionId = selectedPrimaryItem?.tierEditionPlatformId
+          ? primaryEditionOptions.find((option) => option.edition_platform_id === selectedPrimaryItem.tierEditionPlatformId)?.id ?? null
+          : null;
+        const primaryTier = tiers.find((tier) => tier.id === selectedTierId);
+        // Occupant/default presentation follows the SAME tab grammar as
+        // Edition (EditionCueSelector already renders a static single ball
+        // when there is only one destination) — never a bespoke "no
+        // Editions" special case here.
+        const primaryLabel = primaryEditionOptions.find((option) => option.id === primaryActiveEditionId)?.label
+          ?? primaryTierData?.label
+          ?? primaryTier?.title
+          ?? selectedTierId;
+        return (
+          <div class="cz-package-builder__upgrade-browsing">
+            <div class="cz-package-builder__upgrade-browsing-detail">
+              <h3 class="cz-package-builder__focused-name">{primaryLabel}</h3>
+              {/* Clicking a different Default/Edition here reuses
+                  selectVariant() verbatim — the exact same switching
+                  authority/path the normal focused shell's own tab and
+                  Edition chips already use, never a second/parallel one.
+                  That exits Upgrade browsing into that variant's own
+                  normal focused view, identically to every other entry
+                  point into the focused shell; closing that view (its own
+                  existing X) returns here, since upgradeGateStage itself
+                  is never touched by either path. */}
+              <EditionCueSelector
+                destinations={[{ id: null, label: 'Default' }, ...primaryEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
+                activeId={primaryActiveEditionId}
+                onSelect={(editionId) => selectVariant(selectedTierId, editionId)}
+              />
+              <ComposableOfferBrowser
+                family={family}
+                context="upgrade_your_build"
+                initialCartItem={selectedComposableItem}
+                primaryItem={selectedPrimaryItem}
+                onCommit={onComposableCommit}
+                onRemoveFromQuote={onComposableRemove}
+              />
+            </div>
+            <UpgradeBuildSummary
+              primaryItem={selectedPrimaryItem}
+              composableItem={selectedComposableItem}
+              onExit={dismissUpgradeGate}
+            />
+          </div>
+        );
+      })()}
     </>
   );
 }

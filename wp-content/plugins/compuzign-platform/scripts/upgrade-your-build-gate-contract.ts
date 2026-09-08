@@ -181,8 +181,9 @@ check(
 // ── 8. ComposableOfferBrowser mounts only for the browsing stage ───────────
 
 check(
-  /\{upgradeGateActive === 'browsing' && \(\s*\n\s*<div class="cz-package-builder__upgrade-browsing">\s*\n\s*<ComposableOfferBrowser/.test(adapterSource),
-  "ComposableOfferBrowser's render gate is narrowed to upgradeGateActive === 'browsing' — mounts only for the intended stage",
+  /\{upgradeGateActive === 'browsing' && selectedTierId !== null && \(\(\) => \{/.test(adapterSource)
+    && /<div class="cz-package-builder__upgrade-browsing-detail">[\s\S]*?<ComposableOfferBrowser/.test(adapterSource),
+  "ComposableOfferBrowser's render gate is narrowed to upgradeGateActive === 'browsing' (selectedTierId !== null is a defensive belt only, per the visual-parity correction's own comment — upgradeGateActive can only ever be 'browsing' once a primary is already committed) — mounts only for the intended stage",
 );
 check(
   !/\{selectedTierId !== null && \(\s*\n\s*<ComposableOfferBrowser/.test(adapterSource),
@@ -231,8 +232,8 @@ check(
   /import \{ UpgradeBuildSummary \} from '\.\/UpgradeBuildSummary';/.test(adapterSource),
   'FamilyTierAdapter imports UpgradeBuildSummary',
 );
-const browsingBlockMatch = adapterSource.match(/\{upgradeGateActive === 'browsing' && \(\s*\n\s*<div class="cz-package-builder__upgrade-browsing">[\s\S]*?\n\s*\)\}/);
-check(browsingBlockMatch !== null, 'the browsing-stage wrapper div exists, gated on the same upgradeGateActive === \'browsing\' condition');
+const browsingBlockMatch = adapterSource.match(/\{upgradeGateActive === 'browsing' && selectedTierId !== null && \(\(\) => \{[\s\S]*?\n\s*\}\)\(\)\}/);
+check(browsingBlockMatch !== null, 'the browsing-stage wrapper div exists, gated on the same upgradeGateActive === \'browsing\' condition (selectedTierId !== null is a defensive belt only)');
 check(
   /<UpgradeBuildSummary\s+primaryItem=\{selectedPrimaryItem\}\s+composableItem=\{selectedComposableItem\}\s+onExit=\{dismissUpgradeGate\}\s*\/>/.test(browsingBlockMatch![0]),
   'UpgradeBuildSummary is wired with the exact same selectedPrimaryItem/selectedComposableItem props already available, and onExit is dismissUpgradeGate — no new state, no onComposableCommit/onComposableRemove path',
@@ -340,8 +341,15 @@ check(
 );
 const desktopBrowsingMediaMatch = cssSource.match(/@media \(min-width: 1024px\) \{\s*\.cz-package-builder__upgrade-browsing \{([^}]*)\}/);
 check(desktopBrowsingMediaMatch !== null, 'a min-width: 1024px media query switches the browsing-stage layout to two columns');
+// Auditor correction ("focused-shell visual parity and top tab
+// refinement") — the two-column switch is now display:grid (column
+// proportions copied verbatim from .cz-package-builder__focused, see
+// upgrade-shell-visual-parity-contract.ts) rather than flex-direction:row,
+// but the breakpoint itself is untouched: still min-width: 1024px, the
+// same one .cz-cost-builder__body already uses for the real Cart-vs-main
+// sidebar relationship, never an ad hoc flex-wrap point.
 check(
-  /flex-direction:\s*row;/.test(desktopBrowsingMediaMatch![1]),
+  /display:\s*grid;/.test(desktopBrowsingMediaMatch![1]),
   'the two-column switch happens at min-width: 1024px — the same breakpoint .cz-cost-builder__body already uses for the real Cart-vs-main sidebar relationship, not an ad hoc flex-wrap point',
 );
 
