@@ -1,11 +1,24 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — cue selection now arms auto-sync, but immediate stage exit can still cancel it**
+- **AWAITING CHATGPT REVIEW — one clean candidate, stage-exit guard added, requirement #6 addressed**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`.
-- Candidate `review/upgrade-shell-visual-parity` @ `a0cb9776` is 2 commits ahead of current main. **SOURCE PUSH NOT APPROVED**.
+- Review candidate: `review/upgrade-shell-visual-parity` @ `9d71ed10` — ONE commit, 17 files, based directly on current `main`, no rejected intermediate ancestry (the two earlier `b3a6815d`/`a0cb9776` commits were squashed out via `git reset --soft origin/main` + one fresh commit, then force-pushed with `--force-with-lease`). Not pushed to `main`.
 - Deferred selected-Tier-card/Add-on/Cart hiding issue remains untouched.
+
+## Claude — requirement #6 addressed, awaiting review
+Root cause confirmed exactly as diagnosed: `UpgradeBuildSummary`'s Add to Quote unconditionally called `onExit === dismissUpgradeGate`, unmounting `ComposableOfferBrowser` and losing an in-flight cue-triggered preview to its own existing `cancelled = true; clearTimeout(timer)` cleanup.
+
+Fix (no mutation added to Add to Quote itself):
+- `ComposableOfferBrowser` derives `syncPending = hasInteracted && previewLoading` — `previewLoading` is set synchronously the instant the effect fires, strictly BEFORE the 400ms debounce timer, so `syncPending` covers an "immediate exit attempt" right after a cue click, not merely a later in-flight network request. Reported upward via a new `onSyncPendingChange` prop on every change, and once more with `false` on unmount (a separate, empty-deps cleanup effect) so the signal can never survive past the component's own lifetime.
+- `FamilyTierAdapter` mirrors that into local `composableSyncPending` state (`onSyncPendingChange={setComposableSyncPending}`, no intermediate transform) and introduces `exitUpgradeBrowsing` — the one function now wired as `UpgradeBuildSummary`'s `onExit` — which refuses outright (no call at all) while pending, and calls the existing, byte-unchanged `dismissUpgradeGate` otherwise. It references no commit/removal callback of its own.
+- `UpgradeBuildSummary` gets one new `syncPending: boolean` prop; the Add to Quote button is `disabled={syncPending}` (label swaps to "Saving…") as the visible layer, belt-and-suspenders alongside `exitUpgradeBrowsing`'s own refusal. Its `onClick` stays the plain, unconditional `onExit` prop — never a second commit path grafted onto the button.
+- A failed resolve still clears `previewLoading` (hence `syncPending`) via the existing `.finally()`, so exit becomes available again after a failure exactly as before — `onCommit`/`onRemoveFromQuote` are still only ever called from the success branch, so a failed attempt never silently exits as if committed.
+
+New `scripts/composable-upgrade-exit-guard-contract.ts` (`npm run contract:composable-upgrade-exit-guard`) locks: the debounce-window coverage (property 1 above), the upward-report-plus-unmount-cleanup wiring, the raw-setState wiring into `composableSyncPending`, `exitUpgradeBrowsing`'s own refusal/no-second-commit-path logic, the disabled button, and — by construction, not a special case — that `syncPending` reads neither `rows` nor `selection`, so the required-only-Edition case (`composable-edition-cue-sync-contract.ts`'s own `ed_pro` fixture) is covered identically to any other cue click.
+
+Re-ran the full suite from the exact squashed-and-staged state before committing: every PHP test/contract in `CostBuilder/CLAUDE.md` and `SurfacePackages/CLAUDE.md`, all ten affected/new TS contracts (`composable-offer-choice`, `composable-offer-contribution`, `composable-offer-eligibility`, `composable-quote-cart`, `manage-build`, `upgrade-build-footer`, `upgrade-your-build-gate`, `upgrade-shell-visual-parity`, `composable-edition-cue-sync`, `composable-upgrade-exit-guard`), `npx tsc --noEmit`, `npm run build`, `npm run docs:check` — all pass (one pre-existing, unrelated failure in `tier-capability-invariants.php`, confirmed present on `main` before any of this work, unaffected).
 
 ## Independently accepted in source
 The earlier primary-bound defect is corrected:
