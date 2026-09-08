@@ -1,11 +1,30 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — structural correction: Build Your Own must use the same focused-occupant model, not a parallel Upgrade shell**
-- Auditor verdict: **Stop — architectural risk** for `e165730e` as currently shaped.
+- **AWAITING CHATGPT REVIEW — Build Your Own now shares the real focused shell**
+- Auditor verdict on `e165730e`: **Stop — architectural risk** (superseded by this candidate).
 - Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`.
-- `e165730e` is **SOURCE PUSH NOT APPROVED**.
-- Visibility correction remains a separate next step after focused-shell ownership is accepted.
+- Review candidate: `review/upgrade-shell-visual-parity` @ `a584ede0` — ONE commit, 21 files, based directly on current `main`, no rejected intermediate ancestry (`e165730e` squashed out via `git reset --soft origin/main` + one fresh commit, force-pushed with `--force-with-lease`). Not pushed to `main`.
+- Visibility correction (Cart + Add-ons hiding rule) remains the separate next step, untouched this phase.
+
+## Claude — report: which focused-shell code is now shared, which stays composable-specific
+Compared the normal `focusedTier` branch against the old parallel `upgrade-browsing` branch and made the smallest change that unifies them, rather than polishing the parallel structure further.
+
+**Shared (unbranched by occupant):**
+- `focusedTierId`'s own type is now `FocusedOccupantId = TierId | typeof COMPOSABLE_QUOTE_TIER_ID` — ONE state slot, admitting the composable sentinel alongside the five fixed Tier ids.
+- `selectVariant(tierId, editionId)` is the ONE entry point into focus for both — the composable occupant's own card, Manage build, and the Cart footer recovery route all call it directly (`selectVariant(COMPOSABLE_QUOTE_TIER_ID, ...)`); nothing calls a second setter.
+- `focusedData` resolves from `family.pricing.composable_offer` (composable) or `family.pricing.tiers[tierId]` (normal) through one ternary — both conform to the identical `PricingTierData` shape, so the close button, title, `ideal_for` paragraph, and `EditionCueSelector` (Default/Edition switch) are fully shared JSX, never duplicated per branch.
+- Cart/Add-on visibility (`onUpgradeGateActiveChange`) is now driven directly by `focusedIsComposable` — the exact same observable hide-while-open behavior as before, reported off the unified state.
+
+**Composable-specific (the one deliberate substitution, per "can remain its own occupant-specific body where genuinely required"):**
+- The right `.cz-package-builder__focused-card` slot renders `ComposableOfferBrowser` (its own live server-resolved Add/Remove/quantity catalogue) instead of `TierCard` — Build Your Own is an assembled composition, not a flat priced card.
+- The left column's Commercial Terms/Periods-timeline/Plan Details sections are skipped for the composable occupant — its real commercial reality is resolved live from the customer's own selection via its own server preview; a static declared-Period timeline there would misrepresent it as a fixed charge.
+
+**Removed entirely, not merely relabeled:** `upgradeGateTierId`/`Stage`, `composableEditionId`, `composableSyncPending`, `dismissUpgradeGate`, `exitUpgradeBrowsing`, the `cz-package-builder__upgrade-gate`/`-browsing`/`-summary` render branches and their CSS, and `UpgradeBuildSummary.tsx` (deleted). No second focused-view system remains — locked by a new `scripts/composable-focused-shell-unification-contract.ts` (source-scan, same precedent this codebase already uses for structure/effect-ordering properties) plus the existing `composable-edition-cue-sync-contract.ts` (interaction-detection logic, unchanged and still passing) and `tests/composable-edition-selection.php` (backend Default vs. Edition resolution, unchanged and still passing).
+
+Entry: a plain Choose-Plan-style click on the composable occupant's own card in the staged/Recommendations view (gated on the same shared `resolveComposableEligibleRows(family)` eligibility check commitSelection already used) replaces the old interstitial gate screen. Manage build and the Cart footer recovery route rehydrate onto the already-committed Edition via the same `seedComposableEditionId()` helper, now called once at entry rather than stored as separate state.
+
+Re-ran the full suite from the exact squashed-and-staged state before committing: every PHP test/contract in `CostBuilder/CLAUDE.md` and `SurfacePackages/CLAUDE.md`, all 78 registered TS contracts (three pre-existing, unrelated failures confirmed present on `main` before this change: `admin-station-css`'s own rate-sheet-tool classes, `package-builder-flow`'s reference to a component removed in an earlier, unrelated commit, and `platform-identity-schema`), `npx tsc --noEmit`, `npm run build`, `npm run docs:check` — all pass. Net diff: +1452/-1316 across 21 files — a real simplification, not additive complexity.
 
 ## Nath's clarified rule — keep this literal
 Normal Tier focused flow is already:
