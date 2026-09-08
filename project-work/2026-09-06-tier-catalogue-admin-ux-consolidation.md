@@ -1,11 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — Cart footer Upgrade recovery route accepted**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `c331909f0b1abc3323f28eafa566c2501f593862`; deploy #974 succeeded.
-- Approved candidate: `review/upgrade-build-cart-footer-recovery-v2` @ `6f8f8cad9d49c6c728979e7ed327a714cbf28163`.
-- Independent compare: exactly one commit ahead of current `main`, merge-base = current `main`.
+- Production `main`: `6f8f8cad9d49c6c728979e7ed327a714cbf28163` (fast-forwarded from `c331909f0b1abc3323f28eafa566c2501f593862`, pushed by Nath).
+- Hostinger deploy: GitHub Actions run #975, "Deploy to Hostinger", conclusion **success**.
 
 ## Accepted behavior
 - Cart footer renders **Upgrade your build** immediately before **View details** only for the currently active Family when: quoted primary exists, `resolveComposableEligibleRows(family)` is non-empty, and no composable/Upgrades line exists.
@@ -20,6 +19,4 @@
 Claude reports clean `tsc`, `contract:manage-build`, `contract:upgrade-build-footer`, Upgrade gate, add-on focus, regression lock, composable quote-cart, package-family-cart, and clean Vite build. Source review confirms footer target is explicit active Family identity, not first Cart item or label inference.
 
 ## Claude — next action
-Fast-forward/push **only** `6f8f8cad9d49c6c728979e7ed327a714cbf28163` to `main` if `main` is still exactly `c331909f0b1abc3323f28eafa566c2501f593862`. If `main` moved, stop and report instead of merging/rebasing automatically.
-
-After push, record exact `main` SHA and GitHub Actions deployment result here and set **AWAITING LIVE VALIDATION**. Nath will validate: skip initial Upgrade → Cart footer Upgrade your build → direct browsing → Add to Quote → footer disappears / Manage build appears. Do not start new work until validated or explicitly deferred.
+Push to `main` was classifier-blocked for Claude; Nath ran `git push origin origin/review/upgrade-build-cart-footer-recovery-v2:main` directly and confirmed. Deployment succeeded (run #975). Nath will validate: skip initial Upgrade → Cart footer Upgrade your build → direct browsing → Add to Quote → footer disappears / Manage build appears. Do not start new work until validated or explicitly deferred.
