@@ -21,6 +21,7 @@ import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/ty
 import type { TierId } from '@/api/types/cost-builder';
 import { FamilyTierAdapter } from './FamilyTierAdapter';
 import type { ManageBuildRequest } from './FamilyTierAdapter';
+import { resolveComposableEligibleRows } from './ComposableOfferBrowser';
 import { QuoteDetailsOverlay } from './QuoteDetailsOverlay';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 
@@ -72,15 +73,32 @@ export function PackageBuilderApp() {
   // millisecond still produce distinct requests.
   const manageBuildRequestId = useRef(0);
   const [manageBuildRequest, setManageBuildRequest] = useState<ManageBuildRequest | null>(null);
-  const handleManageBuild = useCallback((item: FamilyTierQuoteItem) => {
+  // Extracted so the Cart footer's "Upgrade your build" recovery route
+  // (below) can issue the exact same identity/request signal as Manage
+  // build, reusing this one race-safe Cart→FamilyTierAdapter routing path
+  // rather than a second navigation state machine — the two entry points
+  // differ only in which Family/Instance identity + intent they supply (an
+  // already-quoted composable line's own item + 'manage_existing' for
+  // Manage build; the currently active Family + 'start_upgrade' for the
+  // footer route), never in how that identity is routed. `intent` travels
+  // with the request itself (not decided later by FamilyTierAdapter from
+  // current props) specifically so a race — e.g. a 'manage_existing'
+  // request whose composable line disappears before FamilyTierAdapter
+  // consumes it — can never be reinterpreted as the OTHER entry point's
+  // own behavior merely because its guard also happens to pass.
+  const requestManageBuild = useCallback((
+    familyId: string,
+    tierInstanceId: string,
+    intent: ManageBuildRequest['intent'],
+  ) => {
     manageBuildRequestId.current += 1;
-    setActiveFamilyId(item.familyId);
-    setManageBuildRequest({
-      familyId: item.familyId,
-      tierInstanceId: item.tierInstanceId,
-      requestId: manageBuildRequestId.current,
-    });
+    setActiveFamilyId(familyId);
+    setManageBuildRequest({ familyId, tierInstanceId, requestId: manageBuildRequestId.current, intent });
   }, []);
+  const handleManageBuild = useCallback(
+    (item: FamilyTierQuoteItem) => requestManageBuild(item.familyId, item.tierInstanceId, 'manage_existing'),
+    [requestManageBuild],
+  );
   const consumeManageBuildRequest = useCallback(() => setManageBuildRequest(null), []);
 
   useEffect(() => {
@@ -166,6 +184,21 @@ export function PackageBuilderApp() {
   // Family+Instance, if any — never the primary, never an Add-on (see
   // resolveQuoteItemRole()).
   const composableItem = familyItems.find((item) => resolveQuoteItemRole(item) === 'composable') ?? null;
+  // Cart footer "Upgrade your build" recovery route (project-work/2026-09-
+  // 06-tier-catalogue-admin-ux-consolidation.md, "skipped-upgrade Cart
+  // footer recovery route") — shown only for the currently active Family
+  // (never "first item in Cart" or a rendered label): a quoted primary
+  // must exist, resolveComposableEligibleRows(family) must be non-empty
+  // (the SAME shared eligibility authority FamilyTierAdapter's own
+  // commitSelection gate already uses — never a second/derived catalogue
+  // test), and no composable/Upgrades line must be committed yet. Once
+  // composableItem exists, this footer action disappears and the deployed
+  // line-level Manage build becomes the correct re-entry route instead —
+  // the two are mutually exclusive by this same composableItem check,
+  // never shown together.
+  const showUpgradeYourBuildFooter = primary !== null
+    && composableItem === null
+    && resolveComposableEligibleRows(family).length > 0;
 
   return (
     <div class={`cz-cost-builder cz-package-builder${items.length ? ' cz-cost-builder--has-quote' : ''}`}>
@@ -240,6 +273,9 @@ export function PackageBuilderApp() {
               onOpenReview={() => setIsFlowOpen(true)}
               onOpenDetails={(item) => setQuoteDetailsTarget(item ?? 'cart')}
               onManageBuild={handleManageBuild}
+              onUpgradeYourBuild={showUpgradeYourBuildFooter
+                ? () => requestManageBuild(family.family_id, family.tier_instance_id, 'start_upgrade')
+                : undefined}
             />
           )}
         </aside>

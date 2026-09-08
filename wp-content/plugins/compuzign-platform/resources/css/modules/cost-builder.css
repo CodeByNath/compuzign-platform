@@ -913,6 +913,44 @@
   margin: 0 0 var(--cz-space-2);
 }
 
+/* Skipped-upgrade Cart footer recovery route (project-work/2026-09-06-
+   tier-catalogue-admin-ux-consolidation.md) — a row (not the footer's own
+   flex-column) so "Upgrade your build" and View details sit on one line,
+   Upgrade your build first. When only one of the two renders, the row
+   simply holds a single item. */
+.cz-quote-summary__footer-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cz-space-4);
+}
+
+/* Reset the flex-column-specific alignment/spacing above now that View
+   details renders inside this row instead of directly in the footer's own
+   flex-column — the row's own align-items/gap replace both. */
+.cz-quote-summary__footer-links .cz-quote-summary__view-details--cart {
+  align-self: auto;
+  margin: 0;
+}
+
+/* Same quiet text-link recipe as .cz-quote-summary__view-details — no
+   align-self/margin-top of its own since it lives in the row above, not a
+   flex-column. */
+.cz-quote-summary__upgrade-your-build {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  color: var(--cz-color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cz-quote-summary__upgrade-your-build:hover {
+  opacity: 0.85;
+}
+
 /* Order-summary rows (Phase 7): charge-type label on the left, price on the
    right — one .cz-quote-summary__stream-row per resolved payment stream,
    never summing unlike cycles into one line. Kept as its own wrapper

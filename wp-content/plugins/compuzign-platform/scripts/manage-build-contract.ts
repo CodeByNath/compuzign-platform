@@ -1,7 +1,11 @@
 // Contract: "Manage build" Cart re-entry into Upgrade Your Build browsing
 // (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md, live
-// acceptance follow-up + "race-safe cross-Family Manage build re-entry"
-// correction).
+// acceptance follow-up + "race-safe cross-Family Manage build re-entry" +
+// "intent-safe shared Cart-to-browsing request" corrections). The Cart
+// footer "Upgrade your build" recovery route's own properties are locked
+// separately in upgrade-build-footer-contract.ts — this file only
+// re-verifies that Manage build's own semantics survived the shared-routing
+// refactor (requestManageBuild) and the `intent` field that route required.
 //
 // Properties locked:
 //   1. QuoteSummary renders Manage build ONLY for a composable line that
@@ -78,20 +82,29 @@ check(
   /const \[manageBuildRequest, setManageBuildRequest\] = useState<ManageBuildRequest \| null>\(null\);/.test(appSource),
   'PackageBuilderApp holds the one-shot request as state, owned here (not duplicated from FamilyTierAdapter\'s internal gate shape)',
 );
-const handleManageBuildMatch = appSource.match(/const handleManageBuild = useCallback\(\(item: FamilyTierQuoteItem\) => \{([\s\S]*?)\}, \[\]\);/);
-check(handleManageBuildMatch !== null, 'handleManageBuild exists as a stable useCallback');
-const handleManageBuildBody = handleManageBuildMatch![1];
+// Shared-routing refactor: handleManageBuild now delegates to
+// requestManageBuild(familyId, tierInstanceId) — the same helper the Cart
+// footer's "Upgrade your build" route calls with the active Family's own
+// identity instead of an item's (see upgrade-build-footer-contract.ts) —
+// rather than duplicating the routing body inline.
+const requestManageBuildMatch = appSource.match(/const requestManageBuild = useCallback\(\(\s*familyId: string,\s*tierInstanceId: string,\s*intent: ManageBuildRequest\['intent'\],\s*\) => \{([\s\S]*?)\}, \[\]\);/);
+check(requestManageBuildMatch !== null, 'requestManageBuild exists as a stable useCallback, shared by both entry points, taking an explicit intent parameter');
+const requestManageBuildBody = requestManageBuildMatch![1];
 check(
-  /setActiveFamilyId\(item\.familyId\)/.test(handleManageBuildBody),
-  'handleManageBuild switches activeFamilyId to the clicked item\'s own Family — cross-Family routing lives here, not inside FamilyTierAdapter',
+  /setActiveFamilyId\(familyId\)/.test(requestManageBuildBody),
+  'requestManageBuild switches activeFamilyId to the requested Family — cross-Family routing lives here, not inside FamilyTierAdapter',
 );
 check(
-  /setManageBuildRequest\(\{\s*familyId: item\.familyId,\s*tierInstanceId: item\.tierInstanceId,\s*requestId: manageBuildRequestId\.current,\s*\}\);/.test(handleManageBuildBody),
-  'handleManageBuild hands down an identity-only request (familyId, tierInstanceId, requestId) — never a gate stage or any cart data',
+  /setManageBuildRequest\(\{ familyId, tierInstanceId, requestId: manageBuildRequestId\.current, intent \}\);/.test(requestManageBuildBody),
+  'requestManageBuild hands down an identity + intent request (familyId, tierInstanceId, requestId, intent) — never a gate stage or any cart data',
 );
 check(
-  !/setUpgradeGateTierId|setUpgradeGateStage|upsertFamily|removeFamily|replaceFamily/.test(handleManageBuildBody),
-  'handleManageBuild calls no gate setter and no cart-mutating function — PackageBuilderApp never decides browsing state or touches items itself',
+  !/setUpgradeGateTierId|setUpgradeGateStage|upsertFamily|removeFamily|replaceFamily/.test(requestManageBuildBody),
+  'requestManageBuild calls no gate setter and no cart-mutating function — PackageBuilderApp never decides browsing state or touches items itself',
+);
+check(
+  /const handleManageBuild = useCallback\(\s*\(item: FamilyTierQuoteItem\) => requestManageBuild\(item\.familyId, item\.tierInstanceId, 'manage_existing'\),\s*\[requestManageBuild\],\s*\);/.test(appSource),
+  'handleManageBuild is a thin wrapper supplying the clicked item\'s own Family + Instance identity and the \'manage_existing\' intent to the shared helper — no routing logic duplicated locally',
 );
 check(
   /onManageBuild=\{handleManageBuild\}/.test(appSource),
@@ -123,12 +136,12 @@ check(
   'a request for a Family/Instance other than the one currently rendered here returns WITHOUT calling onManageBuildConsumed() — it is left pending rather than dropped, so it survives until the matching Family/Instance actually renders and this effect re-fires (via the family.family_id/family.tier_instance_id deps), instead of assuming PackageBuilderApp\'s two separate setState calls (setActiveFamilyId, setManageBuildRequest) are always observed together in one render',
 );
 check(
-  /if \(!familyMatches\) return;\s*\n\s*if \(selectedTierId !== null && selectedPrimaryItem && selectedComposableItem\) \{/.test(consumeEffectBody),
-  'the mismatch check happens BEFORE the primary/composable guard — a mismatch never reaches, and is never confused with, a matched-but-guard-failed case',
+  /if \(!familyMatches\) return;\s*\n\s*const intentSatisfied = manageBuildRequest\.intent === 'manage_existing'\s*\n\s*\? !!selectedComposableItem\s*\n\s*: selectedComposableItem === null && resolveComposableEligibleRows\(family\)\.length > 0;/.test(consumeEffectBody),
+  'the mismatch check happens BEFORE intent is evaluated, and \'manage_existing\' (Manage build\'s own precondition — an already-committed composable line, checked with NO fallback to catalogue eligibility) is a COMPLETE, separate guard from \'start_upgrade\' (no composable line committed AND a genuinely eligible catalogue) — a request can never satisfy the wrong intent\'s guard, so a manage_existing request whose composable line has disappeared by consumption time can never silently open a fresh start_upgrade browsing session just because the catalogue remains eligible (see upgrade-build-footer-contract.ts for the start_upgrade side of this same guard)',
 );
 check(
-  /setUpgradeGateTierId\(selectedTierId\);\s*\n\s*setUpgradeGateStage\('browsing'\);/.test(consumeEffectBody),
-  'once matched, the effect sets the EXISTING gate state directly to \'browsing\' when the primary/composable guard passes — reusing FamilyTierAdapter\'s own state machine, never a second/parallel one',
+  /if \(selectedTierId !== null && selectedPrimaryItem && intentSatisfied\) \{\s*\n\s*setUpgradeGateTierId\(selectedTierId\);\s*\n\s*setUpgradeGateStage\('browsing'\);/.test(consumeEffectBody),
+  'once matched, the effect sets the EXISTING gate state directly to \'browsing\' when intentSatisfied — reusing FamilyTierAdapter\'s own state machine, never a second/parallel one',
 );
 check(
   !/onAdd\(|onComposableCommit\(|onComposableRemove\(|onRemovePrimary\(|onRemoveAddon\(/.test(consumeEffectBody),

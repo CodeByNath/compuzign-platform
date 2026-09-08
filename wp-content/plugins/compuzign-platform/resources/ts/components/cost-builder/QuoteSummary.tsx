@@ -29,6 +29,16 @@ interface QuoteSummaryProps {
   // primary (see composableCoexistsWithPrimary below); PackageBuilderApp
   // owns routing this back into FamilyTierAdapter's browsing stage.
   onManageBuild?: (item: FamilyTierQuoteItem) => void;
+  // "Skipped-upgrade Cart footer recovery route" — optional for the same
+  // reason as onManageBuild above (CostBuilderApp.tsx is unaffected).
+  // Renders one footer entry point ("Upgrade your build") immediately
+  // before View details, generic on this component's side: PackageBuilderApp
+  // alone decides eligibility (quoted primary + a real eligible catalogue +
+  // no committed composable/Upgrades line yet for the currently active
+  // Family) and only supplies this callback when eligible — QuoteSummary
+  // performs no Family/eligibility logic of its own, the same "presence of
+  // the callback is the render gate" posture already used elsewhere here.
+  onUpgradeYourBuild?: () => void;
 }
 
 // Extracted (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
@@ -258,7 +268,7 @@ export function QuoteTotalsPresentation({ items }: { items: CartItem[] }) {
   );
 }
 
-export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails, onManageBuild }: QuoteSummaryProps) {
+export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails, onManageBuild, onUpgradeYourBuild }: QuoteSummaryProps) {
   const [clearPending, setClearPending] = useState(false);
   const { openKey: openDisclosureKey, toggle: toggleDisclosure, panelRef: disclosurePanelRef } = useSingleOpenDisclosure();
 
@@ -369,29 +379,48 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
       <div class="cz-quote-summary__footer">
         <QuoteTotalsPresentation items={items} />
 
-        {/* Nath refinement: ONE cart-level "View details" entry point only
-            — the earlier per-item buttons above are gone, so this is now
-            the sole way into the quote-details overlay. Opens on the
-            FIRST quoted plan in HIERARCHY order (main plan first — see
-            orderedFamilyTierItems above), never raw cart-insertion order:
-            a base Tier swap re-appends the replacement primary at the END
-            of `items` (replaceFamilyNormalQuoteItem(), utils/quote.ts), so
-            insertion order could previously land on an add-on's tab
-            instead of the main plan's. Never Total Commitment; the
-            customer reaches every other plan tab and Total Commitment by
-            navigating inside that one overlay. Gated on any quoted
-            family_tier item existing (a quoted add-on can never exist
-            without its own primary — confirmed by the cart's whole-Tier-
-            System removal rule — so this is exactly "is there anything to
-            show a plan tab for"). */}
-        {onOpenDetails && orderedFamilyTierItems.length > 0 && (
-          <button
-            type="button"
-            class="cz-quote-summary__view-details cz-quote-summary__view-details--cart"
-            onClick={() => onOpenDetails(orderedFamilyTierItems[0])}
-          >
-            View details
-          </button>
+        {/* Skipped-upgrade Cart footer recovery route + the existing View
+            details entry point, together in one row — "Upgrade your build"
+            always first, immediately before View details. Wrapper only
+            renders when at least one of the two has something to show, so
+            an all-false render never leaves a stray empty row in the
+            footer's flex-column layout. */}
+        {(onUpgradeYourBuild || (onOpenDetails && orderedFamilyTierItems.length > 0)) && (
+          <div class="cz-quote-summary__footer-links">
+            {onUpgradeYourBuild && (
+              <button
+                type="button"
+                class="cz-quote-summary__upgrade-your-build"
+                onClick={onUpgradeYourBuild}
+              >
+                Upgrade your build
+              </button>
+            )}
+            {/* Nath refinement: ONE cart-level "View details" entry point only
+                — the earlier per-item buttons above are gone, so this is now
+                the sole way into the quote-details overlay. Opens on the
+                FIRST quoted plan in HIERARCHY order (main plan first — see
+                orderedFamilyTierItems above), never raw cart-insertion order:
+                a base Tier swap re-appends the replacement primary at the END
+                of `items` (replaceFamilyNormalQuoteItem(), utils/quote.ts), so
+                insertion order could previously land on an add-on's tab
+                instead of the main plan's. Never Total Commitment; the
+                customer reaches every other plan tab and Total Commitment by
+                navigating inside that one overlay. Gated on any quoted
+                family_tier item existing (a quoted add-on can never exist
+                without its own primary — confirmed by the cart's whole-Tier-
+                System removal rule — so this is exactly "is there anything to
+                show a plan tab for"). */}
+            {onOpenDetails && orderedFamilyTierItems.length > 0 && (
+              <button
+                type="button"
+                class="cz-quote-summary__view-details cz-quote-summary__view-details--cart"
+                onClick={() => onOpenDetails(orderedFamilyTierItems[0])}
+              >
+                View details
+              </button>
+            )}
+          </div>
         )}
 
         <button

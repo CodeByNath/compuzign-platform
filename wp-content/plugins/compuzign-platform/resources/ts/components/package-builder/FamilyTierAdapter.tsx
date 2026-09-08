@@ -35,18 +35,32 @@ interface PlanDetailsTarget {
   platformId: string;
 }
 
-// "Manage build" (project-work/2026-09-06-tier-catalogue-admin-ux-
-// consolidation.md) — the Cart's own one-shot re-entry signal into this
-// component's existing 'browsing' stage. Identity only (which Family +
-// Instance the click targeted, plus a requestId that changes on every
-// click so the SAME target can be requested again after an exit): this
-// component alone decides whether/how to act on it (see the consuming
-// effect below), never a payload the caller drives navigation with
-// directly.
+// "Manage build" / Cart footer "Upgrade your build" (project-work/2026-09-
+// 06-tier-catalogue-admin-ux-consolidation.md) — the Cart's own one-shot
+// re-entry signal into this component's existing 'browsing' stage, shared
+// by both entry points (a line-level Manage build re-opening an existing
+// composable line, or the footer's recovery route starting a fresh one).
+// Identity only (which Family + Instance the click targeted, plus a
+// requestId that changes on every click so the SAME target can be
+// requested again after an exit): this component alone decides
+// whether/how to act on it (see the consuming effect below), never a
+// payload the caller drives navigation with directly.
+//
+// Auditor correction ("intent-safe shared Cart-to-browsing request"): a
+// single shared open guard (composable exists OR catalogue eligible) could
+// not tell these two entry points apart across a race — a `manage_existing`
+// request whose composable line disappeared before consumption (removed,
+// or the Family re-rendered late) could still open a FRESH Upgrade merely
+// because the catalogue remained eligible, silently substituting
+// start_upgrade's own behavior for Manage build's. `intent` is the minimal
+// fact needed to keep the two open guards from ever substituting for one
+// another while still sharing this one request/consumer — never a second
+// navigation state machine.
 export interface ManageBuildRequest {
   familyId: string;
   tierInstanceId: string;
   requestId: number;
+  intent: 'manage_existing' | 'start_upgrade';
 }
 
 // The active focused variant's own resolved Commercial Period list — the
@@ -618,17 +632,40 @@ export function FamilyTierAdapter({
   // target Family/Instance actually renders, at which point the SAME
   // still-pending request is re-evaluated and, now matching, is resolved.
   // Only once the Family/Instance genuinely matches is the request ever
-  // resolved — opened (both the primary and the already-committed
-  // composable line exist, the same belt-and-suspenders posture as
-  // ComposableOfferBrowser's own primaryItem gate elsewhere in this file)
-  // or silently dropped (matched but a guard failed) — never both left
-  // pending and later fired unexpectedly once conditions happen to change.
+  // resolved — opened when the primary exists AND the request's own
+  // `intent` is satisfied, or silently dropped (matched but the guard
+  // failed) — never both left pending and later fired unexpectedly once
+  // conditions happen to change.
+  //
+  // Auditor correction ("intent-safe shared Cart-to-browsing request"): the
+  // two intents are deliberately NOT a plain disjunction anymore — each has
+  // its OWN complete guard, so one can never substitute for the other
+  // across a race:
+  //   - 'manage_existing' (a line-level Manage build click) requires the
+  //     composable line to STILL be committed at consumption time — the
+  //     same belt-and-suspenders posture as ComposableOfferBrowser's own
+  //     primaryItem gate elsewhere in this file. If that line disappeared
+  //     before this Family/Instance rendered (removed, or superseded), the
+  //     request is dropped WITHOUT opening — it must never fall back to
+  //     starting a fresh Upgrade just because the catalogue happens to
+  //     remain eligible.
+  //   - 'start_upgrade' (the Cart footer's recovery route) requires NO
+  //     composable line to be committed AND a genuinely eligible catalogue
+  //     (resolveComposableEligibleRows() — the SAME shared authority
+  //     commitSelection's own hasCatalogue check below already uses). If a
+  //     composable line now exists (e.g. auto-sync landed one moments
+  //     earlier), the request is dropped WITHOUT opening — line-level
+  //     Manage build is the correct route once a line exists, never a
+  //     second fresh-Upgrade entry alongside it.
   useEffect(() => {
     if (!manageBuildRequest) return;
     const familyMatches = manageBuildRequest.familyId === family.family_id
       && manageBuildRequest.tierInstanceId === family.tier_instance_id;
     if (!familyMatches) return;
-    if (selectedTierId !== null && selectedPrimaryItem && selectedComposableItem) {
+    const intentSatisfied = manageBuildRequest.intent === 'manage_existing'
+      ? !!selectedComposableItem
+      : selectedComposableItem === null && resolveComposableEligibleRows(family).length > 0;
+    if (selectedTierId !== null && selectedPrimaryItem && intentSatisfied) {
       setUpgradeGateTierId(selectedTierId);
       setUpgradeGateStage('browsing');
     }
