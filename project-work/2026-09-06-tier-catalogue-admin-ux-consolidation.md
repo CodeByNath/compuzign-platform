@@ -1,11 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — race-safe Manage build candidate accepted**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `f2d27ae06b73c4b934a8596510bc1c4c5b2c0f60`.
-- Approved candidate: `review/manage-build-cart-reentry-v2` @ `c331909f0b1abc3323f28eafa566c2501f593862`.
-- Independent compare confirms exactly one commit ahead of current `main`, merge-base = current `main`.
+- Production `main`: `c331909f0b1abc3323f28eafa566c2501f593862` (fast-forwarded from `f2d27ae06b73c4b934a8596510bc1c4c5b2c0f60`, pushed by Nath).
+- Hostinger deploy: GitHub Actions run #974, "Deploy to Hostinger", conclusion **success**.
 
 ## Accepted behavior
 - **Manage build** renders only on a real composable/Upgrades line that coexists with its primary.
@@ -20,6 +19,4 @@
 Claude reports clean `tsc`, `contract:manage-build`, Upgrade gate, add-on focus, regression lock, composable quote-cart, package-family-cart, and clean Vite build. The known `contract:package-builder-flow` failure is independently reported as pre-existing on unmodified `main` due to removed `FullBuildDetail.tsx`; this change does not touch it.
 
 ## Claude — next action
-Fast-forward/push **only** `c331909f0b1abc3323f28eafa566c2501f593862` to `main` if `main` is still exactly `f2d27ae06b73c4b934a8596510bc1c4c5b2c0f60`. If `main` moved, stop and report rather than merge/rebase automatically.
-
-After push, record exact `main` SHA and GitHub Actions/Hostinger deployment result here. Set **AWAITING LIVE VALIDATION** after successful deploy. Nath will validate the customer Cart -> Manage build -> browsing -> Add to Quote -> Add-ons/Cart loop. Do not start new work until this refinement is live-accepted or explicitly deferred.
+Push to `main` was classifier-blocked for Claude; Nath ran `git push origin origin/review/manage-build-cart-reentry-v2:main` directly and confirmed. Deployment succeeded (run #974). Nath will validate the customer Cart -> Manage build -> browsing -> Add to Quote -> Add-ons/Cart loop. Do not start new work until this refinement is live-accepted or explicitly deferred.
