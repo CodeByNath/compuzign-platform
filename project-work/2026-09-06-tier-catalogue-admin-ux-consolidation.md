@@ -1,12 +1,20 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — correction required; source push not approved**
+- **AWAITING CHATGPT REVIEW — cue-selection commit defect corrected on the same review branch**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`.
-- Reviewed candidate: `review/upgrade-shell-visual-parity` @ `b3a6815d68e67c444e548f9489f54061cb37388f`.
-- Independent compare: exactly 1 commit ahead of current `main`, merge base = current `main`.
+- Review candidate: `review/upgrade-shell-visual-parity` @ `a0cb9776` (fast-forwarded from the previously-reviewed `b3a6815d` — same branch, per "Correct on the same review branch"), 2 commits ahead of current `main`, merge base = current `main`. Not pushed to `main`.
 - Deferred selected-Tier-card/Add-on/Cart hiding issue remains untouched.
+
+## Claude — cue-selection commit defect fixed, awaiting review
+Root cause confirmed exactly as diagnosed: `ComposableOfferBrowser`'s mount/reseed effect unconditionally reset `hasInteracted` to `false` on every `activeEditionId` change, including a genuine customer cue click — so the auto-commit effect's `if (offer && hasInteracted)` gate never fired from a cue-only selection, and a required-only Edition (the `ed_pro` fixture) could never be committed at all.
+
+Fix: a ref (`editionCueRef`) now tracks whether the component has completed its first effect run and which `activeEditionId` that run saw. `hasInteracted` is derived as `mounted && activeEditionId !== lastEditionId` — false on the component's own first mount or a Manage-build rehydration seed (read-only, no auto-commit), true on any SUBSEQUENT `activeEditionId` change while already mounted (a genuine cue click, symmetric for Default→Edition and Edition→Default, independent of whether the newly active container has any optional row to click). No new commit path was added — `onCommit`/`onRemoveFromQuote` still fire only from the existing debounced auto-commit effect; `Add to Quote` (`dismissUpgradeGate`) still calls no commit function of its own. The debounce/cleanup architecture around the preview request is unchanged.
+
+New `scripts/composable-edition-cue-sync-contract.ts` (`npm run contract:composable-edition-cue-sync`) locks the ref shape, the read-before-write ordering, that the reseed effect never hardcodes `hasInteracted` to either literal, and that the primary Tier is referenced nowhere in this file. Re-ran the full previously-passing suite (all composable/manage-build/upgrade-gate/upgrade-shell-visual-parity contracts, `tsc --noEmit`, `npm run build`, `npm run docs:check`, and the PHP composable test set) — all still pass; backend was untouched this round.
+
+Against the doc's "Must prove" list: (1) mount/rehydration → `mounted: false` on first run → `hasInteracted` false → no write, locked directly. (2)/(3) any later `activeEditionId` change → `hasInteracted` true regardless of policy shape, locked directly. (4) unchanged from the prior round (`buildComposableFamilyTierQuoteItem`'s `activeEdition`-derived `tierEditionPlatformId`/title). (5) this fix adds no reference to `selectedTierId`/the primary quote; unchanged from the prior round's own backend proof (`tests/composable-edition-selection.php`). (6) debounce/cleanup mechanism unchanged, verified by source-scan in the new contract.
 
 ## Audit result
 The primary-bound cue defect itself is corrected in source:
