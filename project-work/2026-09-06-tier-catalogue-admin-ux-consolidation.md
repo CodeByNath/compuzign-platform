@@ -1,22 +1,35 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **READY FOR CLAUDE — live footer route accepted; focused-shell visual parity + top tab refinement**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `6f8f8cad9d49c6c728979e7ed327a714cbf28163` (fast-forwarded from `c331909f0b1abc3323f28eafa566c2501f593862`, pushed by Nath).
-- Hostinger deploy: GitHub Actions run #975, "Deploy to Hostinger", conclusion **success**.
+- Production `main`: `6f8f8cad9d49c6c728979e7ed327a714cbf28163`; deploy #975 succeeded.
+- Nath live validation: skipped-upgrade footer route works and is accepted.
 
-## Accepted behavior
-- Cart footer renders **Upgrade your build** immediately before **View details** only for the currently active Family when: quoted primary exists, `resolveComposableEligibleRows(family)` is non-empty, and no composable/Upgrades line exists.
-- `QuoteSummary` remains generic via optional `onUpgradeYourBuild`; non-package-builder caller is unaffected.
-- Clicking the footer action reuses the same race-safe one-shot Cart→`FamilyTierAdapter` request path as line-level **Manage build**, with explicit `intent: 'start_upgrade'`.
-- `manage_existing` and `start_upgrade` have separate complete guards: Manage requires the composable line still exists; Start requires no composable line plus eligible catalogue. Neither can silently substitute for the other across a race.
-- Cross-Family mismatch waits until the matching Family/Instance renders; matching requests resolve exactly once.
-- No quote mutation occurs on entry. Existing `ComposableOfferBrowser`/auto-sync/right-side scoped Cart presentation and **Add to Quote** exit remain unchanged.
-- Once a composable line exists, footer **Upgrade your build** disappears and line-level **Manage build** is the sole re-entry route.
+## New refinement from live screenshots
+The normal focused Tier shell and Upgrade Your Build browsing shell now need to look like the same focused experience, not two separate visual systems.
 
-## Validation accepted
-Claude reports clean `tsc`, `contract:manage-build`, `contract:upgrade-build-footer`, Upgrade gate, add-on focus, regression lock, composable quote-cart, package-family-cart, and clean Vite build. Source review confirms footer target is explicit active Family identity, not first Cart item or label inference.
+### 1. Visual parity
+Use the existing focused Tier/Edition shell as the visual authority for the Upgrade Your Build shell.
+- Match outer focused container geometry, width behavior, border/radius, spacing, top alignment, section rhythm, typography hierarchy, and right-card treatment.
+- Keep current Upgrade content/behavior unchanged: catalogue/filter/list on the left, scoped Cart-backed **Your build** on the right, existing auto-sync and Add to Quote stage exit.
+- Do not restyle the normal Tier shell to meet the Upgrade shell; bring Upgrade presentation up to the established focused-shell grammar.
+- Preserve mobile stacking already accepted.
+
+### 2. Top floating tab system
+Before implementing, inspect how the existing focused Tier/Edition **top floating tab** system actually works in source/CSS. Reuse that system rather than inventing a lookalike.
+
+Apply the same top-tab presentation to Upgrade Your Build so the customer retains the quoted occupant/Edition context while browsing upgrades.
+- Reuse the same component/state/presentation seam if one exists; otherwise extract only the smallest genuine shared presentation primitive.
+- Drive the tab from the already-quoted primary Tier occupant/Edition identity. Do not create a second variant-selection state or infer identity from labels/indexes.
+- Preserve the currently quoted occupant/Edition as the active context when entering from initial Browse, footer **Upgrade your build**, or line-level **Manage build**.
+- If the existing top tab allows variant switching, first verify the exact current focused-shell behavior and reuse its authority/path; do not add a new switching behavior just for Upgrade.
+- Occupant/default presentation should follow the same established tab grammar as Edition rather than a bespoke special case.
+
+## Must preserve / must not substitute
+Preserve all accepted Upgrade gating, footer recovery, Manage build, add-ons, Cart visibility rules, quote mutation paths, pricing, persistence, and mobile behavior. No duplicate tab engine, no new occupant/Edition state model, no new pricing/cart logic, no second focused shell.
 
 ## Claude — next action
-Push to `main` was classifier-blocked for Claude; Nath ran `git push origin origin/review/upgrade-build-cart-footer-recovery-v2:main` directly and confirmed. Deployment succeeded (run #975). Nath will validate: skip initial Upgrade → Cart footer Upgrade your build → direct browsing → Add to Quote → footer disappears / Manage build appears. Do not start new work until validated or explicitly deferred.
+Read the normal focused shell source and CSS first, specifically the top floating tab implementation and the focused two-column/card composition. Then make the Upgrade browsing shell consume the same visual/tab authorities with the smallest change surface.
+
+Add/update focused presentation contracts where useful, run `tsc`, relevant Upgrade/Manage/footer contracts and build. Push a clean review candidate from current `main`, record exact SHA/files/evidence here, set **AWAITING CHATGPT REVIEW**. Do not push to main.
