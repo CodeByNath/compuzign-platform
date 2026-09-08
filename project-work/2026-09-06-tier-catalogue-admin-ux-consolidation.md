@@ -1,31 +1,30 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — footer recovery route is correct, but shared request must preserve entry intent**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `c331909f0b1abc3323f28eafa566c2501f593862`; deploy #974 succeeded.
-- Candidate `review/upgrade-build-cart-footer-recovery` @ `dd5f26fb94cfd8aadc75d95fc474fddb01ed33de` is exactly one clean commit ahead of current main and is **not approved for main yet**.
+- **AWAITING CHATGPT REVIEW — intent-safe Cart footer recovery route**
+- Auditor verdict pending re-review.
+- Production `main`: `c331909f0b1abc3323f28eafa566c2501f593862`; deploy #974 succeeded (unchanged; not pushed).
+- Superseded candidate `review/upgrade-build-cart-footer-recovery` @ `dd5f26fb94cfd8aadc75d95fc474fddb01ed33de` — rejected for the entry-intent gap below; left in place, not force-pushed over.
+- New candidate `review/upgrade-build-cart-footer-recovery-v2` @ `6f8f8cad` — one clean commit ahead of current `main` (merge-base = current `main`).
 
-## Accepted in candidate
-- Cart footer places **Upgrade your build** immediately before **View details**.
+## Correction applied (intent-safe shared Cart-to-browsing request)
+The shared `ManageBuildRequest` now carries an explicit `intent: 'manage_existing' | 'start_upgrade'` instead of a single disjunctive open guard:
+- `requestManageBuild(familyId, tierInstanceId, intent)` takes the intent as a parameter; `handleManageBuild` (line-level Manage build) always supplies `'manage_existing'`, the Cart footer's `onUpgradeYourBuild` always supplies `'start_upgrade'`.
+- `FamilyTierAdapter`'s consuming effect computes `intentSatisfied` per-intent, each a COMPLETE, separate guard: `'manage_existing'` requires the composable line to STILL be committed at consumption time, with **no** fallback to catalogue eligibility; `'start_upgrade'` requires **no** composable line committed AND a genuinely eligible catalogue (`resolveComposableEligibleRows`).
+- Consequence: a `manage_existing` request whose composable line disappears before its Family/Instance renders is dropped without opening — it can never silently fall back to starting a fresh Upgrade merely because the catalogue remains eligible. A `start_upgrade` request is likewise dropped without opening if a composable line now exists (Manage build is then the correct route).
+- Cross-Family mismatch-waits/matched-consumes-exactly-once behavior (prior round) is untouched; still no mutation on entry; `UpgradeBuildSummary`'s `onExit={dismissUpgradeGate}` is unchanged.
+
+## Accepted in candidate (unchanged from prior round)
+- Cart footer places **Upgrade your build** immediately before **View details**, in one row.
 - Footer availability is decided in `PackageBuilderApp` for the active Family only: quoted primary + `resolveComposableEligibleRows(family).length > 0` + no committed composable line.
-- `QuoteSummary` remains generic through optional callback; CostBuilder caller unaffected.
-- Footer route reuses the existing one-shot race-safe Cart→`FamilyTierAdapter` navigation path, enters existing `browsing`, does not recreate the first-time gate, and performs no quote mutation on entry.
+- `QuoteSummary` remains generic through the optional `onUpgradeYourBuild` callback; `CostBuilderApp.tsx` caller unaffected.
 - Once a composable line exists, footer recovery disappears and line-level **Manage build** remains the visible route.
 
-## Blocking safeguard — preserve entry intent
-The current generalized consumer cannot distinguish **Manage existing build** from **start/recover skipped Upgrade**. Its open guard is:
-`selectedPrimaryItem && (selectedComposableItem || eligibleCatalogue)`.
+## Implementation evidence
+- Files: `PackageBuilderApp.tsx`, `FamilyTierAdapter.tsx`, `QuoteSummary.tsx`, `cost-builder.css` (unchanged from prior round), `scripts/upgrade-build-footer-contract.ts` and `scripts/manage-build-contract.ts` (both revised for the `intent` field).
+- New contract assertions: `upgrade-build-footer-contract.ts` locks `start_upgrade`'s own complete guard; `manage-build-contract.ts` locks `manage_existing`'s own complete guard and the `requestManageBuild(familyId, tierInstanceId, intent)` signature — each proving its own intent cannot substitute for the other's.
+- Validation: `tsc --noEmit` clean; `contract:manage-build`, `contract:upgrade-build-footer`, `contract:upgrade-your-build-gate`, `contract:package-builder-addon-focus`, `contract:package-builder-regression-lock`, `contract:composable-quote-cart`, `contract:package-family-cart` all pass; clean Vite build.
+- Live visual validation remains for after any main push.
 
-That means a line-level **Manage build** request can cross a Family render boundary, lose its committed composable line before consumption, and still open a fresh catalogue merely because the Family remains eligible. That changes Manage-build semantics instead of safely dropping the stale request.
-
-Keep one shared request mechanism/state machine, but carry the minimal entry intent in the one-shot request (name as appropriate, e.g. `manage_existing` vs `start_upgrade`). Do not create a second navigation state.
-
-### Required guards
-- `manage_existing`: matching Family+Instance + primary + committed composable line. If composable disappeared before consumption, consume/drop; **do not** fall back to fresh Upgrade.
-- `start_upgrade`: matching Family+Instance + primary + eligible catalogue + **no committed composable line**. If a composable line now exists, consume/drop because **Manage build** is then the correct route.
-- Cross-Family mismatch still waits untouched until matching Family/Instance renders.
-- Matching request still resolves exactly once.
-- No mutation on entry; existing Add-to-Quote exit unchanged.
-
-Update focused contracts to prove the two entry intents cannot substitute for one another while still using the same race-safe request transport/consumer. Run `tsc`, relevant contracts and build. Return a fresh clean candidate from current `main` as **AWAITING CHATGPT REVIEW**. Do not push to main.
+## ChatGPT — next action
+Review `review/upgrade-build-cart-footer-recovery-v2` @ `6f8f8cad` against the required intent-safe guards above. Approve for source push, or reject with correction.
