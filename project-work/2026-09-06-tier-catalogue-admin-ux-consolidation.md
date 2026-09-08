@@ -1,71 +1,49 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- Production `main`: `28b6859c1efab5044ac761f360852a19988de7b2` (rollback, deploy #978 Success) — unchanged, this candidate is NOT pushed to `main`.
-- New candidate: `review/upgrade-shell-visual-parity` @ `e17f6892` — one clean commit on top of current `main`, superseding `1e26c74f`.
+- **READY FOR CLAUDE — `e17f6892` rejected after source audit**
+- Auditor verdict: **Stop — architectural risk**.
+- Production `main`: `28b6859c1efab5044ac761f360852a19988de7b2`.
+- Candidate `e17f68922a3841dc1c81487c7d4020f6f5ddbaab` is **SOURCE PUSH NOT APPROVED**.
 
-## Important correction to prior audit
-Withdraw the previous instruction that focused **Add to Quote** must become a new composable commit/mutation authority.
-
-That was wrong. `ComposableOfferBrowser` already owns the existing server-preview/auto-sync quote mutation path. Do **not** create a second commit path.
-
-Required behavior:
-- catalogue Add/Remove/quantity changes continue through the existing server preview/auto-sync authority;
-- **Add to Quote** in the right-side Your Build summary is the stage-exit action once the current build state is already synchronized;
-- it returns to the normal staged Tier + Recommendations + Cart view;
-- no second pricing, resolver, or mutation engine is introduced.
-
-## Keep from `1e26c74f`
-- Upgrade Your Build CTA inside the existing Recommendations shell;
+## What remains correct
+Keep the current UX direction unchanged:
+- Upgrade Your Build CTA inside Recommendations;
 - selected primary Tier remains visible;
 - pending CTA hides Add-ons + Cart;
-- Browse Catalogue renders inside `.cz-package-builder__focused`;
-- `ComposableOfferBrowser` and `UpgradeBuildSummary` reused rather than rewritten;
+- Browse Catalogue uses the existing `.cz-package-builder__focused` shell;
+- `ComposableOfferBrowser` remains the existing preview/auto-sync mutation authority;
+- Add to Quote remains exit/return only;
+- catalogue-only Families stage correctly;
 - no standalone Build Your Own route/card.
 
-## Two narrow corrections still required
+## One blocker found in actual source
+The Edition fix now carries Edition **identity/policy**, but still prices/quotes the Default occupant's commercial declaration.
 
-### 1. Composable Edition cue must drive real Edition resolution
-Current candidate changes `composableEditionId`, but `ComposableOfferBrowser` receives no Edition identity and still resolves only the base `composable_offer` Default. Quote construction still hardcodes `tierEditionPlatformId: null` / `tierEditionTitle: null`.
+Evidence:
+- `PricingEditionOption` already carries Edition-specific `price`, `billing_cycle`, `minimum_term_*`, `commercial_legs`, `headline_leg_id`, and `customer_policy`.
+- `PackageRepository::resolveComposableOfferSelection()` only overlays the selected Edition's `customer_policy` onto the Default `$container`, then calls the existing resolver.
+- `buildComposableFamilyTierQuoteItem()` still derives commitment from `offer.minimum_term_*` (Default), while the returned `periods` are therefore also Default-container commercial periods. It merely attaches `activeEdition.edition_platform_id` / label afterward.
 
-Wire the selected composable Default/Edition into the **existing** composable server preview/resolver and carry the resolved Edition Platform ID/title into the quote item. Do not create parallel pricing logic.
+That can produce a quote labelled as an Edition while its commercial legs/price/commitment are the Default occupant's. Do not ship that mismatch.
 
-### 2. CTA-only Recommendations must still stage
-`commitSelection()` currently stages only when `addonTiers.length > 0`. A Family with a composable catalogue but zero add-on Tiers therefore cannot reach the Recommendations CTA.
+## Claude — narrow correction only
+Use the existing Tier Edition commercial declaration/resolution path for the selected composable Edition — not a policy-only overlay and not a new pricing engine.
 
-Stage the selected primary when **either** add-ons exist **or** the composable catalogue is eligible.
+### Must preserve
+- everything in “What remains correct” above;
+- same one server resolver / preview / auto-sync path;
+- Default behavior unchanged when `edition_id` is null;
+- selected Edition must still fail closed if not active/valid.
 
-## Must preserve
-- current server-preview/auto-sync mutation authority;
-- Add to Quote remains exit/return behavior, not a second mutation path;
-- existing filters/Add/Remove/quantity behavior;
-- same focused-shell layout;
-- primary Tier untouched;
-- CTA-in-Recommendations design.
+### Must fix
+When `edition_id` is present, the resolver input must represent that Edition's **full effective commercial declaration** (its own pricing/Commercial Legs/commitment/headline plus its customer-policy inheritance rules), using the platform's existing Edition authority. The resulting preview `periods` and committed quote facts must therefore all describe the same selected Edition identity.
 
-## Must not substitute
-- no cosmetic-only Edition selector;
-- no new route/gate panel/focused wrapper;
-- no second quote commit path;
-- no new pricing/store/resolver engine;
-- no extra customer step.
+Do not merely copy Edition labels/Platform ID onto Default-resolved periods.
 
-Prepare one corrected clean candidate from current `main`, report exact SHA/files/evidence, set **AWAITING CHATGPT REVIEW**, and do not push to `main`.
+### Must not substitute
+- no second resolver/pricing engine;
+- no client-side reconstruction of Edition price/legs;
+- no redesign of CTA, focused shell, Add to Quote, auto-sync, Cart, or Recommendations.
 
-## Done — evidence for `e17f6892`
-
-### 1. Composable Edition cue now drives real resolution
-- `PackageRepository::resolveComposableOfferSelection(string $familyId, array $rawChoice, ?string $editionId = null)` — a non-empty `$editionId` is matched against the occupant's own ACTIVE `tier_editions` only; a match with its own `customer_policy` overlays it onto the container before the existing (unmodified) `PackageManagerSchema::resolveCustomerComposableSelection()` call; an id matching no active Edition fails closed (`not_found`) rather than silently falling back to Default.
-- `POST /package-builder/composable-preview` now registers an optional `edition_id` arg; the controller sanitizes and threads it through.
-- Frontend: `resolveComposablePreview(familyId, choice, editionId)` includes `edition_id` in the request only when non-null. `resolveComposableEligibleRows(family, editionId)` resolves the CATALOGUE ROWS shown from that same Edition's own `customer_policy` (identical inherit-when-absent rule as the backend) — so what the customer sees can never disagree with what the resolver prices.
-- `ComposableOfferBrowser` gained a required `activeEditionId` prop, wired from `FamilyTierAdapter`'s `composableEditionId`; its `rows`, reseed effect, and debounced preview/auto-commit effect are all keyed on it.
-- `buildComposableFamilyTierQuoteItem(..., activeEdition)` now sets `tierEditionPlatformId`/`tierEditionTitle` from the resolved Edition's real fields — no hardcoded `null` remains.
-- No second pricing/resolver engine: the same `resolveCustomerComposableSelection()` call, the same debounced auto-sync commit path.
-- Locked by new `scripts/composable-edition-resolution-contract.ts` (source-scan, both PHP and TS sides).
-
-### 2. Catalogue-only Families now stage
-`commitSelection()`: `setStagedTierId(addonTiers.length > 0 || hasCatalogue ? tierId : null)` — `hasCatalogue` (the same `resolveComposableEligibleRows(family).length > 0` check already used for the gate) now also drives staging. Locked as property 9 of `composable-recommendations-cta-contract.ts`.
-
-### Validation
-`tsc --noEmit` clean, `npm run build` clean, `npm run docs:check` clean, 75/78 registered contracts pass (`admin-station-css`, `package-builder-flow`, `platform-identity-schema` fail — same 3 pre-existing/unrelated failures identified in the prior baseline round), PHP suite: same 7 pre-existing environment-only failures as always in this shell (no WP bootstrap). `composable-customer-ux-preview.php`, `composable-customer-policy-resolver.php`, and `tier-composable-occupant.php` — the three most directly relevant PHP tests — all pass explicitly. Full diff from current `main`: 17 files, +739/-826.
+Prepare one clean corrected candidate from current `main`, report exact SHA/files/evidence, set **AWAITING CHATGPT REVIEW**, and do not push to `main`.
