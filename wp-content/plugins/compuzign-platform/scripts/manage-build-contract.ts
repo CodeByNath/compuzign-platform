@@ -1,11 +1,15 @@
-// Contract: "Manage build" Cart re-entry into Upgrade Your Build browsing
-// (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md, live
-// acceptance follow-up + "race-safe cross-Family Manage build re-entry" +
-// "intent-safe shared Cart-to-browsing request" corrections). The Cart
-// footer "Upgrade your build" recovery route's own properties are locked
-// separately in upgrade-build-footer-contract.ts — this file only
-// re-verifies that Manage build's own semantics survived the shared-routing
-// refactor (requestManageBuild) and the `intent` field that route required.
+// Contract: "Manage build" Cart re-entry into the composable occupant's
+// focused state (project-work/2026-09-06-tier-catalogue-admin-ux-
+// consolidation.md, live acceptance follow-up + "race-safe cross-Family
+// Manage build re-entry" + "intent-safe shared Cart-to-browsing request" +
+// "structural correction" corrections). The Cart footer "Upgrade your
+// build" recovery route's own properties are locked separately in
+// upgrade-build-footer-contract.ts — this file only re-verifies that
+// Manage build's own semantics survived the shared-routing refactor
+// (requestManageBuild), the `intent` field that route required, and the
+// later unification of the composable occupant into the SAME focused shell
+// every normal Tier occupant already uses (no more separate gate/stage
+// state machine).
 //
 // Properties locked:
 //   1. QuoteSummary renders Manage build ONLY for a composable line that
@@ -19,10 +23,10 @@
 //      hands FamilyTierAdapter a one-shot request object, never calling
 //      any gate setter or cart-mutating function itself.
 //   3. FamilyTierAdapter is the sole owner of consuming that request: it
-//      only enters its EXISTING 'browsing' stage (no new state machine)
-//      when the request targets this exact, currently-rendered Family +
-//      Instance and both the primary and the already-committed composable
-//      line exist.
+//      only enters the SAME focused shell every occupant uses (via
+//      selectVariant, no separate state machine) when the request targets
+//      this exact, currently-rendered Family + Instance and both the
+//      primary and the already-committed composable line exist.
 //   3b. [Race-safety correction] PackageBuilderApp's handler performs two
 //       separate setState calls (setActiveFamilyId, then
 //       setManageBuildRequest) — a static contract cannot prove these are
@@ -36,12 +40,11 @@
 //   4. Once the Family/Instance genuinely matches, the request is always
 //      resolved exactly once — opened (guard passes) or silently dropped
 //      (guard fails) — so it can never linger and fire unexpectedly later;
-//      a later browsing-stage exit can never re-trigger an already-resolved
+//      a later close of focus can never re-trigger an already-resolved
 //      request.
-//   5. No quote mutation on entry: the consuming effect calls only the two
-//      existing gate setters, nothing from utils/quote.ts.
-//   6. Add-to-Quote's existing browsing-stage exit (UpgradeBuildSummary's
-//      onExit) is untouched — still exactly dismissUpgradeGate.
+//   5. No quote mutation on entry: the consuming effect calls only
+//      selectVariant (local setState — no second gate machine), nothing
+//      from utils/quote.ts.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -140,31 +143,28 @@ check(
   'the mismatch check happens BEFORE intent is evaluated, and \'manage_existing\' (Manage build\'s own precondition — an already-committed composable line, checked with NO fallback to catalogue eligibility) is a COMPLETE, separate guard from \'start_upgrade\' (no composable line committed AND a genuinely eligible catalogue) — a request can never satisfy the wrong intent\'s guard, so a manage_existing request whose composable line has disappeared by consumption time can never silently open a fresh start_upgrade browsing session just because the catalogue remains eligible (see upgrade-build-footer-contract.ts for the start_upgrade side of this same guard)',
 );
 check(
-  /if \(selectedTierId !== null && selectedPrimaryItem && intentSatisfied\) \{\s*\n\s*setUpgradeGateTierId\(selectedTierId\);\s*\n\s*setUpgradeGateStage\('browsing'\);/.test(consumeEffectBody),
-  'once matched, the effect sets the EXISTING gate state directly to \'browsing\' when intentSatisfied — reusing FamilyTierAdapter\'s own state machine, never a second/parallel one',
+  /if \(selectedTierId !== null && selectedPrimaryItem && intentSatisfied\) \{[\s\S]*?selectVariant\(COMPOSABLE_QUOTE_TIER_ID, seedComposableEditionId\(\)\);\s*\n\s*\}/.test(consumeEffectBody),
+  'once matched, the effect enters the SAME unified focused shell via selectVariant(COMPOSABLE_QUOTE_TIER_ID, ...) when intentSatisfied — reusing FamilyTierAdapter\'s own single occupant-agnostic state machine (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md, "structural correction"), never a second/parallel one',
+);
+check(
+  /selectVariant\(COMPOSABLE_QUOTE_TIER_ID, seedComposableEditionId\(\)\);/.test(consumeEffectBody),
+  'the SAME guarded open rehydrates onto the already-committed composable line\'s own Edition via seedComposableEditionId() — a manage_existing re-entry must land the focused shell on the composable occupant\'s own committed Default/Edition, never silently back at Default',
 );
 check(
   !/onAdd\(|onComposableCommit\(|onComposableRemove\(|onRemovePrimary\(|onRemoveAddon\(/.test(consumeEffectBody),
-  'the consuming effect calls no cart-mutating callback at all — reopening browsing performs no quote mutation on entry',
+  'the consuming effect calls no cart-mutating callback at all — entering focus performs no quote mutation on entry; selectVariant is local UI selector state, not a cart mutation',
 );
 
 // ── 4. Matched requests are always resolved exactly once; unmatched ones never fire late ─
 
-const afterGuardBlock = consumeEffectBody.slice(consumeEffectBody.indexOf("setUpgradeGateStage('browsing');") + "setUpgradeGateStage('browsing');".length);
+const afterGuardBlock = consumeEffectBody.slice(consumeEffectBody.indexOf('selectVariant(COMPOSABLE_QUOTE_TIER_ID, seedComposableEditionId());') + 'selectVariant(COMPOSABLE_QUOTE_TIER_ID, seedComposableEditionId());'.length);
 check(
   /^\s*\}\s*\n[\s\S]*?onManageBuildConsumed\(\);/.test(afterGuardBlock),
   'onManageBuildConsumed() is called once the family has matched, AFTER (outside) the primary/composable guard block — so it fires whether that guard passed (opened) or failed (dropped), but never on a plain Family/Instance mismatch',
 );
 check(
   /const consumeManageBuildRequest = useCallback\(\(\) => setManageBuildRequest\(null\), \[\]\);/.test(appSource),
-  'the parent\'s consumption callback simply nulls the request — a later browsing-stage exit (dismissUpgradeGate) reads no leftover request to re-trigger against',
-);
-
-// ── 5. Existing browsing-stage exit is untouched ─────────────────────────────
-
-check(
-  /<UpgradeBuildSummary\s+primaryItem=\{selectedPrimaryItem\}\s+composableItem=\{selectedComposableItem\}\s+onExit=\{dismissUpgradeGate\}\s*\/>/.test(adapterSource),
-  'UpgradeBuildSummary is still wired with onExit={dismissUpgradeGate} exactly as before — Manage build only affects how browsing is ENTERED, not how it is exited',
+  'the parent\'s consumption callback simply nulls the request — a later close of focus reads no leftover request to re-trigger against',
 );
 
 // ── 6. Manage build button styled as a quiet text link, not a primary CTA ───

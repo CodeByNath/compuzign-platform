@@ -3,8 +3,8 @@ import type { ComponentChildren } from 'preact';
 import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, buildLegPaymentSummaries, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
 import { formatPrice } from '@/utils/format';
-import type { FamilyTierQuoteItem } from '@/components/cost-builder/types';
-import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, PackageBuilderFamily, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
+import { COMPOSABLE_QUOTE_TIER_ID, type FamilyTierQuoteItem } from '@/components/cost-builder/types';
+import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem, PackageBuilderFamily, PricingTierData, ServiceInclusion, Tier, TierId } from '@/api/types/cost-builder';
 import {
   periodLabel, availablePeriodComponents, availableComponents, componentPaymentName, PLAN_BILLING_CYCLE_LABELS,
   commercialLegInclusionGroups, commercialLegExtensionGroups, extensionHeading,
@@ -14,7 +14,19 @@ export { commercialLegInclusionGroups, commercialLegExtensionGroups } from '@/ut
 export type { CommercialLegInclusionGroup, CommercialLegExtensionGroup } from '@/utils/commercialLegPresentation';
 import { PlanDetailsModal } from './PlanDetailsModal';
 import { ComposableOfferBrowser, resolveComposableEligibleRows } from './ComposableOfferBrowser';
-import { UpgradeBuildSummary } from './UpgradeBuildSummary';
+
+// project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
+// ("structural correction: Build Your Own must use the same focused-
+// occupant model, not a parallel Upgrade shell") — the identity `selectVariant`/
+// `focusedTierId` resolve to: either one of the five fixed normal Tier ids,
+// or the composable ("Build Your Own") occupant's own sentinel. Nath's
+// clarified rule, kept literal: Build Your Own is also a Tier occupant with
+// its own Default, Editions, Legs, inclusions, pricing and customer policy
+// — so its focused flow is the SAME product pattern
+// (occupant -> its own Default/Edition identity -> the same focused shell),
+// never a second, parallel focused-view system merely styled to resemble
+// this one.
+export type FocusedOccupantId = TierId | typeof COMPOSABLE_QUOTE_TIER_ID;
 
 // Phase 7E: the Plan Details popup's own explicit target identity, resolved
 // once at "View plan details" click time from whichever Tier/Edition is
@@ -37,9 +49,10 @@ interface PlanDetailsTarget {
 
 // "Manage build" / Cart footer "Upgrade your build" (project-work/2026-09-
 // 06-tier-catalogue-admin-ux-consolidation.md) — the Cart's own one-shot
-// re-entry signal into this component's existing 'browsing' stage, shared
-// by both entry points (a line-level Manage build re-opening an existing
-// composable line, or the footer's recovery route starting a fresh one).
+// re-entry signal into this component's composable occupant, hosted in the
+// SAME focused shell every occupant uses, shared by both entry points (a
+// line-level Manage build re-opening an existing composable line, or the
+// footer's recovery route starting a fresh one).
 // Identity only (which Family + Instance the click targeted, plus a
 // requestId that changes on every click so the SAME target can be
 // requested again after an exit): this component alone decides
@@ -68,12 +81,20 @@ export interface ManageBuildRequest {
 // never a frontend reconstruction. See PackageManagerSchema::
 // resolveCommercialLegTimeline(); Period itself carries no Platform ID, only
 // the component(s) inside it do.
+//
+// `tierId` accepts the composable occupant's own sentinel alongside the
+// five fixed Tier ids (project-work/2026-09-06-tier-catalogue-admin-ux-
+// consolidation.md, "structural correction") — Build Your Own's own
+// Default/Edition commercial_legs live on family.pricing.composable_offer,
+// resolved through the identical shape/timeline logic, never a second
+// resolver. Existing callers (QuoteDetailsOverlay.tsx et al.) never pass
+// the sentinel — this widening is purely additive.
 export function periodsForVariant(
   family: PackageBuilderFamily,
-  tierId: TierId,
+  tierId: FocusedOccupantId,
   editionId: string | null,
 ): CommercialLegPeriod[] {
-  const tierData = family.pricing.tiers[tierId];
+  const tierData = tierId === COMPOSABLE_QUOTE_TIER_ID ? family.pricing.composable_offer : family.pricing.tiers[tierId];
   if (!tierData) return [];
   if (editionId === null) return tierData.commercial_legs ?? [];
   const edition = (tierData.edition_options ?? []).find((option) => option.id === editionId);
@@ -365,30 +386,35 @@ interface FamilyTierAdapterProps {
   // Live-validation correction: the full quoted primary item, or null —
   // forwarded to ComposableOfferBrowser as its own primaryItem prop so it
   // can independently verify an exact ready base exists, rather than
-  // relying solely on this component's own render gate below (Phase 3:
-  // upgradeGateActive === 'browsing', which itself can only ever be true
-  // once a primary is already committed) to keep it from ever committing/
-  // pricing an Upgrade with no base. Same "belt and suspenders" reasoning
-  // as selectedComposableItem above — a second, domain-boundary layer, not
-  // a replacement for the render gate.
+  // relying solely on this component's own render gate (focusedIsComposable,
+  // which can only ever be true while a primary is already selected — the
+  // composable occupant's own Build Your Own card, project-work/2026-09-06-
+  // tier-catalogue-admin-ux-consolidation.md, only ever renders in the
+  // staged view reached after Add to Quote) to keep it from ever
+  // committing/pricing an Upgrade with no base. Same "belt and suspenders"
+  // reasoning as selectedComposableItem above — a second, domain-boundary
+  // layer, not a replacement for the render gate.
   selectedPrimaryItem: FamilyTierQuoteItem | null;
-  // Phase 2 (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
-  // "Upgrade your build" gate) — called whenever the gate's own active/
-  // inactive state changes, so PackageBuilderApp can hide QuoteSummary/
-  // MobileQuoteBar while it is up, without touching `items` at all. This
-  // component owns no cart-visibility logic of its own, same "caller
-  // performs the actual mutation/visibility" posture as onCommit/
-  // onRemoveFromQuote above.
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
+  // ("structural correction") — called whenever the composable occupant's
+  // own focused state changes, so PackageBuilderApp can hide QuoteSummary/
+  // MobileQuoteBar while Build Your Own is open, without touching `items`
+  // at all. This component owns no cart-visibility logic of its own, same
+  // "caller performs the actual mutation/visibility" posture as onCommit/
+  // onRemoveFromQuote above. Name kept from the earlier gate design —
+  // PackageBuilderApp.tsx's own wiring is unchanged; only what drives it
+  // internally changed (see the effect near focusedIsComposable below).
   onUpgradeGateActiveChange: (active: boolean) => void;
   // "Manage build" — Cart's one-shot request to re-enter this Family's
-  // existing 'browsing' stage directly for its already-committed composable
-  // line. null means no pending request. A request for a Family/Instance
-  // other than the one this component is currently rendering is left
-  // untouched (not consumed) until that Family/Instance actually renders
-  // here — see the consuming effect below. onManageBuildConsumed is called
-  // exactly once a matching Family/Instance has been resolved (opened or
-  // dropped), so the caller can clear it and a later exit from browsing
-  // (dismissUpgradeGate) can never re-trigger the same request.
+  // composable occupant directly in its already-committed state, in the
+  // SAME focused shell every other entry point uses. null means no pending
+  // request. A request for a Family/Instance other than the one this
+  // component is currently rendering is left untouched (not consumed)
+  // until that Family/Instance actually renders here — see the consuming
+  // effect below. onManageBuildConsumed is called exactly once a matching
+  // Family/Instance has been resolved (opened or dropped), so the caller
+  // can clear it and a later close of focus can never re-trigger the same
+  // request.
   manageBuildRequest: ManageBuildRequest | null;
   onManageBuildConsumed: () => void;
 }
@@ -436,9 +462,11 @@ export function FamilyTierAdapter({
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
 
   // Focused-plan state. Choosing a plan hides the other Tier cards and
-  // presents the one Tier beside its plan details; it changes nothing about
-  // which Tier is selected in the quote.
-  const [focusedTierId, setFocusedTierId] = useState<TierId | null>(null);
+  // presents the one occupant beside its plan details; it changes nothing
+  // about which Tier is selected in the quote. Accepts the composable
+  // occupant's own sentinel alongside the five fixed Tier ids — see
+  // FocusedOccupantId's own docblock above.
+  const [focusedTierId, setFocusedTierId] = useState<FocusedOccupantId | null>(null);
   // Which Default/Edition variant is active inside the focused shell. Hoisted
   // here (rather than left card-local) because the top variant tab row and
   // the focused card's own Edition switch must stay in sync as one value —
@@ -474,7 +502,13 @@ export function FamilyTierAdapter({
   // refs, fresh scroll-lock/focus-trap effect), never the same instance
   // with its props merely updated.
   const [planDetailsOpenGeneration, setPlanDetailsOpenGeneration] = useState(0);
+  // null for both "nothing focused" AND "the composable occupant is
+  // focused" (it is never a member of `tiers`/`visibleTiers` — there is no
+  // synthetic Tier object standing in for it). The render branch below
+  // checks focusedTierId !== null directly rather than this alone, so the
+  // composable case is never silently treated as "nothing focused".
   const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
+  const focusedIsComposable = focusedTierId === COMPOSABLE_QUOTE_TIER_ID;
 
   // Cleared on Edition switch, focused Tier switch, and close — selectVariant()
   // (the one path every variant change goes through) always updates both
@@ -511,21 +545,18 @@ export function FamilyTierAdapter({
     setSelectedPeriodFromMonth(null);
     setHoveredLegSource(null);
     setPlanDetailsTarget(null);
-    // Same TierId-collision-across-Families reasoning as every other reset
-    // above: upgradeGateTierId is a TierId, not itself Family-scoped, so a
-    // same-named Tier in the NEW Family could otherwise let a stale gate
-    // reappear without ever having been re-triggered by commitSelection.
-    setUpgradeGateTierId(null);
-    setUpgradeGateStage(null);
   }, [family.family_id]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
-  // Period — the one path every variant change goes through, whether that's
-  // the entry point into the focused shell (the normal card's Choose Plan
-  // button, editionId null, or one of its Edition chips), the top variant
-  // tab row, or the focused card's own Edition switch. Both land on the same
-  // shell, just on a different starting tab.
-  const selectVariant = (tierId: TierId, editionId: string | null) => {
+  // Period — the ONE path every variant change goes through, whether that's
+  // the entry point into the focused shell (a normal Tier card's Choose
+  // Plan button, the composable occupant's own Browse Catalogue/Manage
+  // build entry, editionId null, or one of its Edition chips), the top
+  // variant tab row, or the focused card's own Edition switch. Every entry
+  // point lands on the same shell, just on a different starting tab — see
+  // FocusedOccupantId's own docblock: this is the "same product pattern"
+  // unification, not a second selection path for the composable occupant.
+  const selectVariant = (tierId: FocusedOccupantId, editionId: string | null) => {
     setFocusedTierId(tierId);
     setFocusedEditionId(editionId);
     // Closed HERE, synchronously in the same batch as the variant change —
@@ -582,35 +613,48 @@ export function FamilyTierAdapter({
     ? normalTiers.find((tier) => tier.id === stagedTierId) ?? null
     : null;
 
-  // Phase 2 — "Upgrade your build" gate (project-work/2026-09-06-tier-
-  // catalogue-admin-ux-consolidation.md). Same shape/validity pattern as
-  // stagedTierId/stagedTier above: the gate belongs to the exact tierId that
-  // opened it, so if the primary is later removed or swapped to a different
-  // Tier, upgradeGateActive derives back to null on its own — no separate
-  // reset call needed for that case (the family-switch effect below still
-  // hard-resets it, for the identical same-TierId-different-Family reason
-  // that effect already exists for focusedTierId/stagedTierId's siblings).
-  // `stage` stays 'pending' | 'browsing' | null so Phase 3 can wire
-  // 'browsing' into this same state without a shape change; Phase 2 only
-  // ever sets 'pending' (Browse Catalogue is rendered but inert this phase).
-  const [upgradeGateTierId, setUpgradeGateTierId] = useState<TierId | null>(null);
-  const [upgradeGateStage, setUpgradeGateStage] = useState<'pending' | 'browsing' | null>(null);
-  const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
-    ? upgradeGateStage
-    : null;
-
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
+  // ("structural correction") — the separate "Upgrade your build" gate/
+  // stage state machine (upgradeGateTierId/Stage, composableEditionId,
+  // composableSyncPending, dismissUpgradeGate, exitUpgradeBrowsing) is
+  // gone. The composable occupant now enters and lives in the SAME
+  // focusedTierId/focusedEditionId state and the SAME selectVariant()/close
+  // button every normal Tier occupant already uses — there is no second
+  // stage, no second Edition selector state, and no second exit guard to
+  // maintain. onUpgradeGateActiveChange keeps its existing name/prop shape
+  // (PackageBuilderApp.tsx's own hide-Cart-while-Build-Your-Own-is-open
+  // wiring is unchanged) but is now driven directly by focusedIsComposable
+  // — true for exactly as long as the composable occupant is the one
+  // focused, the same observable behavior the old gate produced, just
+  // reported off the unified state instead of a parallel one. The Cart+
+  // Add-on visibility RULE itself is a separate, deferred concern (see the
+  // project-work doc's own "Next separate visibility rule — do not
+  // implement yet") — this preserves today's existing behavior verbatim,
+  // it does not change what gets hidden.
   useEffect(() => {
-    onUpgradeGateActiveChange(upgradeGateActive !== null);
+    onUpgradeGateActiveChange(focusedIsComposable);
     // onUpgradeGateActiveChange is PackageBuilderApp's raw useState setter,
     // a stable identity by React/Preact guarantee (no useCallback needed);
     // omitted from deps so a caller re-render can never spuriously re-fire
     // this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upgradeGateActive]);
+  }, [focusedIsComposable]);
 
-  const dismissUpgradeGate = () => {
-    setUpgradeGateTierId(null);
-    setUpgradeGateStage(null);
+  // Resolves the composable occupant's own active Edition id from whichever
+  // composable line is ALREADY committed for this Family+Instance — the
+  // same Platform-ID-equality identity match primaryActiveEditionId (below,
+  // in the render branch) already uses for the primary, generalized to the
+  // composable occupant's own edition_options. Called once, at the moment
+  // of entry (the Build Your Own card's own click, or Manage build/footer
+  // recovery below) — never a reactive effect keyed on selectedComposableItem,
+  // which would fight the customer's own next cue click the same way
+  // ComposableOfferBrowser's own mount-reseed guard already avoids for
+  // `selection`.
+  const seedComposableEditionId = (): string | null => {
+    const editionOptions = family.pricing.composable_offer?.edition_options ?? [];
+    return selectedComposableItem?.tierEditionPlatformId
+      ? editionOptions.find((option) => option.edition_platform_id === selectedComposableItem.tierEditionPlatformId)?.id ?? null
+      : null;
   };
 
   // "Manage build" — consumes manageBuildRequest. Declared AFTER the
@@ -618,7 +662,7 @@ export function FamilyTierAdapter({
   // effect, keyed on family.family_id) so, on the same commit where a Cart
   // click also switched activeFamilyId (a different Family than was
   // already open), that reset runs first and this effect is the one that
-  // leaves upgradeGateTierId/Stage set, never the other way around.
+  // leaves focusedTierId set, never the other way around.
   //
   // Auditor correction ("race-safe cross-Family Manage build re-entry"):
   // PackageBuilderApp's handler performs two separate setState calls
@@ -651,9 +695,9 @@ export function FamilyTierAdapter({
   //     remain eligible.
   //   - 'start_upgrade' (the Cart footer's recovery route) requires NO
   //     composable line to be committed AND a genuinely eligible catalogue
-  //     (resolveComposableEligibleRows() — the SAME shared authority
-  //     commitSelection's own hasCatalogue check below already uses). If a
-  //     composable line now exists (e.g. auto-sync landed one moments
+  //     (resolveComposableEligibleRows() — the SAME shared authority the
+  //     Build Your Own card's own visibility check below already uses). If
+  //     a composable line now exists (e.g. auto-sync landed one moments
   //     earlier), the request is dropped WITHOUT opening — line-level
   //     Manage build is the correct route once a line exists, never a
   //     second fresh-Upgrade entry alongside it.
@@ -666,16 +710,19 @@ export function FamilyTierAdapter({
       ? !!selectedComposableItem
       : selectedComposableItem === null && resolveComposableEligibleRows(family).length > 0;
     if (selectedTierId !== null && selectedPrimaryItem && intentSatisfied) {
-      setUpgradeGateTierId(selectedTierId);
-      setUpgradeGateStage('browsing');
+      // Enters the SAME unified focused shell every other entry point
+      // uses, rehydrated onto whichever composable Default/Edition is
+      // already committed (manage_existing re-entry) — never the primary
+      // Tier's own Edition.
+      selectVariant(COMPOSABLE_QUOTE_TIER_ID, seedComposableEditionId());
     }
     // Reached only once the Family/Instance matches — resolved here
     // exactly once, whether opened above or dropped because a guard
     // failed, so it can never linger and fire later once the customer
     // happens to re-add a composable line or otherwise change state.
     // Preserves one-shot behavior after a successful open: this same
-    // request has already been consumed by the time browsing later exits
-    // (dismissUpgradeGate), so an exit can never re-trigger it.
+    // request has already been consumed by the time focus later closes,
+    // so an exit can never re-trigger it.
     onManageBuildConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manageBuildRequest, family.family_id, family.tier_instance_id]);
@@ -774,22 +821,12 @@ export function FamilyTierAdapter({
     setSelectedPeriodFromMonth(null);
     setPlanDetailsTarget(null);
     setStagedTierId(addonTiers.length > 0 ? tierId : null);
-    // The gate takes priority over the Recommendations/staged view above —
-    // it is shown first, immediately after Add to Quote, whenever this
-    // Family/Tier has a real Upgrade Your Build catalogue at all (Phase 1's
-    // shared eligibility truth). stagedTierId is still set unconditionally
-    // above so "Maybe next time"/the derived fallback below lands on exactly
-    // today's existing continuation once the gate ends.
-    const hasCatalogue = resolveComposableEligibleRows(family).length > 0;
-    setUpgradeGateTierId(hasCatalogue ? tierId : null);
-    setUpgradeGateStage(hasCatalogue ? 'pending' : null);
   };
 
   const select = (tierId: TierId, effective: EffectiveTierDisplay) => {
     if (selectedTierId === tierId) {
       onRemovePrimary();
       setStagedTierId(null);
-      dismissUpgradeGate();
       return;
     }
     commitSelection(tierId, effective, null);
@@ -848,19 +885,34 @@ export function FamilyTierAdapter({
 
   let mainContent: ComponentChildren;
 
-  // Focused Tier: the other cards are hidden and the chosen Tier is presented
-  // beside its plan details. The card itself is the SAME TierCard the strip
-  // renders — only its Overview section moves to the left column here, and
-  // Choose Plan is withheld because this is already that Tier's focused view.
-  if (focusedTier) {
-    const focusedData = family.pricing.tiers[focusedTier.id];
+  // Focused occupant: the other cards are hidden and the chosen occupant is
+  // presented beside its plan details — a normal Tier (the card itself is
+  // the SAME TierCard the strip renders, only its Overview section moves to
+  // the left column here) OR the composable ("Build Your Own") occupant
+  // (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
+  // "structural correction": Build Your Own is also a Tier occupant with
+  // its own Default/Editions/Legs/inclusions/pricing/customer policy, so it
+  // shares this exact same focused-shell structure — never a second,
+  // parallel focused-view system). Choose Plan is withheld because this is
+  // already that occupant's focused view.
+  if (focusedTierId !== null && (focusedTier || focusedIsComposable)) {
+    // The occupant's own PricingTierData — a normal Tier's from
+    // family.pricing.tiers[tierId], or the composable occupant's own from
+    // family.pricing.composable_offer. Both conform to the identical
+    // PricingTierData shape (edition_options/commercial_legs/minimum_term/
+    // headline_leg_id/label/ideal_for all resolve the SAME way below for
+    // either), so every read of `focusedData` past this point is already
+    // occupant-agnostic — no branching needed anywhere else in this shell.
+    const focusedData: PricingTierData | undefined = focusedIsComposable
+      ? family.pricing.composable_offer ?? undefined
+      : family.pricing.tiers[focusedTierId];
     const focusedEditionOptions = focusedData?.edition_options ?? [];
     // The active variant's own resolved Commercial Period list, and the one
     // currently selected within it — falls back to the first resolved
     // Period whenever selectedPeriodFromMonth doesn't (yet, or no longer)
     // match one, which is exactly the state right after selectVariant seeds
     // it and covers the first render with no separate effect needed.
-    const activePeriods = periodsForVariant(family, focusedTier.id, focusedEditionId);
+    const activePeriods = periodsForVariant(family, focusedTierId, focusedEditionId);
     const selectedPeriod = activePeriods.find((period) => period.from_month === selectedPeriodFromMonth)
       ?? activePeriods[0]
       ?? null;
@@ -893,11 +945,19 @@ export function FamilyTierAdapter({
     // rule, generalized to every occupant.
     const focusedIsAddon = !!focusedData?.is_addon;
     const focusedEditionPlatformId = focusedDeclaredEffective.selectedEdition?.edition_platform_id ?? null;
-    const isExactQuotedOption = focusedIsAddon
-      ? selectedAddonItems.some((item) =>
-          item.tierId === focusedTier.id && (item.tierEditionPlatformId ?? null) === focusedEditionPlatformId,
-        )
-      : selectedTierId === focusedTier.id && focusedEditionPlatformId === selectedTierEditionPlatformId;
+    // The composable occupant's own exact-match reads selectedComposableItem
+    // instead of the primary/add-on pairs below — never rendered through
+    // TierCard's own isActive/onClick (see the focused-card branch further
+    // down), computed here only so this expression stays one shared
+    // occupant-agnostic derivation rather than a second copy split across
+    // branches.
+    const isExactQuotedOption = focusedIsComposable
+      ? selectedComposableItem !== null && (selectedComposableItem.tierEditionPlatformId ?? null) === focusedEditionPlatformId
+      : focusedIsAddon
+        ? selectedAddonItems.some((item) =>
+            item.tierId === focusedTierId && (item.tierEditionPlatformId ?? null) === focusedEditionPlatformId,
+          )
+        : selectedTierId === focusedTierId && focusedEditionPlatformId === selectedTierEditionPlatformId;
     // Computed after focusedDeclaredEffective so the Bundle parity lookup
     // above has the normal card's own declared inclusion list to read from.
     const cardPeriodOverride = periodPriceOverride(selectedPeriod, focusedDeclaredEffective.inclusionItems);
@@ -998,170 +1058,193 @@ export function FamilyTierAdapter({
             <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
           <h3 class="cz-package-builder__focused-name">
-            {focusedDeclaredEffective.selectedEdition?.label ?? focusedData?.label ?? focusedTier.title}
+            {focusedDeclaredEffective.selectedEdition?.label ?? focusedData?.label ?? focusedTier?.title ?? (focusedIsComposable ? 'Build Your Own' : focusedTierId)}
           </h3>
           {focusedData?.ideal_for && (
             <p class="cz-package-builder__focused-ideal-for">{focusedData.ideal_for}</p>
           )}
           {/* Default/Edition navigation only — which commercial variant of
-              this SAME Tier occupant is being viewed. Not Commercial
-              Period, Leg, duration, or billing-cycle navigation; those are
-              wired in a later phase. */}
+              this SAME occupant (normal Tier or the composable occupant
+              alike — see FocusedOccupantId's own docblock) is being viewed.
+              Not Commercial Period, Leg, duration, or billing-cycle
+              navigation; those are wired in a later phase. */}
           <EditionCueSelector
             destinations={[{ id: null, label: 'Default' }, ...focusedEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
             activeId={focusedEditionId}
-            onSelect={(editionId) => selectVariant(focusedTier.id, editionId)}
+            onSelect={(editionId) => selectVariant(focusedTierId, editionId)}
           />
-          <div class="cz-package-builder__terms">
-            <span class="cz-package-builder__focused-field-label">Commercial Terms</span>
-            <div class="cz-package-builder__terms-grid">
-              <div class="cz-package-builder__term">
-                <span class="cz-package-builder__term-label">Upfront payment</span>
-                <span class="cz-package-builder__term-value">
-                  {upfrontAmount !== null ? formatPrice(upfrontAmount) : 'Flexible'}
-                </span>
-                <span class="cz-package-builder__term-note">
-                  {upfrontAmount !== null ? 'Paid at plan start' : 'No upfront payment required'}
-                </span>
+          {/* Commercial Terms + Periods timeline + Plan Details — a normal
+              Tier occupant's own flat/declared commercial facts, read-only
+              presentation over data already resolved above. Not rendered
+              for the composable occupant: its actual commercial reality is
+              entirely driven by the customer's own live Add/Remove
+              selection, resolved through ComposableOfferBrowser's own
+              server preview in the focused-card column below — a static
+              declaration here would misrepresent it as a fixed charge
+              rather than an assembled one. This is the "Build Your Own's
+              catalogue-selection content can remain its own occupant-
+              specific body" carve-out; the shell/chrome above (close
+              button, title, EditionCueSelector) stays fully shared. */}
+          {!focusedIsComposable && focusedTier && (
+            <>
+              <div class="cz-package-builder__terms">
+                <span class="cz-package-builder__focused-field-label">Commercial Terms</span>
+                <div class="cz-package-builder__terms-grid">
+                  <div class="cz-package-builder__term">
+                    <span class="cz-package-builder__term-label">Upfront payment</span>
+                    <span class="cz-package-builder__term-value">
+                      {upfrontAmount !== null ? formatPrice(upfrontAmount) : 'Flexible'}
+                    </span>
+                    <span class="cz-package-builder__term-note">
+                      {upfrontAmount !== null ? 'Paid at plan start' : 'No upfront payment required'}
+                    </span>
+                  </div>
+                  <div class="cz-package-builder__term">
+                    <span class="cz-package-builder__term-label">Commitment</span>
+                    <span class="cz-package-builder__term-value">
+                      {focusedDeclaredEffective.minimumTermValue != null
+                        ? `${focusedDeclaredEffective.minimumTermValue} ${focusedDeclaredEffective.minimumTermUnit ?? ''}`
+                        : 'Cancel anytime'}
+                    </span>
+                    <span class="cz-package-builder__term-note">
+                      {focusedDeclaredEffective.minimumTermValue != null ? 'Minimum commitment' : 'No minimum commitment'}
+                    </span>
+                  </div>
+                  <div class="cz-package-builder__term">
+                    <span class="cz-package-builder__term-label">Plan billing</span>
+                    <span class="cz-package-builder__term-value">{billingSummary || '—'}</span>
+                    <span class="cz-package-builder__term-note">Based on active commercial components</span>
+                  </div>
+                </div>
               </div>
-              <div class="cz-package-builder__term">
-                <span class="cz-package-builder__term-label">Commitment</span>
-                <span class="cz-package-builder__term-value">
-                  {focusedDeclaredEffective.minimumTermValue != null
-                    ? `${focusedDeclaredEffective.minimumTermValue} ${focusedDeclaredEffective.minimumTermUnit ?? ''}`
-                    : 'Cancel anytime'}
-                </span>
-                <span class="cz-package-builder__term-note">
-                  {focusedDeclaredEffective.minimumTermValue != null ? 'Minimum commitment' : 'No minimum commitment'}
-                </span>
-              </div>
-              <div class="cz-package-builder__term">
-                <span class="cz-package-builder__term-label">Plan billing</span>
-                <span class="cz-package-builder__term-value">{billingSummary || '—'}</span>
-                <span class="cz-package-builder__term-note">Based on active commercial components</span>
-              </div>
-            </div>
-          </div>
-          {/* Periods timeline — informational only. Renders EVERY resolved
-              Period (never a "selected" one), each with its own AVAILABLE
-              components rendered as independent cards — colliding/
-              overlapping Legs in the same Period never summed, merged, or
-              picked down to one. No click handlers yet (Phase 6 adds only
-              hover/keyboard-focus dimming on the right card, keyed by each
-              component's own source — see hoveredLegSource above), no
-              highlighted "active" Period, no effect on Add to Quote:
-              selectedPeriod/cardPeriodOverride/selectedPeriodFromMonth
-              below are an unrelated internal compatibility path (Phase 5,
-              preserving existing quote features/fallback pricing) that
-              this timeline never reads from or writes to. Payment
-              explanation sentences land in a later phase — for now each
-              card shows only name/billing wording/price. */}
-          <div class="cz-package-builder__timeline">
-            <h4 class="cz-package-builder__timeline-title">How this plan is charged</h4>
-            <p class="cz-package-builder__timeline-sub">See when each payment starts and which charges run together.</p>
-            <div class="cz-package-builder__stages">
-              {activePeriods.map((period) => {
-                const components = availablePeriodComponents(period);
-                if (components.length === 0) return null;
-                // Same available-components-only count for both the stage
-                // header's "N payments active" note and each component's
-                // own alone/joined explanation — never period.components.length.
-                const joined = components.length > 1;
-                return (
-                  <div class="cz-package-builder__stage" key={period.from_month}>
-                    <span class="cz-package-builder__stage-node" aria-hidden="true" />
-                    <div class="cz-package-builder__stage-head">
-                      <span class="cz-package-builder__stage-label">{periodLabel(period)}</span>
-                      <span class="cz-package-builder__stage-count">
-                        {joined ? `${components.length} payments active` : '1 payment active'}
-                      </span>
-                    </div>
-                    <div class="cz-package-builder__stage-components">
-                      {components.map((component) => (
-                        // Stable Leg identity is component.source alone —
-                        // never array index (a Leg can repeat across
-                        // Periods with a different index each time),
-                        // Period index, billing cycle, or label. Hover and
-                        // keyboard focus both set the same state, so both
-                        // produce identical dimming below (see
-                        // relatedInclusionIds/extension-group dimming).
-                        <div
-                          class="cz-package-builder__stage-component"
-                          key={component.source}
-                          tabIndex={0}
-                          aria-label={`Highlight inclusions billed by this ${componentPaymentName(component.billing_cycle)} payment`}
-                          onMouseEnter={() => setHoveredLegSource(component.source)}
-                          onMouseLeave={() => setHoveredLegSource((current) => (current === component.source ? null : current))}
-                          onFocus={() => setHoveredLegSource(component.source)}
-                          onBlur={() => setHoveredLegSource((current) => (current === component.source ? null : current))}
-                        >
-                          <div class="cz-package-builder__stage-component-row">
-                            <div class="cz-package-builder__stage-component-info">
-                              <span class="cz-package-builder__stage-component-name">{componentPaymentName(component.billing_cycle)}</span>
-                              <span class="cz-package-builder__stage-component-meta">{billingWording(component.billing_cycle)}</span>
-                            </div>
-                            <span class="cz-package-builder__stage-component-price">
-                              {formatPrice(component.price)} {cycleSuffix(component.billing_cycle)}
-                            </span>
-                          </div>
-                          {/* Subordinate calculation-rhythm note. A future
-                              Leg-level discount line belongs here too, as
-                              another child of this same card — no
-                              restructuring needed to add it later. */}
-                          <p class="cz-package-builder__stage-component-note">
-                            {componentNote(component.billing_cycle, joined)}
-                          </p>
-                          {/* Phase 6B: this component occurrence's own claimed
-                              item count — presentation only, matches the same
-                              set the hover/focus dimming above already keys
-                              off of (commercialLegInclusionGroups' unfiltered
-                              per-Leg items, for a non-Headline Leg with no
-                              rendered Extension group; the Extension group's
-                              own diffed items when one renders). */}
-                          <span class="cz-package-builder__stage-component-count">
-                            {inclusionCountLabel(component.items)}
+              {/* Periods timeline — informational only. Renders EVERY resolved
+                  Period (never a "selected" one), each with its own AVAILABLE
+                  components rendered as independent cards — colliding/
+                  overlapping Legs in the same Period never summed, merged, or
+                  picked down to one. No click handlers yet (Phase 6 adds only
+                  hover/keyboard-focus dimming on the right card, keyed by each
+                  component's own source — see hoveredLegSource above), no
+                  highlighted "active" Period, no effect on Add to Quote:
+                  selectedPeriod/cardPeriodOverride/selectedPeriodFromMonth
+                  below are an unrelated internal compatibility path (Phase 5,
+                  preserving existing quote features/fallback pricing) that
+                  this timeline never reads from or writes to. Payment
+                  explanation sentences land in a later phase — for now each
+                  card shows only name/billing wording/price. */}
+              <div class="cz-package-builder__timeline">
+                <h4 class="cz-package-builder__timeline-title">How this plan is charged</h4>
+                <p class="cz-package-builder__timeline-sub">See when each payment starts and which charges run together.</p>
+                <div class="cz-package-builder__stages">
+                  {activePeriods.map((period) => {
+                    const components = availablePeriodComponents(period);
+                    if (components.length === 0) return null;
+                    // Same available-components-only count for both the stage
+                    // header's "N payments active" note and each component's
+                    // own alone/joined explanation — never period.components.length.
+                    const joined = components.length > 1;
+                    return (
+                      <div class="cz-package-builder__stage" key={period.from_month}>
+                        <span class="cz-package-builder__stage-node" aria-hidden="true" />
+                        <div class="cz-package-builder__stage-head">
+                          <span class="cz-package-builder__stage-label">{periodLabel(period)}</span>
+                          <span class="cz-package-builder__stage-count">
+                            {joined ? `${components.length} payments active` : '1 payment active'}
                           </span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Phase 7: informational-only entry point to the Plan Details
-                popup — quiet text control (reuses .cz-package-builder__focused-back's
-                own visual recipe), right-aligned below the last rendered
-                Leg/payment card, never the primary yellow CTA. */}
-            <div class="cz-package-builder__details-trigger-row">
-              <button
-                type="button"
-                class="cz-package-builder__details-trigger"
-                onClick={() => {
-                  // Resolved HERE, at click time, from whichever Tier/Edition
-                  // is actually focused in THIS render — never a stale/
-                  // previous target, never inferred from array position. The
-                  // Edition's own real Platform ID wins when one is
-                  // selected and has one; otherwise the Tier occupant's own
-                  // — the exact same fields itemFor() below puts on a quote
-                  // item, not a second identity scheme. focusedTier.id is a
-                  // last-resort fallback only for a never-configured Tier
-                  // with no tier_platform_id on file, so this always stays a
-                  // non-empty, stable string to key the modal by.
-                  const platformId = focusedDeclaredEffective.selectedEdition?.edition_platform_id
-                    ?? focusedData?.tier_platform_id
-                    ?? focusedTier.id;
-                  setPlanDetailsTarget({ tierId: focusedTier.id, editionId: focusedEditionId, platformId });
-                  setPlanDetailsOpenGeneration((generation) => generation + 1);
-                }}
-              >
-                View plan details
-              </button>
-            </div>
-          </div>
+                        <div class="cz-package-builder__stage-components">
+                          {components.map((component) => (
+                            // Stable Leg identity is component.source alone —
+                            // never array index (a Leg can repeat across
+                            // Periods with a different index each time),
+                            // Period index, billing cycle, or label. Hover and
+                            // keyboard focus both set the same state, so both
+                            // produce identical dimming below (see
+                            // relatedInclusionIds/extension-group dimming).
+                            <div
+                              class="cz-package-builder__stage-component"
+                              key={component.source}
+                              tabIndex={0}
+                              aria-label={`Highlight inclusions billed by this ${componentPaymentName(component.billing_cycle)} payment`}
+                              onMouseEnter={() => setHoveredLegSource(component.source)}
+                              onMouseLeave={() => setHoveredLegSource((current) => (current === component.source ? null : current))}
+                              onFocus={() => setHoveredLegSource(component.source)}
+                              onBlur={() => setHoveredLegSource((current) => (current === component.source ? null : current))}
+                            >
+                              <div class="cz-package-builder__stage-component-row">
+                                <div class="cz-package-builder__stage-component-info">
+                                  <span class="cz-package-builder__stage-component-name">{componentPaymentName(component.billing_cycle)}</span>
+                                  <span class="cz-package-builder__stage-component-meta">{billingWording(component.billing_cycle)}</span>
+                                </div>
+                                <span class="cz-package-builder__stage-component-price">
+                                  {formatPrice(component.price)} {cycleSuffix(component.billing_cycle)}
+                                </span>
+                              </div>
+                              {/* Subordinate calculation-rhythm note. A future
+                                  Leg-level discount line belongs here too, as
+                                  another child of this same card — no
+                                  restructuring needed to add it later. */}
+                              <p class="cz-package-builder__stage-component-note">
+                                {componentNote(component.billing_cycle, joined)}
+                              </p>
+                              {/* Phase 6B: this component occurrence's own claimed
+                                  item count — presentation only, matches the same
+                                  set the hover/focus dimming above already keys
+                                  off of (commercialLegInclusionGroups' unfiltered
+                                  per-Leg items, for a non-Headline Leg with no
+                                  rendered Extension group; the Extension group's
+                                  own diffed items when one renders). */}
+                              <span class="cz-package-builder__stage-component-count">
+                                {inclusionCountLabel(component.items)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Phase 7: informational-only entry point to the Plan Details
+                    popup — quiet text control (reuses .cz-package-builder__focused-back's
+                    own visual recipe), right-aligned below the last rendered
+                    Leg/payment card, never the primary yellow CTA. */}
+                <div class="cz-package-builder__details-trigger-row">
+                  <button
+                    type="button"
+                    class="cz-package-builder__details-trigger"
+                    onClick={() => {
+                      // Resolved HERE, at click time, from whichever Tier/Edition
+                      // is actually focused in THIS render — never a stale/
+                      // previous target, never inferred from array position. The
+                      // Edition's own real Platform ID wins when one is
+                      // selected and has one; otherwise the Tier occupant's own
+                      // — the exact same fields itemFor() below puts on a quote
+                      // item, not a second identity scheme. focusedTier.id is a
+                      // last-resort fallback only for a never-configured Tier
+                      // with no tier_platform_id on file, so this always stays a
+                      // non-empty, stable string to key the modal by.
+                      const platformId = focusedDeclaredEffective.selectedEdition?.edition_platform_id
+                        ?? focusedData?.tier_platform_id
+                        ?? focusedTier.id;
+                      setPlanDetailsTarget({ tierId: focusedTier.id, editionId: focusedEditionId, platformId });
+                      setPlanDetailsOpenGeneration((generation) => generation + 1);
+                    }}
+                  >
+                    View plan details
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
         <div class="cz-package-builder__focused-card">
-          {/* The strip's own grid context, so the one focused card keeps the
-              exact 8-row section structure it has everywhere else. */}
+          {/* A normal Tier occupant renders the SAME TierCard the strip
+              itself renders. The composable occupant renders its own
+              interactive catalogue body (ComposableOfferBrowser) instead —
+              Build Your Own is not a flat priced card, it is an assembled
+              composition — hosted inside this SAME shared wrapper/layout
+              (project-work/2026-09-06-tier-catalogue-admin-ux-
+              consolidation.md, "structural correction"). */}
+          {!focusedIsComposable && focusedTier && (
           <div class="cz-cost-builder__tiers">
             <TierCard
               tier={focusedTier}
@@ -1178,7 +1261,7 @@ export function FamilyTierAdapter({
               // the card's own chip also resets the Period selection to the
               // newly active variant's own timeline, same as the tab row.
               selectedEditionId={focusedEditionId}
-              onEditionChange={(editionId) => selectVariant(focusedTier.id, editionId)}
+              onEditionChange={(editionId) => selectVariant(focusedTierId, editionId)}
               // The selected Commercial Period's own resolved price/cycle/
               // inclusions, substituted in for the card's flat declaration —
               // see periodPriceOverride(). Commitment is untouched (it
@@ -1238,50 +1321,28 @@ export function FamilyTierAdapter({
               relatedInclusionIds={relatedInclusionIds}
             />
           </div>
+          )}
+          {/* Build Your Own's own interactive catalogue body — its own
+              occupant-specific content, per project-work/2026-09-06-tier-
+              catalogue-admin-ux-consolidation.md ("structural correction").
+              Hosted inside the exact same .cz-package-builder__focused-card
+              wrapper a normal Tier's TierCard uses above; nothing here
+              reads a second selector state — activeEditionId is the SAME
+              focusedEditionId every other part of this shell already reads/
+              writes via selectVariant. */}
+          {focusedIsComposable && (
+            <ComposableOfferBrowser
+              family={family}
+              activeEditionId={focusedEditionId}
+              initialCartItem={selectedComposableItem}
+              primaryItem={selectedPrimaryItem}
+              onCommit={onComposableCommit}
+              onRemoveFromQuote={onComposableRemove}
+            />
+          )}
         </div>
       </div>
     );
-  // Phase 2/3 — "Upgrade your build" gate. Takes priority over the staged
-  // Recommendations view below: the gate is the first thing shown right
-  // after Add to Quote whenever this Family/Tier has a real catalogue
-  // (commitSelection above only ever enters 'pending' in that case).
-  // Dismissing it (Maybe next time, pending-stage only — there is no
-  // browsing-stage exit yet, that is Phase 4's stage-exit CTA) falls
-  // straight through to exactly today's existing continuation — stagedTier
-  // below if Add-ons exist, otherwise the comparison grid, with Cart
-  // already reappearing via the onUpgradeGateActiveChange effect above.
-  } else if (upgradeGateActive === 'pending') {
-    mainContent = (
-      <div class="cz-package-builder__upgrade-gate">
-        <div class="cz-package-builder__upgrade-gate-copy">
-          <p class="cz-package-builder__upgrade-gate-eyebrow">Your plan is already in the quote</p>
-          <h3 class="cz-package-builder__upgrade-gate-heading">Upgrade your build</h3>
-        </div>
-        <div class="cz-package-builder__upgrade-gate-actions">
-          <button
-            type="button"
-            class="cz-cost-builder__tier-action"
-            onClick={() => setUpgradeGateStage('browsing')}
-          >
-            Browse Catalogue
-          </button>
-          <button
-            type="button"
-            class="cz-package-builder__focused-back"
-            onClick={dismissUpgradeGate}
-          >
-            Maybe next time
-          </button>
-        </div>
-      </div>
-    );
-  // Phase 3 — browsing stage: mainContent yields nothing here so the
-  // catalogue component (a sibling further down in this file, mounted only
-  // for this exact stage) is the sole visible content in this area, never
-  // stacked underneath a stale grid/staged view the way the pre-gate
-  // unconditional mount used to leave it.
-  } else if (upgradeGateActive === 'browsing') {
-    mainContent = null;
   // Selected-Tier view: the chosen Tier alone, with Recommendations beside
   // it. Reached only when recommendation content exists — today that means
   // the Tier System offers Add-ons — so this view always has something to
@@ -1289,6 +1350,18 @@ export function FamilyTierAdapter({
   // list is what hides the other cards and reveals Recommendations, so there
   // is no second Add-on, recommendation, or quote flow here.
   } else if (stagedTier) {
+    // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
+    // ("structural correction") — the composable occupant's own entry point
+    // into the SAME focused shell every normal Tier already uses: a plain
+    // Choose-Plan-style click, no separate gate/interstitial screen. Visible
+    // only when this Family/Tier genuinely has a real catalogue at all (the
+    // SAME shared eligibility check the manageBuildRequest guard above
+    // already uses) — never a second, parallel business rule. Label follows
+    // whether a composable line is already committed for this Family+
+    // Instance, reusing the exact same entry (selectVariant) either way —
+    // "Browse Catalogue" and "Manage build" are the same action, just
+    // rehydrated onto the already-committed Edition when one exists.
+    const hasComposableCatalogue = resolveComposableEligibleRows(family).length > 0;
     mainContent = (
       <>
         <div class="cz-package-builder__staged-header">
@@ -1324,6 +1397,21 @@ export function FamilyTierAdapter({
           // resolveEffectiveTierDisplay()), rather than always its Default.
           quotedTierEditionPlatformId={selectedTierEditionPlatformId}
         />
+        {hasComposableCatalogue && (
+          <div class="cz-package-builder__composable-cta">
+            <h3 class="cz-heading-sm">{family.pricing.composable_offer?.label || 'Build Your Own'}</h3>
+            {family.pricing.composable_offer?.ideal_for && (
+              <p>{family.pricing.composable_offer.ideal_for}</p>
+            )}
+            <button
+              type="button"
+              class="cz-cost-builder__tier-action"
+              onClick={() => selectVariant(COMPOSABLE_QUOTE_TIER_ID, seedComposableEditionId())}
+            >
+              {selectedComposableItem ? 'Manage build' : 'Browse Catalogue'}
+            </button>
+          </div>
+        )}
       </>
     );
   } else {
@@ -1379,113 +1467,6 @@ export function FamilyTierAdapter({
     <>
       {mainContent}
       {planDetailsOverlay}
-      {/* Phase 2B1 — same sibling posture as planDetailsOverlay above: reads
-          only `family` (composable_offer/customer_policy) plus its own
-          candidate state, never mainContent's live locals.
-          Phase 0 clean reset (project-work/2026-09-03-composable-tier-
-          admin-to-customer-validation.md): there is one active customer
-          journey only — Upgrade your build, reached from an already-
-          selected primary Tier/Edition. Standalone "Build Your Own" (no
-          primary selected, selectedTierId === null) is deferred; gating
-          this entry point out of that route without touching
-          ComposableOfferBrowser's own 'build_your_own' context branch
-          (still there, unused, for the later standalone phase).
-          TODO(next phase): re-enable a standalone Build Your Own entry
-          point once that journey is designed.
-          Live-validation correction: selectedPrimaryItem is also passed
-          straight through as primaryItem — this render gate is the belt,
-          ComposableOfferBrowser's own internal readiness check (Add/Remove
-          disabled, auto-commit effect refusing to run) is the suspenders,
-          so a base-less Upgrade can never start pricing/persistence even
-          if this gate alone were ever bypassed or raced.
-          Phase 3 (project-work/2026-09-06-tier-catalogue-admin-ux-
-          consolidation.md): mount condition narrowed from selectedTierId
-          !== null to upgradeGateActive === 'browsing' — strictly tighter
-          (browsing can only ever be true when selectedTierId is already
-          non-null, since upgradeGateTierId is only ever set alongside a
-          real onAdd in commitSelection), so the belt-and-suspenders
-          reasoning above still holds. This is also what keeps the
-          catalogue from ever appearing stacked underneath the pending gate
-          or the Recommendations/comparison views the way its old
-          unconditional mount used to.
-          Phase 4: UpgradeBuildSummary joins it here as a right-side sibling
-          inside the same wrapper — ComposableOfferBrowser itself is passed
-          the exact same props as before, completely untouched. The summary
-          is presentational-only (see its own file): reads `items` +
-          selectedPrimaryItem/selectedComposableItem, computes nothing this
-          component doesn't already have. Its one exit action calls
-          dismissUpgradeGate directly — never onComposableCommit/
-          onComposableRemove, so it can never perform a quote mutation of
-          its own. */}
-      {/* Auditor correction ("focused-shell visual parity and top tab
-          refinement"): selectedTierId !== null is a defensive belt here —
-          upgradeGateActive can only ever be 'browsing' once a primary is
-          already committed (see commitSelection/upgradeGateActive above),
-          so this never actually excludes a real case; it only lets the
-          identity lookups below skip a null check on every read. */}
-      {upgradeGateActive === 'browsing' && selectedTierId !== null && (() => {
-        // Top floating tab reuse: the SAME EditionCueSelector + selectVariant
-        // authority the normal focused shell uses above — never a second
-        // variant-selection state. Identity is derived FRESH every render
-        // from the already-quoted primary's own tierEditionPlatformId
-        // (never focusedEditionId, which belongs to the unrelated normal-
-        // focused-shell state and is untouched by any of the three
-        // Upgrade-browsing entry points — initial Browse Catalogue, the
-        // Cart footer's Upgrade your build, and line-level Manage build),
-        // using the exact same Platform-ID-equality identity comparison
-        // already used throughout this file (isExactQuotedOption etc.) —
-        // never inferred from label/array position. This is also what
-        // makes the tab automatically show the right context regardless of
-        // entry point, with no extra wiring per entry point.
-        const primaryTierData = family.pricing.tiers[selectedTierId];
-        const primaryEditionOptions = primaryTierData?.edition_options ?? [];
-        const primaryActiveEditionId = selectedPrimaryItem?.tierEditionPlatformId
-          ? primaryEditionOptions.find((option) => option.edition_platform_id === selectedPrimaryItem.tierEditionPlatformId)?.id ?? null
-          : null;
-        const primaryTier = tiers.find((tier) => tier.id === selectedTierId);
-        // Occupant/default presentation follows the SAME tab grammar as
-        // Edition (EditionCueSelector already renders a static single ball
-        // when there is only one destination) — never a bespoke "no
-        // Editions" special case here.
-        const primaryLabel = primaryEditionOptions.find((option) => option.id === primaryActiveEditionId)?.label
-          ?? primaryTierData?.label
-          ?? primaryTier?.title
-          ?? selectedTierId;
-        return (
-          <div class="cz-package-builder__upgrade-browsing">
-            <div class="cz-package-builder__upgrade-browsing-detail">
-              <h3 class="cz-package-builder__focused-name">{primaryLabel}</h3>
-              {/* Clicking a different Default/Edition here reuses
-                  selectVariant() verbatim — the exact same switching
-                  authority/path the normal focused shell's own tab and
-                  Edition chips already use, never a second/parallel one.
-                  That exits Upgrade browsing into that variant's own
-                  normal focused view, identically to every other entry
-                  point into the focused shell; closing that view (its own
-                  existing X) returns here, since upgradeGateStage itself
-                  is never touched by either path. */}
-              <EditionCueSelector
-                destinations={[{ id: null, label: 'Default' }, ...primaryEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
-                activeId={primaryActiveEditionId}
-                onSelect={(editionId) => selectVariant(selectedTierId, editionId)}
-              />
-              <ComposableOfferBrowser
-                family={family}
-                context="upgrade_your_build"
-                initialCartItem={selectedComposableItem}
-                primaryItem={selectedPrimaryItem}
-                onCommit={onComposableCommit}
-                onRemoveFromQuote={onComposableRemove}
-              />
-            </div>
-            <UpgradeBuildSummary
-              primaryItem={selectedPrimaryItem}
-              composableItem={selectedComposableItem}
-              onExit={dismissUpgradeGate}
-            />
-          </div>
-        );
-      })()}
     </>
   );
 }

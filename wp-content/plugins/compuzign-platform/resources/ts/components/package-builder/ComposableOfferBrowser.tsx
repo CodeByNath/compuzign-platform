@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { LegPaymentSummary } from '@/utils/paymentSummary';
-import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingTierData, ServiceInclusion } from '@/api/types/cost-builder';
+import type { ComposablePreviewChoiceItem, CommercialLegPeriod, CustomerPolicyItem, PackageBuilderFamily, PricingEditionOption, PricingTierData, ServiceInclusion } from '@/api/types/cost-builder';
 import { resolveComposablePreview } from '@/api/endpoints/package-builder';
 import { buildLegPaymentSummaries, cycleSuffix, resolveHeadlinePrice } from '@/components/cost-builder/PricingTiers';
 import { buildQuotedCommercialBreakdown, buildQuotedCartBreakdown } from '@/utils/commercialLegPresentation';
@@ -27,10 +27,6 @@ const PREVIEW_DEBOUNCE_MS = 400;
 // project-work/2026-09-03-composable-tier-admin-to-customer-validation.md.
 interface ComposableOfferBrowserProps {
   family: PackageBuilderFamily;
-  // 'build_your_own' = direct entry with no normal Tier/Edition chosen yet;
-  // 'upgrade_your_build' = rendered after a normal Tier/Edition selection.
-  // Presentation only — both read the exact same composable_offer/policy.
-  context: 'build_your_own' | 'upgrade_your_build';
   // The already-quoted composable line for this Family+Instance, or null —
   // re-seeds `selection` from its own composableSelection (a real prior
   // customer choice) instead of policy defaults, so switching Family and
@@ -62,6 +58,16 @@ interface ComposableOfferBrowserProps {
   // or hydration can never start preview/pricing/persistence/projection
   // for an Upgrade with no exact base.
   primaryItem: FamilyTierQuoteItem | null;
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
+  // ("Reject primary-bound Upgrade cue and require composable-occupant
+  // variant path") — which of the composable occupant's OWN Default/
+  // Edition declarations is active, driven by FamilyTierAdapter's own
+  // EditionCueSelector above this component (never family.pricing.tiers/
+  // the primary Tier's own Edition, and never a second selector state of
+  // this component's own). `null` means the occupant's own Default
+  // declaration — the same id vocabulary composable_offer.edition_options[]
+  // already carries, matching family.pricing.composable_offer.edition_options[].id.
+  activeEditionId: string | null;
 }
 
 export interface BrowseRow {
@@ -130,12 +136,31 @@ export function buildComposableChoice(
 // in FamilyTierAdapter.tsx, project-work/2026-09-06-tier-catalogue-admin-
 // ux-consolidation.md) can ask the identical eligibility question without
 // re-deriving this join as a second, parallel business rule.
-export function resolveComposableEligibleRows(family: PackageBuilderFamily): BrowseRow[] {
+//
+// `editionId` (project-work/2026-09-06-tier-catalogue-admin-ux-
+// consolidation.md, "Reject primary-bound Upgrade cue...") — omitted/null
+// resolves the occupant's own Default declaration, exactly the original
+// behavior every existing caller (the eligibility check in
+// FamilyTierAdapter.tsx) still gets unchanged. A real id resolves against
+// THAT Edition's own declaration instead: `customer_policy` is read
+// straight off the Edition entry (already inherited from the occupant's
+// own Default server-side when the Edition never configured one — see
+// PackageSchema::publicTierEditionOptions() — never re-derived here), and
+// `inclusions` falls back to the occupant's own Default inclusions only
+// when the Edition's own resolved list is empty — the identical "empty
+// means inherit" rule resolveEffectiveTierDisplay() (PricingTiers.tsx)
+// already applies to a normal Tier Edition's own inclusions_override.
+export function resolveComposableEligibleRows(family: PackageBuilderFamily, editionId: string | null = null): BrowseRow[] {
   const offer = family.pricing.composable_offer ?? null;
-  const policy = offer?.customer_policy ?? null;
-  if (!offer || !policy) return [];
+  if (!offer) return [];
+  const edition = editionId !== null
+    ? (offer.edition_options ?? []).find((option) => option.id === editionId) ?? null
+    : null;
+  const policy = edition ? (edition.customer_policy ?? null) : (offer.customer_policy ?? null);
+  if (!policy) return [];
+  const inclusionSource = edition && edition.inclusions_override.length > 0 ? edition.inclusions_override : offer.inclusions;
   const inclusionsById = new Map<string, ServiceInclusion>();
-  for (const inclusion of offer.inclusions) inclusionsById.set(inclusion.id, inclusion);
+  for (const inclusion of inclusionSource) inclusionsById.set(inclusion.id, inclusion);
   const out: BrowseRow[] = [];
   for (const item of policy.items) {
     const inclusion = inclusionsById.get(item.item_id);
@@ -255,19 +280,32 @@ export function resolveItemContributions(periods: CommercialLegPeriod[]): Record
 // — those come from `contributions`/`periods`. Exported so a contract script
 // can exercise it directly, same precedent as buildComposableChoice()/
 // resolveItemContributions() above.
+//
+// `activeEdition` (project-work/2026-09-06-tier-catalogue-admin-ux-
+// consolidation.md, "Reject primary-bound Upgrade cue...") — the composable
+// occupant's own active Edition, or null for its own Default; drives
+// tierEditionPlatformId/tierEditionTitle/commitment/Headline exactly the
+// same way a normal Tier's own itemFor() (FamilyTierAdapter.tsx) already
+// derives them from effective.selectedEdition — never hardcoded null. This
+// is what lets an already-committed composable Edition round-trip back
+// through selectedComposableItem.tierEditionPlatformId and rehydrate the
+// Upgrade cue on re-entry (Manage build).
 export function buildComposableFamilyTierQuoteItem(
   family: PackageBuilderFamily,
   offer: PricingTierData,
+  activeEdition: PricingEditionOption | null,
   choice: ComposablePreviewChoiceItem[],
   periods: CommercialLegPeriod[],
   contributions: Record<string, ItemContribution>,
   rows: BrowseRow[],
 ): FamilyTierQuoteItem {
-  const commitmentMonths = offer.minimum_term_unit && /month/i.test(offer.minimum_term_unit)
-    ? offer.minimum_term_value ?? null
+  const minimumTermValue = activeEdition ? activeEdition.minimum_term_value : offer.minimum_term_value ?? null;
+  const minimumTermUnit = activeEdition ? activeEdition.minimum_term_unit : offer.minimum_term_unit ?? null;
+  const commitmentMonths = minimumTermUnit && /month/i.test(minimumTermUnit)
+    ? minimumTermValue ?? null
     : null;
   const legPaymentSummaries = buildLegPaymentSummaries(periods, commitmentMonths);
-  const headline = resolveHeadlinePrice(periods, offer.headline_leg_id);
+  const headline = resolveHeadlinePrice(periods, activeEdition ? activeEdition.headline_leg_id : offer.headline_leg_id);
   const includedItemIds = new Set(
     choice
       .filter((entry) => entry.selected === undefined || entry.selected === true)
@@ -295,12 +333,16 @@ export function buildComposableFamilyTierQuoteItem(
     familyTitle: family.title,
     tierInstanceId: family.tier_instance_id,
     tierInstancePlatformId: family.tier_instance_platform_id,
+    // The occupant's own permanent identity — never the Edition's; an
+    // Edition has no tier_occupant_id/tier_platform_id of its own, exactly
+    // matching a normal Tier's own itemFor() (tierData?.tier_platform_id,
+    // never selectedEdition-derived).
     tierOccupantId: offer.tier_occupant_id ?? '',
     tierPlatformId: offer.tier_platform_id ?? '',
-    tierEditionPlatformId: null,
+    tierEditionPlatformId: activeEdition?.edition_platform_id ?? null,
     tierId: COMPOSABLE_QUOTE_TIER_ID,
     tierTitle: offer.label || 'Build Your Own',
-    tierEditionTitle: null,
+    tierEditionTitle: activeEdition?.label ?? null,
     price: headline?.price ?? null,
     billingCycle: headline?.billing_cycle ?? '',
     features: inclusionItems.map((item) => item.label),
@@ -308,8 +350,8 @@ export function buildComposableFamilyTierQuoteItem(
     isAddon: false,
     isComposable: true,
     composableSelection: choice,
-    minimumTermValue: offer.minimum_term_value ?? null,
-    minimumTermUnit: offer.minimum_term_unit ?? null,
+    minimumTermValue,
+    minimumTermUnit,
     planDurationMonths: null,
     legPaymentSummaries,
     // Live-gate correction (2026-09-05, "preserve period/leg inclusion
@@ -321,13 +363,20 @@ export function buildComposableFamilyTierQuoteItem(
     // customer view"): the cart quick-view's own compact shape, captured
     // alongside commercialBreakdown above from the SAME resolved `periods`
     // and the SAME headline_leg_id resolveHeadlinePrice() already reads.
-    cartBreakdown: buildQuotedCartBreakdown(periods, offer.headline_leg_id ?? null),
+    cartBreakdown: buildQuotedCartBreakdown(periods, (activeEdition ? activeEdition.headline_leg_id : offer.headline_leg_id) ?? null),
   };
 }
 
-export function ComposableOfferBrowser({ family, context, initialCartItem, onCommit, onRemoveFromQuote, primaryItem }: ComposableOfferBrowserProps) {
+export function ComposableOfferBrowser({ family, activeEditionId, initialCartItem, onCommit, onRemoveFromQuote, primaryItem }: ComposableOfferBrowserProps) {
   const offer = family.pricing.composable_offer ?? null;
-  const policy = offer?.customer_policy ?? null;
+  // The occupant's own active Default/Edition declaration — see
+  // activeEditionId's own docblock above. Resolved fresh every render from
+  // `family` + the caller's own selector state, never stored independently
+  // here (same "identity only, re-derive the data every render" posture
+  // FamilyTierAdapter.tsx's own planDetailsTarget/focusedEditionId use).
+  const activeEdition = activeEditionId !== null
+    ? (offer?.edition_options ?? []).find((option) => option.id === activeEditionId) ?? null
+    : null;
   // Live-validation correction: the domain-boundary readiness check every
   // Add/Remove control and the auto-commit effect below gate on — see
   // primaryItem's own docblock above.
@@ -337,9 +386,10 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
   // Phase 1) so the future "Upgrade your build" gate can ask the identical
   // eligibility question — does this Family/Tier have any real catalogue —
   // without re-deriving the offer/policy/inclusion join a second time as a
-  // parallel business rule. Behavior here is unchanged: same offer/policy
-  // read, same join, same output.
-  const rows = useMemo<BrowseRow[]>(() => resolveComposableEligibleRows(family), [offer, policy]);
+  // parallel business rule. Generalized (same round) to resolve the
+  // ACTIVE Default/Edition's own policy/inclusions, never always the
+  // occupant's Default — see resolveComposableEligibleRows()'s own docblock.
+  const rows = useMemo<BrowseRow[]>(() => resolveComposableEligibleRows(family, activeEditionId), [family, activeEditionId]);
 
   const rowIdsKey = rows.map((row) => row.item_id).join(',');
 
@@ -364,20 +414,62 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
   // the cart. Reset alongside `selection` on every reseed below.
   const [hasInteracted, setHasInteracted] = useState(false);
 
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
+  // ("Block composable Edition candidate on unsynced cue selection") — the
+  // ONLY way the reseed effect below can tell "the customer just clicked
+  // the composable Default/Edition cue" (a genuine selection interaction,
+  // which must commit even when the newly active container has no
+  // optional Add/Remove row to click at all — e.g. a required-only
+  // Edition) apart from "this is the component's own first mount, or
+  // FamilyTierAdapter's own Manage-build rehydration seed" (never an
+  // interaction on its own — auto-commit must stay silent merely because
+  // state was seeded). `mounted` distinguishes the very first effect run;
+  // `lastEditionId` is the activeEditionId that first run already
+  // processed, so a LATER run's own activeEditionId is compared against
+  // THAT, never re-initialized. ComposableOfferBrowser fully unmounts
+  // between Upgrade-browsing sessions (only rendered while
+  // upgradeGateActive === 'browsing'), so `mounted` can never survive
+  // across a Family/Instance switch — there is no separate family.family_id
+  // check needed here.
+  const editionCueRef = useRef<{ mounted: boolean; lastEditionId: string | null }>({ mounted: false, lastEditionId: activeEditionId });
+
   useEffect(() => {
-    setSelection(seedSelectionFromCartItem(rows, initialCartItem));
+    // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
+    // ("Reject primary-bound Upgrade cue...") — the already-committed cart
+    // item only pre-seeds `selection` when its OWN recorded Edition
+    // identity matches the container currently being viewed; switching to a
+    // DIFFERENT Default/Edition than the one actually committed must start
+    // from that container's own fresh policy defaults, never leak the other
+    // container's selection onto fields it never declared.
+    const cartItemMatchesActive = initialCartItem !== null
+      && (initialCartItem.tierEditionPlatformId ?? null) === (activeEdition?.edition_platform_id ?? null);
+    setSelection(seedSelectionFromCartItem(rows, cartItemMatchesActive ? initialCartItem : null));
     setCategory('');
     setService('');
     setPage(0);
-    setHasInteracted(false);
+    // A genuine customer cue click — this component already completed its
+    // first run, and activeEditionId itself (the one thing a cue click can
+    // move) differs from what that first run saw — counts as an
+    // interaction, exactly like clicking Add/Remove/quantity already does,
+    // so the debounced preview below reaches onCommit even with zero
+    // Add/Remove clicks. The component's own first mount, or a
+    // family/rowIdsKey-only reflow with activeEditionId unchanged, resets
+    // to false — the same "start fresh" rule this already had before
+    // Edition support existed.
+    const { mounted, lastEditionId } = editionCueRef.current;
+    setHasInteracted(mounted && activeEditionId !== lastEditionId);
+    editionCueRef.current = { mounted: true, lastEditionId: activeEditionId };
     // initialCartItem is deliberately excluded: this component's own commit
     // below updates it (via the parent's cart state), and re-including it
     // here would reseed/reset `selection` and `hasInteracted` right after
     // every commit — fighting the customer's own next click. Reseeding from
-    // it is a Family-switch/mount concern only, matching the identical
-    // reasoning already applied to `family`/`rows` elsewhere in this file.
+    // it is a Family-switch/mount/Edition-switch concern only, matching the
+    // identical reasoning already applied to `family`/`rows` elsewhere in
+    // this file. activeEdition is also excluded — it is derived from
+    // activeEditionId (already a dep) + `offer`, never an independent
+    // trigger of its own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family.family_id, rowIdsKey]);
+  }, [family.family_id, rowIdsKey, activeEditionId]);
 
   // Live-validation correction (project-work/2026-09-03-composable-tier-
   // admin-to-customer-validation.md, "Upgrade your build still contains
@@ -499,9 +591,14 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
   // Same "only a month-unit commitment caps an open-ended Leg's schedule"
   // gate FamilyTierAdapter's own itemFor()/buildLegPaymentSummaries() call
   // already applies to a normal Tier/Edition — reused verbatim here, never
-  // a second rule.
-  const commitmentMonths = offer?.minimum_term_unit && /month/i.test(offer.minimum_term_unit)
-    ? offer.minimum_term_value ?? null
+  // a second rule. Reads the ACTIVE container's own commitment (the
+  // Edition's own when one is active, the occupant's Default otherwise) —
+  // same activeEdition-first rule buildComposableFamilyTierQuoteItem() above
+  // already applies to the committed item.
+  const activeMinimumTermUnit = activeEdition ? activeEdition.minimum_term_unit : offer?.minimum_term_unit ?? null;
+  const activeMinimumTermValue = activeEdition ? activeEdition.minimum_term_value : offer?.minimum_term_value ?? null;
+  const commitmentMonths = activeMinimumTermUnit && /month/i.test(activeMinimumTermUnit)
+    ? activeMinimumTermValue ?? null
     : null;
 
   const [preview, setPreview] = useState<{
@@ -535,7 +632,7 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
     let cancelled = false;
     setPreviewLoading(true);
     const timer = window.setTimeout(() => {
-      resolveComposablePreview(family.family_id, choice)
+      resolveComposablePreview(family.family_id, choice, activeEditionId)
         .then((result) => {
           if (cancelled) return;
           if (!result.ok) {
@@ -577,7 +674,7 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
               selfCausedRemovalRef.current = true;
               onRemoveFromQuote();
             } else {
-              onCommit(buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows));
+              onCommit(buildComposableFamilyTierQuoteItem(family, offer, activeEdition, choice, periods, contributions, rows));
             }
           }
         })
@@ -593,18 +690,18 @@ export function ComposableOfferBrowser({ family, context, initialCartItem, onCom
     // always changes family_id (the row/offer set is re-derived from it via
     // `rows`/`offer` anyway), so this avoids re-fetching merely because the
     // parent handed down a new-identity-but-same-content family object.
+    // activeEdition is also omitted — it is derived from activeEditionId
+    // (already a dep) + `offer`, never an independent trigger of its own.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote, hasReadyPrimary]);
+  }, [family.family_id, rows, selection, commitmentMonths, offer, hasInteracted, onCommit, onRemoveFromQuote, hasReadyPrimary, activeEditionId]);
 
-  if (!offer || !policy || rows.length === 0) return null;
-
-  const heading = context === 'build_your_own' ? 'Build Your Own' : 'Upgrade your build';
+  // No standalone `policy` gate here: rows itself already resolves to []
+  // whenever the ACTIVE container (Default or the selected Edition) has no
+  // customer_policy of its own — see resolveComposableEligibleRows().
+  if (!offer || rows.length === 0) return null;
 
   return (
-    <section class="cz-package-builder__composable" aria-labelledby="cz-composable-heading">
-      <h3 id="cz-composable-heading" class="cz-heading-sm">{heading}</h3>
-      <p class="cz-package-builder__composable-subheading">Recommended Upgrades</p>
-
+    <section class="cz-package-builder__composable">
       <div class="cz-package-builder__composable-filters">
         <label class="cz-package-builder__composable-filter">
           Category

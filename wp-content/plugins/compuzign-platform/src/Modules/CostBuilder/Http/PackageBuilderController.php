@@ -36,8 +36,14 @@ final class PackageBuilderController
             'callback'            => [$this, 'postComposablePreview'],
             'permission_callback' => '__return_true',
             'args'                => [
-                'family_id' => ['required' => true, 'type' => 'string'],
-                'choice'    => ['required' => true, 'type' => 'array'],
+                'family_id'  => ['required' => true, 'type' => 'string'],
+                'choice'     => ['required' => true, 'type' => 'array'],
+                // project-work/2026-09-06-tier-catalogue-admin-ux-
+                // consolidation.md ("Reject primary-bound Upgrade cue...") —
+                // optional composable Edition identity; null/absent means
+                // the occupant's own Default declaration, exactly today's
+                // existing behavior.
+                'edition_id' => ['required' => false, 'type' => ['string', 'null']],
             ],
         ]);
     }
@@ -52,6 +58,8 @@ final class PackageBuilderController
         $familyId = sanitize_text_field((string) $request->get_param('family_id'));
         $choiceParam = $request->get_param('choice');
         $choice = is_array($choiceParam) ? $choiceParam : [];
-        return rest_ensure_response($this->packages->resolveComposableOfferSelection($familyId, $choice));
+        $editionIdParam = $request->get_param('edition_id');
+        $editionId = is_string($editionIdParam) && $editionIdParam !== '' ? sanitize_text_field($editionIdParam) : null;
+        return rest_ensure_response($this->packages->resolveComposableOfferSelection($familyId, $choice, $editionId));
     }
 }
