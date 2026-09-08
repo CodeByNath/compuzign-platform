@@ -384,6 +384,20 @@ interface PricingTiersProps {
   // has been narrowed to that one Tier. Cost Builder passes nothing and keeps
   // the stacked arrangement.
   recommendationsAside?: boolean;
+  // Package Builder only — the "Upgrade your build" CTA, rendered as one
+  // more entry inside the isolated recommendationsShell (recommendationsAside
+  // only), beside/instead of the add-on choices depending on
+  // hideAddonsInRecommendations below. PricingTiers/TierCard own no
+  // composable-occupant concept of their own — the caller (FamilyTierAdapter)
+  // supplies this fully-built JSX, exactly the same "caller owns the
+  // content, this component only lays it out" posture onChoosePlan already
+  // has. Cost Builder never supplies it.
+  recommendationsCta?: ComponentChildren;
+  // Package Builder only. True while the CTA above is being offered — the
+  // add-on choices step aside so the CTA is the sole occupant of
+  // Recommendations rather than sitting beside them. Ignored when
+  // recommendationsCta itself is absent.
+  hideAddonsInRecommendations?: boolean;
   // Package Builder only. True while the customer's browsing the Enterprise
   // group tab — every card in that tab is an Enterprise-audience Tier, so
   // its Choose Plan renders with the same filled emphasis as the Popular
@@ -851,6 +865,8 @@ export function PricingTiers({
   onChoosePlan,
   quotedTierEditionPlatformId,
   recommendationsAside = false,
+  recommendationsCta,
+  hideAddonsInRecommendations = false,
   isEnterpriseView = false,
 }: PricingTiersProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -941,11 +957,17 @@ export function PricingTiers({
   // SAME Tier strip as the selected Tier. Renders exactly when Add-ons
   // exist, which is also exactly when a Tier occupant's Add to Quote has
   // fired and put this view on screen, so no separate show/hide wiring is
-  // needed here.
-  const recommendationsShell = recommendationsAside && addonTiers.length > 0 ? (
+  // needed here. The "Upgrade your build" CTA is the one other thing this
+  // shell can hold — recommendationsCta alone is enough to render the shell
+  // even with zero add-on Tiers (a Family can offer a composable catalogue
+  // with no add-on Tiers at all), and hideAddonsInRecommendations steps the
+  // add-on cards aside while the CTA is being offered rather than showing
+  // both at once.
+  const recommendationsShell = recommendationsAside && (addonTiers.length > 0 || recommendationsCta) ? (
     <div class="cz-cost-builder__recommendations-shell">
       <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
-      {addonTiers.map(renderAddonTierCard)}
+      {!hideAddonsInRecommendations && addonTiers.map(renderAddonTierCard)}
+      {recommendationsCta}
     </div>
   ) : null;
 

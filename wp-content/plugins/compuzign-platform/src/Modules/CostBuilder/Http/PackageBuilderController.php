@@ -36,8 +36,12 @@ final class PackageBuilderController
             'callback'            => [$this, 'postComposablePreview'],
             'permission_callback' => '__return_true',
             'args'                => [
-                'family_id' => ['required' => true, 'type' => 'string'],
-                'choice'    => ['required' => true, 'type' => 'array'],
+                'family_id'  => ['required' => true, 'type' => 'string'],
+                'choice'     => ['required' => true, 'type' => 'array'],
+                // Composable Edition cue (project-work/2026-09-06-tier-
+                // catalogue-admin-ux-consolidation.md) — optional, null/absent
+                // resolves the occupant's own Default exactly as before.
+                'edition_id' => ['required' => false, 'type' => 'string'],
             ],
         ]);
     }
@@ -52,6 +56,8 @@ final class PackageBuilderController
         $familyId = sanitize_text_field((string) $request->get_param('family_id'));
         $choiceParam = $request->get_param('choice');
         $choice = is_array($choiceParam) ? $choiceParam : [];
-        return rest_ensure_response($this->packages->resolveComposableOfferSelection($familyId, $choice));
+        $editionIdParam = $request->get_param('edition_id');
+        $editionId = $editionIdParam !== null ? sanitize_text_field((string) $editionIdParam) : null;
+        return rest_ensure_response($this->packages->resolveComposableOfferSelection($familyId, $choice, $editionId));
     }
 }

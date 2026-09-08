@@ -24,8 +24,7 @@ already-live-resolved supplying-Service provenance
 (`source_categories`/`source_service_title`) onto each `inclusions_override`
 entry as `categories`/`service`, keyed by `source_id` — additive on the one
 shared `presentOccupant()` function, harmless-unread on a normal Tier.
-`unit_price`/`line_total` (already resolved in
-`projectTierRateSheetWith()`'s selection rows) ride along the same way.
+`unit_price`/`line_total` ride along the same way.
 
 `featured` is new state — a merchandising-only bool on each
 `PackageSchema::sanitizeCustomerPolicy()` item entry, never read by
@@ -38,10 +37,15 @@ at an authorized item_id" structural.
 `PackageRepository::locateActiveFamilyInstance(family_id)` — extracted from
 `findAllActiveFamiliesForCostBuilder()`'s own per-Family gate — lets a new
 single-family entry point reuse that same authorization boundary.
-`resolveComposableOfferSelection(family_id, choice)` uses it, requires a
-minted CZT/CZTA (same gate `enrichCompiledOccupantIdentity()` applies
-publicly), builds its container via `PackageSchema::extractTierForCostBuilder()`,
-and calls the existing resolver unchanged.
+`resolveComposableOfferSelection(family_id, choice, edition_id?)` uses it,
+requires a minted CZT/CZTA. A non-empty `edition_id` REPLACES the
+Default-built container with the Edition's own full raw declaration — its
+own `rate_sheet_id`/`rate_sheet_items`/price/legs/commitment — the same
+shape `compileOccupantSlotForCostBuilder()` already feeds
+`resolveCommercialLegTimeline()` to price each `edition_options` entry for
+the read/display projection; only `customer_policy` inherits (the
+Edition's own when set, else the occupant's). An id naming no active
+Edition fails closed (`not_found`).
 
 `POST /compuzign/v1/package-builder/composable-preview` (public, no auth)
 wraps it. **Only `item_id`, `selected`, and `quantity` are ever read off a
@@ -55,11 +59,10 @@ quantity.
 `ComposableOfferBrowser.tsx` joins `composable_offer.inclusions` (browse
 metadata) with `composable_offer.customer_policy.items` (authorization) by
 `item_id`. Candidate selection/quantity is component-local state only,
-reseeded from policy defaults on Family/offer change; every change
-re-calls `resolveComposablePreview()` (debounced 400ms). Category
-(searchable via `<datalist>`)/Service (narrowed by Category)/Sort
-(Featured default)/max 6 per page with prev/next paging are client-side
-over the already-fetched offer.
+reseeded from policy defaults on Family/offer/Edition change; every change
+re-calls `resolveComposablePreview()` (debounced 400ms). Category/Service
+(narrowed by Category)/Sort (Featured default)/max 6 per page with
+prev/next paging are client-side over the already-fetched offer.
 
 `buildComposableChoice(rows, selection)` (exported, contract-tested via
 `scripts/composable-offer-choice-contract.ts`) is the submission boundary:
@@ -79,27 +82,21 @@ payment-summary presentation (one row per resolved stream: price, cycle,
 start/end month), deliberately never reading
 `summary.subtotal`/`summary.occurrenceMonths`.
 
-`resolveItemContributions(periods)` (exported, contract-tested via
-`scripts/composable-offer-contribution-contract.ts`) is each card's
-"resolved individual contribution" — **correction round 2** replaced a
-static published-`unitPrice` display (unchanged by quantity) with an
-item_id's `line_total` read verbatim off the resolved server rows, never
-`unitPrice * quantity` recomputed client-side. A second, DIFFERENT
-`component.source` claiming the same item_id (Default + an Additional Leg
-may legally do so independently) makes it `ambiguous` — never summed or
-picked arbitrarily; the card falls back to the published base/unit price,
-labeled "per unit". A source repeating across Periods is not
-double-counted (first-seen-wins, same invariant `commercialLegInclusionGroups()`
-already relies on).
+`resolveItemContributions(periods)` (exported, contract-tested) is each
+card's "resolved individual contribution": an item_id's `line_total` read
+verbatim off the resolved server rows, never `unitPrice * quantity`
+recomputed client-side. A second, DIFFERENT `component.source` claiming the
+same item_id (Default + an Additional Leg may legally do so independently)
+makes it `ambiguous` — never summed or picked arbitrarily; the card falls
+back to the published base/unit price, labeled "per unit". A source
+repeating across Periods is not double-counted (first-seen-wins).
 
 ## Not yet built / explicitly out of scope this slice
 
 Request/PDF/email, promotions, and Admin authoring for `featured`/Category/
-Service beyond Service Catalog import. No live browser validation (no local
-WordPress environment) — reviewed via `npx tsc --noEmit`, `npm run build`,
-and the PHP/contract suite (`tests/composable-customer-ux-preview.php`,
-`scripts/composable-offer-*-contract.ts`). Persisting a composable item into
-`FamilyTierQuoteItem`/cart is now built — see
+Service beyond Service Catalog import. No live browser validation — reviewed
+via `npx tsc --noEmit`, `npm run build`, and the PHP/contract suite. Cart
+persistence is built — see
 [Quote/Cart Connection](tier-composable-occupant-quote-cart.md).
 
 ## Related Code Maps

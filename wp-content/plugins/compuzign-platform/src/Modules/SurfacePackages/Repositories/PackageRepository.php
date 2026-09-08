@@ -2875,11 +2875,36 @@ class PackageRepository
      * customer choice -> the policy's own configured default, only when
      * that default is itself still authorized").
      *
+     * `$editionId` (project-work/2026-09-06-tier-catalogue-admin-ux-
+     * consolidation.md, "composable Edition cue must drive real Edition
+     * resolution", corrected round: "must use the full effective commercial
+     * declaration, not a policy-only overlay"): null/empty resolves the
+     * occupant's own Default exactly as before. A non-empty id swaps the
+     * WHOLE container for that Edition's own raw declaration — its own
+     * `rate_sheet_id`/`rate_sheet_items`/`price`/`billing_cycle`/
+     * `minimum_term_value`/`minimum_term_unit`/`from_month`/`to_month`/
+     * `legs`/`headline_leg_id` — the exact same raw-Edition-row shape
+     * `compileOccupantSlotForCostBuilder()` already feeds straight into
+     * `resolveCommercialLegTimeline()` to resolve each edition_option's own
+     * public `commercial_legs`/`price` (see its own "prices from its own
+     * Edition's rate_sheet_id/rate_sheet_items" comment) — never a
+     * policy-only overlay on top of the Default occupant's own commercial
+     * fields, and never a second/parallel pricing engine. `customer_policy`
+     * is the one field resolved with an inherit rule (this Edition's own
+     * when set, else the occupant's own already on `$container`) — the
+     * identical inherit-when-absent rule PackageSchema::
+     * publicTierEditionOptions() already applies for the read/display
+     * projection, so the two can never drift into showing one policy and
+     * pricing against another. An id naming no ACTIVE Edition on this
+     * occupant fails closed (`not_found`) rather than silently falling back
+     * to Default, which would price the customer against a declaration they
+     * never actually chose.
+     *
      * @param array<int, array{item_id?: mixed, selected?: mixed, quantity?: mixed}> $rawChoice
      * @return array{ok: true, periods: array}
      *       | array{ok: false, code: string, rejected_items?: array<int, array{item_id: ?string, reason: string}>}
      */
-    public function resolveComposableOfferSelection(string $familyId, array $rawChoice): array
+    public function resolveComposableOfferSelection(string $familyId, array $rawChoice, ?string $editionId = null): array
     {
         $located = $this->locateActiveFamilyInstance($familyId);
         if ($located === null) {
@@ -2905,6 +2930,32 @@ class PackageRepository
         $container = PackageSchema::extractTierForCostBuilder($composableSlot);
         if (!is_array($container) || !is_array($container['customer_policy'] ?? null)) {
             return ['ok' => false, 'code' => 'not_configured'];
+        }
+
+        if ($editionId !== null && $editionId !== '') {
+            $engine = \CompuZign\Platform\Modules\Admin\Support\StationLifecycle::class;
+            $edition = null;
+            foreach (PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) as $candidate) {
+                if ($candidate['id'] === $editionId && ($candidate['platform_status'] ?? null) === $engine::STATUS_ACTIVE) {
+                    $edition = $candidate;
+                    break;
+                }
+            }
+            if ($edition === null) {
+                return ['ok' => false, 'code' => 'not_found'];
+            }
+            // The Edition's own full commercial declaration becomes the
+            // container — never merely overlaid onto the Default occupant's
+            // own. $edition already carries the same field names
+            // resolveCustomerComposableSelection()/resolveCommercialLegTimeline()
+            // read on any container (rate_sheet_id, rate_sheet_items, price,
+            // billing_cycle, minimum_term_value/unit, from_month, to_month,
+            // legs, headline_leg_id) — this is the identical raw-Edition-row
+            // shape compileOccupantSlotForCostBuilder() already resolves for
+            // the read/display projection, reused verbatim here.
+            $occupantCustomerPolicy = $container['customer_policy'];
+            $container = $edition;
+            $container['customer_policy'] = $edition['customer_policy'] ?? $occupantCustomerPolicy;
         }
 
         [$inclusionPool, $faqPool] = $this->sourcePools($located['station']);

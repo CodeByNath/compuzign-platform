@@ -56,16 +56,32 @@ selected Period override, hovered Leg, and Plan Details target — returning
 to that Family's own normal Tier-card view instead of silently reopening
 the new Family's data at the same focused level.
 
+## Composable ("Build Your Own") occupant enters this same shell
+
+With a composable catalogue (`resolveComposableEligibleRows(family)`
+non-empty), an "Upgrade your build" CTA renders as one more card inside
+`.cz-cost-builder__recommendations-shell` (`PricingTiers.tsx`'s
+`recommendationsCta`/`hideAddonsInRecommendations` props), stepping the
+add-on choices aside while shown — the SAME staged/Recommendations view a
+Tier's Add to Quote already lands in, never a separate panel. "Browse
+Catalogue" opens `ComposableOfferBrowser` inside this same
+`.cz-package-builder__focused` shell; its `EditionCueSelector` top tab
+reads the composable occupant's own `edition_options`
+(`family.pricing.composable_offer`), never the primary's.
+`UpgradeBuildSummary` occupies the right card slot in place of `TierCard`.
+Add to Quote inside it (`dismissUpgradeGate`) rejoins that staged view.
+Cart and the CTA share the one `upgradeGateActive` boolean
+`FamilyTierAdapter` reports up.
+
 ## Known limitation
 
 Weekly/Daily `billing_cycle` values are selectable in the admin Pricing
-Rules editors and do reach `commercial_legs`, but the customer-facing
+Rules editors and reach `commercial_legs`, but the customer-facing
 cadence-word/suffix maps in `PricingTiers.tsx`,
 `commercialLegPresentation.ts`, and `PlanDetailsModal.tsx` have no entries
-for them — they fall back to a neutral label/no suffix rather than
-formatting correctly. `periodPriceOverride()` remains behaviorally broader
-than its name suggests (also supplies a Period's inclusion list, not only
-price).
+for them — they fall back to a neutral label/no suffix. `periodPriceOverride()`
+is broader than its name suggests (also supplies a Period's inclusion
+list, not only price).
 
 ## Authoritative files
 
@@ -75,9 +91,11 @@ price).
 | Card/hover rendering | `PricingTiers.tsx` (`TierCard`, `relatedInclusionIds`) |
 | Extension groups | `commercialLegExtensionGroups()`, `commercialLegInclusionGroups()` (`FamilyTierAdapter.tsx`) |
 | Family switch | `PackageBuilderApp.tsx` |
-| Tests | `package-builder-regression-lock-contract.ts`, `commercial-leg-inclusion-groups-contract.ts`, `commercial-leg-extension-groups-contract.ts`, `package-builder-customer-tabs-contract.ts` |
+| Composable occupant | `ComposableOfferBrowser.tsx`, `UpgradeBuildSummary.tsx` |
+| Tests | `package-builder-regression-lock-contract.ts`, `commercial-leg-inclusion-groups-contract.ts`, `commercial-leg-extension-groups-contract.ts`, `package-builder-customer-tabs-contract.ts`, `composable-recommendations-cta-contract.ts` |
 
 ## Related Code Maps
 
 [Commercial Legs](commercial-legs.md), [Cost Builder](cost-builder.md),
-[Tier Edition](tier-edition.md), and [Plan Details](plan-details.md).
+[Tier Edition](tier-edition.md), [Plan Details](plan-details.md), and
+[Composable Tier Occupant — Customer UX](tier-composable-occupant-customer-ux.md).

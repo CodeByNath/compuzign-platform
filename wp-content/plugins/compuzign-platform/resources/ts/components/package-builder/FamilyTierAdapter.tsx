@@ -517,6 +517,7 @@ export function FamilyTierAdapter({
     // reappear without ever having been re-triggered by commitSelection.
     setUpgradeGateTierId(null);
     setUpgradeGateStage(null);
+    setComposableEditionId(null);
   }, [family.family_id]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
@@ -539,20 +540,6 @@ export function FamilyTierAdapter({
     const periods = periodsForVariant(family, tierId, editionId);
     setSelectedPeriodFromMonth(periods[0]?.from_month ?? null);
   };
-
-  // Sticky close (X) button elevation — stronger shadow once the page has
-  // scrolled, subtle otherwise. Listener only attaches while a Tier is
-  // actually focused (the button's only rendered then), so it costs nothing
-  // in the card-comparison/staged views and is removed on leaving focus or
-  // unmount.
-  const [isCloseElevated, setIsCloseElevated] = useState(false);
-  useEffect(() => {
-    if (focusedTierId === null) return;
-    const onScroll = () => setIsCloseElevated(window.scrollY > 12);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [focusedTierId]);
 
   // Add-ons come from this Family's one Tier System, where compatibility is
   // implicit — there is no per-Tier compatibility ledger, so "does this Tier
@@ -598,6 +585,32 @@ export function FamilyTierAdapter({
   const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
     : null;
+  // Composable-focused-shell reuse: which Default/Edition of the composable
+  // occupant's OWN declaration (family.pricing.composable_offer) is active
+  // in the top tab row while browsing — the exact same
+  // EditionCueSelector/id-null-means-Default vocabulary a normal Tier's
+  // focusedEditionId already uses, kept as its own separate piece of state
+  // rather than widening focusedEditionId itself: the composable occupant
+  // is never the normal-focused-shell's own focusedTier, so reusing that
+  // state would let the two unrelated shells' Edition selections leak into
+  // each other. Reset alongside the gate itself (dismissUpgradeGate,
+  // Family switch below) — never left stale across a fresh browsing entry.
+  const [composableEditionId, setComposableEditionId] = useState<string | null>(null);
+
+  // Sticky close (X) button elevation — stronger shadow once the page has
+  // scrolled, subtle otherwise. Listener attaches while either focused shell
+  // (a normal Tier, or the composable occupant's own browsing stage) is
+  // actually open — the button's only rendered then — so it costs nothing in
+  // the card-comparison/staged views and is removed on leaving either focus
+  // state or unmount.
+  const [isCloseElevated, setIsCloseElevated] = useState(false);
+  useEffect(() => {
+    if (focusedTierId === null && upgradeGateActive !== 'browsing') return;
+    const onScroll = () => setIsCloseElevated(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [focusedTierId, upgradeGateActive]);
 
   useEffect(() => {
     onUpgradeGateActiveChange(upgradeGateActive !== null);
@@ -611,6 +624,7 @@ export function FamilyTierAdapter({
   const dismissUpgradeGate = () => {
     setUpgradeGateTierId(null);
     setUpgradeGateStage(null);
+    setComposableEditionId(null);
   };
 
   // "Manage build" — consumes manageBuildRequest. Declared AFTER the
@@ -773,14 +787,19 @@ export function FamilyTierAdapter({
     setFocusedEditionId(null);
     setSelectedPeriodFromMonth(null);
     setPlanDetailsTarget(null);
-    setStagedTierId(addonTiers.length > 0 ? tierId : null);
+    // A Family reaches Recommendations when it has add-on Tiers to choose
+    // from OR a real Upgrade Your Build catalogue to offer (Phase 1's shared
+    // eligibility truth) — either alone is enough content for that view;
+    // a catalogue-only Family (no add-on Tiers at all) must still stage,
+    // since the CTA itself lives inside Recommendations, not a separate view.
+    const hasCatalogue = resolveComposableEligibleRows(family).length > 0;
+    setStagedTierId(addonTiers.length > 0 || hasCatalogue ? tierId : null);
     // The gate takes priority over the Recommendations/staged view above —
     // it is shown first, immediately after Add to Quote, whenever this
-    // Family/Tier has a real Upgrade Your Build catalogue at all (Phase 1's
-    // shared eligibility truth). stagedTierId is still set unconditionally
-    // above so "Maybe next time"/the derived fallback below lands on exactly
-    // today's existing continuation once the gate ends.
-    const hasCatalogue = resolveComposableEligibleRows(family).length > 0;
+    // Family/Tier has a real Upgrade Your Build catalogue at all. stagedTierId
+    // is still set unconditionally above so "Maybe next time"/the derived
+    // fallback below lands on exactly today's existing continuation once the
+    // gate ends.
     setUpgradeGateTierId(hasCatalogue ? tierId : null);
     setUpgradeGateStage(hasCatalogue ? 'pending' : null);
   };
@@ -1241,18 +1260,92 @@ export function FamilyTierAdapter({
         </div>
       </div>
     );
-  // Phase 2/3 — "Upgrade your build" gate. Takes priority over the staged
-  // Recommendations view below: the gate is the first thing shown right
-  // after Add to Quote whenever this Family/Tier has a real catalogue
-  // (commitSelection above only ever enters 'pending' in that case).
-  // Dismissing it (Maybe next time, pending-stage only — there is no
-  // browsing-stage exit yet, that is Phase 4's stage-exit CTA) falls
-  // straight through to exactly today's existing continuation — stagedTier
-  // below if Add-ons exist, otherwise the comparison grid, with Cart
-  // already reappearing via the onUpgradeGateActiveChange effect above.
-  } else if (upgradeGateActive === 'pending') {
+  // Composable focused shell — Build Your Own is a real occupant, entered
+  // from the Recommendations CTA below and presented in the exact SAME
+  // `.cz-package-builder__focused` two-column shell a normal Tier's
+  // selectVariant() opens: left detail (name, EditionCueSelector over the
+  // composable occupant's OWN edition_options, then the existing
+  // ComposableOfferBrowser catalogue, completely untouched internally) and
+  // a right, sticky card. Takes priority over stagedTier below, exactly as
+  // the old browsing stage did — the catalogue never renders stacked
+  // underneath Recommendations.
+  //
+  // Unlike a normal Tier, there is no single resolved Commercial Period
+  // timeline to show here (the composable price is whatever the customer is
+  // currently composing, resolved live by ComposableOfferBrowser's own
+  // debounced preview) — so Commercial Terms/Periods-timeline are
+  // deliberately not rendered on this left column; UpgradeBuildSummary on
+  // the right already carries the resolved running total.
+  } else if (upgradeGateActive === 'browsing' && selectedTierId !== null) {
+    const composableData = family.pricing.composable_offer ?? undefined;
+    const composableEditionOptions = composableData?.edition_options ?? [];
+    const composableDeclaredEffective = resolveEffectiveTierDisplay(composableData, '', composableEditionId);
     mainContent = (
-      <div class="cz-package-builder__upgrade-gate">
+      <div class="cz-package-builder__focused">
+        <div class="cz-package-builder__focused-detail">
+          <button
+            type="button"
+            class={`cz-package-builder__focused-close${isCloseElevated ? ' is-elevated' : ''}`}
+            aria-label="Close Build Your Own"
+            onClick={dismissUpgradeGate}
+          >
+            <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
+          </button>
+          <h3 class="cz-package-builder__focused-name">
+            {composableDeclaredEffective.selectedEdition?.label ?? composableData?.label ?? 'Build Your Own'}
+          </h3>
+          {composableData?.ideal_for && (
+            <p class="cz-package-builder__focused-ideal-for">{composableData.ideal_for}</p>
+          )}
+          {/* Same Default/Edition navigation grammar a normal Tier's own
+              focused shell uses, over the composable occupant's OWN
+              edition_options — never the already-quoted primary's. A
+              never-configured composable offer (edition_options empty)
+              renders EditionCueSelector's own existing static single-ball
+              "no Editions" state, exactly like a Tier with none. */}
+          <EditionCueSelector
+            destinations={[{ id: null, label: 'Default' }, ...composableEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
+            activeId={composableEditionId}
+            onSelect={setComposableEditionId}
+          />
+          <ComposableOfferBrowser
+            family={family}
+            context="upgrade_your_build"
+            activeEditionId={composableEditionId}
+            initialCartItem={selectedComposableItem}
+            primaryItem={selectedPrimaryItem}
+            onCommit={onComposableCommit}
+            onRemoveFromQuote={onComposableRemove}
+          />
+        </div>
+        <div class="cz-package-builder__focused-card">
+          <UpgradeBuildSummary
+            primaryItem={selectedPrimaryItem}
+            composableItem={selectedComposableItem}
+            onExit={dismissUpgradeGate}
+          />
+        </div>
+      </div>
+    );
+  // Selected-Tier view: the chosen Tier alone, with Recommendations beside
+  // it. Reached only when recommendation content exists — today that means
+  // the Tier System offers Add-ons, or this Family/Tier has a real Upgrade
+  // Your Build catalogue (Phase 1's shared eligibility truth) — so this view
+  // always has something to choose. It is the same PricingTiers as the
+  // comparison: narrowing the Tier list is what hides the other cards and
+  // reveals Recommendations, so there is no second Add-on, recommendation,
+  // or quote flow here.
+  } else if (stagedTier) {
+    // The "Upgrade your build" CTA now lives INSIDE Recommendations, right
+    // beside (or, while it's up, in place of) the add-on choices — never a
+    // separate full-bleed panel that replaces the whole staged view. Only
+    // ever rendered in the 'pending' stage (the same tier-scoped derivation
+    // upgradeGateActive already applies above); 'browsing' takes priority as
+    // its own mainContent branch above, so this never renders stacked
+    // underneath it. Reuses the exact same eyebrow/heading copy and the two
+    // actions the old standalone gate panel had.
+    const recommendationsCta = upgradeGateActive === 'pending' ? (
+      <div class="cz-package-builder__upgrade-gate-inline">
         <div class="cz-package-builder__upgrade-gate-copy">
           <p class="cz-package-builder__upgrade-gate-eyebrow">Your plan is already in the quote</p>
           <h3 class="cz-package-builder__upgrade-gate-heading">Upgrade your build</h3>
@@ -1274,21 +1367,7 @@ export function FamilyTierAdapter({
           </button>
         </div>
       </div>
-    );
-  // Phase 3 — browsing stage: mainContent yields nothing here so the
-  // catalogue component (a sibling further down in this file, mounted only
-  // for this exact stage) is the sole visible content in this area, never
-  // stacked underneath a stale grid/staged view the way the pre-gate
-  // unconditional mount used to leave it.
-  } else if (upgradeGateActive === 'browsing') {
-    mainContent = null;
-  // Selected-Tier view: the chosen Tier alone, with Recommendations beside
-  // it. Reached only when recommendation content exists — today that means
-  // the Tier System offers Add-ons — so this view always has something to
-  // choose. It is the same PricingTiers as the comparison: narrowing the Tier
-  // list is what hides the other cards and reveals Recommendations, so there
-  // is no second Add-on, recommendation, or quote flow here.
-  } else if (stagedTier) {
+    ) : null;
     mainContent = (
       <>
         <div class="cz-package-builder__staged-header">
@@ -1323,6 +1402,11 @@ export function FamilyTierAdapter({
           // expansion, etc. — all already resolved inside TierCard's own
           // resolveEffectiveTierDisplay()), rather than always its Default.
           quotedTierEditionPlatformId={selectedTierEditionPlatformId}
+          // The CTA card above, and whether it should stand alone in
+          // Recommendations rather than sit beside the ordinary add-on
+          // choices — see PricingTiers.tsx's own recommendationsShell.
+          recommendationsCta={recommendationsCta}
+          hideAddonsInRecommendations={upgradeGateActive === 'pending'}
         />
       </>
     );
@@ -1379,113 +1463,6 @@ export function FamilyTierAdapter({
     <>
       {mainContent}
       {planDetailsOverlay}
-      {/* Phase 2B1 — same sibling posture as planDetailsOverlay above: reads
-          only `family` (composable_offer/customer_policy) plus its own
-          candidate state, never mainContent's live locals.
-          Phase 0 clean reset (project-work/2026-09-03-composable-tier-
-          admin-to-customer-validation.md): there is one active customer
-          journey only — Upgrade your build, reached from an already-
-          selected primary Tier/Edition. Standalone "Build Your Own" (no
-          primary selected, selectedTierId === null) is deferred; gating
-          this entry point out of that route without touching
-          ComposableOfferBrowser's own 'build_your_own' context branch
-          (still there, unused, for the later standalone phase).
-          TODO(next phase): re-enable a standalone Build Your Own entry
-          point once that journey is designed.
-          Live-validation correction: selectedPrimaryItem is also passed
-          straight through as primaryItem — this render gate is the belt,
-          ComposableOfferBrowser's own internal readiness check (Add/Remove
-          disabled, auto-commit effect refusing to run) is the suspenders,
-          so a base-less Upgrade can never start pricing/persistence even
-          if this gate alone were ever bypassed or raced.
-          Phase 3 (project-work/2026-09-06-tier-catalogue-admin-ux-
-          consolidation.md): mount condition narrowed from selectedTierId
-          !== null to upgradeGateActive === 'browsing' — strictly tighter
-          (browsing can only ever be true when selectedTierId is already
-          non-null, since upgradeGateTierId is only ever set alongside a
-          real onAdd in commitSelection), so the belt-and-suspenders
-          reasoning above still holds. This is also what keeps the
-          catalogue from ever appearing stacked underneath the pending gate
-          or the Recommendations/comparison views the way its old
-          unconditional mount used to.
-          Phase 4: UpgradeBuildSummary joins it here as a right-side sibling
-          inside the same wrapper — ComposableOfferBrowser itself is passed
-          the exact same props as before, completely untouched. The summary
-          is presentational-only (see its own file): reads `items` +
-          selectedPrimaryItem/selectedComposableItem, computes nothing this
-          component doesn't already have. Its one exit action calls
-          dismissUpgradeGate directly — never onComposableCommit/
-          onComposableRemove, so it can never perform a quote mutation of
-          its own. */}
-      {/* Auditor correction ("focused-shell visual parity and top tab
-          refinement"): selectedTierId !== null is a defensive belt here —
-          upgradeGateActive can only ever be 'browsing' once a primary is
-          already committed (see commitSelection/upgradeGateActive above),
-          so this never actually excludes a real case; it only lets the
-          identity lookups below skip a null check on every read. */}
-      {upgradeGateActive === 'browsing' && selectedTierId !== null && (() => {
-        // Top floating tab reuse: the SAME EditionCueSelector + selectVariant
-        // authority the normal focused shell uses above — never a second
-        // variant-selection state. Identity is derived FRESH every render
-        // from the already-quoted primary's own tierEditionPlatformId
-        // (never focusedEditionId, which belongs to the unrelated normal-
-        // focused-shell state and is untouched by any of the three
-        // Upgrade-browsing entry points — initial Browse Catalogue, the
-        // Cart footer's Upgrade your build, and line-level Manage build),
-        // using the exact same Platform-ID-equality identity comparison
-        // already used throughout this file (isExactQuotedOption etc.) —
-        // never inferred from label/array position. This is also what
-        // makes the tab automatically show the right context regardless of
-        // entry point, with no extra wiring per entry point.
-        const primaryTierData = family.pricing.tiers[selectedTierId];
-        const primaryEditionOptions = primaryTierData?.edition_options ?? [];
-        const primaryActiveEditionId = selectedPrimaryItem?.tierEditionPlatformId
-          ? primaryEditionOptions.find((option) => option.edition_platform_id === selectedPrimaryItem.tierEditionPlatformId)?.id ?? null
-          : null;
-        const primaryTier = tiers.find((tier) => tier.id === selectedTierId);
-        // Occupant/default presentation follows the SAME tab grammar as
-        // Edition (EditionCueSelector already renders a static single ball
-        // when there is only one destination) — never a bespoke "no
-        // Editions" special case here.
-        const primaryLabel = primaryEditionOptions.find((option) => option.id === primaryActiveEditionId)?.label
-          ?? primaryTierData?.label
-          ?? primaryTier?.title
-          ?? selectedTierId;
-        return (
-          <div class="cz-package-builder__upgrade-browsing">
-            <div class="cz-package-builder__upgrade-browsing-detail">
-              <h3 class="cz-package-builder__focused-name">{primaryLabel}</h3>
-              {/* Clicking a different Default/Edition here reuses
-                  selectVariant() verbatim — the exact same switching
-                  authority/path the normal focused shell's own tab and
-                  Edition chips already use, never a second/parallel one.
-                  That exits Upgrade browsing into that variant's own
-                  normal focused view, identically to every other entry
-                  point into the focused shell; closing that view (its own
-                  existing X) returns here, since upgradeGateStage itself
-                  is never touched by either path. */}
-              <EditionCueSelector
-                destinations={[{ id: null, label: 'Default' }, ...primaryEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
-                activeId={primaryActiveEditionId}
-                onSelect={(editionId) => selectVariant(selectedTierId, editionId)}
-              />
-              <ComposableOfferBrowser
-                family={family}
-                context="upgrade_your_build"
-                initialCartItem={selectedComposableItem}
-                primaryItem={selectedPrimaryItem}
-                onCommit={onComposableCommit}
-                onRemoveFromQuote={onComposableRemove}
-              />
-            </div>
-            <UpgradeBuildSummary
-              primaryItem={selectedPrimaryItem}
-              composableItem={selectedComposableItem}
-              onExit={dismissUpgradeGate}
-            />
-          </div>
-        );
-      })()}
     </>
   );
 }

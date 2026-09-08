@@ -423,8 +423,8 @@ check(
   'the same reconciliation branch that resets selection/hasInteracted on a genuine external clear must also reset Category/Service/Sort/page to their fresh-route defaults (All Categories, All Services, Featured, page 1) — a completed transaction must not leave the Upgrade browser stuck on a stale filter',
 );
 check(
-  browserSource.includes('}, [family.family_id, rowIdsKey]);'),
-  'the mount/Family-switch reseed effect still excludes initialCartItem from its own dependency array — the reconciliation above is a SEPARATE, narrowly-scoped effect, never merged into that one (which would refire on every ordinary commit echo and fight the customer\'s own next click)',
+  browserSource.includes('}, [family.family_id, rowIdsKey, activeEditionId]);'),
+  'the mount/Family-switch/Edition-switch reseed effect still excludes initialCartItem from its own dependency array — the reconciliation above is a SEPARATE, narrowly-scoped effect, never merged into that one (which would refire on every ordinary commit echo and fight the customer\'s own next click)',
 );
 
 // ── 8c. Live-validation correction (2nd round): Add/Remove and the auto-commit effect refuse to act without an exact ready primary (source-scan) ──
@@ -445,7 +445,7 @@ check(
   'the debounced auto-commit effect bails out before starting a preview request at all when there is no ready primary — not merely before the eventual onCommit/onRemoveFromQuote call at the end of it',
 );
 check(
-  browserSource.includes('hasInteracted, onCommit, onRemoveFromQuote, hasReadyPrimary]);'),
+  browserSource.includes('hasInteracted, onCommit, onRemoveFromQuote, hasReadyPrimary, activeEditionId]);'),
   'hasReadyPrimary is a dependency of the auto-commit effect — a primary disappearing mid-debounce tears down any in-flight preview request via this effect\'s own cleanup, exactly like a Family switch already does',
 );
 const addButtonSection = browserSource.slice(browserSource.indexOf('<button'), browserSource.indexOf('</button>'));
@@ -685,8 +685,8 @@ check(
 );
 check(
   browserSource.includes('setPreview({ ok: true, summaries, contributions, message: null })')
-    && browserSource.includes('buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows)'),
-  'preview.summaries and the auto-commit effect that builds the committed item from it are untouched — removing the display block did not alter the underlying aggregate used by the cart and Details',
+    && browserSource.includes('buildComposableFamilyTierQuoteItem(family, offer, choice, periods, contributions, rows, activeEdition)'),
+  'preview.summaries and the auto-commit effect that builds the committed item from it are untouched — removing the display block did not alter the underlying aggregate used by the cart and Details (activeEdition is the one addition the Edition-resolution correction required)',
 );
 
 // 13d. ComposableOfferBrowser.tsx: the row icon and +/× action no longer
