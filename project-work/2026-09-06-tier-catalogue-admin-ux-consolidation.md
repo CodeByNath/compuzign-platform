@@ -1,39 +1,50 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **READY FOR CLAUDE — LIVE REJECTED: focused ownership is right, CTA/gate presentation was wrongly removed/relabelled**
 - Auditor verdict: **Proceed with safeguards**.
-- Pushed: `a584ede09aeb65f242be26ce5317a5fc9825a05b` is now `main` (clean fast-forward from prior `af01ebb1`, confirmed via `git merge-base --is-ancestor` before push).
-- Deploy: GitHub Actions "Deploy to Hostinger" run #977, commit `a584ede`, **Success** (36s).
-- Nath to live-check this focused-shell correction on production before the visibility correction is implemented.
+- Production `main`: `a584ede09aeb65f242be26ce5317a5fc9825a05b`, deploy #977 Success, but Nath rejected the live UX.
 
-## Audit result
-I inspected the actual source, not only Claude's report.
+## What was correct
+Keep only this structural correction:
+- Build Your Own/composable occupant uses the same focused-shell identity model as a normal Tier: one `focusedTierId`, one `focusedEditionId`, one `selectVariant()`;
+- when the catalogue is actually opened, focused data comes from `family.pricing.composable_offer`, never the selected primary Tier;
+- composable inclusion selection/server preview/quote identity remain authoritative.
 
-The structural mistake is corrected:
-- one `focusedTierId` now accepts either a normal Tier id or `COMPOSABLE_QUOTE_TIER_ID`;
-- one `focusedEditionId` owns Default/Edition for either occupant;
-- one `selectVariant()` enters/switches the focused shell for both;
-- `focusedData` resolves from `family.pricing.tiers[tierId]` or `family.pricing.composable_offer`;
-- the same close button, title and `EditionCueSelector` are shared;
-- Manage build/footer recovery enter the same focused state;
-- the old parallel Upgrade gate/browsing/summary shell and its separate Edition/sync/exit states are removed.
+## What we got wrong
+The auditor incorrectly treated the old Upgrade presentation as the architectural problem. It was not.
 
-The composable-specific catalogue remains only as the occupant-specific body inside the shared focused-card slot. That is acceptable for this phase because its Add/Remove/quantity selection is a genuine Build Your Own capability and still resolves through the existing server preview/quote authority.
+Claude removed the existing Upgrade Your Build CTA/gate presentation and replaced it with a staged `Build Your Own` card/CTA (`family.pricing.composable_offer?.label`, Browse Catalogue/Manage build). Nath has now live-rejected that: the gates/design are wrong and customer wording started becoming **Build Your Own** where the established customer journey is **Upgrade Your Build**.
 
-### Must preserve on push
-- Build Your Own uses its own Default/Edition identity, never the selected primary Tier;
-- primary quoted Tier is untouched while editing Build Your Own;
-- existing composable server resolver/quote identity remains authoritative;
-- no resurrection of a second `upgrade-browsing` focused system.
+The required distinction is simple:
+- **Upgrade Your Build** = customer journey / CTA / gate presentation after a primary Tier is quoted.
+- **Build Your Own/composable occupant** = the internal occupant whose Default/Edition/content the focused shell reads once Browse Catalogue is opened.
 
-## Claude — next action
-Pushed and deployed (see Status). Waiting on Nath's live check. Do not implement the visibility correction yet.
+Do not rename one into the other.
 
-## Next phase after live acceptance — visibility rule, keep literal
-Nath's rule:
-- ordinary focused Tier/Edition: hide **Cart only**; do not hide Add-ons merely because normal focus is open;
-- when the **new Upgrade Your Build CTA / Build Your Own flow** is active: hide **Cart + Add-ons**;
-- do not hide the selected primary Tier card/context as the way to achieve that.
+## Claude — correction
+Restore the established Upgrade Your Build customer presentation/flow from the pre-`a584ede` behavior (the accepted CTA/gate design and wording), but keep the new correct focused ownership underneath it.
 
-Audit current visibility source only after this focused-shell deployment is accepted. No new navigation/state system.
+Required flow:
+1. primary Tier is already quoted;
+2. **Upgrade Your Build** CTA/gate appears using the established design/copy;
+3. while that CTA/gate is active, selected primary Tier context stays visible, but **Add-ons + Cart are hidden**;
+4. `Browse Catalogue` enters the SAME focused shell using `COMPOSABLE_QUOTE_TIER_ID` + the composable occupant's own Default/Edition;
+5. closing/dismissing returns to the established continuation; do not invent a new Build Your Own card/gate.
+
+### Must preserve
+- customer-facing wording **Upgrade Your Build** for this journey;
+- existing gate/CTA design that was present before `a584ede`;
+- same focused-shell occupant model once catalogue opens;
+- primary Tier untouched;
+- composable server preview/quote authority;
+- Manage build re-entry to the composable focused shell.
+
+### Must remove / not substitute
+- remove the new staged `Build Your Own` CTA/card introduced by `a584ede`;
+- do not call the Upgrade journey Build Your Own;
+- do not restore the old primary-bound focused selector;
+- do not create another focused-shell implementation;
+- do not redesign the gate.
+
+Prepare one clean correction from current production `main`. Report exact files/SHA and set **AWAITING CHATGPT REVIEW**. Do not push to main.
