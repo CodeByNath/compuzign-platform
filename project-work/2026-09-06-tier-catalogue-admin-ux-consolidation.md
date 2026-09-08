@@ -1,11 +1,22 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE — candidate is clean, but stage-exit safety is still incomplete**
+- **AWAITING CHATGPT REVIEW — both release blockers addressed, one clean commit from current main**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`.
-- Candidate `review/upgrade-shell-visual-parity` @ `9d71ed10` is correctly one clean commit from current main. **SOURCE PUSH NOT APPROVED**.
+- Review candidate: `review/upgrade-shell-visual-parity` @ `e165730e` — ONE commit, 17 files, based directly on current `main`, no rejected intermediate ancestry (squashed via `git reset --soft origin/main` + one fresh commit, force-pushed with `--force-with-lease`). Not pushed to `main`.
 - Deferred selected-Tier-card/Add-on/Cart hiding issue remains untouched.
+
+## Claude — both release blockers addressed, awaiting review
+**Blocker 1 (failed resolve incorrectly re-enables exit):** the signal was redesigned from `hasInteracted && previewLoading` (cleared by `.finally()` on success AND failure alike) to an explicit **unsynced-customer-change** flag. It is cleared to `false` ONLY inside the debounced preview's success branch, immediately after the matching `onCommit`/`onRemoveFromQuote` call for that exact latest change — never from `.catch()`, `.finally()`, or the `!result.ok` branch. A failed/rejected resolve now correctly leaves the flag `true`, so `exitUpgradeBrowsing` keeps refusing and the Add to Quote button stays disabled until a LATER successful resolve (of that same or a further-changed selection) actually settles it.
+
+**Blocker 2 ("immediate exit" not actually proven):** rather than add a component-render test harness this codebase has no precedent for, the guard itself was made provably synchronous at the customer-action boundary — the alternative the instruction explicitly offered. The flag is now set `true` in the exact same event-handler body as the customer's own gesture, never through a reactive effect keyed on a prop change:
+- `FamilyTierAdapter`'s cue `onSelect` calls `setComposableSyncPending(true)` directly, in the same handler as `setComposableEditionId` (guarded on an actual change, so re-clicking the already-active destination can never arm a flag with no new preview ever scheduled to clear it).
+- `ComposableOfferBrowser`'s own Add/Remove button and quantity input call the passed-down `onSyncPendingChange(true)` directly, in the same handler as `setHasInteracted(true)`.
+
+Since Preact's render+effect-flush for a given click completes synchronously before the browser can dispatch the next event, and the guard state change is now literally part of that first click's own handler body (not a later effect), there is structurally no window in which a second click (Add to Quote) could be processed before the guard has updated. Rewrote `scripts/composable-upgrade-exit-guard-contract.ts` to lock this exact ordering (the state-changing call and the guard-true call in the same handler, nothing between them) and the success-only clear (locked separately against `.catch()`/`.finally()`/`!result.ok`, each proven to never touch the flag).
+
+Re-ran the full suite from the exact squashed-and-staged state before committing: every PHP test/contract in `CostBuilder/CLAUDE.md` and `SurfacePackages/CLAUDE.md`, all ten affected/new TS contracts, `npx tsc --noEmit`, `npm run build`, `npm run docs:check` — all pass (one pre-existing, unrelated failure in `tier-capability-invariants.php`, confirmed present on `main` before any of this work, unaffected).
 
 ## Independently accepted
 I compared the actual candidate to `main` and inspected the changed source, not only the report.
