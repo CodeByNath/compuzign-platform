@@ -1,54 +1,44 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — `0a13fd14` rejected after source audit**
-- Auditor verdict: **Stop — architectural risk**.
+- **SOURCE PUSH APPROVED**
+- Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `28b6859c1efab5044ac761f360852a19988de7b2`.
-- Candidate `0a13fd14` is **SOURCE PUSH NOT APPROVED**.
+- Approved candidate: `review/upgrade-shell-visual-parity` @ `0a13fd14`.
 
-## What is now correct
-Keep all of this unchanged:
-- CTA inside Recommendations;
-- selected primary Tier visible;
-- pending CTA hides Add-ons + Cart;
-- Browse Catalogue uses `.cz-package-builder__focused`;
-- `ComposableOfferBrowser` remains the one preview/auto-sync mutation authority;
-- Add to Quote remains exit/return only;
-- catalogue-only Families stage correctly;
-- selected composable Edition now drives the server resolver's full Edition commercial container;
-- no standalone Build Your Own route/card.
+## Current release goal
+Finish the customer-facing **Upgrade Your Build** flow. Do not expand this work into a broader composable-Edition architecture project.
 
-## Two remaining source mismatches
+The accepted flow is:
+- normal Tier/Edition is added first;
+- selected primary Tier stays visible in staged view;
+- Upgrade Your Build CTA sits inside existing Recommendations;
+- pending Upgrade hides Add-ons + Cart;
+- Browse Catalogue opens the composable occupant inside the existing `.cz-package-builder__focused` shell;
+- `ComposableOfferBrowser` remains the existing server-preview/auto-sync quote mutation authority;
+- Add to Quote is exit/return to the normal staged Tier + Recommendations + Cart view, not a second commit path;
+- catalogue-only Families can still reach the Recommendations CTA;
+- no standalone Build Your Own route/card/customer journey.
 
-### 1. Quote builder still reads Default commercial metadata
-`buildComposableFamilyTierQuoteItem()` receives the correct Edition-resolved `periods`, but still uses Default `offer` fields for:
-- `minimumTermValue` / `minimumTermUnit`;
-- `commitmentMonths` passed into `buildLegPaymentSummaries()`;
-- `offer.headline_leg_id` passed into `resolveHeadlinePrice()`;
-- `offer.headline_leg_id` passed into `buildQuotedCartBreakdown()`.
+## Explicit deferral
+The previously raised deeper composable-Edition consistency refinements are **not release blockers for this work**. Defer them to a separate follow-up unless live validation proves they directly break this customer flow.
 
-So an Edition can now resolve the correct periods but still have Default commitment/headline metadata applied while building the quote.
+Do not continue changing:
+- Edition-specific catalogue-row projection/enrichment;
+- additional Edition quote-metadata normalization;
+- broader Edition/composable resolver architecture.
 
-**Fix:** derive these fields from the active Edition when one is selected, otherwise from Default. Do not recalculate pricing client-side; continue using server-returned `periods`.
+Do not revert working Edition changes already present in the approved candidate merely to reduce scope. Just stop expanding them here.
 
-### 2. Edition catalogue rows are still Default-bound
-`resolveComposableEligibleRows()` always builds its inclusion map from `offer.inclusions`, even when using an Edition's `customer_policy`. Therefore an Edition-only `rate_sheet_items` inclusion can be priced by the corrected server resolver but never appear in the catalogue/selection UI or committed inclusion list.
+## Claude — next action
+Push only the approved candidate to `main` using the normal clean review-branch process. Do not add further source changes in this work item before push.
 
-This is not merely cosmetic: required/selected Edition inclusions can become hidden from the customer while still affecting the resolved commercial result.
+After push, record:
+- exact `main` SHA;
+- deployment/workflow result;
+- confirmation that no additional source changes were included.
 
-**Fix:** reuse the existing Edition projection/inclusion authority so an active composable Edition's browsable inclusion set comes from that Edition's own resolved inclusion declaration/Rate Sheet rows, with the same browse metadata enrichment used for Default. Default remains unchanged when no Edition is selected.
+Then set **AWAITING LIVE VALIDATION**. Nath will perform the customer-facing live check.
 
-## Must preserve
-- every item in “What is now correct”;
-- same server resolver/preview/auto-sync path;
-- Add to Quote is not a second commit path;
-- no new pricing engine or client commercial calculation;
-- Edition identity must match the same declaration used for rows, periods, commitment and headline.
-
-## Must not substitute
-- no redesign of CTA, focused shell, Cart or Recommendations;
-- no new route/gate/wrapper;
-- no hiding Edition-only inclusions to avoid fixing projection;
-- no flattening Editions back onto Default.
-
-Prepare one clean corrected candidate from current `main`, report exact SHA/files/evidence, set **AWAITING CHATGPT REVIEW**, and do not push to `main`.
+## Live acceptance target
+Validate only the intended Upgrade Your Build flow above. Any deeper Edition refinement discovered but not blocking that flow should be recorded for separate follow-up, not fixed inside this work item.
