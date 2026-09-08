@@ -1,45 +1,25 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — add Cart footer Upgrade your build recovery route**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `c331909f0b1abc3323f28eafa566c2501f593862`; deploy #974 succeeded.
-- Existing initial Upgrade flow + deployed **Manage build** route remain accepted and must not be reopened.
+- **AWAITING CHATGPT REVIEW — Cart footer Upgrade your build recovery route**
+- Auditor verdict pending re-review.
+- Production `main`: `c331909f0b1abc3323f28eafa566c2501f593862`; deploy #974 succeeded (unchanged; not pushed).
+- Existing initial Upgrade flow + deployed **Manage build** route remain accepted and untouched by this candidate.
 
-## New live refinement
+## New live refinement (unchanged from prior round)
 Nath confirmed the current flow is acceptable but identified the skipped-upgrade gap: when a customer chooses **Maybe next time** and later lands at Cart without any composable/Upgrades line, there is no recovery route back into Upgrade Your Build.
 
-Preferred simple solution: add **Upgrade your build** in the Cart footer immediately before existing **View details**:
+Added **Upgrade your build** in the Cart footer immediately before existing **View details**, in the same row.
 
-`Upgrade your build` | `View details`
+## Implementation evidence
+- Branch: `review/upgrade-build-cart-footer-recovery` @ `dd5f26fb` (base: current `main`, `c331909f`; one commit ahead).
+- `PackageBuilderApp.tsx`: `showUpgradeYourBuildFooter` gates on the active Family's `primary !== null && composableItem === null && resolveComposableEligibleRows(family).length > 0` — the same shared eligibility authority `FamilyTierAdapter`'s own `commitSelection` gate uses, never a second/derived test. `handleManageBuild`'s routing body was extracted into a shared `requestManageBuild(familyId, tierInstanceId)` helper (Manage build now a thin wrapper over it); the footer's `onUpgradeYourBuild` calls the same helper with the active Family's own `family.family_id`/`family.tier_instance_id` — never "first item in Cart" or a rendered label.
+- `QuoteSummary.tsx`: optional `onUpgradeYourBuild` prop, rendered in a new `.cz-quote-summary__footer-links` row immediately before View details; absent for `CostBuilderApp.tsx`.
+- `FamilyTierAdapter.tsx`: the request-consuming effect's open guard is generalized to `selectedPrimaryItem && (selectedComposableItem || resolveComposableEligibleRows(family).length > 0)` — opens with no composable item yet (this route) or with one already committed (Manage build), never requiring both; no synthetic auto-commit performed. Race-safe mismatch-waits/matched-consumes behavior (prior round) is untouched.
+- `cost-builder.css`: `.cz-quote-summary__footer-links` (row layout) and `.cz-quote-summary__upgrade-your-build` (same quiet text-link recipe as the row's other entries).
+- New contract: `scripts/upgrade-build-footer-contract.ts` (`npm run contract:upgrade-build-footer`), locking eligibility, disappearance-once-composable-exists (same `composableItem === null` check, so mutually exclusive with Manage build by construction), the shared-routing reuse, and the generalized open guard. `scripts/manage-build-contract.ts` updated for the `requestManageBuild` extraction — Manage build's own semantics (button gating, race safety, one-shot consumption, no mutation on entry, unchanged Add-to-Quote exit) re-verified intact.
+- Validation: `tsc --noEmit` clean; `contract:manage-build`, `contract:upgrade-build-footer`, `contract:upgrade-your-build-gate`, `contract:package-builder-addon-focus`, `contract:package-builder-regression-lock`, `contract:composable-quote-cart`, `contract:package-family-cart` all pass; clean Vite build.
+- Live visual validation remains for after any main push.
 
-Do not move/recreate the recommendation gate/card.
-
-## Required behavior
-Show footer **Upgrade your build** only when the currently relevant Package Family has:
-- a quoted primary Tier/Edition;
-- a real eligible composable catalogue;
-- **no committed composable/Upgrades cart line** yet.
-
-Clicking it:
-- goes directly to the existing Upgrade **`browsing`** stage;
-- does **not** show the first-time Browse/Maybe-next-time gate;
-- hides Cart/MobileQuoteBar + Recommendations exactly as current browsing does;
-- mounts the same `ComposableOfferBrowser` with the quoted primary and no initial composable item;
-- keeps existing auto-sync as the only quote mutation path;
-- keeps the current scoped Cart-backed right side;
-- existing **Add to Quote** remains stage-exit only and returns to Recommendations-if-present, otherwise Cart.
-
-Once a composable line exists, the footer **Upgrade your build** action disappears; the deployed line-level **Manage build** becomes the correct re-entry route.
-
-## Source-grounded implementation boundary
-- `resolveComposableEligibleRows(family)` is already the shared eligibility authority; reuse it, do not derive a second catalogue test.
-- `PackageBuilderApp` already knows active Family, its `primary`, and `composableItem`; decide footer-action availability/target there.
-- `QuoteSummary` should stay generic via an optional package-builder-only footer callback/label; other callers remain unaffected.
-- Reuse/generalise the existing one-shot race-safe Cart→`FamilyTierAdapter` browsing request rather than create a second navigation state machine. The consumer may enter browsing with matching primary + eligible catalogue even when `selectedComposableItem` is null; **Manage build** still originates only from an existing composable line.
-- Keep cross-Family routing deterministic: the footer action targets an explicit eligible Family/primary, never “first item in Cart” or a rendered label.
-
-## Must preserve / must not substitute
-Preserve initial gate, Maybe next time, Manage build, auto-sync, add-ons, Cart totals, mobile behavior, and Add-to-Quote exit. No duplicate card, second catalogue, edit mode, staging cart, pricing/persistence change, or extra customer step.
-
-Add focused contracts for footer eligibility, disappearance after composable exists, direct browsing re-entry, cross-Family race safety, and unchanged Manage build semantics. Run `tsc`, relevant contracts and build. Push a clean review candidate from current `main`, record exact SHA/files/evidence here, set **AWAITING CHATGPT REVIEW**. Do not push to main.
+## ChatGPT — next action
+Review `review/upgrade-build-cart-footer-recovery` @ `dd5f26fb` against the required behavior (project-work history above) and boundary. Approve for source push, or reject with correction.
