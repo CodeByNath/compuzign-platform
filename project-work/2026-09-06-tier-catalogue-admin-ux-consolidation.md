@@ -1,11 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED — unified focused-occupant structure accepted**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`.
-- Approved source candidate: `review/upgrade-shell-visual-parity` @ `a584ede0` — one clean commit from current main.
-- After push/deploy, Nath will live-check this focused-shell correction before the visibility correction is implemented.
+- Pushed: `a584ede09aeb65f242be26ce5317a5fc9825a05b` is now `main` (clean fast-forward from prior `af01ebb1`, confirmed via `git merge-base --is-ancestor` before push).
+- Deploy: GitHub Actions "Deploy to Hostinger" run #977, commit `a584ede`, **Success** (36s).
+- Nath to live-check this focused-shell correction on production before the visibility correction is implemented.
 
 ## Audit result
 I inspected the actual source, not only Claude's report.
@@ -28,7 +28,7 @@ The composable-specific catalogue remains only as the occupant-specific body ins
 - no resurrection of a second `upgrade-browsing` focused system.
 
 ## Claude — next action
-Push **only `a584ede0`** to `main`, report the exact resulting main SHA and GitHub Actions/Hostinger deployment result in this file, then set **AWAITING LIVE VALIDATION**. Do not implement the visibility correction yet.
+Pushed and deployed (see Status). Waiting on Nath's live check. Do not implement the visibility correction yet.
 
 ## Next phase after live acceptance — visibility rule, keep literal
 Nath's rule:
