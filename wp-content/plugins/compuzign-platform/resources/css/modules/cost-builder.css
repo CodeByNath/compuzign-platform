@@ -882,6 +882,27 @@
   opacity: 0.85;
 }
 
+/* Manage build (project-work/2026-09-06-tier-catalogue-admin-ux-
+   consolidation.md) — same quiet text-link recipe as
+   .cz-quote-summary__view-details above, on its own line under this one
+   item's price presentation rather than the cart-level footer. */
+.cz-quote-summary__manage-build {
+  align-self: flex-start;
+  padding: 0;
+  margin-top: var(--cz-space-1);
+  border: none;
+  background: none;
+  font-size: var(--cz-font-size-xs);
+  font-weight: 600;
+  color: var(--cz-color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cz-quote-summary__manage-build:hover {
+  opacity: 0.85;
+}
+
 /* Nath refinement: left-aligned now that it's the ONE cart-level entry
    point into the quote-details overlay (the per-item buttons that used
    to sit above it are gone) — matches .cz-quote-summary__view-details'

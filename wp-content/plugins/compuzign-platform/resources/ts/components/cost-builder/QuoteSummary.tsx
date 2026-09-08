@@ -22,6 +22,13 @@ interface QuoteSummaryProps {
   // — see below) — `null` stays a valid, supported target on the overlay
   // itself, just not one this caller currently reaches for.
   onOpenDetails?: (item: FamilyTierQuoteItem | null) => void;
+  // project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
+  // "Manage build" — optional so this component's other caller
+  // (CostBuilderApp.tsx, no Upgrade Your Build concept) is unaffected.
+  // Rendered only for the composable Upgrades line that coexists with its
+  // primary (see composableCoexistsWithPrimary below); PackageBuilderApp
+  // owns routing this back into FamilyTierAdapter's browsing stage.
+  onManageBuild?: (item: FamilyTierQuoteItem) => void;
 }
 
 // Extracted (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
@@ -251,7 +258,7 @@ export function QuoteTotalsPresentation({ items }: { items: CartItem[] }) {
   );
 }
 
-export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails }: QuoteSummaryProps) {
+export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDetails, onManageBuild }: QuoteSummaryProps) {
   const [clearPending, setClearPending] = useState(false);
   const { openKey: openDisclosureKey, toggle: toggleDisclosure, panelRef: disclosurePanelRef } = useSingleOpenDisclosure();
 
@@ -337,6 +344,20 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
                   surfaces); QuoteItemPricePresentation simply doesn't print
                   them. */}
               <QuoteItemPricePresentation item={item} items={items} />
+              {/* Manage build: this action belongs to Upgrade Your Build,
+                  not generic Cart navigation — rendered only for the exact
+                  composable line that coexists with its primary (never a
+                  standalone Build Your Own line, never inferred from the
+                  "Upgrades" label above). */}
+              {onManageBuild && isFamilyTierQuoteItem(item) && composableCoexistsWithPrimary(item, items) && (
+                <button
+                  type="button"
+                  class="cz-quote-summary__manage-build"
+                  onClick={() => onManageBuild(item)}
+                >
+                  Manage build
+                </button>
+              )}
               {disclosureOpen && (
                 <InclusionDisclosurePanel rows={disclosureRows} panelRef={disclosurePanelRef} />
               )}

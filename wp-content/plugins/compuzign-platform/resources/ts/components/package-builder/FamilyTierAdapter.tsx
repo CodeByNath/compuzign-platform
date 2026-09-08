@@ -35,6 +35,20 @@ interface PlanDetailsTarget {
   platformId: string;
 }
 
+// "Manage build" (project-work/2026-09-06-tier-catalogue-admin-ux-
+// consolidation.md) — the Cart's own one-shot re-entry signal into this
+// component's existing 'browsing' stage. Identity only (which Family +
+// Instance the click targeted, plus a requestId that changes on every
+// click so the SAME target can be requested again after an exit): this
+// component alone decides whether/how to act on it (see the consuming
+// effect below), never a payload the caller drives navigation with
+// directly.
+export interface ManageBuildRequest {
+  familyId: string;
+  tierInstanceId: string;
+  requestId: number;
+}
+
 // The active focused variant's own resolved Commercial Period list — the
 // occupant's own commercial_legs for Default, or the matching Edition's own,
 // never a frontend reconstruction. See PackageManagerSchema::
@@ -352,6 +366,17 @@ interface FamilyTierAdapterProps {
   // performs the actual mutation/visibility" posture as onCommit/
   // onRemoveFromQuote above.
   onUpgradeGateActiveChange: (active: boolean) => void;
+  // "Manage build" — Cart's one-shot request to re-enter this Family's
+  // existing 'browsing' stage directly for its already-committed composable
+  // line. null means no pending request. A request for a Family/Instance
+  // other than the one this component is currently rendering is left
+  // untouched (not consumed) until that Family/Instance actually renders
+  // here — see the consuming effect below. onManageBuildConsumed is called
+  // exactly once a matching Family/Instance has been resolved (opened or
+  // dropped), so the caller can clear it and a later exit from browsing
+  // (dismissUpgradeGate) can never re-trigger the same request.
+  manageBuildRequest: ManageBuildRequest | null;
+  onManageBuildConsumed: () => void;
 }
 
 const CUSTOMER_GROUPS = [
@@ -390,6 +415,8 @@ export function FamilyTierAdapter({
   onComposableRemove,
   selectedPrimaryItem,
   onUpgradeGateActiveChange,
+  manageBuildRequest,
+  onManageBuildConsumed,
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
@@ -571,6 +598,50 @@ export function FamilyTierAdapter({
     setUpgradeGateTierId(null);
     setUpgradeGateStage(null);
   };
+
+  // "Manage build" — consumes manageBuildRequest. Declared AFTER the
+  // family-reset effect above (in hook registration order — see that
+  // effect, keyed on family.family_id) so, on the same commit where a Cart
+  // click also switched activeFamilyId (a different Family than was
+  // already open), that reset runs first and this effect is the one that
+  // leaves upgradeGateTierId/Stage set, never the other way around.
+  //
+  // Auditor correction ("race-safe cross-Family Manage build re-entry"):
+  // PackageBuilderApp's handler performs two separate setState calls
+  // (setActiveFamilyId, then setManageBuildRequest) — relying on both
+  // being observed by this component in the exact same render/commit is
+  // not something a static contract can prove, so this effect no longer
+  // assumes it. A request for a Family/Instance OTHER than the one
+  // currently rendered here is left completely untouched (NOT consumed) —
+  // it waits. family.family_id/family.tier_instance_id are now in the
+  // dependency array specifically so this effect re-fires the moment the
+  // target Family/Instance actually renders, at which point the SAME
+  // still-pending request is re-evaluated and, now matching, is resolved.
+  // Only once the Family/Instance genuinely matches is the request ever
+  // resolved — opened (both the primary and the already-committed
+  // composable line exist, the same belt-and-suspenders posture as
+  // ComposableOfferBrowser's own primaryItem gate elsewhere in this file)
+  // or silently dropped (matched but a guard failed) — never both left
+  // pending and later fired unexpectedly once conditions happen to change.
+  useEffect(() => {
+    if (!manageBuildRequest) return;
+    const familyMatches = manageBuildRequest.familyId === family.family_id
+      && manageBuildRequest.tierInstanceId === family.tier_instance_id;
+    if (!familyMatches) return;
+    if (selectedTierId !== null && selectedPrimaryItem && selectedComposableItem) {
+      setUpgradeGateTierId(selectedTierId);
+      setUpgradeGateStage('browsing');
+    }
+    // Reached only once the Family/Instance matches — resolved here
+    // exactly once, whether opened above or dropped because a guard
+    // failed, so it can never linger and fire later once the customer
+    // happens to re-add a composable line or otherwise change state.
+    // Preserves one-shot behavior after a successful open: this same
+    // request has already been consumed by the time browsing later exits
+    // (dismissUpgradeGate), so an exit can never re-trigger it.
+    onManageBuildConsumed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manageBuildRequest, family.family_id, family.tier_instance_id]);
 
   const itemFor = (
     tierId: TierId,

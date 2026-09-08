@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { usePackageBuilder } from '@/hooks/usePackageBuilder';
 import { Spinner } from '@/components/ui/Spinner';
 import { Card } from '@/components/ui/Card';
@@ -20,6 +20,7 @@ import {
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { TierId } from '@/api/types/cost-builder';
 import { FamilyTierAdapter } from './FamilyTierAdapter';
+import type { ManageBuildRequest } from './FamilyTierAdapter';
 import { QuoteDetailsOverlay } from './QuoteDetailsOverlay';
 import { RequestFlowModal } from '@/components/request-flow/RequestFlowModal';
 
@@ -62,6 +63,25 @@ export function PackageBuilderApp() {
   // MobileQuoteBar while the gate is active, without this component ever
   // reading/duplicating the gate's own internal state shape.
   const [upgradeGateActive, setUpgradeGateActive] = useState(false);
+  // "Manage build" (project-work/2026-09-06-tier-catalogue-admin-ux-
+  // consolidation.md) — a one-shot identity/request signal only, never the
+  // mutation/navigation itself. FamilyTierAdapter owns re-entering its own
+  // existing 'browsing' stage; this component only routes the click's
+  // target Family into view (activeFamilyId) and hands the request down.
+  // requestId is a ref counter (not Date.now()) so two clicks in the same
+  // millisecond still produce distinct requests.
+  const manageBuildRequestId = useRef(0);
+  const [manageBuildRequest, setManageBuildRequest] = useState<ManageBuildRequest | null>(null);
+  const handleManageBuild = useCallback((item: FamilyTierQuoteItem) => {
+    manageBuildRequestId.current += 1;
+    setActiveFamilyId(item.familyId);
+    setManageBuildRequest({
+      familyId: item.familyId,
+      tierInstanceId: item.tierInstanceId,
+      requestId: manageBuildRequestId.current,
+    });
+  }, []);
+  const consumeManageBuildRequest = useCallback(() => setManageBuildRequest(null), []);
 
   useEffect(() => {
     if (items.length === 0) clearCart();
@@ -206,6 +226,8 @@ export function PackageBuilderApp() {
               onComposableRemove={removeComposable}
               selectedPrimaryItem={primary}
               onUpgradeGateActiveChange={setUpgradeGateActive}
+              manageBuildRequest={manageBuildRequest}
+              onManageBuildConsumed={consumeManageBuildRequest}
             />
           </Card>
         </main>
@@ -217,6 +239,7 @@ export function PackageBuilderApp() {
               onClear={() => setItems([])}
               onOpenReview={() => setIsFlowOpen(true)}
               onOpenDetails={(item) => setQuoteDetailsTarget(item ?? 'cart')}
+              onManageBuild={handleManageBuild}
             />
           )}
         </aside>
