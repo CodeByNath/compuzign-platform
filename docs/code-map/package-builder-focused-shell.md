@@ -42,20 +42,6 @@ identical item+quantity is already explained by the main list and is never
 repeated as an Extension. Groups stay separate by `component.source` —
 same-cycle Legs are never merged into one group.
 
-## Composable ("Build Your Own") occupant shares this same shell
-
-project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
-("structural correction") — the composable occupant
-(`family.pricing.composable_offer`) is a Tier occupant too, so it opens in
-this shell, never a second one resembling it. `focusedTierId`'s type admits
-its sentinel alongside the five Tier ids; `selectVariant()` is the one
-entry point for both, so the close button, title, and `EditionCueSelector`
-stay unbranched shared code. The right slot renders `ComposableOfferBrowser`
-instead of `TierCard`; Commercial Terms/Periods-timeline are skipped, since
-pricing assembles live per selection. Entry is a Choose-Plan-style click
-gated on `resolveComposableEligibleRows(family)`, or Manage build/the Cart
-footer route.
-
 ## Family-switch state boundary
 
 The Package Family selector (`PackageBuilderApp.tsx`) is a SIBLING of
@@ -72,12 +58,14 @@ the new Family's data at the same focused level.
 
 ## Known limitation
 
-Weekly/Daily `billing_cycle` values reach `commercial_legs`, but the
-customer-facing cadence-word/suffix maps (`PricingTiers.tsx`,
-`commercialLegPresentation.ts`, `PlanDetailsModal.tsx`) have no entries for
-them, falling back to a neutral label/no suffix. `periodPriceOverride()`
-is broader than its name suggests (also supplies a Period's inclusion
-list, not only price).
+Weekly/Daily `billing_cycle` values are selectable in the admin Pricing
+Rules editors and do reach `commercial_legs`, but the customer-facing
+cadence-word/suffix maps in `PricingTiers.tsx`,
+`commercialLegPresentation.ts`, and `PlanDetailsModal.tsx` have no entries
+for them — they fall back to a neutral label/no suffix rather than
+formatting correctly. `periodPriceOverride()` remains behaviorally broader
+than its name suggests (also supplies a Period's inclusion list, not only
+price).
 
 ## Authoritative files
 
@@ -85,13 +73,11 @@ list, not only price).
 |---|---|
 | Focused shell | `FamilyTierAdapter.tsx`, `commercialLegPresentation.ts` |
 | Card/hover rendering | `PricingTiers.tsx` (`TierCard`, `relatedInclusionIds`) |
-| Composable occupant body | `ComposableOfferBrowser.tsx` (hosted inside the same shell, see above) |
 | Extension groups | `commercialLegExtensionGroups()`, `commercialLegInclusionGroups()` (`FamilyTierAdapter.tsx`) |
 | Family switch | `PackageBuilderApp.tsx` |
-| Tests | `package-builder-regression-lock-contract.ts`, `commercial-leg-inclusion-groups-contract.ts`, `commercial-leg-extension-groups-contract.ts`, `package-builder-customer-tabs-contract.ts`, `composable-focused-shell-unification-contract.ts` |
+| Tests | `package-builder-regression-lock-contract.ts`, `commercial-leg-inclusion-groups-contract.ts`, `commercial-leg-extension-groups-contract.ts`, `package-builder-customer-tabs-contract.ts` |
 
 ## Related Code Maps
 
 [Commercial Legs](commercial-legs.md), [Cost Builder](cost-builder.md),
-[Tier Edition](tier-edition.md), [Plan Details](plan-details.md), and
-[Tier Composable Occupant](tier-composable-occupant.md).
+[Tier Edition](tier-edition.md), and [Plan Details](plan-details.md).

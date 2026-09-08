@@ -4582,37 +4582,187 @@
   color: var(--cz-color-accent);
 }
 
-/* project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md
-   ("structural correction") — the composable occupant's own Choose-Plan-
-   style entry card in the staged/Recommendations view, beside the existing
-   Add-ons grid. Minimal functional treatment only, matching the same
-   surface/border/radius grammar the Upgrade gate's earlier (now removed)
-   card used — mockup-accurate visual polish is a later phase. */
-.cz-package-builder__composable-cta {
+.cz-package-builder__focused-back:focus-visible {
+  outline: 2px solid var(--cz-color-accent);
+  outline-offset: 2px;
+}
+
+/* Phase 2 — "Upgrade your build" gate (project-work/2026-09-06-tier-
+   catalogue-admin-ux-consolidation.md). Minimal functional layout only;
+   mockup-accurate visual polish is a later phase. Left copy / right actions
+   per the approved mockup, stacking to one column on narrow viewports. */
+.cz-package-builder__upgrade-gate {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--cz-space-3);
-  margin-top: var(--cz-space-6);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cz-space-6);
+  flex-wrap: wrap;
   padding: var(--cz-space-6);
   background: var(--cz-color-surface-2);
   border: 1px solid var(--cz-color-border);
   border-radius: var(--cz-radius-sm);
 }
 
-.cz-package-builder__composable-cta h3 {
-  margin: 0;
-}
-
-.cz-package-builder__composable-cta p {
-  margin: 0;
+.cz-package-builder__upgrade-gate-eyebrow {
+  margin: 0 0 var(--cz-space-1);
   color: var(--cz-color-muted);
   font-size: var(--cz-font-size-sm);
 }
 
-.cz-package-builder__focused-back:focus-visible {
-  outline: 2px solid var(--cz-color-accent);
-  outline-offset: 2px;
+.cz-package-builder__upgrade-gate-heading {
+  margin: 0;
+  color: var(--cz-color-text);
+}
+
+.cz-package-builder__upgrade-gate-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cz-space-4);
+  flex-wrap: wrap;
+}
+
+/* Phase 5 — browsing stage: existing catalogue (left) beside the read-only
+   "Your build" summary (right). Mobile-first, same breakpoint the real
+   Cart-vs-main relationship already uses (.cz-cost-builder__body's own
+   min-width: 1024px two-column switch above) — this replaces where that
+   sidebar would sit structurally, so it stacks/unstacks at the identical
+   width rather than an ad hoc flex-wrap point. Below 1024px: a plain
+   column, catalogue first then summary (DOM order — no `order` override
+   needed), matching every other stacked section on this page.
+   Auditor correction ("focused-shell visual parity and top tab
+   refinement") — the desktop column proportions below are now copied
+   verbatim from .cz-package-builder__focused (minmax(0, 3fr) minmax(280px,
+   2fr), same gap), matching that shell's own outer container geometry
+   exactly; ONLY the breakpoint stays this component's own already-accepted
+   1024px (never .focused's 767px) — mobile stacking is unchanged. */
+.cz-package-builder__upgrade-browsing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-8);
+}
+
+.cz-package-builder__upgrade-browsing-detail > .cz-package-builder__composable {
+  /* This sits inside the bordered detail box below, not as a standalone
+     top-divider section — the divider/margin that separated it from
+     whatever was above it no longer applies here. */
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Left column "detail" box — border/radius/padding/spacing copied verbatim
+   from .cz-package-builder__focused-detail so the Upgrade browsing stage's
+   outer frame reads as the same focused-shell grammar, not a second visual
+   system. Houses the quoted plan's name + top tab (added for this
+   correction) above the existing, untouched ComposableOfferBrowser
+   content. */
+.cz-package-builder__upgrade-browsing-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+  min-width: 0;
+  border: 1px solid var(--cz-color-line-strong);
+  padding: var(--cz-space-12);
+  border-radius: var(--cz-radius-sm);
+}
+
+@media (max-width: 767px) {
+  .cz-package-builder__upgrade-browsing-detail {
+    padding: var(--cz-space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .cz-package-builder__upgrade-browsing {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+    gap: var(--cz-space-5);
+    align-items: start;
+  }
+}
+
+/* Phase 4 correction — this container now hosts the SAME reused
+   QuoteItemPricePresentation/QuoteTotalsPresentation markup QuoteSummary
+   itself renders (.cz-quote-summary__item-info/-prices/-total etc.,
+   defined once, standalone selectors, not scoped under .cz-quote-summary)
+   so the truthful presentation carries its own existing styling here
+   unchanged. Only the outer container/list/item wrapper below is this
+   component's own concern — pure layout, no monetary presentation.
+   Right-card treatment (auditor correction, "focused-shell visual parity"):
+   background/border-color/radius copied from .cz-cost-builder__tier — the
+   real focused card's own visual authority (see .cz-package-builder__
+   focused-card, which is a plain sticky wrapper around a TierCard and
+   carries no border of its own) — so this reads as the same card grammar,
+   never a second/lookalike card style. Padding stays this component's own
+   (space-6): its content is a price/totals list, not a TierCard, so
+   TierCard's own tighter space-3 would crowd it. Sticky matches
+   .cz-package-builder__focused-card's own behavior, off below the SAME
+   1024px breakpoint this stage already stacks at (never .focused-card's
+   own 767px, which is unrelated here). */
+.cz-package-builder__upgrade-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+  padding: var(--cz-space-6);
+  background: var(--cz-color-surface-2);
+  border: 1px solid var(--cz-color-line);
+  border-radius: var(--cz-radius-sm);
+}
+
+@media (min-width: 1024px) {
+  .cz-package-builder__upgrade-summary {
+    position: sticky;
+    top: var(--cz-space-4);
+  }
+}
+
+.cz-package-builder__upgrade-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-4);
+}
+
+.cz-package-builder__upgrade-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-3);
+  padding-bottom: var(--cz-space-4);
+  border-bottom: 1px solid var(--cz-color-line);
+}
+
+.cz-package-builder__upgrade-summary-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.cz-package-builder__upgrade-summary-total {
+  padding-top: var(--cz-space-4);
+  border-top: 1px solid var(--cz-color-border);
+}
+
+/* Correction round — the selected Upgrade inclusions (disclosureRowsForFamilyTierItem()'s
+   own authoritative rows, same derivation the Cart's own inclusion
+   disclosure panel uses), always visible here (no chevron/toggle — this
+   stage has no reason to start collapsed). A simple label (+ × quantity
+   when resolved) list, not the fuller Inclusion/Qty/Unit price/Line total
+   table QuoteSummary's own disclosure panel renders — that level of detail
+   belongs to the real Cart; this stays the "simple truthful name ×
+   quantity view" the locked customer flow asks for. */
+.cz-package-builder__upgrade-summary-inclusions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-1);
+  font-size: var(--cz-font-size-sm);
+}
+
+.cz-package-builder__upgrade-summary-inclusion--child {
+  padding-left: var(--cz-space-3);
 }
 
 /* Focused-Tier exit control — a circular icon-only X, not a back link (this
@@ -5450,18 +5600,22 @@
 }
 
 /* Phase 2B1 — composable Tier occupant browse surface
-   (ComposableOfferBrowser.tsx). project-work/2026-09-06-tier-catalogue-
-   admin-ux-consolidation.md ("structural correction"): now rendered as the
-   sole content inside .cz-package-builder__focused-card (the composable
-   occupant's own occupant-specific body, hosted by the same focused shell
-   every normal Tier's TierCard uses in that same slot) — no longer a
-   divider section stacked below other content, so no top margin/border of
-   its own. Layout/spacing only; cards/buttons reuse the same .cz-btn
-   primitives everywhere else in this file already does. */
+   (ComposableOfferBrowser.tsx), rendered as a sibling below whichever
+   normal-Tier view is active. Layout/spacing only; cards/buttons reuse the
+   same .cz-btn primitives everywhere else in this file already does. */
 .cz-package-builder__composable {
   display: flex;
   flex-direction: column;
   gap: var(--cz-space-4);
+  margin-top: var(--cz-space-8);
+  padding-top: var(--cz-space-8);
+  border-top: 1px solid var(--cz-color-border);
+}
+
+.cz-package-builder__composable-subheading {
+  color: var(--cz-color-muted);
+  font-size: var(--cz-font-size-sm);
+  margin: 0;
 }
 
 .cz-package-builder__composable-filters {

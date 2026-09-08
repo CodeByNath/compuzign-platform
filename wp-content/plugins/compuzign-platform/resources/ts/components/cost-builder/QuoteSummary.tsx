@@ -42,18 +42,18 @@ interface QuoteSummaryProps {
 }
 
 // Extracted (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
-// Phase 4 correction — "scoped Cart presentation reuse") out of this
-// component's own inline per-item markup, originally so a second caller (the
-// Upgrade Your Build browsing stage's own scoped view of just the primary +
-// composable line) could reuse it without a second, simplified
-// reimplementation. That second caller was later removed once Build Your
-// Own moved into the shared focused shell (project-work/2026-09-06-tier-
-// catalogue-admin-ux-consolidation.md, "structural correction") — kept as a
-// named export here rather than re-inlined, since QuoteSummary itself still
-// calls it and re-inlining now would be an unrelated, unrequested change.
+// Phase 4 correction — "scoped Cart presentation reuse") so a second
+// caller (the Upgrade Your Build browsing stage's own scoped view of just
+// the primary + composable line, in package-builder/UpgradeBuildSummary.tsx)
+// can render the exact same item title/tier-label/payment-stream/per-item-
+// total presentation this component already renders per row — never a
+// second, simplified reimplementation of it. Verbatim extraction of what
+// was this component's own inline per-item markup; QuoteSummary itself now
+// calls this too, so there is exactly one place this presentation lives.
 // Deliberately excludes the corner-actions (remove button, inclusion
 // disclosure toggle/panel) — those are cart-editing controls, not payment
-// presentation.
+// presentation, and stay QuoteSummary-only per the locked "no cart-mutating
+// controls" requirement for the Upgrade-stage caller.
 export function QuoteItemPricePresentation({ item, items }: { item: CartItem; items: CartItem[] }) {
   const flatCycleSuffix = formatCycleLabel(item.billingCycle);
   // Phase 5/7: this quoted option's own resolved commercial payment
