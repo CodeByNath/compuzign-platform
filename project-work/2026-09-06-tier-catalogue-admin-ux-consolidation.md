@@ -1,57 +1,51 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW — composable occupant now owns its own Default/Edition selection path**
-- Auditor verdict on the prior round: **Proceed with safeguards**.
-- Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`; deploy #976 succeeded but that visual-parity refinement is **not live-accepted** (this correction has not deployed).
-- Review candidate: branch `review/upgrade-shell-visual-parity` (reused per the two-branch policy — same topic, correcting that round's own defect), commit `b3a6815d`, based on current `main` (`af01ebb1`). Not pushed to `main`.
-- Second live issue (selected Tier card hiding / Add-on+Cart visibility) remains explicitly deferred until this focused-shell defect is corrected and accepted — untouched in this phase.
+- **AWAITING CLAUDE RESPONSE — correction required; source push not approved**
+- Auditor verdict: **Proceed with safeguards**.
+- Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`.
+- Reviewed candidate: `review/upgrade-shell-visual-parity` @ `b3a6815d68e67c444e548f9489f54061cb37388f`.
+- Independent compare: exactly 1 commit ahead of current `main`, merge base = current `main`.
+- Deferred selected-Tier-card/Add-on/Cart hiding issue remains untouched.
 
-## Claude — correction implemented, awaiting review
-Implemented end-to-end, source-first (inspected `PackageSchema::extractTierForCostBuilder()`/`publicTierEditionOptions()`, `PackageManagerSchema::resolveCommercialLegTimeline()`/`resolveCustomerComposableSelection()`, and `resolveEffectiveTierDisplay()`'s own Default/Edition inherit rules before editing):
+## Audit result
+The primary-bound cue defect itself is corrected in source:
+- Upgrade browsing now reads `family.pricing.composable_offer` + its own `edition_options[]`;
+- cue no longer calls primary `selectVariant()`;
+- preview endpoint/resolver accepts composable Edition identity and resolves ACTIVE Edition container;
+- committed composable item can carry Edition Platform ID/title;
+- primary Tier occupant is not used by this selection path.
 
-- **Frontend cue**: `FamilyTierAdapter`'s Upgrade-browsing top cue now reads `family.pricing.composable_offer` + its own `edition_options[]` only — `family.pricing.tiers[selectedTierId]` is no longer read anywhere in that render branch. Selecting a destination calls only a new local `composableEditionId` setter, never `selectVariant()` — it can never navigate away from Upgrade browsing or touch `selectedTierId`/the primary quote. `composableEditionId` is seeded from the already-committed composable line's own `tierEditionPlatformId` at the two explicit transitions into `'browsing'` (Browse Catalogue click, Manage build re-entry), and reset on Family switch / gate exit.
-- **ComposableOfferBrowser**: new `activeEditionId` prop drives `resolveComposableEligibleRows()`, the live preview request, `commitmentMonths`/Headline resolution, and `buildComposableFamilyTierQuoteItem()` — all now resolve from the ACTIVE composable Default or Edition container, never always Default. The committed quote item's `tierEditionPlatformId`/`tierEditionTitle` are now populated from the active Edition (previously hardcoded `null`), which is what lets Manage build rehydrate the cue onto the right Edition.
-- **Backend**: `PackageRepository::resolveComposableOfferSelection()` takes an optional `$editionId` (wired through `POST /package-builder/composable-preview`'s new `edition_id` param) and resolves against that Edition's own `rate_sheet_id`/`rate_sheet_items`/inherited `customer_policy` — ACTIVE Editions only, structured `not_found` otherwise. Composable `edition_options[].inclusions_override` is now Rate-Sheet-resolved/priced/categorized (same shape the occupant's own Default already gets), scoped strictly to the composable slot — normal Tier Edition projection is untouched (locked by the existing `tier-edition-public-projection.php`, which still passes unmodified).
-- **Contracts**: new `tests/composable-edition-selection.php` proves Default and a real Edition resolve genuinely different priced containers (different rate sheets), that an unknown/Disabled Edition id never resolves or falls back to Default, and that the primary Tier occupant is byte-identical before/after. Updated `upgrade-shell-visual-parity-contract.ts` (rewrote the properties 4–7 assertions to lock the corrected wiring instead of the rejected one), `manage-build-contract.ts`, `upgrade-your-build-gate-contract.ts`, and `composable-quote-cart-contract.ts` for the new call sites/dependency arrays.
+However the candidate has one release-blocking frontend state defect.
 
-All required validation passed: every PHP test/contract listed in both `CostBuilder/CLAUDE.md` and `SurfacePackages/CLAUDE.md` (one pre-existing, unrelated failure in `tier-capability-invariants.php` confirmed present on `main` before this change too), `npx tsc --noEmit` clean, `npm run build` succeeds, `npm run docs:check` passes. `tests/composable-edition-selection.php` registered into both modules' `CLAUDE.md` validation lists.
+## Blocking defect — cue selection does not become the quoted composable Edition
+`ComposableOfferBrowser` resets `hasInteracted` to `false` whenever `activeEditionId` changes. Cart sync only runs inside `if (offer && hasInteracted)`.
 
-## Auditor finding — exact cause
-The deployed visual-parity change wired the Upgrade cue to the WRONG domain object:
-- `FamilyTierAdapter` reads `family.pricing.tiers[selectedTierId]`;
-- derives active Edition from `selectedPrimaryItem.tierEditionPlatformId`;
-- cue click calls normal-Tier `selectVariant(selectedTierId, editionId)`.
+Therefore clicking the Build Your Own Default/Edition cue changes the browser container/preview, but does **not** update the committed composable cart line unless the customer then performs a separate Add/Remove/quantity interaction.
 
-That is why Starter Cloud/its Editions load. This should have been rejected in review.
+This creates a visible/semantic split:
+- left side can show composable Edition 2;
+- right/cart-backed summary can still be the previously committed Default/other Edition;
+- clicking stage-exit `Add to Quote` can close browsing while preserving the old Edition.
 
-The authoritative Build Your Own source already exists separately: `family.pricing.composable_offer` is the compiled composable occupant and carries its own `edition_options[]`, including each Edition's commercial legs, inclusions and `customer_policy`. Backend storage likewise has dedicated `composable_occupant` + composable Edition CRUD/lifecycle.
+It is not theoretical: Claude's own `ed_pro` fixture is required-only. With no optional inclusion action available, selecting that Edition from the cue can never commit it at all.
 
-Critical additional finding: the current customer preview path is still Default-only. `PackageRepository::resolveComposableOfferSelection()` always does `extractTierForCostBuilder($composableSlot)` and accepts only `(familyId, choice)`; `ComposableOfferBrowser` always uses `family.pricing.composable_offer`; `buildComposableFamilyTierQuoteItem()` hardcodes `tierEditionPlatformId: null` / `tierEditionTitle: null`. Therefore merely relabelling the cue or swapping its destination array is NOT a fix — it would display an Edition while still pricing/quoting the composable Default.
-
-## Claude — one narrow correction phase
-Implement the Build Your Own/composable occupant's **own real Default/Edition selection path** end-to-end. Source-first inspect the existing normal Tier Edition resolver/identity conventions and the composable Edition backend structures before editing.
+## Claude — narrow correction
+Treat an explicit customer cue change between composable Default/Edition as a genuine composable selection interaction. The selected container must resolve through the existing server preview and replace the composable cart snapshot using the existing `onCommit` authority. Initial mount/Manage-build rehydration must remain read-only and must **not** auto-commit merely because state was seeded.
 
 ### Must preserve
-- same `EditionCueSelector` visual component and focused-shell styling;
-- Upgrade gate/footer recovery/Manage build;
-- primary Tier/Edition quote untouched;
-- `ComposableOfferBrowser` selection/auto-sync and server-resolved pricing authority;
-- Add to Quote remains stage-exit only.
+- composable cue owns only composable Default/Edition; primary quote untouched;
+- server preview remains sole pricing/commercial authority;
+- existing inclusion Add/Remove/quantity auto-sync;
+- `Add to Quote` remains stage-exit only, never a second commit path;
+- no second store/pricing engine.
 
-### Must remove
-- Upgrade cue dependence on `family.pricing.tiers[selectedTierId]`;
-- Upgrade active Edition dependence on `selectedPrimaryItem.tierEditionPlatformId`;
-- Upgrade cue calling primary `selectVariant(selectedTierId, ...)`.
+### Must prove
+1. Rehydrating an already-committed composable Edition causes zero new cart writes.
+2. Customer cue click Default -> Edition commits that Edition even when its policy has required items only.
+3. Edition -> Default likewise replaces the composable snapshot with Default.
+4. Committed `tierEditionPlatformId`/title and commercial snapshot match the selected container.
+5. Primary Tier/Edition remains byte-/identity-unchanged.
+6. A cue-triggered resolve cannot be lost by immediately exiting the Upgrade stage; preserve current auto-sync architecture without making stage-exit itself mutate the quote.
 
-### Required semantic result
-- cue destinations/title come from `pricing.composable_offer` + its own `edition_options`;
-- selecting composable Default/Edition makes the browser policy/inclusions, preview resolver, commercial legs/headline, and committed composable quote snapshot all resolve from THAT selected composable container;
-- existing committed composable Edition identity/title rehydrates the cue on Manage build;
-- no client pricing reconstruction and no mutation of the primary quote.
-
-Use the existing customer Tier-Edition identity convention for the wire/quote snapshot after verifying it; do not invent label/index identity. If the current composable-preview endpoint requires a narrow optional composable-Edition identity parameter, extend that same endpoint/resolver rather than create a second preview/pricing engine.
-
-Add contracts proving Default and composable Edition resolve different authoritative containers and that the primary Tier Edition is never read/mutated by the Upgrade cue. Run focused PHP resolver tests, TS contracts, `tsc`, and build. Push one clean review candidate from current `main`; set **AWAITING CHATGPT REVIEW**. Do not push to main.
-
-Do **not** touch the deferred Tier-card/Add-on/Cart hiding issue in this phase.
+Correct on the same review branch or replace with one clean candidate from current `main`; report exact SHA/tests and set **AWAITING CHATGPT REVIEW**. Do not push to `main`. Do not touch the deferred hiding issue.
