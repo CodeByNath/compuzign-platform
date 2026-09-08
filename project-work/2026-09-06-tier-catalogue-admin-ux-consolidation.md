@@ -1,10 +1,21 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE — live rejection: Upgrade cue is bound to the primary Tier occupant; correct composable occupant/Edition path first**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`; deploy #976 succeeded but this refinement is **not live-accepted**.
-- Second live issue (selected Tier card hiding / Add-on+Cart visibility) is explicitly deferred until this focused-shell defect is corrected and accepted.
+- **AWAITING CHATGPT REVIEW — composable occupant now owns its own Default/Edition selection path**
+- Auditor verdict on the prior round: **Proceed with safeguards**.
+- Production `main`: `af01ebb10a49ca66091b504eba54e8c21d597387`; deploy #976 succeeded but that visual-parity refinement is **not live-accepted** (this correction has not deployed).
+- Review candidate: branch `review/upgrade-shell-visual-parity` (reused per the two-branch policy — same topic, correcting that round's own defect), commit `b3a6815d`, based on current `main` (`af01ebb1`). Not pushed to `main`.
+- Second live issue (selected Tier card hiding / Add-on+Cart visibility) remains explicitly deferred until this focused-shell defect is corrected and accepted — untouched in this phase.
+
+## Claude — correction implemented, awaiting review
+Implemented end-to-end, source-first (inspected `PackageSchema::extractTierForCostBuilder()`/`publicTierEditionOptions()`, `PackageManagerSchema::resolveCommercialLegTimeline()`/`resolveCustomerComposableSelection()`, and `resolveEffectiveTierDisplay()`'s own Default/Edition inherit rules before editing):
+
+- **Frontend cue**: `FamilyTierAdapter`'s Upgrade-browsing top cue now reads `family.pricing.composable_offer` + its own `edition_options[]` only — `family.pricing.tiers[selectedTierId]` is no longer read anywhere in that render branch. Selecting a destination calls only a new local `composableEditionId` setter, never `selectVariant()` — it can never navigate away from Upgrade browsing or touch `selectedTierId`/the primary quote. `composableEditionId` is seeded from the already-committed composable line's own `tierEditionPlatformId` at the two explicit transitions into `'browsing'` (Browse Catalogue click, Manage build re-entry), and reset on Family switch / gate exit.
+- **ComposableOfferBrowser**: new `activeEditionId` prop drives `resolveComposableEligibleRows()`, the live preview request, `commitmentMonths`/Headline resolution, and `buildComposableFamilyTierQuoteItem()` — all now resolve from the ACTIVE composable Default or Edition container, never always Default. The committed quote item's `tierEditionPlatformId`/`tierEditionTitle` are now populated from the active Edition (previously hardcoded `null`), which is what lets Manage build rehydrate the cue onto the right Edition.
+- **Backend**: `PackageRepository::resolveComposableOfferSelection()` takes an optional `$editionId` (wired through `POST /package-builder/composable-preview`'s new `edition_id` param) and resolves against that Edition's own `rate_sheet_id`/`rate_sheet_items`/inherited `customer_policy` — ACTIVE Editions only, structured `not_found` otherwise. Composable `edition_options[].inclusions_override` is now Rate-Sheet-resolved/priced/categorized (same shape the occupant's own Default already gets), scoped strictly to the composable slot — normal Tier Edition projection is untouched (locked by the existing `tier-edition-public-projection.php`, which still passes unmodified).
+- **Contracts**: new `tests/composable-edition-selection.php` proves Default and a real Edition resolve genuinely different priced containers (different rate sheets), that an unknown/Disabled Edition id never resolves or falls back to Default, and that the primary Tier occupant is byte-identical before/after. Updated `upgrade-shell-visual-parity-contract.ts` (rewrote the properties 4–7 assertions to lock the corrected wiring instead of the rejected one), `manage-build-contract.ts`, `upgrade-your-build-gate-contract.ts`, and `composable-quote-cart-contract.ts` for the new call sites/dependency arrays.
+
+All required validation passed: every PHP test/contract listed in both `CostBuilder/CLAUDE.md` and `SurfacePackages/CLAUDE.md` (one pre-existing, unrelated failure in `tier-capability-invariants.php` confirmed present on `main` before this change too), `npx tsc --noEmit` clean, `npm run build` succeeds, `npm run docs:check` passes. `tests/composable-edition-selection.php` registered into both modules' `CLAUDE.md` validation lists.
 
 ## Auditor finding — exact cause
 The deployed visual-parity change wired the Upgrade cue to the WRONG domain object:
