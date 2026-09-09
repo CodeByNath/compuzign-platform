@@ -20,7 +20,7 @@ Before normal repository startup, check `Project-work-instructions`; if it has n
 
 ## Branch hygiene
 
-Keep at most 3 branches in the repository at any time: `main`, `Project-work-instructions`, and at most one active topic/review branch for in-flight work. Reuse a work item's existing topic branch across review rounds rather than creating a new one; delete it once its work lands on `main`. Before deleting any branch, confirm it is a merged ancestor with `git merge-base --is-ancestor <branch> main` — never delete one that isn't.
+The repository holds at most 3 branches at any time: the two permanent branches `main` and `Project-work-instructions`, plus one slot reserved for whatever work is currently in flight (a topic/review branch). Reuse that one topic branch across every review round of the same work item rather than creating a new one. Deleting it is not optional cleanup — it is the final step of closing that work item, performed the moment its work lands on `main`, so the repository returns to exactly 2 branches between work items. Before deleting any branch, confirm it is a merged ancestor with `git merge-base --is-ancestor <branch> main`; never delete one that isn't without explicit confirmation.
 
 ## Repository workflow
 
