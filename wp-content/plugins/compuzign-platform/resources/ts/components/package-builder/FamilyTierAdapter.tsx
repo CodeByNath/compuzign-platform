@@ -479,6 +479,25 @@ export function FamilyTierAdapter({
     ? customerGroup
     : (hasEnterpriseTiers ? 'enterprise' : 'personal_business');
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, effectiveCustomerGroup);
+  // One shared render, used both above the plain comparison grid AND above
+  // the single-Tier auto-view's focused shell (see isImplicitSingleTierView
+  // below) — the same control, never two copies that could drift.
+  const customerTabsBar = showCustomerTabs && (
+    <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
+      {CUSTOMER_GROUPS.map((group) => (
+        <button
+          key={group.value}
+          type="button"
+          role="tab"
+          class="cz-package-builder__customer-tab"
+          aria-selected={customerGroup === group.value}
+          onClick={() => setCustomerGroup(group.value)}
+        >
+          {group.label}
+        </button>
+      ))}
+    </div>
+  );
 
   // Focused-plan state. Choosing a plan hides the other Tier cards and
   // presents the one Tier beside its plan details; it changes nothing about
@@ -562,9 +581,6 @@ export function FamilyTierAdapter({
     setUpgradeGateTierId(null);
     setUpgradeGateStage(null);
     setComposableEditionId(null);
-    // Same TierId-collision reasoning again — see singleTierDismissedId's
-    // own declaration.
-    setSingleTierDismissedId(null);
   }, [family.family_id]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
@@ -632,40 +648,38 @@ export function FamilyTierAdapter({
   const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
     : null;
-  // Which single-Tier auto-view (see effectiveFocusedTierId below) the
-  // customer has explicitly closed — reset on Family switch only; see that
-  // effect's own comment for why a customer-group switch needs no
-  // separate reset here.
-  const [singleTierDismissedId, setSingleTierDismissedId] = useState<TierId | null>(null);
-
   // Single-Tier auto-view: a customer group filtering down to exactly one
-  // Tier has nothing to compare, so it shows in the focused Choose Plan
-  // shell by default — a pure render-time fallback over the SAME
-  // focusedTier every other consumer below already reads, never a
-  // useEffect state-mutation chain. Three consecutive prior attempts used
-  // exactly that (an effect calling selectVariant()) and failed live for
-  // reasons never diagnosed despite the effect logic reading correctly on
-  // every static trace — see project memory on this incident. This
-  // approach sidesteps that whole class of failure: nothing here ever
-  // calls a setter to "open" the view, so there is no effect-timing/
-  // ordering question to get wrong.
+  // Tier has nothing to compare, so it PERMANENTLY shows in the focused
+  // Choose Plan shell instead of ever existing as a one-card grid — a pure
+  // render-time fallback over the SAME focusedTier every other consumer
+  // below already reads, never a useEffect state-mutation chain. Three
+  // consecutive prior attempts used exactly that (an effect calling
+  // selectVariant()) and failed live for reasons never diagnosed despite
+  // the effect logic reading correctly on every static trace — see project
+  // memory on this incident. This approach sidesteps that whole class of
+  // failure: nothing here ever calls a setter to "open" the view, so there
+  // is no effect-timing/ordering question to get wrong.
   //
   // Composable browsing and an already-staged Tier both take precedence —
   // this is strictly a passive default, never an override of a shell the
-  // customer is already actively in. singleTierDismissedId is keyed to the
-  // SPECIFIC Tier id shown (not a bare boolean): a genuinely different
-  // single Tier — a new Family, or a different Tier revealed by switching
-  // customer group — always gets its own fresh look even if some OTHER
-  // Tier's auto-view was dismissed earlier in this same session, with no
-  // separate reset effect needed for the customer-group case (only Family
-  // switch needs an explicit reset, since TierId is a shared enum not
-  // scoped to one Family — see the Family-switch effect above).
+  // customer is already actively in. There is deliberately no "dismiss"
+  // escape into a one-card grid (a real, reported issue with an earlier
+  // version of this same feature — the X button fell through to exactly
+  // that orphan card): the only legitimate way off a single-Tier Family/
+  // group is the customer-group tab bar itself (rendered above the
+  // focused shell in that exact case below, see isImplicitSingleTierView),
+  // when a genuinely different, non-empty group actually exists to switch
+  // to; where it doesn't (this Family has only ever one Tier, full stop),
+  // there is nothing else to show and no close action is offered.
   const singleVisibleTier = normalTiers.length === 1 ? normalTiers[0] : null;
   const effectiveFocusedTierId = focusedTierId
-    ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier && singleVisibleTier.id !== singleTierDismissedId
-      ? singleVisibleTier.id
-      : null);
+    ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier ? singleVisibleTier.id : null);
   const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
+  // True only when this render's focused shell exists purely via the
+  // fallback above (no explicit Choose Plan click ever happened) — drives
+  // hiding the Close button and showing the customer-group tabs above the
+  // shell instead, both below.
+  const isImplicitSingleTierView = focusedTierId === null && effectiveFocusedTierId !== null;
 
   // Composable-focused-shell reuse: which Default/Edition of the composable
   // occupant's OWN declaration (family.pricing.composable_offer) is active
@@ -1082,6 +1096,16 @@ export function FamilyTierAdapter({
       </div>
     ) : null;
     mainContent = (
+      <>
+      {/* A single-Tier Family/group has no plain-card grid to speak of —
+          the focused shell IS its landing presentation, permanently, so
+          there is no Close action to dismiss it (see
+          isImplicitSingleTierView/effectiveFocusedTierId above). The
+          customer-group tabs are the only legitimate way off it, shown
+          here — above the shell, not inside the grid branch below — only
+          when a genuinely different, non-empty group actually exists to
+          switch to. */}
+      {isImplicitSingleTierView && customerTabsBar}
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. Same clear action as
@@ -1100,21 +1124,18 @@ export function FamilyTierAdapter({
               plan" once the cart holds something became unreachable. Close
               is now a single deterministic shell transition to the grid,
               every time, matching what it already claimed to do.
-              setSingleTierDismissedId marks the CURRENTLY shown Tier as
-              dismissed — a no-op unless this close is actually landing on
-              the single-Tier auto-view (effectiveFocusedTierId above),
-              in which case it is what stops the fallback from
-              immediately reopening: closing is a render-time state
-              change here, not an effect re-deriving the same decision
-              every render. */}
+              Hidden entirely for the implicit single-Tier auto-view —
+              see the comment above this whole branch. */}
+          {!isImplicitSingleTierView && (
           <button
             type="button"
             class={`cz-package-builder__focused-close${isCloseElevated ? ' is-elevated' : ''}`}
             aria-label="Close focused plan"
-            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); setPlanDetailsTarget(null); setStagedTierId(null); setSingleTierDismissedId(effectiveFocusedTierId); }}
+            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); setPlanDetailsTarget(null); setStagedTierId(null); }}
           >
             <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
+          )}
           <h3 class="cz-package-builder__focused-name">
             {focusedDeclaredEffective.selectedEdition?.label ?? focusedData?.label ?? focusedTier.title}
           </h3>
@@ -1358,6 +1379,7 @@ export function FamilyTierAdapter({
           </div>
         </div>
       </div>
+      </>
     );
   // Composable focused shell — Build Your Own is a real occupant, entered
   // from the Recommendations CTA below and presented in the exact SAME
@@ -1531,22 +1553,7 @@ export function FamilyTierAdapter({
       {/* No real choice to offer — either no occupants at all, or every
           occupant belongs to just one group — when showCustomerTabs is
           false; see its own declaration above. */}
-      {showCustomerTabs && (
-        <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
-          {CUSTOMER_GROUPS.map((group) => (
-            <button
-              key={group.value}
-              type="button"
-              role="tab"
-              class="cz-package-builder__customer-tab"
-              aria-selected={customerGroup === group.value}
-              onClick={() => setCustomerGroup(group.value)}
-            >
-              {group.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {customerTabsBar}
       {/* Add-ons stay out of the comparison view — they are offered once a
           Tier is selected, in the selected-Tier view above. */}
       <PricingTiers
