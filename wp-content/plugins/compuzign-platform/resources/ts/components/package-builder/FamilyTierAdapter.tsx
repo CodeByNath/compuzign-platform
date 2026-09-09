@@ -616,6 +616,28 @@ export function FamilyTierAdapter({
   const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
     : null;
+
+  // A single visible Tier under the current customer group filter has
+  // nothing to compare against, so this skips the one-card comparison grid
+  // and opens the focused Choose Plan shell for it directly — the exact
+  // same selectVariant() every other focus entry point uses, never a
+  // second path. Keyed on the Tier's own id (a stable primitive), not
+  // normalTiers itself (a new array every render), so this only re-fires
+  // when the actual single-Tier identity changes. Guarded to never steal
+  // focus away from an already-active shell/staged view (e.g. re-deriving
+  // on an unrelated render while the customer is already looking at it).
+  const singleVisibleTierId = normalTiers.length === 1 ? normalTiers[0].id : null;
+  useEffect(() => {
+    if (singleVisibleTierId === null) return;
+    if (focusedTierId !== null || stagedTierId !== null || upgradeGateActive !== null) return;
+    selectVariant(singleVisibleTierId, null);
+    // selectVariant is a plain closure redefined every render, not a
+    // useCallback — omitted from deps so a re-render never spuriously
+    // re-fires this; singleVisibleTierId/focusedTierId/stagedTierId/
+    // upgradeGateActive are the only values this decision actually depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [singleVisibleTierId, focusedTierId, stagedTierId, upgradeGateActive]);
+
   // Composable-focused-shell reuse: which Default/Edition of the composable
   // occupant's OWN declaration (family.pricing.composable_offer) is active
   // in the top tab row while browsing — the exact same
@@ -1460,20 +1482,24 @@ export function FamilyTierAdapter({
   } else {
     mainContent = (
       <>
-      <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
-        {CUSTOMER_GROUPS.map((group) => (
-          <button
-            key={group.value}
-            type="button"
-            role="tab"
-            class="cz-package-builder__customer-tab"
-            aria-selected={customerGroup === group.value}
-            onClick={() => setCustomerGroup(group.value)}
-          >
-            {group.label}
-          </button>
-        ))}
-      </div>
+      {/* Nothing to filter — an empty tab bar above an empty grid — when
+          this Tier System has no occupants at all across either group. */}
+      {tiers.length > 0 && (
+        <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
+          {CUSTOMER_GROUPS.map((group) => (
+            <button
+              key={group.value}
+              type="button"
+              role="tab"
+              class="cz-package-builder__customer-tab"
+              aria-selected={customerGroup === group.value}
+              onClick={() => setCustomerGroup(group.value)}
+            >
+              {group.label}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Add-ons stay out of the comparison view — they are offered once a
           Tier is selected, in the selected-Tier view above. */}
       <PricingTiers
