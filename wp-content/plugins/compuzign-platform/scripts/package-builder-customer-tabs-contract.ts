@@ -41,7 +41,12 @@ const groupFilter = adapter.slice(
   adapter.indexOf('export function FamilyTierAdapter'),
 );
 check(adapter.includes('role="tablist"') && adapter.includes('role="tab"'), 'the control uses tab semantics');
-check(adapter.includes('aria-selected={customerGroup === group.value}'), 'the active tab exposes selection state');
+check(adapter.includes('aria-selected={effectiveCustomerGroup === group.value}'), 'the active tab exposes selection state — the resolved landing group, not just an explicit click');
+check(
+  adapter.includes("filterTiersByCustomerGroup(normalOccupants, family.pricing, 'personal_business')")
+    && adapter.includes("filterTiersByCustomerGroup(normalOccupants, family.pricing, 'enterprise')"),
+  'tab/landing-group availability is resolved from normal Tier occupants only — an Add-on visible under a group must never make that group appear to have a real choice when it has no primary Tier to land on',
+);
 check(groupFilter.includes('audience_groups') && !groupFilter.match(/month|term|billing|edition/i), 'the filter reads only occupant customer grouping');
 check(!adapter.includes('<select') && !adapter.includes('activeTerm'), 'the tab UI introduces no month or term selector');
 check(!app.includes('Available tiers / plans'), 'the redundant Tier card heading is absent');

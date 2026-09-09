@@ -463,21 +463,31 @@ export function FamilyTierAdapter({
   manageBuildRequest,
   onManageBuildConsumed,
 }: FamilyTierAdapterProps) {
-  const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
-  // The tab bar is a real choice only when BOTH groups actually have
-  // something to show — a Family whose Tiers are entirely Enterprise-only
-  // (or entirely Personal & Business-only) offers no real toggle, just one
-  // side that always renders empty. showCustomerTabs hides the bar in that
-  // case; effectiveCustomerGroup then resolves visibleTiers/normalTiers
-  // straight to whichever ONE side actually has content, regardless of the
-  // (now hidden, so unreachable) customerGroup state — a first-time
-  // visitor never lands on the empty side by default.
-  const hasPersonalBusinessTiers = filterTiersByCustomerGroup(tiers, family.pricing, 'personal_business').length > 0;
-  const hasEnterpriseTiers = filterTiersByCustomerGroup(tiers, family.pricing, 'enterprise').length > 0;
+  // null means "no explicit choice yet" — deliberately NOT the same value
+  // as a resolved default. The old version defaulted this straight to
+  // 'personal_business', which meant a customer's own first-render landing
+  // was represented identically to them having actually clicked that tab —
+  // an initial/default resolution and a deliberate customer selection
+  // collapsed into one indistinguishable value. Reset to null on Family
+  // switch below, so every Family gets its own clean landing resolution.
+  const [selectedCustomerGroup, setSelectedCustomerGroup] = useState<'personal_business' | 'enterprise' | null>(null);
+  // Availability is resolved from normal Tier occupants ONLY — Add-ons are
+  // offered in Recommendations after a primary plan is already known, so
+  // an Add-on visible under a group must never make that group appear to
+  // have a real choice when it has no primary Tier to land on.
+  const normalOccupants = tiers.filter((tier) => !family.pricing.tiers[tier.id]?.is_addon);
+  const hasPersonalBusinessTiers = filterTiersByCustomerGroup(normalOccupants, family.pricing, 'personal_business').length > 0;
+  const hasEnterpriseTiers = filterTiersByCustomerGroup(normalOccupants, family.pricing, 'enterprise').length > 0;
+  // The tab bar is a real choice only when BOTH groups actually have a
+  // normal occupant to show — a Family whose Tiers are entirely
+  // Enterprise-only (or entirely Personal & Business-only) offers no real
+  // toggle, just one side that always renders empty.
   const showCustomerTabs = hasPersonalBusinessTiers && hasEnterpriseTiers;
-  const effectiveCustomerGroup = showCustomerTabs
-    ? customerGroup
-    : (hasEnterpriseTiers ? 'enterprise' : 'personal_business');
+  // The resolved landing group when nothing has been explicitly clicked —
+  // whichever side actually has a normal occupant, preferring Personal &
+  // Business when both do (matches the tab bar's own left-to-right order).
+  const defaultCustomerGroup = hasPersonalBusinessTiers ? 'personal_business' : 'enterprise';
+  const effectiveCustomerGroup = selectedCustomerGroup ?? defaultCustomerGroup;
   const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, effectiveCustomerGroup);
   // One shared render, used both above the plain comparison grid AND above
   // the single-Tier auto-view's focused shell (see isImplicitSingleTierView
@@ -490,8 +500,8 @@ export function FamilyTierAdapter({
           type="button"
           role="tab"
           class="cz-package-builder__customer-tab"
-          aria-selected={customerGroup === group.value}
-          onClick={() => setCustomerGroup(group.value)}
+          aria-selected={effectiveCustomerGroup === group.value}
+          onClick={() => setSelectedCustomerGroup(group.value)}
         >
           {group.label}
         </button>
@@ -581,6 +591,9 @@ export function FamilyTierAdapter({
     setUpgradeGateTierId(null);
     setUpgradeGateStage(null);
     setComposableEditionId(null);
+    // A new Family gets its own clean landing resolution — see
+    // selectedCustomerGroup's own declaration above.
+    setSelectedCustomerGroup(null);
   }, [family.family_id]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
@@ -676,16 +689,19 @@ export function FamilyTierAdapter({
     ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier ? singleVisibleTier.id : null);
   const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
   // TEMPORARY diagnostic — remove once the "works via tab click, fails on
-  // default-tab landing" discrepancy is understood.
+  // default-tab landing" discrepancy is confirmed resolved by the
+  // selectedCustomerGroup/defaultCustomerGroup split below.
   if (typeof window !== 'undefined') {
     // eslint-disable-next-line no-console
     console.log('[CZ single-tier debug]', {
       familyId: family.family_id,
-      customerGroup,
+      selectedCustomerGroup,
+      defaultCustomerGroup,
       effectiveCustomerGroup,
       showCustomerTabs,
       hasPersonalBusinessTiers,
       hasEnterpriseTiers,
+      normalOccupantsCount: normalOccupants.length,
       normalTiersCount: normalTiers.length,
       normalTierIds: normalTiers.map((t) => t.id),
       addonTiersCount: addonTiers.length,
