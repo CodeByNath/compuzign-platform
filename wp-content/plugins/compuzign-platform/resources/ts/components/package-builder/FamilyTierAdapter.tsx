@@ -505,7 +505,6 @@ export function FamilyTierAdapter({
   // refs, fresh scroll-lock/focus-trap effect), never the same instance
   // with its props merely updated.
   const [planDetailsOpenGeneration, setPlanDetailsOpenGeneration] = useState(0);
-  const focusedTier = focusedTierId ? visibleTiers.find((tier) => tier.id === focusedTierId) ?? null : null;
 
   // Cleared on Edition switch, focused Tier switch, and close — selectVariant()
   // (the one path every variant change goes through) always updates both
@@ -549,6 +548,9 @@ export function FamilyTierAdapter({
     setUpgradeGateTierId(null);
     setUpgradeGateStage(null);
     setComposableEditionId(null);
+    // Same TierId-collision reasoning again — see singleTierDismissedId's
+    // own declaration.
+    setSingleTierDismissedId(null);
   }, [family.family_id]);
 
   // Selects a Default/Edition variant and seeds its own first resolved
@@ -616,6 +618,41 @@ export function FamilyTierAdapter({
   const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
     : null;
+  // Which single-Tier auto-view (see effectiveFocusedTierId below) the
+  // customer has explicitly closed — reset on Family switch only; see that
+  // effect's own comment for why a customer-group switch needs no
+  // separate reset here.
+  const [singleTierDismissedId, setSingleTierDismissedId] = useState<TierId | null>(null);
+
+  // Single-Tier auto-view: a customer group filtering down to exactly one
+  // Tier has nothing to compare, so it shows in the focused Choose Plan
+  // shell by default — a pure render-time fallback over the SAME
+  // focusedTier every other consumer below already reads, never a
+  // useEffect state-mutation chain. Three consecutive prior attempts used
+  // exactly that (an effect calling selectVariant()) and failed live for
+  // reasons never diagnosed despite the effect logic reading correctly on
+  // every static trace — see project memory on this incident. This
+  // approach sidesteps that whole class of failure: nothing here ever
+  // calls a setter to "open" the view, so there is no effect-timing/
+  // ordering question to get wrong.
+  //
+  // Composable browsing and an already-staged Tier both take precedence —
+  // this is strictly a passive default, never an override of a shell the
+  // customer is already actively in. singleTierDismissedId is keyed to the
+  // SPECIFIC Tier id shown (not a bare boolean): a genuinely different
+  // single Tier — a new Family, or a different Tier revealed by switching
+  // customer group — always gets its own fresh look even if some OTHER
+  // Tier's auto-view was dismissed earlier in this same session, with no
+  // separate reset effect needed for the customer-group case (only Family
+  // switch needs an explicit reset, since TierId is a shared enum not
+  // scoped to one Family — see the Family-switch effect above).
+  const singleVisibleTier = normalTiers.length === 1 ? normalTiers[0] : null;
+  const effectiveFocusedTierId = focusedTierId
+    ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier && singleVisibleTier.id !== singleTierDismissedId
+      ? singleVisibleTier.id
+      : null);
+  const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
+
   // Composable-focused-shell reuse: which Default/Edition of the composable
   // occupant's OWN declaration (family.pricing.composable_offer) is active
   // in the top tab row while browsing — the exact same
@@ -636,21 +673,21 @@ export function FamilyTierAdapter({
   // state or unmount.
   const [isCloseElevated, setIsCloseElevated] = useState(false);
   useEffect(() => {
-    if (focusedTierId === null && upgradeGateActive !== 'browsing') return;
+    if (effectiveFocusedTierId === null && upgradeGateActive !== 'browsing') return;
     const onScroll = () => setIsCloseElevated(window.scrollY > 12);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [focusedTierId, upgradeGateActive]);
+  }, [effectiveFocusedTierId, upgradeGateActive]);
 
   useEffect(() => {
-    onFocusedShellActiveChange(focusedTierId !== null || upgradeGateActive !== null);
+    onFocusedShellActiveChange(effectiveFocusedTierId !== null || upgradeGateActive !== null);
     // onFocusedShellActiveChange is PackageBuilderApp's raw useState setter,
     // a stable identity by React/Preact guarantee (no useCallback needed);
     // omitted from deps so a caller re-render can never spuriously re-fire
     // this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedTierId, upgradeGateActive]);
+  }, [effectiveFocusedTierId, upgradeGateActive]);
 
   const dismissUpgradeGate = () => {
     setUpgradeGateTierId(null);
@@ -1048,12 +1085,19 @@ export function FamilyTierAdapter({
               comment already promised — the one real path back to "every
               plan" once the cart holds something became unreachable. Close
               is now a single deterministic shell transition to the grid,
-              every time, matching what it already claimed to do. */}
+              every time, matching what it already claimed to do.
+              setSingleTierDismissedId marks the CURRENTLY shown Tier as
+              dismissed — a no-op unless this close is actually landing on
+              the single-Tier auto-view (effectiveFocusedTierId above),
+              in which case it is what stops the fallback from
+              immediately reopening: closing is a render-time state
+              change here, not an effect re-deriving the same decision
+              every render. */}
           <button
             type="button"
             class={`cz-package-builder__focused-close${isCloseElevated ? ' is-elevated' : ''}`}
             aria-label="Close focused plan"
-            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); setPlanDetailsTarget(null); setStagedTierId(null); }}
+            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); setPlanDetailsTarget(null); setStagedTierId(null); setSingleTierDismissedId(effectiveFocusedTierId); }}
           >
             <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
