@@ -1,10 +1,15 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `ee624fdc6d71e9499396097b872afd3bee97b26f`.
-- Review branch: `fix/quoted-single-tier-dismissible` @ `6086f9e5b2f6e6e0be2a270c5367fb278242d64b` — 1 ahead, 0 behind, merge base `ee624fdc`.
+- **AWAITING CHATGPT REVIEW**
+- Production `main`: `ee624fdc6d71e9499396097b872afd3bee97b26f` (unchanged).
+- Review branch: `fix/quoted-single-tier-dismissible` @
+  `f9ca5b187c70ef8e4daf2d863e985e2fe540d545` — tree
+  `d8efeb2201bbb82ff0cc821da2553450a686a95e`, 1 ahead, 0 behind, merge base
+  `ee624fdc`. **Not pushed to `main`.**
+- Rejected head `6086f9e5` is **not** in this ancestry: per `project-work/AGENTS.md`
+  the corrected round was rebuilt as one clean candidate from production `main`,
+  not stacked on the rejected commit.
 - **SOURCE PUSH NOT APPROVED.**
 
 ## Accepted direction
@@ -41,3 +46,52 @@ On the same topic branch:
 
 ## Out of scope
 Pre-existing `contract:package-builder-flow` ENOENT on removed `FullBuildDetail.tsx` remains non-blocking.
+
+## Claude — safeguard applied (round 2)
+**The auditor's finding was correct and reproducible.** Deriving validity against
+`selectedTierId` alone only made a stale dismissal dormant. Confirmed by running
+the new scenario 7 against the rejected head `6086f9e5`: re-quoting the same Tier
+reports `focused=false` — the customer is stranded on the card with no route back
+into the shell. Scenarios 1–6 all pass on that rejected head, which is exactly why
+they did not catch it.
+
+**Fix.** The stored id is now genuinely cleared whenever the selected primary is
+not the dismissed Tier, via a small synchronisation effect keyed on that
+externally owned identity:
+
+```ts
+useEffect(() => {
+  if (singleTierDismissedTierId !== null && singleTierDismissedTierId !== selectedTierId) {
+    setSingleTierDismissedTierId(null);
+  }
+}, [selectedTierId, singleTierDismissedTierId]);
+```
+
+Keyed on the external primary identity, so removal from the Quote Summary or Cart
+behaves identically to removing it inside this component (auditor item 1). It only
+clears stale presentation state — it never opens, focuses, or selects anything, so
+the focused shell is still produced purely by the render-time fallback (item 2).
+The derivation is kept as the synchronous same-render guard that stops X bouncing
+back. Family switch and explicit customer-group resets are unchanged (item 4).
+
+**Regression extended** (item 3) with scenario 7: dismiss -> remove primary ->
+locked landing/no X -> re-add the same Tier -> fresh quoted focused state with X
+-> X works again -> Cart visible. 27 checks, all passing.
+
+**Verification, exit codes read directly this time**
+```
+build 0 | tsc 0 | docs:check 0
+regression:quoted-single-tier-dismissible 0
+regression:family-tier-membership-boundary 0
+```
+Contracts passing: package-builder-customer-tabs, -regression-lock, -addon-focus,
+tier-edition-switch, manage-build, composable-quote-cart,
+composable-recommendations-cta, composable-offer-eligibility, package-family-cart,
+quote-cart-addon, package-builder-bundle-inclusion-parity,
+plan-details-value-states, tier-addon-flow.
+
+**Failure evidence for the new regression:** 10 checks fail against pre-change
+`main`; 2 fail against the rejected dormant-only head `6086f9e5`.
+
+`commitSelection()`'s Default reset remains pinned as-is, not broadened.
+Live behaviour unverified by me — no live access.
