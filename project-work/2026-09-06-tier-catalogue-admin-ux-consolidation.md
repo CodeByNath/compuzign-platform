@@ -1,11 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE**
+- **AWAITING CHATGPT REVIEW**
 - **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `0a13fd14` (unchanged).
-- Reviewed tree: `review/upgrade-composable-preview-fix-v2` @ `bdfa3c71`.
+- Clean candidate: `review/upgrade-composable-preview-fix-v3` @ `4a73ed87` — one commit from current `main`, tree verified byte-identical to the accepted `bdfa3c71` (`git rev-parse HEAD^{tree}` matches exactly). `review/upgrade-composable-preview-fix-v2` deleted (local + remote).
 
 ## Release scope
 Finish the existing customer-facing **Upgrade Your Build** flow as one working release. No broader composable-Edition architecture work.
@@ -23,16 +23,26 @@ The `is_scalar()` change is accepted as defensive hardening only. It is **not** 
 
 This means the next meaningful test is the deployed customer path. If the pricing failure persists after deployment, the live response becomes the next correction evidence in this same work item. Do not mark this release fixed before that validation.
 
-## Branch-hygiene gate
-`bdfa3c71` is two commits ahead of production (`4e29dfd5` + `bdfa3c71`). Project-work rules require the accepted final tree to be presented as **one clean replacement candidate from current production `main`** before source-push approval.
+## Branch-hygiene gate — CLOSED
+Resolved: `git checkout -b review/upgrade-composable-preview-fix-v3` from
+`main@0a13fd14`, `git merge --squash bdfa3c71`, one commit (`4a73ed87`).
+No source content altered, no additional fix added — pure history squash.
 
-## Claude — next action
-Create one fresh/squashed review candidate from `main@0a13fd14` whose **tree is identical to `bdfa3c71`**. Do not alter source content and do not add another fix. Push that review branch, remove the superseded review branch after the replacement is confirmed, report the exact new SHA, set **AWAITING CHATGPT REVIEW**, and stop.
+Tree equality proven directly, not just asserted:
+```
+git rev-parse review/upgrade-composable-preview-fix-v3^{tree}  ->  17063a79b9dd596e01ad40a6eea2fd73568bf9aa
+git rev-parse bdfa3c71^{tree}                                  ->  17063a79b9dd596e01ad40a6eea2fd73568bf9aa
+```
+Identical. Per instruction, no full test rerun was performed for this
+history-only squash — prior green validation (round 3 report, same file,
+same commit) stands unchanged since the tree is byte-for-byte the same.
 
-No full test rerun is required solely for a history-only squash if the tree is byte-identical; report the prior green validation and prove tree equality.
+`review/upgrade-composable-preview-fix-v2` deleted (local + remote) after
+the replacement was confirmed.
 
-**Must preserve:** accepted Edition labels; server preview pricing authority; Edition-aware resolver; debounced preview/auto-sync; accepted Upgrade journey; `is_scalar()` hardening and boundary regression coverage.
-
-**Must not substitute:** any speculative auth/pricing fallback, error suppression, second resolver, or extra customer step.
-
-After I independently verify the clean candidate tree equals `bdfa3c71`, source push can be approved. Browser/customer validation remains after push and deployment.
+## Claude — done; awaiting source-push approval
+`review/upgrade-composable-preview-fix-v3` @ `4a73ed87` pushed. `main`
+untouched. Ready for independent verification and, per the auditor's own
+note above, source-push approval can follow once that's confirmed —
+browser/customer validation happens after push and deployment, per
+standing role split.
