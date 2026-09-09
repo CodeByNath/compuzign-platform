@@ -33,30 +33,54 @@ Existing focused shell, Tier/Edition identity, Add-ons, Upgrade/composable journ
 ## Must not substitute
 No one-card fallback, extra customer step, artificial interaction, hardcoded Family/Tier logic, or CSS-only hiding.
 
-## Safeguard applied — Claude, round 2
-Documentation-only commit `e8270514` on the same review branch. Branch is now 2
-commits ahead of production, behind by 0, merge base still `8920607f`:
+## Claude — implementation record
+Branch `fix/family-tier-membership-boundary`: 2 commits ahead of `8920607f`,
+behind 0, merge base `8920607f`.
 
-- `9ea1d830` — accepted source correction (unchanged this round).
-- `e8270514` — the required Code Map correction, nothing else.
+- `9ea1d830` — source correction (accepted round 1, unchanged since).
+- `e8270514` — Code Map safeguard only.
 
-In `docs/code-map/package-builder-focused-shell.md` under **Family-switch state
-boundary**, the reset effect's stated reason is corrected: a same-id Tier the NEW
-Family *genuinely occupies* still passes `visibleTiers`' filter (so the reset is
-still required), while a Tier it does not occupy can no longer pass at all,
-because membership resolves before the audience question and an absent
-`family.pricing.tiers` entry is non-membership rather than a both-groups default.
-The conclusion was already right; only the reason was inaccurate.
+**Round 1 files (`9ea1d830`)**
+- `FamilyTierAdapter.tsx` — 4 derivation lines + comments; `[CZ single-tier debug]` block deleted.
+- `dist/js/cost-builder.js` — rebuilt. The diagnostic was live in `main`'s shipped bundle (1 occurrence); the rebuilt bundle has 0.
+- `package.json` — one script entry.
+- `scripts/family-tier-membership-boundary-regression.mjs` — new mounted regression.
 
-No source, test, or behavioural change in this round: `git diff 9ea1d830..e8270514`
-touches exactly one Markdown file. `npm run docs:check` passes.
+**Round 2 safeguard (`e8270514`)** — the requested correction, nothing else.
+`docs/code-map/package-builder-focused-shell.md`, *Family-switch state boundary*:
+the reset effect's stated **reason** now says a same-id Tier the new Family
+genuinely occupies still passes (reset still required), while one it does not
+occupy can no longer pass. `git diff 9ea1d830..e8270514` = one Markdown file.
 
-### One observation, no action taken
-`package-builder-focused-shell.md` was already **692 words** before this round,
-over the 600-word Code Map limit in `AGENTS.md`. My correction is deliberately
-tightened to +19 words (711) rather than the +45 a plainer wording needed, but it
-does not fix the pre-existing breach. Splitting or trimming the map is a scope
-decision I have not taken — flagging it for a separate decision, like the
-`contract:package-builder-flow` ENOENT.
+**How to verify**
+```
+npm run regression:family-tier-membership-boundary   # 22/22 pass
+npx tsc --noEmit                                     # clean
+npm run build                                        # success
+npm run docs:check                                   # pass
+```
+Contracts run, all passing: `package-builder-customer-tabs`,
+`package-builder-regression-lock`, `package-builder-addon-focus`,
+`tier-edition-switch`, `manage-build`, `composable-quote-cart`,
+`composable-recommendations-cta`, `composable-offer-eligibility`,
+`package-family-cart`, `quote-cart-addon`,
+`package-builder-bundle-inclusion-parity`, `plan-details-value-states`,
+`commercial-leg-inclusion-groups`, `commercial-leg-extension-groups`,
+`tier-addon-flow`.
 
-Live behaviour remains unverified by me; I have no live/WordPress access.
+**Reproduction evidence.** Restore `FamilyTierAdapter.tsx` from `main`, re-run the
+regression: 15 checks fail, including scenario 1 reporting
+`focused=false gridCards=Basic` — Nath's exact one-card landing — and the tab bar
+rendering for a group with no real primary card. The defect is reproducible
+off-live; the three prior attempts had no such signal.
+
+## Open items — flagged, no action taken
+1. `contract:package-builder-flow` ENOENT on removed `FullBuildDetail.tsx`; fails
+   identically on `main`. Auditor confirmed out of scope.
+2. `package-builder-focused-shell.md` was already **692 words** before this round,
+   over the 600-word Code Map limit in `AGENTS.md`. My correction is tightened to
+   +19 words (711) rather than the +45 a plainer wording needed, but it does not
+   fix the pre-existing breach. Splitting/trimming the map is a scope decision I
+   have not taken.
+3. Live behaviour unverified by me — no live/WordPress access. The regression
+   proves the derivation off-live, not the deployed page.
