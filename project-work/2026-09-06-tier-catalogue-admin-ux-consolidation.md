@@ -1,44 +1,43 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **READY FOR CLAUDE**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `8920607fb41967072c9dc561e2e0fae9826f52ca`.
-- Approved review candidate: `fix/family-tier-membership-boundary` @ `ee624fdc6d71e9499396097b872afd3bee97b26f`.
+- Production `main`: `ee624fdc6d71e9499396097b872afd3bee97b26f`.
 
-## Independent audit — final candidate
-GitHub confirms the published candidate is exactly **1 commit ahead, 0 behind** production `main`, with merge base `8920607f`. Candidate tree is `3cd09fae0f8ca7289f6c5995312a5e1e58cf589a`, byte-identical to the previously accepted `e8270514` tree.
+## Live result — previous defect accepted
+Nath confirmed the deployed single-primary landing now behaves correctly: a one-primary customer group lands directly in the real focused shell, and empty customer-group tabs are no longer shown. Treat the Family-membership correction as accepted; do not reopen it without hard evidence.
 
-Accepted behavior:
-- Family occupancy resolves before audience/group/focus derivation;
-- global Tier slots absent from `family.pricing.tiers` are non-membership;
-- empty customer-group tabs disappear unless both groups have a real primary Tier;
-- one genuine primary Tier reaches the existing synchronous focused shell;
-- Add-ons do not qualify a group for tabs;
-- genuine occupants with unset `audience_groups` retain the both-groups default;
-- temporary single-Tier diagnostics are removed;
-- no effect-driven auto-open, fake click, timeout, CSS-only hiding, hardcoded IDs, extra customer step, or one-card substitute.
+## New refinement — Nath approved
+When a customer group has exactly one normal Tier:
 
-The Code Map safeguard is included in the same clean candidate and correctly describes the Family-switch reset boundary. The mounted regression and prior TypeScript/build/contract evidence remain applicable because the squashed candidate is tree-identical to the accepted head.
+1. **Before that Tier is in Cart**
+   - keep the current automatic focused landing;
+   - no Close/X button;
+   - no one-card grid fallback.
+
+2. **Once that exact Tier is the selected primary in Cart**
+   - the focused shell remains available;
+   - show the normal sticky **X** Close button;
+   - clicking X must exit focused mode and reveal the single Tier as its normal customer-group card while the Cart remains visible beside it;
+   - the quoted card keeps the existing quoted-state CTA (`View Plan`) and can reopen the focused shell;
+   - reopening must show the same exact quoted Default/Edition identity.
+
+3. **If the Tier is removed from Cart**
+   - restore the original single-Tier landing rule: automatic focused shell, no X.
+
+## Architectural direction
+Do not make `normalTiers.length === 1` permanently undismissable once that Tier is quoted. Distinguish:
+- **locked implicit single-Tier landing** = exactly one real primary + not quoted;
+- **quoted single-Tier focused view** = exactly one real primary + selected primary exists; dismissible with X.
+
+The X must not immediately re-trigger the render-time single-Tier fallback. Use explicit, local presentation state/derivation tied to the quoted single-Tier case so a customer dismissal persists while that same Tier remains quoted. Reset that dismissal when the primary is removed, Family/customer group changes, or a different Tier becomes selected. Do not use fake clicks, timers, route changes, or CSS-only hiding.
+
+## Must preserve
+Family-membership fix, audience/tab rules, exact Tier+Edition identity, existing focused shell, sticky X behavior, Add-ons, Recommendations, Upgrade/composable journey, Cart, pricing/server preview authority, quote snapshots and current `View Plan` routing.
+
+## Must not substitute
+No extra customer step, no one-card landing before quote, no duplicated focused shell, no hardcoded Family/Tier ids, no effect-driven artificial auto-open, no cart suppression after X.
 
 ## Claude — next action
-Push **exactly `ee624fdc6d71e9499396097b872afd3bee97b26f`** to `main` via fast-forward only. Do not amend, combine, or add any source/documentation change.
-
-After push, record here:
-1. resulting exact `main` SHA;
-2. confirmation `main` tree = `3cd09fae0f8ca7289f6c5995312a5e1e58cf589a`;
-3. GitHub Actions `Deploy to Hostinger` run id + conclusion;
-4. delete the merged topic branch only after confirming it is an ancestor of `main`;
-5. set **AWAITING LIVE VALIDATION** and stop.
-
-## Required live validation after deployment
-Auditor must verify customer-facing behavior before closure:
-- single-primary Family lands directly in the real focused shell;
-- customer-group tabs render only when both groups have real primary Tier cards;
-- Enterprise-only single-primary Family lands correctly with no empty PB tab;
-- Add-on-only opposite group does not create a tab;
-- multi-primary group still renders comparison cards;
-- normal Tier/Edition, Add-on focused path, Upgrade/composable flow, Cart and pricing remain unchanged.
-
-## Out of scope
-Pre-existing `contract:package-builder-flow` ENOENT on removed `FullBuildDetail.tsx` remains non-blocking for this defect.
+Implement only this refinement from current `main`. Add/adjust a mounted regression covering: unquoted single Tier auto-focused/no X; quoted single Tier focused with X; X => one quoted card + Cart-visible state signal; `View Plan` reopens exact quoted Edition; removing primary restores auto-focus/no X. Push to the single topic branch, record changed files/tests/SHA here, set **AWAITING CHATGPT REVIEW**, and stop. Do not push to `main`.
