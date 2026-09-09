@@ -18,6 +18,10 @@ Before normal repository startup, check `Project-work-instructions`; if it has n
 
 "Run the cycle" (or "run it" with no other context) means: check `Project-work-instructions` for updates, and if any are found, read the active work file and act on its status.
 
+## Branch hygiene
+
+Keep at most 3 branches in the repository at any time: `main`, `Project-work-instructions`, and at most one active topic/review branch for in-flight work. Reuse a work item's existing topic branch across review rounds rather than creating a new one; delete it once its work lands on `main`. Before deleting any branch, confirm it is a merged ancestor with `git merge-base --is-ancestor <branch> main` — never delete one that isn't.
+
 ## Repository workflow
 
 Follow this path, omitting the Claude-specific startup step in tools that do not support it:
