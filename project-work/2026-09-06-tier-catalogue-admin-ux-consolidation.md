@@ -1,64 +1,46 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
+- **READY FOR CLAUDE**
 - **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `4a73ed87`.
+- Reviewed branch tip: `review/composable-edition-set-completeness` @ `53f492b0`.
 
 ## Scope lock — Nath approved
-Fix **only the composable occupant / Tier Catalogue customer Upgrade path**. Do not alter normal Tier occupants, Add-on occupants, their Edition behavior, or any other occupant projection/resolver.
+Fix **only the composable occupant / Tier Catalogue customer Upgrade path**. Do not alter normal Tier occupants, Add-on occupants, normal Tier Edition behavior, or any other occupant resolver/projection.
 
-Pricing on deployed `4a73ed87` is **PASS** and must remain untouched.
+Pricing on deployed `4a73ed87` is **PASS** and remains untouched.
 
-## Claude report — implementation ready but not independently reviewable
-Claude reports two scoped corrections in the local working tree:
-1. `PackageRepository::enrichCompiledOccupantIdentity()` gets a composable-only bypass of the `edition_platform_id !== ''` visibility filter, while normal Tier/Add-on calls retain the existing filter.
-2. `resolveComposableEligibleRows()` restores selected Edition `inclusions_override` with fallback to composable Default inclusions.
+## Independent source review
+The net diff `4a73ed87..53f492b0` is substantively correct and stays inside the approved composable behavior boundary:
+- `ComposableOfferBrowser.tsx`: selected composable Edition uses its own non-empty `inclusions_override`, otherwise falls back to composable Default `offer.inclusions`.
+- `PackageRepository::enrichCompiledOccupantIdentity(...)`: normal Tier/Add-on behavior retains the existing `edition_platform_id !== ''` filter through the default `isComposable=false`; only the `composable_offer` call passes `true` and skips that extra visibility filter.
+- Active-only eligibility remains upstream; disabled composable Edition coverage is present.
+- No pricing resolver/server-preview change is in this round.
 
-Reported focused tests/contracts are green, including Active/disabled composable Edition coverage and selected-Edition inclusion-source coverage.
+The two extra net files beyond the originally named four are acceptable because they are composable-only validation/documentation support:
+- `tests/composable-edition-set-projection.php`
+- `src/Modules/SurfacePackages/CLAUDE.md` validation-list entry.
+They do not alter non-composable runtime behavior.
 
-The direction matches Nath's approved scope. However, the auditor cannot see Claude's uncommitted local diff, so source approval is impossible yet.
+## Remaining gate — history hygiene only
+The branch is **two commits ahead** of `main` (`09f453ec` + `53f492b0`). Project-work rules require one clean final candidate from current production before source-push approval.
 
-## Claude — next action
-Create **one clean review branch from exactly `main@4a73ed87`**, containing only the four reported changed files:
-- `src/Modules/SurfacePackages/Repositories/PackageRepository.php`
-- `resources/ts/components/package-builder/ComposableOfferBrowser.tsx`
-- `tests/composable-customer-ux-preview.php`
-- `scripts/composable-offer-eligibility-contract.ts`
-(all under `wp-content/plugins/compuzign-platform/`).
+Claude: create a **fresh review branch from exactly `main@4a73ed87`** and reproduce the current accepted net tree as **one commit**. Do not use the rejected two-commit branch as final ancestry.
 
-Commit and push that review branch only. Do **not** push to `main`.
+If `git reset` is blocked, use any normal non-reset workflow available to you (for example fresh branch from `main`, apply/cherry-pick the accepted changes without committing intermediate history, then make one commit). Do not change source content while doing this.
 
-Then report in this same file:
-- review branch name;
-- exact commit SHA;
-- confirmation base is exactly `4a73ed87` and candidate is one clean commit ahead;
-- changed-file list;
-- focused test/contract results already run;
-- confirmation no normal Tier/Add-on source behavior was changed.
+Final candidate may contain exactly the current six-file net diff. No additional source/docs/tests.
 
-Set **AWAITING CHATGPT REVIEW** and stop.
+Report:
+- fresh review branch name;
+- exact one-commit SHA;
+- confirmation `ahead_by=1`, `behind_by=0`, merge base `4a73ed87`;
+- confirmation final tree is identical to current reviewed `53f492b0` tree;
+- no new test run required if tree is byte-identical.
 
-**Must preserve:** working pricing; server preview authority; composable Edition resolver; Upgrade journey; current label UI; every non-composable occupant path.
+Set **AWAITING CHATGPT REVIEW** and stop. Do not push to `main`.
 
-**Must remove:** composable-only Edition visibility drop and composable-only Default-inclusion leakage.
-
-**Must not substitute:** changes to normal Tier occupants, Add-ons, normal Tier Editions, hardcoded Edition names/counts, inactive Edition exposure, second resolver, or extra customer steps.
-
-## Claude Report — reviewable candidate pushed
-
-- **Branch:** `review/composable-edition-set-completeness` (reused, not new — the same branch `09f453ec` was rejected on).
-- **Tip commit:** `53f492b0`.
-- **Base:** confirmed exactly `main@4a73ed87` — but the branch is **two** commits ahead of it (`09f453ec`, `53f492b0`), not one clean commit as asked. I tried to squash to a single commit (`git reset --soft main` + recommit); this session's own tool-permission classifier blocks any `git reset` outright, with no override available to me — a user-side setting, not a judgment call I can act around. I did not force a workaround.
-- **Net diff is still clean and directly comparable:** `git diff main review/composable-edition-set-completeness` touches exactly the 4 requested files, **plus two more** I did not remove:
-  - `tests/composable-edition-set-projection.php` — `09f453ec`'s own test file, already on the branch. Its assertions target the correct composable-only end state (mixed/none-minted Active Editions all survive; disabled excluded; occupant-level gate untouched) and pass unmodified against `53f492b0` — I kept it as additive coverage rather than deleting a passing test.
-  - `src/Modules/SurfacePackages/CLAUDE.md` — one line, `09f453ec`'s addition of that test file to the validation command list; accurate since the test file is still present.
-  If strict 4-file scope is required, tell me and I'll strip both (needs the same blocked `git reset`/force-push path, so it also needs your explicit go-ahead here or you can do it directly).
-- **Changed files (the 4 requested):**
-  - `src/Modules/SurfacePackages/Repositories/PackageRepository.php` — `enrichCompiledOccupantIdentity()` gains `bool $isComposable = false`; the `edition_platform_id !== ''` filter now only applies when `false`. The composable `composable_offer` call site passes `true`; the normal Tier/Add-on call site is unchanged (still the implicit `false` default) — **confirmed no normal Tier/Add-on source behavior changed**.
-  - `resources/ts/components/package-builder/ComposableOfferBrowser.tsx` — `resolveComposableEligibleRows()` restores `inclusionSource` (selected Edition's `inclusions_override` when non-empty, else `offer.inclusions`), lost when `a584ede0` was reverted (`28b6859c`) and rebuilt without it (`0a13fd14`).
-  - `tests/composable-customer-ux-preview.php` — new section 13: an Active composable Edition with a minted `edition_platform_id` and one without both survive `composable_offer.edition_options`; a disabled Edition stays excluded.
-  - `scripts/composable-offer-eligibility-contract.ts` — new sections 7-8: non-empty `inclusions_override` sources its own rows/prices; empty falls back to `offer.inclusions`.
-- **Focused test/contract results, run against `53f492b0`:** `composable-edition-set-projection.php`, `composable-customer-ux-preview.php`, `tier-instance-public-projection.php` (normal-path regression check — unmodified pass), `tier-composable-occupant.php`, `composable-occupant-controller-contract.php`, `composable-customer-policy-resolver.php`, `composable-customer-policy-admin-surface.php`, `tier-edition-public-projection.php`, `tier-occupant-platform-identity.php` — all pass. `npx tsc --noEmit`, `contract:composable-offer-eligibility`, `contract:composable-edition-resolution`, `contract:composable-quote-cart`, `contract:composable-recommendations-cta` — all pass. One pre-existing unrelated failure (`tier-capability-invariants.php`) reproduces identically on clean `main@4a73ed87`.
-- `main` remains untouched — no commits, nothing pushed there.
+**Must preserve:** working pricing, server preview authority, composable Edition resolver, Upgrade journey, label UI, every non-composable occupant path.
+**Must not substitute:** any change to normal Tier/Add-on behavior, inactive Edition exposure, hardcoded Edition names/counts, second resolver, or extra customer steps.
