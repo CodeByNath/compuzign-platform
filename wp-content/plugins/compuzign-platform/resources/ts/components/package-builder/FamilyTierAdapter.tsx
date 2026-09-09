@@ -675,6 +675,29 @@ export function FamilyTierAdapter({
   const effectiveFocusedTierId = focusedTierId
     ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier ? singleVisibleTier.id : null);
   const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
+  // TEMPORARY diagnostic — remove once the "works via tab click, fails on
+  // default-tab landing" discrepancy is understood.
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[CZ single-tier debug]', {
+      familyId: family.family_id,
+      customerGroup,
+      effectiveCustomerGroup,
+      showCustomerTabs,
+      hasPersonalBusinessTiers,
+      hasEnterpriseTiers,
+      normalTiersCount: normalTiers.length,
+      normalTierIds: normalTiers.map((t) => t.id),
+      addonTiersCount: addonTiers.length,
+      singleVisibleTierId: singleVisibleTier?.id ?? null,
+      selectedTierId,
+      stagedTierId,
+      stagedTierResolved: stagedTier?.id ?? null,
+      focusedTierId,
+      effectiveFocusedTierId,
+      upgradeGateActive,
+    });
+  }
   // True only when this render's focused shell exists purely via the
   // fallback above (no explicit Choose Plan click ever happened) — drives
   // hiding the Close button and showing the customer-group tabs above the
