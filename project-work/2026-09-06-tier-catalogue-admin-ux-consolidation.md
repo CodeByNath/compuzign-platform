@@ -1,65 +1,43 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
+- **READY FOR CLAUDE**
 - **SOURCE PUSH NOT APPROVED**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `4a73ed87` (unchanged).
-- Candidate: `review/composable-edition-set-completeness` @ `09f453ec`, one commit from current `main`.
+- Auditor verdict: **Stop — architectural risk**.
+- Production `main`: `4a73ed87`.
+- Rejected candidate: `review/composable-edition-set-completeness` @ `09f453ec`.
 
-## Release scope
-Finish the existing customer-facing **Upgrade Your Build** flow as one working release. No standalone Build Your Own journey and no unrelated composable architecture expansion.
+## Live state
+Pricing remains **PASS** on deployed `4a73ed87`. Do not reopen it.
+Composable Edition loading remains **FAIL**: customer cue shows only `Default` + `Subscriptions`.
 
-Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendations -> Upgrade CTA -> Browse Catalogue in existing focused shell -> server preview/auto-sync authority -> Add to Quote returns to staged view.
+## Why `09f453ec` is rejected
+The candidate removes the `edition_platform_id !== ''` visibility gate and intentionally allows an Active Edition with no CZTE into the public customer set.
 
-## Live validation — 2026-09-09
-Nath validated deployed `main@4a73ed87`.
+That conflicts with already-closed identity architecture, not merely a presentation detail:
+- `docs/code-map/tier-edition.md`: a Tier Edition is an independently addressed child carrying its own **CZTE**, assigned on first Active.
+- CLOSED `project-work/2026-09-06-composable-upgrade-platform-identification.md`: a composable Catalogue Edition carries **CZTE + CZTEC**, and **activation reserves both unconditionally**.
 
-### Pricing
-**PASS at live customer level.** The previous red `Could not resolve pricing right now` error is gone. The Upgrade summary resolves real pricing (screenshot shows Monthly `$36.15`, Initial Payment `$192.65`). Do not reopen pricing without new evidence.
+Therefore an **Active composable Edition without CZTE/CZTEC is an identity/lifecycle defect**. Making that half-identified child customer-visible would hide the defect and weaken the accepted architecture. The fact that current selection happens to use native `id` does not make missing Platform identity acceptable.
 
-### Composable Edition loading
-**FAIL.** The UI now renders labels, but it only shows `Default` + `Subscriptions`. This is not the requested behavior: the customer selector must load the composable occupant's complete customer-valid Edition set dynamically. The prior work fixed label visibility, not the underlying Edition collection/projection.
+Also, the new fixture proves a synthetic `3 active / 1 minted` state can be projected after removing the filter; it does **not** prove the actual omitted live Editions are Active, nor that production legitimately contains Active Editions that should lack IDs.
 
-This is now direct live evidence and the remaining release blocker.
+## Claude — next action
+Do not carry the filter-removal fix forward.
 
-## Source evidence
-Customer UI reads `family.pricing.composable_offer.edition_options`. `PackageFamilyPricingBuilder::presentOccupant()` only passes through whatever `edition_options` the repository compiled. `PackageRepository::enrichCompiledOccupantIdentity()` then rebuilds/filter-maps those options against sanitized `tier_editions` and drops any option whose `edition_platform_id` resolves empty. The exact stage responsible for the missing live Editions must now be traced rather than guessed.
+Trace the demonstrated missing Edition set against the locked identity lifecycle:
+1. Audit composable Edition create/status activation path and prove where CZTE and CZTEC are reserved/bound.
+2. Audit migration/backfill for pre-existing composable Editions and prove whether every Active Edition is repaired to both identities.
+3. Audit `publicTierEditionOptions()` status eligibility. Confirm customer projection remains Active-only.
+4. Build regression coverage for multiple composable Editions where Active rows have valid CZTE/CZTEC and all survive into `composable_offer.edition_options`; disabled/draft/trashed rows do not.
+5. Add a corruption/backfill fixture: an Active Edition missing either required Platform identity must be repaired/reconciled by the authoritative identity path, or rejected loudly — **never silently exposed half-identified**.
 
-## Claude — report (2026-09-09, round 4)
+If source inspection shows the live missing Editions can be validly Active yet identity mint/backfill is absent, fix that authoritative lifecycle/migration defect. If the omitted Editions are not Active, report that instead; do not weaken eligibility to satisfy the screenshot.
 
-### Root cause, confirmed by reproduction
-Traced the exact path named above. `PackageRepository::enrichCompiledOccupantIdentity()` filtered `edition_options` to only entries whose `edition_platform_id` (CZTE — minted only when an admin transitions that Edition to Active through `updateComposableOccupantEditionStatus()`) was non-empty:
-```php
-), static fn(array $option): bool => $option['edition_platform_id'] !== ''));
-```
-That mirrors the correct "never surfaced half-identified" rule for the **occupant itself** (no `cz_platform_id` → the whole `composable_offer` is null) — but the same rule applied per individual Edition-child is wrong here: **nothing in the actual selection/pricing/resolution path reads `edition_platform_id`.** `resolveComposableOfferSelection()` matches an Edition purely by its own `id`; `EditionCueSelector`/`resolveComposableEligibleRows()` on the frontend do the same. `edition_platform_id` only ever reaches the eventually-committed quote item's own `tierEditionPlatformId` field (`buildComposableFamilyTierQuoteItem()`), which already tolerates an empty string there (`?? null` only substitutes on null/undefined, not `''`). A real, active, customer-configured Edition that simply hadn't been through the CZTE-minting transition (or predates it) was invisible to the customer with no way to select it — exactly the "only Default + Subscriptions" live symptom.
+**Must preserve:** working pricing; Active-only customer eligibility; CZTE + CZTEC architecture; stable Edition identity; existing Upgrade flow and label UI.
 
-New `tests/composable-edition-set-projection.php` reproduces this exactly against the unfixed code first (3 active Editions, only 1 minted → 1 survives, confirmed before writing the fix), then locks the corrected behavior.
+**Must remove:** the actual lifecycle/projection defect causing customer-valid Editions to disappear.
 
-### Fix
-`enrichCompiledOccupantIdentity()` still attaches `edition_platform_id` to every surviving option (real value when minted, `''` when not) but no longer filters on it. The occupant-level Platform ID gate is untouched (still returns `null` for the whole `composable_offer` with no occupant `cz_platform_id`). `edition_options` is already restricted to ACTIVE editions upstream (`PackageSchema::publicTierEditionOptions()`), so this cannot expose a disabled/trashed one — verified directly (test section 4).
+**Must not substitute:** exposing identityless Editions, hardcoded names/counts, native-index identity, client-invented Editions, inactive Edition exposure, second resolver, or extra customer steps.
 
-### Must-preserve / must-not-substitute — verified, not just claimed
-- Live pricing: untouched, no changes outside `enrichCompiledOccupantIdentity()`.
-- Edition-aware resolver: untouched (`resolveComposableOfferSelection()` not modified).
-- Stable Edition identity: `id` values pass through verbatim, no fabrication.
-- No hardcoded names/counts/index identity: the fix is a filter removal, not a hardcoded list.
-- No exposing inactive/disabled Editions: locked by test section 4 (a disabled Edition alongside an active one — only the active one survives).
-- No removed Platform-ID requirement at the occupant level: locked by test section 5 (occupant with no `cz_platform_id` still yields no `composable_offer` at all).
-- No second resolver, no extra customer steps: none added.
-
-### Changed files
-- `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/Repositories/PackageRepository.php` (the fix)
-- `wp-content/plugins/compuzign-platform/tests/composable-edition-set-projection.php` (new — reproduces the live defect, locks the fix and every preserved invariant)
-- `wp-content/plugins/compuzign-platform/src/Modules/SurfacePackages/CLAUDE.md` (validation list +1 test)
-
-No frontend changes this round — `dist/` untouched (rebuilt anyway to confirm, no diff).
-
-### Tests/contracts run — all green
-`php tests/composable-edition-set-projection.php` (new), `tier-edition-public-projection.php` (separate Cost-Builder-only projection, confirmed unaffected — it never leaks `edition_platform_id`, which is by design a different, older read path from the one fixed here), `composable-customer-ux-preview.php`, `composable-preview-controller-boundary.php`, `tier-instance-public-projection.php`, `tier-public-projection-is-addon.php`, `tier-pricing-parity.php`, `tier-edition-schema.php`, `tier-edition-repository.php`, `tier-edition-default-resolution.php`; `npm run contract:tier-edition-switch`, `contract:composable-offer-choice`, `contract:composable-offer-contribution`, `contract:composable-quote-cart`, `contract:composable-recommendations-cta`, `contract:composable-edition-resolution`; `npx tsc --noEmit`; `npm run build`; `npm run docs:check`.
-
-### Candidate
-`review/composable-edition-set-completeness` @ `09f453ec`, one commit from current `main@4a73ed87`, pushed. `main` untouched.
-
-Stopping here for auditor review, per Status above.
+Produce one clean replacement candidate from `main@4a73ed87`, report exact root cause/tests/SHA, set **AWAITING CHATGPT REVIEW**, and stop. Do not push to `main`.
