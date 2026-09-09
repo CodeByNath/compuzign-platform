@@ -47,12 +47,10 @@ same-cycle Legs are never merged into one group.
 The Package Family selector (`PackageBuilderApp.tsx`) is a SIBLING of
 `FamilyTierAdapter`, outside every one of its render branches — switching
 Family only ever changes the `family` prop. Because `TierId` is a shared
-enum across every Family (not Family-scoped), a same-id Tier the NEW Family
-genuinely occupies still passes `visibleTiers`' own filter, so a stale
-focused Tier id would otherwise keep resolving non-null. A Tier it does not
-occupy cannot pass — membership resolves before the audience question
-(`filterTiersByCustomerGroup()`), narrowing the leak without removing the
-need for this reset. A `useEffect` keyed on `family.family_id`
+enum across every Family, a same-id Tier the new Family occupies passes
+`visibleTiers`' filter, so a stale focused Tier id would resolve non-null.
+One it does not occupy cannot pass: membership resolves before the audience
+question. A `useEffect` keyed on `family.family_id`
 inside `FamilyTierAdapter.tsx` clears the focused Tier, focused Edition,
 selected Period override, hovered Leg, and Plan Details target — returning
 to that Family's own normal Tier-card view instead of silently reopening

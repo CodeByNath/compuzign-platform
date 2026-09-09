@@ -525,7 +525,13 @@ export function FamilyTierAdapter({
           role="tab"
           class="cz-package-builder__customer-tab"
           aria-selected={effectiveCustomerGroup === group.value}
-          onClick={() => setSelectedCustomerGroup(group.value)}
+          onClick={() => {
+            // A deliberate group change resolves a fresh landing, so a
+            // dismissal recorded against the previous group's single Tier
+            // must not survive into it.
+            setSingleTierDismissedTierId(null);
+            setSelectedCustomerGroup(group.value);
+          }}
         >
           {group.label}
         </button>
@@ -615,6 +621,10 @@ export function FamilyTierAdapter({
     setUpgradeGateTierId(null);
     setUpgradeGateStage(null);
     setComposableEditionId(null);
+    // Same TierId-collision reasoning again: a dismissal recorded for this
+    // Family's single Tier must never be inherited by a same-named Tier in
+    // the next Family.
+    setSingleTierDismissedTierId(null);
     // A new Family gets its own clean landing resolution — see
     // selectedCustomerGroup's own declaration above.
     setSelectedCustomerGroup(null);
@@ -682,6 +692,27 @@ export function FamilyTierAdapter({
   // ever sets 'pending' (Browse Catalogue is rendered but inert this phase).
   const [upgradeGateTierId, setUpgradeGateTierId] = useState<TierId | null>(null);
   const [upgradeGateStage, setUpgradeGateStage] = useState<'pending' | 'browsing' | null>(null);
+  // The customer's own dismissal of the QUOTED single-Tier focused shell,
+  // stored as the exact TierId it belongs to — the same validity-scoped shape
+  // as stagedTierId/upgradeGateTierId above.
+  //
+  // Unlike those two, deriving validity is NOT sufficient here, and this is
+  // the one real trap in this feature. Checking `stored === selectedTierId`
+  // only makes a stale dismissal DORMANT while the primary is absent; it
+  // becomes live again the moment the customer re-quotes that same Tier, and
+  // would then suppress a genuinely fresh quoted focused shell:
+  //
+  //   quote -> X (stores id) -> remove primary (dormant, locked landing
+  //   correctly returns) -> quote the SAME Tier again -> stored id matches
+  //   once more and wrongly suppresses the fallback.
+  //
+  // So the id is genuinely CLEARED whenever the selected primary is not the
+  // dismissed Tier (see the reset effect below), and the derivation is kept
+  // only as the synchronous same-render guard that stops X bouncing back.
+  // Referenced inside the customer-tab click handler declared earlier in this
+  // render — a closure reads it at click time, never during the render that
+  // creates it.
+  const [singleTierDismissedTierId, setSingleTierDismissedTierId] = useState<TierId | null>(null);
   const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
     : null;
@@ -699,24 +730,51 @@ export function FamilyTierAdapter({
   //
   // Composable browsing and an already-staged Tier both take precedence —
   // this is strictly a passive default, never an override of a shell the
-  // customer is already actively in. There is deliberately no "dismiss"
-  // escape into a one-card grid (a real, reported issue with an earlier
-  // version of this same feature — the X button fell through to exactly
-  // that orphan card): the only legitimate way off a single-Tier Family/
-  // group is the customer-group tab bar itself (rendered above the
-  // focused shell in that exact case below, see isImplicitSingleTierView),
-  // when a genuinely different, non-empty group actually exists to switch
-  // to; where it doesn't (this Family has only ever one Tier, full stop),
-  // there is nothing else to show and no close action is offered.
+  // customer is already actively in.
+  //
+  // Whether that landing is dismissible depends on ONE thing: is this single
+  // Tier already the quoted primary?
+  //
+  //   locked implicit landing  = one real primary, NOT quoted. The focused
+  //     shell IS the landing presentation; there is no Close action, because
+  //     dismissing it would fall through to an orphan one-card grid (a real
+  //     reported defect in an earlier version of this feature). The
+  //     customer-group tab bar stays the only way off it.
+  //   quoted single-Tier view  = one real primary that IS the quoted primary.
+  //     The customer now has a Cart line to return to, so the ordinary sticky
+  //     X applies and dismissing lands on that Tier's own normal card — not
+  //     an orphan, because the card carries its quoted state and its View
+  //     Plan route straight back into this same shell.
+  //
+  // The dismissal is honoured HERE, at the fallback itself, so pressing X can
+  // never be immediately re-triggered by this same render-time default (the
+  // bounce-back that would otherwise make X look broken). It stays a passive
+  // render-time derivation — nothing below ever calls a setter to "open" this
+  // view, which is the property that made this approach work where three
+  // effect-driven attempts failed live.
   const singleVisibleTier = normalTiers.length === 1 ? normalTiers[0] : null;
+  // Quoted means THIS exact single Tier is the selected primary — never
+  // merely "something is in the Cart".
+  const singleTierIsQuoted = singleVisibleTier !== null && selectedTierId === singleVisibleTier.id;
+  // Valid only while that same Tier stays quoted: removing the primary
+  // (selectedTierId null) or swapping to a different Tier makes this false by
+  // derivation, restoring the locked landing rule with no reset call.
+  const singleTierDismissed = singleTierDismissedTierId !== null
+    && singleTierDismissedTierId === selectedTierId;
   const effectiveFocusedTierId = focusedTierId
-    ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier ? singleVisibleTier.id : null);
+    ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier && !singleTierDismissed
+      ? singleVisibleTier.id
+      : null);
   const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
   // True only when this render's focused shell exists purely via the
   // fallback above (no explicit Choose Plan click ever happened) — drives
   // hiding the Close button and showing the customer-group tabs above the
   // shell instead, both below.
   const isImplicitSingleTierView = focusedTierId === null && effectiveFocusedTierId !== null;
+  // Only the UNQUOTED implicit landing is locked (no Close). Once this Tier is
+  // the quoted primary the shell keeps the ordinary sticky X, whether it was
+  // reached implicitly or by an explicit View Plan click.
+  const isLockedSingleTierLanding = isImplicitSingleTierView && !singleTierIsQuoted;
 
   // Composable-focused-shell reuse: which Default/Edition of the composable
   // occupant's OWN declaration (family.pricing.composable_offer) is active
@@ -753,6 +811,24 @@ export function FamilyTierAdapter({
     // this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveFocusedTierId, upgradeGateActive]);
+
+  // Genuine reset of a stale dismissal, keyed on the EXTERNALLY owned primary
+  // identity — the cart line lives in PackageBuilderApp, so the primary can
+  // disappear from anywhere (Quote Summary, Cart, this component's own remove
+  // action) and this component only ever sees selectedTierId change. Clearing
+  // here rather than at each removal site is what makes "removed from Cart
+  // outside this component" behave identically to removing it in here.
+  //
+  // This is a synchronisation/cleanup effect ONLY: it clears stale
+  // presentation state and never opens, focuses, or selects anything. The
+  // focused shell is still produced purely by the render-time fallback above
+  // — the property that made this feature work where three effect-driven
+  // auto-open attempts failed live.
+  useEffect(() => {
+    if (singleTierDismissedTierId !== null && singleTierDismissedTierId !== selectedTierId) {
+      setSingleTierDismissedTierId(null);
+    }
+  }, [selectedTierId, singleTierDismissedTierId]);
 
   const dismissUpgradeGate = () => {
     setUpgradeGateTierId(null);
@@ -1161,14 +1237,27 @@ export function FamilyTierAdapter({
               plan" once the cart holds something became unreachable. Close
               is now a single deterministic shell transition to the grid,
               every time, matching what it already claimed to do.
-              Hidden entirely for the implicit single-Tier auto-view —
-              see the comment above this whole branch. */}
-          {!isImplicitSingleTierView && (
+              Hidden only for the LOCKED single-Tier landing — one real
+              primary that is not yet quoted, which has no non-orphan card to
+              fall back to. Once that Tier is the quoted primary this button
+              returns, because its own normal card (quoted state + View Plan
+              back into this shell) is a real destination. */}
+          {!isLockedSingleTierLanding && (
           <button
             type="button"
             class={`cz-package-builder__focused-close${isCloseElevated ? ' is-elevated' : ''}`}
             aria-label="Close focused plan"
-            onClick={() => { setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); setPlanDetailsTarget(null); setStagedTierId(null); }}
+            onClick={() => {
+              // Records the dismissal for the quoted single-Tier case, so the
+              // render-time fallback above does not immediately reopen the
+              // shell this click just closed. Set for the explicit (View
+              // Plan) route too, not only the implicit one — both land back
+              // on the same single card, and both would otherwise bounce.
+              if (singleTierIsQuoted && selectedTierId !== null) {
+                setSingleTierDismissedTierId(selectedTierId);
+              }
+              setFocusedTierId(null); setFocusedEditionId(null); setSelectedPeriodFromMonth(null); setPlanDetailsTarget(null); setStagedTierId(null);
+            }}
           >
             <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
