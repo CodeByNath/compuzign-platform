@@ -689,6 +689,23 @@ export function FamilyTierAdapter({
   const effectiveFocusedTierId = focusedTierId
     ?? (upgradeGateActive !== 'browsing' && selectedTierId === null && singleVisibleTier ? singleVisibleTier.id : null);
   const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
+  // TEMPORARY diagnostic — remove once the single-Tier auto-view's live
+  // failure is actually understood (see project memory: 4 attempts have
+  // now failed live despite reading correctly in every static trace).
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('[CZ single-tier debug]', {
+      familyId: family.family_id,
+      effectiveCustomerGroup,
+      normalTiersCount: normalTiers.length,
+      normalTierIds: normalTiers.map((t) => t.id),
+      singleVisibleTierId: singleVisibleTier?.id ?? null,
+      selectedTierId,
+      focusedTierId,
+      effectiveFocusedTierId,
+      upgradeGateActive,
+    });
+  }
   // True only when this render's focused shell exists purely via the
   // fallback above (no explicit Choose Plan click ever happened) — drives
   // hiding the Close button and showing the customer-group tabs above the
