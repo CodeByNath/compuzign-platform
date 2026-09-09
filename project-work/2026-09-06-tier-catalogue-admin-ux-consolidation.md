@@ -1,87 +1,47 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
+- **AWAITING CLAUDE RESPONSE**
 - **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `0a13fd14` (unchanged — nothing pushed yet).
-- Candidate: `review/upgrade-composable-edition-preview-fix` @ `12e00e91`.
-- Deploy: Hostinger workflow #979 succeeded for exact `0a13fd14`.
-- Live validation failed on two customer-facing defects below — B fixed, A partially investigated (see Claude's report below); needs auditor input to finish.
+- Production `main`: `0a13fd14`.
+- Reviewed candidate: `review/upgrade-composable-edition-preview-fix` @ `12e00e91`.
+- Candidate is exactly one commit ahead of production, no rejected ancestry.
 
-## Current release goal
-Finish the existing customer-facing **Upgrade Your Build** flow only. Do not reopen broader composable-Edition architecture.
+## Release scope
+Finish the existing customer-facing **Upgrade Your Build** flow only. No broader composable-Edition architecture work.
 
 Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendations -> Upgrade CTA -> Browse Catalogue in existing focused shell -> existing server preview/auto-sync authority -> Add to Quote returns to staged view. No standalone Build Your Own journey.
 
-## Live defects — 2026-09-09
-1. Customer catalogue shows red **“Could not resolve pricing right now.”**
-   - This is the Promise rejection/catch path around `resolveComposablePreview()`, not the normal resolver `ok:false` response.
-   - Treat as an HTTP/API/runtime boundary failure until actual response/status/runtime error proves otherwise.
+## Auditor review of `12e00e91`
+### Defect B — Edition top control
+**Accepted at source-review level.**
+The diff is scoped: `showLabels` is opt-in, only the composable Upgrade cue enables it, labels come from the existing `destinations` built from `composable_offer.edition_options`, and normal Tier cue behavior is unchanged. CSS is additive. No new identity, routing, or selector state was introduced.
 
-2. Focused-shell top Edition control does not present the dynamic Edition list properly.
-   - Current `EditionCueSelector` intentionally hides labels and renders positions/dots only.
-   - For this Upgrade surface the customer must see the real available **Default + Edition names**, dynamically from the composable occupant's own `edition_options`.
-   - Use established Admin Build Your Own declaration-tab and existing customer Tier/Edition presentation patterns for guidance; do not invent another identity/model.
+This still requires deployed visual validation before closure.
 
-## Claude — report (2026-09-09)
+### Defect A — pricing request failure
+**Not fixed; release remains blocked.**
+The added PHP coverage is useful, but it only proves the tested fixture path. It does **not** rule out the deployed REST/API boundary that produced the live `.catch()` path.
 
-### B. Edition top control — FIXED
-`EditionCueSelector` (`FamilyTierAdapter.tsx`) gained an opt-in `showLabels`
-prop: when set, it renders each `destinations[]` entry's real label under
-the existing track (same left/width slice as the click targets, same
-`aria-label` for the accessible name) — dynamically, no hardcoded
-name/count/index. The primary Tier's own cue call site is untouched (no
-`showLabels`), so its dots-only behavior is unaffected; only the composable
-Upgrade shell's call site now passes `showLabels`. New CSS is additive
-(`.cz-package-builder__cue-track--labeled` / `-labels` / `-label`).
+Do not guess a source fix and do not suppress/fallback around the failure.
 
-### A. Pricing failure — PARTIALLY INVESTIGATED, NEEDS AUDITOR INPUT
-Traced the full existing path. `PackageRepository::resolveComposableOfferSelection()`'s
-Edition-swap branch (landed in `0a13fd14`, "resolve real Editions end to
-end") had **zero PHP-level test coverage** — the obvious suspect given it's
-the only genuinely new server-side logic in this feature. Added end-to-end
-coverage in `tests/composable-customer-ux-preview.php` (#12: a real active
-Edition, an unknown id, a disabled Edition, and an empty-string id) — all
-resolve correctly, no crash, prices join the real rate-sheet catalogue
-correctly. **This rules out the Edition-swap branch as the cause**, but I
-could not reproduce the actual live HTTP failure myself — there is no
-live/deployed WordPress environment reachable from this session to hit
-`POST /compuzign/v1/package-builder/composable-preview` against, and per
-standing instruction I do not perform browser/live validation.
+## Claude — next action
+Do not change source further until the failing live request evidence is supplied.
 
-**Needed to proceed:** the actual captured HTTP status + response body (or
-PHP error log line) from the live failure — browser Network tab on the
-failing request, or the site's PHP error log around the time of the live
-check. Once that's available I can trace directly to the real defect rather
-than guessing further at a passing code path.
+When Nath/auditor supplies the failing `POST /compuzign/v1/package-builder/composable-preview` evidence, record:
+- HTTP status;
+- response body;
+- request payload (`family_id`, `choice`, `edition_id` if present);
+- corresponding PHP/WordPress error line if status/body indicates a server fatal.
 
-**Must preserve (unchanged):** server preview as pricing authority; debounced
-preview/auto-sync; customer-policy and Commercial-Leg resolver; Edition-aware
-resolution. **Not substituted:** no client-calculated pricing, no published
-unit price as quote authority, no error suppression, no second resolver, no
-Edition support removed.
+Then trace that exact evidence through the existing endpoint and fix only the demonstrated defect.
 
-### Changed files
-- `wp-content/plugins/compuzign-platform/resources/ts/components/package-builder/FamilyTierAdapter.tsx`
-- `wp-content/plugins/compuzign-platform/resources/css/modules/cost-builder.css`
-- `wp-content/plugins/compuzign-platform/tests/composable-customer-ux-preview.php`
-- `wp-content/plugins/compuzign-platform/dist/{css,js}/cost-builder.*` (rebuilt)
-- `docs/code-map/package-builder-focused-shell.md`
+**Must preserve:** server preview pricing authority; debounced preview/auto-sync; customer-policy/Commercial-Leg resolver; Edition-aware resolution; accepted Upgrade journey.
 
-### Tests/contracts run (all green except one pre-existing, unrelated failure)
-`php tests/composable-customer-ux-preview.php` (extended), `tier-instance-public-projection.php`,
-`tier-public-projection-is-addon.php`, `tier-pricing-parity.php`, `tier-edition-public-projection.php`,
-`tier-edition-schema.php`, `tier-edition-repository.php`, `tier-edition-default-resolution.php`;
-`npm run contract:tier-edition-switch`, `contract:composable-offer-choice`, `contract:composable-offer-contribution`,
-`contract:composable-quote-cart`, `contract:composable-recommendations-cta`, `contract:composable-edition-resolution`;
-`npx tsc --noEmit`; `npm run build`; `npm run docs:check`.
-`php tests/tier-capability-invariants.php` fails on both this branch AND a clean `main` checkout
-(unregistered scoped Tier route assertion) — confirmed pre-existing, unrelated to this work, not touched.
+**Must not substitute:** client pricing, unit-price fallback as quote authority, error suppression, second resolver, removal of Edition support, or extra customer steps.
 
-### Commit
-`review/upgrade-composable-edition-preview-fix` @ `12e00e91`, pushed to origin. `main` untouched.
+After the pricing correction, produce one clean replacement review candidate from current production `main` containing the accepted Edition-label fix plus the demonstrated pricing fix, run focused contracts/tests, and return status to **AWAITING CHATGPT REVIEW**. Do not push to `main`.
 
-Do not change the accepted Upgrade journey, Cart/Add-on visibility contract, resolver architecture, or deferred deeper Edition refinements — none of that was touched.
-
-Stopping here for auditor review, per Status above. If the auditor or Nath can supply the live-captured HTTP status/body for defect A, I'll continue immediately in the same cycle.
+## Evidence state
+Deployment #979 succeeded for `0a13fd14`; live customer validation on that exact production state showed the pricing error and unlabeled Edition control. The current review candidate is not deployed.
