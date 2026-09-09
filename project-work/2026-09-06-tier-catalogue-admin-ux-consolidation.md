@@ -1,12 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE**
+- **AWAITING CHATGPT REVIEW**
 - **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `0a13fd14` (unchanged).
-- Reviewed candidate: `review/upgrade-composable-preview-fix-v2` @ `4e29dfd5`.
-- Candidate is exactly one clean commit ahead of production. Superseded review branch cleanup is acceptable.
+- Candidate: `review/upgrade-composable-preview-fix-v2` @ `bdfa3c71` (same branch, one new commit added — not a new branch, per "continue from the same clean candidate").
 
 ## Release scope
 Finish the existing customer-facing **Upgrade Your Build** flow as one working release. No broader composable-Edition architecture work.
@@ -26,22 +25,60 @@ But it does **not** explain the reported customer failure under the normal front
 
 Do not claim the customer pricing defect fixed on this evidence alone.
 
-## Claude — next action
-Continue from the same clean candidate. Do not push to `main`.
+## Claude — report (2026-09-09, round 3)
 
-Add a regression test at the **actual WP REST dispatch boundary**, not only a direct controller call. Register the real route and dispatch a well-formed request matching the real frontend payload:
-- `family_id`: actual string shape;
-- `choice`: JSON array/object shape emitted by `ComposableOfferBrowser`;
-- `edition_id`: omitted for Default and real string for an Edition.
+Added Section 7 to `tests/composable-preview-controller-boundary.php`:
+a `dispatchThroughRegisteredRoute()` helper that resolves `callback`/
+`permission_callback` FROM the route definition `register_rest_route()`
+actually captured (not calling `postComposablePreview()` directly), checks
+required-param presence the same way `WP_REST_Server::dispatch()`'s own
+`has_valid_params()` does, then dispatches the two well-formed shapes the
+real frontend sends — Default (`edition_id` omitted) and a real active
+Edition id — through it.
 
-The test must verify the complete response path is HTTP-successful and JSON-serializable with no PHP diagnostics. Also inspect/bootstrap-test the real controller registration/wiring and the client path construction/config (`apiRoot` + `package-builder/composable-preview`) so the normal frontend request cannot reject before repository resolution.
+**Result: both pass clean.** HTTP 200, `ok:true`, clean `json_encode()`
+round-trip, zero PHP diagnostics (the same strict `set_error_handler()`
+from round 2 is still armed) — for the *actually-registered* route, not a
+hand-called method.
 
-If that well-formed full-boundary test fails, fix the demonstrated cause. If it passes, report that the non-scalar guard is only hardening and identify the next untested production boundary rather than presenting it as the live fix.
+Also hand-inspected (no WordPress core exists in this repo to run a
+further automated test against):
+- **Module wiring** (`CostBuilderModule.php`): `new PackageBuilderController(new PackageFamilyPricingBuilder($packageRepository), $packageRepository)` — matches the constructor exactly, no DI mismatch.
+- **Client path construction**: `AssetLoader.php` sets `apiRoot => rest_url('compuzign/v1/')`; `apiClient.ts`'s URL join with `path = 'package-builder/composable-preview'` builds exactly this route's registered namespace+path — no mismatch.
 
-**Must preserve:** server preview pricing authority; debounced preview/auto-sync; customer-policy/Commercial-Leg resolver; Edition-aware resolution; accepted Upgrade journey; accepted Edition labels.
+**Conclusion, as instructed:** since the well-formed full-boundary test
+passes, I'm reporting the `is_scalar()` guard as hardening only — not the
+live fix — and naming what's left. Every source-controllable boundary
+reachable without a real WordPress install is now clean. What remains
+untested is outside source and outside what this repository can exercise
+without either WordPress core or the live evidence:
+1. **WP-core nonce/cookie auth middleware** — only engages for a
+   logged-in customer (anonymous requests skip it entirely). A stale
+   nonce on the POST (plausible if the customer browses a while before
+   interacting) would 403 with a valid-but-non-2xx `WP_Error` JSON body —
+   `apiClient`'s `!res.ok` branch throws, landing in the exact same
+   `.catch()` as a malformed response. This is genuinely untestable here:
+   it requires real WP's cookie/nonce stack.
+2. **Actual live production data shape** for this specific customer's
+   family/composable occupant — my fixtures are clean by construction;
+   production data could carry a field shape mine doesn't cover.
+3. Host-level causes (WAF, OPcache staleness after deploy, a caching
+   plugin intercepting REST) — infrastructure, not source.
 
-**Must remove:** the demonstrated cause of the normal well-formed customer request rejection.
+I am not implementing a source change for any of these without evidence —
+per "must not substitute," speculatively reworking auth or adding
+defensive code for an unconfirmed cause would be guessing, not fixing a
+demonstrated defect. The `is_scalar` hardening stays (genuine improvement,
+zero behavior change, already accepted). If the auditor's live check
+(logged in vs. anonymous customer, and the actual failing response) can
+narrow among the three above, I'll act immediately on whichever it is.
 
-**Must not substitute:** client-calculated pricing, published unit-price fallback as quote authority, error suppression, second resolver, removal of Edition support, extra customer steps, or a separate Build Your Own journey.
+### Candidate
+`review/upgrade-composable-preview-fix-v2` @ `bdfa3c71` (same branch,
+`4e29dfd5` + one new commit — continuing per instruction, not a fresh
+branch). `main` untouched.
 
-Return one clean candidate from current `main`, report exact root cause/evidence/tests/SHA, set **AWAITING CHATGPT REVIEW**, and stop. Browser validation remains after an independently approved candidate is pushed and deployed.
+### Tests/contracts run — all green
+Same full suite as round 2, plus the extended `composable-preview-controller-boundary.php` (now includes Section 7). `npx tsc --noEmit`, `npm run docs:check` also re-run clean.
+
+Stopping here for auditor review, per Status above.
