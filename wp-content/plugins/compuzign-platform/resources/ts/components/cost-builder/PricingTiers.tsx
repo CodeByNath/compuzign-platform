@@ -963,8 +963,13 @@ export function PricingTiers({
   // with no add-on Tiers at all), and hideAddonsInRecommendations steps the
   // add-on cards aside while the CTA is being offered rather than showing
   // both at once.
+  // CTA-only (add-on cards stepped aside, e.g. the composable Upgrade
+  // gate): no sibling card content to row-height-match against, so the
+  // shell shrinks to its own content instead of stretching to the strip's
+  // full card height — see --compact in cost-builder.css.
+  const isRecommendationsCtaOnly = hideAddonsInRecommendations && Boolean(recommendationsCta);
   const recommendationsShell = recommendationsAside && (addonTiers.length > 0 || recommendationsCta) ? (
-    <div class="cz-cost-builder__recommendations-shell">
+    <div class={`cz-cost-builder__recommendations-shell${isRecommendationsCtaOnly ? ' cz-cost-builder__recommendations-shell--compact' : ''}`}>
       <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
       {!hideAddonsInRecommendations && addonTiers.map(renderAddonTierCard)}
       {recommendationsCta}

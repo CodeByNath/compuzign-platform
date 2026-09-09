@@ -782,6 +782,21 @@
   border: 1px solid var(--cz-color-line);
 }
 
+/* CTA-only (e.g. the composable Upgrade gate, PricingTiers.tsx's own
+   isRecommendationsCtaOnly): no add-on cards render alongside it, so
+   there is nothing to row-height-match against — height: auto/min-height:
+   0/max-height: none (overriding stretch/grid-row above) let it hug its
+   own short copy+actions instead of the full card height, and
+   align-self: center keeps it visually centred against the row's actual
+   height rather than pinned to the top. */
+.cz-cost-builder__recommendations-shell--compact {
+  grid-row: auto;
+  align-self: center;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
 /* Quote summary sidebar */
 .cz-quote-summary {
   background: var(--cz-color-surface-2);
@@ -4648,6 +4663,16 @@
   align-items: center;
   gap: var(--cz-space-4);
   flex-wrap: wrap;
+}
+
+/* Browse Catalogue/Maybe next time reuse .cz-cost-builder__tier-action's
+   own shape/fill (see FamilyTierAdapter.tsx), but that base rule sets
+   width: 100% for its usual context (stacked full-width inside a Tier
+   card's own action row) — here the two sit side by side in one compact
+   row instead, so they size to their own label instead of each claiming
+   the full row and wrapping under one another. */
+.cz-package-builder__upgrade-gate-actions .cz-cost-builder__tier-action {
+  width: auto;
 }
 
 /* Composable focused shell — Build Your Own now reuses

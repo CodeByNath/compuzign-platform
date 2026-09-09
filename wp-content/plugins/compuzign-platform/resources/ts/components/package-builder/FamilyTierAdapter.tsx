@@ -1387,16 +1387,27 @@ export function FamilyTierAdapter({
           <h3 class="cz-package-builder__upgrade-gate-heading">Upgrade your build</h3>
         </div>
         <div class="cz-package-builder__upgrade-gate-actions">
+          {/* Same filled/outline pairing Choose Plan (secondary) + Add to
+              Quote (primary) already use elsewhere in this file — Browse
+              Catalogue is this CTA's one primary action, so it reuses the
+              exact same solid-accent treatment (.tier-choose--filled),
+              never a bespoke button style. */}
           <button
             type="button"
-            class="cz-cost-builder__tier-action"
+            class="cz-cost-builder__tier-action cz-cost-builder__tier-choose--filled"
             onClick={() => setUpgradeGateStage('browsing')}
           >
             Browse Catalogue
           </button>
+          {/* The secondary/dismiss action reuses .tier-action's own bare
+              outline-muted treatment — the exact default look Browse
+              Catalogue used to have before the --filled modifier above —
+              rather than the plain borderless text link
+              .focused-back uses elsewhere for "back" navigation; this is a
+              real decision (skip the upgrade), not a navigation control. */}
           <button
             type="button"
-            class="cz-package-builder__focused-back"
+            class="cz-cost-builder__tier-action"
             onClick={dismissUpgradeGate}
           >
             Maybe next time
