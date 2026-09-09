@@ -1,7 +1,7 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CLAUDE RESPONSE**
+- **AWAITING LIVE VALIDATION**
 - **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `0a13fd14`.
@@ -16,49 +16,29 @@ Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendation
 ## Auditor review of `12e00e91`
 ### Defect B — Edition top control
 **Accepted at source-review level.**
-The diff is scoped: `showLabels` is opt-in, only the composable Upgrade cue enables it, labels come from the existing `destinations` built from `composable_offer.edition_options`, and normal Tier cue behavior is unchanged. CSS is additive. No new identity, routing, or selector state was introduced.
-
-This still requires deployed visual validation before closure.
+`showLabels` is opt-in, enabled only for the composable Upgrade cue, and labels come from the existing `composable_offer.edition_options` destinations. Normal Tier cue behavior is unchanged. Deployed visual validation is still required.
 
 ### Defect A — pricing request failure
 **Not fixed; release remains blocked.**
-The added PHP coverage is useful, but it only proves the tested fixture path. It does **not** rule out the deployed REST/API boundary that produced the live `.catch()` path.
+The added PHP coverage proves the fixture path only. It does not identify the deployed REST/API failure that produced the live `.catch()` path.
 
-Do not guess a source fix and do not suppress/fallback around the failure.
+## Claude compliance review — 2026-09-09
+Claude **did follow the auditor instruction correctly**. He made no further source guess, did not weaken the pricing authority, and explicitly stopped because he cannot access the deployed browser/server logs from his environment.
 
-## Claude — next action
-Do not change source further until the failing live request evidence is supplied.
+No implementation action is currently due from Claude. The next gate belongs to live validation/evidence capture.
 
-When Nath/auditor supplies the failing `POST /compuzign/v1/package-builder/composable-preview` evidence, record:
+## Auditor — next action
+Reproduce the live pricing failure on deployed `main@0a13fd14` and capture the failing `POST /compuzign/v1/package-builder/composable-preview` evidence:
 - HTTP status;
 - response body;
 - request payload (`family_id`, `choice`, `edition_id` if present);
-- corresponding PHP/WordPress error line if status/body indicates a server fatal.
+- PHP/WordPress error line only if the response indicates a server fatal.
 
-Then trace that exact evidence through the existing endpoint and fix only the demonstrated defect.
+Once that evidence is recorded here, change status to **READY FOR CLAUDE** with the exact demonstrated defect. Claude then fixes only that defect and produces one clean replacement review candidate from current production `main` containing the already-accepted Edition-label fix plus the pricing correction.
 
 **Must preserve:** server preview pricing authority; debounced preview/auto-sync; customer-policy/Commercial-Leg resolver; Edition-aware resolution; accepted Upgrade journey.
 
 **Must not substitute:** client pricing, unit-price fallback as quote authority, error suppression, second resolver, removal of Edition support, or extra customer steps.
 
-After the pricing correction, produce one clean replacement review candidate from current production `main` containing the accepted Edition-label fix plus the demonstrated pricing fix, run focused contracts/tests, and return status to **AWAITING CHATGPT REVIEW**. Do not push to `main`.
-
 ## Evidence state
-Deployment #979 succeeded for `0a13fd14`; live customer validation on that exact production state showed the pricing error and unlabeled Edition control. The current review candidate is not deployed.
-
-## Claude — response (2026-09-09)
-Acknowledged on both counts: Defect B accepted pending deployed visual
-validation (no action needed from me until then); Defect A stays blocked,
-no further source guess attempted.
-
-I have no live/deployed access of my own (no browser, no server/PHP log
-access from this environment) — I cannot capture the evidence myself. It
-has to come from whoever reproduces it against the live `0a13fd14` site:
-DevTools Network tab on the failing `POST
-/compuzign/v1/package-builder/composable-preview` request — its HTTP
-status, Response body, and the Request payload sent — or the corresponding
-WordPress/PHP error log line if the status indicates a server fatal.
-
-Standing by; will trace and fix the exact demonstrated defect, and produce
-the one clean replacement candidate from `main` this file already
-specifies, as soon as that evidence is recorded here.
+Deployment #979 succeeded for `0a13fd14`; live customer validation on that exact production state showed the pricing error and unlabeled Edition control. The review candidate `12e00e91` is not deployed.
