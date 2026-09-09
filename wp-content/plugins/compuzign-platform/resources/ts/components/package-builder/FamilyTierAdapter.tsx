@@ -660,52 +660,21 @@ export function FamilyTierAdapter({
   // failure: nothing here ever calls a setter to "open" the view, so there
   // is no effect-timing/ordering question to get wrong.
   //
-  // Composable browsing and an ALREADY-QUOTED Tier both take precedence —
-  // this is strictly a passive default for a Tier the customer has never
-  // acted on, never an override of a shell the customer is already
-  // actively in. Gated on selectedTierId (the actual cart state), NOT
-  // stagedTierId: commitSelection() (Add to Quote) sets stagedTierId back
-  // to null immediately whenever this Family has no add-ons/catalogue —
-  // exactly the single-Tier case — so gating on stagedTierId alone bounced
-  // the customer straight back into focused (hiding Cart again) the
-  // instant they added it, or the moment they later clicked "All plans"
-  // off the staged view. selectedTierId only ever changes when the cart
-  // itself changes, so once quoted this fallback stays off for the rest
-  // of the session regardless of which transient staged/focused UI state
-  // the customer navigates through afterward.
-  //
-  // There is deliberately no "dismiss" escape into a one-card grid for a
-  // Tier that has NOT been quoted yet (a real, reported issue with an
-  // earlier version of this same feature — the X button fell through to
-  // exactly that orphan card): the only legitimate way off a single-Tier
-  // Family/group before it's quoted is the customer-group tab bar itself
-  // (rendered above the focused shell in that exact case below, see
-  // isImplicitSingleTierView), when a genuinely different, non-empty group
-  // actually exists to switch to; where it doesn't (this Family has only
-  // ever one Tier, full stop), there is nothing else to show and no close
-  // action is offered — until it's quoted, at which point the plain grid
-  // (Tier card now reading Selected, Cart visible) becomes reachable.
+  // Composable browsing and an already-staged Tier both take precedence —
+  // this is strictly a passive default, never an override of a shell the
+  // customer is already actively in. There is deliberately no "dismiss"
+  // escape into a one-card grid (a real, reported issue with an earlier
+  // version of this same feature — the X button fell through to exactly
+  // that orphan card): the only legitimate way off a single-Tier Family/
+  // group is the customer-group tab bar itself (rendered above the
+  // focused shell in that exact case below, see isImplicitSingleTierView),
+  // when a genuinely different, non-empty group actually exists to switch
+  // to; where it doesn't (this Family has only ever one Tier, full stop),
+  // there is nothing else to show and no close action is offered.
   const singleVisibleTier = normalTiers.length === 1 ? normalTiers[0] : null;
   const effectiveFocusedTierId = focusedTierId
-    ?? (upgradeGateActive !== 'browsing' && selectedTierId === null && singleVisibleTier ? singleVisibleTier.id : null);
+    ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier ? singleVisibleTier.id : null);
   const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
-  // TEMPORARY diagnostic — remove once the single-Tier auto-view's live
-  // failure is actually understood (see project memory: 4 attempts have
-  // now failed live despite reading correctly in every static trace).
-  if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
-    console.log('[CZ single-tier debug]', {
-      familyId: family.family_id,
-      effectiveCustomerGroup,
-      normalTiersCount: normalTiers.length,
-      normalTierIds: normalTiers.map((t) => t.id),
-      singleVisibleTierId: singleVisibleTier?.id ?? null,
-      selectedTierId,
-      focusedTierId,
-      effectiveFocusedTierId,
-      upgradeGateActive,
-    });
-  }
   // True only when this render's focused shell exists purely via the
   // fallback above (no explicit Choose Plan click ever happened) — drives
   // hiding the Close button and showing the customer-group tabs above the
@@ -739,22 +708,14 @@ export function FamilyTierAdapter({
     return () => window.removeEventListener('scroll', onScroll);
   }, [effectiveFocusedTierId, upgradeGateActive]);
 
-  // Cart-hiding is composable-only again — a normal Tier's focused shell
-  // (explicit or the single-Tier implicit fallback above) never hides
-  // Cart. This reverts the brief generalization to "any focused shell
-  // hides Cart": once the single-Tier auto-view existed, that rule meant
-  // Cart kept vanishing every time the fallback engaged, which compounded
-  // the "bounces back into focused" issue into "and Cart disappears too."
-  // Composable browsing is unaffected — it still needs the full-width
-  // shell ComposableOfferBrowser wants, unrelated to any of this.
   useEffect(() => {
-    onFocusedShellActiveChange(upgradeGateActive !== null);
+    onFocusedShellActiveChange(effectiveFocusedTierId !== null || upgradeGateActive !== null);
     // onFocusedShellActiveChange is PackageBuilderApp's raw useState setter,
     // a stable identity by React/Preact guarantee (no useCallback needed);
     // omitted from deps so a caller re-render can never spuriously re-fire
     // this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upgradeGateActive]);
+  }, [effectiveFocusedTierId, upgradeGateActive]);
 
   const dismissUpgradeGate = () => {
     setUpgradeGateTierId(null);
