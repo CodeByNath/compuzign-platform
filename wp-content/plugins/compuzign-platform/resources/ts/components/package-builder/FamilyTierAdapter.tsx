@@ -15,7 +15,6 @@ export type { CommercialLegInclusionGroup, CommercialLegExtensionGroup } from '@
 import { PlanDetailsModal } from './PlanDetailsModal';
 import { ComposableOfferBrowser, resolveComposableEligibleRows } from './ComposableOfferBrowser';
 import { UpgradeBuildSummary } from './UpgradeBuildSummary';
-import { saveFocusedTier, loadFocusedTier, clearFocusedTier } from '@/utils/focusedTierStorage';
 
 // Phase 7E: the Plan Details popup's own explicit target identity, resolved
 // once at "View plan details" click time from whichever Tier/Edition is
@@ -467,39 +466,14 @@ export function FamilyTierAdapter({
   // Focused-plan state. Choosing a plan hides the other Tier cards and
   // presents the one Tier beside its plan details; it changes nothing about
   // which Tier is selected in the quote.
-  //
-  // Seeded from localStorage (focusedTierStorage.ts, same TTL/versioned-
-  // payload shape as cartStorage.ts) rather than always `null`, so a reload
-  // while the focused shell was open restores it — the same reload-survival
-  // stagedTierId already has (seeded from selectedTierId/the cart below),
-  // extended one level deeper. Validated against THIS Family's own visible
-  // Tiers at read time (never trusted verbatim): a stale/foreign-Family
-  // entry, or one for a Tier no longer visible, resolves to null exactly
-  // like never having focused anything.
-  const [focusedTierId, setFocusedTierId] = useState<TierId | null>(() => {
-    const stored = loadFocusedTier();
-    if (!stored || stored.familyId !== family.family_id) return null;
-    return visibleTiers.some((tier) => tier.id === stored.tierId) ? (stored.tierId as TierId) : null;
-  });
+  const [focusedTierId, setFocusedTierId] = useState<TierId | null>(null);
   // Which Default/Edition variant is active inside the focused shell. Hoisted
   // here (rather than left card-local) because the top variant tab row and
   // the focused card's own Edition switch must stay in sync as one value —
   // see the `selectedEditionId`/`onEditionChange` controlled pair handed to
   // TierCard below. `null` means Default. Entry point (Choose Plan vs. an
   // Edition chip) seeds this; it is not itself a new selection concept.
-  //
-  // Seeded alongside focusedTierId above from the same stored entry —
-  // re-validated against that SAME resolved Tier's own edition_options (an
-  // Edition id from a different Tier, or one since removed/deactivated,
-  // resolves to null/Default) rather than trusted as a bare string.
-  const [focusedEditionId, setFocusedEditionId] = useState<string | null>(() => {
-    const stored = loadFocusedTier();
-    if (!stored || stored.familyId !== family.family_id || stored.editionId === null) return null;
-    const matchedTier = visibleTiers.find((tier) => tier.id === stored.tierId);
-    if (!matchedTier) return null;
-    const editionOptions = family.pricing.tiers[matchedTier.id]?.edition_options ?? [];
-    return editionOptions.some((option) => option.id === stored.editionId) ? stored.editionId : null;
-  });
+  const [focusedEditionId, setFocusedEditionId] = useState<string | null>(null);
   // Which Commercial Period is selected for the CURRENTLY active variant,
   // keyed by that Period's own from_month (a Period carries no Platform ID
   // of its own — from_month is genuine resolved data, not a rendered array
@@ -537,22 +511,6 @@ export function FamilyTierAdapter({
   useEffect(() => {
     setHoveredLegSource(null);
     setPlanDetailsTarget(null);
-  }, [focusedTierId, focusedEditionId]);
-
-  // Mirrors focusedTierId/focusedEditionId into localStorage so a reload
-  // restores the seed above — open writes the current pair, close (either
-  // id null) clears. Runs after every selectVariant()/close, same trigger
-  // set as the effect above. family.family_id is read via closure rather
-  // than a dependency: the Family-switch effect below already nulls both
-  // ids first, so this effect's own [focusedTierId, focusedEditionId] deps
-  // still fire (and clear) on that transition without needing to also key
-  // on family.family_id here.
-  useEffect(() => {
-    if (focusedTierId !== null) {
-      saveFocusedTier({ familyId: family.family_id, tierId: focusedTierId, editionId: focusedEditionId });
-    } else {
-      clearFocusedTier();
-    }
   }, [focusedTierId, focusedEditionId]);
 
   // The Package Family selector (PackageBuilderApp.tsx's own "Package
