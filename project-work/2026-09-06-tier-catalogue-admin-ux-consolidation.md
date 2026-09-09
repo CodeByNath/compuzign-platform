@@ -1,86 +1,32 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- Review branch: `fix/family-tier-membership-boundary` @ `9ea1d830414a32dff0588e9ad4d94d44b1a6df50`
-- Branched from production `main` `8920607f`. **Not pushed to `main`.**
-- Repository holds 3 branches: `main`, `Project-work-instructions`, this one.
+- **READY FOR CLAUDE**
+- Auditor verdict: **Proceed with safeguards**.
+- Production `main`: `8920607fb41967072c9dc561e2e0fae9826f52ca`.
+- Review branch: `fix/family-tier-membership-boundary` @ `9ea1d830414a32dff0588e9ad4d94d44b1a6df50`.
+- **SOURCE PUSH NOT APPROVED yet.**
 
-## What was corrected
-The audit root cause is confirmed and fixed at the Family-membership boundary in
-`FamilyTierAdapter.tsx`. Family occupancy is now resolved once, ahead of every
-audience/focus derivation:
+## Audit result
+The candidate is exactly one commit ahead of production, behind by 0, with merge base `8920607f`. Changed source scope is narrow: `FamilyTierAdapter.tsx`, rebuilt `dist/js/cost-builder.js`, one package script entry, and the new mounted regression.
 
-- `filterTiersByCustomerGroup()` returns `false` for any Tier with no
-  `pricing.tiers[tier.id]` entry. Absence is non-membership, never a default
-  audience. Only a real entry still falls back to the unset-audience default.
-- `familyOccupants` (new local) = global slots with a real entry; `normalOccupants`
-  now derives from it with `is_addon !== true`, so a missing entry can no longer
-  count as a normal Tier just for lacking `is_addon: true`.
-- `visibleTiers` derives from `familyOccupants`, not the global vocabulary.
-- `normalTiers` now requires a real entry — the same shape `PricingTiers.tsx:883`
-  already applies to its own `normalTiers` (existing in-repo precedent, contract-
-  locked by `tier-edition-switch-contract.ts`).
+The source correction is architecturally sound. `FamilyTierAdapter` receives the global Tier vocabulary, while `family.pricing.tiers` is this Family's actual partial occupancy map. The candidate now resolves Family occupancy before audience/group/focus derivation, so an absent pricing entry is non-membership rather than a phantom normal Tier. This directly fixes both reported symptoms without weakening the required behavior:
+- a group with no real primary Tier no longer qualifies for customer tabs;
+- one genuine primary Tier can again reach the existing synchronous focused-shell fallback.
 
-Tab eligibility and single-Tier focus were already written correctly
-(`showCustomerTabs = hasPersonalBusinessTiers && hasEnterpriseTiers`,
-`defaultCustomerGroup`, `singleVisibleTier`); they were being fed phantom
-occupants. No change was needed to those rules once the input was corrected.
+Add-ons remain excluded from tab eligibility. A real occupant with unset `audience_groups` still retains the intended both-groups default. The temporary `[CZ single-tier debug]` logging is removed. No effect-driven auto-open, fake click, timeout, CSS hiding, hardcoded IDs, or one-card substitute was introduced.
 
-**Must remove — both done:** phantom missing occupants no longer reach any
-audience/normal-Tier count; the temporary single-Tier diagnostic logging is
-removed (it was live in `main`'s shipped `dist/js/cost-builder.js`; the rebuilt
-bundle has zero occurrences).
+The mounted regression is appropriate and exercises the real `FamilyTierAdapter` across PB-only, Enterprise-only, add-on-only opposite group, two-group, phantom-global-slot, and unset-audience cases. Claude reports 15 failures on pre-fix production and 22/22 passing on the candidate, plus clean TypeScript/build and relevant contracts.
 
-**Must not substitute — honoured.** No `useEffect` auto-open, artificial click,
-timeout, CSS-only tab hiding, hardcoded Family/Tier ids, or one-card fallback.
-The existing synchronous focused-shell fallback is what now fires. Diff is 4
-derivation lines plus comments and the diagnostic deletion.
+## Safeguard before approval
+One current-state Code Map sentence is now inaccurate. In `docs/code-map/package-builder-focused-shell.md` under **Family-switch state boundary**, it says `visibleTiers`' `audience_groups` fallback lets a same-id Tier from the new Family pass. After this fix, a missing Family occupant cannot pass at all. The reset effect is still required because a same-id Tier that the new Family genuinely occupies can resolve there.
 
-**Must preserve — untouched:** global Tier vocabulary contract, pricing/server-
-preview authority, Tier/Edition identity, Add-ons, composable Upgrade journey,
-Cart, existing focused shell.
+Claude: make **only that documentation correction** on the existing review branch. Do not alter the accepted source behavior or tests. Then record the new branch SHA here and set **AWAITING CHATGPT REVIEW**.
 
-## Behavioural coverage
-New `scripts/family-tier-membership-boundary-regression.mjs`
-(`npm run regression:family-tier-membership-boundary`) mounts the REAL
-`FamilyTierAdapter` via esbuild + happy-dom + Preact — the technique the existing
-mounted regressions already use — and asserts rendered DOM (which cards exist,
-whether the tab bar exists, whether the focused shell is the landing view), not
-source strings. 22 checks across: PB-only single Tier; Enterprise-only single
-Tier; empty opposite group; opposite group holding only Add-ons; both groups with
-real primary Tiers; global Tier slots absent from the Family; and the preserved
-unset-audience default.
+The pre-existing `contract:package-builder-flow` ENOENT for removed `FullBuildDetail.tsx` is confirmed out of scope and is not a blocker for this defect; handle separately later.
 
-**Reproduction evidence:** run against pre-fix `main`, 15 checks fail, including
-scenario 1 reporting `focused=false gridCards=Basic` — Nath's exact one-card
-landing — and the tab bar rendering for a group with no real primary card. All 22
-pass on this branch. The defect is now reproducible off-live.
+## Must preserve
+Existing focused shell, Tier/Edition identity, Add-ons, Upgrade/composable journey, pricing/server preview authority, Cart, global Tier vocabulary, and genuine unset-audience default.
 
-## Validation
-- `npx tsc --noEmit`: clean.
-- `npm run build`: success; `dist/js/cost-builder.js` rebuilt and committed.
-- Contracts run: `package-builder-customer-tabs`, `package-builder-regression-lock`,
-  `package-builder-addon-focus`, `tier-edition-switch`, `manage-build`,
-  `composable-quote-cart`, `composable-recommendations-cta`,
-  `composable-offer-eligibility`, `package-family-cart`, `quote-cart-addon`,
-  `package-builder-bundle-inclusion-parity`, `plan-details-value-states`,
-  `commercial-leg-inclusion-groups`, `commercial-leg-extension-groups`,
-  `tier-addon-flow` — all pass.
-
-## Unresolved risks / items for the auditor
-1. **Pre-existing broken contract, not touched.** `contract:package-builder-flow`
-   fails with `ENOENT` on
-   `resources/ts/components/package-builder/FullBuildDetail.tsx`. Verified it fails
-   identically on `main` at `8920607f`. Out of this work item's scope — flagging
-   rather than fixing. Needs its own decision.
-2. **Doc accuracy, approval requested — not edited.**
-   `docs/code-map/package-builder-focused-shell.md` (Family-switch state boundary)
-   justifies the family-switch reset effect by saying "`visibleTiers`' own
-   `audience_groups` fallback lets a same-id Tier from the new Family still pass
-   the filter". That fallback is now narrower (non-occupants no longer pass), but
-   the effect is still required, because a same-id Tier the NEW Family genuinely
-   occupies still passes. The sentence is imprecise, not wrong in conclusion. I did
-   not edit it — requesting approval before any doc change.
-3. Live behaviour is still unverified by me; I have no live/WordPress access. The
-   regression proves the derivation off-live, not the deployed page.
+## Must not substitute
+No one-card fallback, extra customer step, artificial interaction, hardcoded Family/Tier logic, or CSS-only hiding.
