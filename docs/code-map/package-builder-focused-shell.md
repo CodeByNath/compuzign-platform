@@ -65,9 +65,10 @@ non-empty), an "Upgrade your build" CTA renders as one more card inside
 add-on choices aside while shown — the SAME staged/Recommendations view a
 Tier's Add to Quote already lands in, never a separate panel. "Browse
 Catalogue" opens `ComposableOfferBrowser` inside this same
-`.cz-package-builder__focused` shell; its `EditionCueSelector` top tab
-reads the composable occupant's own `edition_options`
-(`family.pricing.composable_offer`), never the primary's.
+`.cz-package-builder__focused` shell; its `EditionCueSelector` tab reads
+the composable occupant's own `edition_options`
+(`family.pricing.composable_offer`), never the primary's, with `showLabels`
+set (a normal Tier's cue stays dots-only).
 `UpgradeBuildSummary` occupies the right card slot in place of `TierCard`.
 Add to Quote inside it (`dismissUpgradeGate`) rejoins that staged view.
 Cart and the CTA share the one `upgradeGateActive` boolean
@@ -78,8 +79,8 @@ Cart and the CTA share the one `upgradeGateActive` boolean
 Weekly/Daily `billing_cycle` values are selectable in the admin Pricing
 Rules editors and reach `commercial_legs`, but the customer-facing
 cadence-word/suffix maps in `PricingTiers.tsx`,
-`commercialLegPresentation.ts`, and `PlanDetailsModal.tsx` have no entries
-for them — they fall back to a neutral label/no suffix. `periodPriceOverride()`
+`commercialLegPresentation.ts`, and `PlanDetailsModal.tsx` have none,
+falling back to a neutral label/no suffix. `periodPriceOverride()`
 is broader than its name suggests (also supplies a Period's inclusion
 list, not only price).
 

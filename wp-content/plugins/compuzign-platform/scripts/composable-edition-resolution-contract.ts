@@ -91,8 +91,8 @@ check(
   'the composable-preview route registers edition_id as an optional string arg',
 );
 check(
-  /\$editionIdParam = \$request->get_param\('edition_id'\);\s*\n\s*\$editionId = \$editionIdParam !== null \? sanitize_text_field\(\(string\) \$editionIdParam\) : null;\s*\n\s*return rest_ensure_response\(\$this->packages->resolveComposableOfferSelection\(\$familyId, \$choice, \$editionId\)\);/.test(controllerSource),
-  'the controller sanitizes edition_id when present and threads it through to resolveComposableOfferSelection() as the third argument',
+  /\$editionIdParam = \$request->get_param\('edition_id'\);\s*\n\s*\$editionId = is_scalar\(\$editionIdParam\) \? sanitize_text_field\(\(string\) \$editionIdParam\) : null;\s*\n\s*return rest_ensure_response\(\$this->packages->resolveComposableOfferSelection\(\$familyId, \$choice, \$editionId\)\);/.test(controllerSource),
+  'the controller sanitizes edition_id when present (is_scalar — never an unguarded (string) cast that can warn on a non-scalar) and threads it through to resolveComposableOfferSelection() as the third argument',
 );
 
 // ── 5. Frontend endpoint ──────────────────────────────────────────────────

@@ -56,8 +56,26 @@ final class PackageBuilderController
         $familyId = sanitize_text_field((string) $request->get_param('family_id'));
         $choiceParam = $request->get_param('choice');
         $choice = is_array($choiceParam) ? $choiceParam : [];
+        // is_scalar guard (same convention `choice`'s is_array() above
+        // already uses): this route's own `edition_id` arg declares
+        // 'type' => 'string' but — like every arg here — carries no
+        // validate_callback, so WP never actually rejects a non-string
+        // value before it reaches this cast. An unguarded
+        // (string) $editionIdParam on a genuinely non-scalar value (an
+        // array — the shape WP's own query-string bracket parsing or a
+        // malformed client can still deliver) raises a PHP "Array to
+        // string conversion" Warning here; on a host with display_errors
+        // on, that Warning is echoed into the response body BEFORE the
+        // JSON rest_ensure_response() emits below, corrupting it into
+        // exactly the malformed non-JSON response
+        // ComposableOfferBrowser.tsx's res.json() rejects on — the
+        // Promise-rejection `.catch()` path, not this endpoint's own
+        // structured ok:false. A non-scalar value can never legitimately
+        // name a real Edition id anyway, so treating it as absent (same
+        // as omitted/null) is a safe, behavior-preserving guard for every
+        // well-formed request.
         $editionIdParam = $request->get_param('edition_id');
-        $editionId = $editionIdParam !== null ? sanitize_text_field((string) $editionIdParam) : null;
+        $editionId = is_scalar($editionIdParam) ? sanitize_text_field((string) $editionIdParam) : null;
         return rest_ensure_response($this->packages->resolveComposableOfferSelection($familyId, $choice, $editionId));
     }
 }

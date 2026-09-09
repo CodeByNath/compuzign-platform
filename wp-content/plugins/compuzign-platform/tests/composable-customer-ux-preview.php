@@ -374,4 +374,62 @@ $rExplicitOn = $repo3->resolveComposableOfferSelection('pcg_ux', [
 assertTrue($rExplicitOn['ok'], '11c. resolves ok');
 assertTrue(totalForItem($rExplicitOn['periods'], 'support') !== null, '11c. an explicit selected:true re-includes support — Add works, completing the Remove-then-Add round-trip');
 
+// ── 12. Composable Edition swap ($editionId) — untested since introduction
+//    in 0a13fd14 ("resolve real Editions end to end"). Live validation
+//    (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
+//    2026-09-09 round) reported the customer catalogue failing with a raw
+//    fetch/HTTP-boundary error — ComposableOfferBrowser.tsx's own .catch()
+//    path, never resolveComposableOfferSelection()'s structured ok:false —
+//    whenever the composable occupant has an Edition to switch to. This
+//    section locks the PHP-side swap end to end so a regression here fails
+//    loudly in CI instead of only live.
+
+$editionOccupant = occupantFixture('composable-edition', 'CZT-COMPOSABLE-EDITION-UX', $policy);
+$editionOccupant['current_occupant']['tier_editions'] = [[
+    'id' => 'ed_1', 'edition_platform_id' => 'CZTE-1', 'edition_catalogue_platform_id' => 'CZTEC-1',
+    'default_leg_platform_id' => '', 'title' => 'Pro Edition', 'admin_description' => '',
+    'platform_status' => 'active', 'previous_platform_status' => null, 'is_explicitly_disabled' => false,
+    'module_status' => [], 'drafts' => [],
+    'rate_sheet_id' => 'rs_ux',
+    'rate_sheet_items' => [
+        ['item_id' => 'hosting', 'quantity' => 1, 'price_option_id' => null, 'leg_assignments' => []],
+        ['item_id' => 'support', 'quantity' => 3, 'price_option_id' => null, 'leg_assignments' => []],
+    ],
+    'price' => null, 'contact' => false, 'billing_cycle' => 'monthly',
+    'minimum_term_value' => null, 'minimum_term_unit' => null,
+    'from_month' => null, 'to_month' => null, 'legs' => [], 'headline_leg_id' => '',
+    'inclusions_override' => [], 'customer_policy' => null, 'faq_refs' => [],
+]];
+// A disabled Edition alongside the active one — proves the active-only scan
+// in resolveComposableOfferSelection() doesn't just take the first id match.
+$editionOccupant['current_occupant']['tier_editions'][] = [
+    'id' => 'ed_2', 'edition_platform_id' => 'CZTE-2', 'edition_catalogue_platform_id' => 'CZTEC-2',
+    'default_leg_platform_id' => '', 'title' => 'Disabled Edition', 'admin_description' => '',
+    'platform_status' => 'disabled', 'previous_platform_status' => 'active', 'is_explicitly_disabled' => true,
+    'module_status' => [], 'drafts' => [],
+    'rate_sheet_id' => 'rs_ux', 'rate_sheet_items' => [],
+    'price' => null, 'contact' => false, 'billing_cycle' => 'monthly',
+    'minimum_term_value' => null, 'minimum_term_unit' => null,
+    'from_month' => null, 'to_month' => null, 'legs' => [], 'headline_leg_id' => '',
+    'inclusions_override' => [], 'customer_policy' => null, 'faq_refs' => [],
+];
+global $composableUxProjectionOption;
+$composableUxProjectionOption = stationFixture($editionOccupant);
+$repo4 = new PackageRepository();
+
+$rEdition = $repo4->resolveComposableOfferSelection('pcg_ux', [['item_id' => 'hosting']], 'ed_1');
+assertTrue($rEdition['ok'], '12a. a real active Edition id resolves ok — the swap does not crash or reject a valid selection');
+assertSameValue(50.0, totalForItem($rEdition['periods'], 'hosting'), '12b. prices from the EDITION\'s own rate_sheet_items/rate_sheet_id joined against the SAME rs_ux catalogue rows, governed by the inherited (customer_policy: null -> occupant\'s own) policy\'s po_cheap default — proves the swap actually re-resolves through the real rate-sheet join rather than reusing the occupant Default\'s already-resolved figures');
+
+$rEditionNotFound = $repo4->resolveComposableOfferSelection('pcg_ux', [['item_id' => 'hosting']], 'does_not_exist');
+assertSameValue(false, $rEditionNotFound['ok'], '12c. an unknown Edition id fails closed');
+assertSameValue('not_found', $rEditionNotFound['code'], '12d. structured not_found reason, never a silent fallback to Default');
+
+$rEditionDisabled = $repo4->resolveComposableOfferSelection('pcg_ux', [['item_id' => 'hosting']], 'ed_2');
+assertSameValue(false, $rEditionDisabled['ok'], '12e. a disabled Edition id is not resolvable — active-only, matching the read/display projection\'s own gate');
+assertSameValue('not_found', $rEditionDisabled['code'], '12f. same structured not_found reason as an unknown id — no separate "disabled" code leaks the distinction');
+
+$rEditionEmptyString = $repo4->resolveComposableOfferSelection('pcg_ux', [['item_id' => 'hosting']], '');
+assertTrue($rEditionEmptyString['ok'], '12g. an empty-string edition_id (client omitted the param, or sent "") resolves the occupant\'s own Default exactly like a null id — never treated as a real Edition lookup');
+
 fwrite(STDOUT, "OK: composable-customer-ux-preview.php\n");

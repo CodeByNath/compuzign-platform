@@ -4535,6 +4535,39 @@
   z-index: 1;
 }
 
+/* Composable Build Your Own occupant's own cue track (EditionCueSelector's
+   showLabels): extra room below the line/pots/ball for the real Default/
+   Edition names — nothing else on that surface already names them, unlike a
+   normal Tier's focused shell where the h3 above does. Additive only; a
+   caller that never passes showLabels keeps today's exact 40px dots-only
+   track untouched. */
+.cz-package-builder__cue-track--labeled {
+  height: 62px;
+}
+
+.cz-package-builder__cue-labels {
+  position: absolute;
+  left: var(--cz-cue-inset);
+  right: var(--cz-cue-inset);
+  top: 40px;
+}
+
+.cz-package-builder__cue-label {
+  position: absolute;
+  top: 0;
+  text-align: center;
+  font-size: var(--cz-font-size-xs);
+  color: var(--cz-color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cz-package-builder__cue-label.is-active {
+  color: var(--cz-color-text);
+  font-weight: var(--cz-font-weight-medium);
+}
+
 .cz-package-builder__focused-detail {
   display: flex;
   flex-direction: column;

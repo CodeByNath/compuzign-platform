@@ -273,10 +273,19 @@ function EditionCueSelector({
   destinations,
   activeId,
   onSelect,
+  showLabels,
 }: {
   destinations: CueDestination[];
   activeId: string | null;
   onSelect: (id: string | null) => void;
+  // Live-validation correction (2026-09-09): the composable Build Your Own
+  // occupant's own Default/Edition set is never shown anywhere else on this
+  // surface (unlike a normal Tier's, whose h3 name above already reflects
+  // the active one) — dots-only leaves the customer with no way to see
+  // which real names are even available to switch between. Opt-in per
+  // caller rather than a global behavior change: the normal-Tier callers
+  // keep today's exact dots-only track untouched.
+  showLabels?: boolean;
 }) {
   const hasEditions = destinations.length > 1;
   const activeIndex = Math.max(0, destinations.findIndex((destination) => destination.id === activeId));
@@ -287,7 +296,7 @@ function EditionCueSelector({
 
   return (
     <div
-      class="cz-package-builder__cue-track"
+      class={`cz-package-builder__cue-track${showLabels && hasEditions ? ' cz-package-builder__cue-track--labeled' : ''}`}
       role={hasEditions ? 'group' : undefined}
       aria-label={hasEditions ? 'Plan variant' : undefined}
     >
@@ -327,6 +336,25 @@ function EditionCueSelector({
           />
         );
       })}
+      {/* Visible Default/Edition names, dynamically from `destinations`
+          (never a hardcoded name/count/index) — additive to the click
+          targets above, not a replacement; those keep owning both the tap
+          area and the accessible name (aria-label), so this row is purely
+          presentational. Renders for one Edition exactly like many — same
+          even slice, one label per destination. */}
+      {showLabels && hasEditions && (
+        <div class="cz-package-builder__cue-labels" aria-hidden="true">
+          {destinations.map((destination, index) => (
+            <span
+              key={destination.id ?? 'default'}
+              class={`cz-package-builder__cue-label${destination.id === activeId ? ' is-active' : ''}`}
+              style={{ left: `${(index * 100) / destinations.length}%`, width: `${100 / destinations.length}%` }}
+            >
+              {destination.label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1302,11 +1330,16 @@ export function FamilyTierAdapter({
               edition_options — never the already-quoted primary's. A
               never-configured composable offer (edition_options empty)
               renders EditionCueSelector's own existing static single-ball
-              "no Editions" state, exactly like a Tier with none. */}
+              "no Editions" state, exactly like a Tier with none.
+              Live-validation correction (2026-09-09): showLabels — unlike a
+              normal Tier's focused shell, nothing else on this surface
+              already names the composable occupant's own Default/Edition
+              set, so the control itself must render the real names here. */}
           <EditionCueSelector
             destinations={[{ id: null, label: 'Default' }, ...composableEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
             activeId={composableEditionId}
             onSelect={setComposableEditionId}
+            showLabels
           />
           <ComposableOfferBrowser
             family={family}
