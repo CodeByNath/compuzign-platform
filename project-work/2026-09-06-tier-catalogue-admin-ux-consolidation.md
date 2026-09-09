@@ -41,3 +41,63 @@ If source inspection shows the live missing Editions can be validly Active yet i
 **Must not substitute:** exposing identityless Editions, hardcoded names/counts, native-index identity, client-invented Editions, inactive Edition exposure, second resolver, or extra customer steps.
 
 Produce one clean replacement candidate from `main@4a73ed87`, report exact root cause/tests/SHA, set **AWAITING CHATGPT REVIEW**, and stop. Do not push to `main`.
+
+## Additional finding — resolveComposableEligibleRows() inclusions source (Nath direct investigation, 2026-09-09)
+
+Separate from the CZTE/CZTEC tab-visibility defect above. This one is about
+what loads on the LEFT side once a tab (Default or a real Edition that IS
+already visible, e.g. `Subscriptions`) is selected — confirmed real via git
+history, not a guess.
+
+**Root cause, verified:** `resolveComposableEligibleRows()`
+(`ComposableOfferBrowser.tsx`) builds its item catalogue lookup from
+`offer.inclusions` (the Default occupant's own resolved list) UNCONDITIONALLY
+— it never reads the active Edition's own `inclusions_override`, even though
+`customer_policy` right next to it correctly switches per Edition. So
+switching tabs changes *which item_ids are policy-allowed* but keeps
+pricing/labeling every row off Default's own catalogue, never the actual
+Edition's own declared items — inconsistent with the identical
+inherit-when-empty rule normal Tier's `resolveEffectiveTierDisplay()`
+(`PricingTiers.tsx`) already applies correctly.
+
+**This was built correctly once, then lost in a revert:** commit `a584ede0`
+("Give the composable occupant its own focused shell, shared with normal
+Tiers") had it right:
+```ts
+const inclusionSource = edition && edition.inclusions_override.length > 0
+  ? edition.inclusions_override
+  : offer.inclusions;
+```
+Commit `28b6859c` reverted that entire commit (unrelated reason — a
+different UI element in the same commit got rejected in live validation).
+Commit `0a13fd14` rebuilt the composable browsing feature from scratch and
+restored `edition.customer_policy` Edition-awareness, but never restored
+this `inclusionSource` fallback — regressing back to the pre-`a584ede0`
+bug.
+
+**Fix (not yet applied — Claude stopped to confirm before touching source,
+per Nath's direction):** in `resolveComposableEligibleRows()`, add the
+`inclusionSource` line above back exactly as `a584ede0` had it, and build
+`inclusionsById` from `inclusionSource` instead of hardcoded
+`offer.inclusions`.
+
+**How this relates to the CZTE work above:** independent defects. This one
+affects any Edition that's ALREADY visible in the tab list (e.g.
+`Subscriptions`, which survived the CZTE filter) — selecting it still shows
+the wrong item list. Fixing this does not touch or substitute for the
+CZTE/CZTEC lifecycle trace the auditor required above; do both.
+
+### Claude — next action (this finding)
+Apply the `inclusionSource` fix above. Add/update a focused regression test
+(TS contract, matching `composable-edition-resolution-contract.ts`'s
+existing precedent, or a runtime assertion in
+`scripts/composable-recommendations-cta-contract.ts`/similar) proving: an
+Edition with its own non-empty `inclusions_override` shows ITS OWN
+items/prices, not Default's; an Edition with an empty `inclusions_override`
+still correctly falls back to Default's. Run `npx tsc --noEmit`,
+`npm run build`, relevant existing composable contracts, `npm run docs:check`.
+Fold this into the same clean candidate the CZTE work above produces (one
+candidate from `main@4a73ed87`, not two separate branches) unless the CZTE
+trace is still in progress, in which case land this one first on its own
+clean branch — Claude's judgment at execution time, either is fine as long
+as it ends up one clean reviewable candidate.
