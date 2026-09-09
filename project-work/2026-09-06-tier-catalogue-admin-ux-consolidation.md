@@ -1,10 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `0a13fd14`.
-- Approved candidate: `review/upgrade-composable-preview-fix-v3` @ `4a73ed87`.
+- Production `main`: `4a73ed87` (pushed by Nath directly — classifier blocks Claude pushing to `main`; verified `origin/main` resolves to `4a73ed87`, tree `17063a79b9dd596e01ad40a6eea2fd73568bf9aa`, matching the approved tree exactly).
+- Deploy/Actions run: **not independently confirmed by Claude** — no `gh` CLI available in this sandbox to query GitHub Actions. Nath/auditor should confirm the Hostinger deployment workflow succeeded for this exact SHA before live validation.
 
 ## Release scope
 Finish the existing customer-facing **Upgrade Your Build** flow as one working release. No broader composable-Edition architecture work.
@@ -23,15 +23,12 @@ Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendation
 - `is_scalar()` guard accepted as defensive hardening only; it is **not** represented as proof that the live pricing defect is fixed.
 - No further speculative source change is justified before deployment/live evidence.
 
-## Claude — next action
-Push **exactly `4a73ed87` unchanged** to `main` using the normal approved workflow. Do not add, amend, or combine any other source change.
-
-After push, record in this same file:
-- exact resulting `main` SHA;
-- confirmation the production tree equals approved tree `17063a79b9dd596e01ad40a6eea2fd73568bf9aa`;
-- GitHub Actions/deployment run and outcome.
-
-Then set **AWAITING LIVE VALIDATION** and stop. Nath/auditor performs the customer-facing browser validation only after deployment.
+## Claude — done
+Pushed exactly `4a73ed87`, no other source change combined. `origin/main`
+verified to resolve to `4a73ed87` with tree
+`17063a79b9dd596e01ad40a6eea2fd73568bf9aa` — matches the approved tree
+exactly, no drift. Deployment/Actions outcome not independently checked
+(no `gh` CLI here) — needs confirming before live validation below.
 
 Live validation must verify both:
 1. real Default/Edition labels render and switch correctly in Upgrade browsing;
