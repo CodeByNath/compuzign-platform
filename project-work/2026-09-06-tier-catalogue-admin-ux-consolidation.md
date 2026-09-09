@@ -1,47 +1,40 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- Production `main`: `f9ca5b187c70ef8e4daf2d863e985e2fe540d545` — pushed
-  fast-forward from `ee624fdc`, exactly the approved candidate, nothing amended.
-- `main` tree: `d8efeb2201bbb82ff0cc821da2553450a686a95e` — verified identical to
-  the approved candidate tree.
-- Topic branch `fix/quoted-single-tier-dismissible` deleted (local + remote) after
-  confirming it was an ancestor of `main`. Repository back to `main` +
-  `Project-work-instructions`.
+- **CLOSED**
+- Auditor verdict: **Proceed**.
+- Production `main`: `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`.
+- Production tree: `d8efeb2201bbb82ff0cc821da2553450a686a95e`.
+- Topic branch removed; only `main` and `Project-work-instructions` remain.
 
-## Final audit
-The stale-dismissal safeguard is correctly applied. `singleTierDismissedTierId` still blocks immediate X bounce-back synchronously at render time, while a separate cleanup effect now genuinely clears stale dismissal state whenever external `selectedTierId` no longer matches the dismissed Tier. That means removal from this component, Quote Summary, or Cart all converge on the same reset boundary.
+## Final audit result
+Independent GitHub verification confirms `main` is exactly the approved candidate commit and tree. The previous review branch was merged by fast-forward and deleted after ancestry verification.
 
-The cleanup effect is acceptable because it only clears stale local presentation state; it does not open/focus/select a Tier and does not replace the passive render-time single-Tier fallback. The candidate therefore preserves the architecture that fixed the earlier live landing failures.
+GitHub Actions independently confirms `Deploy to Hostinger` run `34371875271` for head `f9ca5b18` completed successfully on attempt 2. This closes the previously missing deployment-evidence gap.
 
-Accepted behavior:
-- unquoted single Tier -> automatic focused landing, no X;
-- quoted single Tier -> focused shell with normal sticky X;
-- X -> quoted card + focused-shell inactive so Cart can render beside it;
-- `View Plan` -> exact quoted Default/Edition reopens in the same shell;
-- dismissal persists only while that same primary remains selected;
-- remove primary -> locked landing restored and dismissal genuinely cleared;
-- re-add same Tier -> fresh quoted focused state, no resurrected dismissal;
-- Family/customer-group changes still clear dismissal;
-- Family membership/tab rules, Add-ons, Recommendations, Upgrade/composable, pricing, quote identity and Cart behavior remain unchanged.
+Nath reports live customer validation passed. Accepted live behavior is therefore:
+- a one-primary customer group lands directly in the real focused shell;
+- empty customer-group tabs are hidden; tabs only exist when both groups have a real primary Tier;
+- an unquoted single Tier remains auto-focused with no X;
+- once that exact Tier is quoted, the normal sticky X is available;
+- X exits to the one quoted customer-group card with Cart visible beside it;
+- the quoted card keeps `View Plan` and reopens the exact quoted Default/Edition identity;
+- removal restores the auto-focused/no-X landing;
+- re-adding the same Tier starts fresh, with no stale dismissal resurrection.
 
-Mounted regression was extended to the remove/re-add resurrection case; Claude reports 27 checks passing, while the rejected dormant-only head fails the new case. Build, TypeScript, docs check and relevant contracts are reported green. The docs tightening only restores the already-intended <600-word limit and does not alter product behavior.
+## Architecture accepted
+Family occupancy is resolved before audience/focus derivation. Global Tier vocabulary remains global; `family.pricing.tiers` remains the Family occupancy boundary. Add-ons do not qualify customer-group tabs. The single-Tier focused fallback remains passive render-time derivation; the only effect added in the final refinement clears stale local dismissal state when external primary identity changes and does not auto-open/select anything.
 
-## Claude — push record
-1. Resulting `main`: `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`. Fast-forward
-   only (`ee624fdc..f9ca5b18`), 1 commit landed, nothing amended or added.
-2. `main` tree confirmed `d8efeb2201bbb82ff0cc821da2553450a686a95e` — byte-identical
-   to the approved candidate tree.
-3. Topic branch confirmed an ancestor of `main`, then deleted local and remote.
-4. **`Deploy to Hostinger` run id not recorded.** `gh` is not installed in my
-   environment and I have no other Actions access, so I cannot read the run id or
-   its conclusion. Someone with repository access needs to confirm the workflow for
-   `f9ca5b18` succeeded before treating the change as deployed — I have not
-   verified deployment, only the push.
+## Preserved behavior
+Tier/Edition identity, Add-on focused parity, Recommendations, Upgrade/composable journey, Cart, quote snapshots, pricing/server-preview authority, and genuine unset-audience fallback remain unchanged.
 
-## Required live validation
-Verify: quoted single Tier shows X; X returns to one quoted card with Cart visible; `View Plan` reopens exact quoted Edition; removing the primary restores auto-focused/no-X landing; re-adding the same Tier starts fresh and X works again.
+## Evidence
+- Source candidate and final `main`: `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`.
+- Tree: `d8efeb2201bbb82ff0cc821da2553450a686a95e`.
+- Deploy workflow: `34371875271`, conclusion `success`.
+- Mounted quoted-single-Tier regression: 27 checks reported passing; rejected dormant-only head failed the remove/re-add resurrection case.
+- Family-membership regression and relevant TypeScript/build/contracts reported green.
+- Live validation: passed by Nath.
 
 ## Out of scope
-`commitSelection()` still transiently resets focused Edition to Default immediately after quoting an Edition; unchanged and non-blocking here. Pre-existing `contract:package-builder-flow` ENOENT on removed `FullBuildDetail.tsx` remains out of scope.
+`commitSelection()` still transiently resets focused Edition to Default immediately after quoting an Edition; this predates the closed work and was explicitly non-blocking. The pre-existing `contract:package-builder-flow` ENOENT for removed `FullBuildDetail.tsx` remains separate work.
