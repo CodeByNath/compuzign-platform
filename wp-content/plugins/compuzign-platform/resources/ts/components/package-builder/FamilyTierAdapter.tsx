@@ -400,14 +400,17 @@ interface FamilyTierAdapterProps {
   // as selectedComposableItem above — a second, domain-boundary layer, not
   // a replacement for the render gate.
   selectedPrimaryItem: FamilyTierQuoteItem | null;
-  // Phase 2 (project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
-  // "Upgrade your build" gate) — called whenever the gate's own active/
-  // inactive state changes, so PackageBuilderApp can hide QuoteSummary/
-  // MobileQuoteBar while it is up, without touching `items` at all. This
-  // component owns no cart-visibility logic of its own, same "caller
-  // performs the actual mutation/visibility" posture as onCommit/
-  // onRemoveFromQuote above.
-  onUpgradeGateActiveChange: (active: boolean) => void;
+  // Simple rule, once for every focused shell this component owns: whenever
+  // EITHER a normal Tier's Choose Plan view (focusedTierId !== null) OR the
+  // composable occupant's own Upgrade gate (upgradeGateActive !== null,
+  // Phase 2 project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md)
+  // is active, called with true — so PackageBuilderApp can hide QuoteSummary/
+  // MobileQuoteBar and collapse the sidebar grid track while ANY of them is
+  // up, without touching `items` at all and without needing to separately
+  // track each shell's own state itself. This component owns no cart-
+  // visibility logic of its own, same "caller performs the actual mutation/
+  // visibility" posture as onCommit/onRemoveFromQuote above.
+  onFocusedShellActiveChange: (active: boolean) => void;
   // "Manage build" — Cart's one-shot request to re-enter this Family's
   // existing 'browsing' stage directly for its already-committed composable
   // line. null means no pending request. A request for a Family/Instance
@@ -456,7 +459,7 @@ export function FamilyTierAdapter({
   onComposableCommit,
   onComposableRemove,
   selectedPrimaryItem,
-  onUpgradeGateActiveChange,
+  onFocusedShellActiveChange,
   manageBuildRequest,
   onManageBuildConsumed,
 }: FamilyTierAdapterProps) {
@@ -641,13 +644,13 @@ export function FamilyTierAdapter({
   }, [focusedTierId, upgradeGateActive]);
 
   useEffect(() => {
-    onUpgradeGateActiveChange(upgradeGateActive !== null);
-    // onUpgradeGateActiveChange is PackageBuilderApp's raw useState setter,
+    onFocusedShellActiveChange(focusedTierId !== null || upgradeGateActive !== null);
+    // onFocusedShellActiveChange is PackageBuilderApp's raw useState setter,
     // a stable identity by React/Preact guarantee (no useCallback needed);
     // omitted from deps so a caller re-render can never spuriously re-fire
     // this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upgradeGateActive]);
+  }, [focusedTierId, upgradeGateActive]);
 
   const dismissUpgradeGate = () => {
     setUpgradeGateTierId(null);
