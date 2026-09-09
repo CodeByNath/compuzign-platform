@@ -1,48 +1,42 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- **SOURCE PUSH NOT APPROVED**
+- **SOURCE PUSH APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `0a13fd14` (unchanged).
-- Clean candidate: `review/upgrade-composable-preview-fix-v3` @ `4a73ed87` — one commit from current `main`, tree verified byte-identical to the accepted `bdfa3c71` (`git rev-parse HEAD^{tree}` matches exactly). `review/upgrade-composable-preview-fix-v2` deleted (local + remote).
+- Production `main`: `0a13fd14`.
+- Approved candidate: `review/upgrade-composable-preview-fix-v3` @ `4a73ed87`.
 
 ## Release scope
 Finish the existing customer-facing **Upgrade Your Build** flow as one working release. No broader composable-Edition architecture work.
 
 Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendations -> Upgrade CTA -> Browse Catalogue in existing focused shell -> server preview/auto-sync authority -> Add to Quote returns to staged view. No standalone Build Your Own journey.
 
-## Auditor review — 2026-09-09 round 3
-### Edition top control
-**Accepted.** The scoped `showLabels` implementation remains intact with no architecture drift.
+## Independent verification
+- `4a73ed87` is exactly **one commit ahead** of production `0a13fd14`, behind by 0; merge base is production `0a13fd14`.
+- Candidate tree SHA: `17063a79b9dd596e01ad40a6eea2fd73568bf9aa`.
+- Prior accepted tree at `bdfa3c71`: `17063a79b9dd596e01ad40a6eea2fd73568bf9aa`.
+- Trees are byte-identical. The v3 candidate is therefore a pure history squash of the already-reviewed source state, with no source drift.
 
-### Pricing boundary
-Claude followed the previous instruction correctly. The registered-route boundary now passes for the two normal frontend shapes: Default with no `edition_id`, and an active Edition with a string `edition_id`. Module wiring and client route construction also match.
+## Accepted source state
+- Edition top control: scoped `showLabels` implementation accepted.
+- Registered-route/default+Edition request coverage accepted.
+- `is_scalar()` guard accepted as defensive hardening only; it is **not** represented as proof that the live pricing defect is fixed.
+- No further speculative source change is justified before deployment/live evidence.
 
-The `is_scalar()` change is accepted as defensive hardening only. It is **not** evidence that the reported live pricing failure is fixed. No further source change is justified without WordPress/live evidence; guessing at nonce, production data, WAF/cache, or auth would violate the audit safeguards.
+## Claude — next action
+Push **exactly `4a73ed87` unchanged** to `main` using the normal approved workflow. Do not add, amend, or combine any other source change.
 
-This means the next meaningful test is the deployed customer path. If the pricing failure persists after deployment, the live response becomes the next correction evidence in this same work item. Do not mark this release fixed before that validation.
+After push, record in this same file:
+- exact resulting `main` SHA;
+- confirmation the production tree equals approved tree `17063a79b9dd596e01ad40a6eea2fd73568bf9aa`;
+- GitHub Actions/deployment run and outcome.
 
-## Branch-hygiene gate — CLOSED
-Resolved: `git checkout -b review/upgrade-composable-preview-fix-v3` from
-`main@0a13fd14`, `git merge --squash bdfa3c71`, one commit (`4a73ed87`).
-No source content altered, no additional fix added — pure history squash.
+Then set **AWAITING LIVE VALIDATION** and stop. Nath/auditor performs the customer-facing browser validation only after deployment.
 
-Tree equality proven directly, not just asserted:
-```
-git rev-parse review/upgrade-composable-preview-fix-v3^{tree}  ->  17063a79b9dd596e01ad40a6eea2fd73568bf9aa
-git rev-parse bdfa3c71^{tree}                                  ->  17063a79b9dd596e01ad40a6eea2fd73568bf9aa
-```
-Identical. Per instruction, no full test rerun was performed for this
-history-only squash — prior green validation (round 3 report, same file,
-same commit) stands unchanged since the tree is byte-for-byte the same.
+Live validation must verify both:
+1. real Default/Edition labels render and switch correctly in Upgrade browsing;
+2. pricing preview/customer flow no longer errors. If pricing still fails, capture the live response and continue correction in this same work file.
 
-`review/upgrade-composable-preview-fix-v2` deleted (local + remote) after
-the replacement was confirmed.
+**Must preserve:** server preview pricing authority; debounced preview/auto-sync; customer-policy/Commercial-Leg resolver; Edition-aware resolution; accepted Upgrade journey.
 
-## Claude — done; awaiting source-push approval
-`review/upgrade-composable-preview-fix-v3` @ `4a73ed87` pushed. `main`
-untouched. Ready for independent verification and, per the auditor's own
-note above, source-push approval can follow once that's confirmed —
-browser/customer validation happens after push and deployment, per
-standing role split.
+**Must not substitute:** client-calculated pricing, unit-price fallback as quote authority, error suppression, second resolver, removal of Edition support, extra customer steps, or separate Build Your Own journey.
