@@ -1,44 +1,39 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION**
-- **SOURCE PUSH NOT APPROVED**
+- **SOURCE PUSH APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `0a13fd14`.
-- Reviewed candidate: `review/upgrade-composable-edition-preview-fix` @ `12e00e91`.
-- Candidate is exactly one commit ahead of production, no rejected ancestry.
+- Approved candidate: `review/upgrade-composable-edition-preview-fix` @ `12e00e91`.
+- Candidate is exactly one clean commit ahead of production, with no rejected ancestry.
 
 ## Release scope
 Finish the existing customer-facing **Upgrade Your Build** flow only. No broader composable-Edition architecture work.
 
 Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendations -> Upgrade CTA -> Browse Catalogue in existing focused shell -> existing server preview/auto-sync authority -> Add to Quote returns to staged view. No standalone Build Your Own journey.
 
-## Auditor review of `12e00e91`
-### Defect B — Edition top control
-**Accepted at source-review level.**
-`showLabels` is opt-in, enabled only for the composable Upgrade cue, and labels come from the existing `composable_offer.edition_options` destinations. Normal Tier cue behavior is unchanged. Deployed visual validation is still required.
+## Auditor correction — cycle order
+The prior coordination state was wrong. Live browser validation is **not** a prerequisite to pushing an independently reviewed candidate. Nath performs customer/browser validation only after the approved source is pushed to `main` and deployed.
 
-### Defect A — pricing request failure
-**Not fixed; release remains blocked.**
-The added PHP coverage proves the fixture path only. It does not identify the deployed REST/API failure that produced the live `.catch()` path.
+## Review of `12e00e91`
+### Edition top control
+**Approved.** `showLabels` is opt-in and enabled only for the composable Upgrade cue. Labels come from the existing composable occupant `edition_options`; normal Tier cue behavior is unchanged. CSS is additive and no new identity/routing/state model was introduced.
 
-## Claude compliance review — 2026-09-09
-Claude **did follow the auditor instruction correctly**. He made no further source guess, did not weaken the pricing authority, and explicitly stopped because he cannot access the deployed browser/server logs from his environment.
+### Pricing failure
+The candidate does **not claim to fix** the existing live `Could not resolve pricing right now` defect. Its added PHP resolver coverage is safe and useful, but it is not a production fix and must not be represented as one.
 
-No implementation action is currently due from Claude. The next gate belongs to live validation/evidence capture.
+This does not block this reviewed candidate from being pushed. The pricing defect remains open and must be rechecked on the deployed result. If it persists, that live result becomes the next correction round in this same work file.
 
-## Auditor — next action
-Reproduce the live pricing failure on deployed `main@0a13fd14` and capture the failing `POST /compuzign/v1/package-builder/composable-preview` evidence:
-- HTTP status;
-- response body;
-- request payload (`family_id`, `choice`, `edition_id` if present);
-- PHP/WordPress error line only if the response indicates a server fatal.
+## Claude — next action
+Push **exactly `12e00e91` unchanged** to `main` using the normal reviewed-source workflow. Do not add another source change in this push.
 
-Once that evidence is recorded here, change status to **READY FOR CLAUDE** with the exact demonstrated defect. Claude then fixes only that defect and produces one clean replacement review candidate from current production `main` containing the already-accepted Edition-label fix plus the pricing correction.
+After push, report in this same file:
+- exact resulting `main` SHA;
+- confirmation the pushed tree equals reviewed candidate `12e00e91`;
+- GitHub Actions/deployment state when available.
+
+Then set status to **AWAITING LIVE VALIDATION**. Nath/auditor will perform the customer-facing browser check only after deployment.
 
 **Must preserve:** server preview pricing authority; debounced preview/auto-sync; customer-policy/Commercial-Leg resolver; Edition-aware resolution; accepted Upgrade journey.
 
 **Must not substitute:** client pricing, unit-price fallback as quote authority, error suppression, second resolver, removal of Edition support, or extra customer steps.
-
-## Evidence state
-Deployment #979 succeeded for `0a13fd14`; live customer validation on that exact production state showed the pricing error and unlabeled Edition control. The review candidate `12e00e91` is not deployed.
