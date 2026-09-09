@@ -464,7 +464,21 @@ export function FamilyTierAdapter({
   onManageBuildConsumed,
 }: FamilyTierAdapterProps) {
   const [customerGroup, setCustomerGroup] = useState<'personal_business' | 'enterprise'>('personal_business');
-  const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, customerGroup);
+  // The tab bar is a real choice only when BOTH groups actually have
+  // something to show — a Family whose Tiers are entirely Enterprise-only
+  // (or entirely Personal & Business-only) offers no real toggle, just one
+  // side that always renders empty. showCustomerTabs hides the bar in that
+  // case; effectiveCustomerGroup then resolves visibleTiers/normalTiers
+  // straight to whichever ONE side actually has content, regardless of the
+  // (now hidden, so unreachable) customerGroup state — a first-time
+  // visitor never lands on the empty side by default.
+  const hasPersonalBusinessTiers = filterTiersByCustomerGroup(tiers, family.pricing, 'personal_business').length > 0;
+  const hasEnterpriseTiers = filterTiersByCustomerGroup(tiers, family.pricing, 'enterprise').length > 0;
+  const showCustomerTabs = hasPersonalBusinessTiers && hasEnterpriseTiers;
+  const effectiveCustomerGroup = showCustomerTabs
+    ? customerGroup
+    : (hasEnterpriseTiers ? 'enterprise' : 'personal_business');
+  const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, effectiveCustomerGroup);
 
   // Focused-plan state. Choosing a plan hides the other Tier cards and
   // presents the one Tier beside its plan details; it changes nothing about
@@ -1514,9 +1528,10 @@ export function FamilyTierAdapter({
   } else {
     mainContent = (
       <>
-      {/* Nothing to filter — an empty tab bar above an empty grid — when
-          this Tier System has no occupants at all across either group. */}
-      {tiers.length > 0 && (
+      {/* No real choice to offer — either no occupants at all, or every
+          occupant belongs to just one group — when showCustomerTabs is
+          false; see its own declaration above. */}
+      {showCustomerTabs && (
         <div class="cz-package-builder__customer-tabs" role="tablist" aria-label="Customer group">
           {CUSTOMER_GROUPS.map((group) => (
             <button
@@ -1551,7 +1566,7 @@ export function FamilyTierAdapter({
         // unaffected (and pre-quote, selectedTierId is null, so no card is
         // affected at all).
         quotedTierEditionPlatformId={selectedTierEditionPlatformId}
-        isEnterpriseView={customerGroup === 'enterprise'}
+        isEnterpriseView={effectiveCustomerGroup === 'enterprise'}
       />
       </>
     );
