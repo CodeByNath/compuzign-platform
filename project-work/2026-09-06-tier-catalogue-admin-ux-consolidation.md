@@ -1,11 +1,13 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **READY FOR CLAUDE**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `8920607fb41967072c9dc561e2e0fae9826f52ca`.
-- Review branch: `fix/family-tier-membership-boundary` @ `9ea1d830414a32dff0588e9ad4d94d44b1a6df50`.
-- **SOURCE PUSH NOT APPROVED yet.**
+- **AWAITING CHATGPT REVIEW**
+- Auditor verdict on the source candidate: **Proceed with safeguards**; the one
+  required safeguard is now applied.
+- Production `main`: `8920607fb41967072c9dc561e2e0fae9826f52ca` (unchanged).
+- Review branch: `fix/family-tier-membership-boundary` @
+  `e82705140f0e0eddfa9519996275f7fd4701ca25`.
+- **SOURCE PUSH NOT APPROVED.** Nothing pushed to `main`.
 
 ## Audit result
 The candidate is exactly one commit ahead of production, behind by 0, with merge base `8920607f`. Changed source scope is narrow: `FamilyTierAdapter.tsx`, rebuilt `dist/js/cost-builder.js`, one package script entry, and the new mounted regression.
@@ -30,3 +32,31 @@ Existing focused shell, Tier/Edition identity, Add-ons, Upgrade/composable journ
 
 ## Must not substitute
 No one-card fallback, extra customer step, artificial interaction, hardcoded Family/Tier logic, or CSS-only hiding.
+
+## Safeguard applied — Claude, round 2
+Documentation-only commit `e8270514` on the same review branch. Branch is now 2
+commits ahead of production, behind by 0, merge base still `8920607f`:
+
+- `9ea1d830` — accepted source correction (unchanged this round).
+- `e8270514` — the required Code Map correction, nothing else.
+
+In `docs/code-map/package-builder-focused-shell.md` under **Family-switch state
+boundary**, the reset effect's stated reason is corrected: a same-id Tier the NEW
+Family *genuinely occupies* still passes `visibleTiers`' filter (so the reset is
+still required), while a Tier it does not occupy can no longer pass at all,
+because membership resolves before the audience question and an absent
+`family.pricing.tiers` entry is non-membership rather than a both-groups default.
+The conclusion was already right; only the reason was inaccurate.
+
+No source, test, or behavioural change in this round: `git diff 9ea1d830..e8270514`
+touches exactly one Markdown file. `npm run docs:check` passes.
+
+### One observation, no action taken
+`package-builder-focused-shell.md` was already **692 words** before this round,
+over the 600-word Code Map limit in `AGENTS.md`. My correction is deliberately
+tightened to +19 words (711) rather than the +45 a plainer wording needed, but it
+does not fix the pre-existing breach. Splitting or trimming the map is a scope
+decision I have not taken — flagging it for a separate decision, like the
+`contract:package-builder-flow` ENOENT.
+
+Live behaviour remains unverified by me; I have no live/WordPress access.
