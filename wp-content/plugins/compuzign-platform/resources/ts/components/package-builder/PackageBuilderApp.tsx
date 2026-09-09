@@ -200,8 +200,17 @@ export function PackageBuilderApp() {
     && composableItem === null
     && resolveComposableEligibleRows(family).length > 0;
 
+  // The sidebar grid track (--has-quote below) must track the EXACT same
+  // condition the <aside> below uses to decide whether QuoteSummary itself
+  // renders (items.length > 0 && !upgradeGateActive) — items.length alone
+  // left the 360px sidebar column reserved for an empty <aside> the whole
+  // time the composable "Browse Catalogue" shell (a scrollable list that
+  // wants the full row) was open, since a cart with existing items stays
+  // non-empty while upgradeGateActive suppresses QuoteSummary alone.
+  const hasVisibleQuote = items.length > 0 && !upgradeGateActive;
+
   return (
-    <div class={`cz-cost-builder cz-package-builder${items.length ? ' cz-cost-builder--has-quote' : ''}`}>
+    <div class={`cz-cost-builder cz-package-builder${hasVisibleQuote ? ' cz-cost-builder--has-quote' : ''}`}>
       <section class="cz-package-builder__hero" aria-labelledby="cz-package-builder-title">
         <h1 id="cz-package-builder-title" class="cz-heading-lg">Plans &amp; pricing</h1>
         <div class="cz-package-builder__features" aria-label="Plan benefits">
@@ -265,7 +274,7 @@ export function PackageBuilderApp() {
           </Card>
         </main>
         <aside class="cz-cost-builder__sidebar" id={SUMMARY_ID}>
-          {items.length > 0 && !upgradeGateActive && (
+          {hasVisibleQuote && (
             <QuoteSummary
               items={items}
               onRemove={removeItem}
