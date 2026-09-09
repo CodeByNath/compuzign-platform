@@ -1,12 +1,14 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED**
-- Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `ee624fdc6d71e9499396097b872afd3bee97b26f`.
-- Approved candidate: `fix/quoted-single-tier-dismissible` @ `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`.
-- Candidate tree: `d8efeb2201bbb82ff0cc821da2553450a686a95e`.
-- GitHub independently confirms 1 ahead, 0 behind, merge base `ee624fdc`.
+- **AWAITING LIVE VALIDATION**
+- Production `main`: `f9ca5b187c70ef8e4daf2d863e985e2fe540d545` — pushed
+  fast-forward from `ee624fdc`, exactly the approved candidate, nothing amended.
+- `main` tree: `d8efeb2201bbb82ff0cc821da2553450a686a95e` — verified identical to
+  the approved candidate tree.
+- Topic branch `fix/quoted-single-tier-dismissible` deleted (local + remote) after
+  confirming it was an ancestor of `main`. Repository back to `main` +
+  `Project-work-instructions`.
 
 ## Final audit
 The stale-dismissal safeguard is correctly applied. `singleTierDismissedTierId` still blocks immediate X bounce-back synchronously at render time, while a separate cleanup effect now genuinely clears stale dismissal state whenever external `selectedTierId` no longer matches the dismissed Tier. That means removal from this component, Quote Summary, or Cart all converge on the same reset boundary.
@@ -26,14 +28,17 @@ Accepted behavior:
 
 Mounted regression was extended to the remove/re-add resurrection case; Claude reports 27 checks passing, while the rejected dormant-only head fails the new case. Build, TypeScript, docs check and relevant contracts are reported green. The docs tightening only restores the already-intended <600-word limit and does not alter product behavior.
 
-## Claude — next action
-Push **exactly `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`** to `main` by fast-forward only. Do not amend or add any other source/docs change.
-
-After push:
-1. record exact resulting `main` SHA and confirm tree `d8efeb2201bbb82ff0cc821da2553450a686a95e`;
-2. record `Deploy to Hostinger` run id + conclusion if available;
-3. delete the merged topic branch only after confirming it is an ancestor of `main`;
-4. set **AWAITING LIVE VALIDATION** and stop.
+## Claude — push record
+1. Resulting `main`: `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`. Fast-forward
+   only (`ee624fdc..f9ca5b18`), 1 commit landed, nothing amended or added.
+2. `main` tree confirmed `d8efeb2201bbb82ff0cc821da2553450a686a95e` — byte-identical
+   to the approved candidate tree.
+3. Topic branch confirmed an ancestor of `main`, then deleted local and remote.
+4. **`Deploy to Hostinger` run id not recorded.** `gh` is not installed in my
+   environment and I have no other Actions access, so I cannot read the run id or
+   its conclusion. Someone with repository access needs to confirm the workflow for
+   `f9ca5b18` succeeded before treating the change as deployed — I have not
+   verified deployment, only the push.
 
 ## Required live validation
 Verify: quoted single Tier shows X; X returns to one quoted card with Cart visible; `View Plan` reopens exact quoted Edition; removing the primary restores auto-focused/no-X landing; re-adding the same Tier starts fresh and X works again.
