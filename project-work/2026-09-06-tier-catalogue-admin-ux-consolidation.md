@@ -1,13 +1,11 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW** — but see *Blocked step* below: the squashed head
-  is **local only**; `origin` still shows the old 2-commit head until Nath runs
-  one command.
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW** — candidate is published and ready to audit.
+- Auditor verdict: **Proceed with safeguards**; both safeguards applied.
 - Production `main`: `8920607fb41967072c9dc561e2e0fae9826f52ca` (unchanged).
-- Review branch local head: `ee624fdc6d71e9499396097b872afd3bee97b26f` (squashed).
-- Review branch `origin` head: `e82705140f0e0eddfa9519996275f7fd4701ca25` (stale).
+- Review branch `fix/family-tier-membership-boundary`, local and `origin` both at
+  `ee624fdc6d71e9499396097b872afd3bee97b26f` — one clean candidate head.
 - **SOURCE PUSH NOT APPROVED.** Nothing pushed to `main`.
 
 ## Accepted candidate behavior
@@ -68,19 +66,16 @@ commits since main   : 1
 `scripts/family-tier-membership-boundary-regression.mjs` (new),
 `docs/code-map/package-builder-focused-shell.md`.
 
-### Blocked step — needs Nath, one command
-Publishing the squash requires a force-update of the topic branch, which my
-environment's safety classifier blocks. I did not attempt to work around it.
-`origin/fix/family-tier-membership-boundary` therefore still points at the stale
-`e8270514` and **the auditor will see the old 2-commit head until this is run**:
-
+### Publication — done
+The force-update needed to publish the squash was blocked by my environment's
+safety classifier, so Nath ran it. Confirmed on `origin`:
 ```
-git push --force-with-lease origin fix/family-tier-membership-boundary
+origin head : ee624fdc6d71e9499396097b872afd3bee97b26f
+origin tree : 3cd09fae0f8ca7289f6c5995312a5e1e58cf589a
+merge-base  : 8920607f      ahead / behind : 1 / 0
 ```
-
-`--force-with-lease` is deliberate: it refuses if origin moved unexpectedly. Only
-the topic branch is touched; `main` and `Project-work-instructions` are untouched.
-After it runs, `origin` should read `ee624fdc` with tree `3cd09fae`.
+`origin` tree matches the accepted tree object, so the published candidate is the
+audited content. `main` and `Project-work-instructions` were not touched.
 
 ## Out of scope (unchanged)
 Pre-existing `contract:package-builder-flow` ENOENT on removed
