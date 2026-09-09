@@ -1,39 +1,40 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **READY FOR CLAUDE**
+- **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `0a13fd14`.
-- Approved candidate: `review/upgrade-composable-edition-preview-fix` @ `12e00e91`.
-- Candidate is exactly one clean commit ahead of production, with no rejected ancestry.
+- Prior candidate `12e00e91` is accepted only for the Edition-label portion; it is **not** a complete release candidate.
 
 ## Release scope
-Finish the existing customer-facing **Upgrade Your Build** flow only. No broader composable-Edition architecture work.
+Finish the existing customer-facing **Upgrade Your Build** flow as one working release. No broader composable-Edition architecture work.
 
-Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendations -> Upgrade CTA -> Browse Catalogue in existing focused shell -> existing server preview/auto-sync authority -> Add to Quote returns to staged view. No standalone Build Your Own journey.
+Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendations -> Upgrade CTA -> Browse Catalogue in existing focused shell -> server preview/auto-sync authority -> Add to Quote returns to staged view. No standalone Build Your Own journey.
 
-## Auditor correction — cycle order
-The prior coordination state was wrong. Live browser validation is **not** a prerequisite to pushing an independently reviewed candidate. Nath performs customer/browser validation only after the approved source is pushed to `main` and deployed.
+## Decision correction
+Do **not** push `12e00e91` by itself. The customer pricing failure is part of this same active release and remains blocking. Nath will perform browser/customer validation only after a complete reviewed candidate is pushed to `main` and deployed.
 
-## Review of `12e00e91`
-### Edition top control
-**Approved.** `showLabels` is opt-in and enabled only for the composable Upgrade cue. Labels come from the existing composable occupant `edition_options`; normal Tier cue behavior is unchanged. CSS is additive and no new identity/routing/state model was introduced.
+## Defect B — Edition top control
+The `12e00e91` `showLabels` implementation is accepted. Preserve it in the final clean candidate. Do not redesign or broaden Edition architecture.
 
-### Pricing failure
-The candidate does **not claim to fix** the existing live `Could not resolve pricing right now` defect. Its added PHP resolver coverage is safe and useful, but it is not a production fix and must not be represented as one.
-
-This does not block this reviewed candidate from being pushed. The pricing defect remains open and must be rechecked on the deployed result. If it persists, that live result becomes the next correction round in this same work file.
+## Defect A — pricing request failure
+The live customer flow on `main@0a13fd14` reaches `ComposableOfferBrowser`'s Promise rejection path (`Could not resolve pricing right now`). The PHP fixture added in `12e00e91` does not reproduce the REST/HTTP boundary and therefore does not close this defect.
 
 ## Claude — next action
-Push **exactly `12e00e91` unchanged** to `main` using the normal reviewed-source workflow. Do not add another source change in this push.
+Fix the pricing failure **before any source push**.
 
-After push, report in this same file:
-- exact resulting `main` SHA;
-- confirmation the pushed tree equals reviewed candidate `12e00e91`;
-- GitHub Actions/deployment state when available.
+Start from current production `main`, then reproduce/trace the full existing boundary locally as far as the environment permits:
+`ComposableOfferBrowser -> resolveComposablePreview -> apiClient.post -> /compuzign/v1/package-builder/composable-preview -> PackageBuilderController::postComposablePreview -> PackageRepository::resolveComposableOfferSelection`.
 
-Then set status to **AWAITING LIVE VALIDATION**. Nath/auditor will perform the customer-facing browser check only after deployment.
+Audit specifically for a defect that can make the client Promise reject even when repository resolution itself passes: route registration/path, request/argument schema, nonce/public permission handling, controller return/serialization, thrown PHP/runtime errors, malformed/non-JSON success response, or client endpoint construction. Add a focused regression test/contract at the REST/controller boundary rather than another repository-only fixture.
 
-**Must preserve:** server preview pricing authority; debounced preview/auto-sync; customer-policy/Commercial-Leg resolver; Edition-aware resolution; accepted Upgrade journey.
+Fix only the demonstrated source defect. If local reproduction is impossible, report the exact remaining boundary and evidence instead of guessing.
 
-**Must not substitute:** client pricing, unit-price fallback as quote authority, error suppression, second resolver, removal of Edition support, or extra customer steps.
+**Must preserve:** server preview as pricing authority; debounced preview/auto-sync; customer-policy/Commercial-Leg resolver; Edition-aware resolution; accepted Upgrade journey; accepted dynamic Edition labels.
+
+**Must remove:** the actual condition causing the composable-preview Promise rejection.
+
+**Must not substitute:** client-calculated pricing, published unit-price fallback as quote authority, error suppression, second resolver, removal of Edition support, extra customer steps, or a separate Build Your Own journey.
+
+When complete, create one **clean replacement review candidate from current `main`** containing both the accepted Edition-label fix and the pricing correction. Run focused contracts/tests, update affected Code Map only as needed, report root cause + changed files + evidence + exact SHA, set **AWAITING CHATGPT REVIEW**, and stop. Do not push to `main`.
