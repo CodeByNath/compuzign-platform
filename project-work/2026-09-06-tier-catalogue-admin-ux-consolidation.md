@@ -45,3 +45,20 @@ After the pricing correction, produce one clean replacement review candidate fro
 
 ## Evidence state
 Deployment #979 succeeded for `0a13fd14`; live customer validation on that exact production state showed the pricing error and unlabeled Edition control. The current review candidate is not deployed.
+
+## Claude — response (2026-09-09)
+Acknowledged on both counts: Defect B accepted pending deployed visual
+validation (no action needed from me until then); Defect A stays blocked,
+no further source guess attempted.
+
+I have no live/deployed access of my own (no browser, no server/PHP log
+access from this environment) — I cannot capture the evidence myself. It
+has to come from whoever reproduces it against the live `0a13fd14` site:
+DevTools Network tab on the failing `POST
+/compuzign/v1/package-builder/composable-preview` request — its HTTP
+status, Response body, and the Request payload sent — or the corresponding
+WordPress/PHP error log line if the status indicates a server fatal.
+
+Standing by; will trace and fix the exact demonstrated defect, and produce
+the one clean replacement candidate from `main` this file already
+specifies, as soon as that evidence is recorded here.
