@@ -1,97 +1,42 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
-- Production `main`: `ee624fdc6d71e9499396097b872afd3bee97b26f` (unchanged).
-- Review branch: `fix/quoted-single-tier-dismissible` @
-  `f9ca5b187c70ef8e4daf2d863e985e2fe540d545` — tree
-  `d8efeb2201bbb82ff0cc821da2553450a686a95e`, 1 ahead, 0 behind, merge base
-  `ee624fdc`. **Not pushed to `main`.**
-- Rejected head `6086f9e5` is **not** in this ancestry: per `project-work/AGENTS.md`
-  the corrected round was rebuilt as one clean candidate from production `main`,
-  not stacked on the rejected commit.
-- **SOURCE PUSH NOT APPROVED.**
+- **SOURCE PUSH APPROVED**
+- Auditor verdict: **Proceed with safeguards**.
+- Production `main`: `ee624fdc6d71e9499396097b872afd3bee97b26f`.
+- Approved candidate: `fix/quoted-single-tier-dismissible` @ `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`.
+- Candidate tree: `d8efeb2201bbb82ff0cc821da2553450a686a95e`.
+- GitHub independently confirms 1 ahead, 0 behind, merge base `ee624fdc`.
 
-## Accepted direction
-The new state split is correct:
-- one real primary, unquoted -> automatic focused landing, no X;
-- same Tier quoted -> focused shell may show normal sticky X;
-- X -> one quoted card, focused shell inactive so Cart can render beside it;
-- quoted card keeps `View Plan` and exact quoted Edition route back into the same shell.
+## Final audit
+The stale-dismissal safeguard is correctly applied. `singleTierDismissedTierId` still blocks immediate X bounce-back synchronously at render time, while a separate cleanup effect now genuinely clears stale dismissal state whenever external `selectedTierId` no longer matches the dismissed Tier. That means removal from this component, Quote Summary, or Cart all converge on the same reset boundary.
 
-The implementation correctly blocks immediate X bounce-back by honoring `singleTierDismissedTierId` in the render-time fallback rather than adding an auto-open effect, fake click, timer, route change, or CSS-only workaround. Mounted regression coverage is appropriate and the Family-membership fix remains intact.
+The cleanup effect is acceptable because it only clears stale local presentation state; it does not open/focus/select a Tier and does not replace the passive render-time single-Tier fallback. The candidate therefore preserves the architecture that fixed the earlier live landing failures.
 
-## Required safeguard — stale dismissal can resurrect
-Current candidate does **not actually reset** the dismissal when the primary is removed. It only makes it temporarily invalid by deriving:
-`singleTierDismissed = singleTierDismissedTierId === selectedTierId`.
+Accepted behavior:
+- unquoted single Tier -> automatic focused landing, no X;
+- quoted single Tier -> focused shell with normal sticky X;
+- X -> quoted card + focused-shell inactive so Cart can render beside it;
+- `View Plan` -> exact quoted Default/Edition reopens in the same shell;
+- dismissal persists only while that same primary remains selected;
+- remove primary -> locked landing restored and dismissal genuinely cleared;
+- re-add same Tier -> fresh quoted focused state, no resurrected dismissal;
+- Family/customer-group changes still clear dismissal;
+- Family membership/tab rules, Add-ons, Recommendations, Upgrade/composable, pricing, quote identity and Cart behavior remain unchanged.
 
-That means this sequence is wrong:
-1. quote single Tier;
-2. X -> dismissal stores that Tier id;
-3. remove primary -> locked auto-focus correctly returns because `selectedTierId` is null;
-4. quote the **same Tier again** -> stale stored id becomes valid again and can suppress the fresh quoted focused fallback.
+Mounted regression was extended to the remove/re-add resurrection case; Claude reports 27 checks passing, while the rejected dormant-only head fails the new case. Build, TypeScript, docs check and relevant contracts are reported green. The docs tightening only restores the already-intended <600-word limit and does not alter product behavior.
 
-Nath explicitly required the dismissal to reset when the primary is removed, not merely become dormant. The regression currently stops after removal and therefore misses the resurrection case.
+## Claude — next action
+Push **exactly `f9ca5b187c70ef8e4daf2d863e985e2fe540d545`** to `main` by fast-forward only. Do not amend or add any other source/docs change.
 
-### Claude — next action
-On the same topic branch:
-1. Ensure a dismissal is genuinely cleared when the selected primary is removed or changes away from the dismissed Tier, including removal from Cart outside this component.
-2. Do not use an effect to auto-open anything. A small synchronization/reset effect over external selected-primary identity is acceptable if it only clears stale presentation state.
-3. Extend the mounted regression with: dismiss -> remove primary -> locked landing/no X -> re-add same Tier -> fresh quoted focused state with X -> X works again.
-4. Preserve Family/customer-group reset behavior, exact Tier+Edition `View Plan` reopen, Recommendations/Add-ons/composable flow, Cart visibility, pricing and quote identity.
-5. Push the corrected topic head, record SHA/tests here, set **AWAITING CHATGPT REVIEW**, stop. Do not push to `main`.
+After push:
+1. record exact resulting `main` SHA and confirm tree `d8efeb2201bbb82ff0cc821da2553450a686a95e`;
+2. record `Deploy to Hostinger` run id + conclusion if available;
+3. delete the merged topic branch only after confirming it is an ancestor of `main`;
+4. set **AWAITING LIVE VALIDATION** and stop.
 
-## Non-blocking observation
-`commitSelection()` still clears `focusedEditionId`, so immediately after quoting an Edition the fallback shell can transiently show Default while the Cart holds that Edition. This predates this refinement; do not broaden scope unless Nath asks.
+## Required live validation
+Verify: quoted single Tier shows X; X returns to one quoted card with Cart visible; `View Plan` reopens exact quoted Edition; removing the primary restores auto-focused/no-X landing; re-adding the same Tier starts fresh and X works again.
 
 ## Out of scope
-Pre-existing `contract:package-builder-flow` ENOENT on removed `FullBuildDetail.tsx` remains non-blocking.
-
-## Claude — safeguard applied (round 2)
-**The auditor's finding was correct and reproducible.** Deriving validity against
-`selectedTierId` alone only made a stale dismissal dormant. Confirmed by running
-the new scenario 7 against the rejected head `6086f9e5`: re-quoting the same Tier
-reports `focused=false` — the customer is stranded on the card with no route back
-into the shell. Scenarios 1–6 all pass on that rejected head, which is exactly why
-they did not catch it.
-
-**Fix.** The stored id is now genuinely cleared whenever the selected primary is
-not the dismissed Tier, via a small synchronisation effect keyed on that
-externally owned identity:
-
-```ts
-useEffect(() => {
-  if (singleTierDismissedTierId !== null && singleTierDismissedTierId !== selectedTierId) {
-    setSingleTierDismissedTierId(null);
-  }
-}, [selectedTierId, singleTierDismissedTierId]);
-```
-
-Keyed on the external primary identity, so removal from the Quote Summary or Cart
-behaves identically to removing it inside this component (auditor item 1). It only
-clears stale presentation state — it never opens, focuses, or selects anything, so
-the focused shell is still produced purely by the render-time fallback (item 2).
-The derivation is kept as the synchronous same-render guard that stops X bouncing
-back. Family switch and explicit customer-group resets are unchanged (item 4).
-
-**Regression extended** (item 3) with scenario 7: dismiss -> remove primary ->
-locked landing/no X -> re-add the same Tier -> fresh quoted focused state with X
--> X works again -> Cart visible. 27 checks, all passing.
-
-**Verification, exit codes read directly this time**
-```
-build 0 | tsc 0 | docs:check 0
-regression:quoted-single-tier-dismissible 0
-regression:family-tier-membership-boundary 0
-```
-Contracts passing: package-builder-customer-tabs, -regression-lock, -addon-focus,
-tier-edition-switch, manage-build, composable-quote-cart,
-composable-recommendations-cta, composable-offer-eligibility, package-family-cart,
-quote-cart-addon, package-builder-bundle-inclusion-parity,
-plan-details-value-states, tier-addon-flow.
-
-**Failure evidence for the new regression:** 10 checks fail against pre-change
-`main`; 2 fail against the rejected dormant-only head `6086f9e5`.
-
-`commitSelection()`'s Default reset remains pinned as-is, not broadened.
-Live behaviour unverified by me — no live access.
+`commitSelection()` still transiently resets focused Edition to Default immediately after quoting an Edition; unchanged and non-blocking here. Pre-existing `contract:package-builder-flow` ENOENT on removed `FullBuildDetail.tsx` remains out of scope.
