@@ -1,37 +1,44 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **READY FOR CLAUDE**
+- **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `0a13fd14` (fast-forwarded from `review/upgrade-shell-visual-parity`, no additional source changes included).
-- Pushed by Nath directly (classifier blocks Claude pushing to `main`); verified `origin/main` resolves to `0a13fd14`.
+- Production `main`: `0a13fd14`.
+- Deploy: Hostinger workflow #979 succeeded for exact `0a13fd14`.
+- Live validation failed on two customer-facing defects below.
 
 ## Current release goal
-Finish the customer-facing **Upgrade Your Build** flow. Do not expand this work into a broader composable-Edition architecture project.
+Finish the existing customer-facing **Upgrade Your Build** flow only. Do not reopen broader composable-Edition architecture.
 
-The accepted flow is:
-- normal Tier/Edition is added first;
-- selected primary Tier stays visible in staged view;
-- Upgrade Your Build CTA sits inside existing Recommendations;
-- pending Upgrade hides Add-ons + Cart;
-- Browse Catalogue opens the composable occupant inside the existing `.cz-package-builder__focused` shell;
-- `ComposableOfferBrowser` remains the existing server-preview/auto-sync quote mutation authority;
-- Add to Quote is exit/return to the normal staged Tier + Recommendations + Cart view, not a second commit path;
-- catalogue-only Families can still reach the Recommendations CTA;
-- no standalone Build Your Own route/card/customer journey.
+Accepted flow remains: normal Tier/Edition first -> staged Tier + Recommendations -> Upgrade CTA -> Browse Catalogue in existing focused shell -> existing server preview/auto-sync authority -> Add to Quote returns to staged view. No standalone Build Your Own journey.
 
-## Explicit deferral
-The previously raised deeper composable-Edition consistency refinements are **not release blockers for this work**. Defer them to a separate follow-up unless live validation proves they directly break this customer flow.
+## Live defects — 2026-09-09
+1. Customer catalogue shows red **“Could not resolve pricing right now.”**
+   - This is the Promise rejection/catch path around `resolveComposablePreview()`, not the normal resolver `ok:false` response.
+   - Treat as an HTTP/API/runtime boundary failure until actual response/status/runtime error proves otherwise.
 
-Do not continue changing:
-- Edition-specific catalogue-row projection/enrichment;
-- additional Edition quote-metadata normalization;
-- broader Edition/composable resolver architecture.
-
-Do not revert working Edition changes already present in the approved candidate merely to reduce scope. Just stop expanding them here.
+2. Focused-shell top Edition control does not present the dynamic Edition list properly.
+   - Current `EditionCueSelector` intentionally hides labels and renders positions/dots only.
+   - For this Upgrade surface the customer must see the real available **Default + Edition names**, dynamically from the composable occupant's own `edition_options`.
+   - Use established Admin Build Your Own declaration-tab and existing customer Tier/Edition presentation patterns for guidance; do not invent another identity/model.
 
 ## Claude — next action
-Done. Pushed to `main` at `0a13fd14` (clean fast-forward from `review/upgrade-shell-visual-parity`, no other source changes). Nath will perform the customer-facing live check.
+Correct these two defects only from current `main`.
 
-## Live acceptance target
-Validate only the intended Upgrade Your Build flow above. Any deeper Edition refinement discovered but not blocking that flow should be recorded for separate follow-up, not fixed inside this work item.
+### A. Pricing failure
+Before changing source, reproduce and record the failing `POST /compuzign/v1/package-builder/composable-preview` HTTP status/body and PHP/REST/runtime error.
+Trace only the existing path:
+`ComposableOfferBrowser -> resolveComposablePreview -> PackageBuilderController::postComposablePreview -> PackageRepository::resolveComposableOfferSelection`.
+Fix the actual boundary defect.
+
+**Must preserve:** server preview as pricing authority; debounced preview/auto-sync; customer-policy and Commercial-Leg resolver; Edition-aware resolution.
+
+**Must not substitute:** client-calculated pricing, published unit price as quote authority, error suppression, second resolver, or removing Edition support.
+
+### B. Edition top control
+Keep `composable_offer.edition_options` as data authority and `composableEditionId` as active identity. Refine the existing top control so it visibly renders the actual Default/Edition names and handles zero/one/many Editions dynamically. No hardcoded names/counts/index identity. Clicking still drives `activeEditionId` and the same server-preview path.
+
+Do not change the accepted Upgrade journey, Cart/Add-on visibility contract, resolver architecture, or deferred deeper Edition refinements.
+
+Add/update focused regression contracts. Report root cause, changed files, tests/contracts, and clean review commit. Stop for auditor review before any source push to `main`.
