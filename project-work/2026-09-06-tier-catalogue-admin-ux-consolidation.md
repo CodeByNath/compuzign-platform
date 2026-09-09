@@ -1,10 +1,10 @@
 # Tier Catalogue Admin UX Consolidation
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed with safeguards**.
-- Production `main`: `28b6859c1efab5044ac761f360852a19988de7b2`.
-- Approved candidate: `review/upgrade-shell-visual-parity` @ `0a13fd14`.
+- Production `main`: `0a13fd14` (fast-forwarded from `review/upgrade-shell-visual-parity`, no additional source changes included).
+- Pushed by Nath directly (classifier blocks Claude pushing to `main`); verified `origin/main` resolves to `0a13fd14`.
 
 ## Current release goal
 Finish the customer-facing **Upgrade Your Build** flow. Do not expand this work into a broader composable-Edition architecture project.
@@ -31,14 +31,7 @@ Do not continue changing:
 Do not revert working Edition changes already present in the approved candidate merely to reduce scope. Just stop expanding them here.
 
 ## Claude — next action
-Push only the approved candidate to `main` using the normal clean review-branch process. Do not add further source changes in this work item before push.
-
-After push, record:
-- exact `main` SHA;
-- deployment/workflow result;
-- confirmation that no additional source changes were included.
-
-Then set **AWAITING LIVE VALIDATION**. Nath will perform the customer-facing live check.
+Done. Pushed to `main` at `0a13fd14` (clean fast-forward from `review/upgrade-shell-visual-parity`, no other source changes). Nath will perform the customer-facing live check.
 
 ## Live acceptance target
 Validate only the intended Upgrade Your Build flow above. Any deeper Edition refinement discovered but not blocking that flow should be recorded for separate follow-up, not fixed inside this work item.
