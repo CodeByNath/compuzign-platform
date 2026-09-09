@@ -441,7 +441,22 @@ export function filterTiersByCustomerGroup(
   customerGroup: 'personal_business' | 'enterprise',
 ): Tier[] {
   return tiers.filter((tier) => {
-    const groups = pricing.tiers[tier.id]?.audience_groups ?? ['personal_business', 'enterprise'];
+    // Family membership is resolved BEFORE any audience question. `tiers` is
+    // the global Tier vocabulary every Family is measured against, while
+    // `pricing.tiers` is one Family's own Partial<Record<...>> of the slots
+    // it actually occupies. A Tier this Family never occupies has no entry at
+    // all, and the old `?.audience_groups ?? [both]` read that absence as
+    // "appears under every customer group" — inventing a phantom occupant out
+    // of a global slot the Family does not own. Absence is non-membership; it
+    // is never a default audience. Only a real occupancy entry may fall back
+    // to the unset-audience default (see PackageSchema's own
+    // DEFAULT_TIER_AUDIENCE_GROUPS). Same "a real pricing entry is required
+    // first" rule PricingTiers.tsx already applies to its own normalTiers.
+    const occupancy = pricing.tiers[tier.id];
+    if (!occupancy) {
+      return false;
+    }
+    const groups = occupancy.audience_groups ?? ['personal_business', 'enterprise'];
     return groups.includes(customerGroup);
   });
 }
@@ -471,11 +486,20 @@ export function FamilyTierAdapter({
   // collapsed into one indistinguishable value. Reset to null on Family
   // switch below, so every Family gets its own clean landing resolution.
   const [selectedCustomerGroup, setSelectedCustomerGroup] = useState<'personal_business' | 'enterprise' | null>(null);
+  // Which global Tier slots this Family actually occupies — resolved once,
+  // ahead of every audience/focus derivation below, for the same reason the
+  // filter above guards: a global slot without a `family.pricing.tiers` entry
+  // is not this Family's occupant and must not reach any count.
+  const familyOccupants = tiers.filter((tier) => family.pricing.tiers[tier.id] !== undefined);
   // Availability is resolved from normal Tier occupants ONLY — Add-ons are
   // offered in Recommendations after a primary plan is already known, so
   // an Add-on visible under a group must never make that group appear to
-  // have a real choice when it has no primary Tier to land on.
-  const normalOccupants = tiers.filter((tier) => !family.pricing.tiers[tier.id]?.is_addon);
+  // have a real choice when it has no primary Tier to land on. A real
+  // occupancy entry is required first as well: a Tier the Family does not
+  // occupy is not a "normal" occupant either, and must never be counted as
+  // one merely because a missing entry carries no `is_addon: true` to
+  // exclude it.
+  const normalOccupants = familyOccupants.filter((tier) => family.pricing.tiers[tier.id]?.is_addon !== true);
   const hasPersonalBusinessTiers = filterTiersByCustomerGroup(normalOccupants, family.pricing, 'personal_business').length > 0;
   const hasEnterpriseTiers = filterTiersByCustomerGroup(normalOccupants, family.pricing, 'enterprise').length > 0;
   // The tab bar is a real choice only when BOTH groups actually have a
@@ -488,7 +512,7 @@ export function FamilyTierAdapter({
   // Business when both do (matches the tab bar's own left-to-right order).
   const defaultCustomerGroup = hasPersonalBusinessTiers ? 'personal_business' : 'enterprise';
   const effectiveCustomerGroup = selectedCustomerGroup ?? defaultCustomerGroup;
-  const visibleTiers = filterTiersByCustomerGroup(tiers, family.pricing, effectiveCustomerGroup);
+  const visibleTiers = filterTiersByCustomerGroup(familyOccupants, family.pricing, effectiveCustomerGroup);
   // One shared render, used both above the plain comparison grid AND above
   // the single-Tier auto-view's focused shell (see isImplicitSingleTierView
   // below) — the same control, never two copies that could drift.
@@ -620,7 +644,7 @@ export function FamilyTierAdapter({
   // Add-ons come from this Family's one Tier System, where compatibility is
   // implicit — there is no per-Tier compatibility ledger, so "does this Tier
   // have Add-ons" is answered by the Tier System offering any at all.
-  const normalTiers = visibleTiers.filter((tier) => !family.pricing.tiers[tier.id]?.is_addon);
+  const normalTiers = visibleTiers.filter((tier) => family.pricing.tiers[tier.id] && !family.pricing.tiers[tier.id]?.is_addon);
   const addonTiers = visibleTiers.filter((tier) => family.pricing.tiers[tier.id]?.is_addon);
   // Tier-level presence only — the outer/unfocused add-on card's own
   // "Added" state stays exactly as it already was (unchanged scope this
@@ -688,32 +712,6 @@ export function FamilyTierAdapter({
   const effectiveFocusedTierId = focusedTierId
     ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier ? singleVisibleTier.id : null);
   const focusedTier = effectiveFocusedTierId ? visibleTiers.find((tier) => tier.id === effectiveFocusedTierId) ?? null : null;
-  // TEMPORARY diagnostic — remove once the "works via tab click, fails on
-  // default-tab landing" discrepancy is confirmed resolved by the
-  // selectedCustomerGroup/defaultCustomerGroup split below.
-  if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
-    console.log('[CZ single-tier debug]', {
-      familyId: family.family_id,
-      selectedCustomerGroup,
-      defaultCustomerGroup,
-      effectiveCustomerGroup,
-      showCustomerTabs,
-      hasPersonalBusinessTiers,
-      hasEnterpriseTiers,
-      normalOccupantsCount: normalOccupants.length,
-      normalTiersCount: normalTiers.length,
-      normalTierIds: normalTiers.map((t) => t.id),
-      addonTiersCount: addonTiers.length,
-      singleVisibleTierId: singleVisibleTier?.id ?? null,
-      selectedTierId,
-      stagedTierId,
-      stagedTierResolved: stagedTier?.id ?? null,
-      focusedTierId,
-      effectiveFocusedTierId,
-      upgradeGateActive,
-    });
-  }
   // True only when this render's focused shell exists purely via the
   // fallback above (no explicit Choose Plan click ever happened) — drives
   // hiding the Close button and showing the customer-group tabs above the
