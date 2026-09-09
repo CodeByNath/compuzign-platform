@@ -432,4 +432,36 @@ assertSameValue('not_found', $rEditionDisabled['code'], '12f. same structured no
 $rEditionEmptyString = $repo4->resolveComposableOfferSelection('pcg_ux', [['item_id' => 'hosting']], '');
 assertTrue($rEditionEmptyString['ok'], '12g. an empty-string edition_id (client omitted the param, or sent "") resolves the occupant\'s own Default exactly like a null id — never treated as a real Edition lookup');
 
+// ── 13. Composable Edition list completeness ────────────────────────────────
+//    project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md:
+//    findAllActiveFamiliesForCostBuilder()'s enrichCompiledOccupantIdentity()
+//    must not additionally drop an Active composable Edition just because it
+//    has no minted edition_platform_id yet — Active-only eligibility is
+//    already established upstream (publicTierEditionOptions()) and the
+//    composable selector/resolver above (section 12) matches by native id,
+//    never edition_platform_id. A disabled Edition must still be excluded
+//    (that gate is publicTierEditionOptions()'s own, untouched by this fix).
+
+$editionOccupant['current_occupant']['tier_editions'][] = [
+    'id' => 'ed_3', 'edition_platform_id' => '', 'edition_catalogue_platform_id' => '',
+    'default_leg_platform_id' => '', 'title' => 'Unminted Edition', 'admin_description' => '',
+    'platform_status' => 'active', 'previous_platform_status' => null, 'is_explicitly_disabled' => false,
+    'module_status' => [], 'drafts' => [],
+    'rate_sheet_id' => 'rs_ux', 'rate_sheet_items' => [],
+    'price' => null, 'contact' => false, 'billing_cycle' => 'monthly',
+    'minimum_term_value' => null, 'minimum_term_unit' => null,
+    'from_month' => null, 'to_month' => null, 'legs' => [], 'headline_leg_id' => '',
+    'inclusions_override' => [], 'customer_policy' => null, 'faq_refs' => [],
+];
+global $composableUxProjectionOption;
+$composableUxProjectionOption = stationFixture($editionOccupant);
+
+$editionListResponse = (new PackageFamilyPricingBuilder(new PackageRepository()))->buildResponse();
+$editionListFamily = $editionListResponse['families'][0] ?? null;
+assertTrue($editionListFamily !== null, '13a. the UX family renders publicly');
+$publicEditionIds = array_column($editionListFamily['pricing']['composable_offer']['edition_options'], 'id');
+assertTrue(in_array('ed_1', $publicEditionIds, true), '13b. an Active composable Edition WITH a minted edition_platform_id survives publicly');
+assertTrue(in_array('ed_3', $publicEditionIds, true), '13c. an Active composable Edition WITHOUT a minted edition_platform_id (CZTE) also survives publicly — the composable-only fix under test');
+assertTrue(!in_array('ed_2', $publicEditionIds, true), '13d. a disabled composable Edition remains excluded regardless of its own minted edition_platform_id');
+
 fwrite(STDOUT, "OK: composable-customer-ux-preview.php\n");

@@ -2606,11 +2606,29 @@ class PackageRepository
      * — the same "not surfaced until fully identified" rule for a normal
      * Tier slot and for the composable child alike.
      *
+     * Live-validation correction (project-work/2026-09-06-tier-catalogue-
+     * admin-ux-consolidation.md, 2026-09-09 round). `09f453ec` first tried
+     * removing the per-Edition `edition_platform_id` (CZTE) visibility
+     * filter globally, for both occupant kinds — the auditor rejected that
+     * (`b6cc7710`) because an Active normal Tier Edition without a minted
+     * CZTE is a genuine identity/lifecycle defect that filter is meant to
+     * catch, not something to paper over. Nath's follow-up call narrowed
+     * the fix to the COMPOSABLE occupant only: its own eligible-Edition set
+     * is already Active-only by the time it reaches here
+     * (PackageSchema::publicTierEditionOptions() upstream), and every
+     * composable selection/resolution path — resolveComposableOffer
+     * Selection(), resolveComposableEligibleRows() — matches an Edition
+     * purely by its own `id`, never `edition_platform_id`. So for the
+     * composable child only, a still-unminted CZTE must not additionally
+     * hide an otherwise-eligible Edition from the customer; a normal Tier/
+     * Add-on Edition keeps the stricter, unchanged rule.
+     *
      * @param array<string, mixed> $tier
      * @param array<string, mixed>|null $occupant
+     * @param bool $isComposable
      * @return array<string, mixed>|null
      */
-    private function enrichCompiledOccupantIdentity(array $tier, ?array $occupant): ?array
+    private function enrichCompiledOccupantIdentity(array $tier, ?array $occupant, bool $isComposable = false): ?array
     {
         if (!is_array($occupant)) {
             return null;
@@ -2627,13 +2645,20 @@ class PackageRepository
         foreach (PackageSchema::sanitizeTierEditions($occupant['tier_editions'] ?? []) as $edition) {
             $editionPlatformIds[(string) ($edition['id'] ?? '')] = (string) ($edition['edition_platform_id'] ?? '');
         }
-        $tier['edition_options'] = array_values(array_filter(array_map(
+        $editionOptions = array_map(
             static function (array $option) use ($editionPlatformIds): array {
                 $platformId = $editionPlatformIds[(string) ($option['id'] ?? '')] ?? '';
                 return [...$option, 'edition_platform_id' => $platformId];
             },
             is_array($tier['edition_options'] ?? null) ? $tier['edition_options'] : []
-        ), static fn(array $option): bool => $option['edition_platform_id'] !== ''));
+        );
+        if (!$isComposable) {
+            $editionOptions = array_filter(
+                $editionOptions,
+                static fn(array $option): bool => $option['edition_platform_id'] !== ''
+            );
+        }
+        $tier['edition_options'] = array_values($editionOptions);
         return $tier;
     }
 
@@ -2741,7 +2766,7 @@ class PackageRepository
                 $composableOccupant = PackageSchema::isOccupantFormat($composableSlot)
                     ? ($composableSlot['current_occupant'] ?? null)
                     : null;
-                $composableOffer = $this->enrichCompiledOccupantIdentity($compiled['composable_offer'], $composableOccupant);
+                $composableOffer = $this->enrichCompiledOccupantIdentity($compiled['composable_offer'], $composableOccupant, true);
             }
 
             $managerItemsBySourceId = [];

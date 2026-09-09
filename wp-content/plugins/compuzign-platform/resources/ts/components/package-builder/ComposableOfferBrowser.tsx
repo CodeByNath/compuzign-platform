@@ -156,8 +156,9 @@ export function resolveComposableEligibleRows(family: PackageBuilderFamily, edit
   const edition = editionId !== null ? (offer?.edition_options ?? []).find((option) => option.id === editionId) ?? null : null;
   const policy = edition?.customer_policy ?? offer?.customer_policy ?? null;
   if (!offer || !policy) return [];
+  const inclusionSource = edition && edition.inclusions_override.length > 0 ? edition.inclusions_override : offer.inclusions;
   const inclusionsById = new Map<string, ServiceInclusion>();
-  for (const inclusion of offer.inclusions) inclusionsById.set(inclusion.id, inclusion);
+  for (const inclusion of inclusionSource) inclusionsById.set(inclusion.id, inclusion);
   const out: BrowseRow[] = [];
   for (const item of policy.items) {
     const inclusion = inclusionsById.get(item.item_id);

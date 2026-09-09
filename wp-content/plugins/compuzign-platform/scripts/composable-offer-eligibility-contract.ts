@@ -22,7 +22,7 @@
 //   6. row order follows policy.items order, not inclusions order.
 
 import { resolveComposableEligibleRows } from '../resources/ts/components/package-builder/ComposableOfferBrowser';
-import type { CustomerPolicyItem, PackageBuilderFamily, PricingTierData, ServiceInclusion } from '../resources/ts/api/types/cost-builder';
+import type { CustomerPolicyItem, PackageBuilderFamily, PricingEditionOption, PricingTierData, ServiceInclusion } from '../resources/ts/api/types/cost-builder';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Composable offer eligibility contract: ${message}`);
@@ -58,6 +58,14 @@ function offer(overrides: Partial<PricingTierData>): PricingTierData {
     price: null, billing_cycle: '', inclusions: [], features: [],
     ...overrides,
   } as PricingTierData;
+}
+
+function edition(overrides: Partial<PricingEditionOption>): PricingEditionOption {
+  return {
+    id: 'ed', label: 'Edition', price: null, contact: false, billing_cycle: null,
+    minimum_term_value: null, minimum_term_unit: null, inclusions_override: [],
+    ...overrides,
+  } as PricingEditionOption;
 }
 
 // ── 1. No composable_offer at all -> no rows ────────────────────────────────
@@ -125,5 +133,44 @@ const ordered = resolveComposableEligibleRows(family({
   }),
 }));
 check(ordered.map((row) => row.item_id).join(',') === 'a,b', 'row order follows policy.items order, not the inclusions array order');
+
+// ── 7. A selected Edition with a non-empty inclusions_override uses its
+//    OWN rows/prices, not the occupant Default's offer.inclusions ──────────
+//    project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md,
+//    defect 2 — restores the inclusionSource selection lost when a584ede0
+//    was reverted and rebuilt in 0a13fd14.
+
+const editionOverride = edition({
+  id: 'ed_pro',
+  customer_policy: { items: [policyItem({ item_id: 'seats', mode: 'required' })] },
+  inclusions_override: [inclusion({ id: 'seats', label: 'Edition-only Seats', unit_price: 99 })],
+});
+const editionRows = resolveComposableEligibleRows(family({
+  composable_offer: offer({
+    inclusions: [inclusion({ id: 'seats', label: 'Default Seats', unit_price: 25 })],
+    customer_policy: { items: [policyItem({ item_id: 'seats', mode: 'required' })] },
+    edition_options: [editionOverride],
+  }),
+}), 'ed_pro');
+check(editionRows.length === 1, 'the selected Edition resolves exactly one eligible row');
+check(editionRows[0].label === 'Edition-only Seats' && editionRows[0].unitPrice === 99, 'a non-empty inclusions_override sources the row, never the occupant Default\'s offer.inclusions');
+
+// ── 8. A selected Edition with an EMPTY inclusions_override falls back to
+//    the occupant Default's offer.inclusions ────────────────────────────────
+
+const editionEmptyOverride = edition({
+  id: 'ed_basic',
+  customer_policy: { items: [policyItem({ item_id: 'seats', mode: 'required' })] },
+  inclusions_override: [],
+});
+const fallbackRows = resolveComposableEligibleRows(family({
+  composable_offer: offer({
+    inclusions: [inclusion({ id: 'seats', label: 'Default Seats', unit_price: 25 })],
+    customer_policy: { items: [policyItem({ item_id: 'seats', mode: 'required' })] },
+    edition_options: [editionEmptyOverride],
+  }),
+}), 'ed_basic');
+check(fallbackRows.length === 1, 'the selected Edition still resolves exactly one eligible row');
+check(fallbackRows[0].label === 'Default Seats' && fallbackRows[0].unitPrice === 25, 'an empty inclusions_override falls back to the occupant Default\'s offer.inclusions');
 
 console.log('Composable offer eligibility contract: PASS');
