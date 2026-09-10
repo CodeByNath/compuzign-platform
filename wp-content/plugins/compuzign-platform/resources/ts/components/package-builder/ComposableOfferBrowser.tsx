@@ -156,7 +156,17 @@ export function resolveComposableEligibleRows(family: PackageBuilderFamily, edit
   const edition = editionId !== null ? (offer?.edition_options ?? []).find((option) => option.id === editionId) ?? null : null;
   const policy = edition?.customer_policy ?? offer?.customer_policy ?? null;
   if (!offer || !policy) return [];
-  const inclusionSource = edition && edition.inclusions_override.length > 0 ? edition.inclusions_override : offer.inclusions;
+  // project-work/2026-09-10-composable-edition-catalogue-filtering.md — when
+  // a real Edition is active, its own server-published catalogue is the ONLY
+  // source; inheritance already happened server-side (an Edition with no Rate
+  // Sheet binding of its own publishes the occupant's resolved rows verbatim
+  // — PackageRepository::compileOccupantSlotForCostBuilder()). The previous
+  // `length > 0 ? … : offer.inclusions` fallback was a second, client-side
+  // copy of that inherit rule, and it silently resurrected the Default
+  // catalogue for any Edition whose own catalogue is legitimately empty —
+  // exactly the "every tab shows the same rows" defect. Default (editionId
+  // null) still reads the occupant's own rows, unchanged.
+  const inclusionSource = edition ? edition.inclusions_override : offer.inclusions;
   const inclusionsById = new Map<string, ServiceInclusion>();
   for (const inclusion of inclusionSource) inclusionsById.set(inclusion.id, inclusion);
   const out: BrowseRow[] = [];

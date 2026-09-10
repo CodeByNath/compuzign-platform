@@ -2413,7 +2413,8 @@ class PackageRepository
                 $composableSlot,
                 false,
                 null,
-                $selectedInclusionSourceIds
+                $selectedInclusionSourceIds,
+                true
             );
             if ($composableExtracted !== null) {
                 $projected['composable_offer'] = $composableExtracted;
@@ -2423,6 +2424,96 @@ class PackageRepository
             $projected['_selected_inclusion_source_ids'] = $selectedInclusionSourceIds;
         }
         return $projected;
+    }
+
+    /**
+     * Customer-safe browse rows for ONE Rate Sheet projection — the single
+     * decoration rule the Default occupant and (composable) each of its own
+     * Editions both go through, so an Edition's catalogue can never drift
+     * into a second, weaker shape than the occupant's own.
+     *
+     * A Bundle-backed selection carries no source_type at all (no Manager
+     * source stands behind a combination — see self_priced), so the
+     * Manager-sourced-only filter must also recognize it.
+     * projectTierRateSheetWith()'s own selections deliberately carry no
+     * Bundle-shaped field (tests/rate-sheet-bundle.php locks this), so
+     * bundle_id is looked up here instead, straight from the same sheet the
+     * projector already resolved against, by the row's own item_id — never
+     * trusted from input, never added to the projector's own output.
+     *
+     * Phase 2B1 — `categories`/`service` are browse/merchandising metadata
+     * only (never authorization): the same live-resolved supplying-Service
+     * provenance the Manager read model already computes per item
+     * (source_categories/source_service_title), keyed by the row's own
+     * source_id so the composable customer browse surface can filter/group
+     * without a new persisted field or identity. Absent (null/[]) for a
+     * self-priced row with no Manager source behind it — filters simply show
+     * nothing for that row, same graceful-absence posture as every other
+     * optional field here.
+     *
+     * @param array<string, mixed> $readModel
+     * @param array<int, array<string, mixed>> $selections projectTierRateSheetWith() output rows
+     * @return array{rows: array<int, array<string, mixed>>, resolved: array<int, array<string, mixed>>}
+     */
+    private function projectCustomerInclusionRows(array $readModel, array $selections, ?string $rateSheetId): array
+    {
+        $rateSheet = PackageManagerSchema::findRateSheet(
+            is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
+            $rateSheetId
+        );
+        $bundleIdByItemId = [];
+        foreach (is_array($rateSheet['items'] ?? null) ? $rateSheet['items'] : [] as $sheetRow) {
+            $rowBundleId = (string) ($sheetRow['bundle_id'] ?? '');
+            if ($rowBundleId !== '') {
+                $bundleIdByItemId[(string) ($sheetRow['item_id'] ?? '')] = $rowBundleId;
+            }
+        }
+        $resolved = array_values(array_filter(
+            $selections,
+            static fn(array $row): bool => $row['resolved']
+                && (($row['source_type'] ?? null) === 'inclusion' || isset($bundleIdByItemId[$row['item_id']]))
+        ));
+        $provenanceBySourceId = [];
+        foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $sourceItem) {
+            if (is_array($sourceItem) && isset($sourceItem['source_id'])) {
+                $provenanceBySourceId[(string) $sourceItem['source_id']] = $sourceItem;
+            }
+        }
+        $rows = array_map(
+            static function (array $row) use ($bundleIdByItemId, $provenanceBySourceId): array {
+                $provenance = $provenanceBySourceId[(string) ($row['source_id'] ?? '')] ?? null;
+                $entry = [
+                    'id' => $row['item_id'],
+                    'label' => $row['label'],
+                    'quantity' => $row['quantity'],
+                    'unit_price' => $row['unit_price'],
+                    'line_total' => $row['line_total'],
+                    'categories' => is_array($provenance['source_categories'] ?? null) ? $provenance['source_categories'] : [],
+                    'service' => is_string($provenance['source_service_title'] ?? null) && $provenance['source_service_title'] !== ''
+                        ? $provenance['source_service_title']
+                        : null,
+                ];
+                $bundleId = $bundleIdByItemId[$row['item_id']] ?? null;
+                if ($bundleId !== null) {
+                    $entry['bundle_id'] = $bundleId;
+                    // Read-only display children — what this Bundle compiles
+                    // — never separately chargeable or selectable lines of
+                    // their own, mirroring PoolInclusionsEditor's admin-side
+                    // sub-list.
+                    $entry['includes'] = array_map(
+                        static fn(array $include): array => [
+                            'id'       => (string) ($include['item_id'] ?? ''),
+                            'label'    => (string) ($include['label'] ?? ''),
+                            'quantity' => (int) ($include['quantity'] ?? 1),
+                        ],
+                        is_array($row['includes'] ?? null) ? $row['includes'] : []
+                    );
+                }
+                return $entry;
+            },
+            $resolved
+        );
+        return ['rows' => $rows, 'resolved' => $resolved];
     }
 
     /**
@@ -2440,6 +2531,10 @@ class PackageRepository
      * @param array<string, mixed> $readModel
      * @param array<string, mixed> $slot
      * @param array<string, mixed> $selectedInclusionSourceIds keyed by $provenanceKey, written when requested
+     * @param bool $isComposable the subordinate composable child, whose own
+     *        Editions each publish their own resolved browse catalogue (see
+     *        the per-Edition block below); false keeps a normal
+     *        `tiers[tierId]` occupant's Editions exactly as before
      * @return array<string, mixed>|null
      */
     private function compileOccupantSlotForCostBuilder(
@@ -2447,7 +2542,8 @@ class PackageRepository
         array $slot,
         bool $includeSelectedInclusionProvenance,
         ?string $provenanceKey,
-        array &$selectedInclusionSourceIds
+        array &$selectedInclusionSourceIds,
+        bool $isComposable = false
     ): ?array {
             $extracted = PackageSchema::extractTierForCostBuilder($slot);
             if ($extracted === null) {
@@ -2467,84 +2563,21 @@ class PackageRepository
             // recomputes pricing, it only segments and buckets before
             // calling the SAME projector again per bucket.
             $extracted['commercial_legs'] = PackageManagerSchema::resolveCommercialLegTimeline($readModel, $extracted);
-            // A Bundle-backed selection carries no source_type at all (no
-            // Manager source stands behind a combination — see self_priced),
-            // so the Manager-sourced-only filter below must also recognize it.
-            // projectTierRateSheetWith()'s own selections deliberately carry
-            // no Bundle-shaped field (tests/rate-sheet-bundle.php locks this),
-            // so bundle_id is looked up here instead, straight from the same
-            // sheet the projector already resolved against, by the row's own
-            // item_id — never trusted from input, never added to the
-            // projector's own output.
-            $rateSheetForTier = PackageManagerSchema::findRateSheet(
-                is_array($readModel['rate_sheets'] ?? null) ? $readModel['rate_sheets'] : [],
+            // The occupant's own resolved, customer-safe browse rows — see
+            // projectCustomerInclusionRows() for the Bundle/provenance rules
+            // this used to inline here. Extracted so each Edition's own
+            // rows can be resolved through the identical rule below rather
+            // than a second, parallel decoration.
+            $occupantInclusions = $this->projectCustomerInclusionRows(
+                $readModel,
+                is_array($rateProjection['selections'] ?? null) ? $rateProjection['selections'] : [],
                 $extracted['rate_sheet_id'] ?? null
             );
-            $bundleIdByItemId = [];
-            foreach (is_array($rateSheetForTier['items'] ?? null) ? $rateSheetForTier['items'] : [] as $sheetRow) {
-                $rowBundleId = (string) ($sheetRow['bundle_id'] ?? '');
-                if ($rowBundleId !== '') {
-                    $bundleIdByItemId[(string) ($sheetRow['item_id'] ?? '')] = $rowBundleId;
-                }
-            }
-            $resolvedInclusions = array_values(array_filter(
-                $rateProjection['selections'],
-                static fn(array $row): bool => $row['resolved']
-                    && (($row['source_type'] ?? null) === 'inclusion' || isset($bundleIdByItemId[$row['item_id']]))
-            ));
-            // Phase 2B1 — browse/merchandising metadata only (never
-            // authorization): the same live-resolved supplying-Service
-            // provenance the Manager read model already computes per item
-            // (source_categories/source_service_title), keyed here by the
-            // row's own source_id so the composable customer browse surface
-            // can filter/group without a new persisted field or identity.
-            // Absent (null/[]) for a self-priced row with no Manager source
-            // behind it — filters simply show nothing for that row, same
-            // graceful-absence posture as every other optional field here.
-            $provenanceBySourceId = [];
-            foreach (is_array($readModel['items'] ?? null) ? $readModel['items'] : [] as $sourceItem) {
-                if (is_array($sourceItem) && isset($sourceItem['source_id'])) {
-                    $provenanceBySourceId[(string) $sourceItem['source_id']] = $sourceItem;
-                }
-            }
-            $extracted['inclusions_override'] = array_map(
-                static function (array $row) use ($bundleIdByItemId, $provenanceBySourceId): array {
-                    $provenance = $provenanceBySourceId[(string) ($row['source_id'] ?? '')] ?? null;
-                    $entry = [
-                        'id' => $row['item_id'],
-                        'label' => $row['label'],
-                        'quantity' => $row['quantity'],
-                        'unit_price' => $row['unit_price'],
-                        'line_total' => $row['line_total'],
-                        'categories' => is_array($provenance['source_categories'] ?? null) ? $provenance['source_categories'] : [],
-                        'service' => is_string($provenance['source_service_title'] ?? null) && $provenance['source_service_title'] !== ''
-                            ? $provenance['source_service_title']
-                            : null,
-                    ];
-                    $bundleId = $bundleIdByItemId[$row['item_id']] ?? null;
-                    if ($bundleId !== null) {
-                        $entry['bundle_id'] = $bundleId;
-                        // Read-only display children — what this Bundle
-                        // compiles — never separately chargeable or selectable
-                        // lines of their own, mirroring PoolInclusionsEditor's
-                        // admin-side sub-list.
-                        $entry['includes'] = array_map(
-                            static fn(array $include): array => [
-                                'id'       => (string) ($include['item_id'] ?? ''),
-                                'label'    => (string) ($include['label'] ?? ''),
-                                'quantity' => (int) ($include['quantity'] ?? 1),
-                            ],
-                            is_array($row['includes'] ?? null) ? $row['includes'] : []
-                        );
-                    }
-                    return $entry;
-                },
-                $resolvedInclusions
-            );
+            $extracted['inclusions_override'] = $occupantInclusions['rows'];
             if ($includeSelectedInclusionProvenance && $provenanceKey !== null) {
                 $selectedInclusionSourceIds[$provenanceKey] = array_values(array_map(
                     static fn(array $row): string => (string) ($row['source_id'] ?? ''),
-                    $resolvedInclusions
+                    $occupantInclusions['resolved']
                 ));
             }
             // Each public edition_option row prices from its own Edition's
@@ -2572,6 +2605,37 @@ class PackageRepository
                 // resolveCommercialLegTimeline() already computes internally
                 // for that Edition's own Default component's 'source'.
                 $editionHeadlineById = [];
+                // project-work/2026-09-10-composable-edition-catalogue-
+                // filtering.md — the composable child's own Editions each
+                // publish their OWN resolved browse catalogue, through the
+                // identical Rate Sheet projector + decoration the occupant
+                // itself just went through. Before this, `inclusions_override`
+                // reached the customer as the RAW stored field
+                // (PackageSchema::publicTierEditionOptions()), which on the
+                // Rate Sheet-era authoring path nothing writes any more — so
+                // every Edition published an empty catalogue and the browse
+                // surface silently fell back to the Default occupant's rows,
+                // making every Edition tab identical and dropping policy items
+                // that only exist on that Edition's own Rate Sheet.
+                //
+                // Authority is that Edition's own Rate Sheet binding, never
+                // `inclusions_override`. Rate Sheet identity plus that
+                // sheet's own selected row identities ARE the boundary — the
+                // same scoping the Bundle lookup already relies on, which is
+                // why one underlying inclusion can appear in several Rate
+                // Sheets without the catalogues mixing. So a bound Edition
+                // owns its catalogue outright: bound with no selections
+                // publishes an EMPTY catalogue, never Default's rows, which
+                // would leak one declaration's catalogue into another's.
+                // Only an Edition with no binding at all inherits the
+                // occupant's already-resolved rows, matching the
+                // customer_policy inherit-when-absent rule beside it.
+                //
+                // Composable-only, the same narrowing
+                // enrichCompiledOccupantIdentity() already applies: a normal
+                // Tier's Edition set keeps today's exact projection, since
+                // this scope covers the composable browse surface only.
+                $editionInclusionsById = [];
                 foreach ($rawEditions as $rawEdition) {
                     $editionTimelineById[$rawEdition['id']] = PackageManagerSchema::resolveCommercialLegTimeline($readModel, $rawEdition);
                     $editionHeadlineId = (string) ($rawEdition['headline_leg_id'] ?? '');
@@ -2579,13 +2643,36 @@ class PackageRepository
                     $editionHeadlineById[$rawEdition['id']] = $editionHeadlineId !== ''
                         ? $editionHeadlineId
                         : ($editionDefaultLegId !== '' ? $editionDefaultLegId : 'default');
+                    if (!$isComposable) {
+                        continue;
+                    }
+                    $editionRateSheetId = (string) ($rawEdition['rate_sheet_id'] ?? '');
+                    if ($editionRateSheetId === '') {
+                        $editionInclusionsById[$rawEdition['id']] = $occupantInclusions['rows'];
+                        continue;
+                    }
+                    $editionRateProjection = PackageManagerSchema::projectTierRateSheetWith(
+                        $readModel,
+                        is_array($rawEdition['rate_sheet_items'] ?? null) ? $rawEdition['rate_sheet_items'] : [],
+                        $editionRateSheetId,
+                        (bool) ($rawEdition['contact'] ?? false)
+                    );
+                    $editionInclusionsById[$rawEdition['id']] = $this->projectCustomerInclusionRows(
+                        $readModel,
+                        is_array($editionRateProjection['selections'] ?? null) ? $editionRateProjection['selections'] : [],
+                        $editionRateSheetId
+                    )['rows'];
                 }
+                $occupantInclusionRows = $occupantInclusions['rows'];
                 $extracted['edition_options'] = array_map(
                     static fn(array $option): array => [
                         ...$option,
                         'price' => $editionPriceById[$option['id']] ?? $option['price'],
                         'commercial_legs' => $editionTimelineById[$option['id']] ?? [],
                         'headline_leg_id' => $editionHeadlineById[$option['id']] ?? 'default',
+                        'inclusions_override' => $isComposable
+                            ? ($editionInclusionsById[$option['id']] ?? $occupantInclusionRows)
+                            : $option['inclusions_override'],
                     ],
                     $extracted['edition_options']
                 );

@@ -70,6 +70,21 @@ against `composable_occupant`.
   `composable_occupant`, never merged into `tiers`.
   `PackageFamilyPricingBuilder::presentOccupant()` — same extraction
   publicly, appearing only when fully identified (real `CZT`).
+- Per-Edition customer catalogue, composable child only.
+  `compileOccupantSlotForCostBuilder()` resolves the occupant's browse rows
+  through `projectTierRateSheetWith()` + `projectCustomerInclusionRows()`
+  (the shared Bundle/provenance decoration), then resolves each active
+  Edition's rows through that identical pair against that Edition's own
+  `rate_sheet_id`/`rate_sheet_items`. Rate Sheet identity plus that sheet's
+  selected row identities are the boundary — the scoping the Bundle lookup
+  already relies on, so one inclusion can live in several sheets without
+  the catalogues mixing. A bound Edition therefore owns its catalogue
+  outright, publishing `[]` when it selects nothing; only an Edition with
+  no binding inherits the occupant's already-resolved rows, matching
+  `customer_policy`'s own inherit-when-absent rule.
+  Raw stored `inclusions_override` is never the customer catalogue —
+  nothing on the Rate Sheet-era authoring path writes it. A normal
+  `tiers[tierId]` occupant's Editions keep the previous raw projection.
 
 ## Not yet built
 
