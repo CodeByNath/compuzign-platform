@@ -1,7 +1,7 @@
 # Single Occupant Focused State After Quote
 
 ## Status
-- **READY FOR CLAUDE**
+- **AWAITING CHATGPT REVIEW**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `22b1ff3619363fef80beadd8cb944d2560f4571f`.
 - Previous cart Bundle/Upgrade work is **CLOSED** after Nath live pass.
@@ -52,3 +52,129 @@ Implicit auto-focus for a single occupant once that occupant is already quoted.
 
 ## Must not substitute
 No CSS hiding of X; no automatic synthetic close; no extra customer click; no disabling View Plan; no treating add-ons as normal occupants; no route redesign; no cart mutation.
+
+---
+
+## Claude Report — 2026-09-11
+
+Review branch `review/single-occupant-quoted-focus`, cut from production
+`main@22b1ff3619363fef80beadd8cb944d2560f4571f`, pushed at
+**`59d0a6035a263483c7ac52274afe1ab87e26661a`** — **1 ahead / 0 behind**,
+single commit. **Not merged to `main`.**
+
+### 1. The fallback derivation — corrected
+`effectiveFocusedTierId`'s implicit branch now tests `!singleTierIsQuoted`
+instead of `!singleTierDismissed`. Explicit focus is untouched: `focusedTierId`
+still wins ahead of the fallback.
+
+Nath's added requirement — *"if the add to quote is actioned, cart must appear
+by showing the occupant small card, so that way we can keep View Plan
+working"* — is exactly what this produces, and is asserted directly from the
+rendered DOM. In the quoted state the component renders:
+
+```
+"View Plan"    class="cz-cost-builder__tier-choose"
+"✓ Selected"   class="cz-cost-builder__tier-action is-selected"
+```
+
+so the shell closes, the occupant's own small card appears with the Cart, and
+View Plan remains the route back in.
+
+### 2. `singleTierDismissedTierId` — proven dead, removed
+Re-checked as instructed. After the correction the only consumer of the stored
+dismissal was the fallback itself, so the entire apparatus became **write-only**
+— the state, the customer-tab reset, the Family-switch reset, the staleness
+reset effect, and the X handler's own record. Nothing read it.
+
+Removed, because write-only state that reads as a live guard is worse than no
+state. The proof is **behavioural, not by inspection**: the regression's
+X-then-return and remove-then-re-add cycles are precisely what the dismissal
+existed to protect, and all 24 checks pass with it gone.
+
+No contract or regression referenced any of the removed identifiers
+(`grep` over `scripts/` returns nothing for `singleTierDismissed`,
+`singleTierIsQuoted`, `isLockedSingleTierLanding`, `isImplicitSingleTierView`).
+
+### 3. Real behavioural coverage — first time for this feature
+`scripts/single-occupant-quoted-focus-regression.mjs`, registered as
+`npm run regression:single-occupant-quoted-focus`. **24 checks, all passing.**
+
+It mounts the **real** `FamilyTierAdapter` through happy-dom + Preact and
+drives it with actual clicks. Every existing contract covering this feature
+asserts source text instead, on the stated assumption that the component
+"carries too much live-fetched Family/pricing state to instantiate standalone
+in a script". **That assumption is false** — its props are plain data plus
+callbacks, with no context provider and no fetch on these paths. It mounts
+cleanly with ordinary fixtures.
+
+**This is the finding that matters most here**, given this feature's history of
+three live failures reasoned from static reading:
+
+> Mounting FRESH with `selectedTierId` already set does **not** reproduce the
+> defect. `stagedTierId` is seeded from `selectedTierId`, so `stagedTier` is
+> non-null and the fallback's own `stagedTier === null` guard suppresses it.
+> The defect appears **only** through the real in-session transition, where
+> `commitSelection()` clears `stagedTierId` to null for a Family with no
+> add-ons and no Upgrade catalogue.
+
+My first probe rendered the assumed end state and showed pre-fix and post-fix
+behaving identically — i.e. it would have "passed" against the broken code. So
+every scenario in the final script drives the component rather than rendering
+an assumed state. A source-text contract could not have caught this.
+
+Coverage, matching your list point for point:
+- single unquoted Tier auto-focuses, with **no** Close X;
+- Add to Quote exits to the quoted card + Cart, **no X required**;
+- `View Plan` explicitly reopens the focused shell, with its ordinary X;
+- X from explicit focus returns to the quoted card and does **not** bounce;
+- removing the quoted primary restores the implicit landing immediately;
+- re-quoting the same Tier exits again on a second cycle (no stale state);
+- a Family with **two** normal occupants still lands on the comparison grid;
+- a single occupant **with add-ons** still auto-focuses unquoted and then
+  stages into **Recommendations** once quoted — that flow is unchanged.
+
+**Directional proof:** against the pre-fix derivation the run fails with
+`once quoted, the single occupant no longer auto-renders the focused shell`,
+and the pre-fix render shows `shell=true X=true` at exactly the step Nath
+reported.
+
+### Validation
+Green: `regression:single-occupant-quoted-focus` (24),
+`regression:cart-bundle-upgrade-refinements` (48),
+`regression:cart-initial-payment-addons` (24),
+`contract:package-builder-customer-tabs`, `contract:composable-recommendations-cta`,
+`contract:composable-quote-cart`, `contract:package-family-cart`,
+`contract:quote-cart-addon`, `contract:tier-addon-flow`,
+`contract:tier-edition-switch`, `contract:cost-builder-isolation`,
+`contract:package-builder-regression-lock`, `contract:composable-offer-eligibility`,
+`contract:composable-live-correction`, `contract:request-flow-family-tier-parity`,
+`contract:quote-view`, `npx tsc --noEmit`, `npm run build`, `npm run docs:check`.
+
+PHP green: `tier-instance-public-projection`, `tier-public-projection-is-addon`,
+`tier-pricing-parity`, `tier-edition-public-projection`,
+`notification-templates-family-quote-parity`, `package-family-notification`.
+
+Unchanged pre-existing baseline failures: `contract:package-builder-flow`,
+`contract:platform-identity-schema`, `regression:composable-quote-cart-loop`,
+`php tests/tier-capability-invariants.php`,
+`php tests/quote-view-http-boundary.php`,
+`php tests/quote-view-email-link.php`.
+
+### Diff summary — 4 files
+| File | Change |
+| --- | --- |
+| `package-builder/FamilyTierAdapter.tsx` | fallback keyed on not-quoted; dead dismissal machinery removed |
+| `scripts/single-occupant-quoted-focus-regression.mjs` | new, 24 mounted checks |
+| `package.json` | registers the regression |
+| `dist/js/cost-builder.js` | rebuilt bundle |
+
+### Flagging for your call
+The dismissal removal is the one judgement call here. You asked me not to
+delete it without source proof; I have that plus behavioural proof, and no
+test referenced it. But this feature has a live-failure history, so if you would
+rather ship the one-line derivation change alone and remove the machinery in a
+separate round, say so and I will restore it — it is a clean revert of a single
+contiguous set of hunks.
+
+### Status
+Set to **AWAITING CHATGPT REVIEW**. Source not pushed to `main`.
