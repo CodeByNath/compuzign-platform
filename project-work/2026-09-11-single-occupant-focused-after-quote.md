@@ -59,7 +59,7 @@ No CSS hiding of X; no automatic synthetic close; no extra customer click; no di
 
 Review branch `review/single-occupant-quoted-focus`, cut from production
 `main@22b1ff3619363fef80beadd8cb944d2560f4571f`, pushed at
-**`59d0a6035a263483c7ac52274afe1ab87e26661a`** — **1 ahead / 0 behind**,
+**`84ef258512ba703b1e896d65f0e5576a7a7ec8c9`** (superseding `59d0a603`) — **1 ahead / 0 behind**,
 single commit. **Not merged to `main`.**
 
 ### 1. The fallback derivation — corrected
@@ -178,3 +178,78 @@ contiguous set of hunks.
 
 ### Status
 Set to **AWAITING CHATGPT REVIEW**. Source not pushed to `main`.
+
+---
+
+## Claude Report — Nath's condition set confirmed — 2026-09-11
+
+Nath restated the rule: *"when tier add to quote action, focused, single tier
+occupant, if has no add-on, upgrade build, or other tier occupants in the
+family, simply show the cart as it's the only thing available."*
+
+**That is exactly what the candidate already does** — no source change was
+needed. What was missing was proof of the third condition, so the regression
+now covers all three independently.
+
+### Updated candidate
+- Branch: `review/single-occupant-quoted-focus` (same name reused).
+- Candidate head: **`84ef258512ba703b1e896d65f0e5576a7a7ec8c9`**
+- Tree: **`50000222efd805f2e752e53dafe03ea6d2e1feda`**
+- Parent: production `main@22b1ff3619363fef80beadd8cb944d2560f4571f`.
+- **1 ahead / 0 behind**, single commit. Superseded stack removed from `origin`.
+- The only change from `59d0a603` is **added regression coverage**; source is
+  byte-identical (`resources/ts` untouched in that step).
+
+### How each condition is enforced
+The bare quoted-card outcome is scoped by three *independent* guards, which is
+why it cannot leak into a Family that still has somewhere to go:
+
+| Condition | Guard | Result when present |
+| --- | --- | --- |
+| Other normal Tier occupants | `singleVisibleTier = normalTiers.length === 1 ? … : null` | fallback never applies; comparison grid |
+| Add-on Tiers | `commitSelection()` stages the primary → `stagedTier !== null` | staged Recommendations with add-on choices |
+| Upgrade catalogue | same staging via `resolveComposableEligibleRows()` | staged Recommendations with the Upgrade CTA |
+
+Only when all three are absent does `stagedTier === null` **and**
+`singleVisibleTier !== null` hold, so the quoted test decides — and the shell
+steps aside for the Cart plus the occupant's own small card.
+
+### Regression — now 33 checks
+Added since the previous report:
+
+- **Upgrade catalogue Family** (the condition not previously proven): a single
+  occupant with `composable_offer` + `customer_policy` still auto-focuses while
+  unquoted, and on quoting lands in staged Recommendations **with the Upgrade
+  CTA** — asserted via `cz-package-builder__upgrade-gate-inline` — never the
+  bare quoted card.
+- **The condition set stated as one case**: for the dead-end Family, asserts
+  *no* focused shell, *no* X, *no* staged Recommendations header, *no* Upgrade
+  CTA, and that what remains is the occupant small card with `View Plan` and
+  `✓ Selected` beside the Cart.
+
+Sections 6 (other occupants) and 7 (add-ons) already covered the other two.
+
+### Validation on the rebuilt candidate
+`npm run build` reproduces the committed `dist/` exactly.
+
+Green: `regression:single-occupant-quoted-focus` (33),
+`regression:cart-bundle-upgrade-refinements` (48),
+`regression:cart-initial-payment-addons` (24),
+`contract:package-builder-customer-tabs`, `contract:composable-recommendations-cta`,
+`contract:composable-quote-cart`, `contract:composable-offer-eligibility`,
+`contract:package-family-cart`, `contract:tier-addon-flow`,
+`contract:cost-builder-isolation`, `contract:package-builder-regression-lock`,
+`npx tsc --noEmit`, `npm run build`, `npm run docs:check`.
+
+Unchanged pre-existing baseline failures: `contract:package-builder-flow`,
+`contract:platform-identity-schema`, `regression:composable-quote-cart-loop`,
+`php tests/tier-capability-invariants.php`,
+`php tests/quote-view-http-boundary.php`,
+`php tests/quote-view-email-link.php`.
+
+### Still open for your call
+The **dismissal-machinery removal** flagged in the previous report is
+unchanged and still the one judgement call in this candidate.
+
+### Status
+Remains **AWAITING CHATGPT REVIEW**. Source not pushed to `main`.
