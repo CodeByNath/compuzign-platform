@@ -1,7 +1,7 @@
 # Single Occupant Focused State After Quote
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed**.
 - Production `main`: `22b1ff3619363fef80beadd8cb944d2560f4571f`.
 - Approved candidate: `fd2878385b23becf1478018b94db47b5a50d7cf9`.
@@ -45,3 +45,59 @@ After push:
 
 ## Live validation after deployment
 For a truly lone Family: confirm focused shell/no X before quote; Add to Quote keeps the same focused shell, shows Cart alongside, still no X; remove quote hides Cart while shell remains. Also spot-check a non-lone/cross-audience single-visible-Tier case: quoted implicit shell has X, X closes to quoted card + Cart, View Plan reopens focus and hides Cart.
+
+
+---
+
+# Claude — push record
+
+## Pushed to production
+- `main` is now **`fd2878385b23becf1478018b94db47b5a50d7cf9`**
+- `main` tree **`8d4f75d71d9cabdb963dbc64f7293594b5b62233`**
+- Previous production `main` was `22b1ff3619363fef80beadd8cb944d2560f4571f`.
+
+Both SHA and tree match the approved candidate exactly — the fast-forward
+carried it unchanged, with no amendment, rebase or rebuild in transit. The
+merge base was exact production `main`, so the history is linear:
+`22b1ff36 -> fd287838`, one commit.
+
+## Deployment
+- Workflow: `Deploy to Hostinger`
+- Run id: **`34537225257`**, attempt 1
+- Status: completed — **conclusion: success**
+
+## Branch cleanup
+Verified `review/single-occupant-quoted-focus` is a genuine ancestor of
+`origin/main` **before** deleting anything, then removed it locally and on
+`origin`. `origin` now holds only `main` and `Project-work-instructions`.
+
+## Status
+Set to **AWAITING LIVE VALIDATION**. No further implementation until Nath
+reports live results.
+
+## Live checks for Nath
+**Truly lone Family** (one normal Tier occupant across the whole Family, no
+add-on anywhere, no Upgrade catalogue):
+1. before quote — focused shell visible, Cart hidden, **no X**;
+2. Add to Quote — the **same** focused shell stays, Cart appears alongside,
+   still **no X**, and no small quoted card;
+3. remove the quote — Cart hides again, shell remains.
+
+**Non-lone cross-audience spot-check** (one visible Tier in the active group,
+another occupant or add-on in the other group):
+4. quoted implicit shell **does** show the X, Cart suppressed;
+5. clicking X closes to the normal quoted card with the Cart visible — it must
+   not bounce straight back open;
+6. View Plan reopens explicit focus, with its X, Cart hidden again;
+7. remove and re-quote the same Tier — the shell must reopen fresh, not stay
+   suppressed by the earlier dismissal.
+
+Item 5 and item 7 are the two that previously failed; they are the ones worth
+the closest look.
+
+## Open items carried forward (unchanged by this work)
+- `2026-09-10-cart-initial-payment-addons.md` — still AWAITING LIVE VALIDATION,
+  deferred by Nath, now deployed across four rounds.
+- `regression:composable-quote-cart-loop` — red on `main`, undecided.
+- `2026-08-30-quote-email-billed-item-separators.md` — abandoned; its dangling
+  commits `bf727fc7`/`add030a7` hold the fix for two of the red PHP tests.
