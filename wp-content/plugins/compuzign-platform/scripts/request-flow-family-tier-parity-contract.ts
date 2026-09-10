@@ -29,14 +29,33 @@ for (const file of [order, proposal]) {
   check(file.includes('hasMultiStreamItem'), 'branches its Totals section on hasMultiStreamItem, same gate as QuoteSummary.tsx');
 }
 
-// Primary-only TCV/Initial Payment: combined figures must derive from
-// familyMainItems (primary), never familyAddonItems folded into the same sum.
-const orderCombinedBlock = order.match(/const familyPrimaryTotalContractValues[\s\S]*?const familyInitialPaymentTotal[^\n]*\n/);
-check(!!orderCombinedBlock, 'OrderSummary computes the combined Family primary TCV/Initial Payment block');
-check(!orderCombinedBlock![0].includes('familyAddonItems'), 'OrderSummary combined primary TCV/Initial Payment excludes add-ons');
-const proposalCombinedBlock = proposal.match(/const familyPrimaryTotalContractValues[\s\S]*?const familyInitialPaymentTotal[^\n]*\n/);
-check(!!proposalCombinedBlock, 'QuoteProposalPreview computes the combined Family primary TCV/Initial Payment block');
-check(!proposalCombinedBlock![0].includes('familyAddonItems'), 'QuoteProposalPreview combined primary TCV/Initial Payment excludes add-ons');
+// TCV and Initial Payment read DIFFERENT populations, and this contract pins
+// both — it previously asserted one blanket "no add-ons anywhere in the
+// combined block", which was correct only while the two figures shared an
+// item list. Live correction (2026-09-10): a surviving add-on is genuinely
+// charged at its own plan start, so Initial Payment MUST include add-ons,
+// while Total Contract Value keeps its primary/composable-only policy (no
+// canonical finite-contract math exists for add-ons yet). Splitting the
+// assertion is strictly tighter than the old one: each population is now
+// named individually instead of being covered by a single negative match.
+for (const [label, file] of [['OrderSummary', order], ['QuoteProposalPreview', proposal]] as const) {
+  // 1. TCV population — still primary + composable only.
+  const tcvBlock = file.match(/const familyPrimaryTotalContractValues[\s\S]*?const combinedFamilyTotalContractValue[^;]*;/);
+  check(!!tcvBlock, `${label} computes the combined Family primary/composable TCV block`);
+  check(!tcvBlock![0].includes('familyAddonItems'), `${label} Total Contract Value still excludes add-ons`);
+
+  // 2. Initial Payment population — primary + composable + add-on.
+  check(
+    file.includes('const familyInitialPaymentItems = [...familyCommercialItems, ...familyAddonItems];'),
+    `${label} builds its Initial Payment population from every Family line, add-ons included`,
+  );
+  const startingCall = file.match(/const familyStartingPayments = startingPaymentsByCycle\(\s*([A-Za-z]+)\.map/);
+  check(!!startingCall, `${label} derives Initial Payment through startingPaymentsByCycle()`);
+  check(
+    startingCall![1] === 'familyInitialPaymentItems',
+    `${label} feeds startingPaymentsByCycle() the whole-quote population, not the TCV-only one (got ${startingCall![1]})`,
+  );
+}
 
 // Stream + finite Total rendering for primary, add-on, AND composable
 // Family rows in both files — Request/PDF/email propagation phase brought

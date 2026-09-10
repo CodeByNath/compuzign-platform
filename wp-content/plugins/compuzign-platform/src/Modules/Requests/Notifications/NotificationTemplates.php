@@ -857,18 +857,27 @@ class NotificationTemplates
     }
 
     /**
-     * The combined "Initial Payment" row — every primary/composable Family
-     * item's own earliest same-cycle streams, summed per cycle then across
-     * cycles (startingPaymentsByCycle() above); omitted entirely when none
-     * has a priced stream to start from.
+     * The combined "Initial Payment" row — every Family item's own earliest
+     * same-cycle streams, summed per cycle then across cycles
+     * (startingPaymentsByCycle() above); omitted entirely when none has a
+     * priced stream to start from.
      *
-     * @param array<int, array<string, mixed>> $familyCommercialItems primary + composable Family items (see buildQuoteSections())
+     * Live correction (2026-09-10): this population is primary + composable
+     * + ADD-ON, deliberately wider than familyContractValueBlock()'s
+     * primary/composable-only Total Contract Value population. A surviving
+     * add-on is still genuinely charged at its own start, so excluding it
+     * understated the customer's real first payment. Mirrors the same
+     * correction in QuoteSummary.tsx, OrderSummary.tsx and
+     * QuoteProposalPreview.tsx so the email cannot disagree with the
+     * on-screen and PDF figures for the same quote.
+     *
+     * @param array<int, array<string, mixed>> $familyInitialPaymentItems primary + composable + add-on Family items (see buildQuoteSections())
      */
-    private static function familyInitialPaymentRow(array $familyCommercialItems): string
+    private static function familyInitialPaymentRow(array $familyInitialPaymentItems): string
     {
         $itemStreams = array_map(
             fn (array $item) => is_array($item['legPaymentSummaries'] ?? null) ? $item['legPaymentSummaries'] : [],
-            $familyCommercialItems
+            $familyInitialPaymentItems
         );
         $startingPayments = self::startingPaymentsByCycle($itemStreams);
         if ($startingPayments === []) {
@@ -906,11 +915,15 @@ class NotificationTemplates
         $classified = self::classifyQuoteItems($items);
 
         // The composable ("Build Your Own") occupant's own aggregate line is
-        // a real commercial line, same as the primary — it joins the
-        // combined Family Contract Value/Initial Payment sum below, matching
-        // OrderSummary.tsx's/QuoteProposalPreview.tsx's own
-        // familyCommercialItems precedent — but stays its own row and its
-        // own classifyQuoteItems() bucket for every other purpose.
+        // a real commercial line, same as the primary — it joins BOTH the
+        // Contract Value population built here and the wider Initial Payment
+        // population built below, matching OrderSummary.tsx's/
+        // QuoteProposalPreview.tsx's own precedent — but stays its own row
+        // and its own classifyQuoteItems() bucket for every other purpose.
+        //
+        // These are two populations, not one combined sum: Contract Value is
+        // primary + composable, while Initial Payment additionally includes
+        // Family add-ons (see familyInitialPaymentRow()'s own docblock).
         $familyCommercialItems = array_merge($classified['familyMainItems'], $classified['familyComposableItems']);
 
         $rows = self::emailServiceRows($classified['mainItems'])
@@ -938,6 +951,12 @@ class NotificationTemplates
             ? array_values(array_filter($items, fn (array $item) => !self::isFamilyItem($item)))
             : $items;
 
+        // Total Contract Value keeps the primary/composable-only population;
+        // Initial Payment deliberately takes the wider whole-quote one (see
+        // familyInitialPaymentRow()). The two figures answer different
+        // questions and must not be collapsed onto one item list.
+        $familyInitialPaymentItems = array_merge($familyCommercialItems, $classified['familyAddonItems']);
+
         $totals = '';
         if ($hasMultiStreamItem) {
             $totals .= self::familyContractValueBlock($familyCommercialItems);
@@ -946,7 +965,7 @@ class NotificationTemplates
             $totals .= self::emailTotalsBlock(self::calcTotals($itemsForGeneralTotals));
         }
         if ($hasMultiStreamItem) {
-            $totals .= self::familyInitialPaymentRow($familyCommercialItems);
+            $totals .= self::familyInitialPaymentRow($familyInitialPaymentItems);
         }
 
         return ['rows' => $rows, 'totals' => $totals];

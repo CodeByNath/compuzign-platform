@@ -177,17 +177,27 @@ export function OrderSummary({
     : items;
   const totals = calcQuoteTotals(itemsForGeneralTotals);
 
-  // Phase 8F: same primary-only Total Contract Value / Initial Payment
-  // semantics as QuoteSummary.tsx's footer — reusing the exact same
-  // primitives, never a second re-derivation. Family add-ons never enter
-  // this combined sum (see familyMainItems below, primary-only).
+  // Total Contract Value and Initial Payment are TWO figures reading TWO
+  // different populations — they are not one combined sum, and conflating
+  // them is exactly what the 2026-09-10 live defect was.
   //
-  // Quote/cart connection phase: the composable occupant's own aggregate
-  // line joins this same combined commercial total (it is a real commercial
-  // line, same as the primary) — but stays a SEPARATE bucket from
-  // familyMainItems for every non-total purpose (rendering below, presented
-  // identity), per resolveQuoteItemRole()'s own primary/addon/composable
-  // split. legPaymentSummaries is read exactly once per item either way.
+  //   * familyCommercialItems (built here) = primary + composable. This is
+  //     the Total Contract Value population only. Family add-ons stay OUT of
+  //     it: no canonical finite-contract math exists for them yet, so
+  //     folding them in would fabricate a contract total.
+  //   * familyInitialPaymentItems (built below) = primary + composable +
+  //     ADD-ON. Initial Payment is a whole-quote "what is actually due when
+  //     the quoted plans start" fact, and a surviving add-on is genuinely
+  //     charged at its own start, so every Family line contributes.
+  //
+  // The composable occupant's own aggregate line joins BOTH populations (it
+  // is a real commercial line, same as the primary) but stays a SEPARATE
+  // bucket from familyMainItems for every non-total purpose (rendering
+  // below, presented identity), per resolveQuoteItemRole()'s own
+  // primary/addon/composable split.
+  //
+  // Both figures still reuse the exact same shared primitives as QuoteSummary.tsx's footer —
+  // never a second re-derivation. legPaymentSummaries is read once per item.
   const familyCommercialItems = [...familyMainItems, ...familyComposableItems];
   const familyPrimaryTotalContractValues = familyCommercialItems.map((item) =>
     item.legPaymentSummaries && item.legPaymentSummaries.length > 0
@@ -199,8 +209,19 @@ export function OrderSummary({
   const combinedFamilyTotalContractValue = allFamilyPrimariesFinite
     ? familyPrimaryTotalContractValues.reduce((sum, value) => sum + (value as number), 0)
     : null;
+  // Live correction (2026-09-10): Initial Payment is a whole-quote fact, so
+  // it reads a DIFFERENT population from the Total Contract Value sum above.
+  // familyCommercialItems is primary+composable only, which is deliberate
+  // TCV policy; reusing it here silently dropped every Family add-on's own
+  // starting charge. A surviving add-on — one whose original primary was
+  // later replaced by a different Family's primary — is still genuinely
+  // charged at its own start, so omitting it understated what the customer
+  // pays. Same correction as QuoteSummary.tsx's cart footer, kept in step so
+  // Cart, Review & Finalise and the proposal/PDF cannot disagree about the
+  // same quote. TCV's own population is untouched.
+  const familyInitialPaymentItems = [...familyCommercialItems, ...familyAddonItems];
   const familyStartingPayments = startingPaymentsByCycle(
-    familyCommercialItems.map((item) => item.legPaymentSummaries ?? []),
+    familyInitialPaymentItems.map((item) => item.legPaymentSummaries ?? []),
   );
   const familyInitialPaymentTotal = familyStartingPayments.reduce((sum, [, amount]) => sum + amount, 0);
 

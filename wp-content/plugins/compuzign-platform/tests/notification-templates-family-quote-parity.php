@@ -7,8 +7,10 @@ declare(strict_types=1);
 // (tierEditionTitle, legPaymentSummaries, inclusionItems) using the same
 // accepted commercial semantics OrderSummary.tsx/QuoteProposalPreview.tsx
 // already use — human labels, per-Leg streams, per-item finite Total,
-// combined quote Contract Value/Ongoing + Initial Payment (primary Family
-// items only, add-ons excluded), Bundle parent/children with quantities,
+// combined quote Contract Value/Ongoing (primary/composable Family items
+// only, add-ons excluded) + Initial Payment (EVERY Family item, add-ons
+// included — see the Initial Payment section below), Bundle
+// parent/children with quantities,
 // customer-ID suppression, and legacy-snapshot fallback safety.
 
 if (!function_exists('esc_html')) {
@@ -118,11 +120,27 @@ check_family_quote_parity(str_contains($adminHtml, 'Until Cancelled'), 'admin em
 check_family_quote_parity(!str_contains($adminHtml, 'Total Contract Value'), 'admin email must not show a finite Total Contract Value when a primary stream is open-ended');
 check_family_quote_parity(str_contains($customerHtml, 'Until Cancelled'), 'customer email should show Until Cancelled for the same reason');
 
-// ── Initial Payment: earliest same-cycle streams across PRIMARY Family
-//    items only (5000 upfront + 490 monthly = 5490), add-on excluded. ────
+// ── Initial Payment: earliest same-cycle streams across EVERY Family item
+//    — primary, composable AND add-on (live correction, 2026-09-10,
+//    project-work/2026-09-10-cart-initial-payment-addons.md).
+//
+//    This assertion previously locked the primary-only figure ($5,490.00 =
+//    5000 upfront + 490 monthly). That was the defect: the OMNIA add-on's
+//    own $99 monthly stream also starts at its own Month 0 and is genuinely
+//    charged then, so excluding it understated the customer's real first
+//    payment. The correct combined figure is 5000 + 490 + 99 = $5,589.00.
+//
+//    Total Contract Value is deliberately NOT broadened to match — the
+//    add-on's own $1,188.00 finite Total stays out of the combined Contract
+//    Value block, asserted above and re-asserted below. The two figures
+//    answer different questions and read different populations. ──────────
 check_family_quote_parity(str_contains($adminHtml, 'Initial Payment'), 'admin email missing Initial Payment row');
-check_family_quote_parity(str_contains($adminHtml, '$5,490.00'), 'admin email Initial Payment is not the combined primary-only figure');
-check_family_quote_parity(str_contains($customerHtml, '$5,490.00'), 'customer email Initial Payment is not the combined primary-only figure');
+check_family_quote_parity(str_contains($adminHtml, '$5,589.00'), 'admin email Initial Payment must include the add-on own starting charge');
+check_family_quote_parity(str_contains($customerHtml, '$5,589.00'), 'customer email Initial Payment must include the add-on own starting charge');
+// Directional: the superseded primary-only figure must be gone entirely, so
+// reintroducing the old population fails loudly rather than silently.
+check_family_quote_parity(!str_contains($adminHtml, '$5,490.00'), 'admin email still shows the superseded primary-only Initial Payment figure');
+check_family_quote_parity(!str_contains($customerHtml, '$5,490.00'), 'customer email still shows the superseded primary-only Initial Payment figure');
 
 // ── General totals still count the legacy non-Family item once any Family
 //    item is multi-stream (Family items excluded from this figure). ──────

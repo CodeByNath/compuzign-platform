@@ -168,13 +168,23 @@ export function QuoteTotalsPresentation({ items }: { items: CartItem[] }) {
   const combinedPrimaryTotalContractValue = allPrimariesFinite
     ? primaryTotalContractValues.reduce((sum, value) => sum + (value as number), 0)
     : null;
-  // Phase 8B: what's due at each primary item's own plan start, summed
+  // Phase 8B: what's due at each quoted item's own plan start, summed
   // across items by cycle only (never combining unlike cycles) — shown
   // independently of whether a finite Total Contract Value exists, so a
   // mixed finite+ongoing cart still reports something truthful instead of
   // nothing. Does not touch/replace the TCV/fallback logic above.
+  // Deliberately reads the WHOLE familyTierItems set, not the primary-only
+  // subset the TCV sum above uses. Initial Payment answers a cart-level
+  // question — what is actually due when the quoted plans start — so every
+  // surviving quoted line contributes its own starting streams: primary,
+  // add-on, and composable/Upgrade Edition alike. The primary-only filter
+  // belongs to TCV's own finite-contract policy (no canonical add-on
+  // contract math exists yet) and must not leak into this figure: an
+  // add-on that survives its original primary being replaced is still
+  // genuinely charged at its own start, and omitting it understated what
+  // the customer pays.
   const startingPayments = startingPaymentsByCycle(
-    primaryFamilyTierItems.map((item) => item.legPaymentSummaries ?? []),
+    familyTierItems.map((item) => item.legPaymentSummaries ?? []),
   );
   const initialPaymentTotal = startingPayments.reduce((sum, [, amount]) => sum + amount, 0);
 
