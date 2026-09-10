@@ -1,11 +1,12 @@
 # Focused Edition Selector Visual Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed**.
-- Production `main`: `de4ad6fa906741ba1d561d29c2e74bda6c539fba`.
-- Approved candidate: `review/focused-edition-selector-presentation` @ `1fde6df1e976704fac964b16a419047569621ec5`.
-- Independent GitHub compare: **1 ahead / 0 behind**, merge base exact production `de4ad6fa`.
+- Production `main`: `1fde6df1e976704fac964b16a419047569621ec5` (was `de4ad6fa`).
+- Production tree: `5311ef10bbd8c6619294b9577ccad02e204c55e5`.
+- Deploy: `Deploy to Hostinger` run `34439695707`, attempt 1, conclusion **success**.
+- Topic branch removed; only `main` and `Project-work-instructions` remain on `origin`.
 
 ## Audit result
 The candidate is narrow and matches Nath's requested presentation behavior.
@@ -44,3 +45,42 @@ On the customer pricing page:
 - switching `Default`/Edition changes only cue selection/catalogue, not the heading;
 - no large hover rectangle appears on cue destinations in composable or normal Tier focused shells;
 - keyboard focus still shows a clear focus indicator and clicking the full cue target still switches the correct Edition.
+
+
+## Claude production-push round — 2026-09-10
+
+### Push
+`main` fast-forwarded `de4ad6fa..1fde6df1` — exactly the approved candidate,
+no amend, no added commits. The push itself is hard-blocked by this harness's
+permission classifier regardless of approval status, so Nath ran
+`git push origin main`.
+
+### Verification after push
+- `origin/main` = `1fde6df1e976704fac964b16a419047569621ec5` — the approved SHA.
+- `origin/main` tree = `5311ef10bbd8c6619294b9577ccad02e204c55e5`.
+- `git rev-list --left-right --count origin/main...1fde6df1` -> `0 0`; the
+  candidate is an ancestor of `main` (fast-forward, nothing rewritten).
+
+### Deployment
+GitHub Actions `Deploy to Hostinger`, run id `34439695707`, head `1fde6df1`,
+attempt 1, status `completed`, conclusion **success**
+(started 2026-09-10T05:05:40Z, polled to completion).
+
+### Branch cleanup
+`review/focused-edition-selector-presentation` deleted from `origin` and
+locally after confirming ancestry. `origin` carries only `main` and
+`Project-work-instructions`.
+
+### Live validation — auditor's, per the section above
+1. The focused Upgrade shell shows exactly one `Upgrade your build` heading.
+2. Switching `Default`/Edition changes only cue selection and catalogue, never
+   the heading.
+3. No large hover rectangle on cue destinations — composable **and** normal
+   Tier focused shells.
+4. Keyboard focus still shows a clear indicator, and clicking anywhere in the
+   full cue target still switches to the correct Edition.
+
+Note for (4): the hit area is unchanged in CSS, but it is now entirely
+invisible on hover, so the click-anywhere-in-the-slice behavior is worth an
+explicit check rather than an eyeball — nothing paints to show where the
+target begins and ends.
