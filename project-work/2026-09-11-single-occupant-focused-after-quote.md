@@ -1,10 +1,10 @@
 # Single Occupant Focused State After Quote
 
 ## Status
-- **READY FOR CLAUDE**
+- **AWAITING CHATGPT REVIEW**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `22b1ff3619363fef80beadd8cb944d2560f4571f`.
-- Current review branch: `review/single-occupant-quoted-focus` @ `28ab832f0bc603c2e4a44a4d7dfa08407abbc941`, exactly 1 ahead / 0 behind.
+- Current review branch: `review/single-occupant-quoted-focus` @ `83a9d1117ddf1d5bdefc13feabe632e38a846b82`, exactly 1 ahead / 0 behind.
 - **SOURCE PUSH NOT APPROVED.**
 
 ## Nath's exact rule — authoritative
@@ -54,3 +54,118 @@ Focused shell before/after quote for genuinely lone Family; Cart hidden before q
 
 ## Must not substitute
 No visible-tab-only definition of “alone”; no small-card/View Plan workaround; no leaving focused shell after quote; no CSS-only Cart reveal; no parent duplication of Family eligibility logic; no weakening other shell suppression rules.
+
+---
+
+## Claude Report — Family-wide gating — 2026-09-11
+
+**The audit was right again.** `familyOffersNothingElse` read `singleVisibleTier`
+and `addonTiers`, both derived from `visibleTiers` — already narrowed to the
+active customer group. A Family split across audiences would have qualified
+from whichever tab happened to be open.
+
+### Updated candidate
+- Branch: `review/single-occupant-quoted-focus` (same name reused).
+- Candidate head: **`83a9d1117ddf1d5bdefc13feabe632e38a846b82`** (supersedes `28ab832f`).
+- Tree: **`1b68afc8992bfac00eebdc0ec12cbd73baed3f07`**
+- Parent: production `main@22b1ff3619363fef80beadd8cb944d2560f4571f`.
+- **1 ahead / 0 behind**, single commit. Superseded stacks removed from `origin`.
+
+### The correction
+```ts
+const familyAddonOccupants = familyOccupants.filter((tier) => family.pricing.tiers[tier.id]?.is_addon === true);
+const familyOffersNothingElse = normalOccupants.length === 1
+  && familyAddonOccupants.length === 0
+  && resolveComposableEligibleRows(family).length === 0;
+```
+
+`familyOccupants`/`normalOccupants` are the Family-wide authorities this
+component already resolves **ahead of every audience derivation** — their own
+docblock says they exist for exactly this class of reason — so no new authority
+was introduced. `familyAddonOccupants` is the Family-wide add-on membership the
+file did not previously derive (`addonTiers` is the audience-filtered one, and
+is left alone because the rendering rules still need it).
+
+`resolveComposableEligibleRows(family)` is kept for Upgrade eligibility, as
+instructed. Source check: it takes the whole `family` and reads
+`family.pricing.composable_offer`, whose `customer_policy`/`inclusions` carry
+no customer-group narrowing of their own — so it is already a Family-wide
+authority and no stricter one is required.
+
+**Visible-group rendering rules are untouched.** The implicit fallback still
+keys on `singleVisibleTier`, so what is SHOWN is still audience-driven; only
+whether the Family QUALIFIES as globally lone changed.
+
+### Regression — now 50 checks
+Added the three cases you asked for, each first asserting its own premise so it
+cannot silently stop testing what it claims:
+
+1. **PB normal Tier + Enterprise normal Tier** — asserts the active group
+   really renders exactly one `Add to Quote` card, then that once quoted the
+   **ordinary sticky X returns** and the **Cart stays suppressed**. The special
+   behaviour must not activate from a single *visible* Tier.
+2. **One normal Tier in the active group + add-on only in the other group** —
+   asserts the other group's add-on is genuinely not rendered, then the same
+   two outcomes once quoted.
+3. **Control: the genuinely lone Family** — shell, no X, Cart hidden before
+   quote; shell stays, no X, **Cart visible** after quote; Cart hides again on
+   removal with the shell remaining. This is what proves 1 and 2 discriminate
+   rather than simply disabling the behaviour everywhere.
+
+Point 4 of your list (the parent Cart-visibility boundary) was already asserted
+in the previous round and still is, via the harness mirroring
+`items.length > 0 && !quoteSuppressedByShell` verbatim.
+
+**Directional proof, now in three directions** — each half of the rule fails
+independently:
+- revert the derivation → `once quoted, the single occupant no longer auto-renders the focused shell`;
+- revert the suppression signal → `the Cart becomes VISIBLE alongside the still-open focused shell`;
+- revert to the visible-tab definition of "alone" → **`a cross-audience Family is NOT globally lone: once quoted, the ordinary sticky X returns`**.
+
+### Stale comments cleaned
+Two, both about the quoted implicit case:
+
+1. The fallback docblock said a quoted single-Tier view always gets "the
+   ordinary sticky X". Rewritten as three named cases: locked unquoted landing;
+   globally-lone quoted (permanently locked, Cart beside it); and quoted-but-
+   not-globally-lone (unchanged sticky X, lands on its own card).
+2. The `isLockedSingleTierLanding` comment claimed a non-alone single occupant
+   "never reaches the implicit view while quoted (it stages into Recommendations
+   instead)". That is false for exactly the cross-audience case this round added
+   — no add-ons and no catalogue means nothing stages, so it *does* reach the
+   implicit view while quoted, and deliberately keeps its X. Corrected to name
+   both routes, and to record why `familyOffersNothingElse` must be Family-wide.
+
+### Validation
+Green: `regression:single-occupant-quoted-focus` (50),
+`regression:cart-bundle-upgrade-refinements` (48),
+`regression:cart-initial-payment-addons` (24),
+`contract:package-builder-customer-tabs`, `contract:composable-recommendations-cta`,
+`contract:composable-quote-cart`, `contract:composable-offer-eligibility`,
+`contract:package-family-cart`, `contract:quote-cart-addon`,
+`contract:tier-addon-flow`, `contract:tier-edition-switch`,
+`contract:cost-builder-isolation`, `contract:package-builder-regression-lock`,
+`contract:composable-live-correction`, `contract:quote-sidebar-scroll`,
+`npx tsc --noEmit`, `npm run build`, `npm run docs:check`. Build reproduces the
+committed `dist/` exactly.
+
+PHP green: `tier-instance-public-projection`, `tier-pricing-parity`,
+`tier-edition-public-projection`, `notification-templates-family-quote-parity`,
+`package-family-notification`.
+
+Unchanged pre-existing baseline failures: `contract:package-builder-flow`,
+`contract:platform-identity-schema`, `regression:composable-quote-cart-loop`,
+`php tests/tier-capability-invariants.php`,
+`php tests/quote-view-http-boundary.php`,
+`php tests/quote-view-email-link.php`.
+
+### Still open from earlier rounds
+- The **`onFocusedShellActiveChange` → `onQuoteSuppressedChange` rename**
+  (interface change, single caller, no contract referenced either name).
+- The **dismissal-machinery removal**, proven write-only and behaviourally
+  covered.
+
+Both were flagged before and are unchanged; neither has been confirmed yet.
+
+### Status
+Set to **AWAITING CHATGPT REVIEW**. Source not pushed to `main`.
