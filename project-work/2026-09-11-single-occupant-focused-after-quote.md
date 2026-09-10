@@ -1,7 +1,7 @@
 # Single Occupant Focused State After Quote
 
 ## Status
-- **AWAITING CHATGPT REVIEW**
+- **AWAITING CHATGPT REVIEW — RULE REVERSED BY NATH, see the final report**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `22b1ff3619363fef80beadd8cb944d2560f4571f`.
 - Previous cart Bundle/Upgrade work is **CLOSED** after Nath live pass.
@@ -250,6 +250,129 @@ Unchanged pre-existing baseline failures: `contract:package-builder-flow`,
 ### Still open for your call
 The **dismissal-machinery removal** flagged in the previous report is
 unchanged and still the one judgement call in this candidate.
+
+### Status
+Remains **AWAITING CHATGPT REVIEW**. Source not pushed to `main`.
+
+---
+
+## Claude Report — RULE REVERSED by Nath — 2026-09-11
+
+> **This supersedes this file's own "Required behavior" section and both of my
+> earlier reports. Please re-audit against the new rule, not the written one.**
+
+Nath's latest instruction, verbatim:
+
+> *"if tier occupant is alone, for whole family, we do not need small view, we
+> can keep focused state as no add-on, no upgrade no family members to show, it
+> can show cart once added and stay in focused state, and hide 'X' as main
+> navigation is available. this only when a tier occupant is all alone inside
+> family. no nothing just by itself"*
+
+### What changed against the written spec
+This file's `Required behavior` said:
+
+> *"Same occupant once quoted: implicit focused fallback is disabled; render the
+> normal quoted card + Cart directly."*
+> *"Explicit `View Plan` still opens the focused shell and keeps its normal X."*
+
+The lone-occupant case is now the **opposite**:
+
+| | Written spec (superseded) | Nath's new rule (implemented) |
+| --- | --- | --- |
+| Lone occupant, quoted | leave shell, show small card + Cart | **stay in the focused shell**, Cart appears alongside |
+| Small quoted card | rendered, carries View Plan | **not rendered at all** |
+| Close X | ordinary sticky X returns | **hidden** — nothing sits behind it; main nav is the way out |
+
+The reported defect was the *sticky X on a dead-end view*, not the shell
+itself. Nath's rule removes the X rather than removing the shell.
+
+**Scope of the reversal:** only when the occupant is genuinely alone. Every
+other Family shape keeps today's behaviour exactly.
+
+### Updated candidate
+- Branch: `review/single-occupant-quoted-focus` (same name reused).
+- Candidate head: **`e6f70ac65919aa5ff47edacb523ad35c23b96c99`** (supersedes `84ef2585`, which superseded `59d0a603`).
+- Tree: **`2783e8a825d0d095a0e3236dda6bbc5f47b63a1a`**
+- Parent: production `main@22b1ff3619363fef80beadd8cb944d2560f4571f`.
+- **1 ahead / 0 behind**, single commit. Superseded stacks removed from `origin`.
+
+### Implementation
+Two derivations in `FamilyTierAdapter.tsx`:
+
+```ts
+const familyOffersNothingElse = singleVisibleTier !== null
+  && addonTiers.length === 0
+  && resolveComposableEligibleRows(family).length === 0;
+
+const isLockedSingleTierLanding = isImplicitSingleTierView
+  && (!singleTierIsQuoted || familyOffersNothingElse);
+```
+
+`familyOffersNothingElse` reads the same authorities those flows already use —
+`normalTiers`/`addonTiers` and `resolveComposableEligibleRows()`, the shared
+eligibility truth `commitSelection()`'s own staging check reads — never a
+second or derived test.
+
+The implicit fallback no longer excludes the quoted case, so the shell persists
+across Add to Quote. A single occupant that is **not** alone is unaffected:
+add-ons or a catalogue make `commitSelection()` stage the primary, so
+`stagedTier === null` is false once quoted and the fallback steps aside for
+staged Recommendations, unchanged. Explicit focus keeps its ordinary X, since
+`isImplicitSingleTierView` is false on that route.
+
+### Observed behaviour, driven through the real component
+```
+UNQUOTED      shell=true  X=false  cart=0   buttons: … "Add to Quote"
+QUOTED        shell=true  X=false  cart=1   buttons: … "✓ Selected"
+AFTER REMOVE  shell=true  X=false  cart=0   buttons: … "Add to Quote"
+```
+
+### Regression — 27 checks, updated to the new rule
+Rewritten sections: the shell now **persists** through Add to Quote with no X
+and **no small card**; remove and re-quote cycles keep the same locked landing.
+
+Unchanged and still passing, which is what confines the reversal:
+- a two-occupant Family still lands on the comparison grid;
+- a single occupant **with add-ons** still stages into Recommendations once
+  quoted;
+- a single occupant **with an Upgrade catalogue** still stages with its Upgrade
+  CTA;
+- the lone-occupant Family shows no staged view and no CTA.
+
+### Note on the View Plan route
+Nath's earlier message asked for the small card specifically so View Plan kept
+working. This instruction supersedes that: with no card, there is no View Plan
+button for a lone occupant — the shell is already open, so there is nothing for
+it to open. `View plan details` (the Plan Details modal) is still present in the
+shell and unaffected. Flagging it explicitly since it reverses a stated
+requirement from one round earlier.
+
+### Dismissal machinery
+Still removed, and now on firmer ground: there is no Close on the lone-occupant
+landing at all, and a non-alone single occupant cannot reach the implicit view
+while quoted. Nothing reads the dismissal state on any path.
+
+### Validation
+Green: `regression:single-occupant-quoted-focus` (27),
+`regression:cart-bundle-upgrade-refinements` (48),
+`regression:cart-initial-payment-addons` (24),
+`contract:package-builder-customer-tabs`, `contract:composable-recommendations-cta`,
+`contract:composable-quote-cart`, `contract:composable-offer-eligibility`,
+`contract:package-family-cart`, `contract:quote-cart-addon`,
+`contract:tier-addon-flow`, `contract:tier-edition-switch`,
+`contract:cost-builder-isolation`, `contract:package-builder-regression-lock`,
+`contract:composable-live-correction`, `npx tsc --noEmit`, `npm run build`,
+`npm run docs:check`. Build reproduces the committed `dist/` exactly.
+
+PHP green: `tier-instance-public-projection`, `tier-pricing-parity`,
+`tier-edition-public-projection`, `notification-templates-family-quote-parity`.
+
+Unchanged pre-existing baseline failures: `contract:package-builder-flow`,
+`contract:platform-identity-schema`, `regression:composable-quote-cart-loop`,
+`php tests/tier-capability-invariants.php`,
+`php tests/quote-view-http-boundary.php`,
+`php tests/quote-view-email-link.php`.
 
 ### Status
 Remains **AWAITING CHATGPT REVIEW**. Source not pushed to `main`.
