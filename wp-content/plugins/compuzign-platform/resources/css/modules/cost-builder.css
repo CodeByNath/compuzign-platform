@@ -4551,7 +4551,14 @@
   background: var(--cz-color-accent);
   box-shadow: 0 0 0 5px var(--cz-color-surface-2);
   transform: translate(-50%, -50%);
-  transition: left var(--cz-transition-fast);
+  /* project-work/2026-09-10-focused-edition-selector-visual-refinement.md,
+     live re-check: NO positional transition. `left` used to animate, so
+     after a click the ball slid from the old destination to the new one
+     while the Edition/catalogue had already switched — reading as the old
+     destination staying selected for a moment. This control switches a
+     declaration; it is not a progress animation, so the ball snaps to the
+     chosen destination in the same render that changes the catalogue.
+     Deliberately not replaced with a shorter duration. */
   pointer-events: none;
   z-index: 1;
 }

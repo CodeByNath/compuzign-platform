@@ -26,7 +26,12 @@
 //   7. keyboard focus keeps its own untouched `:focus-visible` indicator,
 //      never merged into or removed with the hover rule;
 //   8. the cue control itself is unchanged: same destinations built from
-//      real Edition ids, same aria-current/aria-label semantics.
+//      real Edition ids, same aria-current/aria-label semantics;
+//   9. (live re-check round) the selected cue ball has NO positional
+//      transition in source or built CSS — selection is immediate, in the
+//      same render that switches the Edition/catalogue, never an animated
+//      slide from the previous destination that reads as the old one
+//      staying selected.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -126,6 +131,34 @@ check(
 check(
   /cue-target:focus-visible\{outline:2px solid var\(--cz-color-accent\);outline-offset:2px\}/.test(builtCss),
   'that focus indicator is present in the built stylesheet too',
+);
+
+// ── 9. Selected cue ball snaps — no positional transition ─────────────────
+
+const ballRule = cssSource.match(/\.cz-package-builder__cue-ball \{[\s\S]*?\n\}/);
+check(ballRule !== null, 'the .cz-package-builder__cue-ball rule is found');
+// Comments stripped first: the rule documents WHY the animation is gone, so
+// the word itself legitimately appears in prose inside the block.
+const ballDeclarations = ballRule![0].replace(/\/\*[\s\S]*?\*\//g, ' ');
+check(
+  !/transition/.test(ballDeclarations),
+  'the cue ball declares no transition at all — it used to animate `left`, sliding from the old destination after the Edition/catalogue had already switched, which read as the old destination staying selected; a shorter duration is not a substitute',
+);
+const builtBallRule = builtCss.match(/cz-package-builder__cue-ball\{[^}]*\}/);
+check(builtBallRule !== null, 'the built cue ball rule is found');
+check(
+  !/transition/.test(builtBallRule![0]),
+  'the shipped stylesheet carries no cue ball transition either (dist must be rebuilt with the source change)',
+);
+for (const declaration of ['position: absolute', 'top: 50%', 'width: 18px', 'height: 18px', 'border-radius: 50%', 'box-shadow: 0 0 0 5px var(--cz-color-surface-2)', 'transform: translate(-50%, -50%)', 'pointer-events: none']) {
+  check(
+    ballDeclarations.includes(declaration),
+    `the ball's own size/shadow/geometry is unchanged (${declaration}) — only the animation was removed`,
+  );
+}
+check(
+  /onClick=\{\(\) => onSelect\(destination\.id\)\}/.test(adapterSource),
+  'selection still happens directly in the click handler — no timeout, deferred state or delayed content swap was introduced in place of the removed animation',
 );
 
 console.log('Focused Edition selector presentation contract: PASS');
