@@ -4526,6 +4526,15 @@
   background: transparent;
   border-radius: var(--cz-radius-sm);
   cursor: pointer;
+  /* project-work/2026-09-10-focused-edition-selector-visual-refinement.md,
+     touch re-check: suppress the browser/WebView NATIVE tap highlight. The
+     target is a real <button> spanning the whole destination slice, so on
+     touch browsers that default highlight paints across the entire
+     rectangle for the duration of the tap — visually recreating the large
+     slab the :hover rule above was removed to get rid of. This suppresses
+     only that native paint; the button, its full hit area, its semantics
+     and the :focus-visible outline below are all untouched. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* project-work/2026-09-10-focused-edition-selector-visual-refinement.md —

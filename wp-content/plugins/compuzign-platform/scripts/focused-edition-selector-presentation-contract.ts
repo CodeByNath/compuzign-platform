@@ -32,6 +32,11 @@
 //      same render that switches the Edition/catalogue, never an animated
 //      slide from the previous destination that reads as the old one
 //      staying selected.
+//  10. (touch re-check round) the cue target suppresses the browser-native
+//      tap highlight in source and built CSS — on touch browsers that
+//      default paint covered the whole button rectangle, recreating the
+//      slab the :hover removal got rid of — while `background: transparent`,
+//      the button semantics and the focus outline are all still there.
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -159,6 +164,36 @@ for (const declaration of ['position: absolute', 'top: 50%', 'width: 18px', 'hei
 check(
   /onClick=\{\(\) => onSelect\(destination\.id\)\}/.test(adapterSource),
   'selection still happens directly in the click handler — no timeout, deferred state or delayed content swap was introduced in place of the removed animation',
+);
+
+// ── 10. No browser-native tap flash on touch ──────────────────────────────
+
+// Comments stripped for the same reason as the ball rule above: this rule
+// explains in prose why the native highlight is suppressed.
+const targetDeclarations = targetRule![0].replace(/\/\*[\s\S]*?\*\//g, ' ');
+check(
+  /-webkit-tap-highlight-color:\s*transparent/.test(targetDeclarations),
+  'the cue target suppresses the browser/WebView native tap highlight, which on touch painted across the whole button rectangle and recreated the large slab the :hover removal eliminated',
+);
+check(
+  /cue-target\{[^}]*-webkit-tap-highlight-color:transparent/.test(builtCss),
+  'the shipped stylesheet carries that suppression too (dist must be rebuilt with the source change)',
+);
+check(
+  /background: transparent/.test(targetDeclarations),
+  'the target is still transparent-backed — the native highlight was suppressed, not painted over with an opaque background',
+);
+check(
+  !/outline:\s*none/.test(targetDeclarations),
+  'no `outline: none` was introduced anywhere on the target — focus suppression is explicitly out of bounds',
+);
+check(
+  !/pointer-events/.test(targetDeclarations),
+  'no pointer-events trick replaced the native highlight — the button still receives touch/click itself across its full area',
+);
+check(
+  /<button[\s\S]{0,120}?class="cz-package-builder__cue-target"/.test(adapterSource),
+  'the destination is still a real <button> carrying the cue-target class — the target was never replaced with a non-button element or shrunk to dodge the highlight',
 );
 
 console.log('Focused Edition selector presentation contract: PASS');
