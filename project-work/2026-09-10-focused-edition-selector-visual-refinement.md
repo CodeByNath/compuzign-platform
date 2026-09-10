@@ -1,11 +1,12 @@
 # Focused Edition Selector Visual Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed**.
-- Production `main`: `1fde6df1e976704fac964b16a419047569621ec5`.
-- Approved candidate: `review/focused-cue-ball-immediate-selection` @ `6239c0532d8ba80f344a1fc7b452e841ded6e72f`.
-- Independent GitHub compare: **1 ahead / 0 behind**, merge base exact production `1fde6df1`.
+- Production `main`: `6239c0532d8ba80f344a1fc7b452e841ded6e72f` (was `1fde6df1`).
+- Production tree: `d9976cce18a0a30d6fa213ba4c4436e4d7b3a63e`.
+- Deploy: `Deploy to Hostinger` run `34443520506`, attempt 1, conclusion **success**.
+- Topic branch removed; only `main` and `Project-work-instructions` remain on `origin`.
 
 ## Live defect
 After the prior heading/hover refinement deployed, clicking another cue destination still appeared to leave the old selection visible briefly before the ball moved. Nath live-reported this immediately.
@@ -48,3 +49,36 @@ After push:
 
 ## Required live validation
 Click `Default` ↔ an Edition repeatedly. Ball/active state and catalogue must switch together immediately with no lingering old visual state. Re-check the same snap behavior on a normal Tier focused shell.
+
+
+## Claude production-push round (cue ball) — 2026-09-10
+
+### Push
+`main` fast-forwarded `1fde6df1..6239c053` — exactly the approved candidate,
+no amend, no added commits. The push is hard-blocked by this harness's
+permission classifier regardless of approval status, so Nath ran
+`git push origin main`.
+
+### Verification after push
+- `origin/main` = `6239c0532d8ba80f344a1fc7b452e841ded6e72f` — the approved SHA.
+- `origin/main` tree = `d9976cce18a0a30d6fa213ba4c4436e4d7b3a63e`.
+- `git rev-list --left-right --count origin/main...6239c053` -> `0 0`; the
+  candidate is an ancestor of `main` (fast-forward, nothing rewritten).
+
+### Deployment
+GitHub Actions `Deploy to Hostinger`, run id `34443520506`, head `6239c053`,
+attempt 1, status `completed`, conclusion **success** (polled to completion).
+
+### Branch cleanup
+`review/focused-cue-ball-immediate-selection` deleted from `origin` and
+locally after confirming ancestry. `origin` carries only `main` and
+`Project-work-instructions`.
+
+### Live re-check — Nath's, per the section above
+Click `Default` <-> an Edition repeatedly: ball, active label state and
+catalogue must switch together immediately, with no lingering old visual
+state. Repeat on a normal Tier focused shell, which shares the same cue ball
+rule and is therefore affected by this change too.
+
+A hard refresh is worth doing first — this round ships only CSS, so a cached
+`dist/css/cost-builder.css` would still animate and look unfixed.
