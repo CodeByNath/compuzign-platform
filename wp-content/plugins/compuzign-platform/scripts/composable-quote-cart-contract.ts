@@ -659,19 +659,69 @@ check(
 // protected is unchanged and still asserted: the ONE shared formatPrice()
 // is the only formatter, and an unresolved NON-Bundle value is still never
 // invented — it renders blank.
+// Live correction (2026-09-10, round 2): the Bundle-child/unresolved money
+// rule was hand-rolled in this panel, and separately (and WRONGLY) in
+// OrderSummary/QuoteProposalPreview — which is exactly how Review & Finalise,
+// View Full Quote and the frontend Print/PDF kept rendering "Contact Us" for
+// Bundle children after the cart was already fixed. The rule now lives once,
+// in @/utils/commercialLegPresentation's inclusionMoneyPresentation(), and
+// every surface renders ITS OWN markup from that one derivation.
+//
+// These assertions therefore pin the rule at its source AND pin that this
+// panel consumes it rather than re-deriving — strictly more than the previous
+// per-surface expression match, which could not have caught the drift.
+const moneyRuleSource = readFileSync(resolve(root, 'resources/ts/utils/commercialLegPresentation.ts'), 'utf8');
+const moneyRule = moneyRuleSource.match(/export function inclusionMoneyPresentation\([\s\S]*?\n\}\n/);
+check(moneyRule !== null, 'inclusionMoneyPresentation() is exported from the shared presentation util');
 check(
-  freshInclusionDisclosureSource.includes('formatPrice')
-    && /row\.isChild \? 'Included' : \(typeof row\.lineTotal === 'number' \? formatPrice\(row\.lineTotal\) : ''\)/.test(freshInclusionDisclosureSource),
-  'Line total is the authoritative row value via the ONE shared formatPrice(), blank when unresolved, "Included" for a Bundle child — never invented, never a second formatter',
+  /if \(row\.isChild\) return \{ included: true, unitPrice: '', lineTotal: '' \};/.test(moneyRule![0]),
+  'a Bundle child is reported as Included with no money strings — its cost is covered by its parent',
 );
 check(
-  /row\.isChild \? 'Included' : \(typeof row\.unitPrice === 'number' \? formatPrice\(row\.unitPrice\) : ''\)/.test(freshInclusionDisclosureSource),
-  'Unit price follows the identical Bundle-child/unresolved rule as Line total',
+  /typeof row\.unitPrice === 'number' \? formatPrice\(row\.unitPrice\) : ''/.test(moneyRule![0])
+    && /typeof row\.lineTotal === 'number' \? formatPrice\(row\.lineTotal\) : ''/.test(moneyRule![0]),
+  'a non-child row formats through the ONE shared formatPrice() only for a real number, and renders blank otherwise — never formatPrice(undefined), which would print the Contact Us placeholder',
 );
 check(
-  /!row\.isChild && typeof row\.lineTotal === 'number'/.test(freshInclusionDisclosureSource),
-  'the compact disclosure Total sums only genuinely priced NON-child rows — a Bundle child never participates, and a missing value can never produce NaN',
+  !/'Contact Us'/.test(moneyRule![0]),
+  'the shared rule never emits a Contact Us placeholder of its own',
 );
+
+check(
+  freshInclusionDisclosureSource.includes('inclusionMoneyPresentation')
+    && /<td>\{money\.included \? 'Included' : money\.unitPrice\}<\/td>/.test(freshInclusionDisclosureSource)
+    && /<td>\{money\.included \? 'Included' : money\.lineTotal\}<\/td>/.test(freshInclusionDisclosureSource),
+  'the compact disclosure renders both money columns from the shared rule, never re-deriving isChild/typeof itself',
+);
+check(
+  /!inclusionMoneyPresentation\(row\)\.included && typeof row\.lineTotal === 'number'/.test(freshInclusionDisclosureSource),
+  'the compact disclosure Total sums only genuinely priced NON-included rows — a Bundle child never participates, and a missing value can never produce NaN',
+);
+
+// Both request/proposal surfaces must consume the SAME rule — this is the
+// assertion that would have caught the original drift.
+for (const [label, relPath] of [
+  ['OrderSummary', 'resources/ts/components/request-flow/OrderSummary.tsx'],
+  ['QuoteProposalPreview', 'resources/ts/components/request-flow/QuoteProposalPreview.tsx'],
+] as const) {
+  const surface = readFileSync(resolve(root, relPath), 'utf8');
+  check(
+    /import \{ inclusionMoneyPresentation \} from '@\/utils\/commercialLegPresentation';/.test(surface),
+    `${label} imports the shared Bundle-child money rule`,
+  );
+  check(
+    /const money = inclusionMoneyPresentation\(row\);/.test(surface),
+    `${label} derives its inclusion money presentation from that shared rule`,
+  );
+  check(
+    /money\.included \? \(/.test(surface),
+    `${label} renders a Bundle child as Included`,
+  );
+  check(
+    !/row\.unitPrice !== null/.test(surface) && !/row\.lineTotal !== null/.test(surface),
+    `${label} no longer tests row money facts with the !== null guard that let undefined reach formatPrice() and print Contact Us`,
+  );
+}
 check(
   /pricedRows\.filter|row\.lineTotal !== null[\s\S]{0,80}reduce/.test(freshInclusionDisclosureSource) || freshInclusionDisclosureSource.includes('pricedRows.reduce'),
   'the Total sums only rows with a real lineTotal — never a fabricated figure for a row with no authoritative price',

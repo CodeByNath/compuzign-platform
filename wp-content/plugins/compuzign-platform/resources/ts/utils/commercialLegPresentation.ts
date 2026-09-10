@@ -1,4 +1,4 @@
-import { formatCycleLabel } from './format';
+import { formatCycleLabel, formatPrice } from './format';
 import type { CommercialLegComponent, CommercialLegPeriod, CommercialLegPricedItem } from '@/api/types/cost-builder';
 import type { QuotedBreakdownComponent, QuotedBreakdownInclusion, QuotedBreakdownPeriod, QuotedCartBreakdown, QuotedExtensionGroup } from './paymentSummary';
 
@@ -429,6 +429,72 @@ export type PeriodBreakdownRow =
   | { kind: 'componentTableLabel'; id: string; text: string }
   | { kind: 'inclusion'; id: string; label: string; quantity: number | null; unitPrice: number | null; lineTotal: number | null; isChild: boolean }
   | { kind: 'componentTotal'; id: string; label: string; value: string };
+
+// The Bundle-child money rule for the THREE renderers listed below (live
+// correction 2026-09-10, project-work/2026-09-10-cart-bundle-and-upgrade-
+// refinements.md). Its exact consumers, and nothing else:
+//
+//   1. cost-builder/InclusionDisclosure.tsx — the compact Cart quick view
+//      and Total Commitment disclosure (one shared component, two surfaces);
+//   2. request-flow/OrderSummary.tsx — Review & Finalise;
+//   3. request-flow/QuoteProposalPreview.tsx — the proposal, which is also
+//      the standalone Quote View and the frontend Print/Save-as-PDF source.
+//
+// NOT every customer-facing inclusion list. Two other surfaces present the
+// SAME Bundle-child semantic without reading this function, deliberately:
+//
+//   * package-builder/PlanDetailsModal.tsx (View Details) keeps its own
+//     established `row.isChild ? 'Included' : formatMoneyFn(...)` rendering.
+//     It was already correct and live-validated, and it formats through an
+//     injected formatter rather than formatPrice(), so it is left alone.
+//   * NotificationTemplates.php (the customer email) is a separate PHP
+//     renderer and was already correct — its guards use isset(), which is
+//     false for an absent key, so undefined never reaches its formatter.
+//
+// Those two agreeing with this rule is a fact to re-check when the rule
+// changes, not something this function enforces.
+//
+// A Bundle child is never separately billed — its cost is covered by its
+// parent's own price — so its money presentation reads "Included", exactly
+// as PlanDetailsModal.tsx's View Details table has always shown it. Any
+// other row shows its own authoritative figures, and renders NOTHING when a
+// figure is genuinely unresolved: never a fabricated value, and never
+// formatPrice() applied to an absent one.
+//
+// Testing `typeof === 'number'` rather than `!== null` is what closes the
+// original defect: these rows come straight from a persisted snapshot, so a
+// money key that is simply absent arrives as `undefined`. `undefined !== null`
+// is true, so the old guards passed it to formatPrice(), which renders its
+// "Contact Us" placeholder for a non-number — the exact wrong output Nath saw
+// on Review & Finalise, View Full Quote and the frontend Print/PDF.
+//
+// Deliberately a shared DERIVATION rather than shared markup: the cart/Total
+// Commitment disclosure renders a two-column table while the two
+// request/proposal surfaces render an inline list. Its three consumers must
+// agree on the RULE, not on the DOM — and hand-rolling the rule per surface
+// is precisely how the proposal path drifted out of step with the cart in
+// the first place.
+export interface InclusionMoneyPresentation {
+  /** True when this row's cost is covered by its Bundle parent. */
+  included: boolean;
+  /** Formatted unit price, or '' when there is nothing authoritative to show. */
+  unitPrice: string;
+  /** Formatted line total, or '' when there is nothing authoritative to show. */
+  lineTotal: string;
+}
+
+export function inclusionMoneyPresentation(row: {
+  isChild: boolean;
+  unitPrice: number | null;
+  lineTotal: number | null;
+}): InclusionMoneyPresentation {
+  if (row.isChild) return { included: true, unitPrice: '', lineTotal: '' };
+  return {
+    included: false,
+    unitPrice: typeof row.unitPrice === 'number' ? formatPrice(row.unitPrice) : '',
+    lineTotal: typeof row.lineTotal === 'number' ? formatPrice(row.lineTotal) : '',
+  };
+}
 
 function inclusionRowsFor(inclusion: QuotedBreakdownInclusion, keyPrefix: string, isChild: boolean): PeriodBreakdownRow[] {
   return [

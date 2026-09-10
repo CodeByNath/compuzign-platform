@@ -3,6 +3,7 @@ import { formatPrice, formatCycleLabel, decodeHtml } from '@/utils/format';
 import { calcQuoteTotals, classifyQuoteItems, composableCoexistsWithPrimary, isFamilyTierQuoteItem, quoteItemKey } from '@/utils/quote';
 import { chargeTypeLabel, computeTotalContractValue, startingPaymentsByCycle } from '@/utils/paymentSummary';
 import { disclosureRowsForFamilyTierItem } from '@/components/cost-builder/InclusionDisclosure';
+import { inclusionMoneyPresentation } from '@/utils/commercialLegPresentation';
 import { QuoteProposalPreview } from './QuoteProposalPreview';
 import type { CartItem, FamilyTierQuoteItem } from '@/components/cost-builder/types';
 import type { ServiceItem } from '@/api/types/cost-builder';
@@ -37,6 +38,7 @@ function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
         {disclosureRows.flatMap((row) => {
           const showSectionHeading = row.sectionKey !== undefined && row.sectionKey !== previousSectionKey;
           previousSectionKey = row.sectionKey;
+          const money = inclusionMoneyPresentation(row);
           return [
             ...(showSectionHeading ? [
               <li key={`${row.id}:section`} class="cz-os__feature cz-os__feature--group">
@@ -61,11 +63,30 @@ function FamilyInclusionsList({ item }: { item: FamilyTierQuoteItem }) {
                 <span class="cz-os__feature-label">{row.label}</span>
                 <span class="cz-os__feature-qty">
                   {row.quantity ?? ''}
-                  {row.unitPrice !== null && (
-                    <span class="cz-os__feature-unit-price">{' '}{formatPrice(row.unitPrice)} ea.</span>
-                  )}
-                  {row.lineTotal !== null && (
-                    <span class="cz-os__feature-price">{' '}{formatPrice(row.lineTotal)}</span>
+                  {/* Live-defect correction (2026-09-10): the Bundle-child /
+                      unresolved rule comes from the shared
+                      inclusionMoneyPresentation() — the same derivation the
+                      compact cart/Total Commitment disclosure and this
+                      file's sibling request/proposal renderer read — never a
+                      per-surface re-test. Plan Details is NOT a consumer: it
+                      independently keeps the same already-established
+                      Bundle-child semantic, and the PHP email renderer is
+                      separate again and was already correct. A child shows a
+                      single "Included" here rather than the disclosure
+                      table's two cells, because this surface is an inline
+                      list; the RULE is shared, the markup stays each
+                      surface's own. */}
+                  {money.included ? (
+                    <span class="cz-os__feature-price">{' '}Included</span>
+                  ) : (
+                    <>
+                      {money.unitPrice && (
+                        <span class="cz-os__feature-unit-price">{' '}{money.unitPrice} ea.</span>
+                      )}
+                      {money.lineTotal && (
+                        <span class="cz-os__feature-price">{' '}{money.lineTotal}</span>
+                      )}
+                    </>
                   )}
                 </span>
               </span>

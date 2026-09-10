@@ -58,6 +58,8 @@ const entry = resolve(root, 'node_modules/.cache/cz-cart-bundle-upgrade-entry.mj
 writeFileSync(entry, [
   "export { InclusionDisclosurePanel } from '@/components/cost-builder/InclusionDisclosure';",
   "export { replaceFamilyNormalQuoteItem, upsertFamilyComposableQuoteItem, upsertFamilyAddonQuoteItem, removeFamilyTierSystemQuoteItems, resolveQuoteItemRole } from '@/utils/quote';",
+  "export { OrderSummary } from '@/components/request-flow/OrderSummary';",
+  "export { QuoteProposalPreview } from '@/components/request-flow/QuoteProposalPreview';",
 ].join('\n'));
 
 await build({
@@ -79,6 +81,8 @@ const {
   upsertFamilyAddonQuoteItem,
   removeFamilyTierSystemQuoteItems,
   resolveQuoteItemRole,
+  OrderSummary,
+  QuoteProposalPreview,
 } = await import(pathToFileURL(outFile).href);
 const { h, render } = await import('preact');
 
@@ -250,5 +254,123 @@ const otherFamilyPrimary = familyItem({
 const afterOtherFamily = replaceFamilyNormalQuoteItem(cart, otherFamilyPrimary);
 check(afterOtherFamily.includes(upgrade) && afterOtherFamily.includes(primaryA),
   "another Family's swap touches neither this Family's Upgrade nor its primary");
+
+// ── Issue 3 (live follow-up, 2026-09-10): Review & Finalise, View Full Quote
+//    and the frontend Print/PDF must show Bundle children as Included too ──
+//
+// Cart quick view, Total Commitment, Plan Details and the email were all
+// already correct; these three frontend surfaces were not. They render from
+// QuoteProposalPreview (also the standalone Quote View and the Print/PDF
+// clone source) and OrderSummary, both of which tested `row.unitPrice !== null`
+// / `row.lineTotal !== null` and so passed an absent (undefined) money fact to
+// formatPrice(), printing its "Contact Us" placeholder on Bundle children.
+//
+// Both now read the ONE shared inclusionMoneyPresentation().
+
+const CONTACT = { company: 'Acme', contact: 'Sam Rivers', email: 's@acme.test', phone: '', notes: '' };
+
+// A quoted item whose commercialBreakdown carries a priced Bundle parent with
+// unpriced children — the exact shape behind Nath's screenshot.
+const bundleQuotedItem = familyItem({
+  tierTitle: 'OMNIA Foundation',
+  legPaymentSummaries: [
+    { source: 'Default', billingCycle: 'monthly', price: 4000, startMonth: 0, endMonth: 11, isOngoing: false, occurrenceMonths: Array.from({ length: 12 }, (_, i) => i), subtotal: 48000 },
+  ],
+  commercialBreakdown: [
+    {
+      periodLabel: 'Month 1–12',
+      components: [
+        {
+          billingCycle: 'monthly',
+          price: 4000,
+          unchangedFromPrevious: false,
+          inclusions: [
+            {
+              label: 'Foundation Bundle',
+              quantity: 1,
+              unitPrice: 4000,
+              lineTotal: 4000,
+              // Children with NO money keys at all — undefined, not null.
+              includes: [
+                { label: 'Managed Detection', quantity: 1 },
+                { label: 'Patch Management', quantity: 25 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
+function renderSurface(vnode) {
+  render(vnode, container);
+  const text = container.textContent;
+  const childLis = [...container.querySelectorAll('li')].filter((li) => /--child/.test(li.className));
+  return {
+    text,
+    html: container.innerHTML,
+    childTexts: childLis.map((li) => li.textContent.trim()),
+  };
+}
+
+const proposal = renderSurface(h(QuoteProposalPreview, {
+  items: [bundleQuotedItem], services: [], contact: CONTACT, quoteDate: '2026-09-10', quoteRef: 'CZ-TEST01',
+}));
+check(proposal.text.includes('Foundation Bundle'), 'the proposal renders the Bundle parent');
+check(proposal.text.includes('$4,000'), 'the proposal keeps the Bundle parent price');
+check(!proposal.html.includes('Contact Us'), 'the proposal renders no Contact Us for Bundle children');
+check(proposal.childTexts.length === 2, `both Bundle children render as child rows in the proposal (got ${proposal.childTexts.length})`);
+for (const childText of proposal.childTexts) {
+  check(childText.includes('Included'), `a proposal Bundle child reads Included (got "${childText}")`);
+}
+
+const review = renderSurface(h(OrderSummary, {
+  items: [bundleQuotedItem], services: [], contact: CONTACT, quoteRef: 'CZ-TEST01', quoteDate: '2026-09-10',
+  step: 'review', submitState: 'idle', canSubmit: true, onSubmit: () => {}, onPrint: () => {},
+}));
+check(review.text.includes('Foundation Bundle'), 'Review & Finalise renders the Bundle parent');
+check(review.text.includes('$4,000'), 'Review & Finalise keeps the Bundle parent price');
+check(!review.html.includes('Contact Us'), 'Review & Finalise renders no Contact Us for Bundle children');
+check(review.childTexts.length >= 2, `both Bundle children render as child rows in Review & Finalise (got ${review.childTexts.length})`);
+for (const childText of review.childTexts) {
+  check(childText.includes('Included'), `a Review & Finalise Bundle child reads Included (got "${childText}")`);
+}
+
+// Genuine unresolved NON-Bundle pricing is still preserved on these surfaces:
+// a top-level inclusion with no money facts shows neither a price nor
+// "Included" — it is unresolved, not covered by a parent.
+const unresolvedQuotedItem = familyItem({
+  tierTitle: 'OMNIA Custom',
+  legPaymentSummaries: [
+    { source: 'Default', billingCycle: 'monthly', price: 100, startMonth: 0, endMonth: 11, isOngoing: false, occurrenceMonths: Array.from({ length: 12 }, (_, i) => i), subtotal: 1200 },
+  ],
+  commercialBreakdown: [
+    {
+      periodLabel: 'Month 1–12',
+      components: [
+        {
+          billingCycle: 'monthly',
+          price: 100,
+          unchangedFromPrevious: false,
+          inclusions: [{ label: 'Custom Integration', quantity: 1 }],
+        },
+      ],
+    },
+  ],
+});
+
+const unresolvedProposal = renderSurface(h(QuoteProposalPreview, {
+  items: [unresolvedQuotedItem], services: [], contact: CONTACT, quoteDate: '2026-09-10', quoteRef: 'CZ-TEST01',
+}));
+check(unresolvedProposal.text.includes('Custom Integration'), 'the unresolved non-Bundle inclusion still renders');
+check(!unresolvedProposal.html.includes('Contact Us'), 'an unresolved non-Bundle inclusion no longer prints Contact Us either');
+{
+  const row = [...container.querySelectorAll('li')].find((li) => li.textContent.includes('Custom Integration'));
+  check(row !== undefined && !row.textContent.includes('Included'),
+    'a genuinely unresolved NON-Bundle inclusion is never labelled Included — no global unknown-to-Included mapping');
+}
+
+render(null, container);
 
 console.log(`Cart bundle/upgrade regression: ${checks} checks passed.`);

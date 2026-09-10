@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
-import { periodBreakdownRows } from '@/utils/commercialLegPresentation';
+import { inclusionMoneyPresentation, periodBreakdownRows } from '@/utils/commercialLegPresentation';
 import type { QuotedBreakdownInclusion } from '@/utils/paymentSummary';
 import type { PeriodBreakdownRow } from '@/utils/commercialLegPresentation';
 import type { FamilyTierQuoteItem } from './types';
@@ -341,7 +341,7 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
   // Unknown values are never mapped to "Included" — only a real Bundle
   // child is.
   const pricedRows = rows.filter((row): row is DisclosureInclusionRow & { lineTotal: number } =>
-    !row.isChild && typeof row.lineTotal === 'number');
+    !inclusionMoneyPresentation(row).included && typeof row.lineTotal === 'number');
   const total = pricedRows.reduce((sum, row) => sum + row.lineTotal, 0);
 
   return (
@@ -368,6 +368,7 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
             return rows.flatMap((row) => {
               const showSectionHeading = row.sectionKey !== undefined && row.sectionKey !== previousSectionKey;
               previousSectionKey = row.sectionKey;
+              const money = inclusionMoneyPresentation(row);
               return [
                 ...(showSectionHeading ? [
                   <tr key={`${row.id}:section`} class="cz-inclusion-disclosure__group-row">
@@ -396,9 +397,17 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
                       the same semantic PlanDetailsModal.tsx's View Details
                       table already uses, so the compact cart/Total
                       Commitment disclosure and the full details view agree
-                      about the same Bundle. */}
-                  <td>{row.isChild ? 'Included' : (typeof row.unitPrice === 'number' ? formatPrice(row.unitPrice) : '')}</td>
-                  <td>{row.isChild ? 'Included' : (typeof row.lineTotal === 'number' ? formatPrice(row.lineTotal) : '')}</td>
+                      about the same Bundle. The rule itself is the shared
+                      inclusionMoneyPresentation() (2026-09-10 correction):
+                      this table renders two cells from it and the two
+                      request/proposal inline lists render one "Included"
+                      token from the same call. Plan Details reaches the same
+                      presentation through its own established rendering
+                      rather than this helper, and the PHP email renderer is
+                      separate again — see the helper's own docblock for the
+                      exact consumer set. */}
+                  <td>{money.included ? 'Included' : money.unitPrice}</td>
+                  <td>{money.included ? 'Included' : money.lineTotal}</td>
                 </tr>,
               ];
             });
