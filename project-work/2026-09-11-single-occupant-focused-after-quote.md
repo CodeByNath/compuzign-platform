@@ -3,9 +3,9 @@
 ## Status
 - **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed**.
-- Production `main`: `22b1ff3619363fef80beadd8cb944d2560f4571f`.
-- Approved candidate: `fd2878385b23becf1478018b94db47b5a50d7cf9`.
-- Candidate tree: `8d4f75d71d9cabdb963dbc64f7293594b5b62233`.
+- Production `main`: `fd2878385b23becf1478018b94db47b5a50d7cf9` (was `22b1ff3619363fef80beadd8cb944d2560f4571f` before this push).
+- Production tree: `8d4f75d71d9cabdb963dbc64f7293594b5b62233`.
+- Deploy `34537225257`: success.
 - GitHub compare: exactly **1 ahead / 0 behind**, merge base is exact production `main`.
 
 ## Accepted behavior
