@@ -218,4 +218,62 @@ check(
   'commitSelection stages when EITHER add-on Tiers exist OR hasCatalogue — a Family with a composable catalogue but zero add-on Tiers now reaches the stagedTier/Recommendations branch instead of falling through to the plain comparison grid',
 );
 
+// ── 10. [Live correction 2026-09-10] no duplicate Upgrade CTA once an
+//        Upgrade is already quoted for this Family+Instance ───────────────
+//
+// project-work/2026-09-10-cart-bundle-and-upgrade-refinements.md, Issue 2:
+// Recommendations kept offering "Upgrade your build / Browse Catalogue" even
+// when the Family already had a quoted Upgrade line, so the customer was
+// invited to start an upgrade they had already made. The Cart footer's own
+// recovery route already applied exactly this rule
+// (PackageBuilderApp's showUpgradeYourBuildFooter -> composableItem === null);
+// Recommendations simply never got it.
+//
+// Resolved at the shell-level upgradeGateActive derivation rather than inside
+// the Recommendations branch, so every consumer (the focused-shell active
+// signal, hideAddonsInRecommendations, the CTA itself) reads ONE gate and
+// cannot drift. Deliberately narrowed to 'pending': 'browsing' is the
+// Manage-build route INTO an existing Upgrade and must keep working.
+{
+  const stageMatch = adapterSource.match(
+    /const upgradeGateStageForSelectedTier = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId[\s\S]*?\? upgradeGateStage[\s\S]*?: null;/,
+  );
+  check(
+    stageMatch !== null,
+    'the tier-scoped stage derivation is kept as its own value, so the cart-state gate below composes with it rather than replacing it',
+  );
+
+  const gateMatch = adapterSource.match(
+    /const upgradeGateActive = upgradeGateStageForSelectedTier === 'pending' && selectedComposableItem !== null[\s\S]*?\? null[\s\S]*?: upgradeGateStageForSelectedTier;/,
+  );
+  check(
+    gateMatch !== null,
+    "upgradeGateActive suppresses ONLY the 'pending' CTA stage when this Family+Instance already has a quoted composable line",
+  );
+  check(
+    gateMatch !== null && gateMatch[0].includes('selectedComposableItem !== null'),
+    'the suppression reads the parent-derived composable cart line (resolveQuoteItemRole-based), never a rendered label or heading string',
+  );
+  check(
+    gateMatch !== null && !/'browsing'/.test(gateMatch[0]),
+    "the suppression never touches the 'browsing' stage — Manage build must still re-enter an existing Upgrade",
+  );
+
+  // The CTA and the add-on suppression both hang off upgradeGateActive, so
+  // gating that one value is what makes the CTA disappear and the ordinary
+  // add-on choices come back — and makes it RETURN once the Upgrade is
+  // explicitly removed (selectedComposableItem becomes null again, with no
+  // separate reset state to keep in sync).
+  check(
+    /const recommendationsCta = upgradeGateActive === 'pending' \? \(/.test(adapterSource)
+      && /hideAddonsInRecommendations=\{upgradeGateActive === 'pending'\}/.test(adapterSource),
+    'both the CTA and hideAddonsInRecommendations still read upgradeGateActive, so the single gate above governs both',
+  );
+  check(
+    !/selectedComposableItem !== null/.test(adapterSource.replace(gateMatch![0], ''))
+      || adapterSource.split('selectedComposableItem !== null').length - 1 === 1,
+    'the cart-state gate is derived exactly once — no second, parallel composable-in-cart test elsewhere in the file',
+  );
+}
+
 console.log('Composable recommendations CTA contract: PASS');

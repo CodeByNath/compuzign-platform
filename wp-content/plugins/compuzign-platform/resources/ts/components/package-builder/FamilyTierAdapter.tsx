@@ -713,9 +713,32 @@ export function FamilyTierAdapter({
   // render — a closure reads it at click time, never during the render that
   // creates it.
   const [singleTierDismissedTierId, setSingleTierDismissedTierId] = useState<TierId | null>(null);
-  const upgradeGateActive = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
+  const upgradeGateStageForSelectedTier = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
     : null;
+  // Live correction (2026-09-10, project-work/2026-09-10-cart-bundle-and-
+  // upgrade-refinements.md): once this Family+Instance already has a quoted
+  // Upgrade line, the 'pending' CTA inside Recommendations must not offer a
+  // SECOND "Upgrade your build / Browse Catalogue" entry alongside it. The
+  // Cart footer's own recovery route already applies exactly this rule
+  // (PackageBuilderApp's showUpgradeYourBuildFooter -> composableItem ===
+  // null); Recommendations simply never got it, so a quoted Upgrade could
+  // be advertised as if it were still unstarted. `selectedComposableItem`
+  // is the parent's own resolveQuoteItemRole()-derived line for this exact
+  // Family+Instance — a real cart-role fact, never a rendered label.
+  //
+  // Resolved HERE, at the shell-level state this component already derives,
+  // rather than inside the Recommendations branch: every consumer below
+  // (the focused-shell active signal, hideAddonsInRecommendations, the CTA
+  // itself) then reads one consistent gate instead of each re-testing the
+  // cart independently and risking drift.
+  //
+  // Deliberately narrowed to 'pending' only. 'browsing' is the Manage-build
+  // route INTO an existing Upgrade — suppressing that would break re-entry
+  // for exactly the line this gate exists because of.
+  const upgradeGateActive = upgradeGateStageForSelectedTier === 'pending' && selectedComposableItem !== null
+    ? null
+    : upgradeGateStageForSelectedTier;
   // Single-Tier auto-view: a customer group filtering down to exactly one
   // Tier has nothing to compare, so it PERMANENTLY shows in the focused
   // Choose Plan shell instead of ever existing as a one-card grid — a pure

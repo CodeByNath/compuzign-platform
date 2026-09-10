@@ -3,19 +3,15 @@
 // "quote/cart connection" phase). Proves the required properties the
 // coordination doc's approval named explicitly:
 //   1. primary + composable + multiple Add-ons coexist with unique stable keys;
-//   2. [Phase 0 correction, superseding the original "quote/cart connection"
-//      property] the active regime is upgrade-only, standalone Build Your
-//      Own is disabled — so a composable ("Upgrade your build") line only
-//      ever exists dependent on its exact base Tier/Edition: swapping the
-//      primary to a DIFFERENT Tier/Edition, or removing it outright, also
-//      drops the composable line (no orphaned-standalone state may
-//      survive); re-confirming the SAME Tier/Edition (e.g. a plan-duration
-//      change) leaves it untouched. [Identity safeguard, second Phase 0
-//      correction round] the base-changed comparison is anchored on
-//      tierOccupantId — the platform's own native occupant identity,
-//      mandatory here — plus tierEditionPlatformId as the exact Edition
-//      identity, never tierPlatformId/other display-facing Tier fields
-//      alone. Updating composable never replaces primary/Add-ons;
+//   2. [Live correction 2026-09-10, superseding the Phase 0 rule] an Upgrade
+//      belongs to the FAMILY, not the selected Tier/Edition: swapping the
+//      primary Tier or Edition within the same Family preserves the existing
+//      composable ("Upgrade your build") line exactly — same snapshot object,
+//      never repriced, rebuilt or reattached. The no-orphaned-standalone
+//      invariant still holds via the paths that can genuinely orphan a line:
+//      removing the whole Tier System cascades to the composable line, and
+//      upsertFamilyComposableQuoteItem() refuses to add one with no primary.
+//      Updating composable never replaces primary/Add-ons;
 //   3. zero-selected/no-required removes composable; required-only persists;
 //   4. stale/failed preview cannot overwrite cart (source-scan, since this is
 //      an async-effect property, not a pure-function one);
@@ -167,39 +163,78 @@ cart = upsertFamilyComposableQuoteItem(cart, composable);
 check(cart.length === 4, 'primary + two add-ons + composable all land in the cart as four distinct lines');
 check(cart.includes(primary) && cart.includes(addonOne) && cart.includes(addonTwo) && cart.includes(composable), 'every one of the four lines survives, unreplaced by any other');
 
-// ── 2. Phase 0 correction: swapping the base to a DIFFERENT Tier/Edition drops composable; re-confirming the SAME base does not ──
+// ── 2. Live correction (2026-09-10, project-work/2026-09-10-cart-bundle-and-
+//      upgrade-refinements.md): an Upgrade belongs to the FAMILY, not to the
+//      selected Tier/Edition. Swapping the primary Tier or Edition within the
+//      same Family preserves the quoted Upgrade line EXACTLY — not dropped,
+//      not repriced, not rebuilt, not reattached.
+//
+//      This supersedes the Phase 0 rule that a composable line existed
+//      dependent on its exact base Tier/Edition and had to be dropped on any
+//      base swap. The orphan invariant that rule protected is still proven
+//      below, by the two paths that genuinely can orphan a line: removing the
+//      whole Tier System cascades to the composable line, and
+//      upsertFamilyComposableQuoteItem() refuses to add one with no primary.
+//      A primary REPLACEMENT always leaves a primary behind, so it can never
+//      produce a standalone Upgrade. ──
 
 const newPrimary = familyItem({ tierId: 'premium', tierTitle: 'KAIROS Premium', tierOccupantId: 'occ_premium', tierPlatformId: 'CZT-KAIROS002' });
 let afterPrimarySwitch = replaceFamilyNormalQuoteItem(cart, newPrimary);
 check(!afterPrimarySwitch.includes(primary), 'replacing the primary drops the old primary snapshot');
 check(afterPrimarySwitch.includes(newPrimary), 'replacing the primary adds the new snapshot');
 check(afterPrimarySwitch.includes(addonOne) && afterPrimarySwitch.includes(addonTwo), 'replacing the primary preserves both existing Add-ons — unchanged existing behavior');
-check(!afterPrimarySwitch.includes(composable), 'swapping the primary to a DIFFERENT Tier/Edition drops the dependent Upgrade line — no orphaned-standalone state may survive (Phase 0 correction)');
+check(afterPrimarySwitch.includes(composable), 'swapping the primary to a DIFFERENT Tier preserves the existing Upgrade line — an Upgrade belongs to the Family, not the Tier');
+// Identity, not just presence: the SAME snapshot object is carried through,
+// so nothing repriced, rebuilt or reattached it to the new primary.
+check(
+  afterPrimarySwitch.find((entry) => entry === composable) === composable,
+  'the preserved Upgrade is the exact same snapshot object — never a rebuilt/repriced copy',
+);
+check(
+  (afterPrimarySwitch.find((entry) => entry === composable) as typeof composable).composableSelection
+    === composable.composableSelection,
+  'the preserved Upgrade keeps its own composableSelection snapshot untouched',
+);
 
-// Identity safeguard (second Phase 0 correction round): the base-changed
-// comparison is anchored on tierOccupantId — the platform's own native
-// occupant identity — not tierPlatformId/other display-facing Tier fields.
+// The same holds for an EDITION swap on the same occupant, and for a
+// different occupant that happens to share the old primary's Platform
+// ID/labels — no identity comparison gates Upgrade retention any more, so
+// every one of these preserves it.
 {
-  const cartForOccupantCase = upsertFamilyComposableQuoteItem(cart, composable);
-  // Same tierPlatformId/tierId/tierTitle as `primary`, but a genuinely
-  // different tierOccupantId — proves occupant identity alone drives the
-  // decision, never a Platform-ID/label match standing in for it.
-  const differentOccupantSamePlatformId = familyItem({ tierOccupantId: 'occ_different_occupant' });
-  const afterOccupantChange = replaceFamilyNormalQuoteItem(cartForOccupantCase, differentOccupantSamePlatformId);
-  check(!afterOccupantChange.includes(composable), 'a different tierOccupantId removes the Upgrade even though tierPlatformId/tierId/tierTitle all still match the old primary');
+  const cartForSwapCases = upsertFamilyComposableQuoteItem(cart, composable);
 
-  // Same tierOccupantId + same tierEditionPlatformId as `primary`, but a
-  // different tierPlatformId/tierId/tierTitle — proves occupant identity
-  // (not Platform ID) is what preserves the Upgrade on a genuine reconfirm.
+  const differentEditionSameOccupant = familyItem({ tierEditionPlatformId: 'CZTE-KAIROS002' });
+  const afterEditionSwap = replaceFamilyNormalQuoteItem(cartForSwapCases, differentEditionSameOccupant);
+  check(afterEditionSwap.includes(composable), 'swapping only the Edition preserves the existing Upgrade line');
+  check(afterEditionSwap.includes(differentEditionSameOccupant) && !afterEditionSwap.includes(primary), 'the Edition swap still replaces the primary snapshot itself');
+
+  const differentOccupantSamePlatformId = familyItem({ tierOccupantId: 'occ_different_occupant' });
+  const afterOccupantChange = replaceFamilyNormalQuoteItem(cartForSwapCases, differentOccupantSamePlatformId);
+  check(afterOccupantChange.includes(composable), 'a different tierOccupantId also preserves the Upgrade — occupant identity no longer gates Upgrade retention');
+
   const sameOccupantDifferentPlatformId = familyItem({ tierPlatformId: 'CZT-KAIROS001-REISSUED', tierId: 'standard', tierTitle: 'KAIROS Basic (reissued)' });
-  const afterSameOccupantReconfirm = replaceFamilyNormalQuoteItem(cartForOccupantCase, sameOccupantDifferentPlatformId);
-  check(afterSameOccupantReconfirm.includes(composable), 'the same tierOccupantId + tierEditionPlatformId preserves the Upgrade even when tierPlatformId/tierId/tierTitle differ from the old primary');
+  const afterSameOccupantReconfirm = replaceFamilyNormalQuoteItem(cartForSwapCases, sameOccupantDifferentPlatformId);
+  check(afterSameOccupantReconfirm.includes(composable), 'a reissued Platform ID on the same occupant preserves the Upgrade');
+}
+
+// A swap in a DIFFERENT Family must not reach this Family's Upgrade at all —
+// the system-key scoping is unchanged by the rule above.
+{
+  const cartForOtherFamily = upsertFamilyComposableQuoteItem(cart, composable);
+  const otherFamilyPrimary = familyItem({
+    familyId: 'pcg_omnia', familyPlatformId: 'CZPG-OMNIA001', familyTitle: 'OMNIA',
+    tierInstanceId: 'ti_omnia', tierInstancePlatformId: 'CZTG-OMNIA001',
+    tierOccupantId: 'occ_omnia', tierPlatformId: 'CZT-OMNIA0001',
+  });
+  const afterOtherFamily = replaceFamilyNormalQuoteItem(cartForOtherFamily, otherFamilyPrimary);
+  check(afterOtherFamily.includes(composable), "another Family's primary swap never touches this Family's Upgrade");
+  check(afterOtherFamily.includes(primary), "another Family's primary swap never touches this Family's own primary");
 }
 
 // Re-selecting the SAME Tier/Edition (e.g. a plan-duration change via Choose
 // Plan, which still calls replaceFamilyNormalQuoteItem with a freshly built
-// item for the identical Tier/Edition) is not a base swap — the Upgrade
-// must survive.
+// item for the identical Tier/Edition) likewise preserves the Upgrade — this
+// case was already correct before the rule change and must stay correct.
 const cartWithComposable = upsertFamilyComposableQuoteItem(cart, composable);
 const samePrimaryReconfirmed = familyItem({ price: 15, planDurationMonths: 24 }); // same tierPlatformId/tierEditionPlatformId as `primary`
 const afterSameBaseReconfirm = replaceFamilyNormalQuoteItem(cartWithComposable, samePrimaryReconfirmed);
@@ -614,10 +649,28 @@ check(
   !/×\{row\.quantity\}/.test(freshInclusionDisclosureSource),
   'the old ×{row.quantity} prefix is gone',
 );
+// Live correction (2026-09-10, cart bundle + upgrade refinements): the
+// money cells now branch on row.isChild first — a Bundle child reads
+// "Included" in both columns, the same semantic PlanDetailsModal's own
+// View Details table already uses — and the priced test is `typeof ===
+// 'number'` rather than `!== null`, so a snapshot row whose lineTotal key
+// is absent (undefined) can no longer render the "Contact Us" placeholder
+// or poison the Total with NaN. The property this assertion has always
+// protected is unchanged and still asserted: the ONE shared formatPrice()
+// is the only formatter, and an unresolved NON-Bundle value is still never
+// invented — it renders blank.
 check(
   freshInclusionDisclosureSource.includes('formatPrice')
-    && /row\.lineTotal !== null \? formatPrice\(row\.lineTotal\) : ''/.test(freshInclusionDisclosureSource),
-  'Price is the authoritative row line_total formatted via the ONE shared formatPrice() — never invented for a null lineTotal, never a second formatter',
+    && /row\.isChild \? 'Included' : \(typeof row\.lineTotal === 'number' \? formatPrice\(row\.lineTotal\) : ''\)/.test(freshInclusionDisclosureSource),
+  'Line total is the authoritative row value via the ONE shared formatPrice(), blank when unresolved, "Included" for a Bundle child — never invented, never a second formatter',
+);
+check(
+  /row\.isChild \? 'Included' : \(typeof row\.unitPrice === 'number' \? formatPrice\(row\.unitPrice\) : ''\)/.test(freshInclusionDisclosureSource),
+  'Unit price follows the identical Bundle-child/unresolved rule as Line total',
+);
+check(
+  /!row\.isChild && typeof row\.lineTotal === 'number'/.test(freshInclusionDisclosureSource),
+  'the compact disclosure Total sums only genuinely priced NON-child rows — a Bundle child never participates, and a missing value can never produce NaN',
 );
 check(
   /pricedRows\.filter|row\.lineTotal !== null[\s\S]{0,80}reduce/.test(freshInclusionDisclosureSource) || freshInclusionDisclosureSource.includes('pricedRows.reduce'),

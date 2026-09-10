@@ -320,7 +320,28 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
   // top-level Monthly/Yearly/Total elsewhere on the page remains the one
   // commercial summary in that case.
   const hasSections = rows.some((row) => row.sectionKey !== undefined);
-  const pricedRows = rows.filter((row): row is DisclosureInclusionRow & { lineTotal: number } => row.lineTotal !== null);
+  // Live-defect correction (2026-09-10, "cart bundle + upgrade
+  // refinements"): a Bundle CHILD is not an independently priced line —
+  // it is covered by its parent's own price, exactly as the established
+  // View Details renderer (PlanDetailsModal.tsx's own table) already
+  // presents it. Two separate faults came from ignoring that here:
+  //
+  //   1. children were summed into this Total alongside their parent,
+  //      double-counting whatever they carried, and
+  //   2. the guard tested `!== null` only, so a snapshot row whose
+  //      lineTotal key is absent (undefined, not null — the persisted
+  //      cartBreakdown shape reaches this component straight from storage)
+  //      counted as priced, making the reduce produce `$NaN` and
+  //      formatPrice(undefined) render the "Contact Us" placeholder in the
+  //      cells.
+  //
+  // Testing for an actual number fixes (2) without inventing a pricing
+  // source: a genuinely unresolved NON-Bundle row still renders blank and
+  // still stays out of the Total, exactly as a null lineTotal always did.
+  // Unknown values are never mapped to "Included" — only a real Bundle
+  // child is.
+  const pricedRows = rows.filter((row): row is DisclosureInclusionRow & { lineTotal: number } =>
+    !row.isChild && typeof row.lineTotal === 'number');
   const total = pricedRows.reduce((sum, row) => sum + row.lineTotal, 0);
 
   return (
@@ -371,8 +392,13 @@ export function InclusionDisclosurePanel({ rows, panelRef }: InclusionDisclosure
                 <tr key={row.id}>
                   <td class={row.isChild ? 'cz-inclusion-disclosure__label--child' : undefined}>{row.label}</td>
                   <td>{row.quantity ?? ''}</td>
-                  <td>{row.unitPrice !== null ? formatPrice(row.unitPrice) : ''}</td>
-                  <td>{row.lineTotal !== null ? formatPrice(row.lineTotal) : ''}</td>
+                  {/* Bundle children read "Included" in both money columns —
+                      the same semantic PlanDetailsModal.tsx's View Details
+                      table already uses, so the compact cart/Total
+                      Commitment disclosure and the full details view agree
+                      about the same Bundle. */}
+                  <td>{row.isChild ? 'Included' : (typeof row.unitPrice === 'number' ? formatPrice(row.unitPrice) : '')}</td>
+                  <td>{row.isChild ? 'Included' : (typeof row.lineTotal === 'number' ? formatPrice(row.lineTotal) : '')}</td>
                 </tr>,
               ];
             });

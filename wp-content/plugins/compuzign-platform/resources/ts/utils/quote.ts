@@ -131,46 +131,44 @@ export function quoteItemKey(item: CartItem): string {
 }
 
 /**
- * Replacing the primary never disturbs an existing Add-on for the same
- * Family+Instance. An existing composable ("Upgrade your build") line is
- * different: in the active upgrade-only regime (see
- * project-work/2026-09-03-composable-tier-admin-to-customer-validation.md,
- * Phase 0 correction) an Upgrade only ever exists dependent on its exact
- * base Tier/Edition — standalone Build Your Own is disabled, so an Upgrade
- * surviving a base SWAP would be exactly the forbidden orphaned-standalone
- * state. Swapping to a genuinely different Tier/Edition therefore also
- * drops the composable line; re-confirming the SAME Tier/Edition (e.g. a
- * plan-duration change via Choose Plan, which still calls this with a
- * freshly built item for the identical Tier/Edition) leaves it alone.
+ * Replacing the primary never disturbs an existing Add-on OR an existing
+ * composable ("Upgrade your build") line for the same Family+Instance.
+ * Only the previous primary itself is replaced.
  *
- * Identity safeguard (second Phase 0 correction round): the base-changed
- * comparison is anchored on `tierOccupantId` — the platform's own native
- * occupant identity, mandatory here — not a Platform-ID-only check.
- * `CZT`'s own reference shape is `(tier_instance_id, occupant_id)` (see the
- * CompuZign Platform skill's platform-id-families.md): occupant_id is the
- * true identity a Platform ID is minted against, so occupant_id is what
- * this compares first, never tierPlatformId alone standing in for it.
- * `tierEditionPlatformId` is compared alongside it as the exact Edition
- * identity — the only Edition-identifying field this item shape carries
- * (no separate native edition id exists on FamilyTierQuoteItem), naturally
- * covering "no Edition" too via direct null-safe equality. Still a plain
- * identity comparison, never a revived draft/staleness state machine.
+ * Live correction (2026-09-10, project-work/2026-09-10-cart-bundle-and-
+ * upgrade-refinements.md): an Upgrade belongs to the FAMILY, not to the
+ * selected Tier/Edition. This function previously compared the incoming
+ * primary's `tierOccupantId`/`tierEditionPlatformId` against the outgoing
+ * one and dropped the composable line whenever they differed, on the
+ * reasoning that an Upgrade existed dependent on its exact base
+ * Tier/Edition and would otherwise become a forbidden orphaned-standalone
+ * Build Your Own. That dependency is no longer the rule: swapping the
+ * primary Tier or Edition within the same Family keeps the quoted Upgrade
+ * exactly as it is — not repriced, rebuilt, reattached or mutated in any
+ * way, since the same snapshot object is carried straight through.
+ *
+ * The orphan invariant it was protecting still holds by other means: an
+ * Upgrade only survives a primary REPLACEMENT here, and a replacement
+ * always leaves a primary in the cart. Removing the last primary outright
+ * still goes through removeFamilyTierSystemQuoteItems(), which clears the
+ * whole system including its composable line, and upsertFamilyComposableQuoteItem()
+ * still refuses to add one when no matching primary exists. So no path
+ * reaches a standalone Upgrade.
+ *
+ * So a primary Tier/Edition REPLACEMENT never removes the Upgrade; it
+ * leaves the cart only when the customer explicitly removes or replaces the
+ * Upgrade itself, or when the whole Family Tier system is removed and
+ * removeFamilyTierSystemQuoteItems()'s existing no-standalone-Upgrade
+ * cascade clears it along with the primary and every Add-on.
  */
 export function replaceFamilyNormalQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
   const systemKey = familyTierSystemKey(item);
-  const previousPrimary = items.find((existing): existing is FamilyTierQuoteItem => isFamilyTierQuoteItem(existing)
-    && resolveQuoteItemRole(existing) === 'primary'
-    && familyTierSystemKey(existing) === systemKey);
-  const baseChanged = !previousPrimary
-    || previousPrimary.tierOccupantId !== item.tierOccupantId
-    || previousPrimary.tierEditionPlatformId !== item.tierEditionPlatformId;
   return [
     ...items.filter((existing) => {
       if (!isFamilyTierQuoteItem(existing) || familyTierSystemKey(existing) !== systemKey) return true;
-      const role = resolveQuoteItemRole(existing);
-      if (role === 'primary') return false;
-      if (role === 'composable') return !baseChanged;
-      return true;
+      // Only the outgoing primary goes; composable and add-on lines for
+      // this same Family+Instance are carried through untouched.
+      return resolveQuoteItemRole(existing) !== 'primary';
     }),
     item,
   ];
@@ -198,10 +196,13 @@ export function upsertFamilyAddonQuoteItem(items: CartItem[], item: FamilyTierQu
  * straight into the cart, alone, with no base — the forbidden standalone
  * state reached through a code path this function's own docblock
  * previously assumed could never call it that way. No-op (returns `items`
- * unchanged) when no matching primary exists; the reverse direction — a
- * primary being removed or swapped drops this line — is
- * replaceFamilyNormalQuoteItem()'s/removeFamilyTierSystemQuoteItems()'s
- * job, not this function's.
+ * unchanged) when no matching primary exists; the reverse direction — the
+ * whole Family Tier system being REMOVED drops this line — is
+ * removeFamilyTierSystemQuoteItems()'s job, not this function's. A primary
+ * Tier/Edition REPLACEMENT is deliberately not part of that cascade: it
+ * preserves the Upgrade untouched (see replaceFamilyNormalQuoteItem()
+ * above), because an Upgrade belongs to the Family, not to the selected
+ * Tier/Edition.
  */
 export function upsertFamilyComposableQuoteItem(items: CartItem[], item: FamilyTierQuoteItem): CartItem[] {
   const systemKey = familyTierSystemKey(item);
@@ -230,9 +231,10 @@ export function removeFamilyAddonQuoteItem(
  * Family+Instance, leaving the primary Tier and every Add-on untouched —
  * the "remove just my Upgrade" action (ComposableOfferBrowser's own Remove
  * flow, or the composable line's own "×" in the cart list). The reverse
- * cascade — removing/swapping the primary also drops this line — lives in
- * removeFamilyTierSystemQuoteItems()/replaceFamilyNormalQuoteItem() above,
- * not here.
+ * cascade — removing the whole Family Tier system also drops this line —
+ * lives in removeFamilyTierSystemQuoteItems() above, not here. Swapping the
+ * primary Tier/Edition is NOT part of that cascade and leaves this line
+ * alone (see replaceFamilyNormalQuoteItem()).
  */
 export function removeFamilyComposableQuoteItem(
   items: CartItem[],
