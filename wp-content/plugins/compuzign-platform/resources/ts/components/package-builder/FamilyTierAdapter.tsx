@@ -1538,9 +1538,15 @@ export function FamilyTierAdapter({
           >
             <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
           </button>
-          <h3 class="cz-package-builder__focused-name">
-            {composableDeclaredEffective.selectedEdition?.label ?? composableData?.label ?? 'Build Your Own'}
-          </h3>
+          {/* project-work/2026-09-10-focused-edition-selector-visual-
+              refinement.md — the ONE stable heading for this focused
+              composable surface, independent of which cue destination is
+              active. It used to render the active declaration's own label
+              (`Default`/`Subscriptions`/…), duplicating what the cue's own
+              labels below already say. The cue labels remain the only place
+              declaration names appear; ComposableOfferBrowser no longer
+              renders its own copy of this title in this context either. */}
+          <h3 class="cz-package-builder__focused-name">Upgrade your build</h3>
           {composableData?.ideal_for && (
             <p class="cz-package-builder__focused-ideal-for">{composableData.ideal_for}</p>
           )}

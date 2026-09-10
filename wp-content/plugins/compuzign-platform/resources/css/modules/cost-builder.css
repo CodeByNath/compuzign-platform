@@ -4526,12 +4526,16 @@
   background: transparent;
   border-radius: var(--cz-radius-sm);
   cursor: pointer;
-  transition: background var(--cz-transition-fast);
 }
 
-.cz-package-builder__cue-target:hover {
-  background: var(--cz-color-surface-3);
-}
+/* project-work/2026-09-10-focused-edition-selector-visual-refinement.md —
+   NO visible hover background. The target stays exactly as large as it was
+   (position/inset/padding untouched, so the click/tap area and mobile hit
+   area are unchanged) — hovering simply no longer paints a slab behind the
+   track. Keyboard focus keeps its own separate, unchanged indicator below;
+   hover and focus were never one rule, so nothing about focus-visible had
+   to be split or weakened to remove the hover paint. The background
+   transition goes with it: no state paints this element any more. */
 
 .cz-package-builder__cue-target:focus-visible {
   outline: 2px solid var(--cz-color-accent);

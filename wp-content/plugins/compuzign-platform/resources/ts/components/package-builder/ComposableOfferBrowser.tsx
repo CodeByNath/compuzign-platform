@@ -657,10 +657,23 @@ export function ComposableOfferBrowser({ family, context, activeEditionId, initi
   if (!offer || !policy || rows.length === 0) return null;
 
   const heading = context === 'build_your_own' ? 'Build Your Own' : 'Upgrade your build';
+  // project-work/2026-09-10-focused-edition-selector-visual-refinement.md —
+  // in the focused composable shell (`upgrade_your_build`) FamilyTierAdapter
+  // already renders this exact title as the surface's own fixed heading, so
+  // rendering it again here is a visible second copy. The section keeps the
+  // same accessible name either way: labelled BY the heading when it renders
+  // its own, and carrying it as aria-label when the shell above owns it.
+  // `build_your_own` — a different surface with no heading of its own — is
+  // unchanged.
+  const ownsHeading = context === 'build_your_own';
 
   return (
-    <section class="cz-package-builder__composable" aria-labelledby="cz-composable-heading">
-      <h3 id="cz-composable-heading" class="cz-heading-sm">{heading}</h3>
+    <section
+      class="cz-package-builder__composable"
+      aria-labelledby={ownsHeading ? 'cz-composable-heading' : undefined}
+      aria-label={ownsHeading ? undefined : heading}
+    >
+      {ownsHeading && <h3 id="cz-composable-heading" class="cz-heading-sm">{heading}</h3>}
       <p class="cz-package-builder__composable-subheading">Recommended Upgrades</p>
 
       <div class="cz-package-builder__composable-filters">
