@@ -57,15 +57,20 @@ export function PackageBuilderApp() {
   // families list (data.families) — a cart item can belong to a Family
   // other than whichever one FamilyTierAdapter currently has open.
   const [quoteDetailsTarget, setQuoteDetailsTarget] = useState<FamilyTierQuoteItem | 'cart' | null>(null);
-  // Simple rule: whenever FamilyTierAdapter has ANY focused shell open — a
-  // normal Tier's Choose Plan view, or the composable occupant's own
-  // Upgrade gate (Phase 2, project-work/2026-09-06-tier-catalogue-admin-ux-
-  // consolidation.md) — Cart hides. FamilyTierAdapter owns each shell's own
-  // state entirely; this is only the one combined boolean it reports up, so
-  // this component never reads/duplicates either shell's own internal
-  // state shape, and there is exactly one place (hasVisibleQuote below)
-  // that decides Cart visibility.
-  const [focusedShellActive, setFocusedShellActive] = useState(false);
+  // Whether FamilyTierAdapter's currently-open focused shell suppresses the
+  // Cart. It reports SUPPRESSION rather than raw shell activity (live
+  // correction 2026-09-11, project-work/2026-09-11-single-occupant-focused-
+  // after-quote.md): a Family with one normal Tier and nothing else keeps its
+  // focused shell up permanently, and once that Tier is quoted the Cart must
+  // appear ALONGSIDE the still-open shell. Every other shell — explicit
+  // Choose Plan/View Plan, composable browsing, the Upgrade gate — still
+  // suppresses it exactly as before.
+  //
+  // The eligibility stays in FamilyTierAdapter, which already resolves the
+  // Family's own shape; this component never re-derives add-on, occupant-count
+  // or Upgrade-catalogue facts, and there is still exactly one place
+  // (hasVisibleQuote below) that decides Cart visibility.
+  const [quoteSuppressedByShell, setQuoteSuppressedByShell] = useState(false);
   // "Manage build" (project-work/2026-09-06-tier-catalogue-admin-ux-
   // consolidation.md) — a one-shot identity/request signal only, never the
   // mutation/navigation itself. FamilyTierAdapter owns re-entering its own
@@ -204,13 +209,13 @@ export function PackageBuilderApp() {
 
   // The sidebar grid track (--has-quote below) must track the EXACT same
   // condition the <aside> below uses to decide whether QuoteSummary itself
-  // renders (items.length > 0 && !focusedShellActive) — items.length alone
-  // left the 360px sidebar column reserved for an empty <aside> the whole
-  // time ANY focused shell (a scrollable composable catalogue wants the
-  // full row just as much as a normal Tier's Choose Plan view) was open,
-  // since a cart with existing items stays non-empty while
-  // focusedShellActive alone suppresses QuoteSummary.
-  const hasVisibleQuote = items.length > 0 && !focusedShellActive;
+  // renders (items.length > 0 && !quoteSuppressedByShell) — items.length
+  // alone left the 360px sidebar column reserved for an empty <aside> the
+  // whole time a suppressing focused shell (a scrollable composable
+  // catalogue wants the full row just as much as a normal Tier's Choose Plan
+  // view) was open, since a cart with existing items stays non-empty while
+  // the shell alone suppresses QuoteSummary.
+  const hasVisibleQuote = items.length > 0 && !quoteSuppressedByShell;
 
   return (
     <div class={`cz-cost-builder cz-package-builder${hasVisibleQuote ? ' cz-cost-builder--has-quote' : ''}`}>
@@ -270,7 +275,7 @@ export function PackageBuilderApp() {
               onComposableCommit={addComposable}
               onComposableRemove={removeComposable}
               selectedPrimaryItem={primary}
-              onFocusedShellActiveChange={setFocusedShellActive}
+              onQuoteSuppressedChange={setQuoteSuppressedByShell}
               manageBuildRequest={manageBuildRequest}
               onManageBuildConsumed={consumeManageBuildRequest}
             />
@@ -292,7 +297,7 @@ export function PackageBuilderApp() {
           )}
         </aside>
       </div>
-      {!focusedShellActive && <MobileQuoteBar items={items} summaryId={SUMMARY_ID} />}
+      {!quoteSuppressedByShell && <MobileQuoteBar items={items} summaryId={SUMMARY_ID} />}
       <RequestFlowModal
         isOpen={isFlowOpen}
         context={{ type: 'quote_cart', items, services: [] }}

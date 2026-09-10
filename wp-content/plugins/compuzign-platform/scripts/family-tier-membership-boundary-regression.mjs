@@ -127,7 +127,7 @@ function mount(pricingTiers) {
     onComposableCommit: () => {},
     onComposableRemove: () => {},
     selectedPrimaryItem: null,
-    onFocusedShellActiveChange: () => {},
+    onQuoteSuppressedChange: () => {},
     manageBuildRequest: null,
     onManageBuildConsumed: () => {},
   }), container);

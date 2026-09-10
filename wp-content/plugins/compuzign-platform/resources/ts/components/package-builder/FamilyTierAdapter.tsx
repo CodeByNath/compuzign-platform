@@ -400,17 +400,25 @@ interface FamilyTierAdapterProps {
   // as selectedComposableItem above — a second, domain-boundary layer, not
   // a replacement for the render gate.
   selectedPrimaryItem: FamilyTierQuoteItem | null;
-  // Simple rule, once for every focused shell this component owns: whenever
-  // EITHER a normal Tier's Choose Plan view (focusedTierId !== null) OR the
-  // composable occupant's own Upgrade gate (upgradeGateActive !== null,
-  // Phase 2 project-work/2026-09-06-tier-catalogue-admin-ux-consolidation.md)
-  // is active, called with true — so PackageBuilderApp can hide QuoteSummary/
-  // MobileQuoteBar and collapse the sidebar grid track while ANY of them is
-  // up, without touching `items` at all and without needing to separately
-  // track each shell's own state itself. This component owns no cart-
-  // visibility logic of its own, same "caller performs the actual mutation/
-  // visibility" posture as onCommit/onRemoveFromQuote above.
-  onFocusedShellActiveChange: (active: boolean) => void;
+  // Whether an open focused shell should SUPPRESS the Cart — reported once
+  // for every shell this component owns, so PackageBuilderApp can hide
+  // QuoteSummary/MobileQuoteBar and collapse the sidebar grid track without
+  // touching `items` and without tracking any shell's own internal state.
+  //
+  // Live correction (2026-09-11, project-work/2026-09-11-single-occupant-
+  // focused-after-quote.md): this deliberately reports SUPPRESSION, not mere
+  // activity. The two were the same fact until the lone-occupant rule
+  // arrived: a Family holding one normal Tier and nothing else keeps its
+  // focused shell up permanently, and once that Tier is quoted the Cart must
+  // appear ALONGSIDE the still-open shell. Reporting raw "a shell is open"
+  // made that impossible — the parent's own
+  // `items.length > 0 && !focusedShellActive` would always hide it.
+  //
+  // The eligibility itself stays HERE, where the Family's own shape is
+  // already resolved (familyOffersNothingElse / singleTierIsQuoted below);
+  // the parent keeps exactly one Cart-visibility decision and never
+  // re-derives add-on, occupant-count or catalogue facts of its own.
+  onQuoteSuppressedChange: (suppressed: boolean) => void;
   // "Manage build" — Cart's one-shot request to re-enter this Family's
   // existing 'browsing' stage directly for its already-committed composable
   // line. null means no pending request. A request for a Family/Instance
@@ -474,7 +482,7 @@ export function FamilyTierAdapter({
   onComposableCommit,
   onComposableRemove,
   selectedPrimaryItem,
-  onFocusedShellActiveChange,
+  onQuoteSuppressedChange,
   manageBuildRequest,
   onManageBuildConsumed,
 }: FamilyTierAdapterProps) {
@@ -692,15 +700,28 @@ export function FamilyTierAdapter({
   // ever sets 'pending' (Browse Catalogue is rendered but inert this phase).
   const [upgradeGateTierId, setUpgradeGateTierId] = useState<TierId | null>(null);
   const [upgradeGateStage, setUpgradeGateStage] = useState<'pending' | 'browsing' | null>(null);
-  // The customer's own dismissal of the QUOTED single-Tier focused shell,
+  // The customer's own dismissal of a QUOTED single-Tier focused shell,
   // stored as the exact TierId it belongs to — the same validity-scoped shape
   // as stagedTierId/upgradeGateTierId above.
   //
-  // Unlike those two, deriving validity is NOT sufficient here, and this is
-  // the one real trap in this feature. Checking `stored === selectedTierId`
-  // only makes a stale dismissal DORMANT while the primary is absent; it
-  // becomes live again the moment the customer re-quotes that same Tier, and
-  // would then suppress a genuinely fresh quoted focused shell:
+  // Auditor correction (2026-09-11): an earlier revision of the lone-occupant
+  // work deleted this state, on the reasoning that a quoted Tier never
+  // reaches the implicit fallback anyway (add-ons or an Upgrade catalogue
+  // stage it into Recommendations instead). That is false for exactly one
+  // shape, and it is a real one: a Family split ACROSS AUDIENCE GROUPS with
+  // no add-ons and no catalogue. Its other normal occupant lives in the other
+  // group, so nothing stages, one visible Tier remains, and the quoted
+  // implicit view IS reached — correctly carrying the ordinary sticky X,
+  // because that other occupant really is behind it. Without this state, that
+  // X clears only values which are already null and the render-time fallback
+  // reopens the shell on the very next render: a visible button that does
+  // nothing.
+  //
+  // Deriving validity alone is NOT sufficient, and this is the one real trap
+  // in this feature. Checking `stored === selectedTierId` only makes a stale
+  // dismissal DORMANT while the primary is absent; it becomes live again the
+  // moment the customer re-quotes that same Tier, and would then suppress a
+  // genuinely fresh quoted focused shell:
   //
   //   quote -> X (stores id) -> remove primary (dormant, locked landing
   //   correctly returns) -> quote the SAME Tier again -> stored id matches
@@ -712,6 +733,13 @@ export function FamilyTierAdapter({
   // Referenced inside the customer-tab click handler declared earlier in this
   // render — a closure reads it at click time, never during the render that
   // creates it.
+  //
+  // A globally-lone Family never records a dismissal at all: it renders no X
+  // (isLockedSingleTierLanding below), and familyOffersNothingElse is a pure
+  // function of `family` — Family-wide occupants plus
+  // family.pricing.composable_offer, none of them audience-narrowed — so it
+  // cannot flip while one Family stays open. That is what keeps this state
+  // from ever resurrecting the orphan one-card grid there.
   const [singleTierDismissedTierId, setSingleTierDismissedTierId] = useState<TierId | null>(null);
   const upgradeGateStageForSelectedTier = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
@@ -755,23 +783,27 @@ export function FamilyTierAdapter({
   // this is strictly a passive default, never an override of a shell the
   // customer is already actively in.
   //
-  // Whether that landing is dismissible depends on ONE thing: is this single
-  // Tier already the quoted primary?
+  // Whether that landing is dismissible depends on two things: is this single
+  // Tier already the quoted primary, and is its Family globally lone?
   //
-  //   locked implicit landing  = one real primary, NOT quoted. The focused
+  //   locked implicit landing  = one visible primary, NOT quoted. The focused
   //     shell IS the landing presentation; there is no Close action, because
   //     dismissing it would fall through to an orphan one-card grid (a real
   //     reported defect in an earlier version of this feature). The
   //     customer-group tab bar stays the only way off it.
-  //   quoted single-Tier view  = one real primary that IS the quoted primary.
-  //     The customer now has a Cart line to return to, so the ordinary sticky
-  //     X applies and dismissing lands on that Tier's own normal card — not
-  //     an orphan, because the card carries its quoted state and its View
-  //     Plan route straight back into this same shell.
+  //   globally-lone quoted view = the quoted primary of a Family that offers
+  //     nothing else at all (familyOffersNothingElse below). Still locked, and
+  //     permanently: there is no card, no sibling Tier, no add-on and no
+  //     Upgrade catalogue behind the X, so the shell simply stays and the Cart
+  //     appears beside it. Main navigation is the way out.
+  //   quoted, but NOT globally lone = the Family has another normal occupant
+  //     (possibly in the other audience group), an add-on, or an Upgrade
+  //     catalogue. Unchanged from before: the ordinary sticky X applies, and
+  //     dismissing lands on that Tier's own normal card — not an orphan,
+  //     because the card carries its quoted state and its View Plan route
+  //     straight back into this same shell.
   //
-  // The dismissal is honoured HERE, at the fallback itself, so pressing X can
-  // never be immediately re-triggered by this same render-time default (the
-  // bounce-back that would otherwise make X look broken). It stays a passive
+  // Both cases are settled HERE, at the fallback itself. It stays a passive
   // render-time derivation — nothing below ever calls a setter to "open" this
   // view, which is the property that made this approach work where three
   // effect-driven attempts failed live.
@@ -784,6 +816,60 @@ export function FamilyTierAdapter({
   // derivation, restoring the locked landing rule with no reset call.
   const singleTierDismissed = singleTierDismissedTierId !== null
     && singleTierDismissedTierId === selectedTierId;
+  // Whether this Family offers ANYTHING besides this one Tier occupant.
+  //
+  // Deliberately resolved from FAMILY-WIDE membership, never from the
+  // audience-filtered view (auditor correction, 2026-09-11). `normalTiers`
+  // and `addonTiers` are both derived from `visibleTiers`, which is already
+  // narrowed to the active customer group — so a Family holding one Personal
+  // & Business normal occupant plus one Enterprise normal occupant, or an
+  // add-on that exists only in the other group, would look like "one Tier and
+  // no add-ons" from whichever tab happened to be open, and would wrongly
+  // qualify for the lone-occupant behaviour.
+  //
+  // `familyOccupants`/`normalOccupants` are the Family-wide authorities
+  // resolved above, ahead of every audience derivation, for exactly this kind
+  // of reason. Upgrade eligibility already reads the whole Family:
+  // resolveComposableEligibleRows() takes `family` and consults
+  // family.pricing.composable_offer, which carries no customer-group
+  // narrowing of its own — the same shared eligibility truth
+  // commitSelection()'s staging check uses.
+  //
+  // The selected customer group still decides WHAT IS SHOWN; it must never
+  // decide whether the Family qualifies as globally lone.
+  const familyAddonOccupants = familyOccupants.filter((tier) => family.pricing.tiers[tier.id]?.is_addon === true);
+  const familyOffersNothingElse = normalOccupants.length === 1
+    && familyAddonOccupants.length === 0
+    && resolveComposableEligibleRows(family).length === 0;
+  // Live correction (2026-09-11, project-work/2026-09-11-single-occupant-
+  // focused-after-quote.md): a Tier occupant that is ALONE in its Family
+  // stays in the focused shell permanently — before and after it is quoted.
+  //
+  // There is genuinely nothing else to show it: no sibling occupant to
+  // compare against, no add-ons and no Upgrade catalogue to continue into, so
+  // a one-card grid would present a single card that only leads back into
+  // this same shell. The Cart simply appears alongside once the Tier is
+  // added, and the shell keeps standing. The Close X is hidden for exactly
+  // that reason (see isLockedSingleTierLanding below) — there is no
+  // destination behind it, and the site's own main navigation is the real way
+  // out. The customer is never asked to dismiss a view that has no successor.
+  //
+  // A single occupant that is NOT alone keeps today's behaviour, by two
+  // different routes depending on why it is not alone:
+  //
+  //   * add-on Tiers or an Upgrade catalogue make commitSelection() stage the
+  //     primary, so `stagedTier === null` is false once quoted and this
+  //     fallback steps aside for the staged Recommendations view exactly as
+  //     before;
+  //   * a Family split across AUDIENCE GROUPS stages nothing (no add-ons, no
+  //     catalogue), so one visible Tier remains and this fallback does still
+  //     apply while quoted. That view carries the ordinary sticky X, and
+  //     `singleTierDismissed` above is what makes that X actually work —
+  //     without it this same fallback would reopen the shell on the very next
+  //     render. See singleTierDismissedTierId's own declaration.
+  //
+  // Explicit focus is untouched: `focusedTierId` still wins ahead of this
+  // fallback.
   const effectiveFocusedTierId = focusedTierId
     ?? (upgradeGateActive !== 'browsing' && stagedTier === null && singleVisibleTier && !singleTierDismissed
       ? singleVisibleTier.id
@@ -794,10 +880,33 @@ export function FamilyTierAdapter({
   // hiding the Close button and showing the customer-group tabs above the
   // shell instead, both below.
   const isImplicitSingleTierView = focusedTierId === null && effectiveFocusedTierId !== null;
-  // Only the UNQUOTED implicit landing is locked (no Close). Once this Tier is
-  // the quoted primary the shell keeps the ordinary sticky X, whether it was
-  // reached implicitly or by an explicit View Plan click.
-  const isLockedSingleTierLanding = isImplicitSingleTierView && !singleTierIsQuoted;
+  // The implicit landing is locked (no Close) in two cases, for the same
+  // underlying reason — there is no destination behind the X:
+  //
+  //   * NOT yet quoted: dismissing would fall through to an orphan one-card
+  //     grid, a real reported defect in an earlier version of this feature.
+  //   * ALONE in its Family (2026-09-11 correction): quoted or not, this
+  //     Family has nothing else to offer, so the shell is the whole
+  //     experience and the Cart appears beside it. Main navigation is the
+  //     real way out, not a Close button on the only thing there is.
+  //
+  // Everything else keeps today's behaviour exactly:
+  //
+  //   * add-ons or an Upgrade catalogue make commitSelection() stage the
+  //     primary, so a quoted single occupant lands in Recommendations and
+  //     never reaches the implicit view at all;
+  //   * a Family split across audiences CAN reach it while quoted — one
+  //     visible normal Tier, nothing staged — and deliberately gets the
+  //     ordinary sticky X, because the other group's occupant really is
+  //     behind it. This is why familyOffersNothingElse must be Family-wide
+  //     rather than read off the current tab — and why the dismissal state
+  //     still exists: it is what stops that X bouncing straight back open.
+  //
+  // Explicit focus reached by a View Plan click is never locked —
+  // `isImplicitSingleTierView` is false there — so that route keeps its
+  // ordinary sticky X.
+  const isLockedSingleTierLanding = isImplicitSingleTierView
+    && (!singleTierIsQuoted || familyOffersNothingElse);
 
   // Composable-focused-shell reuse: which Default/Edition of the composable
   // occupant's OWN declaration (family.pricing.composable_offer) is active
@@ -826,14 +935,25 @@ export function FamilyTierAdapter({
     return () => window.removeEventListener('scroll', onScroll);
   }, [effectiveFocusedTierId, upgradeGateActive]);
 
+  // The one focused shell that COEXISTS with the Cart: a lone occupant's
+  // permanent landing, once that occupant is actually quoted. Everything else
+  // — an explicit Choose Plan/View Plan shell, composable browsing, the
+  // Upgrade gate, and the lone landing while still UNQUOTED (nothing is in
+  // the cart for this Family yet anyway) — keeps suppressing the Cart exactly
+  // as before.
+  const focusedShellPermitsQuote = isImplicitSingleTierView
+    && singleTierIsQuoted
+    && familyOffersNothingElse
+    && upgradeGateActive === null;
+  const focusedShellOpen = effectiveFocusedTierId !== null || upgradeGateActive !== null;
   useEffect(() => {
-    onFocusedShellActiveChange(effectiveFocusedTierId !== null || upgradeGateActive !== null);
-    // onFocusedShellActiveChange is PackageBuilderApp's raw useState setter,
-    // a stable identity by React/Preact guarantee (no useCallback needed);
+    onQuoteSuppressedChange(focusedShellOpen && !focusedShellPermitsQuote);
+    // onQuoteSuppressedChange is PackageBuilderApp's raw useState setter, a
+    // stable identity by React/Preact guarantee (no useCallback needed);
     // omitted from deps so a caller re-render can never spuriously re-fire
     // this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveFocusedTierId, upgradeGateActive]);
+  }, [focusedShellOpen, focusedShellPermitsQuote]);
 
   // Genuine reset of a stale dismissal, keyed on the EXTERNALLY owned primary
   // identity — the cart line lives in PackageBuilderApp, so the primary can
@@ -1276,6 +1396,12 @@ export function FamilyTierAdapter({
               // shell this click just closed. Set for the explicit (View
               // Plan) route too, not only the implicit one — both land back
               // on the same single card, and both would otherwise bounce.
+              //
+              // An UNQUOTED single Tier deliberately records nothing and does
+              // return to its locked landing: that landing is the only thing
+              // behind this shell, and falling through to an orphan one-card
+              // grid was itself a reported defect. A globally-lone Family
+              // never reaches this handler at all — it renders no X.
               if (singleTierIsQuoted && selectedTierId !== null) {
                 setSingleTierDismissedTierId(selectedTierId);
               }
