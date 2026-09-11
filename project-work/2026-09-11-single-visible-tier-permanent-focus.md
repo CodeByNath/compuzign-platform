@@ -1,60 +1,48 @@
-# Single Visible Tier Permanent Focus
+# Single Visible Tier Permanent Focus + Recommendation Polish
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **READY FOR CLAUDE**
 - Auditor verdict: **Proceed with safeguards**.
-- Source push: **done**. Production `main` is `7ffd3e4b41e11eb8c5ae95694bd4bf7085152e7f` (tree `771639952fce7e092d2e5e64af5b73ccab141acb`), a clean fast-forward from `2c2c83e2096872b2847300afef307ffe27441af8` — exactly the approved candidate, unchanged.
-- Deploy `34598333341` (`Deploy to Hostinger`): **attempt 1 failed, attempt 2 succeeded**. The change is now genuinely on the live site.
-- Review branch `lone-tier-active-customer-group`: removed (local and remote). Remote now contains only `main` and `Project-work-instructions`.
+- Production `main`: `7ffd3e4b41e11eb8c5ae95694bd4bf7085152e7f`.
+- Previous lone-in-active-group fix is deployed and remains accepted. Do not reopen it unless these changes prove a real regression.
 
-## Accepted rule
-If the active customer group has exactly one normal Tier occupant, that Tier's focused shell has no X and the customer-group tabs remain visible, whether focus was entered automatically or through View Plan. Add-ons are not part of customer-group Tier counting.
+## Nath's live follow-up
+Use the attached live reference as the target presentation for the compact Recommendations / Upgrade CTA area. Nath temporarily proved the layout with ad-hoc CSS; implement it properly using the existing CompuZign design tokens, spacing/radius/type/button primitives and owning CSS file. Do not paste the temporary declarations blindly where a token/shared class already exists.
 
-## Audit result
-The corrected candidate satisfies the narrow rule and preserves the stated non-change boundary:
-- lone normal Tier in active customer group -> no X;
-- customer-group tabs stay visible;
-- switching customer group resolves the new group's own presentation;
-- multi-Tier active-group explicit focus keeps the ordinary X;
-- no Family/Tier-name or ID hardcoding;
-- no direct change to Cart, Upgrade, Add-ons, quote mutation, pricing, Commercial Legs, or Plan Details.
+### 1. Compact Recommendations shell
+For `.cz-cost-builder__recommendations-shell--compact` achieve the demonstrated result:
+- centered compact content;
+- vertically and horizontally centered;
+- content-sized height rather than a tall empty panel;
+- generous token-based padding approximately matching the demonstrated 44px intent;
+- headings/copy occupy the available row width and are centered;
+- add a little extra vertical separation below the `Upgrade your build` heading.
 
-The earlier block is resolved. Production itself does not provide a direct X-to-Recommendations return: the existing X clears staged context and lands on comparison. Therefore the candidate does not remove an existing return capability. A direct focused-shell return to Recommendations would be a separate enhancement.
+Keep responsive behavior sound; no fixed height.
+
+### 2. `Maybe next time` secondary button
+`Browse Catalogue` remains the primary filled action.
+
+`Maybe next time` must use the platform's existing **secondary Tier choose** button treatment (`.cz-cost-builder__tier-choose` / its established equivalent), not a bespoke copied border/button declaration. Reuse the actual shared class/style contract so hover/focus/disabled behavior stays consistent.
+
+### 3. Recommendation chevrons
+Hide the top recommendation carousel chevrons when there is **nothing to scroll to**. Their visibility must derive from actual overflow/available recommendation destinations, not Family names or CSS-only hiding. If content later becomes scrollable, controls must appear normally.
+
+### 4. Gap before compact Add-on/Recommendations shell
+Increase the spacing between the selected Tier card and the compact Add-on/Recommendations shell to match the live reference. Use the existing spacing tokens/layout owner; do not add arbitrary margins to individual cards if the parent grid/gap owns this relationship.
+
+### 5. Refresh must not kill Upgrade CTA
+Live defect: after Add to Quote produces the pending `Upgrade your build` CTA, a page refresh can restore the quoted/staged Tier but lose the CTA.
+
+Current source seeds `stagedTierId` from `selectedTierId`, while `upgradeGateTierId` / `upgradeGateStage` start null. Fix mount/reload parity using the same authoritative facts already used for Upgrade eligibility. If a restored quoted primary has an eligible Upgrade catalogue and no committed composable line, the pending CTA must be restored. `Maybe next time` remains an in-session dismissal; do not invent persistent browser storage or a second eligibility rule.
 
 ## Must preserve
-Existing globally-lone behavior; customer-group switching; exact Tier/Edition identity and reload parity; Cart/Upgrade/Add-on behavior; quote mutation; pricing/Legs; multi-Tier X behavior.
+Lone-group no-X/tabs behavior; selected Tier/Add-on identity; Upgrade Browse Catalogue flow; Maybe next time semantics; Cart suppression while Upgrade CTA/browsing is active; Add-on + Cart behavior once Upgrade is skipped; quote/composable mutation; pricing/Legs; responsive layout.
 
-## Must not change in this round
-Do not add a new back control, redesign All Plans, alter Add-on architecture, or change Cart/Upgrade gating.
+## Must not substitute
+No Family/Tier hardcoding. No inline styles. No copied duplicate button system. No fixed-height shell. No always-hidden chevrons. No localStorage/sessionStorage navigation persistence.
 
-## Next action
-The approved source candidate is `7ffd3e4b41e11eb8c5ae95694bd4bf7085152e7f` unchanged. After it reaches production, record the exact resulting `main` SHA and deployment evidence here, set **AWAITING LIVE VALIDATION**, and stop for auditor live validation.
+## Claude
+Audit the current owners first (`FamilyTierAdapter.tsx`, `PricingTiers.tsx`, `resources/css/modules/cost-builder.css`, relevant Upgrade/navigation regressions and Code Maps), then implement this as one narrow follow-up on a clean review branch from current `main`.
 
-## Production push and deployment evidence
-
-**Source push: succeeded.** `main` fast-forwarded from `2c2c83e2096872b2847300afef307ffe27441af8` to `7ffd3e4b41e11eb8c5ae95694bd4bf7085152e7f`, tree `771639952fce7e092d2e5e64af5b73ccab141acb`, commit subject "Lock the focused shell X when a Tier is lone in the active customer group". SHA and tree match the approved record exactly; no rebase, no amend, nothing added on the way in.
-
-**Deployment: succeeded on attempt 2.** GitHub Actions run `34598333341` (`Deploy to Hostinger`, `.github/workflows/deploy.yml`, run number 1011, event `push`) for head SHA `7ffd3e4b`:
-
-| Step | Attempt 1 | Attempt 2 |
-|---|---|---|
-| 4 Checkout repository | success | success |
-| 5 Setup Node.js | success | success |
-| 6 Install frontend dependencies | success | success |
-| 7 Build frontend assets | success | success |
-| **8 Deploy source via SSH** | **failure** | success |
-| **9 Deploy built dist assets via SCP** | **skipped** | success |
-| Job `deploy` conclusion | **failure** | **success** |
-
-Attempt 1 failed in the host-transfer step (`appleboy/ssh-action`), which also skipped the `dist` upload — so after attempt 1 neither source nor built assets had reached the host and live was still the old `2c2c83e2` build. A re-run (attempt 2) completed green end to end, including **both** transfer steps, so source and built assets are now genuinely on the live host.
-
-**On the attempt-1 failure:** root cause was never established — run logs return HTTP 403 unauthenticated and `gh` is not installed in this environment, so the failing step's output could not be read, and no cause is claimed here. What is on record: every CI build step passed on both attempts (consistent with the green local `tsc`/`build` above), the failure sat purely in host transfer, the previous seven deploys on `main` were all green, and an unchanged re-run of the same commit succeeded. That pattern is consistent with a transient host/SSH condition and inconsistent with anything in this candidate, but it is **not proof** — if `Deploy to Hostinger` fails again on an unrelated commit, treat it as its own infrastructure work item rather than re-opening this one.
-
-## Live validation — what to exercise
-
-The Family shape that matters is **one normal Tier occupant visible in the active customer group, with at least one more normal Tier in the other group**. Worth checking:
-1. that lone Tier's focused shell shows **no X**, before and after Add to Quote;
-2. the **customer-group tabs stay visible** on it, and switching group lands on the other group's own presentation;
-3. reaching the same Tier through **View Plan** (explicit focus) also shows no X and keeps the tabs — this is the case the second audit pass added;
-4. a customer group holding **two or more** normal Tiers still gets the **ordinary X** on explicit focus, and its tabs behave as before;
-5. Cart, Add-ons, Upgrade, Editions, Plan Details and pricing all unchanged throughout.
+Add mounted regression coverage for CTA reload parity and chevron visibility logic where practical; preserve existing Upgrade/Cart/Add-on regressions. Run focused tests, TypeScript/build/docs, record exact SHA/tree/files/evidence here, set **AWAITING CHATGPT REVIEW**, and stop. Do not push `main`.
