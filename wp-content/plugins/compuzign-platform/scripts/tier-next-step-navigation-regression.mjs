@@ -1,6 +1,8 @@
 // Tier Add-to-Quote next-step navigation
 // (project-work/2026-09-11-single-occupant-focused-after-quote.md, refined
-// rule).
+// rule; project-work/2026-09-11-upgrade-cta-cart-suppression.md narrowed the
+// 'recommendations' row below to also hide the Cart specifically while the
+// Upgrade CTA is on screen).
 //
 // Nath's authoritative rule:
 //   a successful Add to Quote from a normal Tier card OR a normal Tier
@@ -17,9 +19,11 @@
 //   focused_inspection an EXPLICITLY opened Tier/Add-on
 //                      shell (Choose Plan / View Plan)      Cart suppressed
 //   upgrade_browsing   the composable catalogue workspace   Cart suppressed
-//   recommendations    staged add-ons and/or the pending
-//                      Upgrade CTA — an intermediate step,
-//                      not a focused workspace              Cart eligible
+//   recommendations    staged add-ons — Cart eligible;
+//                      the PENDING Upgrade CTA itself
+//                      (Browse Catalogue / Maybe next
+//                      time on screen) — Cart suppressed,
+//                      narrower than the step as a whole    see above
 //   cart               Tier step complete, nothing stands
 //                      between that Tier and the Cart       Cart eligible
 //
@@ -436,7 +440,15 @@ await click(buttonWithText('Add to Quote'));
   check(v.addedMarker, 'and still reads as Added');
 }
 
-// ── 7. Upgrade-only: pending CTA is an intermediate step, not a workspace ─
+// ── 7. Upgrade-only: the CTA itself hides the Cart (2026-09-11 follow-up) ─
+//
+// project-work/2026-09-11-upgrade-cta-cart-suppression.md narrows the
+// previous round's rule: while Browse Catalogue / Maybe next time is
+// actually on screen, the Cart is hidden — even though 'recommendations' is
+// still an intermediate step, not upgrade_browsing itself. Dismissing the
+// CTA (Maybe next time, tested at the end of this section) returns the Cart
+// without ever touching add-on-only Recommendations, which never renders
+// this CTA in the first place (section 5 above already covers that case).
 
 mount(catalogueFamily);
 await settle();
@@ -446,7 +458,22 @@ await click(buttonWithText('Add to Quote'));
   check(v.staged, 'catalogue: quoting lands in Recommendations');
   check(v.upgradeCta, 'catalogue: with the pending Upgrade your build CTA');
   check(!v.focusedShell, 'catalogue: pending is not a focused shell');
-  check(v.cartVisible, 'recommendations: the PENDING Upgrade CTA is an intermediate step — it must not suppress the Cart the way browsing does');
+  check(!v.cartVisible, 'catalogue: while the Upgrade CTA (Browse Catalogue / Maybe next time) is actually on screen, the Cart is hidden');
+}
+await click(buttonWithText('Maybe next time'));
+{
+  const v = view();
+  check(v.staged && !v.upgradeCta, 'catalogue: Maybe next time dismisses the CTA, back to ordinary Recommendations');
+  check(v.cartVisible, 'catalogue: and the Cart returns once the CTA is gone');
+}
+// Re-quote the same catalogue-only path so section 8 below starts from the
+// CTA-visible state again.
+mount(catalogueFamily);
+await settle();
+await click(buttonWithText('Add to Quote'));
+{
+  const v = view();
+  check(v.upgradeCta && !v.cartVisible, 'catalogue: fresh cycle — CTA visible, Cart hidden, ready for the browsing transition below');
 }
 
 // ── 8. Browsing IS the focused workspace, and hides the Cart ─────────────
@@ -456,7 +483,7 @@ await click(buttonWithText('Browse Catalogue'));
   const v = view();
   check(!v.staged, 'browsing: the catalogue workspace replaces Recommendations rather than stacking under it');
   check(v.focusedName === 'Upgrade your build', `browsing: the composable focused shell is open (got ${v.focusedName})`);
-  check(!v.cartVisible, 'upgrade_browsing: the catalogue workspace suppresses the Cart');
+  check(!v.cartVisible, 'upgrade_browsing: the catalogue workspace suppresses the Cart (continuous with the CTA state above — the Cart never flickers visible in between)');
   check(fetchCalls.length === 0, 'browsing: opening the workspace performs no preview request of its own');
 }
 await click(container.querySelector('.cz-package-builder__focused-close'));
@@ -476,7 +503,7 @@ await click(buttonWithText('Add to Quote'));
   const v = view();
   check(v.staged && v.upgradeCta, 'add-ons + catalogue: Recommendations remains the intermediate step, with the CTA');
   check(!v.html.includes('Backup Add-on'), 'add-ons step aside while the CTA is being offered — the existing presentation rule');
-  check(v.cartVisible, 'and the Cart is visible through that step');
+  check(!v.cartVisible, 'add-ons + catalogue: while the CTA is on screen the Cart is hidden here too, same as the catalogue-only case');
 }
 await click(buttonWithText('Maybe next time'));
 {

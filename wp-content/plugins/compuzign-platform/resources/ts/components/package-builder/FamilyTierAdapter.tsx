@@ -1016,13 +1016,9 @@ export function FamilyTierAdapter({
   //                        only this — is the focused Upgrade surface.
   //   'recommendations'    the staged add-on choices and/or the PENDING
   //                        Upgrade CTA. An intermediate step in the flow,
-  //                        not a focused workspace: it never suppressed the
-  //                        Cart for add-ons, and now does not for the
-  //                        pending CTA either. That conflation of 'pending'
-  //                        with 'browsing' was the reason the Cart appeared
-  //                        and disappeared between two states of the SAME
-  //                        Recommendations view (CTA shown vs "Maybe next
-  //                        time" taken).
+  //                        not a focused workspace, so it does not suppress
+  //                        the Cart on its own — add-on-only Recommendations
+  //                        keeps showing it exactly as before.
   //   'cart'               the Tier step is complete and nothing stands
   //                        between that Tier and the Cart. The implicit
   //                        shell may still be standing (a lone occupant has
@@ -1041,9 +1037,21 @@ export function FamilyTierAdapter({
           : selectedTierId !== null
             ? 'cart'
             : 'tier_comparison';
+  // 2026-09-11 follow-up refinement (project-work/2026-09-11-upgrade-cta-
+  // cart-suppression.md): while the Upgrade your build CTA itself is on
+  // screen — the exact `upgradeGateActive === 'pending'` condition that
+  // renders it below (recommendationsCta) — the Cart is hidden too. This is
+  // narrower than 'recommendations' as a whole: an add-on-only
+  // Recommendations view (no catalogue, hasCatalogue false, upgradeGateActive
+  // stays null) is completely unaffected, and 'pending' is still distinct
+  // from 'upgrade_browsing' above — dismissing via "Maybe next time" or
+  // exiting Browse Catalogue both land back on ordinary Recommendations,
+  // where quoteSuppressed is false again.
+  const upgradeCtaVisible = resolvedStep === 'recommendations' && upgradeGateActive === 'pending';
   const quoteSuppressed = resolvedStep === 'tier_landing'
     || resolvedStep === 'focused_inspection'
-    || resolvedStep === 'upgrade_browsing';
+    || resolvedStep === 'upgrade_browsing'
+    || upgradeCtaVisible;
   useEffect(() => {
     onQuoteSuppressedChange(quoteSuppressed);
     // onQuoteSuppressedChange is PackageBuilderApp's raw useState setter, a
