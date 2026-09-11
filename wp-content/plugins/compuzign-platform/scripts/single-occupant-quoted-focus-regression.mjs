@@ -1,10 +1,16 @@
 // Single occupant focused state after quote
 // (project-work/2026-09-11-single-occupant-focused-after-quote.md).
 //
-// Nath's rule:
-//   single occupant + NOT yet quoted -> the focused shell IS the landing;
-//   single occupant + already quoted -> no implicit focus; the normal quoted
-//   card + Cart, with View Plan as the explicit way back into the shell.
+// Nath's rule, as accepted live:
+//   single occupant + NOT yet quoted -> the focused shell IS the landing,
+//     locked (no X), Cart suppressed;
+//   globally lone occupant + quoted -> the SAME shell stays, still with no
+//     X, and the Cart appears alongside it.
+// Cart visibility itself is now resolved from the navigation step rather
+// than from lone-Family qualification — see
+// tier-next-step-navigation-regression.mjs, which owns that matrix; this
+// script stays focused on WHICH SHELL a single occupant gets and whether its
+// X exists and works.
 //
 // This mounts the REAL FamilyTierAdapter through happy-dom + Preact's own
 // render(), bundled with vite's own esbuild. That matters more here than
@@ -415,8 +421,17 @@ await click(buttonWithText('Add to Quote'));
   const v = view();
   check(v.closeX,
     'a cross-audience Family is NOT globally lone: once quoted, the ordinary sticky X returns — the lone-occupant lock must not activate from a single VISIBLE Tier');
-  check(!v.cartVisible,
-    'and the Cart stays suppressed while that shell is open, exactly as before this work');
+  // Refined rule (2026-09-11, "Nath's authoritative navigation rule" in the
+  // same work file): Cart visibility follows the RESOLVED NEXT STEP, not
+  // whether the Family is globally lone. This Family has no add-ons and no
+  // Upgrade catalogue, so nothing stages and nothing stands between this
+  // Tier and the Cart — the Cart is visible beside the shell even though the
+  // shell keeps its X. Whether the X is offered (a destination exists behind
+  // it) and whether the Cart is eligible (no intermediate step) are two
+  // different questions; this case is exactly where they diverge. See
+  // tier-next-step-navigation-regression.mjs for the full step matrix.
+  check(v.cartVisible,
+    'and the Cart IS visible beside that shell: no intermediate step stands between this quoted Tier and the Cart');
 }
 // The X must actually WORK, not merely be rendered (auditor correction,
 // 2026-09-11). This view is reached through the implicit fallback, so
@@ -490,7 +505,11 @@ await click(buttonWithText('Add to Quote'));
   const v = view();
   check(v.closeX,
     'an add-on in another audience group also disqualifies the Family: the ordinary sticky X returns once quoted');
-  check(!v.cartVisible, 'and the Cart stays suppressed while that shell is open');
+  // Same refined rule as 10a: the hidden add-on belongs to the OTHER
+  // audience group, so it never stages here — Recommendations is not the
+  // next step, the Cart is.
+  check(v.cartVisible,
+    'and the Cart is visible beside that shell, because no intermediate step was resolved for the active group');
 }
 await click(container.querySelector('.cz-package-builder__focused-close'));
 {

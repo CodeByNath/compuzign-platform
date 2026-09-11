@@ -379,6 +379,17 @@ interface PricingTiersProps {
   // uncontrolled as before, which is what Cost Builder keeps doing and what
   // every card gets pre-quote.
   quotedTierEditionPlatformId?: string | null;
+  // Package Builder only. Each quoted ADD-ON's own tierEditionPlatformId,
+  // keyed by its Tier id — the same fact quotedTierEditionPlatformId above
+  // carries for the single primary, generalized to the several add-ons that
+  // can be quoted at once, each with its own Edition. Applied exactly the
+  // same way: as that card's own existing selectedEditionId control, never a
+  // second projection of price/inclusions. A Tier with no entry stays
+  // uncontrolled (unquoted add-on, and every Cost Builder card), which is
+  // why an absent entry must stay distinguishable from a present `null` —
+  // `null` is the real identity of an add-on quoted on its Default
+  // declaration.
+  quotedAddonEditionPlatformIds?: ReadonlyMap<TierId, string | null>;
   // Package Builder only. Places the Recommendations area beside the Tier
   // strip instead of below it — used once a Tier is selected and the strip
   // has been narrowed to that one Tier. Cost Builder passes nothing and keeps
@@ -864,6 +875,7 @@ export function PricingTiers({
   onToggleAddon,
   onChoosePlan,
   quotedTierEditionPlatformId,
+  quotedAddonEditionPlatformIds,
   recommendationsAside = false,
   recommendationsCta,
   hideAddonsInRecommendations = false,
@@ -893,6 +905,18 @@ export function PricingTiers({
       isActive={selectedAddonTierIds.includes(tier.id)}
       billingCycle={billingCycle}
       addedLabel="✓ Added"
+      // This quoted add-on's own Default/Edition, resolved by Platform ID
+      // match against ITS OWN edition_options — the identical mechanism the
+      // quoted primary's card uses below, so a quoted add-on card presents
+      // the exact Edition the Cart holds (name, price, inclusions) and its
+      // View Plan route reopens that same Edition. An add-on with no quoted
+      // line resolves undefined here and stays fully uncontrolled, exactly
+      // as before; Cost Builder supplies nothing and is untouched.
+      selectedEditionId={quotedAddonEditionPlatformIds?.has(tier.id)
+        ? pricing.tiers[tier.id]?.edition_options?.find(
+            (edition) => edition.edition_platform_id === quotedAddonEditionPlatformIds.get(tier.id),
+          )?.id ?? null
+        : undefined}
       // Primary quick-sale action — always present, regardless of whether
       // Choose Plan (below) is also offered. Live-validated requirement:
       // Add to Quote must stay the card's visible primary CTA.

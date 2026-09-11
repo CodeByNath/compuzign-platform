@@ -50,11 +50,10 @@ Family only ever changes the `family` prop. Because `TierId` is a shared
 enum across every Family, a same-id Tier the new Family occupies passes
 `visibleTiers`' filter, so a stale focused Tier id would resolve non-null.
 One it does not occupy cannot pass: membership resolves before the audience
-question. A `useEffect` keyed on `family.family_id`
-inside `FamilyTierAdapter.tsx` clears the focused Tier, focused Edition,
-selected Period override, hovered Leg, and Plan Details target — returning
-to that Family's own normal Tier-card view instead of silently reopening
-the new Family's data at the same focused level.
+question. A `useEffect` keyed on `family.family_id` clears the focused Tier,
+focused Edition, Period override, hovered Leg, and Plan Details target —
+returning to that Family's own card view rather than reopening the new
+Family's data at the same focused level.
 
 ## Composable ("Build Your Own") occupant enters this same shell
 
@@ -69,18 +68,19 @@ Catalogue" opens `ComposableOfferBrowser` inside this same
 the composable occupant's own `edition_options`
 (`family.pricing.composable_offer`), never the primary's, with `showLabels`
 set (a normal Tier's cue stays dots-only).
-`UpgradeBuildSummary` occupies the right card slot in place of `TierCard`.
-Add to Quote inside it (`dismissUpgradeGate`) rejoins that staged view.
-Cart and the CTA share the one `upgradeGateActive` boolean
-`FamilyTierAdapter` reports up.
+`UpgradeBuildSummary` occupies the right card slot in place of `TierCard`,
+and Add to Quote there (`dismissUpgradeGate`) rejoins the staged view.
+`upgradeGateActive` separates the `pending` CTA from the `browsing`
+workspace; [Package Builder Tier Navigation and Cart
+Eligibility](package-builder-tier-navigation.md) owns which of them the Cart
+may coexist with.
 
 ## Known limitation
 
 Weekly/Daily `billing_cycle` values are selectable in the admin Pricing
-Rules editors and reach `commercial_legs`, but the customer-facing
-cadence-word/suffix maps in `PricingTiers.tsx`,
-`commercialLegPresentation.ts`, and `PlanDetailsModal.tsx` have none,
-falling back to a neutral label/no suffix. `periodPriceOverride()`
+Rules editors and reach `commercial_legs`, but the cadence-word/suffix maps
+in `PricingTiers.tsx`, `commercialLegPresentation.ts`, and
+`PlanDetailsModal.tsx` have none, falling back to a neutral label. `periodPriceOverride()`
 is broader than its name suggests (also supplies a Period's inclusion
 list, not only price).
 
@@ -98,5 +98,6 @@ list, not only price).
 ## Related Code Maps
 
 [Commercial Legs](commercial-legs.md), [Cost Builder](cost-builder.md),
-[Tier Edition](tier-edition.md), [Plan Details](plan-details.md), and
-[Composable Tier Occupant — Customer UX](tier-composable-occupant-customer-ux.md).
+[Tier Edition](tier-edition.md), [Plan Details](plan-details.md),
+[Package Builder Tier Navigation and Cart Eligibility](package-builder-tier-navigation.md),
+and [Composable Tier Occupant — Customer UX](tier-composable-occupant-customer-ux.md).

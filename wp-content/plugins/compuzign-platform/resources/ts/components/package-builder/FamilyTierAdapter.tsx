@@ -664,15 +664,25 @@ export function FamilyTierAdapter({
   // have Add-ons" is answered by the Tier System offering any at all.
   const normalTiers = visibleTiers.filter((tier) => family.pricing.tiers[tier.id] && !family.pricing.tiers[tier.id]?.is_addon);
   const addonTiers = visibleTiers.filter((tier) => family.pricing.tiers[tier.id]?.is_addon);
-  // Tier-level presence only — the outer/unfocused add-on card's own
-  // "Added" state stays exactly as it already was (unchanged scope this
-  // phase); selectedAddonItems above is what the FOCUSED shell reads for
-  // Tier+Edition exactness.
+  // Tier-level presence only — this is what drives an add-on card's own
+  // Added/removal state, exactly as before.
   // An Add-on item's own tierId is always one of the five fixed Tier ids —
   // isAddon and isComposable are mutually exclusive roles (resolveQuoteItemRole()
   // in utils/quote.ts) — so this cast reflects a runtime-true fact about
   // selectedAddonItems' own contents, not a widening of what's accepted here.
   const selectedAddonTierIds = selectedAddonItems.map((item) => item.tierId as TierId);
+  // Each quoted Add-on's own EXACT Edition identity (2026-09-11 refinement,
+  // safeguard 4). Tier-level presence alone left the returning add-on card
+  // presenting its Default declaration while the Cart held an Edition — the
+  // same identity drift the primary's own quotedTierEditionPlatformId
+  // already fixed for normal cards, and the same one
+  // implicitQuotedEditionId fixes inside the focused shell. A Map (not a
+  // record) so an absent entry stays genuinely absent: an unquoted add-on
+  // card must remain uncontrolled, while a quoted one holding the Tier's
+  // Default declaration is a real `null` value.
+  const quotedAddonEditionPlatformIds = new Map<TierId, string | null>(
+    selectedAddonItems.map((item) => [item.tierId as TierId, item.tierEditionPlatformId ?? null]),
+  );
 
   // The selected-Tier view both Add to Quote entry points land in: the chosen
   // Tier alone, with its Add-ons revealed. Derived against the live selection
@@ -683,7 +693,25 @@ export function FamilyTierAdapter({
   // restores the cart synchronously before first render — lands back in this
   // view instead of the full comparison strip.
   const [stagedTierId, setStagedTierId] = useState<TierId | null>(selectedTierId);
-  const stagedTier = stagedTierId !== null && stagedTierId === selectedTierId
+  // Whether this Family/Tier has anything to offer BETWEEN Add to Quote and
+  // the Cart — add-on Tiers to choose from, or a real Upgrade Your Build
+  // catalogue (Phase 1's shared eligibility truth). Resolved once, here, and
+  // read by both commitSelection() below (which decides whether to stage at
+  // all) and stagedTier's own validity directly beneath.
+  //
+  // Reload parity (2026-09-11 refinement, safeguard 3): stagedTierId is
+  // SEEDED from selectedTierId so a page reload — which restores the cart
+  // synchronously before first render — lands back where the customer left
+  // off. But that seed carries no knowledge of whether staging was ever
+  // appropriate: a Family with nothing to recommend never stages in session
+  // (commitSelection sets null), yet mounted from a restored cart it would
+  // resolve a non-null stagedTier and present the staged/small-card view the
+  // in-session transition never produces. Requiring the same content fact
+  // here is what makes mount and in-session resolve to the identical
+  // presentation, without a second seeding rule to keep in sync.
+  const hasRecommendationContent = addonTiers.length > 0
+    || resolveComposableEligibleRows(family).length > 0;
+  const stagedTier = stagedTierId !== null && stagedTierId === selectedTierId && hasRecommendationContent
     ? normalTiers.find((tier) => tier.id === stagedTierId) ?? null
     : null;
 
@@ -907,6 +935,30 @@ export function FamilyTierAdapter({
   // ordinary sticky X.
   const isLockedSingleTierLanding = isImplicitSingleTierView
     && (!singleTierIsQuoted || familyOffersNothingElse);
+  // The Default/Edition the implicit shell must present (2026-09-11
+  // refinement, safeguard 2). A quoted Tier that STAYS focused has to keep
+  // showing the exact Default/Edition the Cart holds — anything else is a
+  // silent identity drift: the shell would read as Default while the quote
+  // holds an Edition, and clicking its own action would then re-quote
+  // Default rather than remove the line the customer is looking at.
+  //
+  // Derived, not stored, for two reasons. commitSelection() clears
+  // focusedEditionId (the explicit shell is genuinely closing), so in-session
+  // there is nothing left to read; and a restored-cart mount never had a
+  // focusedEditionId at all — one derivation covers both, which is exactly
+  // the mount/in-session parity safeguard 3 asks for. Explicit focus is
+  // untouched: focusedEditionId is the customer's own live selection there,
+  // and inside the implicit view a null focusedEditionId can only mean
+  // "never touched" (selectVariant sets focusedTierId, which makes the view
+  // explicit from that click onward).
+  const implicitQuotedEditionId = isImplicitSingleTierView && singleTierIsQuoted && effectiveFocusedTierId !== null
+    ? family.pricing.tiers[effectiveFocusedTierId]?.edition_options?.find(
+        (option) => option.edition_platform_id === selectedTierEditionPlatformId,
+      )?.id ?? null
+    : null;
+  const effectiveFocusedEditionId = isImplicitSingleTierView
+    ? focusedEditionId ?? implicitQuotedEditionId
+    : focusedEditionId;
 
   // Composable-focused-shell reuse: which Default/Edition of the composable
   // occupant's OWN declaration (family.pricing.composable_offer) is active
@@ -935,25 +987,71 @@ export function FamilyTierAdapter({
     return () => window.removeEventListener('scroll', onScroll);
   }, [effectiveFocusedTierId, upgradeGateActive]);
 
-  // The one focused shell that COEXISTS with the Cart: a lone occupant's
-  // permanent landing, once that occupant is actually quoted. Everything else
-  // — an explicit Choose Plan/View Plan shell, composable browsing, the
-  // Upgrade gate, and the lone landing while still UNQUOTED (nothing is in
-  // the cart for this Family yet anyway) — keeps suppressing the Cart exactly
-  // as before.
-  const focusedShellPermitsQuote = isImplicitSingleTierView
-    && singleTierIsQuoted
-    && familyOffersNothingElse
-    && upgradeGateActive === null;
-  const focusedShellOpen = effectiveFocusedTierId !== null || upgradeGateActive !== null;
+  // ── Resolved navigation step ────────────────────────────────────────────
+  //
+  // Nath's authoritative rule (2026-09-11 refinement): a successful Add to
+  // Quote from a normal Tier card OR a normal Tier focused shell completes
+  // the Tier-selection step, and the Cart becomes visible only when there is
+  // no intermediate customer step between that Tier and the Cart.
+  //
+  // So Cart eligibility is read off ONE resolved step rather than from a
+  // list of per-shell exceptions (the previous revision special-cased the
+  // globally-lone Family alone) and never from a persistent showCart flag —
+  // the parent still multiplies this by the quote's actual contents
+  // (`items.length > 0`), so an empty quote shows nothing regardless.
+  //
+  // The order below mirrors the render branches at the bottom of this
+  // component exactly, so the step named here is always the view that
+  // actually renders:
+  //
+  //   'tier_comparison'    the plain card grid — nothing is focused and
+  //                        nothing is staged.
+  //   'tier_landing'       the implicit single-Tier landing while the Tier
+  //                        step is NOT yet complete (not quoted). The
+  //                        customer is still choosing.
+  //   'focused_inspection' an EXPLICITLY opened Tier/Add-on shell (Choose
+  //                        Plan / View Plan). Inspection is a detour off the
+  //                        flow, so it keeps suppressing the Cart.
+  //   'upgrade_browsing'   the composable catalogue workspace. This — and
+  //                        only this — is the focused Upgrade surface.
+  //   'recommendations'    the staged add-on choices and/or the PENDING
+  //                        Upgrade CTA. An intermediate step in the flow,
+  //                        not a focused workspace: it never suppressed the
+  //                        Cart for add-ons, and now does not for the
+  //                        pending CTA either. That conflation of 'pending'
+  //                        with 'browsing' was the reason the Cart appeared
+  //                        and disappeared between two states of the SAME
+  //                        Recommendations view (CTA shown vs "Maybe next
+  //                        time" taken).
+  //   'cart'               the Tier step is complete and nothing stands
+  //                        between that Tier and the Cart. The implicit
+  //                        shell may still be standing (a lone occupant has
+  //                        nowhere else to go, and a cross-audience single
+  //                        visible Tier keeps its own X) — the Cart simply
+  //                        appears beside it.
+  const resolvedStep: 'tier_comparison' | 'tier_landing' | 'focused_inspection' | 'upgrade_browsing' | 'recommendations' | 'cart' =
+    focusedTier !== null
+      ? (isImplicitSingleTierView
+        ? (singleTierIsQuoted ? 'cart' : 'tier_landing')
+        : 'focused_inspection')
+      : upgradeGateActive === 'browsing'
+        ? 'upgrade_browsing'
+        : stagedTier !== null
+          ? 'recommendations'
+          : selectedTierId !== null
+            ? 'cart'
+            : 'tier_comparison';
+  const quoteSuppressed = resolvedStep === 'tier_landing'
+    || resolvedStep === 'focused_inspection'
+    || resolvedStep === 'upgrade_browsing';
   useEffect(() => {
-    onQuoteSuppressedChange(focusedShellOpen && !focusedShellPermitsQuote);
+    onQuoteSuppressedChange(quoteSuppressed);
     // onQuoteSuppressedChange is PackageBuilderApp's raw useState setter, a
     // stable identity by React/Preact guarantee (no useCallback needed);
     // omitted from deps so a caller re-render can never spuriously re-fire
     // this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedShellOpen, focusedShellPermitsQuote]);
+  }, [quoteSuppressed]);
 
   // Genuine reset of a stale dismissal, keyed on the EXTERNALLY owned primary
   // identity — the cart line lives in PackageBuilderApp, so the primary can
@@ -1144,8 +1242,11 @@ export function FamilyTierAdapter({
     // eligibility truth) — either alone is enough content for that view;
     // a catalogue-only Family (no add-on Tiers at all) must still stage,
     // since the CTA itself lives inside Recommendations, not a separate view.
+    // hasRecommendationContent is that same fact, resolved once above and
+    // shared with stagedTier's own validity so an in-session commit and a
+    // restored-cart mount can never disagree about whether staging applies.
     const hasCatalogue = resolveComposableEligibleRows(family).length > 0;
-    setStagedTierId(addonTiers.length > 0 || hasCatalogue ? tierId : null);
+    setStagedTierId(hasRecommendationContent ? tierId : null);
     // The gate takes priority over the Recommendations/staged view above —
     // it is shown first, immediately after Add to Quote, whenever this
     // Family/Tier has a real Upgrade Your Build catalogue at all. stagedTierId
@@ -1231,7 +1332,7 @@ export function FamilyTierAdapter({
     // Period whenever selectedPeriodFromMonth doesn't (yet, or no longer)
     // match one, which is exactly the state right after selectVariant seeds
     // it and covers the first render with no separate effect needed.
-    const activePeriods = periodsForVariant(family, focusedTier.id, focusedEditionId);
+    const activePeriods = periodsForVariant(family, focusedTier.id, effectiveFocusedEditionId);
     const selectedPeriod = activePeriods.find((period) => period.from_month === selectedPeriodFromMonth)
       ?? activePeriods[0]
       ?? null;
@@ -1246,9 +1347,9 @@ export function FamilyTierAdapter({
     //   from_month/to_month.
     // - Plan billing: only AVAILABLE components (availableComponents()),
     //   first-seen billing-cycle order, never merged/summed/headline-only.
-    const focusedDeclaredEffective = resolveEffectiveTierDisplay(focusedData, '', focusedEditionId);
+    const focusedDeclaredEffective = resolveEffectiveTierDisplay(focusedData, '', effectiveFocusedEditionId);
     // Phase 2: exact quote identity is Tier + Edition Platform ID (or null
-    // for Default), never Tier alone — focusedEditionId is only a selector
+    // for Default), never Tier alone — the focused Edition is only a selector
     // key (never a Platform ID, per PricingEditionOption.id), so the
     // comparison reads the currently-viewed variant's own RESOLVED
     // edition_platform_id here, the same field itemFor() below already
@@ -1423,7 +1524,7 @@ export function FamilyTierAdapter({
               wired in a later phase. */}
           <EditionCueSelector
             destinations={[{ id: null, label: 'Default' }, ...focusedEditionOptions.map((edition) => ({ id: edition.id, label: edition.label }))]}
-            activeId={focusedEditionId}
+            activeId={effectiveFocusedEditionId}
             onSelect={(editionId) => selectVariant(focusedTier.id, editionId)}
           />
           <div class="cz-package-builder__terms">
@@ -1564,7 +1665,7 @@ export function FamilyTierAdapter({
                   const platformId = focusedDeclaredEffective.selectedEdition?.edition_platform_id
                     ?? focusedData?.tier_platform_id
                     ?? focusedTier.id;
-                  setPlanDetailsTarget({ tierId: focusedTier.id, editionId: focusedEditionId, platformId });
+                  setPlanDetailsTarget({ tierId: focusedTier.id, editionId: effectiveFocusedEditionId, platformId });
                   setPlanDetailsOpenGeneration((generation) => generation + 1);
                 }}
               >
@@ -1591,7 +1692,7 @@ export function FamilyTierAdapter({
               // through selectVariant (not setFocusedEditionId directly) so
               // the card's own chip also resets the Period selection to the
               // newly active variant's own timeline, same as the tab row.
-              selectedEditionId={focusedEditionId}
+              selectedEditionId={effectiveFocusedEditionId}
               onEditionChange={(editionId) => selectVariant(focusedTier.id, editionId)}
               // The selected Commercial Period's own resolved price/cycle/
               // inclusions, substituted in for the card's flat declaration —
@@ -1820,6 +1921,10 @@ export function FamilyTierAdapter({
           // expansion, etc. — all already resolved inside TierCard's own
           // resolveEffectiveTierDisplay()), rather than always its Default.
           quotedTierEditionPlatformId={selectedTierEditionPlatformId}
+          // Safeguard 4: the same steering, per quoted Add-on — so an
+          // add-on card returning from its own focused shell presents the
+          // exact Edition the Cart holds rather than its Default.
+          quotedAddonEditionPlatformIds={quotedAddonEditionPlatformIds}
           // The CTA card above, and whether it should stand alone in
           // Recommendations rather than sit beside the ordinary add-on
           // choices — see PricingTiers.tsx's own recommendationsShell.

@@ -214,8 +214,21 @@ check(
 const commitSelectionMatch = adapterSource.match(/const commitSelection = \([\s\S]*?\n {2}\};/);
 check(commitSelectionMatch !== null, 'commitSelection exists');
 check(
-  /setStagedTierId\(addonTiers\.length > 0 \|\| hasCatalogue \? tierId : null\);/.test(commitSelectionMatch![0]),
-  'commitSelection stages when EITHER add-on Tiers exist OR hasCatalogue — a Family with a composable catalogue but zero add-on Tiers now reaches the stagedTier/Recommendations branch instead of falling through to the plain comparison grid',
+  /setStagedTierId\(hasRecommendationContent \? tierId : null\);/.test(commitSelectionMatch![0]),
+  'commitSelection stages on hasRecommendationContent — a Family with a composable catalogue but zero add-on Tiers still reaches the stagedTier/Recommendations branch instead of falling through to the plain comparison grid',
+);
+// Refined navigation rule (2026-09-11): that same fact is what makes a
+// restored browser cart resolve to the presentation the in-session
+// transition produces. If commitSelection and stagedTier's own validity ever
+// read two different expressions again, a mount-only staged/small-card
+// divergence returns — so the definition and BOTH consumers are locked here.
+check(
+  /const hasRecommendationContent = addonTiers\.length > 0\s*\n\s*\|\| resolveComposableEligibleRows\(family\)\.length > 0;/.test(adapterSource),
+  'hasRecommendationContent is add-on Tiers OR the shared composable eligibility truth — never a second/derived catalogue test',
+);
+check(
+  /const stagedTier = stagedTierId !== null && stagedTierId === selectedTierId && hasRecommendationContent/.test(adapterSource),
+  'stagedTier validity reads that same fact, so the seeded-from-selectedTierId mount cannot stage a Family that never stages in session',
 );
 
 // ── 10. [Live correction 2026-09-10] no duplicate Upgrade CTA once an
