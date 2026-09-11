@@ -5,44 +5,47 @@
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `2c2c83e2096872b2847300afef307ffe27441af8`.
 
-## Live defect
-Nath supplied APTOS Enterprise live screenshots showing this sequence:
-1. Enterprise has one visible normal Tier -> focused shell (correct).
-2. Add to Quote with no Add-on/Upgrade step -> focused shell stays + Cart appears (correct).
-3. The shell exposes an X; dismissing it produces a one-card Tier view + Cart; reopening with View Plan hides the customer-group tabs and shows X again (wrong).
+## Nath's exact change
+Treat **lone inside the active customer group** as an addition to the existing lone-Family Tier rule.
 
-## Root cause
-Current source deliberately treats a single visible Tier as permanently locked only when the whole Family is globally lone (`familyOffersNothingElse`). A Family with another normal Tier in another audience is therefore treated as dismissible. `isLockedSingleTierLanding` depends on `familyOffersNothingElse`, while explicit `View Plan` sets `focusedTierId`, making `isImplicitSingleTierView` false; that is why the customer tabs disappear and X returns.
+If the active customer group contains exactly **one normal Tier occupant**:
+- show that Tier in the existing focused shell;
+- **hide the X**;
+- keep the customer-group tabs visible when both customer groups exist;
+- do not allow X to fall back to a one-card Tier view.
 
-The current Code Map also explicitly documents the now-wrong cross-audience rule: "X shown, Cart visible." This is not a random runtime regression; it is an architectural exception that was preserved in the last navigation round and must now be removed.
+This is the same presentation already accepted for a globally lone Family, extended to the case where the Tier is lone **within the selected customer group** even if another normal Tier exists in another customer group.
 
-## Nath's corrected invariant
-For the **currently selected customer group**, if exactly one normal Tier is visible, that Tier is the permanent presentation for that group.
+## Scope boundary
+This round is deliberately narrow. Do **not** redesign the navigation system, All Plans, Cart, Add-ons, Upgrade flow, quote behavior, or business-group architecture.
 
-- No one-card fallback for that group.
-- No X on that single-Tier focused shell, before or after quote.
-- Customer-group tabs remain visible whenever the Family has both groups available, so those tabs are the navigation away from the single Tier.
-- After Add to Quote, if there is no blocking Add-on/Upgrade workspace, the focused shell remains and Cart appears beside it.
-- Reload must preserve the same focused shell + exact quoted Edition + Cart state.
-- Switching customer group resolves that group's own presentation normally.
-
-Add-ons/Upgrade remain authoritative intermediate steps: if quoting the single visible Tier should stage Recommendations, the focused shell still yields to that existing stage exactly as today.
+Add-ons remain outside customer-group Tier counting and must not affect whether the primary Tier is lone inside the active customer group.
 
 ## Must preserve
-Resolved-step Cart model; Upgrade CTA Cart suppression; Add-on/Upgrade staging; exact quoted Tier/Edition identity; Add-on Edition identity; quote/cart mutation; pricing/Legs; Family membership; audience filtering; Plan Details.
+- existing globally lone Family behavior;
+- current customer-group filtering and switching;
+- existing focused Tier shell and Edition behavior;
+- exact quoted Tier/Edition identity and reload parity;
+- current Cart behavior;
+- current Add-on and Upgrade behavior;
+- pricing, Commercial Legs, Plan Details and quote mutation;
+- no Family/Tier-name or ID special cases.
 
 ## Must remove
-- The rule that another normal Tier in another audience makes the current single-visible Tier dismissible.
-- The one-card fallback reached by X for a group with exactly one visible normal Tier.
-- X on that single-visible Tier shell.
-- Loss of customer-group tabs when the same single-visible Tier is reopened/represented after quote.
+Only the ability for a Tier that is the sole normal Tier in the active customer group to become dismissible merely because another normal Tier exists in another customer group.
 
 ## Must not substitute
-Do not hide the customer-group tabs to achieve permanence. Do not collapse audience groups. Do not treat Family-wide occupant count as the lock criterion. Do not add persistent navigation flags or CSS-only hiding.
+Do not hide customer-group tabs. Do not collapse customer groups. Do not make Add-ons part of customer-group Tier counts. Do not add persistent navigation state or CSS-only suppression. Do not alter Cart/Upgrade/Add-on rules in this round.
 
-## Required implementation/audit scope
-Use current `main`; inspect `FamilyTierAdapter.tsx`, `single-occupant-quoted-focus-regression.mjs`, `tier-next-step-navigation-regression.mjs`, and `docs/code-map/package-builder-tier-navigation.md` / focused-shell map. Make the smallest architectural correction so **visible normal Tier count for the active audience** owns permanence, while existing Recommendations precedence still wins after quote.
+## Claude — implementation
+Start from current production `main`. Inspect the existing lone-Family logic around `singleVisibleTier`, `isImplicitSingleTierView`, `isLockedSingleTierLanding`, `familyOffersNothingElse`, customer tabs, and the relevant regressions/Code Maps.
 
-Add mounted regression coverage for: one Tier in active audience + another Tier in other audience; no X; tabs visible; Add to Quote -> focused + Cart; reload same; switching audience works; no one-card fallback; explicit interaction must not convert this permanent shell into dismissible explicit focus.
+Make the smallest generic correction so the **no-X lock applies when either**:
+1. the existing globally lone-Family rule applies; **or**
+2. the active customer group has exactly one normal Tier occupant.
 
-Create one clean review branch from current `main`, update affected Code Maps because the documented cross-audience rule changes, run focused regressions + TypeScript/build/docs and relevant baseline comparison, record exact SHA/tree/files here, set **AWAITING CHATGPT REVIEW**, and stop. Do not push `main`.
+Ensure a single Tier in one customer group plus a different Tier in the other group still shows customer-group tabs and never shows X for the lone Tier in the active group.
+
+Add focused regression coverage for that exact cross-customer-group case and update any Code Map text that currently says cross-audience single Tier should show X.
+
+Create one clean review branch from current `main`, run the focused navigation regressions plus TypeScript/build/docs and relevant baseline comparison, record exact SHA/tree/files/evidence here, set **AWAITING CHATGPT REVIEW**, and stop. Do not push `main`.
