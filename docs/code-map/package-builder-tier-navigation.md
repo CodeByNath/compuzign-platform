@@ -35,10 +35,27 @@ no longer suppresses the Cart — previously the Cart vanished and returned
 between two states of the same Recommendations view.
 
 Whether the shell offers a Close **X** is a different question, owned by
-`isLockedSingleTierLanding`: an X needs a destination behind it (another
-occupant, an add-on, a catalogue), while the Cart needs only an unobstructed
-next step. A cross-audience Family is exactly where they diverge — X shown,
-Cart visible.
+`isLockedSingleTierLanding`: an X needs a destination *reachable from the X
+itself* (an add-on or catalogue staged into Recommendations), while the Cart
+needs only an unobstructed next step. A cross-audience Family (2026-09-11
+correction, `project-work/2026-09-11-single-visible-tier-permanent-focus.md`,
+corrected second pass same day) no longer diverges when this Tier is the
+active group's lone normal occupant: the other group's occupant sits behind
+the customer-group tab bar, not behind the X, so that Tier's X stays hidden
+too, **regardless of whether the shell was reached implicitly or through an
+explicit View Plan click** — `focusedTierIsLoneInActiveGroup` reads the
+currently focused Tier itself, never how it got focused (the first pass
+wrongly keyed this off `isImplicitSingleTierView` alone, which an explicit
+route from a Recommendations summary row could bypass). The customer-group
+tabs follow the same rule and stay visible on either route.
+
+Cart eligibility is untouched either way: for the implicit route the Cart is
+visible beside the locked shell (`resolvedStep` resolves to `cart` once
+quoted); for an explicit route it stays `focused_inspection` and the Cart
+stays suppressed, exactly like any other explicitly opened shell.
+`focusedTierIsLoneInActiveGroup` is the derived flag for the X/tabs question,
+separate from the Family-wide `familyOffersNothingElse` and from
+`resolvedStep`'s own Cart logic.
 
 ## Identity that must survive the step
 

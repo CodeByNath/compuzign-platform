@@ -515,9 +515,14 @@ await click(buttonWithText('Maybe next time'));
 
 // ── 10. Cross-audience Family: one VISIBLE Tier, another behind a tab ────
 //
-// Not globally lone, so the ordinary sticky X stays. But nothing stages —
-// no add-ons, no catalogue — so the resolved next step after Add to Quote
-// is still the Cart, and the refined rule makes it visible there too.
+// Live correction (2026-09-11, project-work/2026-09-11-single-visible-tier-
+// permanent-focus.md): NOT globally lone (familyOffersNothingElse is
+// Family-wide and stays false here), but this Tier IS lone within the active
+// customer group — the other occupant lives behind the tab bar, never behind
+// the X, so the X now stays hidden too, same as a globally-lone Family. The
+// resolved next step after Add to Quote is still the Cart either way: no
+// add-ons, no catalogue, nothing stages, so Cart eligibility is untouched by
+// this correction.
 
 mount(crossAudienceFamily, TIER_VOCAB);
 await settle();
@@ -532,42 +537,33 @@ await click(buttonWithText('Add to Quote'));
 {
   const v = view();
   check(v.focusedShell, 'cross-audience: the implicit shell remains after Add to Quote');
-  check(v.closeX, 'cross-audience: and keeps its ordinary X — the other group\'s occupant really is behind it');
+  check(!v.closeX, 'cross-audience: lone within the active group, so the X stays hidden — the other group\'s occupant sits behind the tab bar, not the X');
   check(v.cartVisible, 'cross-audience: nothing stands between this Tier and the Cart, so the Cart is visible beside the shell');
 }
-await click(container.querySelector('.cz-package-builder__focused-close'));
-{
-  const v = view();
-  check(!v.focusedShell, 'cross-audience: the X still actually dismisses, with no bounce-back');
-  check(v.quotedCardViewPlan && v.selectedMarker, 'cross-audience: dismissing lands on the quoted card with View Plan');
-  check(v.cartVisible, 'cross-audience: the Cart stays visible on that card');
-}
-await click(buttonWithText('View Plan'));
-{
-  const v = view();
-  check(v.focusedShell && v.closeX, 'cross-audience: View Plan reopens an explicit shell with its X');
-  check(!v.cartVisible, 'cross-audience: focused_inspection suppresses the Cart again — the explicit route is untouched');
-}
-// Remove and re-quote: a dismissal from the previous cycle must be genuinely
-// cleared, not merely dormant.
-await click(container.querySelector('.cz-package-builder__focused-close'));
+// There is no X to dismiss through any more, so removal goes through the
+// shell's own quoted-state control — the same path a globally-lone Family
+// uses — and must land right back on the locked UNQUOTED shell, never an
+// orphan one-card grid.
 await click(buttonWithText('✓ Selected'));
 {
   const v = view();
-  check(v.focusedShell && !v.closeX, 'cross-audience: removing the primary restores the locked landing');
+  check(v.focusedShell && !v.closeX, 'cross-audience: removing the primary restores the locked landing directly, no dismiss-to-card step involved');
   check(!v.cartVisible, 'cross-audience: with an empty quote there is no Cart');
 }
 await click(buttonWithText('Add to Quote'));
 {
   const v = view();
-  check(v.focusedShell && v.closeX, 'cross-audience: re-quoting the same Tier gets a FRESH quoted shell with its X');
+  check(v.focusedShell && !v.closeX, 'cross-audience: re-quoting the same Tier lands back on the locked quoted shell, still no X');
   check(v.cartVisible, 'cross-audience: and the Cart again');
 }
 
 // ── 11. Customer-group transition ────────────────────────────────────────
 //
 // Switching tabs re-resolves which occupants are visible; the navigation
-// step must follow the new group rather than persist from the old one.
+// step must follow the new group rather than persist from the old one. Both
+// groups are individually lone here, so BOTH landings stay locked — the tab
+// bar itself is the one real way to move between them, quoted state on
+// either side notwithstanding.
 {
   const enterpriseTab = buttonWithText('Enterprise');
   check(!!enterpriseTab, 'cross-audience: the customer-group tabs are offered');
@@ -577,6 +573,13 @@ await click(buttonWithText('Add to Quote'));
   check(v.focusedName === 'Enterprise Plan', `customer-group switch: showing that group's occupant (got ${v.focusedName})`);
   check(!v.closeX, 'customer-group switch: that occupant is unquoted, so its landing is locked');
   check(!v.cartVisible, 'customer-group switch: an unquoted landing suppresses the Cart even though the quote still holds the other group\'s line');
+}
+await click(buttonWithText('Personal & Business'));
+{
+  const v = view();
+  check(v.focusedShell && !v.closeX,
+    'customer-group switch: switching back shows the still-quoted Personal & Business Tier, locked with no X, not a bounce to a card view');
+  check(v.cartVisible, 'customer-group switch: and its Cart line is visible again');
 }
 
 render(null, container);

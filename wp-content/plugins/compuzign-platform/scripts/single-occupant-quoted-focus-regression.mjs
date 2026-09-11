@@ -384,22 +384,27 @@ await click(buttonWithText('Add to Quote'));
     'alone-occupant Family: no small card either — the shell plus the Cart is the whole presentation');
 }
 
-// ── 10. "Alone" is a FAMILY-WIDE fact, never a visible-tab one ───────────
+// ── 10. "Alone" is a FAMILY-WIDE fact for familyOffersNothingElse, but
+//        "lone within the active customer group" is its own, narrower rule ──
 //
 // Auditor correction (2026-09-11): normalTiers/addonTiers are derived from
 // visibleTiers, which is already narrowed to the active customer group. A
 // Family split across audiences can therefore LOOK like "one Tier and no
 // add-ons" from whichever tab is open, while genuinely offering more. The
-// lone-occupant behaviour must not activate for those Families, so
+// GLOBALLY-lone-occupant behaviour must not activate for those Families, so
 // familyOffersNothingElse reads familyOccupants/normalOccupants instead.
 //
-// Both cases below render exactly ONE normal Tier card in the active group —
-// so a visible-tab definition of "alone" would wrongly qualify them — and
-// must still fall back to today's behaviour once quoted: the ordinary sticky
-// X returns, and the Cart stays suppressed while that shell is open.
+// Live correction (2026-09-11, project-work/2026-09-11-single-visible-tier-
+// permanent-focus.md): that "not globally lone" fact used to also mean "keeps
+// its ordinary sticky X." It no longer does for 10a — the other group's
+// occupant sits behind the customer-group tab bar, never behind the X, so
+// dismissing never actually reached anything new. 10b (an add-on, not a
+// normal Tier, hidden in the other group) is deliberately unchanged: add-ons
+// stay outside customer-group Tier counting entirely.
 
 // 10a. One Personal & Business normal occupant + one Enterprise normal
-//      occupant. Only one is visible per tab.
+//      occupant. Only one is visible per tab — lone within the active group,
+//      even though the Family is not globally lone.
 const crossAudienceFamily = familyWith({
   basic: occupant({ audience_groups: ['personal_business'] }),
   standard: occupant({
@@ -415,71 +420,55 @@ await settle();
   const v = view();
   check(v.focusedShell, 'that one visible Tier still auto-focuses unquoted, unchanged');
   check(!v.closeX, 'and is still locked while unquoted');
+  check(!!buttonWithText('Enterprise'), 'cross-audience: the customer-group tabs are offered even on the unquoted lone-in-group landing');
 }
 await click(buttonWithText('Add to Quote'));
 {
   const v = view();
-  check(v.closeX,
-    'a cross-audience Family is NOT globally lone: once quoted, the ordinary sticky X returns — the lone-occupant lock must not activate from a single VISIBLE Tier');
-  // Refined rule (2026-09-11, "Nath's authoritative navigation rule" in the
-  // same work file): Cart visibility follows the RESOLVED NEXT STEP, not
-  // whether the Family is globally lone. This Family has no add-ons and no
-  // Upgrade catalogue, so nothing stages and nothing stands between this
-  // Tier and the Cart — the Cart is visible beside the shell even though the
-  // shell keeps its X. Whether the X is offered (a destination exists behind
-  // it) and whether the Cart is eligible (no intermediate step) are two
-  // different questions; this case is exactly where they diverge. See
-  // tier-next-step-navigation-regression.mjs for the full step matrix.
+  check(!v.closeX,
+    'lone within the active customer group: even though the Family is NOT globally lone, this Tier is the only normal occupant the active tab shows, so the X stays hidden once quoted — the other occupant lives behind the tab bar, never behind the X');
   check(v.cartVisible,
-    'and the Cart IS visible beside that shell: no intermediate step stands between this quoted Tier and the Cart');
+    'and the Cart IS visible beside that shell: no intermediate step stands between this quoted Tier and the Cart — Cart eligibility is unchanged by this correction');
+  check(!!buttonWithText('Enterprise'),
+    'cross-audience: the customer-group tabs stay visible on the locked quoted landing too — switching groups is still the real way off it');
 }
-// The X must actually WORK, not merely be rendered (auditor correction,
-// 2026-09-11). This view is reached through the implicit fallback, so
-// focusedTierId is already null — clearing it alone changes nothing and the
-// fallback re-derives the same shell on the very next render. Clicking it is
-// the only way to prove the dismissal is honoured.
-await click(container.querySelector('.cz-package-builder__focused-close'));
-{
-  const v = view();
-  check(!v.focusedShell,
-    'cross-audience: clicking X on the quoted implicit shell actually CLOSES it — no bounce-back from the render-time fallback');
-  check(v.quotedCardViewPlan,
-    'cross-audience: dismissing lands on the Tier\'s own normal card, which offers View Plan back in');
-  check(v.selectedMarker,
-    'cross-audience: that card still shows its quoted state, so the dismissal is not an orphan card');
-  check(v.cartVisible,
-    'cross-audience: and the Cart becomes visible once the shell is dismissed');
-}
-await click(buttonWithText('View Plan'));
-{
-  const v = view();
-  check(v.focusedShell,
-    'cross-audience: View Plan reopens the focused shell explicitly after a dismissal');
-  check(v.closeX,
-    'cross-audience: the explicitly reopened shell carries its ordinary sticky X');
-  check(!v.cartVisible,
-    'cross-audience: and an explicit focused shell suppresses the Cart again — the ordinary rule is untouched');
-}
-// The staleness trap, in the shape f9ca5b18 originally documented: deriving
-// the dismissal against selectedTierId alone would only make it DORMANT while
-// the primary is absent, and re-quoting the SAME Tier would make it live
-// again and suppress a genuinely fresh quoted shell — stranding the customer
-// on the card with no way back in. The stored id must be genuinely cleared.
-await click(container.querySelector('.cz-package-builder__focused-close'));
-await click(buttonWithText('✓ Selected') ?? buttonWithText('Remove from Quote'));
+// The lock must not merely be rendered — it must actually prevent falling
+// through to an orphan one-card grid. There is no X to click, so removal has
+// to go through the shell's own quoted-state control (the same affordance
+// the genuinely-lone Family uses in 10c below), never a dismiss-to-card path.
+await click(buttonWithText('✓ Selected'));
 {
   const v = view();
   check(v.focusedShell && !v.closeX,
-    'cross-audience: removing the primary restores the locked unquoted landing, dismissal or not');
+    'cross-audience, lone in active group: removing the primary restores the locked UNQUOTED landing directly — there was never a card to fall through to');
   check(!v.cartVisible, 'cross-audience: and the Cart hides again');
 }
 await click(buttonWithText('Add to Quote'));
 {
   const v = view();
+  check(v.focusedShell && !v.closeX,
+    'cross-audience, lone in active group: re-quoting the same Tier lands right back on the locked quoted shell, no X, every time');
+  check(v.cartVisible, 'cross-audience: and the Cart again');
+}
+// Switching to the group that actually holds the other occupant must still
+// work — the tab bar is the one real way off this shell, and it must keep
+// working exactly as it always has, quoted state on the first Tier or not.
+await click(buttonWithText('Enterprise'));
+{
+  const v = view();
   check(v.focusedShell,
-    'cross-audience: re-quoting the SAME Tier gets a FRESH quoted shell — a dismissal from the previous cycle must be genuinely cleared, not merely dormant');
-  check(v.closeX,
-    'cross-audience: and that fresh shell carries its X again');
+    'cross-audience: switching to the Enterprise tab lands on that group\'s own lone occupant');
+  check(!v.closeX,
+    'cross-audience: unquoted, so that landing is locked too — same rule, same group-scoped loneness');
+  check(!v.cartVisible,
+    'cross-audience: an unquoted landing suppresses the Cart even though the Personal & Business Tier is still quoted underneath');
+}
+await click(buttonWithText('Personal & Business'));
+{
+  const v = view();
+  check(v.focusedShell && !v.closeX,
+    'cross-audience: switching back shows the original quoted Tier again, still locked, no bounce to a card view');
+  check(v.cartVisible, 'cross-audience: and its Cart line is visible again');
 }
 
 // 10b. One normal occupant in the active group, plus an add-on that exists
@@ -550,6 +539,146 @@ await click(buttonWithText('✓ Selected'));
 {
   const v = view();
   check(v.focusedShell && !v.closeX && !v.cartVisible, 'genuinely lone Family: removal hides the Cart again, shell remains, still no X');
+}
+
+// ── 11. Auditor correction, second pass: the lock must survive an EXPLICIT
+//        View Plan route too, not only the implicit fallback ───────────────
+//
+// The first version of this fix keyed everything off isImplicitSingleTierView,
+// so a Family that ALSO stages Recommendations (an add-on in the active
+// group, stacked on top of a cross-group Tier) could still reach the SAME
+// lone-in-group Tier through Recommendations' own "View Plan" button —
+// setting focusedTierId explicitly — and wrongly get the ordinary sticky X
+// back, along with losing the customer-group tabs. This proves that gap is
+// closed: focusedTierIsLoneInActiveGroup reads the focused Tier itself, not
+// how focus was reached.
+
+const crossAudienceWithActiveAddonFamily = familyWith({
+  basic: occupant({ audience_groups: ['personal_business'] }),
+  standard: occupant({
+    tier_occupant_id: 'occ_pb_addon', tier_platform_id: 'CZTA-SOLO0003',
+    label: 'PB Backup Add-on', is_addon: true, audience_groups: ['personal_business'],
+  }),
+  premium: occupant({
+    tier_occupant_id: 'occ_ent2', tier_platform_id: 'CZT-SOLO00003',
+    label: 'Enterprise Plan Two', audience_groups: ['enterprise'],
+  }),
+});
+mount(crossAudienceWithActiveAddonFamily, TIER_VOCAB);
+await settle();
+{
+  const v = view();
+  check(v.focusedShell && !v.closeX, 'lone in active group, with a same-group add-on: still auto-focuses locked while unquoted');
+}
+await click(buttonWithText('Add to Quote'));
+{
+  const html = container.innerHTML;
+  check(html.includes('cz-package-builder__staged-header'),
+    'quoting it stages Recommendations, because the active group DOES have an add-on — that existing flow is unchanged');
+  check(html.includes('PB Backup Add-on'), 'the add-on is offered in Recommendations');
+}
+// The auditor's exact reproduction: reach the same Tier through
+// Recommendations' own View Plan button — an EXPLICIT focusedTierId route,
+// never the implicit fallback.
+await click(buttonWithText('View Plan'));
+{
+  const v = view();
+  check(v.focusedShell, 'the explicit View Plan route opens the focused shell');
+  check(!v.closeX,
+    'auditor correction: even reached EXPLICITLY, this Tier is still the active group\'s lone normal occupant, so the X stays hidden — the first-pass fix wrongly keyed this off isImplicitSingleTierView alone');
+  check(!!buttonWithText('Enterprise'),
+    'auditor correction: the customer-group tabs are visible on this explicitly-reached locked shell too');
+  check(!container.querySelector('.cz-package-builder__focused-close'),
+    'there really is no Close button rendered at all — the lock is total, not merely an unclicked one');
+  check(!v.cartVisible,
+    'Cart eligibility is untouched by this correction: an EXPLICIT focused shell is still focused_inspection, suppressing the Cart exactly as any other explicit shell does — resolvedStep never reads focusedTierIsLoneInActiveGroup');
+}
+// Second-pass fix (see FamilyTierAdapter.tsx's customer-tab onClick): these
+// tabs are only useful here if switching groups actually WORKS from an
+// explicitly-reached lone-in-group shell too — the tab click now clears
+// focusedTierId/focusedEditionId so the new group's own auto-focus fallback
+// can fire, exactly like it already did from the implicit landing.
+await click(buttonWithText('Enterprise'));
+{
+  const v = view();
+  check(v.focusedShell, 'switching to Enterprise from the EXPLICITLY-reached locked shell still lands on that group\'s own focused shell, not a bare one-card grid');
+  check(v.html.includes('Enterprise Plan Two'), 'showing that group\'s own occupant');
+  check(!v.closeX, 'unquoted, so locked the same way any single-occupant landing is');
+}
+await click(buttonWithText('Personal & Business'));
+{
+  const v = view();
+  // Verified behaviour, not assumed: switching back does NOT reopen the
+  // explicit shell directly. stagedTierId still matches selectedTierId (the
+  // primary never stopped being quoted) and normalTiers is pb-filtered again,
+  // so stagedTier re-resolves non-null — the SAME `stagedTier === null` guard
+  // that suppresses the implicit auto-focus fallback for a staging Family
+  // suppresses it here too, landing on the staged Recommendations view
+  // instead. That is a perfectly sane outcome, and a genuine bonus: it gives
+  // this combination a SECOND working route back to Recommendations (besides
+  // the remove-and-requote one below), directly answering the "no way back"
+  // trade-off noted after the very first View Plan click above.
+  check(container.innerHTML.includes('cz-package-builder__staged-header'),
+    'switching back from Enterprise lands on the staged Recommendations view for the still-quoted Personal & Business primary — a live route back in, not a dead end');
+  check(v.selectedMarker, 'that view shows the primary\'s own quoted state');
+  check(v.cartVisible, 'and the Cart stays visible throughout');
+}
+// From there, View Plan reopens the exact same explicit-locked shell again —
+// proving the round trip is fully recoverable, not merely non-crashing.
+await click(buttonWithText('View Plan'));
+{
+  const v = view();
+  check(v.focusedShell && !v.closeX,
+    'View Plan from that recovered Recommendations view reopens the same locked shell, no X, exactly as before the tab detour');
+  check(!!buttonWithText('Enterprise'), 'and its tabs are there again too');
+}
+// The Close X is gone for this combination (cross-group-lone Tier + a
+// same-group add-on) — before this correction, the explicit route's ordinary
+// sticky X was the way back to Recommendations. It is not missed: the
+// customer-group tabs are a live, fully round-trippable route back in (proven
+// above, made to work by the same tab-click fix that clears focusedTierId),
+// and removing the primary via the shell's own quoted-state toggle and
+// re-quoting is a second, independent one, proven below.
+await click(buttonWithText('✓ Selected'));
+{
+  const v = view();
+  check(!v.focusedShell || v.addToQuote,
+    'removing the primary through the shell\'s own toggle recovers a live path back to Recommendations/the grid — never an unrecoverable dead end');
+}
+await click(buttonWithText('Add to Quote'));
+{
+  const html = container.innerHTML;
+  check(html.includes('cz-package-builder__staged-header') || html.includes('PB Backup Add-on'),
+    're-quoting from that recovered state reaches Recommendations again, same as the very first quote — the add-on stays reachable across the cycle');
+}
+
+// ── 12. Control: an active group with MULTIPLE normal Tiers is unaffected,
+//        explicit focus or not ─────────────────────────────────────────────
+const crossAudienceMultiActiveFamily = familyWith({
+  basic: occupant({ audience_groups: ['personal_business'] }),
+  standard: occupant({
+    tier_occupant_id: 'occ_pb2', tier_platform_id: 'CZT-SOLO00004',
+    label: 'PB Plan Two', audience_groups: ['personal_business'],
+  }),
+  premium: occupant({
+    tier_occupant_id: 'occ_ent3', tier_platform_id: 'CZT-SOLO00005',
+    label: 'Enterprise Plan Three', audience_groups: ['enterprise'],
+  }),
+});
+mount(crossAudienceMultiActiveFamily, TIER_VOCAB);
+await settle();
+{
+  const v = view();
+  check(!v.focusedShell, 'two normal Tiers in the active group: still the plain comparison grid, no auto-focus');
+}
+await click(buttons().find((b) => b.textContent.trim() === 'Add to Quote'));
+await click(buttonWithText('View Plan'));
+{
+  const v = view();
+  check(v.focusedShell && v.closeX,
+    'control: a Tier from a MULTI-Tier active group keeps its ordinary sticky X on explicit focus — this correction never over-applies to it');
+  check(!buttonWithText('Enterprise'),
+    'control: and does not gain the customer-group tabs either — unchanged from today\'s behaviour for a genuinely non-lone active-group Tier');
 }
 
 render(null, container);

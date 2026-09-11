@@ -538,6 +538,23 @@ export function FamilyTierAdapter({
             // dismissal recorded against the previous group's single Tier
             // must not survive into it.
             setSingleTierDismissedTierId(null);
+            // Second-pass correction (2026-09-11,
+            // project-work/2026-09-11-single-visible-tier-permanent-focus.md):
+            // these tabs now also render on an EXPLICITLY focused lone-in-
+            // group shell (focusedTierIsLoneInActiveGroup below), where
+            // `focusedTierId` is a real, non-null id. Without clearing it
+            // here, effectiveFocusedTierId's `focusedTierId ?? fallback`
+            // keeps pointing at the OLD group's Tier after the switch —
+            // visibleTiers no longer contains it, so focusedTier resolves to
+            // null and the new group's own lone occupant never gets its
+            // implicit auto-focus, landing the customer on a bare one-card
+            // grid instead. Clearing it was already a no-op for every
+            // PREVIOUSLY reachable case (these tabs only ever rendered
+            // during the implicit view, where focusedTierId was already
+            // null) — this only starts to matter for the newly-reachable
+            // explicit route.
+            setFocusedTierId(null);
+            setFocusedEditionId(null);
             setSelectedCustomerGroup(group.value);
           }}
         >
@@ -767,7 +784,12 @@ export function FamilyTierAdapter({
   // function of `family` — Family-wide occupants plus
   // family.pricing.composable_offer, none of them audience-narrowed — so it
   // cannot flip while one Family stays open. That is what keeps this state
-  // from ever resurrecting the orphan one-card grid there.
+  // from ever resurrecting the orphan one-card grid there. The same is true
+  // (2026-09-11 correction, both passes) for a Tier that is merely lone
+  // within the ACTIVE customer group: focusedTierIsLoneInActiveGroup below
+  // also renders no X, for EITHER route (implicit or an explicit View Plan),
+  // so this state has no remaining live path that sets it — see its use
+  // inside isLockedSingleTierLanding below for the full account.
   const [singleTierDismissedTierId, setSingleTierDismissedTierId] = useState<TierId | null>(null);
   const upgradeGateStageForSelectedTier = upgradeGateTierId !== null && upgradeGateTierId === selectedTierId
     ? upgradeGateStage
@@ -811,8 +833,9 @@ export function FamilyTierAdapter({
   // this is strictly a passive default, never an override of a shell the
   // customer is already actively in.
   //
-  // Whether that landing is dismissible depends on two things: is this single
-  // Tier already the quoted primary, and is its Family globally lone?
+  // Whether that landing is dismissible depends on three things: is this
+  // single Tier already the quoted primary, is its Family globally lone, and
+  // is it lone within the active customer group?
   //
   //   locked implicit landing  = one visible primary, NOT quoted. The focused
   //     shell IS the landing presentation; there is no Close action, because
@@ -824,12 +847,21 @@ export function FamilyTierAdapter({
   //     permanently: there is no card, no sibling Tier, no add-on and no
   //     Upgrade catalogue behind the X, so the shell simply stays and the Cart
   //     appears beside it. Main navigation is the way out.
-  //   quoted, but NOT globally lone = the Family has another normal occupant
-  //     (possibly in the other audience group), an add-on, or an Upgrade
-  //     catalogue. Unchanged from before: the ordinary sticky X applies, and
-  //     dismissing lands on that Tier's own normal card — not an orphan,
-  //     because the card carries its quoted state and its View Plan route
-  //     straight back into this same shell.
+  //   lone-within-active-group view (2026-09-11 correction,
+  //     project-work/2026-09-11-single-visible-tier-permanent-focus.md,
+  //     corrected second pass same day) = the Family's only OTHER normal
+  //     occupant lives behind the other customer group's tab. Also locked,
+  //     quoted or not, EXPLICIT or implicit route alike: that occupant was
+  //     never really behind the X, only behind the tab bar, which stays
+  //     visible and is the real way to it. See focusedTierIsLoneInActiveGroup
+  //     below — the first pass wrongly keyed this off isImplicitSingleTierView
+  //     alone, which an explicit View Plan route (e.g. from a Recommendations
+  //     summary row when the active group also has an add-on) could bypass.
+  //   quoted, but NOT lone by either measure = the Family has an add-on or an
+  //     Upgrade catalogue in the active group. Unchanged from before: those
+  //     stage the primary via commitSelection(), so this fallback is never
+  //     even reached while quoted — the customer lands in Recommendations
+  //     instead, with its own ordinary route back into this shell.
   //
   // Both cases are settled HERE, at the fallback itself. It stays a passive
   // render-time derivation — nothing below ever calls a setter to "open" this
@@ -882,8 +914,8 @@ export function FamilyTierAdapter({
   // destination behind it, and the site's own main navigation is the real way
   // out. The customer is never asked to dismiss a view that has no successor.
   //
-  // A single occupant that is NOT alone keeps today's behaviour, by two
-  // different routes depending on why it is not alone:
+  // A single occupant that is NOT alone in its Family still lands here while
+  // quoted, by two different routes depending on why it is not alone:
   //
   //   * add-on Tiers or an Upgrade catalogue make commitSelection() stage the
   //     primary, so `stagedTier === null` is false once quoted and this
@@ -891,10 +923,13 @@ export function FamilyTierAdapter({
   //     before;
   //   * a Family split across AUDIENCE GROUPS stages nothing (no add-ons, no
   //     catalogue), so one visible Tier remains and this fallback does still
-  //     apply while quoted. That view carries the ordinary sticky X, and
-  //     `singleTierDismissed` above is what makes that X actually work —
-  //     without it this same fallback would reopen the shell on the very next
-  //     render. See singleTierDismissedTierId's own declaration.
+  //     apply while quoted. Live correction (2026-09-11,
+  //     project-work/2026-09-11-single-visible-tier-permanent-focus.md): this
+  //     case is now ALSO locked — see focusedTierIsLoneInActiveGroup and
+  //     isLockedSingleTierLanding below — so `singleTierDismissed` no longer
+  //     has a live path that sets it via THIS fallback; it is kept only
+  //     because nothing in this round asked to remove the mechanism, not
+  //     because this route still fires it.
   //
   // Explicit focus is untouched: `focusedTierId` still wins ahead of this
   // fallback.
@@ -908,33 +943,51 @@ export function FamilyTierAdapter({
   // hiding the Close button and showing the customer-group tabs above the
   // shell instead, both below.
   const isImplicitSingleTierView = focusedTierId === null && effectiveFocusedTierId !== null;
-  // The implicit landing is locked (no Close) in two cases, for the same
-  // underlying reason — there is no destination behind the X:
+  // Auditor correction (2026-09-11, second pass on
+  // project-work/2026-09-11-single-visible-tier-permanent-focus.md): the
+  // FIRST version of this correction keyed lone-in-group entirely off
+  // `isImplicitSingleTierView`, so a Family that ALSO stages Recommendations
+  // (an add-on or catalogue in the active group) could still reach this same
+  // Tier through an EXPLICIT View Plan route — e.g. a "View Plan" link on its
+  // Recommendations summary row — and wrongly get the ordinary sticky X back,
+  // along with losing the customer-group tabs. The fact that matters is
+  // whether the CURRENTLY FOCUSED Tier is the active group's lone normal
+  // occupant, independent of how focus was reached.
   //
-  //   * NOT yet quoted: dismissing would fall through to an orphan one-card
-  //     grid, a real reported defect in an earlier version of this feature.
-  //   * ALONE in its Family (2026-09-11 correction): quoted or not, this
-  //     Family has nothing else to offer, so the shell is the whole
-  //     experience and the Cart appears beside it. Main navigation is the
-  //     real way out, not a Close button on the only thing there is.
+  // `focusedTier` already resolves the same way for both routes (explicit
+  // `focusedTierId` or the implicit fallback above), so comparing it against
+  // `singleVisibleTier` — itself audience-filtered, family-wide-count-gated —
+  // is the one check that works for both.
+  const focusedTierIsLoneInActiveGroup = focusedTier !== null
+    && singleVisibleTier !== null
+    && focusedTier.id === singleVisibleTier.id
+    && normalOccupants.length > 1;
+  // The landing is locked (no Close) for three underlying reasons — there is
+  // no destination behind the X:
   //
-  // Everything else keeps today's behaviour exactly:
+  //   * NOT yet quoted, reached implicitly: dismissing would fall through to
+  //     an orphan one-card grid, a real reported defect in an earlier version
+  //     of this feature. (The plain card never renders while unquoted and
+  //     auto-focused, so this case is implicit-only by construction.)
+  //   * ALONE in its Family (2026-09-11 correction), reached implicitly:
+  //     quoted or not, this Family has nothing else to offer, so the shell is
+  //     the whole experience and the Cart appears beside it. Main navigation
+  //     is the real way out, not a Close button on the only thing there is.
+  //   * ALONE in the ACTIVE customer group (2026-09-11 correction, corrected
+  //     2026-09-11 second pass): even though another normal Tier exists in
+  //     the OTHER group, that occupant was never actually behind the X — it
+  //     is behind the customer-group tab bar instead. Unlike the first two
+  //     reasons, this one applies regardless of route: `focusedTierIsLone-
+  //     InActiveGroup` reads the currently focused Tier itself, not how it
+  //     got focused, so an explicit View Plan into this same Tier is locked
+  //     exactly the same as the automatic landing.
   //
-  //   * add-ons or an Upgrade catalogue make commitSelection() stage the
-  //     primary, so a quoted single occupant lands in Recommendations and
-  //     never reaches the implicit view at all;
-  //   * a Family split across audiences CAN reach it while quoted — one
-  //     visible normal Tier, nothing staged — and deliberately gets the
-  //     ordinary sticky X, because the other group's occupant really is
-  //     behind it. This is why familyOffersNothingElse must be Family-wide
-  //     rather than read off the current tab — and why the dismissal state
-  //     still exists: it is what stops that X bouncing straight back open.
-  //
-  // Explicit focus reached by a View Plan click is never locked —
-  // `isImplicitSingleTierView` is false there — so that route keeps its
-  // ordinary sticky X.
-  const isLockedSingleTierLanding = isImplicitSingleTierView
-    && (!singleTierIsQuoted || familyOffersNothingElse);
+  // A single occupant that is NOT alone by either measure, reached via an
+  // EXPLICIT View Plan / Choose Plan click, keeps the ordinary sticky X —
+  // unchanged: that only ever happens for a Tier in a customer group that
+  // genuinely holds more than one normal occupant.
+  const isLockedSingleTierLanding = (isImplicitSingleTierView && (!singleTierIsQuoted || familyOffersNothingElse))
+    || focusedTierIsLoneInActiveGroup;
   // The Default/Edition the implicit shell must present (2026-09-11
   // refinement, safeguard 2). A quoted Tier that STAYS focused has to keep
   // showing the exact Default/Edition the Cart holds — anything else is a
@@ -1022,9 +1075,9 @@ export function FamilyTierAdapter({
   //   'cart'               the Tier step is complete and nothing stands
   //                        between that Tier and the Cart. The implicit
   //                        shell may still be standing (a lone occupant has
-  //                        nowhere else to go, and a cross-audience single
-  //                        visible Tier keeps its own X) — the Cart simply
-  //                        appears beside it.
+  //                        nowhere else to go — including one that is lone
+  //                        only within the active customer group, 2026-09-11
+  //                        correction) — the Cart simply appears beside it.
   const resolvedStep: 'tier_comparison' | 'tier_landing' | 'focused_inspection' | 'upgrade_browsing' | 'recommendations' | 'cart' =
     focusedTier !== null
       ? (isImplicitSingleTierView
@@ -1469,8 +1522,14 @@ export function FamilyTierAdapter({
           customer-group tabs are the only legitimate way off it, shown
           here — above the shell, not inside the grid branch below — only
           when a genuinely different, non-empty group actually exists to
-          switch to. */}
-      {isImplicitSingleTierView && customerTabsBar}
+          switch to.
+          Also shown for focusedTierIsLoneInActiveGroup even when THAT'S the
+          only reason this render is here (2026-09-11 correction, second
+          pass): a Tier reached through an explicit View Plan click, that
+          happens to be its active group's lone normal occupant, gets the
+          same locked/tabs-visible presentation as the automatic landing —
+          the tab bar is still the real way off it either way. */}
+      {(isImplicitSingleTierView || focusedTierIsLoneInActiveGroup) && customerTabsBar}
       <div class="cz-package-builder__focused">
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. Same clear action as
