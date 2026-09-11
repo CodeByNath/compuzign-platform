@@ -209,6 +209,50 @@ check(
   'the relocated CTA has its own compact .cz-package-builder__upgrade-gate-inline rule',
 );
 
+// ── 8b. [Live correction 2026-09-11] compact CTA presentation ──────────
+//
+// project-work/2026-09-11-single-visible-tier-permanent-focus.md, items 1,
+// 2 and 4. These are stylesheet facts, invisible to the mounted regressions
+// (happy-dom applies no CSS), so they are locked here — specifically the
+// three that were previously proved with ad-hoc declarations and must stay
+// expressed through the existing tokens and shared button contract.
+
+const compactRule = cssSource.match(/\.cz-cost-builder__recommendations-shell--compact \{([\s\S]*?)\}/);
+check(compactRule !== null, 'the CTA-only shell keeps its own --compact rule');
+const compactBody = compactRule![1];
+check(
+  /justify-content: center;/.test(compactBody) && /text-align: center;/.test(compactBody),
+  'the compact shell centres its content on both axes — and via text-align rather than align-items, so headings/copy still occupy the full row width',
+);
+check(
+  /padding: var\(--cz-space-\d+\);/.test(compactBody),
+  'its generous padding is a spacing TOKEN, never a bespoke pixel value copied from the ad-hoc proof',
+);
+check(
+  !/\bheight:\s*\d+\s*(px|rem|em|%|vh)/.test(compactBody),
+  'and it stays content-sized — no fixed height reintroduced (height/min-height/max-height carry no measured value)',
+);
+check(
+  /\.cz-package-builder__upgrade-gate-heading \{\s*\n\s*margin: 0 0 var\(--cz-space-\d+\);/.test(cssSource),
+  'the Upgrade your build heading carries its extra separation as a token margin',
+);
+check(
+  /class="cz-cost-builder__tier-choose"\s*\n\s*onClick=\{dismissUpgradeGate\}/.test(adapterSource),
+  'Maybe next time uses the shared secondary Tier-choose treatment, never a bespoke copied border/button declaration',
+);
+check(
+  /\.cz-package-builder__upgrade-gate-actions \.cz-cost-builder__tier-action,\s*\n\.cz-package-builder__upgrade-gate-actions \.cz-cost-builder__tier-choose \{/.test(cssSource),
+  'the compact row\'s width override covers BOTH shared button classes, so the secondary action sizes to its label like the primary',
+);
+check(
+  /\.cz-cost-builder__tiers--cta-only \{\s*\n\s*column-gap: var\(--cz-space-\d+\);/.test(cssSource),
+  'the wider gap before the compact shell is set on the strip grid that owns every gap here — a token, and never a margin on either child',
+);
+check(
+  /cz-cost-builder__tiers--cta-only/.test(pricingTiersSource),
+  'and PricingTiers applies that modifier from its own isRecommendationsCtaOnly fact',
+);
+
 // ── 9. [Correction] catalogue-only Families still stage ──────────────────
 
 const commitSelectionMatch = adapterSource.match(/const commitSelection = \([\s\S]*?\n {2}\};/);

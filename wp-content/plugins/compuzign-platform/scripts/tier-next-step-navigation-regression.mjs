@@ -56,6 +56,25 @@ Object.defineProperty(globalThis, 'navigator', { value: window.navigator, config
 globalThis.HTMLElement = window.HTMLElement;
 globalThis.Node = window.Node;
 globalThis.MouseEvent = window.MouseEvent;
+// Layout metrics for the ONE track the carousel chevrons measure
+// (PricingTiers.tsx's useTrackOverflow). happy-dom performs no layout, so
+// every element reports 0 — truthful for "nothing overflows", but it would
+// leave the overflow branch permanently untested. These getters let a
+// section state the track's own scrollWidth/clientWidth and then assert what
+// actually renders; every other element keeps reporting 0.
+// happy-dom splits these two across prototypes (scrollWidth on Element,
+// clientWidth on HTMLElement), so each override must land on the prototype
+// that actually owns it — defining both on one leaves the other shadowed and
+// silently reporting 0.
+const trackMetrics = { scrollWidth: 0, clientWidth: 0 };
+for (const [proto, prop] of [[window.Element, 'scrollWidth'], [window.HTMLElement, 'clientWidth']]) {
+  Object.defineProperty(proto.prototype, prop, {
+    configurable: true,
+    get() {
+      return this.classList?.contains('cz-cost-builder__tiers') ? trackMetrics[prop] : 0;
+    },
+  });
+}
 globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 // The composable browsing workspace owns a debounced preview request that
@@ -288,6 +307,9 @@ function view() {
     selectedMarker: !!buttonWithText('✓ Selected'),
     addedMarker: !!buttonWithText('✓ Added'),
     addToQuote: !!buttonWithText('Add to Quote'),
+    // Presence, not CSS: the nav row is rendered only while its track
+    // genuinely overflows, so querying the DOM IS the visibility test.
+    chevrons: container.querySelectorAll('.cz-cost-builder__tiers-nav').length,
     cartVisible: !!container.querySelector('.cz-harness-cart'),
     cartText: container.querySelector('.cz-harness-cart')?.textContent ?? null,
   };
@@ -402,6 +424,75 @@ await settle();
   check(v.focusedName === 'Pro', `restored cart: the shell shows the quoted Edition (got ${v.focusedName})`);
   check(!v.closeX, 'restored cart: still no X on a globally lone landing');
   check(v.cartVisible && v.cartText === 'Cart: 1', 'restored cart: and the Cart is visible, exactly as in session');
+}
+
+// ── 4b. Reload restores the PENDING Upgrade CTA, not just the Tier ────
+//
+// project-work/2026-09-11-single-visible-tier-permanent-focus.md, item 5.
+// Live defect: Add to Quote produced the pending "Upgrade your build" CTA,
+// then a refresh restored the quoted/staged Tier and lost the CTA — leaving
+// the customer in Recommendations with no route into the catalogue at all.
+// stagedTierId was seeded from the restored cart; the gate was not.
+//
+// The assertion is parity, not a new rule: this mounts the SAME
+// catalogueFamily section 7 exercises in session and requires the identical
+// view (staged + CTA + Cart hidden).
+
+const restoredCataloguePrimary = {
+  offerType: 'family_tier',
+  familyId: catalogueFamily.family_id,
+  tierInstanceId: catalogueFamily.tier_instance_id,
+  tierId: 'basic',
+  tierPlatformId: 'CZT-SOLO00001',
+  tierEditionPlatformId: null,
+  tierTitle: 'Solo Plan',
+  price: 100,
+  billingCycle: 'monthly',
+  isAddon: false,
+};
+
+mount(catalogueFamily, [TIER_VOCAB[0]], { primary: restoredCataloguePrimary });
+await settle();
+{
+  const v = view();
+  check(v.staged, 'reload parity: a restored quoted primary with an eligible catalogue mounts back into Recommendations');
+  check(v.upgradeCta, 'reload parity: and the PENDING Upgrade CTA is restored with it — the live defect this fixes');
+  check(!v.focusedShell, 'reload parity: pending is still not a focused shell, exactly as in session');
+  check(!v.cartVisible, 'reload parity: and the Cart is hidden behind the CTA, matching the in-session state');
+}
+// Still an in-session dismissal, not persistent navigation state: nothing
+// re-seeds the gate after mount, so Maybe next time behaves identically.
+await click(buttonWithText('Maybe next time'));
+{
+  const v = view();
+  check(v.staged && !v.upgradeCta, 'reload parity: Maybe next time still dismisses a RESTORED CTA');
+  check(v.cartVisible, 'reload parity: and the Cart returns, same as the in-session dismissal');
+}
+
+// The second authoritative fact: a Family/Instance whose composable line is
+// already committed must NOT be offered a fresh Upgrade entry on reload —
+// the exact rule the Cart footer's own recovery route already applies.
+mount(catalogueFamily, [TIER_VOCAB[0]], {
+  primary: restoredCataloguePrimary,
+  composable: {
+    offerType: 'family_tier',
+    familyId: catalogueFamily.family_id,
+    tierInstanceId: catalogueFamily.tier_instance_id,
+    tierId: 'composable',
+    tierPlatformId: 'CZT-SOLO00099',
+    tierTitle: 'Build Your Own',
+    price: 40,
+    billingCycle: 'monthly',
+    isAddon: false,
+    isComposable: true,
+  },
+});
+await settle();
+{
+  const v = view();
+  check(v.staged, 'reload parity: a restored primary with a COMMITTED composable line still lands in Recommendations');
+  check(!v.upgradeCta, 'reload parity: but no pending CTA — an Upgrade already in the quote is never advertised as unstarted');
+  check(v.cartVisible && v.cartText === 'Cart: 2', `reload parity: both restored lines are in the visible Cart (got ${v.cartText})`);
 }
 
 // ── 5. Add-on-only Recommendations stays the intermediate step ───────────
@@ -580,6 +671,59 @@ await click(buttonWithText('Personal & Business'));
   check(v.focusedShell && !v.closeX,
     'customer-group switch: switching back shows the still-quoted Personal & Business Tier, locked with no X, not a bounce to a card view');
   check(v.cartVisible, 'customer-group switch: and its Cart line is visible again');
+}
+
+// ── 12. Carousel chevrons derive from real overflow ──────────────────────
+//
+// project-work/2026-09-11-single-visible-tier-permanent-focus.md, item 3.
+// The chevrons used to be revealed by viewport media queries, which only
+// GUESS at overflow: the CTA-only strip — one Tier card beside one compact
+// Upgrade shell — fits at every width, yet still offered controls that
+// scrolled to nothing. Visibility is now presence: the nav row is rendered
+// only while its own track reports more content width than box width, so
+// these checks read the DOM rather than a stylesheet.
+
+trackMetrics.scrollWidth = 0;
+trackMetrics.clientWidth = 0;
+mount(multiFamily, TIER_VOCAB);
+await settle();
+{
+  const v = view();
+  check(v.chevrons === 0, `overflow: a strip whose cards all fit offers no chevrons at all (got ${v.chevrons})`);
+}
+
+// The other direction — real overflow must still produce ordinary controls.
+trackMetrics.scrollWidth = 1280;
+trackMetrics.clientWidth = 640;
+mount(multiFamily, TIER_VOCAB);
+await settle();
+{
+  const v = view();
+  check(v.chevrons === 2, `overflow: a genuinely scrollable strip offers both chevrons (got ${v.chevrons})`);
+  check(!!container.querySelector('.cz-cost-builder__tiers-prev') && !!container.querySelector('.cz-cost-builder__tiers-next'),
+    'overflow: and they are the existing prev/next controls, unchanged');
+}
+
+// Sub-pixel layout rounding is not overflow.
+trackMetrics.scrollWidth = 640.5;
+trackMetrics.clientWidth = 640;
+mount(multiFamily, TIER_VOCAB);
+await settle();
+{
+  const v = view();
+  check(v.chevrons === 0, `overflow: a fraction of a pixel is rounding noise, not somewhere to scroll to (got ${v.chevrons})`);
+}
+
+// The reported case: the CTA-only staged strip.
+trackMetrics.scrollWidth = 0;
+trackMetrics.clientWidth = 0;
+mount(catalogueFamily);
+await settle();
+await click(buttonWithText('Add to Quote'));
+{
+  const v = view();
+  check(v.staged && v.upgradeCta, 'overflow: the CTA-only staged strip is on screen');
+  check(v.chevrons === 0, `overflow: and carries no chevrons — the selected Tier plus the compact shell fit, so there is nothing to scroll to (got ${v.chevrons})`);
 }
 
 render(null, container);

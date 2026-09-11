@@ -26,13 +26,15 @@ order, so the step named is always the view that renders:
 | `tier_landing` | implicit single-Tier landing, not yet quoted | suppressed |
 | `focused_inspection` | explicit Choose Plan / View Plan / Add-on shell | suppressed |
 | `upgrade_browsing` | composable catalogue workspace | suppressed |
-| `recommendations` | staged add-ons and/or the pending Upgrade CTA | eligible |
+| `recommendations`, add-ons only | staged add-on choices | eligible |
+| `recommendations`, pending CTA | Upgrade CTA, add-ons aside | suppressed |
 | `cart` | Tier step complete, nothing in between | eligible |
 
-`pending` and `browsing` are deliberately separated: only `browsing` is a
-focused Upgrade workspace. `pending` is the CTA inside Recommendations, so it
-no longer suppresses the Cart — previously the Cart vanished and returned
-between two states of the same Recommendations view.
+`pending` and `browsing` stay separate steps — only `browsing` is a focused
+Upgrade workspace — but both hide the Cart. `upgradeCtaVisible` suppresses it
+for `recommendations` + `pending` alone, while `hideAddonsInRecommendations`
+steps the add-on cards aside. **Maybe next time** clears the gate and ordinary
+Recommendations returns, add-ons and Cart with it.
 
 Whether the shell offers a Close **X** is a different question, owned by
 `isLockedSingleTierLanding`: an X needs a destination *reachable from the X
@@ -64,6 +66,12 @@ separate from the Family-wide `familyOffersNothingElse` and from
   staging and `stagedTier`'s own validity, so a restored browser cart mounts
   into the same presentation the in-session transition produces instead of a
   seed-only staged/small-card view.
+- **Gate parity.** `upgradeGateTierId`/`upgradeGateStage` seed at mount from
+  `commitSelection()`'s facts, so a reload keeps the CTA with its staged
+  Tier. An initializer, never storage; `hasRenderedAFamily` stops the
+  Family-switch reset wiping that seed.
+- **Chevrons.** `PricingTiers.tsx` shows carousel controls only on measured
+  overflow (`useTrackOverflow`), never a media query.
 - **Focused Edition.** `implicitQuotedEditionId` keeps a Tier that stays
   focused after Add to Quote showing the exact quoted Default/Edition.
   Derived, never stored: `commitSelection()` clears `focusedEditionId`, and a
@@ -81,7 +89,7 @@ separate from the Family-wide `familyOffersNothingElse` and from
 | Step resolution, staging, focused Edition | `resources/ts/components/package-builder/FamilyTierAdapter.tsx` |
 | Cart/sidebar decision | `resources/ts/components/package-builder/PackageBuilderApp.tsx` |
 | Card Edition steering | `resources/ts/components/cost-builder/PricingTiers.tsx` |
-| Tests | `scripts/tier-next-step-navigation-regression.mjs` (mounted step matrix), `scripts/single-occupant-quoted-focus-regression.mjs` (which shell a single occupant gets, and its X) |
+| Tests | `scripts/tier-next-step-navigation-regression.mjs` (mounted step matrix, restored-cart gate parity, chevron overflow), `scripts/single-occupant-quoted-focus-regression.mjs`, `scripts/composable-recommendations-cta-contract.ts` |
 
 ## Related Code Maps
 

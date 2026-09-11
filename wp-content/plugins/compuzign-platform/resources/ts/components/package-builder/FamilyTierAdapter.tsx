@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { PricingTiers, TierCard, TierInclusionCheckIcon, resolveEffectiveTierDisplay, resolveUpfrontPayment, buildLegPaymentSummaries, cycleSuffix, billingWording } from '@/components/cost-builder/PricingTiers';
 import type { EffectiveTierDisplay, PeriodPriceOverride } from '@/components/cost-builder/PricingTiers';
@@ -633,6 +633,17 @@ export function FamilyTierAdapter({
   // switch/effect ordering inside this component found no race there, and
   // that audit was correct — the missing reset was always one level up, at
   // this Family boundary, not inside the switch itself.
+  //
+  // A dep-keyed effect also fires on the FIRST commit, not only on a later
+  // Family change. That was always harmless here, because every value below
+  // initialises to null and a mount run simply re-set it to null — with one
+  // exception since the gate gained its restored-cart seed above (item 5):
+  // clearing the gate on mount would wipe that seed on the very first
+  // commit and reinstate the exact reload defect the seed exists to fix. So
+  // the gate reset alone is scoped to a genuine Family CHANGE; on mount
+  // there is by definition no previous Family whose gate could be stale.
+  // Everything else stays unconditional, unchanged.
+  const hasRenderedAFamily = useRef(false);
   useEffect(() => {
     setFocusedTierId(null);
     setFocusedEditionId(null);
@@ -643,8 +654,12 @@ export function FamilyTierAdapter({
     // above: upgradeGateTierId is a TierId, not itself Family-scoped, so a
     // same-named Tier in the NEW Family could otherwise let a stale gate
     // reappear without ever having been re-triggered by commitSelection.
-    setUpgradeGateTierId(null);
-    setUpgradeGateStage(null);
+    // See the mount note above this effect: a Family CHANGE only.
+    if (hasRenderedAFamily.current) {
+      setUpgradeGateTierId(null);
+      setUpgradeGateStage(null);
+    }
+    hasRenderedAFamily.current = true;
     setComposableEditionId(null);
     // Same TierId-collision reasoning again: a dismissal recorded for this
     // Family's single Tier must never be inherited by a same-named Tier in
@@ -743,8 +758,33 @@ export function FamilyTierAdapter({
   // `stage` stays 'pending' | 'browsing' | null so Phase 3 can wire
   // 'browsing' into this same state without a shape change; Phase 2 only
   // ever sets 'pending' (Browse Catalogue is rendered but inert this phase).
-  const [upgradeGateTierId, setUpgradeGateTierId] = useState<TierId | null>(null);
-  const [upgradeGateStage, setUpgradeGateStage] = useState<'pending' | 'browsing' | null>(null);
+  //
+  // Reload parity for the GATE ITSELF (project-work/2026-09-11-single-
+  // visible-tier-permanent-focus.md, item 5). stagedTierId above is seeded
+  // from selectedTierId so a restored cart lands back in Recommendations —
+  // but the gate started at null regardless, so a refresh restored the
+  // quoted/staged Tier while silently losing the pending "Upgrade your
+  // build" CTA that Add to Quote had just produced. The customer was left
+  // in Recommendations with no route into the catalogue at all.
+  //
+  // Seeded from the SAME authoritative facts commitSelection() already
+  // applies — resolveComposableEligibleRows(), the one shared eligibility
+  // authority, plus the absence of a committed composable line (exactly the
+  // rule upgradeGateActive below and PackageBuilderApp's own Cart-footer
+  // recovery route already enforce). No second eligibility rule, and no
+  // stored navigation state: this is a useState INITIALIZER, so it runs
+  // once at mount and never again. "Maybe next time" therefore stays a
+  // genuine in-session dismissal — dismissUpgradeGate() nulls both values
+  // and nothing re-seeds them for the life of the page.
+  const restoredUpgradeGateTierId = selectedTierId !== null
+    && selectedComposableItem === null
+    && resolveComposableEligibleRows(family).length > 0
+    ? selectedTierId
+    : null;
+  const [upgradeGateTierId, setUpgradeGateTierId] = useState<TierId | null>(restoredUpgradeGateTierId);
+  const [upgradeGateStage, setUpgradeGateStage] = useState<'pending' | 'browsing' | null>(
+    restoredUpgradeGateTierId !== null ? 'pending' : null,
+  );
   // The customer's own dismissal of a QUOTED single-Tier focused shell,
   // stored as the exact TierId it belongs to — the same validity-scoped shape
   // as stagedTierId/upgradeGateTierId above.
@@ -1938,15 +1978,19 @@ export function FamilyTierAdapter({
           >
             Browse Catalogue
           </button>
-          {/* The secondary/dismiss action reuses .tier-action's own bare
-              outline-muted treatment — the exact default look Browse
-              Catalogue used to have before the --filled modifier above —
-              rather than the plain borderless text link
-              .focused-back uses elsewhere for "back" navigation; this is a
-              real decision (skip the upgrade), not a navigation control. */}
+          {/* Live correction (project-work/2026-09-11-single-visible-tier-
+              permanent-focus.md, item 2): the secondary/dismiss action now
+              takes the platform's OWN secondary Tier-choose treatment
+              (.tier-choose — accent outline by default, filling on hover),
+              the exact shared contract Choose Plan already carries beside a
+              filled primary everywhere else in this file. The bare muted
+              .tier-action default it used before read as a disabled
+              control rather than the real second choice it is. Not a
+              borderless text link either: .focused-back is for "back"
+              navigation, and this is a real decision (skip the upgrade). */}
           <button
             type="button"
-            class="cz-cost-builder__tier-action"
+            class="cz-cost-builder__tier-choose"
             onClick={dismissUpgradeGate}
           >
             Maybe next time

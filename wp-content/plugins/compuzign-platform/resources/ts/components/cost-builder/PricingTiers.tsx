@@ -1,4 +1,4 @@
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { Badge } from '@/components/ui/Badge';
 import { formatPrice, formatCycleLabel } from '@/utils/format';
@@ -863,6 +863,50 @@ export function TierCard({
   );
 }
 
+/**
+ * Whether a horizontally scrolling track genuinely overflows its own box —
+ * the one fact the carousel chevrons are allowed to derive their existence
+ * from (project-work/2026-09-11-single-visible-tier-permanent-focus.md,
+ * item 3). Before this, the nav row was revealed by viewport media queries
+ * alone, which only GUESS at overflow: the CTA-only Recommendations strip
+ * (one Tier card plus one compact shell) fits comfortably at every width
+ * yet still showed chevrons that scrolled to nothing.
+ *
+ * `contentKey` re-measures when the track's own children change (add-ons
+ * stepping aside for the Upgrade CTA, a customer-group switch) — a content
+ * change that does not resize the track itself, so the observer below would
+ * not otherwise fire. The observer covers the other direction: the track
+ * resizing around unchanged content (the quote sidebar opening, a window
+ * resize).
+ *
+ * ResizeObserver is feature-detected rather than assumed, the same reason
+ * DrawerGroupTabs.tsx already documents for its own measurement: the mounted
+ * regressions render this component under happy-dom, which provides no such
+ * global. Falling back to the single mount-time measurement there is still
+ * truthful — it is exactly what a browser reports before anything resizes.
+ */
+function useTrackOverflow(ref: { current: HTMLDivElement | null }, contentKey: string): boolean {
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    // Sub-pixel layout rounding can leave scrollWidth a fraction above
+    // clientWidth on a track that visibly fits, so a 1px tolerance is what
+    // separates real overflow from rounding noise.
+    const measure = () => setOverflows(el.scrollWidth - el.clientWidth > 1);
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, contentKey]);
+
+  return overflows;
+}
+
 export function PricingTiers({
   tiers,
   pricing,
@@ -894,6 +938,22 @@ export function PricingTiers({
   // Tier.
   const normalTiers = tiers.filter((tier) => pricing.tiers[tier.id] && !pricing.tiers[tier.id]?.is_addon);
   const addonTiers = tiers.filter((tier) => pricing.tiers[tier.id]?.is_addon);
+
+  // Whether Recommendations is currently holding the Upgrade CTA ALONE (the
+  // add-on cards stepped aside, or none exist) — read by the shell's own
+  // --compact presentation below and by the strip's wider CTA-only gap.
+  const isRecommendationsCtaOnly = hideAddonsInRecommendations && Boolean(recommendationsCta);
+  // Carousel chevrons exist only while their own track genuinely overflows
+  // (project-work/2026-09-11-single-visible-tier-permanent-focus.md, item
+  // 3) — never from a viewport guess. Each content key names what can change
+  // that track's content width without resizing the track itself.
+  const tiersOverflow = useTrackOverflow(scrollRef, [
+    normalTiers.map((tier) => tier.id).join('|'),
+    recommendationsAside && (addonTiers.length > 0 || recommendationsCta) ? 'shell' : 'no-shell',
+    isRecommendationsCtaOnly ? 'cta-only' : 'addons',
+    addonTiers.map((tier) => tier.id).join('|'),
+  ].join('/'));
+  const addonsOverflow = useTrackOverflow(addonScrollRef, addonTiers.map((tier) => tier.id).join('|'));
 
   const renderAddonTierCard = (tier: Tier) => (
     <TierCard
@@ -936,24 +996,26 @@ export function PricingTiers({
     <div class="cz-cost-builder__addons">
       <h5 class="cz-cost-builder__addons-heading">Optional add-ons</h5>
       <div class="cz-cost-builder__tiers-wrap">
-        <div class="cz-cost-builder__tiers-nav-row">
-          <button
-            type="button"
-            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
-            onClick={() => scroll(addonScrollRef, -1)}
-            aria-label="Scroll add-ons left"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
-            onClick={() => scroll(addonScrollRef, 1)}
-            aria-label="Scroll add-ons right"
-          >
-            ›
-          </button>
-        </div>
+        {addonsOverflow && (
+          <div class="cz-cost-builder__tiers-nav-row">
+            <button
+              type="button"
+              class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
+              onClick={() => scroll(addonScrollRef, -1)}
+              aria-label="Scroll add-ons left"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
+              onClick={() => scroll(addonScrollRef, 1)}
+              aria-label="Scroll add-ons right"
+            >
+              ›
+            </button>
+          </div>
+        )}
         <div class="cz-cost-builder__tiers" ref={addonScrollRef}>
           {addonTiers.map(renderAddonTierCard)}
         </div>
@@ -991,7 +1053,6 @@ export function PricingTiers({
   // gate): no sibling card content to row-height-match against, so the
   // shell shrinks to its own content instead of stretching to the strip's
   // full card height — see --compact in cost-builder.css.
-  const isRecommendationsCtaOnly = hideAddonsInRecommendations && Boolean(recommendationsCta);
   const recommendationsShell = recommendationsAside && (addonTiers.length > 0 || recommendationsCta) ? (
     <div class={`cz-cost-builder__recommendations-shell${isRecommendationsCtaOnly ? ' cz-cost-builder__recommendations-shell--compact' : ''}`}>
       <h4 class="cz-cost-builder__recommendations-heading">Recommendations</h4>
@@ -1006,25 +1067,27 @@ export function PricingTiers({
   return (
     <div class="cz-cost-builder__tier-area">
       <div class="cz-cost-builder__tiers-wrap">
-        <div class="cz-cost-builder__tiers-nav-row">
-          <button
-            type="button"
-            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
-            onClick={() => scroll(scrollRef, -1)}
-            aria-label="Scroll tiers left"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
-            onClick={() => scroll(scrollRef, 1)}
-            aria-label="Scroll tiers right"
-          >
-            ›
-          </button>
-        </div>
-        <div class="cz-cost-builder__tiers" ref={scrollRef}>
+        {tiersOverflow && (
+          <div class="cz-cost-builder__tiers-nav-row">
+            <button
+              type="button"
+              class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-prev"
+              onClick={() => scroll(scrollRef, -1)}
+              aria-label="Scroll tiers left"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              class="cz-cost-builder__tiers-nav cz-cost-builder__tiers-next"
+              onClick={() => scroll(scrollRef, 1)}
+              aria-label="Scroll tiers right"
+            >
+              ›
+            </button>
+          </div>
+        )}
+        <div class={`cz-cost-builder__tiers${isRecommendationsCtaOnly ? ' cz-cost-builder__tiers--cta-only' : ''}`} ref={scrollRef}>
           {normalTiers.map((tier) => {
             // Phase 3: this card's own controlled Edition, resolved by
             // Platform ID match against ITS OWN edition_options — never a

@@ -222,19 +222,19 @@
 }
 
 /* Compact nav row — top-right of the wrapper, above the track, so the
-   chevrons never overlap the first/last card. Same visibility rule as the
-   buttons it holds (see .cz-cost-builder__tiers-nav below and the Sidebar
-   Breakpoint Fix further down): hidden when every card already fits. */
+   chevrons never overlap the first/last card. Presence, not display, is what
+   hides it now: PricingTiers.tsx renders this row ONLY while its own track
+   genuinely overflows (useTrackOverflow — project-work/2026-09-11-single-
+   visible-tier-permanent-focus.md, item 3), so by the time this rule applies
+   there is always somewhere to scroll to. The viewport media queries that
+   used to reveal it — a 768-1023px band, plus a "Sidebar Breakpoint Fix"
+   at 1024px+ for the narrowed main column — are gone with it: both were
+   guessing at overflow, and real measurement covers every case they did,
+   including the CTA-only strip that fits at every width. */
 .cz-cost-builder__tiers-nav-row {
-  display: none;
+  display: flex;
   justify-content: flex-end;
   gap: var(--cz-space-2);
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .cz-cost-builder__tiers-nav-row {
-    display: flex;
-  }
 }
 
 /* Tier strip: always horizontal above 767px — scrolls if constrained, sidebar does not control this.
@@ -255,6 +255,15 @@
 
 .cz-cost-builder__tiers::-webkit-scrollbar {
   display: none;
+}
+
+/* CTA-only strip (PricingTiers.tsx's own isRecommendationsCtaOnly): just the
+   selected Tier card and the compact Upgrade CTA shell beside it. The live
+   reference wants those two visibly further apart than two comparison cards
+   would be — set here, on the grid that already owns every gap in this
+   strip, rather than as a margin on either child. */
+.cz-cost-builder__tiers--cta-only {
+  column-gap: var(--cz-space-6);
 }
 
 @media (max-width: 767px) {
@@ -797,6 +806,26 @@
   height: auto;
   min-height: 0;
   max-height: none;
+  /* Live reference (project-work/2026-09-11-single-visible-tier-permanent-
+     focus.md, item 1): the compact shell reads as one centred statement
+     rather than copy pinned to the top-left of a roomy panel.
+     justify-content centres its own children on the flex column's main
+     axis (vertical); text-align centres them on the cross axis WITHOUT
+     align-items: center, so the heading and copy still occupy the full row
+     width instead of shrinking to their own text. Height stays content-
+     sized — nothing fixed here, and the rules above still let it hug its
+     content and centre against the row. The demonstrated ~44px padding
+     rounds to the nearest rhythm step rather than becoming a new
+     off-scale value. */
+  justify-content: center;
+  text-align: center;
+  padding: var(--cz-space-10);
+}
+
+/* The CTA's own action row centres with the copy above it in this context
+   only — the shell's ordinary (add-on) presentation is untouched. */
+.cz-cost-builder__recommendations-shell--compact .cz-package-builder__upgrade-gate-actions {
+  justify-content: center;
 }
 
 /* Quote summary sidebar */
@@ -1953,16 +1982,6 @@
 @media (max-width: 1023px) {
   .cz-cost-builder--has-quote {
     padding-bottom: 72px;
-  }
-}
-
-/* ─── Tier Carousel Nav — Sidebar Breakpoint Fix ─── */
-
-/* At 1024px+ the main column narrows when the quote sidebar is active.
-   4 tiers at min-width 320px may not fit, so reveal the nav row. */
-@media (min-width: 1024px) {
-  .cz-cost-builder--has-quote .cz-cost-builder__tiers-nav-row {
-    display: flex;
   }
 }
 
@@ -4675,8 +4694,12 @@
   font-size: var(--cz-font-size-sm);
 }
 
+/* The trailing margin is the "little extra vertical separation below the
+   Upgrade your build heading" the live reference asks for (item 1) — it
+   sits inside -gate-copy, so it adds to the -inline column gap that already
+   separates the copy block from the actions below. */
 .cz-package-builder__upgrade-gate-heading {
-  margin: 0;
+  margin: 0 0 var(--cz-space-2);
   color: var(--cz-color-text);
 }
 
@@ -4687,13 +4710,16 @@
   flex-wrap: wrap;
 }
 
-/* Browse Catalogue/Maybe next time reuse .cz-cost-builder__tier-action's
-   own shape/fill (see FamilyTierAdapter.tsx), but that base rule sets
-   width: 100% for its usual context (stacked full-width inside a Tier
-   card's own action row) — here the two sit side by side in one compact
-   row instead, so they size to their own label instead of each claiming
-   the full row and wrapping under one another. */
-.cz-package-builder__upgrade-gate-actions .cz-cost-builder__tier-action {
+/* Browse Catalogue (.tier-action + --filled) and Maybe next time
+   (.tier-choose, the shared secondary treatment — item 2) both reuse the
+   Tier action buttons' own shape/fill from the single rule those two
+   selectors share, but that base sets width: 100% for its usual context
+   (stacked full-width inside a Tier card's own action row). Here the two
+   sit side by side in one compact row instead, so they size to their own
+   label rather than each claiming the full row and wrapping under one
+   another. */
+.cz-package-builder__upgrade-gate-actions .cz-cost-builder__tier-action,
+.cz-package-builder__upgrade-gate-actions .cz-cost-builder__tier-choose {
   width: auto;
 }
 
