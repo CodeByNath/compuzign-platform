@@ -1,107 +1,47 @@
 # Upgrade CTA Cart Suppression
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **CLOSED**
 - Auditor verdict: **Proceed**.
-- Production `main`: `2c2c83e2096872b2847300afef307ffe27441af8` (was `67a5a7afd38a105059d92ca41ad020feaf472767` before this push).
+- Production `main`: `2c2c83e2096872b2847300afef307ffe27441af8`.
 - Production tree: `dadd4d81c7dd46d079688cf962e840a29eb5dbf9`.
-- Deploy `34568147718`: success.
-- Review branch removed; `origin` holds only `main` and `Project-work-instructions`.
+- Deploy `34568147718`: **success**.
+- Review branch removed; remote contains only `main` and `Project-work-instructions`.
+- Nath live validation: **PASS**.
 
-## Nath's refinement
-When the **Upgrade your build** CTA itself is visible inside Recommendations — the state with **Browse Catalogue** and **Maybe next time** — the Cart must be hidden.
+## Final accepted behavior
+When the **Upgrade your build** CTA is visible inside Recommendations with **Browse Catalogue** and **Maybe next time**, the Cart is hidden.
 
-Accepted behavior:
+Accepted transitions:
 - Add-on-only Recommendations -> Cart visible.
 - Upgrade CTA visible (`pending`) -> Cart hidden.
 - Browse Catalogue / Upgrade browsing -> Cart hidden.
 - **Maybe next time** -> CTA gone; Cart visible again.
 - Exit Upgrade browsing -> Cart visible again.
-- Globally lone Tier, ordinary Tier Add to Quote, cross-audience, explicit focused inspection -> unchanged.
+- Globally lone Tier, ordinary Tier Add to Quote, cross-audience and explicit focused inspection remain unchanged.
 
-## Audit result
-The candidate is correctly narrow. `FamilyTierAdapter.tsx` adds one derived fact:
+## Final implementation
+`FamilyTierAdapter.tsx` keeps the accepted `resolvedStep` architecture and adds only the derived condition:
 
 ```ts
 const upgradeCtaVisible = resolvedStep === 'recommendations'
   && upgradeGateActive === 'pending';
 ```
 
-`quoteSuppressed` then includes `upgradeCtaVisible`. This preserves the accepted `resolvedStep` architecture and adds no persistent Cart state. The condition reuses the same `upgradeGateActive === 'pending'` fact that renders the CTA, so suppression tracks the actual CTA rather than re-deriving Upgrade eligibility.
+`quoteSuppressed` includes `upgradeCtaVisible`. No persistent Cart state was added. The condition reuses the same `upgradeGateActive === 'pending'` fact that renders the CTA, so Cart suppression follows the actual CTA state.
 
-Independent diff from production contains only:
-- `resources/ts/components/package-builder/FamilyTierAdapter.tsx`
-- generated `dist/js/cost-builder.js`
-- `scripts/tier-next-step-navigation-regression.mjs`
+Independent pre-push review confirmed the candidate was exactly one commit ahead of the prior production `main` and changed only `FamilyTierAdapter.tsx`, generated `dist/js/cost-builder.js`, and `tier-next-step-navigation-regression.mjs`. Regression coverage increased to 81 mounted checks. Claude reported TypeScript/build/docs green and no new JS baseline failures.
 
-Regression coverage is now 81 mounted checks and explicitly locks CTA-visible hidden Cart, Maybe-next-time restoration, browsing continuity, Add-ons+Upgrade, and unchanged Add-on-only Recommendations. Claude reports TypeScript/build/docs green and no new JS baseline failures.
+## Production evidence
+Independent GitHub verification confirms current `main` is exactly `2c2c83e2096872b2847300afef307ffe27441af8` with tree `dadd4d81c7dd46d079688cf962e840a29eb5dbf9`.
 
-## Must preserve
-All previously accepted navigation behavior, Tier/Edition reload parity, exact quoted Edition state, Add-on exact Edition card state, X/View Plan routes, quote/cart mutation, Upgrade eligibility, Plan Details, pricing, Commercial Legs and identity.
+GitHub Actions run `34568147718` (`Deploy to Hostinger`) completed successfully for head SHA `2c2c83e2`, attempt 1.
 
-## Must remove
-Only Cart visibility while the Upgrade CTA with Browse Catalogue / Maybe next time is actually on screen.
+The review branch was removed after merge ancestry verification. Nath has confirmed the deployed customer behavior passed live validation.
 
-## Must not substitute
-Do not hide Cart for all Recommendations. Do not alter CTA wording/actions. Do not change Add-on presentation or add a persistent `showCart` state.
+This work is accepted and immutable; any later change belongs in a new work file.
 
-## Claude — next action
-Fast-forward **exactly `2c2c83e2096872b2847300afef307ffe27441af8`** to `main` unchanged. Do not amend or add source changes.
-
-After push:
-1. record exact `main` SHA/tree;
-2. record `Deploy to Hostinger` run id + conclusion;
-3. verify `review/upgrade-cta-cart-suppression` is an ancestor of `main`, then delete it local + remote;
-4. set **AWAITING LIVE VALIDATION** and stop.
-
-## Live validation
-Confirm only: CTA visible -> Cart hidden; Maybe next time -> Cart visible; Browse Catalogue -> Cart hidden; exit browsing -> Cart visible; Add-on-only Recommendations still show Cart.
-
-
----
-
-# Claude — push record
-
-## Pushed to production
-- `main` is now **`2c2c83e2096872b2847300afef307ffe27441af8`**
-- `main` tree **`dadd4d81c7dd46d079688cf962e840a29eb5dbf9`**
-- Previous production `main` was `67a5a7afd38a105059d92ca41ad020feaf472767`.
-
-Both SHA and tree match the approved candidate exactly — the fast-forward
-carried it unchanged, no amendment/rebase/rebuild in transit. History is
-linear: `67a5a7af -> 2c2c83e2`, one commit, merge base the exact previous
-production `main`.
-
-## Deployment
-- Workflow: `Deploy to Hostinger`
-- Run id: **`34568147718`**, attempt 1
-- Head SHA: `2c2c83e2`
-- Status: completed — **conclusion: success**
-
-## Branch cleanup
-Verified `review/upgrade-cta-cart-suppression` is a genuine ancestor of
-`origin/main` **before** deleting anything, then removed it locally and on
-`origin`. `origin` now holds only `main` and `Project-work-instructions`.
-
-## Status
-Set to **AWAITING LIVE VALIDATION**. No further implementation until Nath
-reports live results.
-
-## Live checks for Nath
-Per the auditor's stated scope:
-1. Upgrade CTA visible (Browse Catalogue / Maybe next time on screen) -> Cart
-   hidden.
-2. Click **Maybe next time** -> CTA gone -> Cart visible again.
-3. Click **Browse Catalogue** -> Cart stays hidden through the browsing
-   workspace.
-4. Exit browsing back to Recommendations -> Cart visible again (CTA gone with
-   it).
-5. Add-on-only Recommendations (no Upgrade catalogue on this Family) -> Cart
-   still visible, unchanged.
-
-## Open items carried forward (unchanged by this work)
-- `2026-09-10-cart-initial-payment-addons.md` — still AWAITING LIVE
-  VALIDATION, deferred by Nath.
-- `regression:composable-quote-cart-loop` — red on `main`, undecided.
-- `2026-08-30-quote-email-billed-item-separators.md` — abandoned; its dangling
-  commits `bf727fc7`/`add030a7` hold the fix for two of the red PHP tests.
+## Open items carried forward
+- `2026-09-10-cart-initial-payment-addons.md` — deferred live validation.
+- `regression:composable-quote-cart-loop` — pre-existing red on `main`, undecided.
+- `2026-08-30-quote-email-billed-item-separators.md` — abandoned historical work; dangling commits remain outside this closure.
