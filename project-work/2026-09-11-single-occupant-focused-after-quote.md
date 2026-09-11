@@ -1,11 +1,12 @@
 # Single Occupant Focused State After Quote
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Auditor verdict: **Proceed**.
-- Production `main`: `fd2878385b23becf1478018b94db47b5a50d7cf9`.
-- Approved candidate: `67a5a7afd38a105059d92ca41ad020feaf472767`.
-- Candidate tree: `4b379661a00df5f5d97610ebe86552c96a931c03`.
+- Production `main`: `67a5a7afd38a105059d92ca41ad020feaf472767` (was `fd2878385b23becf1478018b94db47b5a50d7cf9` before this push).
+- Production tree: `4b379661a00df5f5d97610ebe86552c96a931c03`.
+- Deploy `34559388908`: success.
+- Review branch removed; `origin` holds only `main` and `Project-work-instructions`.
 - GitHub compare independently verified: exactly **1 ahead / 0 behind**, merge base is exact production `main`.
 
 ## Nath's authoritative navigation rule
@@ -59,3 +60,66 @@ Spot-check the navigation matrix, not Plan Details internals:
 - Upgrade pending -> Recommendations + Cart; Browse Catalogue -> focused Upgrade + Cart hidden; exit -> Cart returns;
 - Add-ons + Upgrade -> established Recommendations presentation unchanged;
 - cross-audience single-visible quoted Tier -> X works, Cart visible; X closes to quoted card; View Plan reopens explicit focus and hides Cart.
+
+
+---
+
+# Claude — push record
+
+## Pushed to production
+- `main` is now **`67a5a7afd38a105059d92ca41ad020feaf472767`**
+- `main` tree **`4b379661a00df5f5d97610ebe86552c96a931c03`**
+- Previous production `main` was `fd2878385b23becf1478018b94db47b5a50d7cf9`.
+
+Both SHA and tree match the approved candidate exactly, so the fast-forward
+carried it unchanged — no amendment, rebase or rebuild in transit. History is
+linear: `fd287838 -> 67a5a7af`, one commit, merge base the exact previous
+production `main`.
+
+## Deployment
+- Workflow: `Deploy to Hostinger`
+- Run id: **`34559388908`**, attempt 1
+- Head SHA: `67a5a7af`
+- Status: completed — **conclusion: success**
+
+## Branch cleanup
+Verified `review/tier-next-step-cart-navigation` is a genuine ancestor of
+`origin/main` **before** deleting anything, then removed it locally and on
+`origin`. `origin` now holds only `main` and `Project-work-instructions`.
+
+## Status
+Set to **AWAITING LIVE VALIDATION**. No further implementation until Nath
+reports live results.
+
+## Live checks for Nath
+Navigation/Cart matrix only — Plan Details internals are out of scope here.
+
+1. **Multi-Tier card Add to Quote, nothing in between** — the Cart appears,
+   no shell stays open.
+2. **Globally lone Tier, Default and Edition** — focused shell remains after
+   Add to Quote, no X, Cart alongside. Quote an **Edition** and confirm the
+   shell keeps showing that Edition, not Default. Reload the page: same
+   state, same Edition, no small card and no staged view.
+3. **Add-on Recommendations** — Cart stays visible. Open an add-on's own
+   focused shell, quote a non-Default **Edition**, and confirm the returning
+   add-on card shows that exact Edition.
+4. **Upgrade pending vs browsing** — after quoting a Tier with a catalogue,
+   Recommendations + CTA shows WITH the Cart (this is the deliberate change);
+   Browse Catalogue hides the Cart; leaving browsing brings it back.
+5. **Add-ons + Upgrade together** — the established Recommendations
+   presentation is unchanged (add-ons step aside while the CTA is up).
+6. **Cross-audience single-visible quoted Tier** — X is present and works, and
+   the Cart is visible beside the shell (the accepted interpretation change);
+   X closes to the quoted card; View Plan reopens explicit focus and hides the
+   Cart again.
+
+Items 2 (Edition persistence and reload), 4 (pending now showing the Cart) and
+6 (Cart beside a shell that still has its X) are the three behaviours that
+changed this round — worth the closest look.
+
+## Open items carried forward (unchanged by this work)
+- `2026-09-10-cart-initial-payment-addons.md` — still AWAITING LIVE
+  VALIDATION, deferred by Nath.
+- `regression:composable-quote-cart-loop` — red on `main`, undecided.
+- `2026-08-30-quote-email-billed-item-separators.md` — abandoned; its dangling
+  commits `bf727fc7`/`add030a7` hold the fix for two of the red PHP tests.
