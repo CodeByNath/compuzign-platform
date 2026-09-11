@@ -1,11 +1,12 @@
 # Single Visible Tier Permanent Focus + Recommendation Polish
 
 ## Status
-- **SOURCE PUSH NOT APPROVED**
+- **AWAITING CHATGPT REVIEW**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `7ffd3e4b41e11eb8c5ae95694bd4bf7085152e7f`.
 - Candidate branch: `feat/single-visible-tier-focus-polish`.
-- Candidate: `3ad0b2c51492e39d7d40035eeece534b5cd497c9`, tree `f615abe4fc0d1e7c4255b4a447f35d745648bf5c`.
+- Candidate (round 2): `e571b71f657beba4b431fd6ad034d6296ae41202`, tree `f62035c45d0791f093ffd70b8b0c5b4bf0724e89`.
+- Superseded round 1: `3ad0b2c5`, tree `f615abe4`.
 
 ## Scope
 Live follow-up only:
@@ -47,3 +48,53 @@ Do not alter source behavior. Update only the affected current-state Code Map wo
 - browsing remains Cart/Add-on suppressed.
 
 Re-run `docs:check` and any documentation contract that covers this map. Keep the same review branch, produce one clean candidate from current `main`, record exact new SHA/tree, set **AWAITING CHATGPT REVIEW**, and stop. Do not push `main`.
+
+## Claude round 2 — documentation correction only
+
+Blocker accepted, and verified against source before editing rather than
+taken from the note alone:
+- `FamilyTierAdapter.tsx` `upgradeCtaVisible = resolvedStep ===
+  'recommendations' && upgradeGateActive === 'pending'`, folded into
+  `quoteSuppressed` — the pending CTA does suppress the Cart;
+- `hideAddonsInRecommendations={upgradeGateActive === 'pending'}` — it also
+  hides the Add-ons.
+
+The Code Map was stale on both counts. Corrected in
+`docs/code-map/package-builder-tier-navigation.md`:
+- the step table now separates `recommendations`, add-ons only (Cart
+  eligible) from `recommendations`, pending CTA (Cart suppressed, add-ons
+  aside);
+- the pending/browsing paragraph replaces the false "no longer suppresses
+  the Cart" line with: both `pending` and `browsing` hide the Cart, only
+  `browsing` is a focused workspace, `upgradeCtaVisible` covers the narrower
+  pending case, `hideAddonsInRecommendations` steps the add-on cards aside,
+  and **Maybe next time** clears the gate so ordinary Recommendations
+  returns with both its add-ons and the Cart.
+
+Swept `docs/` for the same claim elsewhere — this map was the only carrier.
+
+### Diff from round 1
+Documentation only: `git diff 3ad0b2c5 e571b71f` is 9 insertions / 7
+deletions in that one Markdown file. No source, test, contract or `dist`
+byte differs. Round 1 and round 2 are collapsed into the single commit
+`e571b71f`, one commit from `main` `7ffd3e4b`, on the same review branch
+(force-pushed).
+
+### Validation
+`npm run docs:check` passes (118 Markdown files, 47 Code Maps). `npx tsc
+--noEmit` and `npm run build` clean, with `dist/` matching source (rebuild
+left the tree clean). Re-ran `regression:tier-next-step-navigation` (93
+checks), `regression:single-occupant-quoted-focus`,
+`contract:composable-recommendations-cta`, `contract:cost-builder-isolation`,
+`contract:package-builder-regression-lock` — all green. The three
+pre-existing failures recorded in round 1 are unchanged and untouched.
+
+### Note
+The map is held under a 600-prose-word limit by `docs:check`, so the
+correction was made within that budget by tightening round 1's own Gate
+parity bullet — no unrelated map prose was rewritten, and no source
+behavior or contract assertion was altered.
+
+Both size choices from round 1 (compact padding `--cz-space-10`, CTA-only
+gap `--cz-space-6`) still stand as rounded-to-token assumptions pending the
+live reference.
