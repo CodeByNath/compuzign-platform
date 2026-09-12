@@ -1,73 +1,57 @@
 # Project Work Agent Rules
 
-This folder is the shared coordination/handoff area on branch `Project-work-instructions`. It is deliberately self-contained enough for a fresh AI agent/account to join the work without prior ChatGPT project instructions. It coordinates work only; platform architecture still comes from `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps, authoritative source, and approved work/history documents.
+This folder coordinates work on `Project-work-instructions`. Platform architecture still comes from root `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps, authoritative source, and approved history/work documents.
 
-## Fresh-agent bootstrap
-On every new session/account/tool:
-1. Check `Project-work-instructions` first and sync/read the newest version.
+## Startup
+On every new session/tool:
+1. Check and sync `Project-work-instructions`.
 2. Read this file.
-3. Read the active work file for the relevant area and follow its status literally.
-4. Then read root `AGENTS.md` -> `docs/ai-index.md` -> relevant Code Map only -> authoritative source -> relevant history only if needed.
-5. Never rely on remembered chat state where the coordination branch can answer it.
+3. Read the active work file and follow its status literally.
+4. Then read root `AGENTS.md` -> `docs/ai-index.md` -> relevant Code Map only -> authoritative source -> history only when needed.
+5. Do not rely on remembered chat state when the coordination branch can answer it.
 
-## Role selection
-**Claude / implementation agent**
-- Claude in the local VS Code repository is the sole source-editing/implementation agent for this workflow.
-- Implement only when the active work file says Claude should act.
-- Report changed files, tests/contracts, exact SHAs, unresolved risks, and push/deployment state back into the same work file.
+## Roles
+Roles are governance roles, not model/vendor names.
 
-**ChatGPT / outside auditor agent**
-- Act as Nath's independent auditor, code reviewer, and devil's advocate.
-- Source repository is strictly read-only: never create/edit/delete/move/format/generate/patch/build/test/migrate/commit/push/deploy source content.
-- Read/search/audit source, Git history, commits, diffs, Actions/deployment evidence, and live customer behavior.
-- If implementation is needed, write the exact next instruction for Claude in the active work file; do not implement it yourself.
-- The only repository writes permitted for the auditor are coordination updates on `Project-work-instructions` inside `project-work/`.
-- Do not modify WordPress/runtime/platform records during live validation unless Nath separately authorizes that exact action.
-- Never assume local, pushed `main`, successful Actions, deployed Hostinger runtime, stored state, and live customer behavior are identical.
-- Give one audit verdict per round: `Proceed`, `Proceed with safeguards`, or `Stop — architectural risk`.
+**Builder / implementation agent**
+- The Builder is whichever implementation agent Nath assigns for the active work item, e.g. Claude Code or Codex.
+- The Builder is the sole source-editing agent for that work item.
+- Implement only when the active file says the Builder should act.
+- Follow root `AGENTS.md`, architecture, Code Maps, branch hygiene, validation, and active scope.
+- Record changed files, tests/contracts, exact SHAs, unresolved risks, and push/deployment state in the same work file.
+- Stop when independent review is required.
 
-### Auditor capability-preservation safeguard
-This safeguard is for ChatGPT/outside-auditor successors, not an implementation permission for Claude.
-- When auditing a defect correction, treat the required user-visible capability/behavior as an invariant unless Nath explicitly changes it.
-- Reject any candidate that fixes the defect by weakening or deleting that capability, adding extra user steps/clicks, substituting a reduced flow, or otherwise changing the requested outcome merely because it is easier or safer to implement.
-- Distinguish **the defective mechanism** from **the required behavior**: remove/replace only the defective mechanism while preserving the behavior.
-- In instructions to Claude where this risk exists, state explicitly: **Must preserve**, **Must remove**, and **Must not substitute**.
-- Passing tests does not make a reduced-capability implementation acceptable; contracts/tests may themselves need correction if they encode the wrong reduced behavior.
-- If preserving the capability appears to conflict with a safeguard or architecture rule, stop and resolve that conflict explicitly instead of silently degrading the requirement.
+**Independent Reviewer / Auditor**
+- The Reviewer is the separately assigned auditing session/agent.
+- Audit architecture, source, Git history/diffs, deployment evidence, runtime state, and live behaviour.
+- Source is read-only for the Reviewer. The Reviewer may write coordination files only inside `project-work/` on `Project-work-instructions`.
+- Implementation corrections are instructions to the Builder, not Reviewer source edits.
+- Do not alter WordPress/runtime/platform state unless Nath explicitly authorizes that exact action.
+- Never assume local, pushed `main`, successful Actions, deployed Hostinger, stored runtime state, and live behaviour are identical.
+- Verdict each review: `Proceed`, `Proceed with safeguards`, or `Stop — architectural risk`.
+- A Reviewer does not become the Builder merely because both use the same vendor/model family.
 
-If an outside agent cannot operate under the auditor boundary above, it must stop rather than act as an implementation agent.
+When useful, active work files state `Builder: ...` and `Reviewer: ...` explicitly.
 
-## Work-file rule
-- One area of work stays in one Markdown file until closed; corrections/reviews stay in that same file.
-- New unrelated work gets a new file.
-- Keep work files concise, normally <=600 words.
-- Record decisions, scope, evidence, SHAs, files changed, validation, risks, approvals, deployment evidence, and closure state; do not paste long transcripts/full diffs.
+## Capability safeguard
+The Reviewer must preserve required behaviour unless Nath changes it. Reject fixes that remove capability, add unnecessary user steps, or substitute a reduced flow. Distinguish the defective mechanism from the required outcome. Where relevant state **Must preserve**, **Must remove**, and **Must not substitute**.
 
-## Review branch hygiene
-- Keep **one active implementation/review branch per active work item**. Do not leave superseded review branches sitting indefinitely.
-- When a review round is rejected and further correction is required, prepare the next review from the current production `main` as a clean review state. Do not make rejected intermediate commits part of the eventual `main` ancestry merely because fixes were stacked on top of them.
-- Before asking for source-push approval, collapse/cherry-pick/squash the accepted final tree onto a fresh branch from the current production `main` so the auditor reviews one clean candidate head for that work item.
-- After a replacement review branch is independently accepted, remove superseded local/remote review branches for that same work item. Never delete `main`, protected branches, or `Project-work-instructions`.
-- Before marking work `CLOSED`, verify there is no stale implementation/review branch left for that completed work item. Completed work must not remain as an abandoned branch.
-- Branch cleanup is repository hygiene only; it must never rewrite shared production history or bypass the required diff/review/deploy/live-validation gates.
+## Work files and branches
+- One work area stays in one Markdown file until closed; unrelated work gets a new file.
+- Keep work files normally <=600 words.
+- Repository branch limit: `main`, `Project-work-instructions`, plus at most one active topic/review branch.
+- Before closing, verify completed topic branches are merged/contained and remove stale local/remote branches. Never rewrite production history for cleanup.
 
-## Status behavior
-- `READY FOR CLAUDE`: Claude proceeds immediately.
-- `AWAITING CLAUDE RESPONSE`: Claude answers recorded review items in the same work file.
-- `SOURCE PUSH NOT APPROVED`: do not push source to `main`.
-- `SOURCE PUSH APPROVED`: Claude may push only the explicitly approved source work.
-- `AWAITING CHATGPT REVIEW`: source work stops; auditor inspects actual branch/commit/diff and records the verdict/next action.
-- `AWAITING LIVE VALIDATION`: auditor performs read-only live validation when browser access is available.
-- `CLOSED`: accepted and immutable; later work gets a new file.
+## Status vocabulary
+- `READY FOR BUILDER`
+- `AWAITING BUILDER RESPONSE`
+- `SOURCE PUSH NOT APPROVED`
+- `SOURCE PUSH APPROVED`
+- `AWAITING REVIEWER REVIEW`
+- `AWAITING LIVE VALIDATION`
+- `CLOSED`
 
-## Review and deployment chain
-Before judging work, confirm the production/base SHA, scope, non-change boundary, relevant architecture/source, and active work status. After Claude implementation, independently inspect the actual pushed review/main commit rather than accepting the report alone.
+Legacy files using `READY FOR CLAUDE`, `AWAITING CLAUDE RESPONSE`, or `AWAITING CHATGPT REVIEW` are equivalent legacy statuses and need no retrospective rewrite.
 
-After a production push, record exact `main` SHA and GitHub Actions/deployment evidence. When live validation is required, do not mark `CLOSED` until customer behavior matches the accepted architecture/source. A browser/tool outage is infrastructure failure, not product failure; keep live validation pending rather than requesting a source change.
-
-## Required root pointer
-The repository-wide startup file must retain this concise pointer:
-
-> Before normal repository startup, check `Project-work-instructions`; if it has newer changes, sync it and read `project-work/AGENTS.md` plus the active work file first.
-
-Do not duplicate these coordination rules into root instructions.
+## Review chain
+Before judging work, confirm production/base SHA, scope, non-change boundary, relevant architecture/source, and active status. After implementation, independently inspect the actual pushed candidate. After production push, record exact `main` SHA and deployment evidence. If live validation is required, do not close until live behaviour matches the accepted result.
