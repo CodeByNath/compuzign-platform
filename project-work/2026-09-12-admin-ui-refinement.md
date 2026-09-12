@@ -1,7 +1,7 @@
 # Admin UI Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED** — Phase 1 candidate only.
+- **AWAITING LIVE VALIDATION** — blocked by failed deployment.
 - Builder: Codex
 - Reviewer: ChatGPT independent auditor
 - Auditor verdict: **Proceed with safeguards**
@@ -27,7 +27,13 @@ Reviewer inspected the actual diff and found no architectural blocker or hidden 
 ## Safeguard
 Responsive/live acceptance remains pending. Builder's narrow static fixture was inconclusive, so static fixture output must not be treated as live validation.
 
-## Builder — next action
-Push **exactly** `d8f3bba531c2ecaa57ad1f6b0cd506655bf3b497` to `main` with no source amendments. Record exact resulting `main` SHA and GitHub Actions deployment result in this file. Then set status to **AWAITING LIVE VALIDATION** and stop.
+## Production push and deployment evidence
+- Nath completed the approved production push. Fetch verified local `main` and `origin/main` both equal `d8f3bba531c2ecaa57ad1f6b0cd506655bf3b497`, with no source amendments.
+- [Deploy to Hostinger run 34693662674](https://github.com/CodeByNath/compuzign-platform/actions/runs/34693662674), attempt 1, push on `main`, exact approved SHA: **failure** (completed 2026-09-12 12:27:19 UTC).
+- Frontend dependency installation and build passed. Job `103553295385` failed at **Deploy source via SSH**: `dial tcp ***:***: i/o timeout`. **Deploy built dist assets via SCP** was skipped.
+- Deployment is not confirmed; live acceptance cannot proceed until deployment succeeds. This is connection infrastructure failure, not evidence of a source defect. No source amendment or deployment retry performed.
 
-Do not begin Phase 2. Keep `admin-ui-refinement` until Phase 1 is live-accepted and closed.
+## Next action
+Resolve/retry the failed deployment, then independently validate responsive/live appearance. Phase 1 remains unaccepted pending that evidence.
+
+Do not begin Phase 2. Keep `admin-ui-refinement` until Phase 1 is live-accepted and closed. Builder stopped after recording the deployment result.
