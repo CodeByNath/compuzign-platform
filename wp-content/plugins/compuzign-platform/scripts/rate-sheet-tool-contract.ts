@@ -336,8 +336,12 @@ const focusedRead = drawerSource.slice(
 check(
   !focusedRead.includes('RateSheetGridRead')
     && !focusedRead.includes('value.groups.map')
-    && focusedRead.includes('Per values'),
-  'the focused overview is summary-only, with no row table or child identity dump',
+    // Admin UI Refinement: "Per values" is retired from this overview card —
+    // it was a presentation-only rollup of row.per, never stored data, and
+    // the row-level Per editor (`editLabel="Edit Per values"`, rateSheetParts.tsx)
+    // is unaffected.
+    && !focusedRead.includes('Per values'),
+  'the focused overview is summary-only, with no row table, child identity dump, or Per values rollup',
 );
 check(
   focusedRead.includes('title="Rate Sheet"')

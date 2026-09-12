@@ -532,7 +532,6 @@ function FocusedRateSheetRead({
   value, onEdit,
 }: { value: RateSheetEditorValue; onEdit: () => void }): VNode {
   const summary = useMemo(() => summariseRateSheet(value, 0), [value]);
-  const perValues = useMemo(() => [...new Set(value.items.map((row) => row.per))], [value.items]);
   // No `.cz-req-detail` wrapper of its own: the caller owns that root — the
   // Details group inside the focused group screen, or the collection view.
   return (
@@ -570,10 +569,6 @@ function FocusedRateSheetRead({
               ? ` · ${value.bundles.map((bundle) => findBundleRow(bundle, value)?.label?.trim() || 'Untitled Bundle').join(', ')}`
               : ''}
           </p>
-        </div>
-        <div class="drawerModule__field">
-          <p class="drawerModule__label">Per values</p>
-          <p class="drawerModule__value">{perValues.length}{perValues.length > 0 ? ` · ${perValues.join(', ')}` : ''}</p>
         </div>
         </div>
       </ReadBlock>
