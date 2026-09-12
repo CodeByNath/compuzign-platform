@@ -1,12 +1,12 @@
 # Admin UI Refinement
 
 ## Status
-- **READY FOR BUILDER**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Claude Code**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
 - Production `main`: `d8f3bba531c2ecaa57ad1f6b0cd506655bf3b497`
-- Topic branch: `admin-ui-refinement`, currently through `72b9d012`
+- Topic branch: `admin-ui-refinement`, currently through `d85544a4`
 - **No merge/push to `main` until final Reviewer approval.**
 
 ## Scope
@@ -31,3 +31,11 @@ Do not make an unnecessary compatibility-breaking rename for this presentation t
 Then rebuild generated output and run final validation: `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, relevant focused contracts/PHP projection tests, and `contract:admin-station-css` baseline comparison.
 
 Commit this safeguard on `admin-ui-refinement`, push only that topic branch, record the exact SHA/results here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main`.
+
+## Final safeguard — resolved
+
+Commit `d85544a4`, pushed. `PackageManagerSchema::projectTierRateSheetWith()`'s Bundle-child `includes[]` entry now carries BOTH keys: `cz_platform_id` preserved exactly as it was (no rename, no removal), and `platform_id` added alongside it for `TierLowerDeck` to read. `TierResolvedRateSheetSelection`/`DeckSelection`'s `includes[]` TS type documents both keys. No persistence or identity change — `platform_id` is a read-only projection of the same value `cz_platform_id` already carried.
+
+**Validation:** `npx tsc --noEmit` clean; `npm run build` succeeds (no dist diff — this commit is PHP + type-comment only, no runtime/bundle change); `npm run docs:check` passes; PHP tests `rate-sheet-bundle` (96 checks), `tier-rate-sheet-price-option`, `commercial-leg-resolution`, `commercial-leg-timeline`, `composable-edition-catalogue-projection`, `tier-edition-price-projection`, `legacy-contact-override-repair`, `tier-pricing-parity` all pass; `contract:package-tier-workspace`, `contract:tier-rate-sheet-catalogue-bundle`, `contract:tier-occupant-inclusions-bundle`, `contract:tier-connections`, `contract:rate-sheet-tool` all pass; `contract:admin-station-css` reports the same 6 pre-existing baseline failures (unrelated `cz-rate-sheet-tool__*` classes), unchanged from before this branch's work began.
+
+Topic branch is now 10 clean commits ahead of `main` (`d8f3bba5..d85544a4`), merge base exactly current production. All three reviewer corrections and the one final safeguard are resolved or recorded as open-for-decision (Service Overview). Ready for final review/approval.
