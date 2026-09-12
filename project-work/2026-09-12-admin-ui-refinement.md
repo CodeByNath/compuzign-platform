@@ -1,12 +1,12 @@
 # Admin UI Refinement
 
 ## Status
-- **READY FOR BUILDER**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Claude Code**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
 - Production `main`: `d8f3bba531c2ecaa57ad1f6b0cd506655bf3b497`
-- Topic branch: `admin-ui-refinement`, currently through `7785885b`
+- Topic branch: `admin-ui-refinement`, currently through `72b9d012`
 - No merge/push to `main` until Reviewer approves the complete branch.
 
 ## Workflow
@@ -36,3 +36,18 @@ Do one targeted source/history trace for the exact old presentation Nath means. 
 
 ## Validation
 Run `npx tsc --noEmit`, `npm run build`, `npm run docs:check`, relevant focused contracts, and compare `contract:admin-station-css` against its existing baseline failures. No customer UI changes, pricing/resolver changes, persistence migration, identity mutation, or unrelated refactor.
+
+## Corrections A/B/C — resolved
+
+Three new commits on `admin-ui-refinement` (`99644cba`, `2f3cedd3`, `72b9d012`), pushed.
+
+**Correction A (`99644cba`)** — Removed the "Per values" field + its now-unused memo from `FocusedRateSheetRead` (`RateSheetTool.tsx`). Updated the one directly affected assertion in `rate-sheet-tool-contract.ts` (`focusedRead.includes('Per values')` → `!focusedRead.includes('Per values')`) to assert the approved presentation instead of the old one. Row-level `per` (the commercial unit field, `rateSheetParts.tsx`'s "Edit Per values" row editor) is untouched — no pricing semantics or stored data changed.
+
+**Correction B (`2f3cedd3`)** — Extended the existing read/projection path, no new identity work:
+- `PackageManagerSchema::projectTierRateSheetWith()` (PHP) now projects each selection row's matched Rate Sheet item's existing `platform_id` into the returned row (previously computed but never projected). Also renamed one inconsistency found in the same function — a Bundle-child `includes[]` entry's `cz_platform_id` key to `platform_id`, matching the sibling normalization this same function already applies to every other entity (sheet/group/bundle/item/price option); that key was not read under either name on the frontend before this, so it's a zero-impact rename.
+- `TierResolvedRateSheetSelection`/`DeckSelection` (TS) carry the field through.
+- `deck.ts`'s `projectTierInclusions` (both the ordinary and Bundle-child branches) now populates `DeckInclusion.platformId`.
+- `TierLowerDeck.tsx`'s inclusion row caption now reads `platformId` (falls back to `''` — no backfill, no invented value, per the reviewer's note; a genuinely missing Platform ID stays a job for the existing CompuZign Admin migration action).
+- Verified against every PHP test exercising this projection (`rate-sheet-bundle`, `tier-rate-sheet-price-option`, `commercial-leg-resolution`, `commercial-leg-timeline`, `composable-edition-catalogue-projection`, `tier-edition-price-projection`, `legacy-contact-override-repair`, `tier-pricing-parity`) — all pass; none assert the exact row shape, only individual fields.
+
+**Correction C — evidence recorded, item left open as instructed.** Ran one more targeted trace (git log --all -i --grep, deleted-file search, docs/project-history grep, docs/code-map grep, full-tree grep for the literal phrase, and a check of `service-station/` for the described pre-Rate-Sheet "service-hosted" station). Result: no separate, currently-dead "Service Overview" presentation exists anywhere in the tree. The only literal matches are (a) the live Service-Station "Service Overview" editor/card (Service entity's own Overview module — name/description/category — unrelated to Tiers), and (b) the already-fully-removed legacy Command Centre (`ServiceOverviewViewCard.tsx`/`ServiceOverviewTransitView.tsx`, deleted in `34c8175b "chore: remove legacy Command Centre; Admin Station is the sole admin frontend"`, 2026-07-23 — nothing left to delete, already done by a prior unrelated commit). No commit, doc, or code path describes a retired Tier-scoped "Service Overview" on Default/Add-on/Build-Your-Own. Leaving this for Reviewer/Nath: either point to a more specific component this wasn't meant to cover, or drop the item.
