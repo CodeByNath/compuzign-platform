@@ -178,6 +178,7 @@ export function useTierInclusionDrawerController({
     name:       record?.name ?? '',
     sourceId:   record?.sourceId ?? null,
     itemId,
+    platformId: record?.platformId ?? null,
     categories: record?.categories ?? [],
     quantity:   record?.quantity ?? 0,
     unitPrice:  record?.unitPrice ?? null,
@@ -215,7 +216,7 @@ export function useTierInclusionDrawerController({
   });
 
   const serviceBinding = connectionBinding(record?.service
-    ? { configured: true, primary: record.service.title, identity: String(record.service.id) }
+    ? { configured: true, primary: record.service.title, identity: record.service.platformId ?? '' }
     : EMPTY_CONNECTION);
 
   const categoryBinding = connectionBinding(record && record.categories.length > 0
@@ -223,7 +224,7 @@ export function useTierInclusionDrawerController({
     : EMPTY_CONNECTION);
 
   const rateSheetBinding = connectionBinding(record?.rateSheet
-    ? { configured: true, primary: record.rateSheet.title, identity: record.rateSheet.id }
+    ? { configured: true, primary: record.rateSheet.title, identity: record.rateSheet.platformId ?? '' }
     : EMPTY_CONNECTION);
 
   return {

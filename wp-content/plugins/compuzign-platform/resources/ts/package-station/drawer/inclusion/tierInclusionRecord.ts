@@ -27,12 +27,16 @@ import type {
 export interface TierInclusionServiceLink {
   id:    number;
   title: string;
+  // Output-only CZS; empty when the supplying Service carries none yet.
+  platformId: string | null;
 }
 
 /** The Rate Sheet the Tier priced this inclusion from. */
 export interface TierInclusionRateSheetLink {
   id:    string;
   title: string;
+  // Output-only CZPRC; empty when the sheet carries none yet.
+  platformId: string | null;
 }
 
 /** One Tier's use of one Rate Sheet row, fully resolved. */
@@ -41,6 +45,8 @@ export interface TierInclusionRecord {
   itemId:     string;
   // The Service inclusion pool id this row prices (the inclusion's own identity).
   sourceId:   string | null;
+  // The bound Rate Sheet row's own output-only CZPRCI; empty when unassigned.
+  platformId: string | null;
   name:       string;          // Service-owned label, carried through
   quantity:   number;          // the TIER's quantity, not the sheet's default
   unitPrice:  number | null;   // Rate Sheet row unit price, carried through
@@ -87,6 +93,7 @@ export function resolveTierInclusion(
   return {
     itemId:     selection.item_id,
     sourceId:   selection.source_id ?? null,
+    platformId: row?.platform_id ?? null,
     name:       selection.label,
     quantity:   selection.quantity,
     unitPrice:  selection.unit_price,
@@ -94,7 +101,9 @@ export function resolveTierInclusion(
     lineTotal:  selection.line_total,
     resolved:   selection.resolved,
     categories: relationship?.source_categories ?? [],
-    service:    serviceId !== null && serviceTitle !== null ? { id: serviceId, title: serviceTitle } : null,
-    rateSheet:  rateSheet ? { id: rateSheet.rate_sheet_id, title: rateSheet.title } : null,
+    service:    serviceId !== null && serviceTitle !== null
+      ? { id: serviceId, title: serviceTitle, platformId: relationship?.source_service_platform_id ?? null }
+      : null,
+    rateSheet:  rateSheet ? { id: rateSheet.rate_sheet_id, title: rateSheet.title, platformId: rateSheet.platform_id ?? null } : null,
   };
 }

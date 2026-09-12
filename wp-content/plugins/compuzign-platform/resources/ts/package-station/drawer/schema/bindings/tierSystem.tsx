@@ -63,13 +63,6 @@ export const tierSystemOverviewShell: ShellSchema<TierSystemOverviewShellData> =
       }),
     },
     {
-      id: 'reference', element: 'text', label: 'Tier system ID',
-      bind: (data): TextValue => ({
-        value: data.reference ?? '',
-        fallback: 'Minted on Publish',
-      }),
-    },
-    {
       id: 'platform-id', element: 'text', label: 'Platform ID',
       bind: (data): TextValue => ({
         value: data.platformId ?? '',

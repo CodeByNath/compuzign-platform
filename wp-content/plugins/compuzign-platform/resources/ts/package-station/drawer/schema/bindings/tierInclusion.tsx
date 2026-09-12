@@ -47,6 +47,7 @@ export interface TierInclusionOverviewShellData {
   name:       string;
   sourceId:   string | null;
   itemId:     string;
+  platformId: string | null;
   categories: string[];
   quantity:   number;
   unitPrice:  number | null;
@@ -75,12 +76,8 @@ export const tierInclusionOverviewShell: ShellSchema<TierInclusionOverviewShellD
       bind: (data): TextValue => ({ value: data.name }),
     },
     {
-      id: 'inclusion-id', element: 'text', label: 'Inclusion ID',
-      bind: (data): TextValue => ({ value: data.sourceId ?? '', fallback: NOT_CONFIGURED }),
-    },
-    {
-      id: 'rate-sheet-row-id', element: 'text', label: 'Rate Sheet row ID',
-      bind: (data): TextValue => ({ value: data.itemId }),
+      id: 'platform-id', element: 'text', label: 'Platform ID',
+      bind: (data): TextValue => ({ value: data.platformId ?? '', fallback: NOT_CONFIGURED }),
     },
     {
       id: 'category', element: 'text', label: 'Category',
@@ -184,7 +181,7 @@ export const tierInclusionServiceShell = tierInclusionConnectionShell({
   subtitle: 'The Service that supplies this inclusion.',
   icon: 'overview',
   primaryLabel: 'Service',
-  identityLabel: 'Service ID',
+  identityLabel: 'Platform ID',
 });
 
 export const tierInclusionCategoryShell = tierInclusionConnectionShell({
@@ -199,5 +196,5 @@ export const tierInclusionRateSheetShell = tierInclusionConnectionShell({
   subtitle: 'The Rate Sheet this Tier priced the inclusion from.',
   icon: 'package',
   primaryLabel: 'Rate Sheet',
-  identityLabel: 'Rate Sheet ID',
+  identityLabel: 'Platform ID',
 });
