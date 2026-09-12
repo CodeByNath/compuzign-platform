@@ -1,54 +1,51 @@
 # Responsive Details Close + Focused Occupant Entry
 
 ## Status
-- **SOURCE PUSH NOT APPROVED** — queued behind `2026-09-12-cart-upgrade-secondary-cta.md` closure hygiene.
-- Auditor verdict: **Proceed with safeguards**.
+- **AWAITING CHATGPT REVIEW** — round 1 candidate pushed, not on `main`.
+- Predecessor `2026-09-12-cart-upgrade-secondary-cta.md` is **CLOSED**; its review branch is deleted locally and remotely.
 - Baseline `main`: `80676874e6da8728dfefee8115628d0cb296196d`.
-- Do not start source work until the predecessor is **CLOSED** and the old review branch is gone.
+- Review branch: `responsive-modal-close-and-focused-entry`.
+- Candidate commit: `0d5e242b02195b617f642a857db5725b3ce3e9f3`; tree `b920ba6d9375974d3ebc1e115551eff8c7c0266d`.
+- Branches now: `main`, `Project-work-instructions`, this one review branch.
 
-## Nath's corrected scope
-Only two responsive customer-flow fixes remain.
+## 1. Details-modal X — root cause and correction
+Both entry points already shared one chrome (`.details-backdrop/-panel/-modal/-close`), so this is one fix, not two.
 
-### 1. View Details X must remain visible
-This applies to both shared details-modal entry points:
-- focused Tier/Edition -> **View plan details** -> `PlanDetailsModal`;
-- Cart -> **View details** -> `QuoteDetailsOverlay`.
+The control was an absolutely positioned **sibling** of the scrolling dialog on `transform: translate(35%, -35%)`, placing it *outside* the panel's top-right corner. The backdrop pads by `--cz-space-4` (16px) while that translate pushes 14.7px of the 42px control past the panel edge — about **1px of clearance** at narrow widths, and none once anything consumed it. Clipped, ESC was the only close left.
 
-The current close control is positioned outside the modal corner and can disappear on some browsers/viewports. Use the same sticky-in-view principle as the focused occupant X so the close control remains visible while modal content scrolls. Preserve ESC close, focus trapping, backdrop close, labels and body scroll lock.
+Corrected by anchoring the control **inside** the scrolling dialog on a shared sticky rail (`.cz-package-builder__details-close-rail`, `position: sticky; top: 0`), the same principle `.cz-package-builder__focused-close` already uses. Visual treatment (border/background/glyph/size) unchanged.
 
-### 2. Any focused occupant must enter from its top on responsive devices
-Treat this as one general focused-state rule for Package Builder occupants, not a Tier-only exception.
+Preserved as required: ESC close, backdrop close, focus trap, body scroll lock, both aria-labels.
 
-Whenever a customer opens or reopens any occupant in the shared focused shell on phone/tablet, bring the focused shell's top into view so the customer starts at the beginning of that focused experience and reads it top-to-bottom.
+**Side effect worth your attention:** the control was previously outside `modalRef`, so it was never inside the focus trap — unreachable by Tab in both modals. It is now the first focusable and takes initial focus. I read this as a fix, not a scope change; flagging it because it alters keyboard order.
 
-This includes:
-- normal Tier occupant;
-- Add-on occupant;
-- **Upgrade your build** / composable occupant when Browse Catalogue or Manage Build opens its focused browsing shell.
+## 2. Focused-occupant entry — one shared rule
+Both focused branches render the same `.cz-package-builder__focused`, so both take one `focusedShellRef` and one `focusedOccupantKey`:
+- composable browsing -> `'upgrade'`; normal Tier and **add-on** -> `tier:<focusedTierId>` (same branch; `is_addon` changes presentation, not the shell).
 
-Use the shared focused-shell transition/state as the authority where possible. Do not bolt separate scroll behavior onto each occupant type unless the current architecture genuinely requires separate hooks. Desktop behavior stays unchanged.
+Key is **occupant identity, not variant** — `selectVariant()` changes `focusedEditionId` only, so an in-shell Edition switch never re-scrolls a customer mid-read. Entry scrolls the top of the focused experience into view at `max-width: 767px`, the breakpoint the shell already stacks at; desktop untouched. `prefers-reduced-motion` honoured.
 
-This is navigation/presentation behavior only. Preserve Tier/Edition/composable identity, quote mutation, Cart eligibility, Recommendations, Upgrade flow, pricing and Commercial Legs.
+Two judgement calls for you to confirm or reject:
+1. The key reads explicit `focusedTierId`, **never** `effectiveFocusedTierId` — the implicit single-Tier landing is arrived at, not opened, and that auto-focus derivation is left completely untouched.
+2. When `.cz-package-builder__customer-tabs` is the shell's preceding sibling it becomes the scroll target, because on a locked/lone-in-group shell that bar is the only way off and scrolling past it would hide the exit.
 
-## Removed from scope
-- No compact/collapsed staged Tier or Cart card.
-- No alternate responsive Cart shell.
-- No automatic movement to Recommendations or Cart after Add to Quote.
-- No Mobile Quote Bar redesign.
+## Files changed
+- `resources/ts/components/package-builder/PlanDetailsModal.tsx`, `QuoteDetailsOverlay.tsx`, `FamilyTierAdapter.tsx`
+- `resources/css/modules/cost-builder.css`, rebuilt `dist/`
+- `scripts/responsive-focused-entry-contract.ts` (new), registered in `package.json`
+- `docs/code-map/plan-details.md`, `docs/code-map/package-builder-responsive-focused-entry.md` (new), `docs/code-map/000-README.md`
 
-## Must preserve
-Existing resolved-step architecture, exact quoted Edition state, Add-on/Upgrade behavior, composable browsing/Manage Build, desktop presentation, responsive card behavior and modal accessibility.
+## Documentation decision needing your ruling
+`package-builder-focused-shell.md` was already at **599/600** prose words, so it could not absorb this. I left it byte-identical to `main` and gave the rule its own map (`AGENTS.md`: split rather than let a map grow). If you would rather it live inside the focused-shell map, that map needs words freed first — say which.
 
-## Must remove
-Only the disappearing modal X behavior and responsive focused-occupant entry that can leave a newly opened focused shell starting outside the visible top position.
+## Validation
+`tsc --noEmit` clean; `npm run build` clean; `docs:check` passes (48 Code Maps).
+New `contract:responsive-focused-entry` PASS. Also PASS: plan-details-value-states, package-builder-regression-lock, package-builder-addon-focus, package-builder-customer-tabs, focused-edition-selector-presentation, composable-recommendations-cta, manage-build, upgrade-build-footer, quote-inclusion-quantity-parity, cost-builder-isolation, quote-view, quote-view-print-portal, composable-quote-cart, package-family-cart, tier-addon-flow; regressions single-occupant-quoted-focus, tier-next-step-navigation, cart-bundle-upgrade-refinements, cart-initial-payment-addons, cart-initial-payment-parity.
 
-## Claude — next action
-First close the predecessor and return to the two permanent branches. Then implement one narrow candidate from current `main`:
-1. correct the shared details-modal X for both entry points;
-2. ensure opening/reopening **any focused occupant** on responsive devices starts at the shared focused shell top — normal Tier, Add-on, and Upgrade/composable browsing;
-3. prefer one shared focused-state rule over occupant-specific duplicate scroll logic;
-4. add focused coverage for both behaviors, including Upgrade/composable focused entry;
-5. run TypeScript/build/docs and relevant focused-shell/modal/navigation checks;
-6. record branch/SHA/tree/files/evidence here, set **AWAITING CHATGPT REVIEW**, and stop.
+**Two pre-existing failures, verified failing on clean `main` and untouched by this work:** `contract:package-builder-flow` (reads a deleted `FullBuildDetail.tsx`) and `regression:composable-quote-cart-loop`. Not fixed here — out of scope.
 
-Do not implement card-collapse work.
+## Not verified
+No browser/live verification was performed; no local WP environment exists. The geometry above is read from the stylesheet, not observed live.
+
+## Out of scope, as instructed
+No compact/collapsed staged Tier or Cart card, no alternate responsive Cart shell, no post-Add-to-Quote movement, no Mobile Quote Bar change.
