@@ -4630,6 +4630,14 @@
 .cz-package-builder__cue-ball {
   position: absolute;
   top: 50%;
+  /* Resting position, owned HERE rather than by an inline attribute. A lone
+     destination has nothing to compute, so EditionCueSelector writes no
+     inline `left` for it — an inline value outranks every rule in this file
+     and made the position uncontrollable from CSS. A real multi-destination
+     track still supplies its own computed inline `left`, which overrides
+     this. --cz-cue-inset (11px) exceeds the ball's 9px half-width, so
+     translate(-50%) at 0 keeps it inside the track rather than clipping. */
+  left: 0;
   width: 18px;
   height: 18px;
   border-radius: 50%;

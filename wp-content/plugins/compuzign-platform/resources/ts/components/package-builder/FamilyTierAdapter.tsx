@@ -289,15 +289,11 @@ function EditionCueSelector({
 }) {
   const hasEditions = destinations.length > 1;
   const activeIndex = Math.max(0, destinations.findIndex((destination) => destination.id === activeId));
-  // Plain percentage of the rail's own (already-inset) width. With nothing
-  // to switch between, the ball sits at the rail's START (0%) rather than
-  // its center: a lone occupant has no second destination for a centered
-  // ball to read as the midpoint BETWEEN, so centering it invented a
-  // position on a track that has only one. 0% is the same place the first
-  // destination of a multi-destination track occupies, so the indicator
-  // means "here, at the beginning" in both cases. --cz-cue-inset (11px)
-  // already exceeds the ball's own 9px half-width, so translate(-50%) at 0%
-  // still lands the ball inside the track rather than clipping at its edge.
+  // Plain percentage of the rail's own (already-inset) width — used ONLY on a
+  // real multi-destination track, where the position genuinely depends on the
+  // active index and the destination count. A lone destination has nothing to
+  // compute and gets no inline value at all; its resting position is the
+  // stylesheet's own `left: 0` (see the ball's render below).
   const cuePercent = hasEditions ? (activeIndex / (destinations.length - 1)) * 100 : 0;
 
   return (
@@ -321,10 +317,18 @@ function EditionCueSelector({
         ))}
         {/* No-Edition Tier: the track and a start-anchored cue ball render as a
             static "you are here" indicator only — no pots, no buttons, no
-            fake navigation affordance. */}
+            fake navigation affordance.
+
+            No inline style in that case. An inline `left` outranks every
+            stylesheet rule, so emitting one here made the resting position
+            impossible to control from CSS. The single-destination position
+            belongs to `.cz-package-builder__cue-ball` (`left: 0`); the
+            inline value is written ONLY when there is genuinely something to
+            compute — a real multi-destination track, where `left` depends on
+            the active index and the destination count. */}
         <span
           class="cz-package-builder__cue-ball"
-          style={{ left: `${cuePercent}%` }}
+          style={hasEditions ? { left: `${cuePercent}%` } : undefined}
           aria-hidden="true"
         />
       </div>
