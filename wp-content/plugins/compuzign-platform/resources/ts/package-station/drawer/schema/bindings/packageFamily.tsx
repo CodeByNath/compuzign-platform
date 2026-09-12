@@ -7,6 +7,8 @@ import {
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { TextValue } from '@/drawer-kit/schema/elements/library';
 import { PackageFamilyOverviewEditor } from '../../editors/PackageFamilyOverviewEditor';
+import { buildFamilyCompositionMetrics } from '../../../surface/packageTierWorkspace/familySummary';
+import type { TierGroupComposition } from '../../../types';
 
 const OVERVIEW_ACTIONS: Record<string, ShellActionSchema> = {
   'discard-draft': {
@@ -69,9 +71,10 @@ export const packageFamilyOverviewShell: ShellSchema<PackageFamilyOverviewShellD
 };
 
 export interface PackageFamilyRelationshipsShellData {
-  services: number;
-  rateSheetRows: number;
-  tierSelections: number;
+  // What this Family's assigned Tier Group composes — the SAME canonical
+  // four counts the Tier Workspace summary card shows (buildFamilyCompositionMetrics),
+  // never a second, differently-derived count. Null when unassigned/unresolved.
+  composition: TierGroupComposition | null;
 }
 
 export const packageFamilyRelationshipsShell: ShellSchema<PackageFamilyRelationshipsShellData> = {
@@ -79,14 +82,15 @@ export const packageFamilyRelationshipsShell: ShellSchema<PackageFamilyRelations
   dna: packageFamilyRelationshipsModule,
   header: {
     title: 'Connected Records',
-    subtitle: 'Live Package Station relationships using this Family.',
+    subtitle: "What this Family's assigned Tier Group composes.",
     icon: 'package',
     scopeClass: 'drawerOverview',
   },
   content: [
-    { id: 'services', element: 'text', label: 'Services', bind: (data): TextValue => ({ value: String(data.services) }) },
-    { id: 'rate-sheet-rows', element: 'text', label: 'Rate Sheet rows', bind: (data): TextValue => ({ value: String(data.rateSheetRows) }) },
-    { id: 'tier-selections', element: 'text', label: 'Tier selections', bind: (data): TextValue => ({ value: String(data.tierSelections) }) },
+    { id: 'tiers', element: 'text', label: 'Tiers', bind: (data): TextValue => ({ value: String(buildFamilyCompositionMetrics(data.composition).find((metric) => metric.id === 'tiers')!.value) }) },
+    { id: 'service-categories', element: 'text', label: 'Service Categories', bind: (data): TextValue => ({ value: String(buildFamilyCompositionMetrics(data.composition).find((metric) => metric.id === 'service-categories')!.value) }) },
+    { id: 'services', element: 'text', label: 'Services', bind: (data): TextValue => ({ value: String(buildFamilyCompositionMetrics(data.composition).find((metric) => metric.id === 'services')!.value) }) },
+    { id: 'inclusions', element: 'text', label: 'Inclusions', bind: (data): TextValue => ({ value: String(buildFamilyCompositionMetrics(data.composition).find((metric) => metric.id === 'inclusions')!.value) }) },
   ],
   footer: { actions: [] },
   actions: {},

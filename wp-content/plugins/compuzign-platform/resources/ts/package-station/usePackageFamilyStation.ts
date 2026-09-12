@@ -58,7 +58,10 @@ export function usePackageFamilyStation(
     services: family.dependents.services,
     rateSheetRows: family.dependents.rate_sheet_rows,
     tierSelections: family.dependents.tier_selections,
-  }), [family.dependents]);
+    // Already resolved by the backend alongside the Family record — no second
+    // fetch. See PackageFamilyItem.composition.
+    composition: family.composition ?? null,
+  }), [family.dependents, family.composition]);
 
   const relationshipsState = useMemo(() => evaluateModule(
     packageFamilyRelationshipsModule,

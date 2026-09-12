@@ -3384,6 +3384,15 @@ button.cz-station-status-pill {
   font-size: var(--station-text-xs);
 }
 
+/* Family/Tier Group/Rate Sheet connection rows already carry their own
+   Platform ID field (PlatformIdField) — this caption would only repeat the
+   internal id beneath the name a second time. Hidden here, display-only: the
+   underlying reference stays in the row data for search and stays reachable
+   at every other TierDeckRowIdentity use (inclusion rows, settings rows). */
+.cz-station-list__row--connection .cz-tier-deck__identity-ref {
+  display: none;
+}
+
 .cz-tier-deck__field {
   min-width: 0;
   font-size: var(--station-text-sm);
