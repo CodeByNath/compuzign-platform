@@ -1,7 +1,7 @@
 # Responsive Details Close + Focused Occupant Entry
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **SOURCE PUSH APPROVED** — approved candidate pushed to the review branch; the `main` fast-forward itself is blocked from this session and is waiting on Nath (command below).
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `80676874e6da8728dfefee8115628d0cb296196d`.
 - Approved candidate: `0d5e242b02195b617f642a857db5725b3ce3e9f3`.
@@ -36,13 +36,30 @@ Only the off-screen modal-close positioning and explicit mobile focused-entry th
 ## Must not substitute
 No per-occupant duplicate scroll systems, no forced post-quote Cart/Recommendations scrolling, no collapse/compact replacement UI, no navigation-state rewrite.
 
-## Claude — next action
-Fast-forward **exactly `0d5e242b02195b617f642a857db5725b3ce3e9f3`** to `main` unchanged.
+## Claude — BLOCKED on the push itself
+Pushing to `main` is classifier-blocked from this session and cannot be retried through. Nath must run it locally:
+
+```
+git checkout main && git merge --ff-only 0d5e242b02195b617f642a857db5725b3ce3e9f3 && git push origin main
+```
+
+`--ff-only` pinned to that exact SHA is deliberate: the review branch has since moved ahead (see below), and this command fast-forwards the **approved candidate only**.
+
+## Review branch has one later, UNAPPROVED commit
+Nath asked for an unrelated cue-ball correction in the same session. Rather than amend or rebuild the approved candidate, it was committed **on top** so the approved SHA stays byte-identical and independently fast-forwardable:
+
+- `0d5e242b` — approved candidate, tree `b920ba6d` (unchanged, still the branch's second commit).
+- `924c560e` — cue-ball start-anchor, tree `26e03908`. **Not audited, not approved, not part of this work item.** Recorded separately in `2026-09-12-cue-ball-single-destination-anchor.md`.
+
+So the review branch (`924c560e`) is now **2 ahead** of production `main`, not 1. Steps 3-4 below cannot run yet: the branch is not safe to delete while it carries that unmerged commit.
+
+## Claude — next action (after Nath's push)
+Original action, amended for the above.
 
 After push:
 1. record exact `main` SHA/tree;
 2. record `Deploy to Hostinger` run id + conclusion;
-3. verify the review branch is an ancestor of `main`, then delete it local + remote;
+3. ~~verify the review branch is an ancestor of `main`, then delete it local + remote~~ — **deferred**: the branch carries unmerged commit `924c560e`. Delete only once that separate work item is resolved, or after it is moved to its own branch when the cap allows;
 4. set **AWAITING LIVE VALIDATION** and stop.
 
 ## Live validation required
