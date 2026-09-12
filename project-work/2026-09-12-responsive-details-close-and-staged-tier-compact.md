@@ -1,7 +1,7 @@
 # Responsive Details Close + Focused Occupant Entry
 
 ## Status
-- **READY FOR CLAUDE** — closure hygiene only.
+- **CLOSED** — closure hygiene completed.
 - Auditor verdict: **Proceed**.
 - Production `main`: `fc878fb703e9590d03132940aa0e7b19893135d4`.
 - Production tree: `e7e0c50d702f798ab029e6121666350c5b605602`.
@@ -25,3 +25,10 @@ Follow `AGENTS.md` branch hygiene exactly:
 4. set this file to **CLOSED** and stop.
 
 No further browser validation is required.
+
+## Closure evidence — 2026-09-12
+- Verified both local and remote topic tips with `git merge-base --is-ancestor <ref> main` (all passed).
+- `main` and `origin/main`: `fc878fb703e9590d03132940aa0e7b19893135d4`.
+- Deleted `cue-ball-css-owned-position` (`fc878fb703e9590d03132940aa0e7b19893135d4`) and `responsive-modal-close-and-focused-entry` (`924c560e6f62da5f7bafcdc0f27ea02c5149964c`) locally and remotely.
+- Confirmed local branch listing and `git ls-remote --heads origin` contain only `main` and `Project-work-instructions`.
+- No source changes or further browser validation; Admin UI refinement not started.
