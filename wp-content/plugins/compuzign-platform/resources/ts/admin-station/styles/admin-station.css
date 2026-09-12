@@ -2626,6 +2626,15 @@ button.cz-station-status-pill {
   text-transform: uppercase;
 }
 
+/* Grid view's Composable Occupant box has no other CSS of its own (a bare
+   wrapper around the label and the Tier shell below it) — its label's 2px
+   margin, tuned for the Tabs rail's tighter panel-head context, reads as
+   almost no gap here. Scoped so the Tabs rail and TierComposableMiddleShell's
+   own reuse of this label are unaffected. */
+.cz-tier-workspace__composable > .cz-tier-workspace__panel-label {
+  margin-bottom: var(--station-card-gap);
+}
+
 /* Compact, visually-secondary list filter — small footprint so it reads as a
    sort control, not a form field competing with the panel heading. */
 .cz-tier-workspace__list-filter-select {

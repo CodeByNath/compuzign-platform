@@ -390,9 +390,7 @@ export function PackageTierWorkspace({ items, loading, error, onIntent }: Templa
           restructuring — see docs/code-map/tier-composable-occupant-admin-ui.md. */}
       {viewMode === 'grid' && tool.composableOccupant && (
         <div class="cz-tier-workspace__composable">
-          <p class="cz-tier-workspace__panel-label">
-            Composable occupant — subordinate to this Tier system, not one of the 5 Tiers
-          </p>
+          <p class="cz-tier-workspace__panel-label">Composable Occupant</p>
           <TierDetailPanel
             slot={tool.composableOccupant}
             familyName={tool.selectedFamily?.name ?? null}
