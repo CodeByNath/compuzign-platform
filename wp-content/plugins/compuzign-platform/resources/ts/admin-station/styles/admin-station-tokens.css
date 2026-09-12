@@ -16,7 +16,7 @@
   /* Shape and rhythm — theme-independent. Softer, more rounded borders. */
   --station-pill-radius: 999px;
   --station-dropdown-radius: 16px;
-  --station-control-radius: 14px;
+  --station-control-radius: 10px;
   --station-header-height: 60px;
   --station-space-x: 16px;
   --station-nav-offset: 24px;
@@ -174,23 +174,24 @@
   --station-text-sm: 13px;
   --station-text-lg: 16px;
   --station-text-xl: 22px;
-  --station-tracking-wide: 0.08em;
+  --station-tracking-wide: 0.06em;
   --station-tracking-tight: -0.01em;
   --station-line-snug: 1.45;
 
   /* Light theme (default). */
-  --station-sidebar-bg: #f4f5f7;
+  --station-sidebar-bg: #f3f5f8;
   --station-header-bg: var(--station-sidebar-bg);
   --station-surface: var(--station-sidebar-bg);
   --station-surface-elevated: #ffffff;
   --station-text: #1b1e24;
   --station-text-muted: #5c6472;
-  --station-border: rgba(18, 22, 31, 0.10);
+  --station-border: rgba(18, 22, 31, 0.12);
   --station-hover-bg: rgba(18, 22, 31, 0.05);
   --station-active-bg: rgba(18, 22, 31, 0.09);
   --station-focus-ring: rgba(18, 22, 31, 0.40);
   --station-icon: #3d434e;
-  --station-shadow: 0 10px 30px rgba(17, 20, 24, 0.14);
+  --station-shadow: 0 12px 32px rgba(17, 20, 24, 0.12);
+  --station-card-shadow: 0 2px 6px rgba(17, 20, 24, 0.04);
   --station-backdrop: rgba(20, 22, 28, 0.38);
 
   /* Status families — one per Presentation Status Contract pill (Active /
@@ -212,18 +213,19 @@
   --station-accent-fg: #4654b8;
   --station-action-bg: #4654b8;
   --station-action-bg-hover: #39469f;
-  --station-sidebar-bg: #f4f5f7;
+  --station-sidebar-bg: #f3f5f8;
   --station-header-bg: var(--station-sidebar-bg);
   --station-surface: var(--station-sidebar-bg);
   --station-surface-elevated: #ffffff;
   --station-text: #1b1e24;
   --station-text-muted: #5c6472;
-  --station-border: rgba(18, 22, 31, 0.10);
+  --station-border: rgba(18, 22, 31, 0.12);
   --station-hover-bg: rgba(18, 22, 31, 0.05);
   --station-active-bg: rgba(18, 22, 31, 0.09);
   --station-focus-ring: rgba(18, 22, 31, 0.40);
   --station-icon: #3d434e;
-  --station-shadow: 0 10px 30px rgba(17, 20, 24, 0.14);
+  --station-shadow: 0 12px 32px rgba(17, 20, 24, 0.12);
+  --station-card-shadow: 0 2px 6px rgba(17, 20, 24, 0.04);
   --station-backdrop: rgba(20, 22, 28, 0.38);
 
   --station-status-active-fg: #1a7f43;
@@ -254,6 +256,7 @@
   --station-focus-ring: rgba(255, 255, 255, 0.45);
   --station-icon: #c4c9d4;
   --station-shadow: 0 12px 34px rgba(0, 0, 0, 0.50);
+  --station-card-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   --station-backdrop: rgba(0, 0, 0, 0.55);
 
   --station-status-active-fg: #4ade80;

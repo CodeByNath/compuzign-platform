@@ -1,10 +1,10 @@
 # Admin Station Styles
 
-The Admin Station uses scoped station tokens plus the shared drawer stylesheet. Theme selectors remain under `.cz-admin-station`, so the surrounding WordPress page does not inherit station visuals.
+The Admin Station uses scoped station tokens plus the shared drawer stylesheet. Shared presentation headings use the station type scale; home block gutters use the compact body rhythm. Theme selectors remain under `.cz-admin-station`, so the surrounding WordPress page does not inherit station visuals.
 
 ## Authoritative files
 
-- `resources/ts/admin-station/styles/admin-station-tokens.css` — the single Admin Station token definition site. Light/dark station tokens plus the field-system contract.
+- `resources/ts/admin-station/styles/admin-station-tokens.css` — the single Admin Station token definition site. Light/dark station tokens plus the field-system contract; `--station-card-shadow` supplies shallow card depth separately from overlay `--station-shadow`.
 - `resources/ts/admin-station/styles/admin-station.css` — shell, navigation, cards, drawer layer/backdrop/panel/sizes, the shared [list system](admin-station-list-system.md), and the Station-level feature surfaces (Service Catalogue, Service Category card, Tier Workspace Engine, lower deck, Tier settings, Rate Sheet tool).
 - `resources/ts/admin-station/styles/admin-station-responsive.css` — responsive shell, card, catalogue, Tier-workspace and drawer rules. The Tier workspace collapses three columns to two at a component 1100px breakpoint, then to a single column at the 767px shell breakpoint.
 - `resources/css/modules/drawer-kit.css` — drawer content: modules, status pills, notification panels, **the shared field system**, inline editors, dialogs, module actions, and record footers.
@@ -29,9 +29,9 @@ Feature CSS must not declare `border`, `border-radius`, `height`, `min-height`, 
 
 `cz-tf-*` in `drawer-kit.css` is the one Admin drawer field system: one wrapper (`.cz-tf-field`), one checkbox row inside it (`.cz-tf-field__inline`), one label (`.cz-tf-label`, with `--required`), one hint (`.cz-tf-hint`), one error (`.cz-tf-error`), and one control base (`.cz-tf-control`) specialised by `.cz-tf-input`, `.cz-tf-select`, `.cz-tf-textarea` and `.cz-tf-checkbox`. `.cz-tf-control__inner` is the bare input inside a composite control surface, such as the catalogue search.
 
-Three sizes — `--sm`, default, `--lg` — and the states default / hover / focus-visible / disabled / readonly / error / required are declared once on the base and inherited by every type. Twenty-four type/size combinations, one base plus two modifiers; not twenty-four implementations. No second field system may be created.
+Three sizes — `--sm`, default, `--lg` — and the states default / hover / focus-visible / disabled / readonly / error / required are declared once on the base and inherited by every type. No second field system may be created.
 
-The checkbox does not take the base: the base sets `appearance: none` so a select can carry its chevron, which on a checkbox erases the native tick.
+Checkboxes omit the base: its `appearance: none` would erase the native tick.
 
 The default size is `--station-control-height`, so a drawer field and a station-page filter are the same control. `--station-field-*` is the whole contract; every name aliases an existing station family or a 4px-rhythm value.
 
