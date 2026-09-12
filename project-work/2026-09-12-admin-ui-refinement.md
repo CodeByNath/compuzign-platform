@@ -29,3 +29,10 @@ Admin Station remains presentation/control only. Hosting does not transfer Servi
 7. Push the candidate to the topic branch, update this file to **AWAITING REVIEWER REVIEW** with exact SHA, changed files and validation, then stop.
 
 `main` push is not approved.
+
+## Phase 1 audit and intended pass
+- Existing token sheet owns palette, shape and rhythm; base sheet owns shell and shared presentation, responsive sheet owns breakpoints, drawer-kit owns fields/content. Preserve those boundaries.
+- Intended source: `admin-station-tokens.css` and `admin-station.css` under `resources/ts/admin-station/styles/`; affected Styles Code Map and rebuilt Admin CSS.
+- Refine shared home spacing, heading hierarchy, card surface depth and light/dark neutral treatment. Keep control dimensions, status mapping, drawer placement, scroll/focus behaviour and all TypeScript/PHP unchanged.
+- Risks: shared tokens affect multiple Admin surfaces and drawer fields; check both themes, existing CSS contract and build. Preserve responsive breakpoint/layout rules.
+- Branch audit: `admin-ui-refinement`, `noop`, `noop2` all pointed to production base. Verified both noop branches are ancestors of `main` and removed them remotely; reuse `admin-ui-refinement` as the sole topic.
