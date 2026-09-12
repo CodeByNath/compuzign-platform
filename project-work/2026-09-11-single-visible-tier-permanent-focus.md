@@ -4,41 +4,41 @@
 - **SOURCE PUSH NOT APPROVED**
 - Auditor verdict: **Proceed with safeguards**.
 - Production `main`: `7ffd3e4b41e11eb8c5ae95694bd4bf7085152e7f`.
-- Previously approved candidate `e571b71f657beba4b431fd6ad034d6296ae41202` is now **rejected before push** after Nath's visual review.
+- Previously approved candidate `e571b71f657beba4b431fd6ad034d6296ae41202` is rejected before push after Nath's visual review.
 - Review branch: `feat/single-visible-tier-focus-polish`.
 
-## Live visual correction
-Nath's reference/proof CSS was not followed closely enough. The selected Tier card is still visibly constrained because base CSS still contains:
+## Live visual corrections
 
-```css
-.cz-cost-builder__tier {
-  max-width: 440px;
-}
-```
+### 1. Remove Tier card width cap
+Base CSS still has `.cz-cost-builder__tier { max-width: 440px; }`. Remove that cap completely so the selected Tier can fill its grid column. Do not replace it with another arbitrary max-width or selected-card-only width rule; the existing Tier strip grid owns column width.
 
-That max-width must be removed so the Tier card can fill the grid column beside the compact Recommendations shell. Do not replace it with a different arbitrary cap or a special selected-card width override; let the existing grid track own width.
-
-Also align the compact shell to Nath's proven layout intent using proper CompuZign tokens/shared CSS:
+### 2. Compact Recommendations shell must match Nath's proven layout
+Use proper CompuZign tokens/shared CSS, but preserve the demonstrated structure:
 - flex container;
-- centered on both axes (`justify-content` + `align-items`);
-- content-sized height/no fixed height;
+- `justify-content: center` and `align-items: center`;
+- no fixed height; content-sized vertically;
 - token padding nearest the demonstrated ~44px;
-- compact shell `h4`, `h3`, and `p` take the full available row width and center text;
-- `Upgrade your build` gets the demonstrated extra lower spacing (about 12px, use the matching spacing token).
+- compact shell `h4`, `h3`, and `p` occupy the full available row width and center text;
+- `Upgrade your build` gets about 12px extra lower spacing via the matching token.
 
-The earlier implementation deliberately omitted `align-items:center`; that was an auditor/Claude interpretation and is not the requested design. Nath's full-width heading/copy rule is what prevents centering from shrinking those text rows.
+### 3. Do not let the compact CTA distort the Tier card's 9-row subgrid
+The screenshot exposes a second layout defect: the CTA shell is a direct child of `.cz-cost-builder__tiers`, whose parent defines `grid-template-rows: repeat(9, auto)`. Because the Tier card subgrids those same 9 rows, the compact CTA is currently participating in the shared row sizing and inflating an upper row, which creates the large blank area at the top of the selected Tier card.
+
+Fix **only the compact CTA placement** so it does not size any one Tier-card section row. Preserve the 9-row/subgrid architecture for real Tier cards and all normal comparison/add-on layouts.
+
+Preferred direction to audit first: make the compact CTA occupy/span the full Tier-card row range (`grid-row: 1 / span 9` or the exact equivalent for this grid) and center itself within that spanning area, so the Tier card continues to determine its own section-row heights. The compact shell itself remains content-height; spanning is placement, not a forced card height.
+
+Do not flatten/remove `grid-template-rows`, remove TierCard subgrid, or weaken comparison-card alignment just to fix this CTA-only case.
 
 ## Keep the already-correct parts
-- `Maybe next time` reuses the shared secondary Tier choose treatment;
+- `Maybe next time` uses the shared secondary Tier choose treatment;
 - chevrons only render on real overflow;
-- CTA-only gap remains parent/grid-owned;
+- CTA-only horizontal gap stays parent/grid-owned;
 - restored pending Upgrade CTA survives refresh;
-- pending CTA/browsing still hide Cart and Add-ons; `Maybe next time` restores ordinary downstream state;
-- lone-group no-X/tabs and all quote/pricing/Leg behavior remain unchanged.
+- pending CTA/browsing hide Cart and Add-ons; `Maybe next time` restores normal downstream state;
+- lone-group no-X/tabs, quote identity, pricing/Legs and other card grids remain unchanged.
 
 ## Claude — correction only
-Do not redesign anything. On the same review branch, rebuild one clean candidate from current `main` with only the visual correction above on top of the already accepted round-2 behavior.
+On the same review branch, rebuild one clean candidate from current `main` containing the already accepted round-2 behavior plus only these visual/grid corrections.
 
-Verify the base Tier card no longer has the 440px max-width constraint and that the compact CTA shell follows Nath's demonstrated alignment/full-width-copy intent. Keep token/shared-style usage; no inline CSS and no hardcoded Family/Tier conditions.
-
-Run the focused CSS/CTA contract, TypeScript/build/docs, and navigation regressions already used in this work. Record exact SHA/tree/files, set **AWAITING CHATGPT REVIEW**, and stop. Do not push `main`.
+Add/adjust the CSS contract so it catches both regressions: no `max-width: 440px` on the base Tier card, and compact CTA placement cannot inflate one shared Tier row. Run the same focused CSS/CTA contract, TypeScript/build/docs and mounted navigation regressions. Record exact SHA/tree/files, set **AWAITING CHATGPT REVIEW**, and stop. Do not push `main`.
