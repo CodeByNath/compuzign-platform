@@ -52,7 +52,9 @@ export interface DeckSelection {
   // behind itself rather than a Manager `source_type`, the same rule
   // `PackageRepository::composeTierGroup()` applies server-side.
   bundle_id?:   string;
-  includes?:    { item_id: string; platform_id?: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
+  // cz_platform_id is the preserved raw backend key (unread here, kept for
+  // compatibility); platform_id is the normalized form this consumer reads.
+  includes?:    { item_id: string; cz_platform_id?: string; platform_id?: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
   // The bound Rate Sheet row's own output-only Platform ID (CZPRCI), carried
   // through unchanged. Empty/absent for a legacy row minted before Platform
   // IDs existed — never backfilled here.

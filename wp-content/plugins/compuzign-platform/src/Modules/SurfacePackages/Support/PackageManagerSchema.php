@@ -1574,10 +1574,13 @@ final class PackageManagerSchema
                         if ($sourceRow === null) { continue; }
                         $includes[] = [
                             'item_id'              => (string) ($sourceRow['item_id'] ?? ''),
-                            // Renamed to match the sibling platform_id convention
-                            // this same function applies to every other entity
-                            // below (sheet/group/bundle/item/price-option) — not
-                            // previously read under either key on the frontend.
+                            // Existing raw key preserved (no compatibility-
+                            // breaking rename); platform_id added alongside it
+                            // so TierLowerDeck can read the normalized form the
+                            // same way every sibling entity in this function
+                            // already exposes it (sheet/group/bundle/item/
+                            // price-option).
+                            'cz_platform_id'       => (string) ($sourceRow['cz_platform_id'] ?? ''),
                             'platform_id'          => (string) ($sourceRow['cz_platform_id'] ?? ''),
                             'source_rate_sheet_id' => $sourceRateSheetId,
                             'source_item_id'       => $sourceItemId,
