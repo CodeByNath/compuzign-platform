@@ -221,8 +221,14 @@ const compactRule = cssSource.match(/\.cz-cost-builder__recommendations-shell--c
 check(compactRule !== null, 'the CTA-only shell keeps its own --compact rule');
 const compactBody = compactRule![1];
 check(
-  /justify-content: center;/.test(compactBody) && /text-align: center;/.test(compactBody),
-  'the compact shell centres its content on both axes — and via text-align rather than align-items, so headings/copy still occupy the full row width',
+  /justify-content: center;/.test(compactBody)
+    && /align-items: center;/.test(compactBody)
+    && /text-align: center;/.test(compactBody),
+  'the compact shell keeps the demonstrated centring structure — justify-content and align-items centre the flex column on both axes, text-align centres the copy itself',
+);
+check(
+  /\.cz-cost-builder__recommendations-shell--compact > \.cz-cost-builder__recommendations-heading,\s*\n\.cz-cost-builder__recommendations-shell--compact > \.cz-package-builder__upgrade-gate-inline \{\s*\n\s*width: 100%;/.test(cssSource),
+  'and the named text rows (the Recommendations h4, plus the CTA column carrying the h3 and its eyebrow p) opt back into the full available row width under that align-items: center, so centred text spans the card instead of hugging its own glyphs',
 );
 check(
   /padding: var\(--cz-space-\d+\);/.test(compactBody),
@@ -247,6 +253,40 @@ check(
 check(
   /\.cz-cost-builder__tiers--cta-only \{\s*\n\s*column-gap: var\(--cz-space-\d+\);/.test(cssSource),
   'the wider gap before the compact shell is set on the strip grid that owns every gap here — a token, and never a margin on either child',
+);
+
+// ── 8c. [Live correction round 3] Tier card width and CTA row placement ──
+//
+// project-work/2026-09-11-single-visible-tier-permanent-focus.md, items 1
+// and 3 — the two defects Nath's visual review caught in the round-2
+// candidate. Both are stylesheet facts the mounted regressions cannot see.
+
+const tierCardRule = cssSource.match(/\n\.cz-cost-builder__tier \{([\s\S]*?)\}/);
+check(tierCardRule !== null, 'the base Tier card rule exists');
+check(
+  !/max-width:/.test(tierCardRule![1]),
+  'the base Tier card carries NO max-width cap (item 1): the Tier strip grid owns column width, so a selected Tier fills its own column instead of stopping at an arbitrary 440px — and the fix is the cap\'s removal, never a replacement cap or a selected-card-only width rule',
+);
+check(
+  !/max-width:\s*440px/.test(cssSource),
+  'and that 440px cap is gone from the stylesheet entirely, not merely moved to another selector',
+);
+
+// The strip's 9 row tracks are what TierCard subgrids, so any strip child
+// occupying fewer than all 9 is sized INTO one of those shared tracks — which
+// is exactly how the compact CTA inflated the Tier card's Product Badge row.
+check(
+  /grid-template-rows: repeat\(9, auto\);/.test(cssSource)
+    && /\.cz-cost-builder__tier \{[\s\S]*?grid-template-rows: subgrid;[\s\S]*?grid-row: 1 \/ span 9;/.test(cssSource),
+  'the 9-row strip and the TierCard subgrid that shares those tracks both survive this correction — the CTA fix must not flatten them',
+);
+check(
+  /grid-row: 1 \/ span 9;/.test(compactBody),
+  'the compact CTA spans the TierCard\'s full 1 / span 9 row range (item 3), so its height is distributed across the whole card range instead of inflating one shared section row — never grid-row: auto, which is what produced the large blank area above the selected Tier card\'s content',
+);
+check(
+  /align-self: center;/.test(compactBody) && !/\balign-self:\s*stretch/.test(compactBody),
+  'and it still centres itself within that spanning area rather than stretching to fill it — spanning is placement here, not a forced card height',
 );
 check(
   /cz-cost-builder__tiers--cta-only/.test(pricingTiersSource),

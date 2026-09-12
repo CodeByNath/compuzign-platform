@@ -307,7 +307,6 @@
    section on every other card. */
 .cz-cost-builder__tier {
   min-width: 0;
-  max-width: 440px;
   display: grid;
   grid-template-rows: subgrid;
   grid-row: 1 / span 9;
@@ -324,7 +323,6 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: none;
     min-width: 0;
   }
 }
@@ -801,25 +799,49 @@
    align-self: center keeps it visually centred against the row's actual
    height rather than pinned to the top. */
 .cz-cost-builder__recommendations-shell--compact {
-  grid-row: auto;
+  /* Placement only, and the reason this is a span rather than the
+     grid-row: auto it used to be (project-work/2026-09-11-single-visible-
+     tier-permanent-focus.md, item 3): auto-placed, this shell landed in ONE
+     of the strip's 9 shared row tracks, so its own ~200px of copy+actions
+     became that track's height — and the TierCard beside it, which subgrids
+     the same 9 tracks, inherited that height on its Product Badge row as a
+     large blank area above its content. Spanning the same 1 / span 9 range
+     the TierCard occupies takes it back out of any single track's sizing:
+     its height is distributed across the whole card range instead of
+     inflating one section row, and the TierCard keeps determining its own
+     section heights. The shell itself stays content-sized (height: auto
+     above) and align-self: center keeps it centred in that spanning area —
+     spanning is placement here, never a forced card height. */
+  grid-row: 1 / span 9;
   align-self: center;
   height: auto;
   min-height: 0;
   max-height: none;
   /* Live reference (project-work/2026-09-11-single-visible-tier-permanent-
-     focus.md, item 1): the compact shell reads as one centred statement
-     rather than copy pinned to the top-left of a roomy panel.
-     justify-content centres its own children on the flex column's main
-     axis (vertical); text-align centres them on the cross axis WITHOUT
-     align-items: center, so the heading and copy still occupy the full row
-     width instead of shrinking to their own text. Height stays content-
-     sized — nothing fixed here, and the rules above still let it hug its
-     content and centre against the row. The demonstrated ~44px padding
-     rounds to the nearest rhythm step rather than becoming a new
-     off-scale value. */
+     focus.md, item 2): the compact shell reads as one centred statement
+     rather than copy pinned to the top-left of a roomy panel — the
+     demonstrated layout centres this flex column on both axes
+     (justify-content vertically, align-items horizontally) and centres the
+     text itself. The named text rows below opt back into the full row
+     width, so a centred heading spans the card rather than hugging its own
+     glyphs. Height stays content-sized — nothing fixed here, and the rules
+     above still let it hug its content and centre against the row. The
+     demonstrated ~44px padding takes the nearest rhythm step rather than
+     becoming a new off-scale value. */
   justify-content: center;
+  align-items: center;
   text-align: center;
   padding: var(--cz-space-10);
+}
+
+/* The three text rows the live reference calls out — Recommendations (h4),
+   Upgrade your build (h3) and its eyebrow (p) — occupy the full available
+   row width and centre their text there, rather than shrinking to their own
+   content under the align-items: center above. The CTA column carries two of
+   them, so it takes the same full width for them to fill. */
+.cz-cost-builder__recommendations-shell--compact > .cz-cost-builder__recommendations-heading,
+.cz-cost-builder__recommendations-shell--compact > .cz-package-builder__upgrade-gate-inline {
+  width: 100%;
 }
 
 /* The CTA's own action row centres with the copy above it in this context
@@ -4694,12 +4716,14 @@
   font-size: var(--cz-font-size-sm);
 }
 
-/* The trailing margin is the "little extra vertical separation below the
-   Upgrade your build heading" the live reference asks for (item 1) — it
-   sits inside -gate-copy, so it adds to the -inline column gap that already
-   separates the copy block from the actions below. */
+/* The trailing margin is the "about 12px extra lower spacing" the live
+   reference asks for below the Upgrade your build heading (project-work/
+   2026-09-11-single-visible-tier-permanent-focus.md, item 2) — the matching
+   rhythm token rather than a raw 12px. It sits inside -gate-copy, so it
+   adds to the -inline column gap that already separates the copy block from
+   the actions below. */
 .cz-package-builder__upgrade-gate-heading {
-  margin: 0 0 var(--cz-space-2);
+  margin: 0 0 var(--cz-space-3);
   color: var(--cz-color-text);
 }
 
