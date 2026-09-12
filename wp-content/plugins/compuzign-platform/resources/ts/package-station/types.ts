@@ -923,7 +923,12 @@ export interface TierResolvedRateSheetSelection extends TierRateSheetSelection {
   // editor show the Bundle's own supplied content read-only, right under its
   // price option/qty/price line, without a second lookup.
   bundle_id?: string;
-  includes?: { item_id: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
+  includes?: { item_id: string; platform_id?: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
+  // The bound Rate Sheet row's own output-only Platform ID (CZPRCI), carried
+  // through unchanged. Empty/absent for a legacy row minted before Platform
+  // IDs existed — never backfilled here; see the CompuZign Admin migration
+  // action for deliberate repair.
+  platform_id?: string | null;
 }
 
 export interface TierDrafts {

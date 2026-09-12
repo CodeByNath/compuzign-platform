@@ -356,7 +356,7 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
       <TierDeckRowIdentity
         icon={<PackagesIcon />}
         name={inclusion.name}
-        reference={inclusion.sourceId ?? inclusion.itemId}
+        reference={inclusion.platformId ?? ''}
       />
       <div class="cz-station-list__cell cz-tier-deck__field">
         <span class="cz-tier-deck__field-label">Category</span>

@@ -1574,7 +1574,11 @@ final class PackageManagerSchema
                         if ($sourceRow === null) { continue; }
                         $includes[] = [
                             'item_id'              => (string) ($sourceRow['item_id'] ?? ''),
-                            'cz_platform_id'       => (string) ($sourceRow['cz_platform_id'] ?? ''),
+                            // Renamed to match the sibling platform_id convention
+                            // this same function applies to every other entity
+                            // below (sheet/group/bundle/item/price-option) — not
+                            // previously read under either key on the frontend.
+                            'platform_id'          => (string) ($sourceRow['cz_platform_id'] ?? ''),
                             'source_rate_sheet_id' => $sourceRateSheetId,
                             'source_item_id'       => $sourceItemId,
                             'label'                => $resolveRowLabel($sourceRow),
@@ -1847,6 +1851,9 @@ final class PackageManagerSchema
                 'per' => $rateItem['per'] ?? null,
                 'group_id' => $rateItem['group_id'] ?? null,
                 'line_total' => $lineTotal,
+                // The bound Rate Sheet row's own output-only Platform ID
+                // (CZPRCI), carried through unchanged — never minted here.
+                'platform_id' => $rateItem['platform_id'] ?? null,
                 // Present for a row that carries ingredients — the "Includes:"
                 // list. Never chargeable lines of their own.
                 'includes' => $rateItem['includes'] ?? null,

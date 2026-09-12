@@ -52,7 +52,11 @@ export interface DeckSelection {
   // behind itself rather than a Manager `source_type`, the same rule
   // `PackageRepository::composeTierGroup()` applies server-side.
   bundle_id?:   string;
-  includes?:    { item_id: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
+  includes?:    { item_id: string; platform_id?: string; source_rate_sheet_id: string; source_item_id: string; label: string; quantity: number }[];
+  // The bound Rate Sheet row's own output-only Platform ID (CZPRCI), carried
+  // through unchanged. Empty/absent for a legacy row minted before Platform
+  // IDs existed — never backfilled here.
+  platform_id?: string | null;
 }
 
 /**
@@ -113,6 +117,10 @@ export interface DeckInclusion {
   itemId:     string;
   // The Service inclusion pool id this selection references (source identity).
   sourceId:   string | null;
+  // The bound Rate Sheet row's own output-only Platform ID (CZPRCI), carried
+  // through unchanged. Null for a legacy row that carries none yet — never
+  // backfilled here.
+  platformId: string | null;
   name:       string;          // Service-owned label
   categories: string[];        // admin-read-model source categories (may be empty)
   quantity:   number;
@@ -281,6 +289,7 @@ export function projectTierInclusions(
         rows.push({
           itemId:      child.item_id,
           sourceId:    null,
+          platformId:  child.platform_id ?? null,
           name:        child.label,
           categories:  categoryByRateItem.get(child.item_id) ?? [],
           quantity:    child.quantity,
@@ -300,6 +309,7 @@ export function projectTierInclusions(
     rows.push({
       itemId:      selection.item_id,
       sourceId:    selection.source_id ?? null,
+      platformId:  selection.platform_id ?? null,
       name:        selection.label,
       categories:  categoryByRateItem.get(selection.item_id) ?? [],
       quantity:    selection.quantity,
