@@ -1,7 +1,7 @@
 # Admin UI Refinement
 
 ## Status
-- **READY FOR BUILDER**
+- **AWAITING REVIEWER REVIEW**
 - Builder: Codex
 - Reviewer: ChatGPT independent auditor
 - Verdict: **Proceed with safeguards**
@@ -36,3 +36,12 @@ Admin Station remains presentation/control only. Hosting does not transfer Servi
 - Refine shared home spacing, heading hierarchy, card surface depth and light/dark neutral treatment. Keep control dimensions, status mapping, drawer placement, scroll/focus behaviour and all TypeScript/PHP unchanged.
 - Risks: shared tokens affect multiple Admin surfaces and drawer fields; check both themes, existing CSS contract and build. Preserve responsive breakpoint/layout rules.
 - Branch audit: `admin-ui-refinement`, `noop`, `noop2` all pointed to production base. Verified both noop branches are ancestors of `main` and removed them remotely; reuse `admin-ui-refinement` as the sole topic.
+
+## Builder handoff — Phase 1
+- Candidate pushed: `admin-ui-refinement` at `d8f3bba531c2ecaa57ad1f6b0cd506655bf3b497`, based on production `fc878fb703e9590d03132940aa0e7b19893135d4`. No main push or deployment.
+- Changed files (plugin-relative unless stated): `resources/ts/admin-station/styles/admin-station-tokens.css`, `resources/ts/admin-station/styles/admin-station.css`, `dist/css/admin-station.css`, repository `docs/code-map/admin-station-styles.md`.
+- Result: 10px shared control corners, quieter light neutral/border/overlay treatment, theme-aware shallow depth for group/category cards, token-driven heading hierarchy, 16px home block gutters. No TS/PHP, field-system, lifecycle, navigation or customer-source changes.
+- Passed: TypeScript (`npx tsc --noEmit`), build, 98 station-tabset checks, docs check (119 documents / 48 maps), `git diff --check`. Build changed only the Admin CSS bundle.
+- CSS contract: six existing unused Rate Sheet selector failures (`group-create`, `import-basket`, `import-columns--pair`, `import-group`, `import-group-chips`, `import-group-title`, all prefixed `cz-rate-sheet-tool__`). Reproduced identical failures by running the contract against `main` stylesheet content with unchanged source emitters; no new failures. Kept unrelated cleanup outside this pass.
+- Visual evidence: inspected temporary static CSS fixtures in headless Chrome, light desktop 1280×900 and dark narrow 390×844. Desktop foundation reads consistently; narrow screenshot clips, so responsive verification is inconclusive. These are representative markup fixtures, not mounted live WordPress/customer validation. Reviewer must assess responsive/live appearance before acceptance.
+- Branch hygiene: only main, coordination, and this topic remain in local/tracking refs. Source tree clean after candidate commit. Stopped for independent review; later phases and production push remain unapproved.
