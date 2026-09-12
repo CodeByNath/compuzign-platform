@@ -390,7 +390,7 @@ export function TierSystemSettings({
     ];
   }, [activeTierGroups, connectedFamilyRow, familyGroupFilter, familyRows, onConnectionIntent, onPoolIntent, rateSheetFilter, rateSheetRows, rateSheets, presentableInstances, settingsLoading, tierGroupFilter, tierGroupRows, tool.families.length, tool.loading]);
 
-  const allGroups = useMemo<SettingsGroup[]>(() => [maintenanceGroup, ...groups], [groups, maintenanceGroup]);
+  const allGroups = useMemo<SettingsGroup[]>(() => [...groups, maintenanceGroup], [groups, maintenanceGroup]);
 
   const [expanded, setExpanded] = useState<Record<SettingsGroupId, boolean>>({
     'family-groups': true,

@@ -23,8 +23,9 @@ export function registerAdminStation(): void {
       label: 'Promotions',
       icon: PromotionsIcon,
       activationKey: 'promotions',
-      showInHeader: true,
-      showInMenu: true,
+      // Temporarily hidden from nav per Admin UI Refinement; destination/capability below stays registered.
+      showInHeader: false,
+      showInMenu: false,
       order: 30,
     },
     {
