@@ -289,10 +289,16 @@ function EditionCueSelector({
 }) {
   const hasEditions = destinations.length > 1;
   const activeIndex = Math.max(0, destinations.findIndex((destination) => destination.id === activeId));
-  // Plain percentage of the rail's own (already-inset) width — true 50% when
-  // there's nothing to switch between, exactly matching the rail's own
-  // horizontal center regardless of the inset's size.
-  const cuePercent = hasEditions ? (activeIndex / (destinations.length - 1)) * 100 : 50;
+  // Plain percentage of the rail's own (already-inset) width. With nothing
+  // to switch between, the ball sits at the rail's START (0%) rather than
+  // its center: a lone occupant has no second destination for a centered
+  // ball to read as the midpoint BETWEEN, so centering it invented a
+  // position on a track that has only one. 0% is the same place the first
+  // destination of a multi-destination track occupies, so the indicator
+  // means "here, at the beginning" in both cases. --cz-cue-inset (11px)
+  // already exceeds the ball's own 9px half-width, so translate(-50%) at 0%
+  // still lands the ball inside the track rather than clipping at its edge.
+  const cuePercent = hasEditions ? (activeIndex / (destinations.length - 1)) * 100 : 0;
 
   return (
     <div
@@ -313,7 +319,7 @@ function EditionCueSelector({
             aria-hidden="true"
           />
         ))}
-        {/* No-Edition Tier: the track and a centered cue ball render as a
+        {/* No-Edition Tier: the track and a start-anchored cue ball render as a
             static "you are here" indicator only — no pots, no buttons, no
             fake navigation affordance. */}
         <span
