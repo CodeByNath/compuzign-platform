@@ -55,6 +55,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 - [Homepage](homepage.md)
 - [Cost Builder](cost-builder.md)
 - [Package Builder Focused Shell](package-builder-focused-shell.md)
+- [Package Builder Responsive Focused Entry](package-builder-responsive-focused-entry.md)
 - [Package Builder Tier Navigation and Cart Eligibility](package-builder-tier-navigation.md)
 - [Plan Details](plan-details.md)
 - [Quote Builder](quote-builder.md)

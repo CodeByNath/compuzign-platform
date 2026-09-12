@@ -379,14 +379,6 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
   return (
     <div class="cz-package-builder__details-backdrop" role="presentation" onClick={onClose}>
       <div class="cz-package-builder__details-panel">
-        <button
-          type="button"
-          class="cz-package-builder__details-close"
-          aria-label="Close quote details"
-          onClick={onClose}
-        >
-          <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
-        </button>
         <div
           class="cz-package-builder__details-modal"
           role="dialog"
@@ -395,6 +387,25 @@ export function QuoteDetailsOverlay({ items, families, tiers, initialTarget, onC
           ref={modalRef}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Same sticky close rail as PlanDetailsModal.tsx — the two
+              details entry points share this chrome
+              (.details-backdrop/-panel/-modal/-close) and must not drift
+              apart, so the control lives INSIDE this scrolling dialog here
+              too rather than translated outside the panel corner, where it
+              could be clipped out of sight on narrow/short viewports. Being
+              inside modalRef also brings it inside this dialog's focus trap
+              for the first time; it is the first focusable, ahead of the tab
+              row below. */}
+          <div class="cz-package-builder__details-close-rail">
+            <button
+              type="button"
+              class="cz-package-builder__details-close"
+              aria-label="Close quote details"
+              onClick={onClose}
+            >
+              <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
+            </button>
+          </div>
           <div class="cz-package-builder__details-tabs" role="tablist" aria-label="Quoted plans">
             {allFamilyTierItems.map((item) => {
               const key = quoteItemKey(item);

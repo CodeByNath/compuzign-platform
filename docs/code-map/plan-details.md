@@ -10,8 +10,16 @@ Edition's own Commercial Leg terms as a document, not another pricing
 card. Page/body scroll locks while open (`document.body.style.overflow`,
 ESC-close, focus trap — the same pattern `PdfModal.tsx` already
 establishes); the popup's own body scrolls internally. The close control
-reuses the focused shell's own circular-X styling and sits outside the
-scrolling panel, never inside the scrolling content.
+reuses the focused shell's own circular-X styling AND its sticky-in-view
+principle: it sits on `.cz-package-builder__details-close-rail`, the first
+child inside the scrolling dialog, stuck to that dialog's top. It was
+previously an absolutely-positioned sibling translated outside the panel's
+top-right corner, where the ~1px of clearance the backdrop's own padding
+left could vanish on narrow/short viewports and clip the only pointer
+close away. Because the rail is inside the `role="dialog"` element, the
+control is now also inside the focus trap — reachable by Tab, and the
+first focusable, which it never was before. `QuoteDetailsOverlay.tsx`
+shares this chrome verbatim; the two must not drift apart.
 
 ## Target identity and lifecycle
 

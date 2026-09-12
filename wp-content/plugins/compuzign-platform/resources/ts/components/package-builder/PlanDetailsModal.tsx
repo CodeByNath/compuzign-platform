@@ -480,26 +480,8 @@ export function PlanDetailsModal({
 
   return (
     <div class="cz-package-builder__details-backdrop" role="presentation" onClick={onClose}>
-      {/* Positioning wrapper only — the close button and the scrolling
-          dialog are SIBLINGS here, not parent/child, so the button sits
-          outside the panel's own scrolling content and never scrolls with
-          it (no sticky trick needed: it simply isn't inside the scrollable
-          box at all). */}
+      {/* Sizing wrapper only. */}
       <div class="cz-package-builder__details-panel">
-        {/* Same circular X pattern as the focused shell's own exit control
-            (.cz-package-builder__focused-close / -close-x in
-            FamilyTierAdapter.tsx) — positioned outside the panel's own
-            top-right edge instead of the sticky page column that button
-            lives in elsewhere; visual treatment (border/background/glyph)
-            unchanged. */}
-        <button
-          type="button"
-          class="cz-package-builder__details-close"
-          aria-label="Close plan details"
-          onClick={onClose}
-        >
-          <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
-        </button>
         <div
           class="cz-package-builder__details-modal"
           role="dialog"
@@ -508,6 +490,32 @@ export function PlanDetailsModal({
           ref={modalRef}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Same circular X pattern as the focused shell's own exit control
+              (.cz-package-builder__focused-close / -close-x in
+              FamilyTierAdapter.tsx), and now on the same sticky-in-view
+              principle: the button sits INSIDE this scrolling dialog on its
+              own sticky rail instead of being an absolutely-positioned
+              sibling translated outside the panel's top-right corner, which
+              is the position that could be clipped out of sight entirely on
+              narrow/short viewports (see .cz-package-builder__details-close-
+              rail in cost-builder.css for the exact geometry). Visual
+              treatment (border/background/glyph) is unchanged.
+
+              Being inside modalRef also puts it inside this dialog's own
+              focus trap for the first time — before this it could never be
+              reached by Tab at all, leaving ESC as the only keyboard close.
+              It is the first focusable, so it now takes the initial focus
+              the effect above assigns. */}
+          <div class="cz-package-builder__details-close-rail">
+            <button
+              type="button"
+              class="cz-package-builder__details-close"
+              aria-label="Close plan details"
+              onClick={onClose}
+            >
+              <span class="cz-package-builder__focused-close-x" aria-hidden="true" />
+            </button>
+          </div>
           <PlanDetailsContent
             familyTitle={familyTitle}
             planLabel={planLabel}

@@ -83,6 +83,7 @@
     "contract:quote-view-legacy-description": "tsx scripts/quote-view-legacy-description-contract.ts",
     "contract:payment-summary-extraction-parity": "tsx scripts/payment-summary-extraction-parity-contract.ts",
     "contract:request-print-isolation": "tsx scripts/request-print-isolation-contract.ts",
+    "contract:responsive-focused-entry": "tsx scripts/responsive-focused-entry-contract.ts",
     "regression:single-occupant-quoted-focus": "node scripts/single-occupant-quoted-focus-regression.mjs",
     "regression:tier-next-step-navigation": "node scripts/tier-next-step-navigation-regression.mjs",
     "regression:cart-bundle-upgrade-refinements": "node scripts/cart-bundle-upgrade-refinements-regression.mjs",

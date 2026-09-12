@@ -1080,6 +1080,68 @@ export function FamilyTierAdapter({
     return () => window.removeEventListener('scroll', onScroll);
   }, [effectiveFocusedTierId, upgradeGateActive]);
 
+  // ── Responsive focused-occupant entry ───────────────────────────────────
+  //
+  // One shell-level rule for EVERY occupant this component focuses, not a
+  // per-occupant scroll bolted onto each entry point: both focused branches
+  // below render the same `.cz-package-builder__focused` element, so a
+  // normal Tier, an add-on (the same branch — `focusedData.is_addon` only
+  // changes what that shell presents, never which shell it is) and the
+  // composable "Upgrade your build" browsing workspace all report through
+  // the single ref and single key here.
+  //
+  // The key is the OCCUPANT's identity, never the variant: switching
+  // Default/Edition inside an open shell goes through selectVariant(), which
+  // changes focusedEditionId but leaves this key untouched, so a customer
+  // reading a plan is never yanked back to the top mid-read. Opening or
+  // reopening an occupant changes the key, and that is the entry.
+  //
+  // Deliberately read from `focusedTierId` — the customer's OWN explicit
+  // focus state — not `effectiveFocusedTierId`. The implicit single-Tier
+  // landing (isImplicitSingleTierView) is not something the customer opened;
+  // it is the view they arrive on, and moving the page under an arrival is
+  // both wrong and outside this work. That auto-focus machinery is
+  // untouched here.
+  const focusedOccupantKey = upgradeGateActive === 'browsing'
+    ? 'upgrade'
+    : focusedTierId !== null
+      ? `tier:${focusedTierId}`
+      : null;
+  const focusedShellRef = useRef<HTMLDivElement>(null);
+  const enteredOccupantKey = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = enteredOccupantKey.current;
+    enteredOccupantKey.current = focusedOccupantKey;
+    // Closing is not an entry, and neither is a re-render that left the same
+    // occupant focused.
+    if (focusedOccupantKey === null || focusedOccupantKey === previous) return;
+    // Responsive only. 767px is not a new number: it is the exact breakpoint
+    // .cz-package-builder__focused itself stacks at (cost-builder.css), which
+    // is what creates the problem — stacked, the detail column runs the full
+    // width above the card, so entering partway down the page drops the
+    // customer into the middle of the occupant rather than its start. The
+    // two-column desktop presentation is unchanged.
+    if (!window.matchMedia('(max-width: 767px)').matches) return;
+    window.requestAnimationFrame(() => {
+      const shell = focusedShellRef.current;
+      if (!shell) return;
+      // The customer-group tab bar renders as the shell's immediately
+      // preceding sibling on a locked/lone-in-group shell (see the branch
+      // below) and is the only way off it. It is part of the top of that
+      // focused experience, so scrolling past it would hide the exit — the
+      // top of the experience is that bar when it is there, the shell
+      // otherwise.
+      const tabs = shell.previousElementSibling;
+      const target = tabs?.classList.contains('cz-package-builder__customer-tabs') === true
+        ? tabs
+        : shell;
+      target.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    });
+  }, [focusedOccupantKey]);
+
   // ── Resolved navigation step ────────────────────────────────────────────
   //
   // Nath's authoritative rule (2026-09-11 refinement): a successful Add to
@@ -1570,7 +1632,7 @@ export function FamilyTierAdapter({
           same locked/tabs-visible presentation as the automatic landing —
           the tab bar is still the real way off it either way. */}
       {(isImplicitSingleTierView || focusedTierIsLoneInActiveGroup) && customerTabsBar}
-      <div class="cz-package-builder__focused">
+      <div class="cz-package-builder__focused" ref={focusedShellRef}>
         <div class="cz-package-builder__focused-detail">
           {/* Return path out of the focused view. Same clear action as
               before ("← All plans") — only this local focused-Tier state,
@@ -1885,7 +1947,7 @@ export function FamilyTierAdapter({
     const composableEditionOptions = composableData?.edition_options ?? [];
     const composableDeclaredEffective = resolveEffectiveTierDisplay(composableData, '', composableEditionId);
     mainContent = (
-      <div class="cz-package-builder__focused">
+      <div class="cz-package-builder__focused" ref={focusedShellRef}>
         <div class="cz-package-builder__focused-detail">
           <button
             type="button"

@@ -4520,6 +4520,17 @@
   .cz-package-builder__focused {
     grid-template-columns: 1fr;
   }
+
+  /* Comfort gap for the responsive focused-occupant entry scroll (see the
+     focusedOccupantKey effect in FamilyTierAdapter.tsx, which targets
+     whichever of these two is the top of the focused experience). Declared
+     here, in the same breakpoint that stacks the shell, so the landing
+     offset stays with the layout rule that makes the entry matter rather
+     than as a number inside the effect. */
+  .cz-package-builder__focused,
+  .cz-package-builder__customer-tabs {
+    scroll-margin-top: var(--cz-space-4);
+  }
 }
 
 /* Default/Edition cue-ball selector — full width of the left (detail)
@@ -5322,10 +5333,10 @@
   backdrop-filter: blur(4px);
 }
 
-/* Positioning wrapper — sized to match the dialog itself so the close
-   button (an absolutely-positioned sibling of the dialog, not a child of
-   its scrolling content) has a correctly-sized box to anchor its corner
-   offset against. */
+/* Sizing wrapper for the dialog. It no longer anchors the close button:
+   that control now lives INSIDE the scrolling dialog on its own sticky
+   rail (see .cz-package-builder__details-close-rail below), so nothing is
+   positioned outside this box any more. */
 .cz-package-builder__details-panel {
   position: relative;
   width: 100%;
@@ -5342,17 +5353,42 @@
   box-shadow: var(--cz-shadow-card);
 }
 
-/* Same circular X visual as .cz-package-builder__focused-close (see
-   FamilyTierAdapter.tsx) — a SIBLING of the scrolling dialog (see
-   .cz-package-builder__details-panel above), positioned outside its top-right
-   corner rather than sticky inside its own scrolling content, so the close
-   control never moves as the panel's body scrolls and never depends on a
-   scroll-position trick to stay put. */
-.cz-package-builder__details-close {
-  position: absolute;
+/* Close rail — the close control's own row at the top of the SCROLLING
+   dialog, sticky exactly like .cz-package-builder__focused-close already
+   is in the focused occupant shell (see FamilyTierAdapter.tsx): in normal
+   flow, so the dialog's first content block sits below it rather than
+   under it, and stuck to the dialog's own top edge, so it stays in view
+   for the whole scroll of the body.
+
+   This replaces an absolutely-positioned sibling that sat OUTSIDE the
+   panel's top-right corner on `transform: translate(35%, -35%)`. Its
+   visibility depended entirely on free space existing outside the dialog:
+   the backdrop's own padding is --cz-space-4 (16px) while that translate
+   pushed the 42px button 14.7px past the panel edge, leaving ~1px of
+   clearance at narrow widths and none once anything (a scrollbar, a safe-
+   area inset, a viewport whose visible height is smaller than the `vh`
+   the centred panel was laid out against) took it — at which point the X
+   was clipped out of sight with no way back to it but ESC. Anchoring the
+   control inside the dialog removes that dependency entirely rather than
+   tuning the offset that created it.
+
+   Opaque on the dialog's own surface colour so body content scrolls
+   cleanly behind it, and the top corners follow .details-modal's radius. */
+.cz-package-builder__details-close-rail {
+  position: sticky;
   top: 0;
-  right: 0;
-  transform: translate(35%, -35%);
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--cz-space-3) var(--cz-space-3) 0;
+  background: var(--cz-color-surface-2);
+  border-radius: var(--cz-radius-xl) var(--cz-radius-xl) 0 0;
+}
+
+/* Same circular X visual as .cz-package-builder__focused-close — unchanged
+   border/background/glyph/size; only its positioning moved onto the rail
+   above. */
+.cz-package-builder__details-close {
   width: 42px;
   height: 42px;
   padding: 0;
@@ -5364,7 +5400,6 @@
   color: var(--cz-color-muted);
   cursor: pointer;
   box-shadow: var(--cz-shadow-card);
-  z-index: 1;
   transition: background var(--cz-transition-fast), color var(--cz-transition-fast), border-color var(--cz-transition-fast), transform var(--cz-transition-fast);
 }
 
@@ -5372,7 +5407,7 @@
   background: var(--cz-color-surface-3);
   color: var(--cz-color-text);
   border-color: var(--cz-color-line-strong);
-  transform: translate(35%, -35%) translateY(-1px);
+  transform: translateY(-1px);
 }
 
 .cz-package-builder__details-close:focus-visible {
