@@ -31,13 +31,16 @@ interface QuoteSummaryProps {
   onManageBuild?: (item: FamilyTierQuoteItem) => void;
   // "Skipped-upgrade Cart footer recovery route" — optional for the same
   // reason as onManageBuild above (CostBuilderApp.tsx is unaffected).
-  // Renders one footer entry point ("Upgrade your build") immediately
-  // before View details, generic on this component's side: PackageBuilderApp
-  // alone decides eligibility (quoted primary + a real eligible catalogue +
-  // no committed composable/Upgrades line yet for the currently active
-  // Family) and only supplies this callback when eligible — QuoteSummary
-  // performs no Family/eligibility logic of its own, the same "presence of
-  // the callback is the render gate" posture already used elsewhere here.
+  // Renders one footer entry point ("Upgrade your build") as the full-width
+  // secondary CTA directly below the primary Review & Finalise Quote button
+  // (it was previously a text-link beside View details — presentation only,
+  // the eligibility below is unchanged). Generic on this component's side:
+  // PackageBuilderApp alone decides eligibility (quoted primary + a real
+  // eligible catalogue + no committed composable/Upgrades line yet for the
+  // currently active Family) and only supplies this callback when eligible
+  // — QuoteSummary performs no Family/eligibility logic of its own, the
+  // same "presence of the callback is the render gate" posture already
+  // used elsewhere here.
   onUpgradeYourBuild?: () => void;
 }
 
@@ -409,23 +412,18 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
       <div class="cz-quote-summary__footer">
         <QuoteTotalsPresentation items={items} />
 
-        {/* Skipped-upgrade Cart footer recovery route + the existing View
-            details entry point, together in one row — "Upgrade your build"
-            always first, immediately before View details. Wrapper only
-            renders when at least one of the two has something to show, so
-            an all-false render never leaves a stray empty row in the
+        {/* This row now holds the View details entry point ALONE. The
+            skipped-upgrade recovery route ("Upgrade your build") moved OUT
+            of it and down below the primary CTA as a full-width secondary
+            button (see .cz-quote-summary__footer-actions below) — a
+            presentation/order change only, on the same onUpgradeYourBuild
+            condition it always had. View details keeps this row and so
+            keeps its existing link-style footer-link role and spacing; the
+            row renders only when View details itself has something to show,
+            so an ineligible render never leaves a stray empty row in the
             footer's flex-column layout. */}
-        {(onUpgradeYourBuild || (onOpenDetails && orderedFamilyTierItems.length > 0)) && (
+        {onOpenDetails && orderedFamilyTierItems.length > 0 && (
           <div class="cz-quote-summary__footer-links">
-            {onUpgradeYourBuild && (
-              <button
-                type="button"
-                class="cz-quote-summary__upgrade-your-build"
-                onClick={onUpgradeYourBuild}
-              >
-                Upgrade your build
-              </button>
-            )}
             {/* Nath refinement: ONE cart-level "View details" entry point only
                 — the earlier per-item buttons above are gone, so this is now
                 the sole way into the quote-details overlay. Opens on the
@@ -441,25 +439,52 @@ export function QuoteSummary({ items, onRemove, onClear, onOpenReview, onOpenDet
                 without its own primary — confirmed by the cart's whole-Tier-
                 System removal rule — so this is exactly "is there anything to
                 show a plan tab for"). */}
-            {onOpenDetails && orderedFamilyTierItems.length > 0 && (
-              <button
-                type="button"
-                class="cz-quote-summary__view-details cz-quote-summary__view-details--cart"
-                onClick={() => onOpenDetails(orderedFamilyTierItems[0])}
-              >
-                View details
-              </button>
-            )}
+            <button
+              type="button"
+              class="cz-quote-summary__view-details cz-quote-summary__view-details--cart"
+              onClick={() => onOpenDetails(orderedFamilyTierItems[0])}
+            >
+              View details
+            </button>
           </div>
         )}
 
-        <button
-          type="button"
-          class="cz-btn cz-btn-primary cz-quote-summary__cta"
-          onClick={onOpenReview}
-        >
-          Review &amp; Finalise Quote
-        </button>
+        {/* The two stacked full-width CTAs, grouped so the pair sits
+            together on its own tighter gap rather than the footer column's
+            much larger one — Review & Finalise Quote stays the PRIMARY
+            action and renders first, with the secondary Upgrade your build
+            button directly below it. The group always renders (it always
+            has the primary); the secondary stays on the SAME
+            onUpgradeYourBuild condition as before, and because a flex gap
+            only applies BETWEEN rendered children, an ineligible render
+            leaves no empty secondary-button space. */}
+        <div class="cz-quote-summary__footer-actions">
+          <button
+            type="button"
+            class="cz-btn cz-btn-primary cz-quote-summary__cta"
+            onClick={onOpenReview}
+          >
+            Review &amp; Finalise Quote
+          </button>
+          {/* Skipped-upgrade Cart footer recovery route. Presentation only:
+              the callback, its eligibility and its routing are untouched —
+              PackageBuilderApp still owns whether the prop is supplied at
+              all, and CostBuilderApp.tsx still omits it entirely. Shape
+              comes from the shared .cz-btn primitive (so it reads as a
+              matched pair with the primary above it) and the accent-outline
+              treatment is the established secondary-action family the Tier
+              card's own Choose Plan / outlined Add to Quote already use —
+              never a new bespoke button system. */}
+          {onUpgradeYourBuild && (
+            <button
+              type="button"
+              class="cz-btn cz-quote-summary__cta cz-quote-summary__upgrade-your-build"
+              onClick={onUpgradeYourBuild}
+            >
+              Upgrade your build
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

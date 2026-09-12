@@ -981,11 +981,11 @@
   margin: 0 0 var(--cz-space-2);
 }
 
-/* Skipped-upgrade Cart footer recovery route (project-work/2026-09-06-
-   tier-catalogue-admin-ux-consolidation.md) — a row (not the footer's own
-   flex-column) so "Upgrade your build" and View details sit on one line,
-   Upgrade your build first. When only one of the two renders, the row
-   simply holds a single item. */
+/* The Cart footer's link row. "Upgrade your build" used to share this row
+   with View details; it is now the full-width secondary CTA below the
+   primary button (.cz-quote-summary__footer-actions), so this row holds
+   View details alone and exists to keep that link's own alignment/spacing
+   role unchanged. */
 .cz-quote-summary__footer-links {
   display: flex;
   align-items: center;
@@ -1001,22 +1001,46 @@
   margin: 0;
 }
 
-/* Same quiet text-link recipe as .cz-quote-summary__view-details — no
-   align-self/margin-top of its own since it lives in the row above, not a
-   flex-column. */
-.cz-quote-summary__upgrade-your-build {
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: var(--cz-font-size-xs);
-  font-weight: 600;
-  color: var(--cz-color-accent);
-  text-decoration: underline;
-  cursor: pointer;
+/* The stacked CTA pair — primary Review & Finalise Quote, then the
+   secondary Upgrade your build directly below it. Its own tighter gap
+   (the same var(--cz-space-2) the Tier card's stacked action pair uses)
+   rather than the footer column's much larger var(--cz-space-5), so the
+   two read as one action group. A flex gap only applies BETWEEN rendered
+   children, so when the secondary is ineligible nothing is added. */
+.cz-quote-summary__footer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cz-space-2);
 }
 
-.cz-quote-summary__upgrade-your-build:hover {
-  opacity: 0.85;
+/* Skipped-upgrade Cart footer recovery route (project-work/2026-09-06-
+   tier-catalogue-admin-ux-consolidation.md; relocated below the primary
+   CTA by project-work/2026-09-12-cart-upgrade-secondary-cta.md).
+   Presentation only — the route, its eligibility and its routing are
+   unchanged.
+
+   Shape/size/focus come from the shared .cz-btn primitive the element now
+   carries (with .cz-quote-summary__cta for the full width), so it is a
+   matched pair with the primary .cz-btn-primary button above it. Only the
+   emphasis is set here, and it is the SAME accent-outline recipe the
+   established secondary action family already uses — transparent at rest
+   with an accent border/label, filling accent with dark text on hover and
+   focus (compare .cz-cost-builder__tier-choose and the outlined
+   .cz-cost-builder__tier-action--addon). No new colours, no bespoke button
+   system. cost-builder.css is enqueued with the atomic engine as its
+   dependency (src/Core/AssetLoader.php), so these land after .cz-btn's own
+   `border: 1px solid transparent` shorthand and win the cascade. */
+.cz-quote-summary__upgrade-your-build {
+  border-color: var(--cz-color-accent);
+  background: transparent;
+  color: var(--cz-color-accent);
+}
+
+.cz-quote-summary__upgrade-your-build:hover,
+.cz-quote-summary__upgrade-your-build:focus-visible {
+  background: var(--cz-color-accent);
+  border-color: var(--cz-color-accent);
+  color: #000;
 }
 
 /* Order-summary rows (Phase 7): charge-type label on the left, price on the

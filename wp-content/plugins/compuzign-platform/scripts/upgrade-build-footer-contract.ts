@@ -14,8 +14,14 @@
 //      exists — mutually exclusive with the deployed Manage build route
 //      by construction, never a second independent check.
 //   3. QuoteSummary stays generic: an optional onUpgradeYourBuild callback,
-//      rendered immediately before the existing View details entry point,
 //      absent for CostBuilderApp.tsx (no Upgrade Your Build concept).
+//      Presentation (project-work/2026-09-12-cart-upgrade-secondary-cta.md):
+//      it is no longer a text-link beside View details — it renders as the
+//      full-width SECONDARY CTA directly BELOW the primary Review &
+//      Finalise Quote button, inside the shared footer-actions group, on
+//      the same onUpgradeYourBuild condition as before. View details keeps
+//      the footer-links row to itself. Order/conditional rendering and
+//      class/style ownership are locked in 6 below.
 //   4. Cross-Family routing reuses Manage build's own race-safe request
 //      path (requestManageBuild) rather than a second navigation state
 //      machine — the footer click supplies the ACTIVE Family's own
@@ -65,7 +71,7 @@ check(
   'eligibility never derives the target from "first item in Cart" or a rendered label',
 );
 
-// ── 3. QuoteSummary: optional prop, rendered before View details ───────────
+// ── 3. QuoteSummary: optional prop, secondary CTA below the primary ───────
 
 check(
   /onUpgradeYourBuild\?: \(\) => void;/.test(quoteSummarySource),
@@ -78,15 +84,44 @@ check(
 const footerLinksMatch = quoteSummarySource.match(/<div class="cz-quote-summary__footer-links">([\s\S]*?)<\/div>/);
 check(footerLinksMatch !== null, 'the footer-links row wrapper exists');
 const footerLinksBody = footerLinksMatch![1];
-const upgradeIndex = footerLinksBody.indexOf('onUpgradeYourBuild &&');
-const viewDetailsIndex = footerLinksBody.indexOf('onOpenDetails && orderedFamilyTierItems.length > 0 &&');
-check(upgradeIndex !== -1 && viewDetailsIndex !== -1, 'both the Upgrade your build and View details conditional blocks exist inside the row');
 check(
-  upgradeIndex < viewDetailsIndex,
-  'Upgrade your build renders immediately BEFORE View details in source/DOM order',
+  /View details\s*\n\s*<\/button>/.test(footerLinksBody),
+  'View details keeps its existing link-style role inside the footer-links row',
 );
 check(
-  /onClick=\{onUpgradeYourBuild\}\s*>\s*\n\s*Upgrade your build/.test(footerLinksBody),
+  !footerLinksBody.includes('onUpgradeYourBuild'),
+  'Upgrade your build no longer renders inside the footer-links row — it moved below the primary CTA',
+);
+
+const footerActionsMatch = quoteSummarySource.match(/<div class="cz-quote-summary__footer-actions">([\s\S]*?)<\/div>/);
+check(footerActionsMatch !== null, 'the footer-actions CTA group wrapper exists');
+const footerActionsBody = footerActionsMatch![1];
+const primaryIndex = footerActionsBody.indexOf('cz-btn cz-btn-primary cz-quote-summary__cta');
+const secondaryIndex = footerActionsBody.indexOf('{onUpgradeYourBuild && (');
+check(primaryIndex !== -1, 'the primary Review & Finalise Quote button renders inside the CTA group');
+check(secondaryIndex !== -1, 'the Upgrade your build button renders inside the CTA group');
+check(
+  primaryIndex < secondaryIndex,
+  'Review & Finalise Quote stays the primary and renders BEFORE the secondary Upgrade your build button in source/DOM order',
+);
+check(
+  /onClick=\{onOpenReview\}/.test(footerActionsBody),
+  'the primary button keeps its own unchanged onOpenReview action',
+);
+check(
+  /\{onUpgradeYourBuild && \(/.test(footerActionsBody),
+  'the secondary button renders ONLY under the same onUpgradeYourBuild condition as before — an ineligible render produces no empty secondary-button space',
+);
+check(
+  /class="cz-btn cz-quote-summary__cta cz-quote-summary__upgrade-your-build"/.test(footerActionsBody),
+  'the secondary button takes its shape/width from the shared .cz-btn primitive plus .cz-quote-summary__cta (a matched pair with the primary above it), never a bespoke button of its own',
+);
+check(
+  !/cz-btn-primary[\s\S]{0,120}Upgrade your build/.test(footerActionsBody),
+  'the secondary button never takes the primary .cz-btn-primary treatment',
+);
+check(
+  /onClick=\{onUpgradeYourBuild\}\s*>\s*\n\s*Upgrade your build/.test(footerActionsBody),
   'the button calls onUpgradeYourBuild directly with no wrapping/derived argument',
 );
 
@@ -111,15 +146,42 @@ check(
   'opening browsing with no composable item performs no synthetic commit — the line is created later only by ComposableOfferBrowser\'s own existing auto-sync, never by this effect',
 );
 
-// ── 6. Button styled as a quiet text link inside the row ───────────────────
+// ── 6. Secondary CTA style ownership (accent outline, not a new system) ────
+
+const secondaryRestMatch = cssSource.match(/\.cz-quote-summary__upgrade-your-build \{([^}]*)\}/s);
+check(secondaryRestMatch !== null, '.cz-quote-summary__upgrade-your-build has its own rest-state rule');
+const secondaryRest = secondaryRestMatch![1];
+check(
+  /border-color:\s*var\(--cz-color-accent\);/.test(secondaryRest)
+    && /color:\s*var\(--cz-color-accent\);/.test(secondaryRest)
+    && /background:\s*transparent;/.test(secondaryRest),
+  'at rest the secondary CTA is the established accent-outline treatment — accent border, accent label, transparent background — using the shared accent token, never a bespoke colour',
+);
+check(
+  !/text-decoration:\s*underline;/.test(secondaryRest),
+  'the old quiet text-link treatment is gone, not left behind alongside the button treatment',
+);
+
+const secondaryHoverMatch = cssSource.match(/\.cz-quote-summary__upgrade-your-build:hover,\s*\n\.cz-quote-summary__upgrade-your-build:focus-visible \{([^}]*)\}/s);
+check(secondaryHoverMatch !== null, 'hover and focus-visible share one rule, so keyboard focus gets the same treatment as hover');
+const secondaryHover = secondaryHoverMatch![1];
+check(
+  /background:\s*var\(--cz-color-accent\);/.test(secondaryHover) && /color:\s*#000;/.test(secondaryHover),
+  'on hover/focus the secondary CTA fills accent with dark text — the SAME recipe .cz-cost-builder__tier-choose already uses, keeping it in the existing secondary-action visual family',
+);
 
 check(
-  /\.cz-quote-summary__upgrade-your-build \{[^}]*text-decoration:\s*underline;[^}]*\}/s.test(cssSource),
-  '.cz-quote-summary__upgrade-your-build exists as a quiet text-link style, matching the row\'s other entries rather than a new primary-button treatment',
+  /\.cz-cost-builder__tier-choose:hover \{[^}]*background:\s*var\(--cz-color-accent\);[^}]*color:\s*#000;[^}]*\}/s.test(cssSource),
+  'the Tier choose action this treatment is reused from still carries that same accent-fill hover — if it ever changes, this reuse claim must be re-checked rather than silently drifting',
+);
+
+check(
+  /\.cz-quote-summary__footer-actions \{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*\}/s.test(cssSource),
+  '.cz-quote-summary__footer-actions stacks the primary and secondary CTAs in one column',
 );
 check(
   /\.cz-quote-summary__footer-links \{[^}]*display:\s*flex;[^}]*\}/s.test(cssSource),
-  '.cz-quote-summary__footer-links lays the two entries out in one row',
+  '.cz-quote-summary__footer-links still lays its (now single) entry out as a row',
 );
 
 console.log('Upgrade build footer contract: PASS');
