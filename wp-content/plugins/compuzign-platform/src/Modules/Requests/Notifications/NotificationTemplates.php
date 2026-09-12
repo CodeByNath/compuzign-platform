@@ -933,21 +933,34 @@ class NotificationTemplates
             . self::emailServiceRows($classified['tierAddonItems'])
             . self::emailFamilyRows($classified['familyAddonItems'], 'addon', $includeInternalIds);
 
-        $hasMultiStreamItem = false;
+        // Live correction (project-work/2026-09-12-cart-initial-payment-
+        // parity.md): this trigger asked for MORE THAN one stream, which is a
+        // question about an item's internal complexity, not about whether
+        // authoritative pricing exists. One resolved stream is authoritative
+        // exactly as multiple are. The live KAIROS quote (three single-stream
+        // lines: $675 primary, $55 composable Upgrade, $580 add-on) failed the
+        // old test, so this email fell back to flat price/cycle totals — where
+        // the composable Upgrade's flat price is null by construction and it
+        // silently dropped out as "custom pricing". Same one-line trigger
+        // correction as the Cart footer (QuoteSummary.tsx), Review & Finalise
+        // (OrderSummary.tsx) and the proposal/PDF (QuoteProposalPreview.tsx),
+        // kept in step so the email can never quote the customer a different
+        // figure from the one they approved.
+        $hasQuotedPaymentStreams = false;
         foreach (array_merge($familyCommercialItems, $classified['familyAddonItems']) as $familyItem) {
             $streams = $familyItem['legPaymentSummaries'] ?? null;
-            if (is_array($streams) && count($streams) > 1) {
-                $hasMultiStreamItem = true;
+            if (is_array($streams) && count($streams) > 0) {
+                $hasQuotedPaymentStreams = true;
                 break;
             }
         }
 
-        // Once any Family item is multi-stream, every Family item (primary,
-        // add-on, or composable) is already represented either in the
-        // combined block below or on its own per-item row above — never both
+        // Once the combined Family block is active, every Family item
+        // (primary, add-on, or composable) is already represented either in
+        // that block below or on its own per-item row above — never both
         // there and inside the general cycle totals too (see
         // familyContractValueBlock()'s docblock).
-        $itemsForGeneralTotals = $hasMultiStreamItem
+        $itemsForGeneralTotals = $hasQuotedPaymentStreams
             ? array_values(array_filter($items, fn (array $item) => !self::isFamilyItem($item)))
             : $items;
 
@@ -958,13 +971,13 @@ class NotificationTemplates
         $familyInitialPaymentItems = array_merge($familyCommercialItems, $classified['familyAddonItems']);
 
         $totals = '';
-        if ($hasMultiStreamItem) {
+        if ($hasQuotedPaymentStreams) {
             $totals .= self::familyContractValueBlock($familyCommercialItems);
         }
         if ($itemsForGeneralTotals !== []) {
             $totals .= self::emailTotalsBlock(self::calcTotals($itemsForGeneralTotals));
         }
-        if ($hasMultiStreamItem) {
+        if ($hasQuotedPaymentStreams) {
             $totals .= self::familyInitialPaymentRow($familyInitialPaymentItems);
         }
 

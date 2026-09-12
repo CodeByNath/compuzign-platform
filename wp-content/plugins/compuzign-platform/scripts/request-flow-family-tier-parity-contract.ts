@@ -26,7 +26,17 @@ check(!proposal.includes('resolveEffectiveTierDisplay') && !proposal.includes('p
 // Reused primitives — never a second re-derivation of TCV/Initial Payment.
 for (const file of [order, proposal]) {
   check(file.includes('computeTotalContractValue') && file.includes('startingPaymentsByCycle') && file.includes('chargeTypeLabel'), 'imports/uses the same PricingTiers primitives QuoteSummary.tsx already uses');
-  check(file.includes('hasMultiStreamItem'), 'branches its Totals section on hasMultiStreamItem, same gate as QuoteSummary.tsx');
+  check(file.includes('hasQuotedPaymentStreams'), 'branches its Totals section on hasQuotedPaymentStreams, same gate as QuoteSummary.tsx');
+  // Live correction (project-work/2026-09-12-cart-initial-payment-parity.md):
+  // the gate is the PRESENCE of authoritative summaries, never a stream count
+  // above one. Pinned as a literal here, on every surface, because the
+  // duplicated `> 1` form is exactly what let the Cart, this surface and the
+  // email each drop a single-stream composable Upgrade from the customer's
+  // Initial Payment while Total Commitment reported it correctly.
+  check(
+    /const hasQuotedPaymentStreams = items\.filter\(isFamilyTierQuoteItem\)\s*\n\s*\.some\(\(item\) => \(item\.legPaymentSummaries\?\.length \?\? 0\) > 0\);/.test(file),
+    'and derives it as "carries at least one payment summary" (> 0), never the old "> 1" stream-count test',
+  );
 }
 
 // TCV and Initial Payment read DIFFERENT populations, and this contract pins
@@ -76,24 +86,23 @@ for (const file of [order, proposal]) {
 
 // Mixed-cart regression guard: the general totals block (legacy items) must
 // never be nested inside — or otherwise made conditional on — the
-// hasMultiStreamItem branch. A prior draft branched the ENTIRE Totals
-// section on hasMultiStreamItem, which silently dropped legacy Service/
-// bundle/tier-addon totals from view whenever any Family item had 2+
-// payment streams. A second draft excluded only the multi-stream Family
-// item(s) from itemsForGeneralTotals, but the combined Family TCV block
-// sums EVERY primary Family item regardless of its own stream count — so a
-// single-stream Family primary was still counted twice (once there, once in
+// Family-block branch. A prior draft branched the ENTIRE Totals section on
+// that gate, which silently dropped legacy Service/bundle/tier-addon totals
+// from view whenever the Family block was active. A second draft excluded
+// only the triggering Family item(s) from itemsForGeneralTotals, but the
+// combined Family TCV block sums EVERY primary Family item regardless — so
+// another Family primary was still counted twice (once there, once in
 // calcQuoteTotals). The fix: population-based, not stream-count-based —
-// once ANY item is multi-stream (hasMultiStreamItem), general totals cover
-// non-Family items ONLY; with none, general totals cover every item exactly
-// as before Phase 8F. The Family block and general block render as
+// once the Family block is active (hasQuotedPaymentStreams), general totals
+// cover non-Family items ONLY; with none, general totals cover every item
+// exactly as before Phase 8F. The Family block and general block render as
 // independent siblings, never one ternary.
 for (const file of [order, proposal]) {
   check(
-    /itemsForGeneralTotals = hasMultiStreamItem\s*\n\s*\? items\.filter\(\(item\) => !isFamilyTierQuoteItem\(item\)\)\s*\n\s*: items;/.test(file),
-    'itemsForGeneralTotals excludes every Family item (not just multi-stream ones) once the Family contract block is active, and covers every item when it is not',
+    /itemsForGeneralTotals = hasQuotedPaymentStreams\s*\n\s*\? items\.filter\(\(item\) => !isFamilyTierQuoteItem\(item\)\)\s*\n\s*: items;/.test(file),
+    'itemsForGeneralTotals excludes every Family item (not just the triggering ones) once the Family contract block is active, and covers every item when it is not',
   );
-  check(!/hasMultiStreamItem \? \(/.test(file), 'the Totals section must not branch as a single hasMultiStreamItem ternary — the Family block and general block render as independent siblings');
+  check(!/hasQuotedPaymentStreams \? \(/.test(file), 'the Totals section must not branch as a single hasQuotedPaymentStreams ternary — the Family block and general block render as independent siblings');
 }
 
 // Print/PDF clone target must survive untouched.
@@ -143,14 +152,14 @@ const mixedCart = [legacyItem, multiStreamPrimary, singleStreamPrimary];
 // in both source files — replicated here (not imported, since it lives
 // inline in each component) and run against the constructed cart to prove
 // the actual numeric outcome, not just the source shape.
-const hasMultiStreamItemTest = mixedCart.filter(isFamilyTierQuoteItem)
-  .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
-const itemsForGeneralTotalsTest = hasMultiStreamItemTest
+const hasQuotedPaymentStreamsTest = mixedCart.filter(isFamilyTierQuoteItem)
+  .some((item) => (item.legPaymentSummaries?.length ?? 0) > 0);
+const itemsForGeneralTotalsTest = hasQuotedPaymentStreamsTest
   ? mixedCart.filter((item) => !isFamilyTierQuoteItem(item))
   : mixedCart;
 const generalTotals = calcQuoteTotals(itemsForGeneralTotalsTest);
-check(hasMultiStreamItemTest, 'test cart actually contains a multi-stream Family item (sanity check on the fixture itself)');
-check(itemsForGeneralTotalsTest.length === 1 && itemsForGeneralTotalsTest[0] === legacyItem, 'general totals population contains only the legacy item — both Family primaries excluded once any item is multi-stream');
+check(hasQuotedPaymentStreamsTest, 'test cart actually contains a Family item carrying payment summaries (sanity check on the fixture itself)');
+check(itemsForGeneralTotalsTest.length === 1 && itemsForGeneralTotalsTest[0] === legacyItem, 'general totals population contains only the legacy item — both Family primaries excluded once the Family block is active');
 check(generalTotals.singleCycle?.[1] === 50, 'general totals amount is exactly the legacy item\'s $50 — the single-stream Family primary\'s $80 never leaks in');
 const combinedFamilyTCV = [multiStreamPrimary, singleStreamPrimary]
   .map((item) => computeTotalContractValue(item.legPaymentSummaries!))

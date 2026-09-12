@@ -148,11 +148,12 @@ function renderTotals(items) {
   };
 }
 
-// Every scenario below needs at least one multi-stream item, because the
-// Initial Payment block is gated on hasMultiStreamItem — a genuinely
-// single-stream cart is already answered by the compact "Est. X total" and
-// this figure deliberately does not render there. That gate is untouched by
-// this fix and is asserted as such at the end.
+// The scenarios below use multi-stream items because that is the shape this
+// script's own subject (the Initial Payment POPULATION rule) was reported
+// against. They no longer need to: since the 2026-09-12 parity correction the
+// footer's presentation trigger is "any item carries payment summaries at
+// all", not "some item has more than one", so single-stream carts reach the
+// same block — see §6 and cart-initial-payment-parity-regression.mjs.
 const upfrontPlusMonthly = [
   leg({ source: 'Setup', billingCycle: 'upfront', price: 5000, months: 1 }),
   leg({ source: 'Default', billingCycle: 'monthly', price: 200, months: 12 }),
@@ -321,15 +322,25 @@ check(
   `an add-on-only cart still reports its own Initial Payment (expected $5,200, got ${addonAlone.initialPayment})`,
 );
 
-// ── 6. Untouched gates and neighbours ────────────────────────────────────
+// ── 6. Neighbouring behavior ─────────────────────────────────────────────
 //
-// Single-stream cart: the Initial Payment block is still gated off entirely.
+// Single-stream cart. This assertion was INVERTED by the 2026-09-12 Cart
+// Initial Payment parity correction: it used to require that a single-stream
+// cart render NO Initial Payment block, which encoded exactly the assumption
+// that work item had to remove ("stream-aware totals are only needed when one
+// item has multiple streams"). That assumption is what dropped the composable
+// Upgrade's $55 from the live KAIROS cart, because a single resolved stream is
+// every bit as authoritative as three. The population rule this script owns —
+// primary + add-on + composable, each once — is unaffected either way; only
+// the presentation trigger moved. See
+// scripts/cart-initial-payment-parity-regression.mjs for that trigger's own
+// coverage, and project-work/2026-09-12-cart-initial-payment-parity.md.
 const singleStream = renderTotals([familyItem({
   legPaymentSummaries: [leg({ source: 'Default', billingCycle: 'monthly', price: 100, months: 12 })],
 })]);
 check(
-  singleStream.initialPayment === null,
-  'a single-stream cart still renders no Initial Payment block (hasMultiStreamItem gate untouched)',
+  singleStream.initialPayment === '$100',
+  `a single-stream cart now reports its own Initial Payment (expected $100, got ${singleStream.initialPayment})`,
 );
 
 // Items with no legPaymentSummaries at all contribute nothing and crash
@@ -382,16 +393,28 @@ check(empty.initialPayment === null, 'an empty cart renders no Initial Payment b
 // re-deriving the arithmetic in this script.
 const CONTACT = { company: 'Acme', contact: 'Sam Rivers', email: 's@acme.test', phone: '', notes: '' };
 
-function initialPaymentFromRendered(vnode) {
-  render(vnode, container);
+// Reads one surface's OWN Initial Payment row, in its own fresh container.
+//
+// Both precautions were added by the 2026-09-12 parity correction after this
+// helper was found to be asserting nothing: it rendered into the shared
+// `container` that renderTotals() had just filled, and matched any div whose
+// text began with the label. So it could read the CART's leftover row, or the
+// QuoteProposalPreview that OrderSummary renders inside itself as its print
+// clone, and report either as the surface under test. Deleting OrderSummary's
+// Initial Payment row outright still passed this file before the fix.
+function initialPaymentFromRendered(vnode, rowClass, labelClass, amountClass) {
+  const surfaceContainer = document.createElement('div');
+  document.body.appendChild(surfaceContainer);
+  render(vnode, surfaceContainer);
   let found = null;
-  for (const el of container.querySelectorAll('div')) {
-    const text = el.textContent.trim();
-    if (!text.startsWith('Initial Payment')) continue;
-    // Innermost matching row wins — an ancestor also "starts with" this text
-    // once the label is the first thing inside it.
-    found = text.slice('Initial Payment'.length).trim();
+  for (const row of surfaceContainer.querySelectorAll(`.${rowClass}`)) {
+    const label = row.querySelector(`.${labelClass}`);
+    if (!label || label.textContent.trim() !== 'Initial Payment') continue;
+    const amount = row.querySelector(`.${amountClass}`);
+    found = amount ? amount.textContent.trim() : null;
   }
+  render(null, surfaceContainer);
+  surfaceContainer.remove();
   return found;
 }
 
@@ -409,14 +432,14 @@ const reviewFigure = initialPaymentFromRendered(h(OrderSummary, {
   canSubmit: true,
   onSubmit: () => {},
   onPrint: () => {},
-}));
+}), 'cz-os__total-row', 'cz-os__total-label', 'cz-os__total-amount');
 const proposalFigure = initialPaymentFromRendered(h(QuoteProposalPreview, {
   items: surfaceCart,
   services: [],
   contact: CONTACT,
   quoteDate: '2026-09-10',
   quoteRef: 'CZ-TEST01',
-}));
+}), 'cz-proposal__total-row', 'cz-proposal__total-label', 'cz-proposal__total-amount');
 
 check(cartFigure === '$5,275', `Cart footer figure (got ${cartFigure})`);
 check(
@@ -447,14 +470,14 @@ const reviewComposable = initialPaymentFromRendered(h(OrderSummary, {
   canSubmit: true,
   onSubmit: () => {},
   onPrint: () => {},
-}));
+}), 'cz-os__total-row', 'cz-os__total-label', 'cz-os__total-amount');
 const proposalComposable = initialPaymentFromRendered(h(QuoteProposalPreview, {
   items: composableCart,
   services: [],
   contact: CONTACT,
   quoteDate: '2026-09-10',
   quoteRef: 'CZ-TEST01',
-}));
+}), 'cz-proposal__total-row', 'cz-proposal__total-label', 'cz-proposal__total-amount');
 check(
   cartComposable === '$5,575' && reviewComposable === '$5,575' && proposalComposable === '$5,575',
   `primary + composable + add-on agrees across surfaces (cart ${cartComposable}, review ${reviewComposable}, proposal ${proposalComposable})`,

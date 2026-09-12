@@ -177,23 +177,36 @@ export function OrderSummary({
 
   const { mainItems, bundleItems, tierAddonItems, familyMainItems, familyAddonItems, familyComposableItems } = classifyQuoteItems(items);
 
-  // Phase 8F (corrected twice): whenever ANY Family item has 2+ payment
-  // streams, the Family Contract Value block below sums EVERY primary
-  // Family item (see familyPrimaryTotalContractValues below — that sum was
-  // never limited to just the multi-stream ones). So excluding only the
-  // multi-stream items from general totals was still wrong: a single-stream
-  // Family primary would be counted once there AND again in
-  // calcQuoteTotals(). The correct, double-count-proof split is by
+  // Phase 8F (corrected twice): whenever the Family Contract Value block
+  // below is active it sums EVERY primary Family item (see
+  // familyPrimaryTotalContractValues below — that sum was never limited to
+  // the items that triggered it). So excluding only the triggering items
+  // from general totals was still wrong: another Family primary would be
+  // counted once there AND again in calcQuoteTotals(). The correct,
+  // double-count-proof split is by
   // population, not by stream count: once the Family contract block is
   // active, general/legacy totals cover non-Family items ONLY — every
   // Family item (primary or add-on, any stream count) is already either
   // inside the combined Family sum or shown on its own per-item row above,
   // never both there and inside this general figure too. With no
-  // multi-stream item at all, nothing needs excluding — general totals
-  // cover every item exactly as before Phase 8F.
-  const hasMultiStreamItem = items.filter(isFamilyTierQuoteItem)
-    .some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
-  const itemsForGeneralTotals = hasMultiStreamItem
+  // stream-priced Family item at all, nothing needs excluding — general
+  // totals cover every item exactly as before Phase 8F.
+  //
+  // Live correction (project-work/2026-09-12-cart-initial-payment-parity.md):
+  // this trigger asked for MORE THAN one stream, which is a question about an
+  // item's internal complexity, not about whether authoritative pricing
+  // exists. One resolved stream is authoritative exactly as multiple are. The
+  // live KAIROS quote (three single-stream lines: $675 primary, $55 composable
+  // Upgrade, $580 add-on) failed the old test, so this surface fell back to
+  // calcQuoteTotals()' flat price/cycle math — where the composable Upgrade's
+  // flat price is null by construction and it silently dropped out as "custom
+  // pricing". Same one-line trigger correction as QuoteSummary.tsx's cart
+  // footer, NotificationTemplates.php's email and QuoteProposalPreview.tsx,
+  // kept in step so the same quote can never report two different figures on
+  // two surfaces. The double-count-proof population split below is unchanged.
+  const hasQuotedPaymentStreams = items.filter(isFamilyTierQuoteItem)
+    .some((item) => (item.legPaymentSummaries?.length ?? 0) > 0);
+  const itemsForGeneralTotals = hasQuotedPaymentStreams
     ? items.filter((item) => !isFamilyTierQuoteItem(item))
     : items;
   const totals = calcQuoteTotals(itemsForGeneralTotals);
@@ -539,10 +552,11 @@ export function OrderSummary({
 
       {/* ── Totals ── */}
       <div class="cz-os__total">
-        {/* Multi-stream Family Contract Value/Initial Payment — sits ALONGSIDE
-            the general totals block below, never replacing it, so a mixed
-            cart's legacy Service/bundle/tier-addon totals stay visible. */}
-        {hasMultiStreamItem && (
+        {/* Stream-priced Family Contract Value/Initial Payment — sits
+            ALONGSIDE the general totals block below, never replacing it, so a
+            mixed cart's legacy Service/bundle/tier-addon totals stay
+            visible. */}
+        {hasQuotedPaymentStreams && (
           combinedFamilyTotalContractValue !== null ? (
             <div class="cz-os__total-row">
               <p class="cz-os__total-label">Total Contract Value</p>
@@ -558,10 +572,10 @@ export function OrderSummary({
             </>
           )
         )}
-        {/* General totals — every item except a multi-stream Family one (see
-            itemsForGeneralTotals above); hidden only when nothing is left to
-            represent here (a cart made entirely of multi-stream Family
-            items, already fully covered by the block above). */}
+        {/* General totals — every item except a Family one, once the Family
+            block above is active (see itemsForGeneralTotals); hidden only
+            when nothing is left to represent here (a cart made entirely of
+            Family items, already fully covered by the block above). */}
         {itemsForGeneralTotals.length > 0 && (
           totals.cycleEntries.length === 0 ? (
             <div class="cz-os__total-row">
@@ -598,7 +612,7 @@ export function OrderSummary({
             </div>
           )
         )}
-        {hasMultiStreamItem && familyStartingPayments.length > 0 && (
+        {hasQuotedPaymentStreams && familyStartingPayments.length > 0 && (
           <div class="cz-os__total-row">
             <p class="cz-os__total-label">Initial Payment</p>
             <span class="cz-os__total-amount">{formatPrice(familyInitialPaymentTotal)}</span>

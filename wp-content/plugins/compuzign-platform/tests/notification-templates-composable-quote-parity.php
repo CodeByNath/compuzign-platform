@@ -40,9 +40,13 @@ $kairosPrimary = [
     'tierId' => 'enterprise', 'tierTitle' => 'KAIROS Enterprise',
     'price' => 490, 'billingCycle' => 'monthly', 'isAddon' => false, 'isComposable' => false, 'features' => [],
     'tierEditionTitle' => null, 'inclusionItems' => null,
-    // Multi-stream (2 streams) so the combined Family Contract Value block
-    // activates — a single-stream item alone leaves totals on the general
-    // (non-Family) path per Phase 8F's hasMultiStreamItem gate.
+    // Two streams, as this fixture has always had. Note the trailing clause
+    // here used to read "a single-stream item alone leaves totals on the
+    // general (non-Family) path" — that was true of Phase 8F's old
+    // hasMultiStreamItem gate and is no longer: since the 2026-09-12 parity
+    // correction the combined Family block activates on ANY item carrying
+    // payment summaries (hasQuotedPaymentStreams). Comment only; this
+    // fixture's own behavior is unchanged either way.
     'legPaymentSummaries' => [
         ['source' => 'leg_upfront', 'billingCycle' => 'upfront', 'price' => 5000, 'startMonth' => 0, 'endMonth' => 0, 'isOngoing' => false, 'occurrenceMonths' => [0], 'subtotal' => 5000],
         ['source' => 'leg_recurring', 'billingCycle' => 'monthly', 'price' => 490, 'startMonth' => 0, 'endMonth' => 12, 'isOngoing' => false, 'occurrenceMonths' => range(0, 11), 'subtotal' => 5880],

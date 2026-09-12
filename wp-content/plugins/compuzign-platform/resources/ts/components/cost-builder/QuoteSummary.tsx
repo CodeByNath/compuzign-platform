@@ -139,14 +139,33 @@ export function QuoteTotalsPresentation({ items }: { items: CartItem[] }) {
 
   // Phase 6/7: calcQuoteTotals()'s own cycle-bucket math is untouched — it
   // still only ever sees each item's single flat Headline price/cycle, so
-  // its "Est. X total" is only trustworthy when NO item actually has more
-  // than one real payment stream. Rather than teach that function a second,
-  // per-stream bucketing model (an invented cross-cycle summation this phase
-  // was told not to build), a multi-stream item's presence is classified
-  // here and the footer branches BEFORE reaching calcQuoteTotals' own
-  // labels at all.
+  // its "Est. X total" is only trustworthy when NO item carries authoritative
+  // payment streams of its own. Rather than teach that function a second,
+  // per-stream bucketing model (an invented cross-cycle summation that phase
+  // was told not to build), stream-priced items are classified here and the
+  // footer branches BEFORE reaching calcQuoteTotals' own labels at all.
+  //
+  // Live correction (project-work/2026-09-12-cart-initial-payment-parity.md):
+  // this gate used to ask whether any ONE item had MORE THAN one stream. That
+  // conflated "this cart needs stream-aware presentation" with "some item is
+  // internally complex", and the two are not the same question. A cart of
+  // three single-stream Family lines (primary $675, Upgrade $55, add-on $580)
+  // failed it, so the footer fell back to calcQuoteTotals' flat price/cycle
+  // math — which buckets by each item's own flat `price`, and the composable
+  // Upgrade's flat price is null (ComposableOfferBrowser.tsx: `headline?.price
+  // ?? null`) even though its legPaymentSummaries correctly carry $55 Monthly.
+  // The Upgrade was therefore counted as "1 item at custom pricing" and its
+  // $55 dropped, showing $1,255 where Total Commitment — which has no such
+  // gate — correctly showed $1,310 from the same summaries.
+  //
+  // The right question is whether authoritative summaries EXIST at all: one
+  // stream is still a real, resolved commercial stream and is exactly as
+  // trustworthy as three. A true legacy item (a Cost Builder QuoteItem, which
+  // never has this field, or a pre-Phase-5 cart entry) still has none, so the
+  // flat compatibility path below is reached by precisely the carts that
+  // genuinely need it.
   const familyTierItems = items.filter(isFamilyTierQuoteItem);
-  const hasMultiStreamItem = familyTierItems.some((item) => (item.legPaymentSummaries?.length ?? 0) > 1);
+  const hasQuotedPaymentStreams = familyTierItems.some((item) => (item.legPaymentSummaries?.length ?? 0) > 0);
   // Phase 7: sum every PRIMARY (non-add-on) Tier/Edition item's own finite
   // Total Contract Value — never add-ons (no canonical finite-contract math
   // exists for them yet; they stay represented by calcQuoteTotals' own
@@ -196,7 +215,7 @@ export function QuoteTotalsPresentation({ items }: { items: CartItem[] }) {
             <span class="cz-quote-summary__total-label">Pricing on request</span>
             <span class="cz-quote-summary__total-price">Contact Us</span>
           </>
-        ) : hasMultiStreamItem ? (
+        ) : hasQuotedPaymentStreams ? (
           combinedPrimaryTotalContractValue !== null ? (
             <>
               <span class="cz-quote-summary__contract-value-label">Total Contract Value</span>
@@ -265,10 +284,11 @@ export function QuoteTotalsPresentation({ items }: { items: CartItem[] }) {
           math/derivation is untouched, and each quote item's own row above
           still shows its own real Upfront/Monthly/Yearly labels; only this
           summary number stops describing which Leg types make it up. Same
-          hasMultiStreamItem gate as .total's own multi-stream branch — a
-          simple single-stream cart's existing compact "Est. X total"
-          already answers this question, so nothing new renders there. */}
-      {hasMultiStreamItem && startingPayments.length > 0 && (
+          hasQuotedPaymentStreams gate as .total's own stream-aware branch,
+          so the two figures can never disagree about which model this cart
+          is being presented under. A cart with no quoted summaries at all
+          keeps the compact flat "Est. X total" and renders nothing new. */}
+      {hasQuotedPaymentStreams && startingPayments.length > 0 && (
         <div class="cz-quote-summary__initial-payment">
           <span class="cz-quote-summary__initial-payment-label">Initial Payment</span>
           <span class="cz-quote-summary__initial-payment-amount">{formatPrice(initialPaymentTotal)}</span>
