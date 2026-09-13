@@ -1,41 +1,30 @@
 # Admin UI Refinement
 
 ## Status
-- **AWAITING REVIEWER REVIEW**
+- **SOURCE PUSH APPROVED**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
 - Production `main`: `35d48d4b931b7901374a182e12c6a3012a8281fd`
-- Topic branch: `admin-ui-refinement` @ `974c025c0d2d07421c6d6399834428bc95b9cf63` (pushed; `main` untouched)
+- Approved topic head: `974c025c0d2d07421c6d6399834428bc95b9cf63`
 
-## Live defect
-Nath confirms the lower-deck Platform ID is still absent because the underlying legacy Rate Sheet row has **no Platform ID assigned**. The read-projection fallback is correct and remains accepted; this is now an existing-record assignment/UI availability issue.
+## Reviewer result
+Independent audit confirms the candidate fixes the existing one-time Admin Platform-ID action rather than adding a new mechanism.
 
-The required mechanism already exists in CompuZign Admin as the one-time Platform-ID assignment action. It must be made available/active for the current Package/Tier legacy scopes, including Rate Sheet Items (`package_rate_card_item` / `CZPRCI`). **Reuse the existing action only.**
+`TemporaryMigrationController` already supports `package_rate_card_item` / CZPRCI and maps it to the existing Rate Sheet Item adapter. Its explicit assignment path safely restarts historically-complete scopes, preserves existing valid IDs, and remains bounded and locked.
 
-## Locked correction
-The mandatory Platform Identifier/Package audit found current source already
-supports CZPRCI through the controller, adapter, API, and one Admin action.
-Use that action for every supported Package/Tier scope; never narrow it to one
-scope or add an endpoint/button/path. Assignment remains explicit-admin-only:
-no background write, migration-on-read, presentation minting, runtime
-mutation, or change to the accepted lower-deck projection.
+The candidate removes stale `progress.complete` UI gating. On mount the existing notice now performs zero-write dry checks for every supported Package/Tier scope and hides only when current data has no missing IDs and no conflicts. The existing Admin button assigns only scopes currently reporting missing IDs, then reruns dry checks.
 
-## Builder result — `974c025c`
+No new endpoint, button, command, migration store, background assignment, migration-on-read, or presentation minting was added. The accepted lower-deck projection and earlier Admin UI work are unchanged.
 
-The source audit confirmed CZPRCI was already present in the temporary
-controller, Package adapter/enumerator, API union, and the one Admin action.
-The defect was the notice trusting a historical `progress.complete` flag and
-hiding before its zero-write dry checks could discover a later incomplete row.
+Changed candidate files:
+- `PlatformIdentifierMigrationNotice.tsx`
+- `admin-platform-identifier-migration-sweep-contract.ts`
+- rebuilt `dist/js/admin-station.js`
 
-The existing notice now dry-checks every supported scope on mount and hides
-only when all are currently clear and conflict-free. The existing explicit
-button reruns only scopes whose dry check reports missing IDs; it uses the
-controller's existing safe restart behaviour for historically complete scopes.
-No endpoint, button, command, migration-on-read, background assignment, or
-presentation minting was added.
+Builder reports focused migration/identity contracts, TypeScript, build, docs, and `git diff --check` passing, with only previously known unrelated baseline findings.
 
-- Changed: `PlatformIdentifierMigrationNotice.tsx`, its sweep contract, and rebuilt `dist/js/admin-station.js`.
-- Passed: temporary migration PHP; Admin migration sweep; Rate Sheet row identity; TypeScript; build; docs; `git diff --check`.
-- Baseline: `contract:platform-identity-schema` still fails on unrelated malformed fixture literals in four existing scripts; no identity vocabulary/policy source changed.
-- No browser/runtime mutation was performed. Candidate pushed only to the topic branch; do not push `main` pending independent review.
+## Next action
+Builder may move the exact approved head `974c025c0d2d07421c6d6399834428bc95b9cf63` to `main` with no amendment or unrelated change. Record the resulting `main` SHA and deployment workflow result here, then stop for Reviewer deployment/live validation.
+
+Do not invoke the Platform-ID assignment action during deployment. Live data mutation remains an explicit Admin action.
