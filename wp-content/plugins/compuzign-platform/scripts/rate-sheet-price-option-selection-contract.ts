@@ -7,6 +7,8 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { resolveRateSheetSelection } from '../resources/ts/package-station/rateSheetLabels';
+import type { PackageRateSheetItem } from '../resources/ts/package-station/types';
 
 function check(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`Rate Sheet Price Option selection contract: ${message}`);
@@ -81,6 +83,20 @@ check(
 check(
   usePackageStation.includes("import { resolveRateSheetSelection } from './rateSheetLabels';"),
   'usePackageStation.tierView() resolves each selection through the shared resolveRateSheetSelection() rule, not a second inline copy',
+);
+const platformIdentifiedRow: PackageRateSheetItem = {
+  item_id: 'row-with-id', bundle_id: 'bundle-with-id', label: 'Bundle',
+  platform_id: 'CZPRCI36GRM', source_item_id: '', unit_price: 36,
+  per: 'Per VM', quantity: 1, group_id: null, sort_order: 0, price_options: [],
+};
+const platformIdentifiedSelection = resolveRateSheetSelection(
+  { item_id: platformIdentifiedRow.item_id, quantity: 1 },
+  new Map([[platformIdentifiedRow.item_id, platformIdentifiedRow]]),
+  new Map(),
+);
+check(
+  platformIdentifiedSelection.platform_id === 'CZPRCI36GRM',
+  'the shared client-side selection projection preserves the row Platform ID for the focused lower deck',
 );
 
 // ── Backend: sanitizer preserves the field; projector resolves it ───────────

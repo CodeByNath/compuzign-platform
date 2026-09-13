@@ -88,6 +88,11 @@ export function resolveRateSheetSelection(
     // Display only — what the row calls the price this selection already
     // uses when it carries no price_option_id.
     default_price_label: rateItem?.default_price_label,
+    // The row's own existing CZPRCI must survive this client-side
+    // re-resolution. The drawer reads the Rate Sheet row directly, while the
+    // focused lower deck reads this selection projection; dropping it here
+    // falsely presented an assigned row as unassigned in that deck.
+    platform_id: rateItem?.platform_id ?? null,
     bundle_id: rateItem?.bundle_id,
     includes: rateItem?.includes,
   };
