@@ -17,11 +17,13 @@ import {
   fetchPlatformIdentifierStatus,
   type PlatformIdentifierEntityType as EntityType,
   type PlatformIdentifierReport as Report,
+  type PlatformIdentifierStatus as StatusResponse,
 } from '../api/platformIdentifiers';
 
 const ENTITY_TYPES: EntityType[] = ['package_family_group', 'tier_group', 'tier', 'tier_addon', 'package_rate_card_group', 'package_rate_card', 'package_rate_card_item', 'tier_leg', 'tier_edition_leg', 'tier_catalogue', 'tier_edition_catalogue'];
 
 export function PlatformIdentifierMigrationNotice() {
+  const [status, setStatus] = useState<StatusResponse | null>(null);
   const [reports, setReports] = useState<Record<EntityType, Report> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -29,25 +31,25 @@ export function PlatformIdentifierMigrationNotice() {
   useEffect(() => {
     let active = true;
     fetchPlatformIdentifierStatus()
-      .then(async () => {
+      .then(async (next) => {
         if (!active) return;
-        // Stored completion is only the last migration pass. A later legacy
-        // record can still lack an ID, so every mount rechecks every scope
-        // before deciding whether this one explicit repair action is needed.
-        const dryRuns = await Promise.all(ENTITY_TYPES.map((entityType) => dryRunPlatformIdentifiers(entityType)));
-        if (active) setReports(Object.fromEntries(dryRuns.map((dry) => [dry.entity_type, dry.report])) as Record<EntityType, Report>);
+        setStatus(next);
+        if (!next.complete) {
+          const dryRuns = await Promise.all(ENTITY_TYPES.map((entityType) => dryRunPlatformIdentifiers(entityType)));
+          if (active) setReports(Object.fromEntries(dryRuns.map((dry) => [dry.entity_type, dry.report])) as Record<EntityType, Report>);
+        }
       })
       .catch(() => active && setError('Platform ID migration check failed. Review the server log for details.'));
     return () => { active = false; };
   }, []);
 
+  // Completion is intentionally silent. The temporary runner remains mounted
+  // only so an administrator can verify the one-time rollout before removal.
+  if (status?.complete) return null;
+
   const conflicts = reports ? ENTITY_TYPES.flatMap((entityType) => reports[entityType].conflicts.map((conflict) => ({ ...conflict, entityType }))) : [];
   const wouldAssign = reports ? ENTITY_TYPES.reduce((total, entityType) => total + reports[entityType].would_assign, 0) : 0;
   const wouldPreserve = reports ? ENTITY_TYPES.reduce((total, entityType) => total + reports[entityType].would_preserve, 0) : 0;
-  // Completion is intentionally silent. It is the current zero-write sweep,
-  // not the historical progress flag: every supported scope must be clear.
-  const rolloutComplete = reports !== null && wouldAssign === 0 && conflicts.length === 0;
-  if (rolloutComplete) return null;
   const notes: ModuleNote[] = error
     ? [{ id: 'migration-error', type: 'error', message: error }]
     : conflicts.length > 0
@@ -60,19 +62,16 @@ export function PlatformIdentifierMigrationNotice() {
     if (!reports || conflicts.length > 0) return;
     setBusy(true); setError('');
     try {
+      let complete = false;
       for (const entityType of ENTITY_TYPES) {
-        // A scope previously marked complete may have gained a later legacy
-        // record. The controller restarts that scope safely when explicitly
-        // invoked, so dry-check results—not its parked progress cursor—decide
-        // whether this button runs it again.
-        let entityComplete = reports[entityType].would_assign === 0;
+        let entityComplete = Boolean(status?.progress[entityType]?.complete);
         while (!entityComplete) {
           const result = await assignPlatformIdentifiers(entityType);
           entityComplete = result.entity_complete;
+          complete = result.complete;
         }
       }
-      const dryRuns = await Promise.all(ENTITY_TYPES.map((entityType) => dryRunPlatformIdentifiers(entityType)));
-      setReports(Object.fromEntries(dryRuns.map((dry) => [dry.entity_type, dry.report])) as Record<EntityType, Report>);
+      if (complete) setStatus({ complete: true, progress: {} });
     } catch {
       setError('Platform ID assignment stopped. Review the server log for details.');
     } finally { setBusy(false); }
