@@ -1,35 +1,31 @@
 # Admin UI Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **READY FOR BUILDER**
 - Builder: **Claude Code**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
-- Production `main`: `d85544a4142c440c75fe3a25096bbcc759fa2aa5`
-- Approved topic head: `9617c0edf4fc50d5971bf47e6ae0431aacd4153c`
+- Production `main`: `9617c0edf4fc50d5971bf47e6ae0431aacd4153c`
+- Topic branch: `admin-ui-refinement`
 
 ## Scope lock
-This remains the same Admin UI work item. Previously accepted live checks remain accepted and must not be reopened. No backfill, migration-on-read, new maintenance path, identity/persistence change, pricing/customer-flow change, or unrelated refactor.
+Same Admin UI work item. Previously accepted items remain accepted unless explicitly corrected below. No automatic backfill, migration-on-read, new maintenance mechanism, pricing/customer-flow change, or unrelated refactor.
 
-## Accepted final live-defect fix
-Reviewer independently inspected the exact one-commit diff `d85544a4..9617c0ed`. GitHub confirms it is 1 commit ahead, 0 behind, with merge base exactly current production.
+## Nath live corrections / new requirements
+1. **Focused Tier lower-deck inclusion rows must show Platform ID.** The focused Inclusion Overview already shows Platform ID; the list on the left currently does not. Reverse the prior “do not show Platform ID” instruction and restore the existing Rate Sheet-row Platform ID on each focused inclusion list row. Do not show internal Inclusion ID/Rate Sheet row ID instead.
+2. **Bring back the individual Tier `Connections` tab** for Default, Add-on, and Build Your Own. The tab/location is required. Do **not** restore the obsolete Service Overview content. Audit current Package-owned relationships and populate this tab from the real authoritative Tier connections already available in source—Package Family / Tier Group / Rate Sheet relationships (use canonical existing entity names/links; no invented relationship model). Preserve Service-owned data and APIs.
+3. **Build Your Own spacing:** add a small vertical gap between the `BUILD YOUR OWN` section label and its shell/card (live screenshot shows them too tight).
+4. **Existing CompuZign Admin Platform-ID action:** locate the previously built one-action Admin button/action for generating/assigning missing Platform IDs and make it available/active for the relevant missing Platform-ID scopes. Reuse that exact mechanism only. **Do not create a second backfill path, do not auto-run it, and do not mutate live records during implementation.** Missing legacy IDs remain deliberate admin-triggered repair.
+5. **Tier card Grid view:** desktop layout should be a 2 × 2 grid for the four Tier cards, with the grid/container capped at **max-width: 1440px**. Preserve the established responsive collapse below the existing earned breakpoints.
 
-Approved changes:
-1. **Old Service Overview removed from individual Tier occupants only.** The individual Default/Add-on/Build Your Own screen drops its obsolete `connections` presentation group. Service-owned data, relationships, APIs, persistence, and the separate parent-level Tier System Connections presentation remain untouched.
-2. **Family responsive bottom border restored.** The existing Family shell border-bottom is restated at the existing <=1100px and <=767px breakpoints; accepted ordering/stacking is unchanged.
-3. **Family status pill corrected.** `PackageFamilySummary` now reuses the established no-dot package-card/module pill via `pillVariant="module"`; no second status system was introduced.
+## Keep accepted
+- Promotions hidden; Maintenance at bottom; Per values removed.
+- Family connection metrics/ID cleanup.
+- Responsive Family -> Tier selector/tabs -> occupant ordering.
+- Family bottom border and no-dot package-card status pill.
+- Focused Inclusion Overview Platform ID.
+- Internal IDs hidden where Platform ID is intended.
+- Build Your Own heading exactly **Composable Occupant** and explanatory sentence removed.
 
-### Identity requirement remains locked
-Focused Tier -> lower deck -> inclusions list must **not** show Platform ID. This patch does not alter that accepted behavior.
-
-## Validation evidence
-Builder reports clean TypeScript, successful build/docs check, full relevant Package/Tier contract suite passing, and no new Admin CSS-contract regression beyond the same six pre-existing unrelated failures. Three lifecycle regression scripts still reproduce the same pre-existing `audienceGroups.length` TypeError on unmodified production base and are outside this phase.
-
-## Next action
-Claude's push access is blocked from writing `main` directly (classifier-enforced on this session, independent of Reviewer/Nath approval status). Confirmed clean fast-forward eligibility (`git merge-base --is-ancestor origin/main origin/admin-ui-refinement` → true; 1 commit ahead, 0 behind).
-
-**Nath: run this exact command to complete the approved push — no amendments:**
-```
-git push origin admin-ui-refinement:main
-```
-After it lands, record the exact resulting `main` SHA and deployment workflow result here, then stop for final live validation of these three fixes only. Keep `admin-ui-refinement` until final live acceptance.
+## Builder workflow
+Start from current production `9617c0ed`, reuse `admin-ui-refinement`, inspect source before changing the Connections tab and Admin Platform-ID action, then implement only the items above. Use existing Package read models/connection components and existing Admin identity action; do not invent parallel systems. Run TypeScript/build/docs plus focused Package/Tier/identity/CSS contracts. Record exact files, commit SHA(s), validation, and any unresolved evidence here. Push only `admin-ui-refinement`, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main`.
