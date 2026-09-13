@@ -5,8 +5,8 @@
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
-- Production `main`: `965c41e0f07206a6009e0f1f1e93b3953a05bb85`
-- Approved topic head: `965c41e0f07206a6009e0f1f1e93b3953a05bb85`
+- Production `main`: `b537ea96e426476ca5b636d6060e4821d9057bdb`
+- Pushed Builder topic head: `b537ea96e426476ca5b636d6060e4821d9057bdb`
 
 ## Current live defect
 The deployed focused-card label exposed the true missing link: the drawer Overview shows existing `CZPRCI36GRM`, but every focused inclusion card reported `Platform ID not assigned`. The data exists; the client-side selection resolver dropped it.
@@ -27,18 +27,24 @@ The new contract resolves a row carrying `CZPRCI36GRM` through the shared resolv
 - No identity minting, assignment, migration, persistence, endpoint, or registry behavior changes.
 - No pricing, quantity, selection, or relationship behavior changes.
 - The existing drawer path remains unchanged.
-- The earlier focused presentation label remains unchanged and now receives the real ID.
+- The focused card's display is now the bare existing ID, with no label or placeholder.
 - The earlier unrelated migration-notice correction remains reverted.
 
 Builder reports focused contract, TypeScript, build, and `git diff --check` passing.
 
+## Display-only follow-up
+
+User requested removal of the visible `Platform ID` label and `Platform ID not
+assigned` placeholder. `b537ea96` changes the focused card to render only the
+existing `CZPRCI…` value, or nothing when the row has none. It does not change
+the resolver, drawer, stored identity, or any action.
+
 ## Production handoff
 
-Builder fast-forwarded GitHub `main` from `d07c73c` to the exact approved
-`965c41e0` head with no amendment or unrelated source change. **Deploy to
-Hostinger** run `34755576823` started for that exact SHA and is currently
-`in_progress` (checked 2026-09-13 11:52 UTC). No live-data mutation was made.
+Builder fast-forwarded GitHub `main` from `965c41e0` to `b537ea96`. **Deploy
+to Hostinger** run `34757201800` started for that exact SHA and is currently
+`in_progress` (checked 2026-09-13 12:28 UTC). No live-data mutation was made.
 
 Reviewer must verify the deployment result and targeted live behaviour: the
-focused `2 vCPU` card must display the same `CZPRCI36GRM` as its Overview
-drawer. Builder stops here pending that independent verification.
+focused `2 vCPU` card must display `CZPRCI36GRM` without a label or placeholder.
+Builder stops here pending that independent verification.
