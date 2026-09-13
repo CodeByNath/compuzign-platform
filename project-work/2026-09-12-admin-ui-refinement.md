@@ -1,41 +1,33 @@
 # Admin UI Refinement
 
 ## Status
-
-- **AWAITING REVIEWER REVIEW**
+- **SOURCE PUSH APPROVED**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
+- Verdict: **Proceed with safeguards**
 - Production `main`: `974c025c0d2d07421c6d6399834428bc95b9cf63`
-- Pushed Builder candidate `admin-ui-refinement`: `d07c73c7`
+- Approved topic head: `d07c73c7312316ba2ff6994f100f142046164be9`
 
-## Live correction — Focused inclusions Platform ID
+## Current live defect
+The supplied Admin screenshots establish that the Focused inclusions card for `2 vCPU` omits its Platform ID while the same row's existing drawer Overview already shows `CZPRCI36GRM`. This is a presentation defect, not an identity-assignment defect.
 
-The supplied Admin screenshots establish the actual defect: the Focused
-inclusions card for `2 vCPU` omitted its Platform ID even though its existing
-drawer Overview correctly displays `CZPRCI36GRM`. This is a lower-deck
-presentation defect only; it is not an identity-minting, migration, pricing,
-or assignment problem.
+## Reviewer audit
+GitHub confirms `admin-ui-refinement` is 2 commits ahead of current production and 0 behind, with merge base exactly at `974c025c`.
 
-The candidate explicitly reverts the unrelated legacy-ID repair change that
-was previously made on the wrong diagnosis:
+The candidate intentionally contains:
+1. `821c7d94` — exact revert of the earlier `974c025c` migration-notice change made from the wrong missing-ID diagnosis.
+2. `d07c73c7` — focused lower-deck presentation fix.
 
-- `821c7d94` — reverts `974c025c` (`PlatformIdentifierMigrationNotice` and
-  its contract/build change).
+The focused fix uses the already-resolved `DeckInclusion.platformId` and renders the identity reference explicitly as `Platform ID · <CZPRCI>`. No lookup, repair action, assignment path, pricing logic, selection behavior, endpoint, or persistence mutation is added.
 
-The candidate retains the existing no-write projection of stored CZPRCI data
-and makes the card identity line explicit: `Platform ID · CZPRCI…`.
+The existing read projection that carries stored `cz_platform_id` into selection `platform_id` remains intact. Regression coverage still verifies that projection and now also asserts the focused lower-deck source renders the Platform ID reference explicitly.
 
-- `d07c73c7` — `TierLowerDeck.tsx`, focused workspace contract, rebuilt
-  `dist/js/admin-station.js`.
+## Safeguards verified
+- No Platform-ID assignment/migration behavior is introduced by this candidate.
+- The unrelated migration-notice change is removed.
+- No pricing, selection, connection, or identity-persistence behavior changes.
+- Prior accepted Admin UI work remains outside this correction.
+- Builder reports focused workspace contract, TypeScript, production build, and `git diff --check` passing.
 
-## Reviewer checks
-
-- Confirm the card renders the same existing `CZPRCI36GRM` visible in its
-  Overview drawer.
-- Confirm no Platform-ID repair control, data mutation, new endpoint, or
-  pricing/selection behaviour is included.
-- Focused workspace contract, `npx tsc --noEmit`, `npm run build`, and
-  `git diff --check` passed before source handoff.
-
-No production push, deployment, or live data mutation has been made for this
-candidate.
+## Next action
+Builder may move the **exact approved head `d07c73c7312316ba2ff6994f100f142046164be9`** to `main` with no amendment or unrelated source changes. After push, record the resulting `main` SHA and deployment workflow result here, then stop for Reviewer deployment verification and targeted live validation of the focused inclusion Platform ID display.
