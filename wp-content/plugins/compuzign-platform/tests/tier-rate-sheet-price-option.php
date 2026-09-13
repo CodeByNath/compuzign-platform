@@ -81,6 +81,24 @@ assertSameValue(10.0, $noOptions['selections'][0]['unit_price'], 'a row with no 
 assertSameValue(null, $noOptions['selections'][0]['price_option_id'], 'no price_option_id was selected');
 assertSameValue(10.0, $noOptions['price'], 'projected Tier price for a no-options row is unaffected');
 
+// A stored Rate Sheet row has the durable CZPRCI scalar before the read-model
+// normalization pass. The focused Tier projection must retain that existing
+// identity; it must not treat the missing normalized key as a missing ID or
+// invoke any repair/mint path.
+$storedIdentityReadModel = $readModel;
+unset($storedIdentityReadModel['rate_sheets'][0]['items'][0]['platform_id']);
+$storedIdentityReadModel['rate_sheets'][0]['items'][0]['cz_platform_id'] = 'CZPRCI-STORED-ONLY';
+$storedIdentitySelection = PMS::projectTierRateSheetWith(
+    $storedIdentityReadModel,
+    [['item_id' => 'rate-1', 'quantity' => 1]],
+    'rs_test'
+);
+assertSameValue(
+    'CZPRCI-STORED-ONLY',
+    $storedIdentitySelection['selections'][0]['platform_id'],
+    'a stored-only CZPRCI projects as the normalized selection platform_id without a write or backfill'
+);
+
 // ── 2. Null price_option_id -> Default Price ─────────────────────────────────
 
 $nullOption = PMS::projectTierRateSheetWith($readModel, [['item_id' => 'rate-1', 'quantity' => 1, 'price_option_id' => null]], 'rs_test');

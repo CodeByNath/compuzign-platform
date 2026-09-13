@@ -1856,7 +1856,11 @@ final class PackageManagerSchema
                 'line_total' => $lineTotal,
                 // The bound Rate Sheet row's own output-only Platform ID
                 // (CZPRCI), carried through unchanged — never minted here.
-                'platform_id' => $rateItem['platform_id'] ?? null,
+                // Read models normally expose the normalized key, while a
+                // stored Rate Sheet row still carries its durable CZPRCI as
+                // cz_platform_id. Preserve either representation without
+                // minting or repairing identity in this read path.
+                'platform_id' => $rateItem['platform_id'] ?? $rateItem['cz_platform_id'] ?? null,
                 // Present for a row that carries ingredients — the "Includes:"
                 // list. Never chargeable lines of their own.
                 'includes' => $rateItem['includes'] ?? null,

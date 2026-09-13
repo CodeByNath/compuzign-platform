@@ -276,7 +276,7 @@ check(
 );
 
 const deckSelections: DeckSelection[] = [
-  { item_id: 'rate_inc_a', source_type: 'inclusion', source_id: 'inc-1', quantity: 2, resolved: true, label: 'Cloud', unit_price: 70, per: 'Per month', line_total: 140, group_id: 'grp' },
+  { item_id: 'rate_inc_a', source_type: 'inclusion', source_id: 'inc-1', platform_id: 'CZPRCI-STORED-ONLY', quantity: 2, resolved: true, label: 'Cloud', unit_price: 70, per: 'Per month', line_total: 140, group_id: 'grp' },
   { item_id: 'rate_inc_b', source_type: 'inclusion', source_id: 'inc-2', quantity: 1, resolved: true, label: 'Operations', unit_price: 208, per: 'Per month', line_total: 208, group_id: 'grp' },
   { item_id: 'rate_faq', source_type: 'faq', source_id: 'faq-1', quantity: 1, resolved: true, label: 'FAQ', unit_price: 0, per: 'Per month', line_total: 0, group_id: 'grp' },
   { item_id: 'rate_missing', source_type: 'inclusion', source_id: 'inc-3', quantity: 1, resolved: false, label: '(unresolved)', unit_price: null, per: null, line_total: null, group_id: null },
@@ -297,6 +297,10 @@ check(
 check(
   inclusions[0].addressable === true,
   'an ordinary directly-selected row is addressable — its itemId IS the Tier\'s own selection key',
+);
+check(
+  inclusions[0].platformId === 'CZPRCI-STORED-ONLY',
+  'the lower-deck inclusion carries the resolved Rate Sheet row Platform ID as its row reference',
 );
 
 // Connections: every summary resolves through a stored identity, never a label.
