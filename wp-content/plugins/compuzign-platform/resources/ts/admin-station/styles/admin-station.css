@@ -2519,6 +2519,24 @@ button.cz-station-status-pill {
   grid-column: 1 / 3;
 }
 
+/* Grid view's Tier occupant cards — 2×2 at desktop widths (live correction,
+   round 3), scoped to this grid only so Package Family/Category card grids
+   elsewhere keep their own three-across default. Reuses the SAME 12-column
+   card grid (span 6 = two per row on the shared track system) rather than a
+   second grid system; capped so cards don't over-widen on very large
+   monitors. The existing ≤767px single-column collapse
+   (admin-station-responsive.css) is untouched — this rule only applies above
+   it, at the same boundary the shared grid already uses. */
+@media (min-width: 768px) {
+  .cz-tier-workspace__primary > .cz-cg-grid {
+    max-width: 1440px;
+  }
+
+  .cz-tier-workspace__primary > .cz-cg-grid > .cz-cg-grid__cell {
+    grid-column: span 6;
+  }
+}
+
 /* All three regions share one elevated-panel treatment so they read as equal
    parts of a single engine, not a bare list beside two cards. */
 .cz-tier-workspace__tabs,
@@ -2630,9 +2648,11 @@ button.cz-station-status-pill {
    wrapper around the label and the Tier shell below it) — its label's 2px
    margin, tuned for the Tabs rail's tighter panel-head context, reads as
    almost no gap here. Scoped so the Tabs rail and TierComposableMiddleShell's
-   own reuse of this label are unaffected. */
+   own reuse of this label are unaffected. Live correction (round 3): the
+   first --station-card-gap pass still read too tight against the shell
+   directly beneath it. */
 .cz-tier-workspace__composable > .cz-tier-workspace__panel-label {
-  margin-bottom: var(--station-card-gap);
+  margin-bottom: var(--station-body-pad-sm);
 }
 
 /* Compact, visually-secondary list filter — small footprint so it reads as a

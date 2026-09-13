@@ -34,13 +34,15 @@ export interface TierDrawerContentProps {
 // Which individual-tier module is being edited (null = every module readable).
 export type TierEditingSection = 'tier-overview' | 'tier-pricing-rules' | 'tier-inclusions' | 'tier-faqs' | null;
 
-// The individual-tier screen's three presentation groups (drawer refinement
-// blueprint, Phase 3; the old Service Overview Connections group was removed
-// as an obsolete Tier-occupant presentation — UI refinement round 2). This
-// screen composes its shells directly through PlacedShell rather than
+// The individual-tier screen's four presentation groups (drawer refinement
+// blueprint, Phase 3). The old Service Overview Connections group was
+// removed as an obsolete Tier-occupant presentation (UI refinement round 2);
+// Connections was brought back in round 3 populated instead from the real
+// Package Family / Tier Group / Rate Sheet relationships. This screen
+// composes its shells directly through PlacedShell rather than
 // EntityDrawer's fixed Details/Connections bar, so it owns a wider group id
 // than DrawerBaseTabId.
-export type TierDrawerGroupId = 'details' | 'options' | 'support';
+export type TierDrawerGroupId = 'details' | 'options' | 'connections' | 'support';
 
 // A binned-occupant restore conflict, keyed by the engine's D3 error codes.
 export interface TierBinPrompt {

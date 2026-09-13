@@ -3,16 +3,18 @@
 //
 // Two screens: the package overview (Details = tier occupant cards + Pricing
 // Summary, or the occupant Bin; Connections = the parent service), unchanged;
-// and the individual-tier screen, which composes its own three groups —
-// Details / Options / Support — directly through PlacedShell (drawer
-// refinement blueprint) rather than mounting EntityDrawer's fixed
-// Details/Connections bar. Its own former Connections group (the parent
+// and the individual-tier screen, which composes its own four groups —
+// Details / Options / Connections / Support — directly through PlacedShell
+// (drawer refinement blueprint) rather than mounting EntityDrawer's fixed
+// Details/Connections bar. Its own former Connections group (the retired
 // Service Overview) was removed as an obsolete Tier-occupant presentation
 // (UI refinement round 2) — Service-owned data, relationships, persistence,
-// and APIs are untouched; the parent-level Connections above is unaffected.
-// Imports neither host: all coordination goes through
-// useTierDrawerController, all host concerns through the
-// EntityDrawerHostBridge.
+// and APIs were untouched; the parent-level Connections above was
+// unaffected. Round 3 brought Connections back, populated instead from the
+// real canonical Package Family / Tier Group / Rate Sheet relationships
+// (useTierOccupantConnections.ts), read-only. Imports neither host: all
+// coordination goes through useTierDrawerController, all host concerns
+// through the EntityDrawerHostBridge.
 
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { AsyncLoading } from '@/drawer-kit/ui/AsyncSection';
@@ -42,6 +44,8 @@ import { TierEditionDeclarationSwitcher } from './TierEditionDeclarationSwitcher
 import type { TierDrawerContentProps, TierDrawerGroupId } from './tierDrawerTypes';
 import { selectableRateSheets } from '../../surface/tierInstance/tierInstanceModel';
 import { useTierEditions } from '../../surface/tierSurface/useTierEditions';
+import { useTierOccupantConnections } from './useTierOccupantConnections';
+import { projectTierDeck } from '../../surface/packageTierWorkspace/deck';
 import { tierEditionModuleState } from './tierEditionDetailModel';
 import { deriveTierEditionFooterState, tierEditionDisabledMasked } from './tierEditionModel';
 import type { SelectedEditionLifecycleInputs } from './tierLifecycleMenu';
@@ -63,6 +67,15 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   const scrollContainer = c.tierGroupView === 'tabs'
     ? (rootEl?.closest<HTMLElement>('.cz-station-drawer__body') ?? null)
     : null;
+
+  // Individual-tier Connections group (bring-back, UI refinement round 3):
+  // self-contained read of Package Family / Tier Group, gated on an actual
+  // occupant screen being open so the aggregate Tier System screen above
+  // triggers no fetch. Called unconditionally (rules of hooks) — the hook
+  // itself no-ops on a null instance id.
+  const occupantConnections = useTierOccupantConnections(
+    c.editingTierId ? props.tierInstanceId : null,
+  );
 
   // 2026-09-07 correction — an Edition mutation refetches only the drawer's
   // OWN local pkg (c.pkg.refetch below), never bridge.onMutationComplete —
@@ -436,6 +449,20 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   if (!td) return null;
   const { detail, rateSheetCatalogue } = td;
 
+  // Connections group data: the SAME pure projector the Tier Workspace's own
+  // per-focused-Tier Connections lane calls, over this occupant's own
+  // already-loaded bound Rate Sheet selections — no second read. The
+  // category map only feeds `deck.inclusions`/`deck.categories`, neither of
+  // which this group renders, so it is passed empty rather than importing
+  // buildRateItemCategoryMap's own Manager-relationship input for nothing.
+  const boundRateSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === detail.rate_sheet_id) ?? null;
+  const connectionsDeck = projectTierDeck(
+    detail.rate_sheet_selections,
+    new Map(),
+    boundRateSheet,
+    detail.rate_sheet_id,
+  );
+
   let editing: EntityDrawerEditingModule | null = null;
   if (c.editingSection === 'tier-overview' && c.overviewDraft) {
     editing = {
@@ -534,9 +561,10 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   //
   // Composed directly through PlacedShell (drawer refinement blueprint,
   // Phase 3) instead of EntityDrawer's fixed Details/Connections bar, so the
-  // screen can present the three-group Details/Options/Support model
-  // (its former Connections group, the parent Service Overview, was removed
-  // as an obsolete Tier-occupant presentation — UI refinement round 2).
+  // screen can present the four-group Details/Options/Connections/Support
+  // model (Connections read-only, populated from the real Package Family /
+  // Tier Group / Rate Sheet relationships — UI refinement round 3, replacing
+  // the former Service Overview removed in round 2).
   // PlacedShell is the same primitive EntityDrawer itself renders
   // through — every module-editing-lock, notification-panel, and viewpoint
   // guarantee this screen relied on stays intact; only the tab bar around it
@@ -649,6 +677,112 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
       ),
     },
     {
+      // Bring-back (UI refinement round 3): the real, authoritative Package-
+      // owned relationships this occupant's own Tier system participates in
+      // — never the retired Service Overview. Read-only: opening a
+      // DIFFERENT record's own drawer from inside this already-mounted one
+      // has no existing mechanism in this codebase (drawer content is
+      // entity-agnostic with no cross-drawer navigation capability), so
+      // this round reads identity/status here rather than inventing one.
+      id: 'connections',
+      label: 'Connections',
+      content: (
+        <>
+          <ReadBlock
+            title="Tier Group"
+            subtitle="The parent Tier system this occupant belongs to."
+            icon={MODULE_ICONS.package}
+            scopeClass="drawerOverview tier"
+          >
+            <div class="drawerModule__fields">
+              {occupantConnections.tierGroupRow ? (
+                <>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Name</p>
+                    <p class="drawerModule__value">{occupantConnections.tierGroupRow.name}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Platform ID</p>
+                    <p class="drawerModule__value">{occupantConnections.tierGroupRow.platformId || 'Not assigned'}</p>
+                  </div>
+                </>
+              ) : (
+                <p class="drawerModule__value">{occupantConnections.loading ? 'Loading…' : 'Not available.'}</p>
+              )}
+            </div>
+          </ReadBlock>
+
+          <ReadBlock
+            title="Package Family"
+            subtitle="The Package Family this Tier system is assigned to."
+            icon={MODULE_ICONS.package}
+            scopeClass="drawerOverview tier"
+          >
+            <div class="drawerModule__fields">
+              {occupantConnections.familyRow ? (
+                <>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Name</p>
+                    <p class="drawerModule__value">{occupantConnections.familyRow.name}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Platform ID</p>
+                    <p class="drawerModule__value">{occupantConnections.familyRow.platformId || 'Not assigned'}</p>
+                  </div>
+                </>
+              ) : (
+                <p class="drawerModule__value">
+                  {occupantConnections.loading ? 'Loading…' : 'This Tier system is assigned to no Package Family.'}
+                </p>
+              )}
+            </div>
+          </ReadBlock>
+
+          <ReadBlock
+            title="Rate Sheet"
+            subtitle="The Rate Sheet this Tier binds, scoped to its connected rows."
+            icon={MODULE_ICONS.package}
+            scopeClass="drawerOverview tier"
+          >
+            <div class="drawerModule__fields">
+              {connectionsDeck.rateSheet ? (
+                <>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Name</p>
+                    <p class="drawerModule__value">{connectionsDeck.rateSheet.title}</p>
+                  </div>
+                  <div class="drawerModule__field">
+                    <p class="drawerModule__label">Platform ID</p>
+                    <p class="drawerModule__value">{connectionsDeck.rateSheet.platformId || 'Not assigned'}</p>
+                  </div>
+                </>
+              ) : (
+                <p class="drawerModule__value">This Tier has no Rate Sheet binding.</p>
+              )}
+            </div>
+          </ReadBlock>
+
+          {connectionsDeck.groups.length > 0 && (
+            <ReadBlock
+              title="Rate Sheet Groups"
+              subtitle="Groups resolving rows this Tier selects draw from."
+              icon={MODULE_ICONS.package}
+              scopeClass="drawerOverview tier"
+            >
+              <div class="drawerModule__fields">
+                {connectionsDeck.groups.map((group) => (
+                  <div class="drawerModule__field" key={`${group.rateSheetId}:${group.groupId}`}>
+                    <p class="drawerModule__label">{group.title}</p>
+                    <p class="drawerModule__value">{group.platformId || 'Not assigned'}</p>
+                  </div>
+                ))}
+              </div>
+            </ReadBlock>
+          )}
+        </>
+      ),
+    },
+    {
       id: 'support',
       label: 'Support',
       content: (
@@ -735,7 +869,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     >
       {/* While any focused drawer task owns the body (parent Tier module
           edit, selected Edition module edit, or the Edition Bin —
-          c.focusedTaskActive), the three-group Tabs/Accordion chrome
+          c.focusedTaskActive), the four-group Tabs/Accordion chrome
           (including the view toggle and "+ Edition" carried in `trailing`)
           is redundant above a task that already has its own
           title/back/status/footer (FocusedTaskShell — drawer-kit). This
