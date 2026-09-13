@@ -1,11 +1,11 @@
 # Admin UI Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
-- Production `main`: `d07c73c7312316ba2ff6994f100f142046164be9`
+- Production `main`: `965c41e0f07206a6009e0f1f1e93b3953a05bb85`
 - Approved topic head: `965c41e0f07206a6009e0f1f1e93b3953a05bb85`
 
 ## Current live defect
@@ -32,5 +32,13 @@ The new contract resolves a row carrying `CZPRCI36GRM` through the shared resolv
 
 Builder reports focused contract, TypeScript, build, and `git diff --check` passing.
 
-## Next action
-Builder may move the **exact approved head `965c41e0f07206a6009e0f1f1e93b3953a05bb85`** to `main` with no amendment or unrelated source change. After push, record the resulting `main` SHA and deployment workflow result here, then stop for Reviewer deployment verification and targeted live validation that the focused `2 vCPU` inclusion shows the same `CZPRCI36GRM` as its Overview drawer.
+## Production handoff
+
+Builder fast-forwarded GitHub `main` from `d07c73c` to the exact approved
+`965c41e0` head with no amendment or unrelated source change. **Deploy to
+Hostinger** run `34755576823` started for that exact SHA and is currently
+`in_progress` (checked 2026-09-13 11:52 UTC). No live-data mutation was made.
+
+Reviewer must verify the deployment result and targeted live behaviour: the
+focused `2 vCPU` card must display the same `CZPRCI36GRM` as its Overview
+drawer. Builder stops here pending that independent verification.
