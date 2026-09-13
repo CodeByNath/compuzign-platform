@@ -1,11 +1,11 @@
 # Admin UI Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
-- Production `main`: `35d48d4b931b7901374a182e12c6a3012a8281fd`
+- Production `main`: `974c025c0d2d07421c6d6399834428bc95b9cf63`
 - Approved topic head: `974c025c0d2d07421c6d6399834428bc95b9cf63`
 
 ## Reviewer result
@@ -24,7 +24,11 @@ Changed candidate files:
 
 Builder reports focused migration/identity contracts, TypeScript, build, docs, and `git diff --check` passing, with only previously known unrelated baseline findings.
 
-## Next action
-Builder may move the exact approved head `974c025c0d2d07421c6d6399834428bc95b9cf63` to `main` with no amendment or unrelated change. Record the resulting `main` SHA and deployment workflow result here, then stop for Reviewer deployment/live validation.
+## Production handoff
 
-Do not invoke the Platform-ID assignment action during deployment. Live data mutation remains an explicit Admin action.
+Builder fast-forwarded GitHub `main` from `35d48d4b` to the exact approved
+`974c025c` head with no amendment or unrelated change. GitHub Actions started
+**Deploy to Hostinger** run `34748686182` / #1023 for that exact SHA; at
+handoff it is `queued` with no conclusion. Reviewer must verify deployment
+state and targeted live behavior. The Platform-ID assignment action was not
+invoked; live data mutation remains explicit-admin-only.
