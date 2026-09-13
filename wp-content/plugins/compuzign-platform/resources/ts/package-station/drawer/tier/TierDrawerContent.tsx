@@ -3,11 +3,15 @@
 //
 // Two screens: the package overview (Details = tier occupant cards + Pricing
 // Summary, or the occupant Bin; Connections = the parent service), unchanged;
-// and the individual-tier screen, which composes its own four groups —
-// Details / Options / Connections / Support — directly through PlacedShell
-// (drawer refinement blueprint) rather than mounting EntityDrawer's fixed
-// Details/Connections bar. Imports neither host: all coordination goes
-// through useTierDrawerController, all host concerns through the
+// and the individual-tier screen, which composes its own three groups —
+// Details / Options / Support — directly through PlacedShell (drawer
+// refinement blueprint) rather than mounting EntityDrawer's fixed
+// Details/Connections bar. Its own former Connections group (the parent
+// Service Overview) was removed as an obsolete Tier-occupant presentation
+// (UI refinement round 2) — Service-owned data, relationships, persistence,
+// and APIs are untouched; the parent-level Connections above is unaffected.
+// Imports neither host: all coordination goes through
+// useTierDrawerController, all host concerns through the
 // EntityDrawerHostBridge.
 
 import { useCallback, useEffect, useState } from 'preact/hooks';
@@ -530,8 +534,10 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
   //
   // Composed directly through PlacedShell (drawer refinement blueprint,
   // Phase 3) instead of EntityDrawer's fixed Details/Connections bar, so the
-  // screen can present the four-group Details/Options/Connections/Support
-  // model. PlacedShell is the same primitive EntityDrawer itself renders
+  // screen can present the three-group Details/Options/Support model
+  // (its former Connections group, the parent Service Overview, was removed
+  // as an obsolete Tier-occupant presentation — UI refinement round 2).
+  // PlacedShell is the same primitive EntityDrawer itself renders
   // through — every module-editing-lock, notification-panel, and viewpoint
   // guarantee this screen relied on stays intact; only the tab bar around it
   // changed. Options owns Edition management as a drawer information group
@@ -643,20 +649,6 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
       ),
     },
     {
-      id: 'connections',
-      label: 'Connections',
-      content: (
-        <PlacedShell
-          entity={TIER_ENTITY}
-          slot={{ module: 'service', mode: 'connections' }}
-          binding={c.serviceConnectionBinding()}
-          panelOpen={c.openTierPanel === 'service'}
-          onTogglePanel={togglePanel('service')}
-          editing={editing}
-        />
-      ),
-    },
-    {
       id: 'support',
       label: 'Support',
       content: (
@@ -743,7 +735,7 @@ export function TierDrawerContent(props: TierDrawerContentProps) {
     >
       {/* While any focused drawer task owns the body (parent Tier module
           edit, selected Edition module edit, or the Edition Bin —
-          c.focusedTaskActive), the four-group Tabs/Accordion chrome
+          c.focusedTaskActive), the three-group Tabs/Accordion chrome
           (including the view toggle and "+ Edition" carried in `trailing`)
           is redundant above a task that already has its own
           title/back/status/footer (FocusedTaskShell — drawer-kit). This

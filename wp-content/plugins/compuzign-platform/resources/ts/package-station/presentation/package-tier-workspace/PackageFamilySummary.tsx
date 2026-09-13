@@ -50,7 +50,10 @@ export function PackageFamilySummary({
             <p class="cz-tier-workspace__family-description">{summary.positioning}</p>
           )}
         </div>
-        <StationStatusPill status={summary.status} />
+        {/* The established package-card pill (CategoryGroupCard, ServiceConnectionsLane)
+            reads lifecycle without the station dot — the Family group reuses that
+            same reading rather than inventing a second status presentation. */}
+        <StationStatusPill status={summary.status} pillVariant="module" />
       </header>
       <div
         class="cz-tier-workspace__family-metrics"

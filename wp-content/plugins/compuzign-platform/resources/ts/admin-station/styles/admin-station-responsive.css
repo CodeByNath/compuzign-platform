@@ -44,6 +44,11 @@
        which stay order: 0 like Tabs/Detail) — Family leads the responsive
        reading order here, reversing the desktop left-to-right column order. */
     order: -1;
+    /* Restated explicitly at this breakpoint rather than left to the base
+       shared-panel rule alone (live defect: the shell's own closing bottom
+       edge was reported missing here). Ordering/stacking above is
+       unchanged by this. */
+    border-bottom: 1px solid var(--station-border);
   }
 
   /* The divider between the selector and the description/status/metrics
@@ -204,6 +209,9 @@
   .cz-tier-workspace__family {
     order: -1;
     display: flex;
+    /* Restated explicitly at this breakpoint too — see the ≤1100px rule's
+       own comment above. */
+    border-bottom: 1px solid var(--station-border);
   }
 
   /* Composable middle shell — one column, highlights above rules. */
