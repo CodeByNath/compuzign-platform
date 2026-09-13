@@ -1,34 +1,41 @@
 # Admin UI Refinement
 
 ## Status
+
 - **AWAITING REVIEWER REVIEW**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
-- Verdict: **Proceed with safeguards**
 - Production `main`: `974c025c0d2d07421c6d6399834428bc95b9cf63`
-- Approved topic head: `974c025c0d2d07421c6d6399834428bc95b9cf63`
+- Pushed Builder candidate `admin-ui-refinement`: `d07c73c7`
 
-## Reviewer result
-Independent audit confirms the candidate fixes the existing one-time Admin Platform-ID action rather than adding a new mechanism.
+## Live correction — Focused inclusions Platform ID
 
-`TemporaryMigrationController` already supports `package_rate_card_item` / CZPRCI and maps it to the existing Rate Sheet Item adapter. Its explicit assignment path safely restarts historically-complete scopes, preserves existing valid IDs, and remains bounded and locked.
+The supplied Admin screenshots establish the actual defect: the Focused
+inclusions card for `2 vCPU` omitted its Platform ID even though its existing
+drawer Overview correctly displays `CZPRCI36GRM`. This is a lower-deck
+presentation defect only; it is not an identity-minting, migration, pricing,
+or assignment problem.
 
-The candidate removes stale `progress.complete` UI gating. On mount the existing notice now performs zero-write dry checks for every supported Package/Tier scope and hides only when current data has no missing IDs and no conflicts. The existing Admin button assigns only scopes currently reporting missing IDs, then reruns dry checks.
+The candidate explicitly reverts the unrelated legacy-ID repair change that
+was previously made on the wrong diagnosis:
 
-No new endpoint, button, command, migration store, background assignment, migration-on-read, or presentation minting was added. The accepted lower-deck projection and earlier Admin UI work are unchanged.
+- `821c7d94` — reverts `974c025c` (`PlatformIdentifierMigrationNotice` and
+  its contract/build change).
 
-Changed candidate files:
-- `PlatformIdentifierMigrationNotice.tsx`
-- `admin-platform-identifier-migration-sweep-contract.ts`
-- rebuilt `dist/js/admin-station.js`
+The candidate retains the existing no-write projection of stored CZPRCI data
+and makes the card identity line explicit: `Platform ID · CZPRCI…`.
 
-Builder reports focused migration/identity contracts, TypeScript, build, docs, and `git diff --check` passing, with only previously known unrelated baseline findings.
+- `d07c73c7` — `TierLowerDeck.tsx`, focused workspace contract, rebuilt
+  `dist/js/admin-station.js`.
 
-## Production handoff
+## Reviewer checks
 
-Builder fast-forwarded GitHub `main` from `35d48d4b` to the exact approved
-`974c025c` head with no amendment or unrelated change. GitHub Actions started
-**Deploy to Hostinger** run `34748686182` / #1023 for that exact SHA; at
-handoff it is `queued` with no conclusion. Reviewer must verify deployment
-state and targeted live behavior. The Platform-ID assignment action was not
-invoked; live data mutation remains explicit-admin-only.
+- Confirm the card renders the same existing `CZPRCI36GRM` visible in its
+  Overview drawer.
+- Confirm no Platform-ID repair control, data mutation, new endpoint, or
+  pricing/selection behaviour is included.
+- Focused workspace contract, `npx tsc --noEmit`, `npm run build`, and
+  `git diff --check` passed before source handoff.
+
+No production push, deployment, or live data mutation has been made for this
+candidate.
