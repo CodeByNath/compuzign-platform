@@ -65,8 +65,29 @@ check(noticeScopes.length === new Set(noticeScopes).size, 'the sweep array lists
 
 check(apiSource.includes("| 'tier_catalogue'") && apiSource.includes("| 'tier_edition_catalogue'"), 'PlatformIdentifierEntityType\'s own union type lists both new scopes — the notice\'s ENTITY_TYPES array could not compile otherwise');
 
-// ── This module still mints nothing — same invariant every other contract
-//    over this file already relies on. ──────────────────────────────────────
+// ── Historical progress never hides a later incomplete record. The notice
+//    must run its zero-write sweep on every mount, then hide only when every
+//    currently supported scope is actually clear. ───────────────────────────
+
+const statusWrite = noticeSource.indexOf('setStatus(next);');
+const drySweep = noticeSource.indexOf('const dryRuns = await Promise.all(ENTITY_TYPES.map((entityType) => dryRunPlatformIdentifiers(entityType)));');
+check(statusWrite === -1 && drySweep !== -1, 'the notice does not trust or retain a historical completion flag before its current dry-check sweep');
+check(!noticeSource.includes('if (!next.complete)'), 'a stored complete progress flag never suppresses zero-write dry checks for a later legacy record');
+check(
+  noticeSource.includes('const rolloutComplete = reports !== null && wouldAssign === 0 && conflicts.length === 0;')
+    && noticeSource.includes('if (rolloutComplete) return null;'),
+  'the action hides only when every current supported scope is clear and conflict-free',
+);
+check(
+  noticeSource.includes('let entityComplete = reports[entityType].would_assign === 0;')
+    && noticeSource.includes('const result = await assignPlatformIdentifiers(entityType);'),
+  'the explicit button reruns only scopes the dry check found incomplete, including a historically complete scope with a later legacy record',
+);
+
+// ── This module still mints nothing outside its explicit button action. ─────
 check(!noticeSource.includes('reason.message') && noticeSource.includes('Review the server log for details.'), 'the Admin notice still keeps stack diagnostics out of the frontend');
+const assignFunction = noticeSource.indexOf('const assign = async () =>');
+const firstAssignment = noticeSource.indexOf('assignPlatformIdentifiers(entityType)');
+check(assignFunction !== -1 && firstAssignment > assignFunction && noticeSource.includes('onClick={assign}'), 'the browser invokes assignment only from the existing explicit Admin button');
 
 console.log('\nAdmin Platform Identifier migration sweep contract passed.');
