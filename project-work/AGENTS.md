@@ -42,6 +42,19 @@ The Reviewer must preserve required behaviour unless Nath changes it. Reject fix
 - Repository branch limit: `main`, `Project-work-instructions`, plus at most one active topic/review branch.
 - Before closing, verify completed topic branches are merged/contained and remove stale local/remote branches. Never rewrite production history for cleanup.
 
+### Builder source-push handoff
+
+- The active topic branch is the Builder's source candidate; `main` is never a
+  Builder target unless Nath separately approves a production push.
+- When the active work file says `SOURCE PUSH APPROVED`, push only its named
+  topic branch. This publishes the committed candidate for the independent
+  GitHub-connected Reviewer to audit; it does **not** merge to `main`, deploy,
+  mutate runtime data, or constitute production approval.
+- After that push, record the exact remote topic SHA and change the work file
+  to `AWAITING REVIEWER REVIEW` on `Project-work-instructions`, then stop for
+  independent review. Production/main and live-validation permissions remain
+  separate later decisions.
+
 ## Status vocabulary
 - `READY FOR BUILDER`
 - `AWAITING BUILDER RESPONSE`
