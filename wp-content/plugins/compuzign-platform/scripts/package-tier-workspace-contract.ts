@@ -20,6 +20,8 @@ import {
   summarizeTierInstance,
   type WorkspaceFamilyScope,
 } from '../resources/ts/package-station/surface/packageTierWorkspace/projection';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { buildFamilySummary } from '../resources/ts/package-station/surface/packageTierWorkspace/familySummary';
 import {
   buildRateItemCategoryMap,
@@ -301,6 +303,12 @@ check(
 check(
   inclusions[0].platformId === 'CZPRCI-STORED-ONLY',
   'the lower-deck inclusion carries the resolved Rate Sheet row Platform ID as its row reference',
+);
+const lowerDeckSource = readFileSync(resolve(import.meta.dirname, '../resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx'), 'utf8');
+check(
+  lowerDeckSource.includes('Platform ID · ${inclusion.platformId}')
+    && lowerDeckSource.includes('reference={platformReference}'),
+  'the focused-inclusions identity cell explicitly displays its existing Rate Sheet row Platform ID',
 );
 
 // Connections: every summary resolves through a stored identity, never a label.

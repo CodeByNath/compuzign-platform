@@ -341,6 +341,13 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
   onInclusionIntent: (itemId: string, actionId: 'view' | 'edit') => void;
 }): VNode {
   const meta = STATUS_META[inclusionStatus(inclusion)];
+  // The row's CZPRCI is already resolved on DeckInclusion. Keep its label in
+  // the identity cell so the focused-inclusions list shows the same existing
+  // Platform ID the drawer's Overview presents, without introducing another
+  // lookup or an identity-repair action.
+  const platformReference = inclusion.platformId
+    ? `Platform ID · ${inclusion.platformId}`
+    : 'Platform ID not assigned';
   // A Bundle-supplied row's null lineTotal is not "unknown" or "unavailable"
   // pricing — it genuinely has none of its own, by design (the Bundle's
   // commercial price is independent of what its ingredients would sum to).
@@ -356,7 +363,7 @@ function InclusionRow({ inclusion, onInclusionIntent }: {
       <TierDeckRowIdentity
         icon={<PackagesIcon />}
         name={inclusion.name}
-        reference={inclusion.platformId ?? ''}
+        reference={platformReference}
       />
       <div class="cz-station-list__cell cz-tier-deck__field">
         <span class="cz-tier-deck__field-label">Category</span>
