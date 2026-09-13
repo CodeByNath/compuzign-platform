@@ -1,11 +1,11 @@
 # Admin UI Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
-- Production `main`: `974c025c0d2d07421c6d6399834428bc95b9cf63`
+- Production `main`: `d07c73c7312316ba2ff6994f100f142046164be9`
 - Approved topic head: `d07c73c7312316ba2ff6994f100f142046164be9`
 
 ## Current live defect
@@ -29,5 +29,13 @@ The existing read projection that carries stored `cz_platform_id` into selection
 - Prior accepted Admin UI work remains outside this correction.
 - Builder reports focused workspace contract, TypeScript, production build, and `git diff --check` passing.
 
-## Next action
-Builder may move the **exact approved head `d07c73c7312316ba2ff6994f100f142046164be9`** to `main` with no amendment or unrelated source changes. After push, record the resulting `main` SHA and deployment workflow result here, then stop for Reviewer deployment verification and targeted live validation of the focused inclusion Platform ID display.
+## Production handoff
+
+Builder fast-forwarded GitHub `main` from `974c025c` to the exact approved
+`d07c73c` head with no amendment or unrelated source change. **Deploy to
+Hostinger** run `34750364010` started for that exact SHA and is currently
+`in_progress` (checked 2026-09-13 09:50 UTC). No live-data mutation was made.
+
+Reviewer must verify the deployment result and targeted live behaviour: the
+Focused inclusions card must display the same `CZPRCI36GRM` shown in its
+Overview drawer. Builder stops here pending that independent verification.
