@@ -1,11 +1,11 @@
 # Admin UI Refinement
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
-- Production `main`: `9617c0edf4fc50d5971bf47e6ae0431aacd4153c`
+- Production `main`: `35d48d4b931b7901374a182e12c6a3012a8281fd`
 - Approved topic head: `35d48d4b931b7901374a182e12c6a3012a8281fd`
 
 ## Scope lock
@@ -29,5 +29,11 @@ Commit `35d48d4b` changes only:
 
 The PHP regression proves a stored-only `cz_platform_id` is emitted as selection `platform_id`. The TS contract proves that value reaches `DeckInclusion.platformId` for the lower-deck row reference. Builder reports focused PHP/TS contracts, `package-manager-schema`, TypeScript, production build, docs check, and `git diff --check` passing; CSS retains only the known unrelated baseline findings.
 
-## Next action
-Builder may move the **exact approved head `35d48d4b931b7901374a182e12c6a3012a8281fd`** to `main` with no amendment or additional source change. After push, record the resulting `main` SHA and deployment workflow result here, then stop for Reviewer deployment verification and targeted live validation of this Admin UI round.
+## Production handoff
+
+Builder fast-forwarded GitHub `main` from `9617c0ed` to the exact approved
+`35d48d4b` head with no amendment or additional source change. GitHub Actions
+started **Deploy to Hostinger** run `34738286772` / #1022 for that exact SHA;
+at handoff its authoritative state is `queued` with no conclusion. Reviewer
+must verify the resulting deployment state and then perform targeted live
+validation of this Admin UI round before any closure decision.
