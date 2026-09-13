@@ -26,4 +26,10 @@ Focused Tier -> lower deck -> inclusions list must **not** show Platform ID. Thi
 Builder reports clean TypeScript, successful build/docs check, full relevant Package/Tier contract suite passing, and no new Admin CSS-contract regression beyond the same six pre-existing unrelated failures. Three lifecycle regression scripts still reproduce the same pre-existing `audienceGroups.length` TypeError on unmodified production base and are outside this phase.
 
 ## Next action
-Claude may fast-forward/push the **exact approved head `9617c0ed`** to `main` with no amendments. After push, record exact `main` SHA and deployment workflow result here, then stop for Reviewer verification and final live validation of these three fixes only. Keep `admin-ui-refinement` until final live acceptance.
+Claude's push access is blocked from writing `main` directly (classifier-enforced on this session, independent of Reviewer/Nath approval status). Confirmed clean fast-forward eligibility (`git merge-base --is-ancestor origin/main origin/admin-ui-refinement` → true; 1 commit ahead, 0 behind).
+
+**Nath: run this exact command to complete the approved push — no amendments:**
+```
+git push origin admin-ui-refinement:main
+```
+After it lands, record the exact resulting `main` SHA and deployment workflow result here, then stop for final live validation of these three fixes only. Keep `admin-ui-refinement` until final live acceptance.
