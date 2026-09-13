@@ -1,12 +1,12 @@
 # Admin UI Refinement
 
 ## Status
-- **SOURCE PUSH NOT APPROVED**
+- **SOURCE PUSH APPROVED**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
 - Production `main`: `9617c0edf4fc50d5971bf47e6ae0431aacd4153c`
-- Topic branch: `admin-ui-refinement` @ local `35d48d4b931b7901374a182e12c6a3012a8281fd` (one commit ahead of origin; not pushed)
+- Topic branch: `admin-ui-refinement` @ local `35d48d4b931b7901374a182e12c6a3012a8281fd` (approved for topic-branch push; `main` remains untouched)
 
 ## Scope lock
 Same Admin UI work item. Keep previously accepted items locked. No automatic backfill, migration-on-read, new maintenance mechanism, pricing/customer-flow change, or unrelated refactor.
@@ -47,4 +47,4 @@ selection value into `DeckInclusion.platformId`/the displayed row reference.
 - Regression coverage: a row with only stored `cz_platform_id` projects the same normalized selection ID; the pure lower-deck contract asserts that value reaches its inclusion row.
 - Passed: focused PHP test; `package-manager-schema`; Package Tier Workspace, Rate Sheet identity/price-option, Tier inclusion Bundle, Tier Connections, and Tier System drawer contracts; `tsc`; production build; docs check; `git diff --check`.
 - Known baseline: `contract:admin-station-css` retains its six pre-existing unused Rate Sheet CSS-class findings; this change does not touch CSS.
-- Push/deployment: the source candidate is committed locally but not pushed, so reviewer source audit and deployment are not yet available. `main` was not changed.
+- Push/deployment: Nath approved pushing this candidate only to `admin-ui-refinement` for independent GitHub review. It does not alter or deploy `main`; live validation remains out of scope until a later approved production push.
