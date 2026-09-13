@@ -1,12 +1,12 @@
 # Admin UI Refinement
 
 ## Status
-- **READY FOR BUILDER**
-- Builder: **Claude Code**
+- **SOURCE PUSH NOT APPROVED**
+- Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
 - Production `main`: `9617c0edf4fc50d5971bf47e6ae0431aacd4153c`
-- Topic branch: `admin-ui-refinement` @ `ab0b36ba`
+- Topic branch: `admin-ui-refinement` @ local `35d48d4b931b7901374a182e12c6a3012a8281fd` (one commit ahead of origin; not pushed)
 
 ## Scope lock
 Same Admin UI work item. Keep previously accepted items locked. No automatic backfill, migration-on-read, new maintenance mechanism, pricing/customer-flow change, or unrelated refactor.
@@ -36,5 +36,15 @@ Add a focused contract/test proving a Rate Sheet row with only stored `cz_platfo
 - Build Your Own spacing.
 - All earlier accepted Admin UI work.
 
-## Builder workflow
-Patch only this projection defect on `admin-ui-refinement`, rebuild if generated output changes, run focused PHP/TS contracts plus prior validation, record exact SHA/results here, set **AWAITING REVIEWER REVIEW**, push only the topic branch, and stop. Do not push `main`.
+## Builder result — local commit `35d48d4b`
+
+`PackageManagerSchema::projectTierRateSheetWith()` now preserves normalized
+`platform_id` and falls back to a stored row's `cz_platform_id`; it neither
+mints nor backfills identity. The existing lower-deck model carries that
+selection value into `DeckInclusion.platformId`/the displayed row reference.
+
+- Changed: `PackageManagerSchema.php`, `tests/tier-rate-sheet-price-option.php`, and `scripts/package-tier-workspace-contract.ts`.
+- Regression coverage: a row with only stored `cz_platform_id` projects the same normalized selection ID; the pure lower-deck contract asserts that value reaches its inclusion row.
+- Passed: focused PHP test; `package-manager-schema`; Package Tier Workspace, Rate Sheet identity/price-option, Tier inclusion Bundle, Tier Connections, and Tier System drawer contracts; `tsc`; production build; docs check; `git diff --check`.
+- Known baseline: `contract:admin-station-css` retains its six pre-existing unused Rate Sheet CSS-class findings; this change does not touch CSS.
+- Push/deployment: the source candidate is committed locally but not pushed, so reviewer source audit and deployment are not yet available. `main` was not changed.
