@@ -306,9 +306,9 @@ check(
 );
 const lowerDeckSource = readFileSync(resolve(import.meta.dirname, '../resources/ts/package-station/presentation/package-tier-workspace/TierLowerDeck.tsx'), 'utf8');
 check(
-  lowerDeckSource.includes('Platform ID · ${inclusion.platformId}')
-    && lowerDeckSource.includes('reference={platformReference}'),
-  'the focused-inclusions identity cell explicitly displays its existing Rate Sheet row Platform ID',
+  lowerDeckSource.includes("reference={inclusion.platformId ?? ''}")
+    && !lowerDeckSource.includes('Platform ID not assigned'),
+  'the focused-inclusions identity cell displays only its existing Rate Sheet row Platform ID, never a label or placeholder',
 );
 
 // Connections: every summary resolves through a stored identity, never a label.
