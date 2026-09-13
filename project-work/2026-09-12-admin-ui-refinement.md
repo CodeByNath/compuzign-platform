@@ -1,42 +1,50 @@
 # Admin UI Refinement
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **READY FOR BUILDER**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
 - Production `main`: `35d48d4b931b7901374a182e12c6a3012a8281fd`
-- Topic head: `35d48d4b931b7901374a182e12c6a3012a8281fd`
+- Topic branch: reuse `admin-ui-refinement`
 
-## Scope lock
-Same Admin UI work item. Previously accepted items remain locked. No automatic backfill, migration-on-read, new maintenance mechanism, pricing/customer-flow change, or unrelated refactor.
+## Live defect
+Nath confirms the lower-deck Platform ID is still absent because the underlying legacy Rate Sheet row has **no Platform ID assigned**. The read-projection fallback is correct and remains accepted; this is now an existing-record assignment/UI availability issue.
 
-## Accepted source state
-Reviewer independently audited the full production candidate. Accepted behavior:
-- occupant **Connections** tab restored with Package-owned relationships; obsolete Service Overview remains removed;
-- Build Your Own label spacing scoped;
-- Tier Grid 2-per-row above 767px, capped at 1440px;
-- existing Admin Platform-ID repair action unchanged;
-- lower-deck Platform ID projection preserves normalized `platform_id` and falls back to stored `cz_platform_id` without minting/backfill/write-on-read.
+The required mechanism already exists in CompuZign Admin as the one-time Platform-ID assignment action. It must be made available/active for the current Package/Tier legacy scopes, including Rate Sheet Items (`package_rate_card_item` / `CZPRCI`). **Reuse the existing action only.**
 
-Regression coverage proves stored-only CZPRCI projects through PHP selection output and reaches `DeckInclusion.platformId` in the lower-deck model.
+## Mandatory source/doc audit before changing anything
+Read and reconcile the current implementation against:
+- `docs/code-map/platform-identifier-station.md`
+- `docs/platform-identifier-roadmap.md`
+- root `AGENTS.md`, `docs/ai-index.md`, and Package Station Code Map
+- `src/PlatformIdentifier/PlatformIdentifierStation.php`
+- `src/PlatformIdentifier/PlatformIdentifierPolicy.php`
+- `src/PlatformIdentifier/TemporaryMigrationController.php`
+- the existing Admin migration notice/action component and its mount point
+- the Package identity adapters/enumerators used by the temporary controller
+- relevant Platform Identifier tests/contracts and Git history for the Package/Tier rollout.
 
-## Production / deployment verification
-GitHub `main` now exactly equals the approved head `35d48d4b931b7901374a182e12c6a3012a8281fd`.
+Important: the roadmap contains older phase/ledger text. Treat current authoritative source + current Platform Identifier Code Map + verified later rollout history as authority where that older ledger is stale. Do not disable a currently integrated Package scope because an old phase table says it was pending.
 
-GitHub Actions **Deploy to Hostinger** run `34738286772` / #1022:
-- head SHA: `35d48d4b931b7901374a182e12c6a3012a8281fd`
-- event: `push`
-- status: `completed`
-- conclusion: **success**
-- deploy job `103673505119`: Checkout, Node setup, dependency install, frontend build, source SSH deploy, and dist SCP deploy all succeeded.
+## Required outcome
+1. Existing one-time Admin Platform-ID action is visible/active whenever any supported legacy Package/Tier scope is incomplete.
+2. Confirm `package_rate_card_item` / CZPRCI is included in the controller's supported progress/preflight/assignment scope and actually participates in the button's incomplete-state calculation.
+3. If other currently integrated Package/Tier scopes are already part of the same temporary rollout, preserve them. Do not narrow the existing action just to CZPRCI.
+4. Button/action remains **explicit admin-triggered only**. Do not auto-run assignment, migrate on read, mint from presentation code, or mutate live data during implementation/testing.
+5. Do not create a second repair endpoint/button/command or parallel migration state.
+6. Preserve the accepted lower-deck projection fix and all other accepted Admin UI work.
 
-## Targeted live validation only
-Do not reopen the broader accepted checklist. Validate these current-round outcomes:
-1. Focused Tier lower-deck inclusion rows show the existing CZPRCI Platform ID where present.
-2. Default, Add-on, and Build Your Own occupant drawers retain the **Connections** tab and do not show the retired Service Overview content.
-3. Connections content shows the intended Package-owned Family / Tier Group / Rate Sheet relationships.
-4. Build Your Own label has the requested small gap above its shell.
-5. Tier Grid is 2x2 on desktop with the 1440px cap and still collapses responsively.
+If source proves the backend already supports CZPRCI but the notice is hidden by stale completion/version/progress gating, fix that gating in the existing mechanism rather than inventing another path. If the scope itself is missing from the current temporary controller despite current identity integration, extend that existing controller through the established owner adapter pattern only.
 
-No further source work unless live validation exposes a defect in these items. Keep `admin-ui-refinement` until final live acceptance.
+## Validation
+Add/extend focused contracts proving:
+- an incomplete supported Package scope causes the existing Admin action to be available;
+- `package_rate_card_item` is covered by dry-check/progress/assignment enumeration;
+- completed state hides/disables the action only when all supported scopes are genuinely complete;
+- no write occurs until the explicit action is invoked.
+
+Run Platform Identifier + Package identity contracts, relevant Admin notice/controller contracts, TypeScript, build, docs check, and `git diff --check`.
+
+## Builder handoff
+Implement on `admin-ui-refinement`, push the topic branch for independent review, record exact SHA/files/tests here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main`.
