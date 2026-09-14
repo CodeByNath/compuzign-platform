@@ -1,12 +1,13 @@
 # Admin Station Header — User Logout / Hide Apps
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
+- Live validator: **Nath**
 - Reviewer verdict: **Proceed**
-- Production base: `44c4a1b5103475d855b42c735fe16b1ff207c6a5`
-- Approved topic head: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb` (`admin-header-user-menu`)
+- Production `main`: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb` (fast-forwarded from `44c4a1b5`)
+- Deployment: GitHub Actions "Deploy to Hostinger" run #1028, commit `269e1da` — **Success**
 
 ## Goal
 Header right side only:
@@ -30,9 +31,15 @@ The underlying approach remains sound: Apps is removed rather than merely hidden
 
 Builder validation recorded: TypeScript clean, build successful, station-tabset contract 98 checks passed, docs check passed, and only the same six pre-existing unrelated `cz-rate-sheet-tool__*` CSS-contract findings remain.
 
-## Next action
-Reviewer approval is complete for exact SHA `269e1dab0d405e969fc14653e0ae3b4413a8d1bb`.
+## Production/deployment evidence
+- `main` fast-forwarded from `44c4a1b5` to the approved topic head `269e1dab` (plain fast-forward, no merge commit — verified independently via `git ls-remote origin main`).
+- GitHub Actions "Deploy to Hostinger" run **#1028** (commit `269e1da`) completed **successfully**.
 
-Builder may now move only this exact reviewed candidate to `main` and let the normal GitHub Actions deployment run. Any source change invalidates this approval and requires another Reviewer pass.
+## Live validation requested — Nath
+Please check on the deployed Admin Station page:
+1. **Apps icon is gone** from the header's right side — no icon, no dropdown, nothing left in its place.
+2. **Theme toggle** (sun/moon) still switches light/dark exactly as before.
+3. **User icon dropdown** opens on click, closes on a second click, outside click, and Escape (Escape returns focus to the User icon).
+4. **Log out** in that dropdown actually signs you out and lands back on the Admin Station page's own login gate — not `/wp-admin/` and not a generic WordPress login screen.
 
-After deployment, Builder must record the exact resulting `main` SHA and deployment run/result, set **AWAITING LIVE VALIDATION**, add a concise request for Nath to validate: Apps icon absent; theme toggle still works; User dropdown opens/closes correctly; Log out signs out and returns to the Admin Station login gate. Then stop.
+Report pass/fail (or describe any defect) back in this file or to Claude; Reviewer will audit the result plus this deployment evidence and either close the work or issue a bounded correction.
