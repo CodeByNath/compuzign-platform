@@ -3283,7 +3283,7 @@ button.cz-station-status-pill {
 .cz-tier-deck__accordion-section {
   border: 1px solid var(--station-border);
   border-radius: var(--station-card-radius);
-  background: var(--station-surface-elevated);
+  background: var(--station-surface);
   overflow: hidden;
 }
 
@@ -3305,13 +3305,12 @@ button.cz-station-status-pill {
   cursor: pointer;
 }
 
-/* Package Home accordion-row background swap (2026-09-14 work order): default
-   and hover now trade tokens — default reads as the raised, elevated surface
-   and hover settles back to the base surface. This intentionally reverses the
-   prior "lighten on hover, never darken" rule recorded here; that rule no
-   longer describes this row's behaviour. */
+/* Lighten on hover, never darken: a darker hover reads as recessed and makes an
+   un-hovered (but expanded) row look more prominent by comparison. The elevated
+   surface token is already the project's "raised, lighter" surface in both
+   themes, so a hovered row reads as coming forward instead of sinking back. */
 .cz-tier-deck__accordion-trigger:hover {
-  background: var(--station-surface);
+  background: var(--station-surface-elevated);
 }
 
 .cz-tier-deck__accordion-trigger:focus-visible {
