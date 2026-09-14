@@ -24,6 +24,10 @@ interface Props {
 export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSelect }: Props) {
   const { theme, toggleTheme, activeDestinationId } = useAdminStation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  // Server-generated, nonce-protected WordPress logout URL (AssetLoader.php).
+  // Never substitute a '#' placeholder: if it's genuinely absent, the Log out
+  // action is omitted rather than shown as a non-functional link.
+  const logoutUrl = window.CompuZignConfig?.logoutUrl;
 
   const userControlRef = useRef<HTMLDivElement>(null);
   const userButtonRef = useRef<HTMLButtonElement>(null);
@@ -108,6 +112,7 @@ export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSe
         <div class="cz-station-control" ref={userControlRef}>
           <button
             type="button"
+            id="cz-station-user-menu-trigger"
             ref={userButtonRef}
             class="cz-station-iconbtn"
             aria-label="User profile"
@@ -118,9 +123,9 @@ export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSe
           >
             <UserIcon />
           </button>
-          {userMenuOpen && (
-            <AdminStationDropdown id="cz-station-user-menu" labelledBy="cz-station-user-menu">
-              <a class="cz-station-dropdown__item" role="menuitem" href={window.CompuZignConfig?.logoutUrl ?? '#'}>
+          {userMenuOpen && logoutUrl && (
+            <AdminStationDropdown id="cz-station-user-menu" labelledBy="cz-station-user-menu-trigger">
+              <a class="cz-station-dropdown__item" role="menuitem" href={logoutUrl}>
                 Log out
               </a>
             </AdminStationDropdown>
