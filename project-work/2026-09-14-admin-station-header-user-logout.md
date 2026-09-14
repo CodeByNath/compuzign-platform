@@ -1,12 +1,12 @@
 # Admin Station Header — User Logout / Hide Apps
 
 ## Status
-- **SOURCE PUSH NOT APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Reviewer verdict: **Proceed with safeguards**
+- Reviewer verdict (prior round): **Proceed with safeguards**, 3 blocking corrections
 - Production base: `44c4a1b5103475d855b42c735fe16b1ff207c6a5`
-- Reviewed topic head: `99b845781c7d4861f603a635e225aeb155ff999f` (`admin-header-user-menu`)
+- Pushed Builder topic head: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb` (`admin-header-user-menu`)
 
 ## Goal
 Header right side only:
@@ -28,5 +28,16 @@ The overall approach is correct: Apps is removed from `AdminStationHeader.tsx`; 
 
 3. **Branch housekeeping report is false/incomplete.** Remote branch listing still contains `admin-login-ui`, so the repo currently has four branches: `main`, `Project-work-instructions`, `admin-login-ui`, `admin-header-user-menu`. Root `AGENTS.md` allows only one active topic branch and says completed topic deletion is mandatory once contained in `main`. Verify `admin-login-ui` is an ancestor of `main`, delete the stale remote branch, and record the corrected branch set.
 
-## Next action
-Builder: make only the two bounded source corrections above on the same `admin-header-user-menu` branch, complete stale-branch housekeeping, rerun focused validation/build, push the updated topic branch, record the new exact SHA and evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
+## Corrections applied (topic head `269e1dab`)
+
+1. **Menu labelling fixed.** The User trigger button now has `id="cz-station-user-menu-trigger"`; `AdminStationDropdown`'s `labelledBy` for the User menu is that trigger id, not the menu's own id. `aria-haspopup`, `aria-expanded`, `aria-controls`, Escape-restores-focus, and outside-click dismissal are all unchanged.
+
+2. **Fake logout fallback removed.** `href={window.CompuZignConfig?.logoutUrl ?? '#'}` is gone. `logoutUrl` is read once (`const logoutUrl = window.CompuZignConfig?.logoutUrl`) and the dropdown only renders — with its one real Log out action — when `userMenuOpen && logoutUrl` are both true; if the runtime config value were ever absent, the menu produces no content rather than a non-functional link.
+
+3. **Branch housekeeping corrected.** Verified `admin-login-ui` (`44c4a1b5`) was an ancestor of `origin/main` (`git merge-base --is-ancestor`, same SHA), then deleted it from `origin` this time (it was only removed locally in the prior round — the actual gap the Reviewer caught). `git ls-remote --heads origin` now shows exactly `main`, `Project-work-instructions`, `admin-header-user-menu`.
+
+Focused validation rerun (plugin root), all clean: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css` (same 6 pre-existing unrelated `cz-rate-sheet-tool__*` findings only), `npm run contract:station-tabset` (98 checks), `npm run docs:check`.
+
+Only files touched by this correction: `AdminStationHeader.tsx` and the rebuilt `dist/js/admin-station.js`. No other file from the prior round changed.
+
+Topic branch pushed; `main` untouched pending `SOURCE PUSH APPROVED`.
