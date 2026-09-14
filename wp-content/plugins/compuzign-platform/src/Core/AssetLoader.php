@@ -2,6 +2,8 @@
 
 namespace CompuZign\Platform\Core;
 
+use CompuZign\Platform\Modules\AdminStation\AdminStationModule;
+
 class AssetLoader
 {
     private const MODULE_HANDLES = ['compuzign-homepage', 'compuzign-cost-builder', 'compuzign-admin-station'];
@@ -45,14 +47,37 @@ class AssetLoader
             'atomicEngineUrl' => esc_url_raw(COMPUZIGN_ATOMIC_ENGINE_URL),
             // Admin Station header's User menu Log out action. wp_logout_url()
             // is already nonce-protected (core signs it with the 'log-out'
-            // action); the redirect target is the current request URL — same
-            // server-derived, non-admin destination AdminStationAuth uses for
-            // its own post-login redirect — so logout always returns to the
-            // current Admin Station page/login gate, never /wp-admin/.
-            'logoutUrl'       => esc_url_raw(wp_logout_url(esc_url_raw(home_url(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '/')))))),
+            // action). The redirect target is the CANONICAL permalink of the
+            // page actually hosting the Admin Station shortcode — resolved
+            // by adminStationDestination() below via the same source-grounded
+            // predicate (has_shortcode() against the queried post, never a
+            // hardcoded slug) AdminStationAuth::isAdminStationRequest() already
+            // uses for the post-login redirect, so this stays correct even if
+            // that page's own slug changes. Falls back to the site's own front
+            // page — never /wp-admin/ — if this ever runs outside that page.
+            'logoutUrl'       => esc_url_raw(wp_logout_url($this->adminStationDestination())),
         ]);
 
         wp_add_inline_script('compuzign-config', 'window.CompuZignConfig = ' . $config . ';');
+    }
+
+    /**
+     * The canonical permalink of the page currently rendering the Admin
+     * Station shortcode, or the site's front page when the current request
+     * isn't that page. Never a hardcoded slug — see outputRuntimeConfig().
+     */
+    private function adminStationDestination(): string
+    {
+        if (is_singular()) {
+            $post = get_post();
+            if ($post instanceof \WP_Post && has_shortcode((string) $post->post_content, AdminStationModule::SHORTCODE)) {
+                $permalink = get_permalink($post);
+                if ($permalink !== false) {
+                    return $permalink;
+                }
+            }
+        }
+        return home_url('/');
     }
 
     public function setModuleType(string $tag, string $handle): string
