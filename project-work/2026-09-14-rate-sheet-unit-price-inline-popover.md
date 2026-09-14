@@ -1,48 +1,42 @@
 # Rate Sheet — Unit Price Inline Popover
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **READY FOR BUILDER**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Reviewer verdict: **Proceed** (for `b402b09d`; see note below on the one commit pushed after that review)
-- Production base: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb`
-- Reviewer-approved topic head: `b402b09d1d83b938315f1c0466bdf6ab541e5f48` (`rate-sheet-unit-price-popover`)
-- Production `main` (deployed): `9478f106fd7a5ee3ecce0c6a9e6925578614df05` — Deploy to Hostinger run [34845308667](https://github.com/CodeByNath/compuzign-platform/actions/runs/34845308667) — **success**
-- Intermediate `main` (deployed en route): `b402b09d` — Deploy run [34844278097](https://github.com/CodeByNath/compuzign-platform/actions/runs/34844278097) — **success**
+- Live validator: **Nath**
+- Reviewer verdict: **Proceed with safeguards**
+- Current production `main`: `9478f106fd7a5ee3ecce0c6a9e6925578614df05`
+- Active topic `rate-sheet-unit-price-popover`: currently identical to `main`
 
-**Note for Reviewer:** one further commit (`9478f106`, CSS-only: `.cz-rate-sheet-tool__price-popover` `min-width` 240px→320px, `max-width: fit-content`) was pushed to `main` on top of the reviewed `b402b09d`, at Nath's direct real-time request, outside the normal review queue. No structural/behavioral/TS change — `tsc`, `build`, `contract:admin-station-css`, and `regression:rate-sheet-row-lock` were all rerun and pass identically to `b402b09d`. Flagging per "any new source change invalidates approval" so this specific delta gets its own sign-off rather than being silently folded into the prior `Proceed`.
-
-## Accepted scope
+## Accepted scope so far
 - **Edit** opens an anchored Unit Price popover in the existing cell.
 - Compact 2-column table with merged **Unit Price** heading.
-- Standard three visible editable rows: **One-Time Fee**, **Annual Renewal**, **Monthly Subscription**.
+- Standard editable rows: **One-Time Fee**, **Annual Renewal**, **Monthly Subscription**.
 - Editable label left / numeric price right.
 - Close control + small Save inside the popover.
 - Existing Per, Quantity, Group, Remove, row lock, Bundle behavior, focused-Tier callers, and Package Station pricing authority remain intact.
 
-## Reviewer audit
-The corrected topic is two commits directly ahead of production with no divergence. The correction commit is one commit directly ahead of the previously reviewed head.
+## Live validation finding — Nath
+The popover itself is acceptable. The remaining defect is the **pre-popover trigger presentation** in the active/editing row.
 
-The implementation now satisfies the requested compact layout without creating a second pricing model:
-- row 1 remains the existing Default Price (`unit_price` / `default_price_label`) and displays **One-Time Fee** as editable placeholder copy;
-- rows 2/3 map to `price_options[0]` / `[1]` and display **Annual Renewal** / **Monthly Subscription**;
-- missing option rows render visually but opening the popover creates nothing;
-- first user edit materializes the needed option through the existing `addPriceOption` / label / unit-price commands;
-- editing row 3 first preserves ordered-array position by materializing the missing preceding slot;
-- existing options beyond the standard two continue after the three-row compact section, uncapped and never truncated;
-- Remove remains inside the value cell, so the table remains two-column.
+Current active Unit Price cell shows the row's single Default Price (for example `$45,000`) with a small `Edit` link beneath it. That is misleading/incomplete once a row can carry multiple visible prices, because it presents only one price immediately before opening an editor that manages several.
 
-No billing-cycle fields, commercial-leg semantics, endpoint, identity model, or persistence authority were added. The popover Save only closes/applies to the existing row draft; the established outer row Save/Cancel remains the persistence boundary.
+The locked/read row already has the correct multi-price summary (`Price Options` with One-Time / Annual / Monthly rows), so the active row does not need to repeat a single Default Price as its trigger.
 
-Builder reports focused coverage for fresh rows, exactly two options, >2 options, standard-row removal, Bundle behavior, TypeScript/build/docs, service import, tier connections, and the same six pre-existing unrelated Admin Station CSS-contract findings.
+## Bounded correction
+In the active/editing row's Unit Price cell:
+- replace the current value + small `Edit` stacked trigger with **one normal `Edit` button only**;
+- clicking that button opens the same anchored Unit Price popover;
+- do not show `$45,000` or any other single/default price beside/above the trigger;
+- keep the popover itself unchanged;
+- keep the locked/read-row multi-price summary unchanged;
+- preserve all outer row controls and row-lock behavior exactly as-is.
+
+Use the existing button system/size appropriate to this grid; do not create a new button primitive. Preserve `aria-haspopup`, `aria-expanded`, focus return, Escape/outside-click close behavior, and the existing row Save/Cancel persistence boundary.
+
+## Source-state note
+`9478f106` is the current deployed production/topic head and includes the previously requested CSS-only popover width increase. Treat that exact state as the base for this correction; do not revert the width change.
 
 ## Next action
-Deployed. **Nath: please validate live** — Package Station → a Rate Sheet's Details → Edit a row → its Unit Price cell:
-- Edit trigger opens an anchored popover at the cell (not a detached drawer/modal), now wider (`min-width: 320px`);
-- close (×) control;
-- compact 2-column table, merged "Unit Price" title row;
-- three standard rows — One-Time Fee / Annual Renewal / Monthly Subscription placeholders — Default Price always populated, rows 2/3 editable even on a fresh row with no price options yet;
-- typing into a still-blank row 2/3 keeps it editable and it persists on Save; a row with more than two price options keeps the extras below, never truncated;
-- small Save inside the popover, and the row's own outer Save/Cancel/Remove/Per/Quantity/Group still behave exactly as before.
-
-Reviewer: `9478f106` (the CSS-only width tweak on top of your approved `b402b09d`) is unreviewed by you — flagged above for sign-off once Nath's live validation is in.
+Builder: make only this trigger-presentation correction on the same `rate-sheet-unit-price-popover` branch, update focused regression coverage so the active Unit Price cell exposes only the `Edit` button before opening, rerun focused TypeScript/build/regression/CSS checks, push the topic branch, record the exact new SHA and evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
