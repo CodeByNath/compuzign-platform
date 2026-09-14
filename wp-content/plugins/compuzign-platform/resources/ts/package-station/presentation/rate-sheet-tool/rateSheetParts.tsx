@@ -15,7 +15,7 @@
 // interfaces the Rate Sheet controller already satisfies. It reads no state,
 // calls no endpoint, and mints no id.
 
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
 import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageRateSheetUnit } from '../../types';
@@ -345,7 +345,7 @@ function RateSheetRowFieldCells({
   disabled: boolean;
   extraColumn?: { label: string; render: (row: RateSheetEditorRow, editing: boolean) => ComponentChildren };
   // Standalone-drawer-only: the locked row lock's active-row branch opts in
-  // so its Unit Price cell becomes the tabbed Default/Option editor.
+  // so its Unit Price cell becomes the Default/Option popover editor.
   // Omitted (every other caller — the always-editable grid the focused-Tier
   // connection drawers use) keeps the plain input byte-for-byte unchanged.
   showPriceOptions?: boolean;
@@ -431,18 +431,29 @@ function RateSheetRowFieldCells({
 }
 
 /**
- * The Unit Price cell's own tabbed editor — `[ Default Price ] [ Option 1 ]
- * [ Option 2 ] [+]` — for the standalone drawer's active row only. Default
- * Price is not Option 0: selecting it edits the row's own existing
+ * The Unit Price cell's own editor — an anchored popover, opened by an
+ * **Edit** trigger, for the standalone drawer's active row only. The trigger
+ * stays in the cell's existing position and shows the row's current Default
+ * Price at a glance; Edit opens a compact 2-column table anchored to that
+ * same trigger (never a detached drawer/modal) with the Default Price row
+ * first, then one row per existing `row.priceOptions[]` entry, in order.
+ * Default Price is not Option 0: its row edits the row's own existing
  * `unit_price` through the exact same `setRowUnitPrice` the plain input
  * always used, plus the NAME that price goes by (`defaultPriceLabel` — admin
  * display configuration for the price already there, never a price option,
- * never an identity, and never a change to how a Tier selects it). An option
- * tab edits `row.priceOptions[n]`'s own `label`/`unitPrice`. `selectedTab` is
- * local, ephemeral presentation state — never part of
- * `RateSheetToolController`, never persisted — and resets to Default Price on
- * every mount, i.e. every time this row becomes active, since this component
- * is only rendered inside that branch.
+ * never an identity, and never a change to how a Tier selects it). Every
+ * option row edits `row.priceOptions[n]`'s own `label`/`unitPrice` directly
+ * — no tab switching, so every existing price is visible and editable at
+ * once, in whatever count the row actually carries (`+ Add price` appends
+ * another, never capped; nothing here truncates or reinterprets a row that
+ * already carries more than the two-option "compact" shape a fresh row
+ * starts from). `open` is local, ephemeral presentation state — never part
+ * of `RateSheetToolController`, never persisted — and resets closed on every
+ * mount, i.e. every time this row becomes active, since this component is
+ * only rendered inside that branch. The popover's own small **Save** is a
+ * close affordance, not a second persistence path: every field already
+ * writes through the same row-lock draft the outer row's own Save/Cancel
+ * commits or discards, exactly like Per/Qty/Group/Remove.
  */
 export function RateSheetPriceOptionEditor({
   ariaLabel, unitPrice, defaultLabel, priceOptions, disabled,
@@ -462,68 +473,106 @@ export function RateSheetPriceOptionEditor({
   onOptionLabel:     (optionKey: string, label: string) => void;
   onOptionUnitPrice: (optionKey: string, unitPrice: number) => void;
 }): VNode {
-  const [selectedTab, setSelectedTab] = useState<string>('default');
-  const selectedOption = selectedTab === 'default'
-    ? null
-    : priceOptions.find((option) => priceOptionKey(option) === selectedTab) ?? null;
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  // The popover's own focus/close contract: focus the first field on open;
+  // Escape or an outside click closes it, returning focus to the trigger —
+  // the same close behaviour whichever way it happens, so a keyboard user
+  // never loses their place. Nothing here is persisted or discarded by
+  // closing; every field already writes into the row's own draft as it's
+  // typed, exactly like the plain input this replaces always did.
+  useEffect(() => {
+    if (!open) return undefined;
+    firstFieldRef.current?.focus();
+    const onPointerDown = (event: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); triggerRef.current?.focus(); }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const close = () => { setOpen(false); triggerRef.current?.focus(); };
 
   return (
-    <div class="cz-rate-sheet-tool__price-options">
-      <div class="cz-rate-sheet-tool__price-options-tabs" role="tablist" aria-label={ariaLabel}>
-        <button type="button" role="tab" aria-selected={selectedTab === 'default'}
-          class={`cz-rate-sheet-tool__price-options-tab${selectedTab === 'default' ? ' cz-rate-sheet-tool__price-options-tab--active' : ''}`}
-          onClick={() => setSelectedTab('default')}>
-          {defaultPriceLabel(defaultLabel)}
-        </button>
-        {priceOptions.map((option, index) => {
-          const optionTabKey = priceOptionKey(option);
-          return (
-            <button type="button" role="tab" key={optionTabKey} aria-selected={selectedTab === optionTabKey}
-              class={`cz-rate-sheet-tool__price-options-tab${selectedTab === optionTabKey ? ' cz-rate-sheet-tool__price-options-tab--active' : ''}`}
-              onClick={() => setSelectedTab(optionTabKey)}>
-              {option.label.trim() || `Option ${index + 1}`}
-            </button>
-          );
-        })}
-        {!disabled && (
-          <button type="button" class="cz-rate-sheet-tool__price-options-tab cz-rate-sheet-tool__price-options-tab--add"
-            aria-label={`Add price option for ${ariaLabel}`}
-            onClick={() => setSelectedTab(onAddOption())}>
-            +
+    <div class="cz-rate-sheet-tool__price-popover-wrap" ref={wrapRef}>
+      <button type="button" ref={triggerRef} class="cz-rate-sheet-tool__price-popover-trigger"
+        aria-haspopup="true" aria-expanded={open}
+        aria-label={`Edit ${defaultPriceLabel(defaultLabel)} for ${ariaLabel}`}
+        onClick={() => setOpen((value) => !value)}>
+        <span class="cz-rate-sheet-tool__price-popover-trigger-value">{formatUnitPrice(unitPrice)}</span>
+        <span class="cz-rate-sheet-tool__price-popover-trigger-action">Edit</span>
+      </button>
+      {open && (
+        <div class="cz-rate-sheet-tool__price-popover" role="group" aria-label={`Unit Price for ${ariaLabel}`}>
+          <button type="button" class="cz-rate-sheet-tool__price-popover-close"
+            aria-label={`Close price editor for ${ariaLabel}`} onClick={close}>
+            ×
           </button>
-        )}
-      </div>
-      {selectedOption === null ? (
-        // The SAME two fields an option tab offers — a name and the price —
-        // except the price is the row's own `unit_price`, edited through the
-        // exact same handler the plain input always used, and there is no
-        // Remove: the Default Price is the price itself, not one of the
-        // alternatives. Naming it changes only what it is called.
-        <div class="cz-rate-sheet-tool__price-option-fields cz-rate-sheet-tool__price-option-fields--default">
-          <input class="cz-tf-control cz-tf-input" type="text" value={defaultLabel} disabled={disabled}
-            placeholder={DEFAULT_PRICE_LABEL}
-            aria-label={`Label for default price of ${ariaLabel}`}
-            onInput={(event) => onDefaultLabel((event.currentTarget as HTMLInputElement).value)} />
-          <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={unitPrice} disabled={disabled}
-            aria-label={ariaLabel}
-            onInput={(event) => onUnitPrice(Number((event.currentTarget as HTMLInputElement).value))} />
-        </div>
-      ) : (
-        <div class="cz-rate-sheet-tool__price-option-fields">
-          <input class="cz-tf-control cz-tf-input" type="text" value={selectedOption.label} disabled={disabled}
-            placeholder="Option label"
-            aria-label={`Label for price option of ${ariaLabel}`}
-            onInput={(event) => onOptionLabel(selectedTab, (event.currentTarget as HTMLInputElement).value)} />
-          <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={selectedOption.unitPrice} disabled={disabled}
-            aria-label={`Unit price for price option of ${ariaLabel}`}
-            onInput={(event) => onOptionUnitPrice(selectedTab, Number((event.currentTarget as HTMLInputElement).value))} />
+          <table class="cz-rate-sheet-tool__price-popover-table">
+            <tbody>
+              <tr>
+                <th class="cz-rate-sheet-tool__price-popover-title" colSpan={2} scope="colgroup">Unit Price</th>
+              </tr>
+              <tr>
+                <td>
+                  <input ref={firstFieldRef} class="cz-tf-control cz-tf-input" type="text" value={defaultLabel} disabled={disabled}
+                    placeholder={DEFAULT_PRICE_LABEL}
+                    aria-label={`Label for default price of ${ariaLabel}`}
+                    onInput={(event) => onDefaultLabel((event.currentTarget as HTMLInputElement).value)} />
+                </td>
+                <td>
+                  <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={unitPrice} disabled={disabled}
+                    aria-label={ariaLabel}
+                    onInput={(event) => onUnitPrice(Number((event.currentTarget as HTMLInputElement).value))} />
+                </td>
+              </tr>
+              {priceOptions.map((option, index) => {
+                const optionKey = priceOptionKey(option);
+                return (
+                  <tr key={optionKey}>
+                    <td>
+                      <input class="cz-tf-control cz-tf-input" type="text" value={option.label} disabled={disabled}
+                        placeholder="Option label"
+                        aria-label={`Label for price option of ${ariaLabel}`}
+                        onInput={(event) => onOptionLabel(optionKey, (event.currentTarget as HTMLInputElement).value)} />
+                    </td>
+                    <td class="cz-rate-sheet-tool__price-popover-price-cell">
+                      <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={option.unitPrice} disabled={disabled}
+                        aria-label={`Unit price for price option of ${ariaLabel}`}
+                        onInput={(event) => onOptionUnitPrice(optionKey, Number((event.currentTarget as HTMLInputElement).value))} />
+                      {!disabled && (
+                        <button type="button" class="cz-rate-sheet-tool__price-popover-remove"
+                          aria-label={`Remove price option ${option.label.trim() || `Option ${index + 1}`}`}
+                          onClick={() => onRemoveOption(optionKey)}>
+                          ×
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
           {!disabled && (
-            <button type="button" class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
-              aria-label={`Remove price option ${selectedOption.label || 'Option'}`}
-              onClick={() => { onRemoveOption(selectedTab); setSelectedTab('default'); }}>
-              Remove
+            <button type="button" class="cz-rate-sheet-tool__price-popover-add"
+              aria-label={`Add price option for ${ariaLabel}`}
+              onClick={() => onAddOption()}>
+              + Add price
             </button>
           )}
+          <div class="cz-rate-sheet-tool__price-popover-footer">
+            <button type="button" class="cz-admin-btn cz-admin-btn--primary cz-admin-btn--sm" onClick={close}>Save</button>
+          </div>
         </div>
       )}
     </div>
@@ -559,13 +608,13 @@ function RateSheetUnitPriceOptionEditor({
 
 /**
  * A locked row's own zero-or-more Price Options, read-only. Deliberately not
- * the edit editor's tab strip — nothing here is selectable/clickable; it is
+ * the edit popover's own rows — nothing here is selectable/clickable; it is
  * a static list inside the same Unit Price cell so a locked row with Price
  * Options still reads at a glance, no click required. Default is the row's
  * own existing `unitPrice`, listed first and always present, under the name
- * the row gives it (`defaultPriceLabel`, the same rule the edit tab strip
+ * the row gives it (`defaultPriceLabel`, the same rule the edit popover
  * uses); each further line is one `row.priceOptions[]` entry, labelled
- * exactly as the edit tab strip labels an unlabeled option
+ * exactly as the edit popover labels an unlabeled option
  * (`Option ${index + 1}`) so the two presentations never disagree on a row's
  * own price names.
  */

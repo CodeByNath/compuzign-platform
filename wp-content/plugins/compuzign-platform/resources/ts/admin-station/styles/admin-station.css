@@ -3760,60 +3760,139 @@ button.cz-station-status-pill {
   min-width: 88px;
 }
 
-/* The Unit Price cell's own Default/Option tab strip — standalone drawer's
-   active row only. Mirrors the drawer kit's ChildChipStrip pill/active-state
-   grammar at grid-cell scale, using this sheet's own station tokens rather
-   than the drawer kit's private palette (feature CSS here may not reference
-   --admin-* tokens). */
-.cz-rate-sheet-tool__price-options {
+/* The Unit Price cell's own Default/Option editor — standalone drawer's
+   active row only. A small trigger stays in the cell's existing position and
+   opens a compact popover anchored to it (`position: absolute` inside this
+   `position: relative` wrap — never a detached drawer/modal), using this
+   sheet's own station tokens rather than the drawer kit's private palette
+   (feature CSS here may not reference --admin-* tokens). */
+.cz-rate-sheet-tool__price-popover-wrap {
+  position: relative;
+  display: inline-block;
+  min-width: 96px;
+}
+
+.cz-rate-sheet-tool__price-popover-trigger {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 160px;
-}
-
-.cz-rate-sheet-tool__price-options-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.cz-rate-sheet-tool__price-options-tab {
-  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 2px;
   padding: 4px 8px;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--station-pill-radius);
-  font-size: var(--station-text-xs);
-  font-weight: 600;
-  color: var(--station-text-muted);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
   cursor: pointer;
-  white-space: nowrap;
+  width: 100%;
 }
 
-.cz-rate-sheet-tool__price-options-tab:hover {
+.cz-rate-sheet-tool__price-popover-trigger:hover {
+  border-color: var(--station-accent-border);
+}
+
+.cz-rate-sheet-tool__price-popover-trigger-value {
+  font-size: var(--station-text-sm);
+  font-weight: 600;
   color: var(--station-text);
 }
 
-.cz-rate-sheet-tool__price-options-tab--active {
-  background: var(--station-accent-soft-bg);
-  border-color: var(--station-accent-border);
-  color: var(--station-accent-fg);
-}
-
-.cz-rate-sheet-tool__price-options-tab--add {
+.cz-rate-sheet-tool__price-popover-trigger-action {
+  font-size: var(--station-text-xs);
+  font-weight: 600;
   color: var(--station-accent);
-  font-weight: 700;
 }
 
-.cz-rate-sheet-tool__price-option-fields {
+.cz-rate-sheet-tool__price-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+  padding: 10px;
+  background: var(--station-surface);
+  border: 1px solid var(--station-border);
+  border-radius: var(--station-control-radius);
+  box-shadow: var(--station-shadow);
+}
+
+.cz-rate-sheet-tool__price-popover-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  color: var(--station-text-muted);
+  cursor: pointer;
+}
+
+.cz-rate-sheet-tool__price-popover-close:hover {
+  color: var(--station-text);
+}
+
+.cz-rate-sheet-tool__price-popover-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cz-rate-sheet-tool__price-popover-table td {
+  padding: 3px 4px 3px 0;
+  vertical-align: middle;
+}
+
+.cz-rate-sheet-tool__price-popover-title {
+  padding: 0 24px 6px 0;
+  text-align: left;
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--station-text-muted);
+}
+
+.cz-rate-sheet-tool__price-popover-table .cz-tf-input {
+  min-width: 84px;
+}
+
+.cz-rate-sheet-tool__price-popover-price-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
-.cz-rate-sheet-tool__price-option-fields .cz-tf-input {
-  min-width: 72px;
+.cz-rate-sheet-tool__price-popover-remove {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  color: var(--station-text-muted);
+  cursor: pointer;
+}
+
+.cz-rate-sheet-tool__price-popover-remove:hover {
+  color: var(--station-field-error);
+}
+
+.cz-rate-sheet-tool__price-popover-add {
+  align-self: flex-start;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--station-accent);
+  font-size: var(--station-text-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cz-rate-sheet-tool__price-popover-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* A locked row's own read-only Price Options list — the same Unit Price cell,

@@ -28,25 +28,33 @@ its editable `label`). A price option is **not** a second row, not
 Rate-Sheet-wide, and never carries quantity/billing-cycle/minimum-commitment/
 Edition meaning — the row's own existing default `unit_price`/`CZPRCI` stays
 completely untouched by a price option's presence. In the standalone Rate
-Sheet drawer's active-row editor, the Unit Price cell itself becomes a
-`[ Default Price ][ Option 1 ]…[+]` tab strip
-(`RateSheetUnitPriceOptionEditor` in `presentation/rate-sheet-tool/rateSheetParts.tsx`)
-riding the row's own existing Edit/Save/Cancel lock — no new drawer,
-endpoint, lock, or permanent grid column. That tab strip is Edit-only: a
-LOCKED row's Unit Price cell (`RateSheetRowReadCells`) stays read-only
-presentation — zero Price Options keeps the plain value unchanged, and
-one-or-more render a static `Price Options` list (Default plus each option,
-`RateSheetPriceOptionsSummary`) in the same cell, never the selectable
-chips/tabs. The Default Price tab's own NAME is editable admin configuration
-(`default_price_label` on the row — a Bundle-backed row's own included, since
-a Bundle carries no price fields of its own): the
-Default tab offers a name field beside the price it already has, blank
-inherits the built-in "Default Price" through `defaultPriceLabel()`
-(`rateSheetLabels.ts` — the one rule the tab strip, the locked-row summary,
-and the Tier's own price selector all read), and it rides the same row lock
-and full-manager save. It is display only: no `option_id`, no Platform ID, no
-`price_options[]` entry, and a Tier still selects that price by carrying no
-`price_option_id`. Native mutations retain their
+Sheet drawer's active-row editor, the Unit Price cell keeps its existing
+position and shows a compact trigger (current Default Price + **Edit**) that
+opens an anchored popover — never a detached drawer/modal — with a compact
+2-column table: a merged "Unit Price" title row, then one row per price
+(Default Price first, always present, followed by each `row.priceOptions[]`
+entry in order, editable label left/price right, each option row carrying
+its own remove control and `+ Add price` appending another, uncapped)
+(`RateSheetUnitPriceOptionEditor` / `RateSheetPriceOptionEditor` in
+`presentation/rate-sheet-tool/rateSheetParts.tsx`), riding the row's own
+existing Edit/Save/Cancel lock — no new drawer, endpoint, lock, or permanent
+grid column, and the popover's own small Save is a close affordance only,
+since every field already writes into the same row-lock draft its Cancel
+discards or its Save commits. That popover is Edit-only: a LOCKED row's Unit
+Price cell (`RateSheetRowReadCells`) stays read-only presentation — zero
+Price Options keeps the plain value unchanged, and one-or-more render a
+static `Price Options` list (Default plus each option,
+`RateSheetPriceOptionsSummary`) in the same cell, never the popover's own
+editable rows. The Default Price row's own NAME is editable admin
+configuration (`default_price_label` on the row — a Bundle-backed row's own
+included, since a Bundle carries no price fields of its own): the Default
+row offers a name field beside the price it already has, blank inherits the
+built-in "Default Price" through `defaultPriceLabel()` (`rateSheetLabels.ts`
+— the one rule the popover, the locked-row summary, and the Tier's own price
+selector all read), and it rides the same row lock and full-manager save. It
+is display only: no `option_id`, no Platform ID, no `price_options[]` entry,
+and a Tier still selects that price by carrying no `price_option_id`. Native
+mutations retain their
 existing Package addresses. Tier Group and Tier use the shared supported-action
 footer with controller-supplied actions; no status label may invent an action.
 Tier Add-on remains the same occupant's boolean role and optional dormant

@@ -365,18 +365,42 @@ function columnChips(columnLabel) {
     .find((col) => col.querySelector('.cz-rate-sheet-tool__import-column-label')?.textContent.trim().startsWith(columnLabel)) ?? null;
   return [...(column?.querySelectorAll('.cz-rate-sheet-tool__import-chip') ?? [])];
 }
+// Excludes the price popover's own subtree: while it is open it carries its
+// own "Save" button (a close affordance, distinct from the row's real Save)
+// — see scripts/rate-sheet-row-lock-regression.mjs for the same guard.
 function buttonIn(row, label) {
-  return [...(row?.querySelectorAll('button') ?? [])].find((b) => b.textContent.trim() === label) ?? null;
+  return [...(row?.querySelectorAll('button') ?? [])]
+    .filter((b) => b.closest('.cz-rate-sheet-tool__price-popover') === null)
+    .find((b) => b.textContent.trim() === label) ?? null;
 }
 function anyButton(label) {
   return [...container.querySelectorAll('button')].find((b) => b.textContent.trim() === label) ?? null;
 }
-// The SAME Default/Option tab strip every ordinary row's Unit Price cell
-// uses (scripts/rate-sheet-row-lock-regression.mjs) — proving a Bundle row's
-// own Price Options ride the identical shared engine, never a second one.
-function priceOptionTab(row, text) { return row ? [...row.querySelectorAll('.cz-rate-sheet-tool__price-options-tab')].find((b) => b.textContent.trim() === text) ?? null : null; }
-function priceOptionLabelInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="text"]') ?? null; }
-function priceOptionPriceInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]') ?? null; }
+// The SAME Default/Option popover every ordinary row's Unit Price cell uses
+// (scripts/rate-sheet-row-lock-regression.mjs) — proving a Bundle row's own
+// Price Options ride the identical shared engine, never a second one.
+function priceEditTrigger(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover-trigger') ?? null; }
+function pricePopoverIn(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover') ?? null; }
+function openPricePopover(row) {
+  const trigger = priceEditTrigger(row);
+  if (trigger && trigger.getAttribute('aria-expanded') !== 'true') click(trigger);
+}
+function closePricePopover(row) {
+  const popover = pricePopoverIn(row);
+  const saveBtn = popover ? [...popover.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save') : null;
+  click(saveBtn);
+}
+function priceOptionRows(popover) { return popover ? [...popover.querySelectorAll('tbody tr')].slice(2) : []; }
+function priceDefaultPriceInput(popover) { return popover?.querySelector('tbody tr:nth-child(2) input[type="number"]') ?? null; }
+function priceOptionLabelInput(popover, index = priceOptionRows(popover).length - 1) {
+  return priceOptionRows(popover)[index]?.querySelector('td:first-child input') ?? null;
+}
+function priceOptionPriceInput(popover, index = priceOptionRows(popover).length - 1) {
+  return priceOptionRows(popover)[index]?.querySelector('td input[type="number"]') ?? null;
+}
+function addPriceOptionButton(popover) {
+  return popover ? [...popover.querySelectorAll('button')].find((b) => b.textContent.trim() === '+ Add price') ?? null : null;
+}
 function importColumnLabels() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__import-columns .cz-rate-sheet-tool__import-column-label')]
     .map((p) => p.textContent.trim());
@@ -520,7 +544,7 @@ check(
 );
 check('it opens straight into the SAME inline row editor\'s Save/Cancel', buttonIn(freshlyCreatedRow, 'Save') != null && buttonIn(freshlyCreatedRow, 'Cancel') != null);
 check('a SAVED Bundle row offers Delete too — it is a normal saved row, never a blank draft', buttonIn(freshlyCreatedRow, 'Delete') != null);
-check('it carries the ordinary Price Options tab strip', freshlyCreatedRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
+check('it carries the ordinary Price Options popover trigger', priceEditTrigger(freshlyCreatedRow) != null);
 check('and the ordinary Per and Group dropdowns', freshlyCreatedRow.querySelectorAll('select').length === 2, freshlyCreatedRow.querySelectorAll('select').length);
 check('there is no Delete Bundle button in the editor', anyButton('Delete Bundle') == null);
 
@@ -539,7 +563,7 @@ await settle();
 const openRow = rowsIn()[0];
 check('Edit unlocks it into the SAME inline row editor, bound to the SAME persisted row', buttonIn(openRow, 'Save') != null && buttonIn(openRow, 'Cancel') != null);
 check('a SAVED Bundle row offers Delete too — it is a normal saved row', buttonIn(openRow, 'Delete') != null);
-check('it carries the ordinary Price Options tab strip', openRow.querySelector('.cz-rate-sheet-tool__price-options-tabs') != null);
+check('it carries the ordinary Price Options popover trigger', priceEditTrigger(openRow) != null);
 check('and the ordinary Per and Group dropdowns', openRow.querySelectorAll('select').length === 2, openRow.querySelectorAll('select').length);
 
 // Phase 4 — Bundle Name/reprice/Price-Option-add together must not remint
@@ -552,23 +576,31 @@ const nameInput = openRow.querySelector('input[type="text"]');
 setInputValue(nameInput, 'Digital Banking Website');
 await settle();
 check('the row\'s own name cell is the Product Bundle name', editorTitle() === 'Digital Banking Website', editorTitle());
-const priceField = rowsIn()[0].querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]');
-setInputValue(priceField, 75);
+openPricePopover(rowsIn()[0]);
+await settle();
+let bundlePopover = pricePopoverIn(rowsIn()[0]);
+setInputValue(priceDefaultPriceInput(bundlePopover), 75);
 await settle();
 check('naming and repricing it makes no API request until Save', saveCalls === savesBeforeImport + 1);
 
-// A Bundle row's own Price Option rides the IDENTICAL Default/+ tab engine
+// A Bundle row's own Price Option rides the IDENTICAL Default/Option popover
 // row-lock-regression.mjs already proves for an ordinary row — no second
 // pricing engine, no Bundle-specific option UI.
-click(priceOptionTab(rowsIn()[0], '+'));
+bundlePopover = pricePopoverIn(rowsIn()[0]);
+click(addPriceOptionButton(bundlePopover));
 await settle();
-check('adding a Price Option on a Bundle row shows the SAME "Option 1" tab an ordinary row gets', priceOptionTab(rowsIn()[0], 'Option 1') != null);
-setInputValue(priceOptionLabelInput(rowsIn()[0]), 'Combo');
-setInputValue(priceOptionPriceInput(rowsIn()[0]), 90);
+bundlePopover = pricePopoverIn(rowsIn()[0]);
+check('adding a Price Option on a Bundle row appends a row to the SAME popover an ordinary row gets', priceOptionRows(bundlePopover).length === 1);
+setInputValue(priceOptionLabelInput(bundlePopover), 'Combo');
+setInputValue(priceOptionPriceInput(bundlePopover), 90);
 await settle();
-click(priceOptionTab(rowsIn()[0], 'Default Price'));
+bundlePopover = pricePopoverIn(rowsIn()[0]);
+check(
+  'the Default Price row stays visible and untouched by the option just added — no switching needed',
+  Number(priceDefaultPriceInput(bundlePopover)?.value) === 75,
+);
+closePricePopover(rowsIn()[0]);
 await settle();
-check('switching back to Default Price shows the row\'s own reprice, untouched by the option just added', Number(rowsIn()[0]?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]')?.value) === 75);
 
 const savesBeforeRowSave = saveCalls;
 click(buttonIn(rowsIn().find((tr) => buttonIn(tr, 'Save') != null), 'Save'));

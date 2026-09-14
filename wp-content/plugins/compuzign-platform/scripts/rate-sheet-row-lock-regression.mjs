@@ -23,17 +23,21 @@
 //   - Remove (locked) and Delete (active) both confirm, then persist through
 //     the full-manager save with the row excluded from the payload — the
 //     boundary the backend's own Platform Identifier tombstone code runs on;
-//   - the active row's Unit Price cell is a Default/Option tab editor
-//     (Default Price is not Option 0 — it stays the row's own price);
-//     adding, editing, and Cancel-discarding a price option all ride the
-//     SAME row-lock Save/Cancel, never a second row, lock, or endpoint;
-//   - the Default Price tab's own NAME is admin display configuration
+//   - the active row's Unit Price cell is an Edit-triggered popover, anchored
+//     to the cell (never a detached drawer/modal), with the Default Price
+//     row always first (Default Price is not Option 0 — it stays the row's
+//     own price) and every price option simultaneously visible/editable
+//     beneath it, never tab-switched; adding, editing, and Cancel-discarding
+//     a price option all ride the SAME row-lock Save/Cancel, never a second
+//     row, lock, or endpoint — the popover's own small Save is a close
+//     affordance only;
+//   - the Default Price row's own NAME is admin display configuration
 //     (`default_price_label`): it renames the price the row already has,
 //     riding the same row Save, and creates no price option and no identity;
 //   - a LOCKED row's Unit Price cell is read-only presentation only: zero
 //     Price Options keeps the plain value unchanged, and one-or-more render
-//     a compact Default/Option list — never the edit mode's selectable
-//     chips/tabs.
+//     a compact Default/Option list — never the edit popover's own editable
+//     rows, and never even the Edit trigger.
 //
 // The fetch mock is a tiny in-memory Package Manager server: it mints a blank
 // item_id exactly like PackageManagerSchema::deriveRateItemId (deterministic,
@@ -293,12 +297,50 @@ function rowsIn() {
     .filter((tr) => tr.closest('.cz-rate-sheet-tool__import') === null);
 }
 function rowByLabel(label) { return rowsIn().find((tr) => tr.textContent.includes(label)) ?? null; }
-function buttonIn(row, text) { return row ? [...row.querySelectorAll('button')].find((b) => b.textContent.trim() === text) ?? null : null; }
+// Excludes the price popover's own subtree: while it is open it carries its
+// own "Save" button (a close affordance, distinct from the row's real Save),
+// so a row-level action must never accidentally match inside it.
+function buttonIn(row, text) {
+  return row
+    ? [...row.querySelectorAll('button')]
+      .filter((b) => b.closest('.cz-rate-sheet-tool__price-popover') === null)
+      .find((b) => b.textContent.trim() === text) ?? null
+    : null;
+}
 function click(btn) { btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }
 function priceInputIn(row) { return row?.querySelector('input[type="number"]') ?? null; }
-function priceOptionTab(row, text) { return row ? [...row.querySelectorAll('.cz-rate-sheet-tool__price-options-tab')].find((b) => b.textContent.trim() === text) ?? null : null; }
-function priceOptionLabelInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="text"]') ?? null; }
-function priceOptionPriceInput(row) { return row?.querySelector('.cz-rate-sheet-tool__price-option-fields input[type="number"]') ?? null; }
+// The Unit Price cell's own Edit trigger — opens the anchored popover.
+// Replaces the old tab strip's always-visible tabs entirely.
+function priceEditTrigger(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover-trigger') ?? null; }
+function pricePopoverIn(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover') ?? null; }
+function openPricePopover(row) {
+  const trigger = priceEditTrigger(row);
+  if (trigger && trigger.getAttribute('aria-expanded') !== 'true') click(trigger);
+}
+// The popover's own small Save — a close affordance only, since every field
+// already writes into the row's own draft as it's typed.
+function closePricePopover(row) {
+  const popover = pricePopoverIn(row);
+  const saveBtn = popover ? [...popover.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save') : null;
+  click(saveBtn);
+}
+// Every price row after the popover's own merged "Unit Price" title row and
+// the Default Price row (always first) is one price option, in order —
+// simultaneously visible and editable, never tab-switched.
+function priceOptionRows(popover) { return popover ? [...popover.querySelectorAll('tbody tr')].slice(2) : []; }
+function priceDefaultLabelInput(popover) { return popover?.querySelector('tbody tr:nth-child(2) td:first-child input') ?? null; }
+function priceOptionLabelInput(popover, index = priceOptionRows(popover).length - 1) {
+  return priceOptionRows(popover)[index]?.querySelector('td:first-child input') ?? null;
+}
+function priceOptionPriceInput(popover, index = priceOptionRows(popover).length - 1) {
+  return priceOptionRows(popover)[index]?.querySelector('td input[type="number"]') ?? null;
+}
+function priceOptionRemoveButton(popover, index = priceOptionRows(popover).length - 1) {
+  return priceOptionRows(popover)[index]?.querySelector('.cz-rate-sheet-tool__price-popover-remove') ?? null;
+}
+function addPriceOptionButton(popover) {
+  return popover ? [...popover.querySelectorAll('button')].find((b) => b.textContent.trim() === '+ Add price') ?? null : null;
+}
 function priceOptionsSummary(row) { return row?.querySelector('.cz-rate-sheet-tool__price-options-summary') ?? null; }
 function priceOptionsSummaryRows(row) { return row ? [...row.querySelectorAll('.cz-rate-sheet-tool__price-options-summary-row')] : []; }
 function setInputValue(input, value) {
@@ -349,7 +391,7 @@ check('Row B is present', rowB != null);
 check('Row A starts locked: Edit + Remove, no Save/Cancel/Delete', buttonIn(rowA, 'Edit') != null && buttonIn(rowA, 'Remove') != null && buttonIn(rowA, 'Save') == null);
 check('Row B starts locked too', buttonIn(rowB, 'Edit') != null && buttonIn(rowB, 'Remove') != null);
 check('a locked row with zero Price Options shows the plain Unit Price value, no summary block', priceOptionsSummary(rowA) == null && rowA?.textContent.includes('$10'), rowA?.textContent);
-check('a locked row never renders the edit-mode tab strip', rowA?.querySelector('.cz-rate-sheet-tool__price-options-tab') == null);
+check('a locked row never renders the edit-mode price popover trigger', priceEditTrigger(rowA) == null);
 
 // ── 2) Edit unlocks exactly one row; other actions disabled ─────────────
 console.log('\n2) Edit unlocks only Row A; other Edit actions, Add Row, and the footer Save are disabled');
@@ -365,9 +407,17 @@ check('the footer Save is disabled while a row is active — only one visible Sa
 // ── 3) Row Save persists once and locks only on verified success ────────
 console.log('\n3) Existing-row Save persists through the full-manager save exactly once, and locks only after success');
 const savesBefore = saveCalls;
-setInputValue(priceInputIn(rowA), 15);
+// The active row's Unit Price now sits behind the popover's own Edit
+// trigger (see section 7 below) — open it to reach the Default Price input,
+// the same field the old plain input always was.
+openPricePopover(rowA);
 await settle();
-click(buttonIn(rowA, 'Save'));
+rowA = rowByLabel('Row A');
+setInputValue(pricePopoverIn(rowA)?.querySelector('tbody tr:nth-child(2) input[type="number"]'), 15);
+await settle();
+closePricePopover(rowA);
+await settle();
+click(buttonIn(rowByLabel('Row A'), 'Save'));
 await settle(80);
 check('exactly one full-manager save request was made', saveCalls === savesBefore + 1, saveCalls - savesBefore);
 check(
@@ -384,16 +434,30 @@ console.log('\n4) A failed row Save leaves the row unlocked, with its edited val
 click(buttonIn(rowB, 'Edit'));
 await settle();
 rowB = rowByLabel('Row B');
-setInputValue(priceInputIn(rowB), 99);
+openPricePopover(rowB);
+await settle();
+rowB = rowByLabel('Row B');
+setInputValue(pricePopoverIn(rowB)?.querySelector('tbody tr:nth-child(2) input[type="number"]'), 99);
+await settle();
+closePricePopover(rowB);
 await settle();
 forceNextSaveFailure = true;
 const savesBeforeFail = saveCalls;
-click(buttonIn(rowB, 'Save'));
+click(buttonIn(rowByLabel('Row B'), 'Save'));
 await settle(80);
 check('the failed save still counted as one request', saveCalls === savesBeforeFail + 1);
 rowB = rowByLabel('Row B');
 check('Row B remains editable after a failed Save (not locked)', buttonIn(rowB, 'Save') != null && buttonIn(rowB, 'Edit') == null);
-check('the edited (unsaved) value is retained in the input', priceInputIn(rowB)?.value === '99', priceInputIn(rowB)?.value);
+openPricePopover(rowB);
+await settle();
+rowB = rowByLabel('Row B');
+check(
+  'the edited (unsaved) value is retained in the popover on reopen',
+  pricePopoverIn(rowB)?.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value === '99',
+  pricePopoverIn(rowB)?.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value,
+);
+closePricePopover(rowB);
+await settle();
 check('the save error is shown in the editor body', container.querySelector('.cz-admin-error-msg')?.textContent.includes('Simulated backend failure') ?? false);
 
 // ── 5) Cancel restores only the active row's snapshot, no API call ──────
@@ -443,34 +507,46 @@ check(
 );
 check('the staged price is reflected as the new baseline', rowC?.textContent.includes('$30'), rowC?.textContent);
 
-// ── 7) The active row's Unit Price cell is a Default/Option tab editor;
+// ── 7) The active row's Unit Price cell is an Edit-triggered popover;
 //    adding a price option rides the SAME row-lock Save/Cancel — no new
 //    row, no new lock, no new endpoint. Default Price stays independent of
-//    the option; Cancel discards an unsaved option along with everything
-//    else the row's own Cancel already discards. ─────────────────────────
-console.log('\n7) The active row\'s Unit Price cell is a Default/Option tab editor; adding a price option rides the same row lock');
+//    the option — both are simultaneously visible and editable in the same
+//    popover, never tab-switched; Cancel discards an unsaved option along
+//    with everything else the row's own Cancel already discards. ─────────
+console.log('\n7) The active row\'s Unit Price cell is an Edit-triggered popover; adding a price option rides the same row lock');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 let rowAOptions = rowByLabel('Row A');
-check('an unlocked row with zero price options still shows the Default/+ tab editor, not just a bare price input', priceOptionTab(rowAOptions, 'Default Price') != null && priceOptionTab(rowAOptions, '+') != null);
-check('Default Price is pre-selected and edits the row\'s own price exactly as the plain input always did', Number(priceInputIn(rowAOptions)?.value) === 10);
+check('an unlocked row with zero price options still shows the Edit trigger, not just a bare price input', priceEditTrigger(rowAOptions) != null);
+check('the trigger is closed by default', priceEditTrigger(rowAOptions)?.getAttribute('aria-expanded') === 'false');
 
-click(priceOptionTab(rowAOptions, '+'));
+openPricePopover(rowAOptions);
 await settle();
 rowAOptions = rowByLabel('Row A');
-check('adding a price option shows a new "Option 1" tab', priceOptionTab(rowAOptions, 'Option 1') != null);
-check('the Unit Price cell now shows the option\'s own label/price fields, not the Default Price input', priceOptionLabelInput(rowAOptions) != null && priceOptionPriceInput(rowAOptions) != null);
-setInputValue(priceOptionLabelInput(rowAOptions), 'Annual');
-setInputValue(priceOptionPriceInput(rowAOptions), 120);
-await settle();
+let popover = pricePopoverIn(rowAOptions);
+check('opening the trigger reveals the popover, anchored to the cell (not a detached drawer/modal)', popover != null);
+check('the popover carries a merged "Unit Price" title row', popover?.textContent.includes('Unit Price'));
+check('Default Price is the first row and edits the row\'s own price exactly as the plain input always did', Number(priceDefaultLabelInput(popover) && popover.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value) === 10);
+check('no option rows exist yet, only "+ Add price"', priceOptionRows(popover).length === 0 && addPriceOptionButton(popover) != null);
 
-click(priceOptionTab(rowByLabel('Row A'), 'Default Price'));
+click(addPriceOptionButton(popover));
 await settle();
-rowAOptions = rowByLabel('Row A');
-check('switching back to Default Price shows the row\'s own price, untouched by the option just edited', Number(priceInputIn(rowAOptions)?.value) === 10);
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check('adding a price option appends a new row to the same popover, not a tab', priceOptionRows(popover).length === 1);
+check('the new row offers its own label/price fields', priceOptionLabelInput(popover) != null && priceOptionPriceInput(popover) != null);
+setInputValue(priceOptionLabelInput(popover), 'Annual');
+setInputValue(priceOptionPriceInput(popover), 120);
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check(
+  'the Default Price row stays visible and untouched by the option just edited — no switching needed',
+  Number(popover.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value) === 10,
+);
 
+closePricePopover(rowAOptions);
+await settle();
 const savesBeforeOptionSave = saveCalls;
-click(buttonIn(rowAOptions, 'Save'));
+click(buttonIn(rowByLabel('Row A'), 'Save'));
 await settle(80);
 check('the price-option edit persisted through exactly one full-manager save — the same one every other row Save uses', saveCalls === savesBeforeOptionSave + 1);
 const savedRowAItem = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
@@ -483,15 +559,15 @@ rowAOptions = rowByLabel('Row A');
 check('the row locks again after the verified success, exactly like every other row Save', buttonIn(rowAOptions, 'Edit') != null && buttonIn(rowAOptions, 'Save') == null);
 
 // ── 7b) A locked row with Price Options shows the compact read-only summary
-//    in the same Unit Price cell — never the edit mode's selectable chips/
-//    tabs. Default is the row's own existing price, listed first. ─────────
-console.log('\n7b) A locked row with Price Options shows the compact read-only summary, never the edit-mode tab strip');
+//    in the same Unit Price cell — never the edit popover's own editable
+//    rows. Default is the row's own existing price, listed first. ────────
+console.log('\n7b) A locked row with Price Options shows the compact read-only summary, never the edit popover');
 check('the locked row\'s Unit Price cell carries a "Price Options" summary', rowAOptions?.textContent.includes('Price Options'));
 let summaryRows = priceOptionsSummaryRows(rowAOptions);
 check('the summary lists Default plus each price option, one line each', summaryRows.length === 2, summaryRows.map((r) => r.textContent));
 check("the Default line shows the row's own existing unit_price", summaryRows[0]?.textContent.includes('Default') && summaryRows[0]?.textContent.includes('$10'), summaryRows[0]?.textContent);
 check('the option line shows its own label and price', summaryRows[1]?.textContent.includes('Annual') && summaryRows[1]?.textContent.includes('$120'), summaryRows[1]?.textContent);
-check('the locked row renders no selectable chips/tabs for its Price Options', rowAOptions?.querySelector('.cz-rate-sheet-tool__price-options-tab') == null);
+check('the locked row renders no Edit trigger for its Price Options — read-only presentation only', priceEditTrigger(rowAOptions) == null);
 
 // Re-open and prove the persisted option round-trips with a real (mock-)minted
 // option_id, and that Cancel on a freshly-added SECOND option discards only
@@ -499,13 +575,32 @@ check('the locked row renders no selectable chips/tabs for its Price Options', r
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowAOptions = rowByLabel('Row A');
-check('the saved option reappears by its own label on reload', priceOptionTab(rowAOptions, 'Annual') != null);
-click(priceOptionTab(rowAOptions, '+'));
+openPricePopover(rowAOptions);
 await settle();
-rowAOptions = rowByLabel('Row A');
-check('a second not-yet-saved option gets its own "Option 2" tab (the first is already labeled "Annual")', priceOptionTab(rowAOptions, 'Option 2') != null);
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check('the saved option reappears by its own label on reload', priceOptionLabelInput(popover, 0)?.value === 'Annual');
+click(addPriceOptionButton(popover));
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check('a second not-yet-saved option gets its own blank row (the first is already labeled "Annual")', priceOptionRows(popover).length === 2 && priceOptionLabelInput(popover, 1)?.value === '');
+
+// The popover's own explicit Remove (×) — a third row, added and removed
+// again, proving removal drops only that one row (never truncating/
+// reinterpreting the others) and rides no endpoint of its own.
+click(addPriceOptionButton(popover));
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check('a third row can be added on top', priceOptionRows(popover).length === 3);
+click(priceOptionRemoveButton(popover, 2));
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check(
+  'the popover\'s own Remove (×) drops only that one row, leaving the others untouched',
+  priceOptionRows(popover).length === 2 && priceOptionLabelInput(popover, 0)?.value === 'Annual',
+);
+
 const savesBeforeOptionCancel = saveCalls;
-click(buttonIn(rowAOptions, 'Cancel'));
+click(buttonIn(rowByLabel('Row A'), 'Cancel'));
 await settle();
 rowAOptions = rowByLabel('Row A');
 check('Cancel made no API request', saveCalls === savesBeforeOptionCancel);
@@ -513,37 +608,48 @@ check('the row is locked again after Cancel, exactly like every other row Cancel
 click(buttonIn(rowAOptions, 'Edit'));
 await settle();
 rowAOptions = rowByLabel('Row A');
+openPricePopover(rowAOptions);
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
 check(
   'Cancel discarded the unsaved second option — only the persisted "Annual" option survives, never a second row',
-  priceOptionTab(rowAOptions, 'Annual') != null && priceOptionTab(rowAOptions, 'Option 2') == null,
+  priceOptionRows(popover).length === 1 && priceOptionLabelInput(popover, 0)?.value === 'Annual',
 );
-click(buttonIn(rowAOptions, 'Cancel'));
+closePricePopover(rowAOptions);
+await settle();
+click(buttonIn(rowByLabel('Row A'), 'Cancel'));
 await settle();
 
-// ── 7c) The Default Price tab's own NAME is admin display configuration for
+// ── 7c) The Default Price row's own NAME is admin display configuration for
 //    the price the row already has. Renaming it never creates a price
 //    option, never mints an identity, and never touches the price or the way
 //    a Tier selects it. ────────────────────────────────────────────────────
-console.log('\n7c) The Default Price tab is editable admin configuration — it names the price the row already has');
+console.log('\n7c) The Default Price row is editable admin configuration — it names the price the row already has');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowAOptions = rowByLabel('Row A');
-const defaultLabelInput = rowAOptions?.querySelector('.cz-rate-sheet-tool__price-option-fields--default input[type="text"]');
-check('the Default Price tab offers its own name field beside the row\'s own price', defaultLabelInput != null);
+openPricePopover(rowAOptions);
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+const defaultLabelInput = priceDefaultLabelInput(popover);
+check('the Default Price row offers its own name field beside the row\'s own price', defaultLabelInput != null);
 setInputValue(defaultLabelInput, 'Monthly');
 await settle();
-rowAOptions = rowByLabel('Row A');
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
 check(
-  'the tab takes the admin\'s own name in place of the built-in one',
-  priceOptionTab(rowAOptions, 'Monthly') != null && priceOptionTab(rowAOptions, 'Default Price') == null,
+  'the trigger\'s own accessible name takes the admin\'s new name in place of the built-in one',
+  priceEditTrigger(rowAOptions)?.getAttribute('aria-label')?.includes('Monthly'),
+  priceEditTrigger(rowAOptions)?.getAttribute('aria-label'),
 );
-check('renaming leaves the price itself untouched', Number(priceInputIn(rowAOptions)?.value) === 10);
+check('renaming leaves the price itself untouched', Number(popover.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value) === 10);
 check(
   'and adds no price option — the row still has only the one it saved',
-  priceOptionTab(rowAOptions, 'Annual') != null && priceOptionTab(rowAOptions, 'Option 2') == null,
+  priceOptionRows(popover).length === 1 && priceOptionLabelInput(popover, 0)?.value === 'Annual',
 );
+closePricePopover(rowAOptions);
+await settle();
 const savesBeforeDefaultLabel = saveCalls;
-click(buttonIn(rowAOptions, 'Save'));
+click(buttonIn(rowByLabel('Row A'), 'Save'));
 await settle(80);
 check('the rename persists through the same one full-manager save', saveCalls === savesBeforeDefaultLabel + 1);
 const renamedRowA = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
@@ -554,20 +660,27 @@ check(
 );
 rowAOptions = rowByLabel('Row A');
 check(
-  'the locked row\'s read-only summary names the default line the same way, never disagreeing with the tab',
+  'the locked row\'s read-only summary names the default line the same way, never disagreeing with the trigger',
   priceOptionsSummaryRows(rowAOptions)[0]?.textContent.includes('Monthly'),
   priceOptionsSummaryRows(rowAOptions)[0]?.textContent,
 );
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowAOptions = rowByLabel('Row A');
-check('the name round-trips on reload', priceOptionTab(rowAOptions, 'Monthly') != null);
-setInputValue(rowAOptions?.querySelector('.cz-rate-sheet-tool__price-option-fields--default input[type="text"]'), '');
+openPricePopover(rowAOptions);
 await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check('the name round-trips on reload', priceDefaultLabelInput(popover)?.value === 'Monthly');
+setInputValue(priceDefaultLabelInput(popover), '');
+await settle();
+rowAOptions = rowByLabel('Row A');
 check(
-  'clearing it restores the built-in "Default Price" name rather than an empty tab',
-  priceOptionTab(rowByLabel('Row A'), 'Default Price') != null,
+  'clearing it restores the built-in "Default Price" name in the trigger\'s own accessible name',
+  priceEditTrigger(rowAOptions)?.getAttribute('aria-label')?.includes('Default Price'),
+  priceEditTrigger(rowAOptions)?.getAttribute('aria-label'),
 );
+closePricePopover(rowAOptions);
+await settle();
 click(buttonIn(rowByLabel('Row A'), 'Cancel'));
 await settle();
 
