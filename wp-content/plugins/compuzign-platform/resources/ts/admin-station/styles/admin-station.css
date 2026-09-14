@@ -3809,7 +3809,8 @@ button.cz-station-status-pill {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 240px;
+  min-width: 320px;
+  max-width: fit-content;
   padding: 10px;
   background: var(--station-surface);
   border: 1px solid var(--station-border);
