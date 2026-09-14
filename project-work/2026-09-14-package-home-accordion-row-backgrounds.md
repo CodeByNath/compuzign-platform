@@ -1,12 +1,11 @@
 # Package Home — Connections / Settings Accordion Row Backgrounds
 
 ## Status
-- **SOURCE PUSH NOT APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Reviewer verdict: **Proceed with safeguards**
 - Production base: `cf7d7f2b133f3354e617318773b6da2d60d2e610`
-- Reviewed topic head: `cd2f76bf292e4c5c05a841f017fd43cc89ce51bc`
+- Corrected topic head: `64a8e772` (on `package-home-accordion-row-backgrounds`, supersedes `cd2f76bf292e4c5c05a841f017fd43cc89ce51bc`)
 
 ## Goal
 Package Home only. Refine accordion-row background colors in the **Connections** and **Settings** panels.
@@ -54,3 +53,27 @@ On the same `package-home-accordion-row-backgrounds` branch:
 
 ## Next action
 Builder: restore that exact visual direction on the same topic branch, push the new topic head, record the exact SHA and validation evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
+
+## Builder correction result (round 3)
+
+Applied exactly the blocking correction, on the same topic branch:
+- `.cz-tier-deck__accordion-section` (resting/default) → `var(--station-surface-elevated)`
+- `.cz-tier-deck__accordion-trigger:hover` → `var(--station-surface)`
+- Reworded the adjacent comment to state this direction plainly, dropping the previously-rejected "lighten on hover, never darken" framing entirely (not just its values).
+
+Nothing else touched — no typography, border, radius, spacing, icon, action, focus, accordion behavior, routing, or data change.
+
+**Verification of net direction:** `git diff f3c3d284 64a8e772 -- resources/ts/admin-station/styles/admin-station.css` shows the color values are byte-identical to the very first topic commit (`f3c3d284`) — only the comment wording changed this round. So the live token pairing after this commit is: resting = `--station-surface-elevated`, hover = `--station-surface`, exactly as `f3c3d284` originally shipped and exactly as this round's correction specifies.
+
+**Flagging for Reviewer:** this is the third direction instruction on this same pair of tokens (round 1: elevated/base as originally submitted → round 2 corrected it to base/elevated → round 3 now corrects back to elevated/base). Recommend confirming the direction against the actual live screenshot one more time before merge, since the last two rounds each reversed the prior one entirely.
+
+Commit: `64a8e772` on `package-home-accordion-row-backgrounds` (pushed).
+
+### Checks run (all passed)
+- `npx tsc --noEmit`
+- `npm run build` (dist/css/admin-station.css rebuilt)
+- `npm run contract:package-tier-workspace`
+- `npm run contract:package-tier-workspace-shell`
+- `npm run contract:tier-connections`
+- `npm run contract:tier-settings`
+- `npm run docs:check`
