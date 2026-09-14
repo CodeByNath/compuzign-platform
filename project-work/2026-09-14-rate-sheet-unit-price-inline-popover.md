@@ -1,10 +1,28 @@
 # Rate Sheet — Unit Price Inline Popover
 
 ## Status
-- **READY FOR BUILDER**
-- Builder: **Claude / Codex as assigned by Nath**
+- **AWAITING REVIEWER REVIEW**
+- Builder: **Claude** (this session)
 - Reviewer: **ChatGPT independent auditor**
 - Production base: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb`
+- Topic branch: `rate-sheet-unit-price-popover`
+- Pushed topic SHA: `a47b6f911c23ff8772db78337ab39c9fc782bced`
+
+## Builder report (2026-09-14)
+
+Branch hygiene confirmed (only `main` + `Project-work-instructions` existed; also removed local `admin-ui-refinement`, already merged/remote-deleted). Topic branch cut from `main` at the production base SHA above.
+
+**Files changed** (one commit on the topic branch):
+- `rateSheetParts.tsx` — `RateSheetPriceOptionEditor` rewritten: the Unit Price cell now shows a small trigger (current Default Price + **Edit**) opening an anchored popover (`position: absolute` off a `position: relative` wrap — never a detached drawer/modal). Popover: close (×); 2-column table with a merged "Unit Price" title row; Default Price row always first, same `setRowUnitPrice`/`setRowDefaultPriceLabel` commands as before; every `priceOptions[]` entry its own row beneath, all simultaneously visible/editable (no tabs), each with its own Remove (×); `+ Add price` (uncapped); a small **Save** that just closes the popover, since every field already writes into the row's existing lock draft — no new command, no new endpoint. `RateSheetUnitPriceOptionEditor`'s prop/command signature is unchanged, so Bundle rows and the row lock pick this up automatically. Locked-row read summary (`RateSheetRowReadCells`/`RateSheetPriceOptionsSummary`) untouched — no trigger/popover for a locked row.
+- `admin-station.css` (+ rebuilt `dist/`) — old tab-strip rules replaced with `.cz-rate-sheet-tool__price-popover*`, existing `--station-*` tokens only, no collision in `atomic-engine/css/`. Locked-row summary CSS untouched.
+- `package-station/CLAUDE.md` — the tab-strip paragraph rewritten for the popover; nothing else changed.
+- `rate-sheet-row-lock-regression.mjs`, `rate-sheet-bundle-regression.mjs` — both drove the old tab DOM directly; rewrote their price-editing steps to open/read/write/close the popover, and added a direct check of its Remove (×) that neither script exercised before. Same invariants proved, new interaction shape. `buttonIn()` in both now excludes the popover subtree (its own "Save" close-affordance would otherwise collide by text with the row's real Save while open).
+
+**Tests, all green:** `tsc --noEmit`, `build`, `docs:check`, `regression:rate-sheet-row-lock`, `regression:rate-sheet-bundle`, `regression:rate-sheet-service-import` (confirmed unaffected), `contract:tier-connections` (focused-Tier drawers confirmed untouched), `contract:admin-station-css` (6 pre-existing failures, unrelated to this work, reproduced identically on `main` before any change — none of mine among them).
+
+**>3 / <3 price options (Builder decision):** the popover renders exactly what the row already carries — Default Price plus one row per existing `priceOptions[]` entry, whatever the count. Nothing added, truncated, or capped for a fixed row count: a fresh row shows only Default (+ "Add price"); a 5-option row shows all 5. The "compact" 3-row case is what a row looks like once an admin has clicked "+ Add price" twice, not something auto-seeded.
+
+**Naming decision:** did **not** hard-code One-Time Fee/Annual Renewal/Monthly Subscription as placeholder text. The Default row's existing placeholder is the shared `DEFAULT_PRICE_LABEL` constant, also read by the locked-row summary and the Tier's own price selector (`defaultPriceLabel()`) — changing only the popover's ghost text would mismatch what displays elsewhere once saved blank. Read the three names as the brief's illustrative example of the compact shape, per its own "editable labels, not semantic billing types" instruction, rather than literal copy to hard-code. If literal placeholders are wanted instead, that's a one-line bounded correction (three `placeholder` attributes).
 
 ## Goal
 Refine only the Rate Sheet editor's **Unit Price** cell interaction.
