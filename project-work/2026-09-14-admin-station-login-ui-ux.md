@@ -1,16 +1,15 @@
 # Admin Station Login UI/UX
 
 ## Status
-- **READY FOR BUILDER**
-- Builder: **Codex / Claude as assigned by Nath**
+- **AWAITING REVIEWER REVIEW**
+- Builder: **Claude** (assigned by Nath)
 - Reviewer: **ChatGPT independent auditor**
 - Verdict: **Proceed with safeguards**
 - Production base: `b537ea96e426476ca5b636d6060e4821d9057bdb`
+- Pushed Builder topic head: `44c4a1b5103475d855b42c735fe16b1ff207c6a5` (branch `admin-login-ui`)
 
 ## Branch housekeeping first
-`admin-ui-refinement` is fully contained in `main` and GitHub compare reports identical (ahead 0 / behind 0). Remove that completed topic branch before creating the new login topic branch so the repository returns to `main` + `Project-work-instructions` only.
-
-Then create one topic branch for this work, e.g. `admin-login-ui`.
+Done. Verified `origin/admin-ui-refinement` (`b537ea96`) was identical to `origin/main` (`git merge-base --is-ancestor`), deleted it from `origin`, then created `admin-login-ui` from `main`. Repo is back to `main` + `Project-work-instructions` + the one active topic branch.
 
 ## Goal
 Redesign the existing Admin Station login gate to match Nath's approved reference as closely as practical in the real responsive UI.
@@ -48,12 +47,26 @@ Start from the existing `login-gate.php` and scoped `.cz-station-login-gate*` st
 Use existing inline/vector icon language where available; no emoji or raster icons.
 
 ## Acceptance evidence
-Before review, record in this file:
-- exact changed files;
-- topic SHA;
-- source diff summary;
-- focused validation/build results;
-- mobile portrait and desktop screenshots;
-- explicit confirmation that authentication behaviour/source was not altered except presentation markup needed for icons/footer.
 
-Push only the topic branch, change status to **AWAITING REVIEWER REVIEW**, and stop. Do not merge to `main` or deploy without reviewer approval.
+Changed files (topic `admin-login-ui` @ `44c4a1b5`):
+- `app/modules/admin-station/templates/login-gate.php`
+- `resources/ts/admin-station/styles/admin-station-tokens.css`
+- `resources/ts/admin-station/styles/admin-station.css`
+- `dist/css/admin-station.css` (rebuilt)
+
+Source diff summary:
+- Root markup now carries `cz-admin-station cz-station-login-gate` with `data-station-theme="dark"`. The template renders outside the React shell, so previously `.cz-station-login-gate`'s `var(--station-*)` references resolved to nothing (no wrapper ever supplied them) — adding the wrapper is what makes the existing field/button/token foundation actually apply here, per the "reuse existing foundation" instruction.
+- Added a `--station-login-*` token family in `admin-station-tokens.css` (glow, translucent card bg, card border, card radius) — fixed-dark by design, independent of light/dark theme, referenced only from the login gate rules. (The contract script requires all tokens live in the token sheet; a component-local `--login-*` custom property block was tried first and rejected by `contract:admin-station-css` — see Focused validation.)
+- Username and password inputs each got a `.cz-station-login-gate__control-wrap` with an inline Heroicons-v2-solid-style SVG (user / lock-closed paths, `currentColor`, 24×24 viewBox, matching the existing icon set's convention) positioned left; input gets `padding-left` only (no `border`/`background`/`color`/`radius` touched on `.cz-tf-input` itself, per the style-ownership boundary).
+- Added `.cz-station-login-gate__divider` + `.cz-station-login-gate__footer` ("Powered by WeeraXStudios") after the form.
+- No changes to `access-denied.php` (out of scope) or to any `.cz-tf-*`/`.cz-admin-btn*` rule.
+
+Focused validation/build results (from plugin root):
+- `npx tsc --noEmit` — clean.
+- `npm run build` — succeeded (`dist/css/admin-station.css` 81.42 kB gz 10.87 kB).
+- `npm run contract:admin-station-css` — passes for everything this change touched. 6 pre-existing failures remain (`cz-rate-sheet-tool__*` classes styled but unreferenced) — confirmed present on unmodified `main` before this change (stashed and re-ran), unrelated to this work, not fixed here (out of scope).
+- `npm run docs:check` — passed, 119 Markdown files / 48 Code Maps. No Code Map text became inaccurate (existing `admin-station.md` description of the login gate still holds).
+
+Authentication behaviour/source: unchanged. Nonce field/name, `wp_signon()` POST path (`AdminStationAuth.php` untouched), same-page/server-derived redirect, capability gate, generic error message and markup, username/password `autocomplete`/`required`, existing autofocus branching, and the Show/Hide toggle script (unchanged, still reads `toggle.previousElementSibling` — still the input, since the new icon sits before the input, not between input and button) are all byte-identical to before. Only presentation markup (wrapper classes/attribute, icon SVGs, footer/divider) was added.
+
+**Outstanding — not done by Builder:** mobile portrait and desktop screenshots. Per standing instruction in this repo, Claude (Builder) does not run browser/UI validation — that is the independent Reviewer's role. Reviewer: please capture/confirm the visual result against the approved reference (mobile portrait + desktop) as part of this review pass; flag back here if the rendered result misses the target and Builder will iterate on the same topic branch.
