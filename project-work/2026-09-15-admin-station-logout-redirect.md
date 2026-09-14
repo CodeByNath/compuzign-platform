@@ -1,55 +1,47 @@
 # Admin Station — Logout Redirect
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **SOURCE PUSH NOT APPROVED — live failure 2026-09-15**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
 - Live validator: **Nath**
 - Production `main`: `9d2292a8ba0c2256229e3494c7298aedceb979fa`
 - Deployment: GitHub Actions "Deploy to Hostinger" run #1033 — **Success**
+- Verdict: **Proceed with bounded correction**
 
 ## Required outcome
-Logging out from the Admin Station User menu must return the user to the actual frontend page hosting the Admin Station shortcode/login gate, never `/wp-admin/`.
+Admin Station User-menu **Log out** must perform the WordPress logout and return directly to the actual frontend Admin Station page/login gate. It must never show WordPress's logout-confirmation page, `/wp-admin/`, or the standard WordPress login screen.
 
-Must preserve WordPress `wp_logout_url()` ownership, nonce protection, login/capability gates, shortcode portability, and all unrelated Admin Station behavior. Must not hard-code `/studio/` or introduce client-side auth/session logic.
+Must preserve WordPress auth/session ownership, nonce protection, shortcode portability, login/capability gates, and all unrelated Admin Station behavior.
 
-## Independent reviewer audit — 2026-09-15
-Reviewer independently inspected the pushed candidate against production base.
+## Live failure evidence — Nath
+Production SHA `9d2292a8...` deployed successfully but failed live validation on mobile Chrome:
+1. Clicking **Log out** opens WordPress's native confirmation page: “You are attempting to log out… Do you really want to log out?”
+2. Browser URL visibly contains `wp-login.php?action=logout&...` with literal `&amp;redirect_to=...`.
+3. Confirming logout lands on the standard WordPress login page instead of the Admin Station login gate.
 
-GitHub compare `64a8e772...9d2292a8` is exactly one commit ahead, zero behind, with only:
-- `src/Core/AssetLoader.php`
-- new focused regression `tests/admin-station-logout-redirect.php`
+## Root cause now evidenced
+`wp_logout_url()` returns an **HTML-encoded URL** (WordPress documents this explicitly; `wp_nonce_url()` applies `esc_html()`). That is correct for an HTML `href`, but this project serializes the value into `window.CompuZignConfig` for JavaScript.
 
-Candidate behavior:
-- `logoutUrl` still comes from `wp_logout_url()`;
-- destination is resolved by `adminStationDestination()`;
-- on the actual singular page containing `AdminStationModule::SHORTCODE`, destination is that post's canonical `get_permalink()`;
-- fallback is `home_url('/')`, never WordPress admin;
-- no `/studio/` hard-coding and no `REQUEST_URI`-derived destination;
-- no client-side auth/session authority added.
+Current source does:
+`esc_url_raw(wp_logout_url($this->adminStationDestination()))`
 
-This matches the documented Admin Station contract: the Station is shortcode-mounted and may live at any frontend permalink. The destination predicate mirrors the already-established `AdminStationAuth` shortcode-host check.
+The HTML entity encoding survives into the JS string. The live browser proves this by showing literal `&amp;redirect_to=...`. That changes query parameter names (e.g. `amp;redirect_to` / potentially `amp;_wpnonce`), so WordPress cannot read the intended nonce/redirect normally. The confirmation screen and lost redirect are therefore expected consequences.
 
-The new regression covers different host-page slugs, no-shortcode/off-page fallback, failed permalink fallback, preservation of `wp_logout_url()`, and absence of `/studio/`, `REQUEST_URI`, and direct `wp_safe_redirect()` usage.
+## Builder correction
+On the same work item:
+1. Preserve the already-approved canonical `adminStationDestination()` logic. Do **not** revert to `REQUEST_URI` or hard-code `/studio/`.
+2. Preserve `wp_logout_url()` and WordPress nonce/session ownership.
+3. Convert the HTML-encoded logout URL into a raw URL suitable for JSON/JavaScript **before** it is placed in runtime config. Use the narrowest WordPress/PHP-safe approach (for example, decode HTML entities once, then URL-sanitize for non-display use).
+4. Do not hand-build a logout URL or nonce and do not bypass WordPress logout handling.
+5. Extend the focused regression to prove the runtime URL contains normal `&redirect_to=` and `&_wpnonce=` parameters, contains no literal `&amp;`, and still points back to the canonical shortcode-hosting permalink.
+6. Keep the change scoped to logout URL serialization plus its focused test.
+7. Run PHP lint, logout regression, existing login-gate regression, and docs check.
+8. Push the corrected topic candidate, record exact SHA/evidence here, set **AWAITING REVIEWER REVIEW**, and stop.
 
-Builder reported all passed:
-- `php -l src/Core/AssetLoader.php`
-- `php tests/admin-station-logout-redirect.php`
-- `php tests/admin-station-login-gate.php`
-- `npm run docs:check`
+## Reviewer safeguards
+**Must preserve:** canonical shortcode-hosting permalink resolution; `wp_logout_url()`; nonce protection; WordPress session authority.
 
-## Next action
-Builder may move **only exact reviewed candidate `9d2292a8ba0c2256229e3494c7298aedceb979fa`** to `main` and let the normal deployment pipeline run. Any source change invalidates this approval.
+**Must remove:** HTML-entity leakage into the JavaScript logout URL; WordPress confirmation/login detour.
 
-After production push, record the exact `main` SHA and deployment evidence here, set **AWAITING LIVE VALIDATION**, request Nath to verify that Log out returns to the Admin Station login gate and never WordPress admin, then stop.
-
-## Production / deployment evidence
-- Nath fast-forwarded `main` to `9d2292a8ba0c2256229e3494c7298aedceb979fa` (the exact approved candidate) and pushed.
-- GitHub Actions "Deploy to Hostinger" run [#1033](https://github.com/CodeByNath/compuzign-platform/actions/runs/34866508353) completed with conclusion **success** for that SHA.
-
-## Live validation requested — Nath
-Please check on the live Admin Station:
-- Log in, then click **Log out** from the User menu. You should land back on the actual Admin Station frontend page (its login gate), never `/wp-admin/` or any other WordPress admin page.
-- Confirm nothing else changed: login still works, capability gate still applies, and unrelated Admin Station behavior is untouched.
-
-Reply pass/fail here (or in chat) and I'll close this out.
+**Must not substitute:** hard-coded slug, client-side logout/session logic, custom hand-built nonce/logout endpoint.
