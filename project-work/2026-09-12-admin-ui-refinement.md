@@ -1,50 +1,31 @@
 # Admin UI Refinement
 
 ## Status
-- **AWAITING REVIEWER REVIEW**
+- **CLOSED — accepted 2026-09-14**
 - Builder: **Codex**
 - Reviewer: **ChatGPT independent auditor**
-- Verdict: **Proceed with safeguards**
+- Final verdict: **Proceed**
 - Production `main`: `b537ea96e426476ca5b636d6060e4821d9057bdb`
-- Pushed Builder topic head: `b537ea96e426476ca5b636d6060e4821d9057bdb`
+- Completed topic head: `b537ea96e426476ca5b636d6060e4821d9057bdb`
 
-## Current live defect
-The deployed focused-card label exposed the true missing link: the drawer Overview shows existing `CZPRCI36GRM`, but every focused inclusion card reported `Platform ID not assigned`. The data exists; the client-side selection resolver dropped it.
+## Accepted result
+The shared Rate Sheet selection reconstruction preserves the existing `platform_id`, so focused inclusion cards can render the existing `CZPRCI…` value. The focused card renders only the bare existing ID and renders nothing when no Platform ID exists.
 
-## Reviewer audit
-Independent review confirms `resolveRateSheetSelection()` is the shared reconstruction path used by the Tier view. The approved candidate adds only:
-`platform_id: rateItem?.platform_id ?? null`
-so the Rate Sheet row's existing CZPRCI survives client-side re-resolution into the focused lower deck.
+Safeguards retained:
+- no identity minting, assignment, migration, persistence, endpoint, or registry behavior changes;
+- no pricing, quantity, selection, or relationship behavior changes;
+- the existing drawer path is unchanged;
+- no visible `Platform ID` label or `Platform ID not assigned` placeholder;
+- the unrelated migration-notice correction remained excluded.
 
-Changed source is limited to:
-- `resources/ts/package-station/rateSheetLabels.ts`
-- `scripts/rate-sheet-price-option-selection-contract.ts`
-- rebuilt `dist/js/admin-station.js`
+## Production verification
+GitHub `main` is `b537ea96e426476ca5b636d6060e4821d9057bdb`.
 
-The new contract resolves a row carrying `CZPRCI36GRM` through the shared resolver and asserts that exact Platform ID remains on the selection.
+`Deploy to Hostinger` run `34757201800` (run #1026) completed successfully for that exact `main` SHA on attempt 1.
 
-## Safeguards verified
-- No identity minting, assignment, migration, persistence, endpoint, or registry behavior changes.
-- No pricing, quantity, selection, or relationship behavior changes.
-- The existing drawer path remains unchanged.
-- The focused card's display is now the bare existing ID, with no label or placeholder.
-- The earlier unrelated migration-notice correction remains reverted.
+Nath explicitly accepted closure on 2026-09-14. This closure does not claim a new independent browser re-test beyond the supplied/accepted live result.
 
-Builder reports focused contract, TypeScript, build, and `git diff --check` passing.
+## Branch closure
+`admin-ui-refinement` resolves to the exact same SHA as `main`; GitHub compare reports `identical`, ahead 0 / behind 0. It is fully contained and safe to remove under repository branch hygiene.
 
-## Display-only follow-up
-
-User requested removal of the visible `Platform ID` label and `Platform ID not
-assigned` placeholder. `b537ea96` changes the focused card to render only the
-existing `CZPRCI…` value, or nothing when the row has none. It does not change
-the resolver, drawer, stored identity, or any action.
-
-## Production handoff
-
-Builder fast-forwarded GitHub `main` from `965c41e0` to `b537ea96`. **Deploy
-to Hostinger** run `34757201800` started for that exact SHA and is currently
-`in_progress` (checked 2026-09-13 12:28 UTC). No live-data mutation was made.
-
-Reviewer must verify the deployment result and targeted live behaviour: the
-focused `2 vCPU` card must display `CZPRCI36GRM` without a label or placeholder.
-Builder stops here pending that independent verification.
+Work area closed. Do not reopen without hard evidence.
