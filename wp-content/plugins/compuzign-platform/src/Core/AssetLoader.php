@@ -43,6 +43,13 @@ class AssetLoader
             // Station styles. Same base URLs this class already uses below.
             'distUrl'         => esc_url_raw(COMPUZIGN_DIST_URL),
             'atomicEngineUrl' => esc_url_raw(COMPUZIGN_ATOMIC_ENGINE_URL),
+            // Admin Station header's User menu Log out action. wp_logout_url()
+            // is already nonce-protected (core signs it with the 'log-out'
+            // action); the redirect target is the current request URL — same
+            // server-derived, non-admin destination AdminStationAuth uses for
+            // its own post-login redirect — so logout always returns to the
+            // current Admin Station page/login gate, never /wp-admin/.
+            'logoutUrl'       => esc_url_raw(wp_logout_url(esc_url_raw(home_url(wp_unslash((string) ($_SERVER['REQUEST_URI'] ?? '/')))))),
         ]);
 
         wp_add_inline_script('compuzign-config', 'window.CompuZignConfig = ' . $config . ';');

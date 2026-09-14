@@ -10,6 +10,10 @@ interface CompuZignConfig {
   // Admin Station styles. See printRequestProposal.tsx.
   distUrl?: string;
   atomicEngineUrl?: string;
+  // Admin Station header User menu's Log out action — a server-generated,
+  // nonce-protected WordPress logout URL (wp_logout_url()) that redirects
+  // back to the current page. See AssetLoader.php::outputRuntimeConfig().
+  logoutUrl?: string;
 }
 
 interface CompuZignAdminConfig {

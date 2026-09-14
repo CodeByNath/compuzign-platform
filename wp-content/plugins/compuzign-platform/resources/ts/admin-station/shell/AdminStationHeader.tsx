@@ -1,20 +1,18 @@
 // Header — the Admin Station's global bar.
 //
-// Order: [menu] CompuZign [Services][Packages][Promotions] … [theme][apps][user]
+// Order: [menu] CompuZign [Services][Packages][Promotions] … [theme][user]
 //
 // Station pills are rendered from the shared navigation source (never
-// hardcoded). The right-side apps and user controls each open a small empty
-// dropdown; only one may be open at a time, and both dismiss on outside click
-// or Escape. The theme control toggles the token-driven Admin Station theme.
+// hardcoded). The right-side user control opens a small dropdown carrying the
+// one Log out action; it dismisses on outside click or Escape. The theme
+// control toggles the token-driven Admin Station theme.
 
 import { useState, useRef, useEffect } from 'preact/hooks';
 import type { RefObject } from 'preact';
 import { useAdminStation } from '../AdminStationContext';
 import { headerNavItems } from '@/station-manager/registry/navigation';
 import { AdminStationDropdown } from './AdminStationDropdown';
-import { MenuIcon, SunIcon, MoonIcon, AppsIcon, UserIcon } from './icons';
-
-type DropdownId = 'apps' | 'user';
+import { MenuIcon, SunIcon, MoonIcon, UserIcon } from './icons';
 
 interface Props {
   menuOpen: boolean;
@@ -25,35 +23,28 @@ interface Props {
 
 export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSelect }: Props) {
   const { theme, toggleTheme, activeDestinationId } = useAdminStation();
-  const [openDropdown, setOpenDropdown] = useState<DropdownId | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const appsControlRef = useRef<HTMLDivElement>(null);
   const userControlRef = useRef<HTMLDivElement>(null);
-  const appsButtonRef = useRef<HTMLButtonElement>(null);
   const userButtonRef = useRef<HTMLButtonElement>(null);
 
-  const controlRef = (id: DropdownId) => (id === 'apps' ? appsControlRef : userControlRef);
-  const buttonRef = (id: DropdownId) => (id === 'apps' ? appsButtonRef : userButtonRef);
+  // A second click on the open control closes it.
+  const toggleUserMenu = () => setUserMenuOpen((open) => !open);
 
-  // Opening one dropdown closes the other (single active state). A second click
-  // on the open control closes it.
-  const toggleDropdown = (id: DropdownId) => setOpenDropdown((current) => (current === id ? null : id));
-
-  // Dismiss the active dropdown on outside click or Escape. Escape restores
+  // Dismiss the open dropdown on outside click or Escape. Escape restores
   // focus to the triggering button; an outside click leaves focus where the
   // user clicked.
   useEffect(() => {
-    if (!openDropdown) return;
+    if (!userMenuOpen) return;
 
     const onPointerDown = (event: MouseEvent) => {
-      const wrap = controlRef(openDropdown).current;
-      if (wrap && !wrap.contains(event.target as Node)) setOpenDropdown(null);
+      const wrap = userControlRef.current;
+      if (wrap && !wrap.contains(event.target as Node)) setUserMenuOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        const button = buttonRef(openDropdown).current;
-        setOpenDropdown(null);
-        button?.focus();
+        setUserMenuOpen(false);
+        userButtonRef.current?.focus();
       }
     };
 
@@ -63,7 +54,7 @@ export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSe
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [openDropdown]);
+  }, [userMenuOpen]);
 
   return (
     <header class="cz-station-header">
@@ -114,24 +105,6 @@ export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSe
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
 
-        <div class="cz-station-control" ref={appsControlRef}>
-          <button
-            type="button"
-            ref={appsButtonRef}
-            class="cz-station-iconbtn"
-            aria-label="Apps"
-            aria-haspopup="menu"
-            aria-expanded={openDropdown === 'apps'}
-            aria-controls="cz-station-apps-menu"
-            onClick={() => toggleDropdown('apps')}
-          >
-            <AppsIcon />
-          </button>
-          {openDropdown === 'apps' && (
-            <AdminStationDropdown id="cz-station-apps-menu" labelledBy="cz-station-apps-menu" />
-          )}
-        </div>
-
         <div class="cz-station-control" ref={userControlRef}>
           <button
             type="button"
@@ -139,14 +112,18 @@ export function AdminStationHeader({ menuOpen, onToggleMenu, menuButtonRef, onSe
             class="cz-station-iconbtn"
             aria-label="User profile"
             aria-haspopup="menu"
-            aria-expanded={openDropdown === 'user'}
+            aria-expanded={userMenuOpen}
             aria-controls="cz-station-user-menu"
-            onClick={() => toggleDropdown('user')}
+            onClick={toggleUserMenu}
           >
             <UserIcon />
           </button>
-          {openDropdown === 'user' && (
-            <AdminStationDropdown id="cz-station-user-menu" labelledBy="cz-station-user-menu" />
+          {userMenuOpen && (
+            <AdminStationDropdown id="cz-station-user-menu" labelledBy="cz-station-user-menu">
+              <a class="cz-station-dropdown__item" role="menuitem" href={window.CompuZignConfig?.logoutUrl ?? '#'}>
+                Log out
+              </a>
+            </AdminStationDropdown>
           )}
         </div>
       </div>
