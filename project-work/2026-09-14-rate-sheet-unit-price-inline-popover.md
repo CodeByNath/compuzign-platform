@@ -1,13 +1,13 @@
 # Rate Sheet — Unit Price Inline Popover
 
 ## Status
-- **READY FOR BUILDER**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
 - Live validator: **Nath**
-- Reviewer verdict: **Proceed with safeguards**
+- Previous Reviewer verdict: **Proceed with safeguards** (this correction not yet reviewed)
 - Current production `main`: `9478f106fd7a5ee3ecce0c6a9e6925578614df05`
-- Active topic `rate-sheet-unit-price-popover`: currently identical to `main`
+- Corrected topic head: `cf7d7f2b133f3354e617318773b6da2d60d2e610` (`rate-sheet-unit-price-popover`) — one commit ahead of `main`
 
 ## Accepted scope so far
 - **Edit** opens an anchored Unit Price popover in the existing cell.
@@ -40,3 +40,15 @@ Use the existing button system/size appropriate to this grid; do not create a ne
 
 ## Next action
 Builder: make only this trigger-presentation correction on the same `rate-sheet-unit-price-popover` branch, update focused regression coverage so the active Unit Price cell exposes only the `Edit` button before opening, rerun focused TypeScript/build/regression/CSS checks, push the topic branch, record the exact new SHA and evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
+
+## Builder report — trigger correction (2026-09-14)
+
+One commit, `9478f106` → `cf7d7f2b`, on `rate-sheet-unit-price-popover`.
+
+**`rateSheetParts.tsx`:** the trigger button is now `cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm` (the exact class combo the row's own locked Edit/Remove and active Save/Cancel/Delete already use — no new button primitive), text content literally `Edit`, nothing else. Dropped the stacked value span (`{formatUnitPrice(unitPrice)}`) entirely. `aria-haspopup="true"`, `aria-expanded={open}`, the `aria-label` (now `Edit ${defaultPriceLabel(defaultLabel)} for ${ariaLabel}` — an accessible-name-only detail, not visible text), focus-to-first-field on open, Escape/outside-click close, and focus-return to the trigger on close are all byte-for-byte unchanged from the reviewed `b402b09d`/`9478f106` behavior. The popover panel itself, the locked-row `Price Options` summary, and every other row control are untouched.
+
+**CSS:** deleted the now-dead `.cz-rate-sheet-tool__price-popover-trigger`, `-trigger-value`, `-trigger-action` rules (no longer emitted anywhere); `contract:admin-station-css` confirms no orphaned selector was left behind (same 6 pre-existing, unrelated findings as every prior round).
+
+**Regressions:** the trigger is now itself literally text "Edit", which collided with `buttonIn()`'s row-level Edit/Save/Cancel/Delete lookup while a row is active — widened its exclusion from the popover panel to the whole `.cz-rate-sheet-tool__price-popover-wrap` (trigger + panel) in both scripts, and re-pointed `priceEditTrigger()` at the wrap's direct-child `<button>` (stable whether the popover is open or closed) instead of the now-removed `-trigger` class. Added an explicit check in both scripts asserting the trigger's `textContent` is exactly `'Edit'` with no `$` anywhere in it, satisfying "expose only the Edit button before opening."
+
+**Tests, all green:** `tsc --noEmit`, `build`, `docs:check`, `regression:rate-sheet-row-lock`, `regression:rate-sheet-bundle`, `regression:rate-sheet-service-import` (unaffected), `contract:tier-connections` (unaffected), `contract:admin-station-css` (6 pre-existing unrelated failures, unchanged).
