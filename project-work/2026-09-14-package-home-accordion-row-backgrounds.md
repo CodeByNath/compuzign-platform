@@ -5,7 +5,7 @@
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
 - Production base: `cf7d7f2b133f3354e617318773b6da2d60d2e610`
-- Corrected topic head: `64a8e772` (on `package-home-accordion-row-backgrounds`, supersedes `cd2f76bf292e4c5c05a841f017fd43cc89ce51bc`)
+- Corrected topic head: `64a8e772085b19b0f907460ca2c31d868e779438` (on `package-home-accordion-row-backgrounds`, supersedes `cd2f76bf292e4c5c05a841f017fd43cc89ce51bc`)
 
 ## Goal
 Package Home only. Refine accordion-row background colors in the **Connections** and **Settings** panels.
@@ -67,7 +67,7 @@ Nothing else touched — no typography, border, radius, spacing, icon, action, f
 
 **Flagging for Reviewer:** this is the third direction instruction on this same pair of tokens (round 1: elevated/base as originally submitted → round 2 corrected it to base/elevated → round 3 now corrects back to elevated/base). Recommend confirming the direction against the actual live screenshot one more time before merge, since the last two rounds each reversed the prior one entirely.
 
-Commit: `64a8e772` on `package-home-accordion-row-backgrounds` (pushed).
+Commit: `64a8e772085b19b0f907460ca2c31d868e779438` on `package-home-accordion-row-backgrounds` (pushed).
 
 ### Checks run (all passed)
 - `npx tsc --noEmit`
