@@ -43,6 +43,31 @@ function home_url(string $path = '/'): string
     return 'https://cz-test.local' . $path;
 }
 
+// Faithful to core: wp_logout_url() delegates to wp_nonce_url(), which returns
+// esc_html()'d output — so every `&` comes back as `&amp;`. Reproducing that
+// here is the whole point: without the decode under test, these assertions
+// fail exactly the way live did.
+function wp_logout_url(string $redirect = ''): string
+{
+    $url = 'https://cz-test.local/wp-login.php?action=logout';
+    if ($redirect !== '') {
+        $url .= '&redirect_to=' . urlencode($redirect);
+    }
+    $url .= '&_wpnonce=test-log-out-nonce';
+    return str_replace('&', '&amp;', $url);
+}
+
+// The subset of WP's own ENT_QUOTES translation table a URL can carry.
+function wp_specialchars_decode(string $text, int $quote_style = ENT_NOQUOTES): string
+{
+    return strtr($text, ['&amp;' => '&', '&lt;' => '<', '&gt;' => '>', '&quot;' => '"', '&#039;' => "'"]);
+}
+
+function esc_url_raw(string $url): string
+{
+    return $url;
+}
+
 class WP_Post
 {
     public function __construct(public string $post_content) {}
@@ -70,8 +95,9 @@ function check_logout_redirect(bool $condition, string $label, mixed $detail = n
     echo '  FAIL — ' . $label . ($detail !== null ? ': ' . json_encode($detail) : '') . "\n";
 }
 
-$loader = new AssetLoader();
-$method = new ReflectionMethod(AssetLoader::class, 'adminStationDestination');
+$loader    = new AssetLoader();
+$method    = new ReflectionMethod(AssetLoader::class, 'adminStationDestination');
+$logoutUrl = new ReflectionMethod(AssetLoader::class, 'adminStationLogoutUrl');
 
 global $__singular, $__post, $__permalink;
 
@@ -115,9 +141,63 @@ echo "\n3) off the Admin Station page — or when the permalink can't be resolve
     check_logout_redirect($destination === home_url('/'), "falls back to the front page if get_permalink() itself returns false", $destination);
 }
 
-echo "\n4) structural proof: no hardcoded page slug, no wp_safe_redirect() dependency, wp_logout_url() preserved\n";
+// The 2026-09-15 live failure: wp_logout_url()'s HTML-encoded `&amp;` reached
+// window.CompuZignConfig verbatim, renaming `_wpnonce` to `amp;_wpnonce` and
+// `redirect_to` to `amp;redirect_to`. WordPress therefore saw neither, showed
+// its own "Do you really want to log out?" confirmation, and then landed on
+// wp-login.php. These assertions fail if that decode is ever removed.
+echo "\n4) the runtime config URL is decoded for JavaScript — real `&` separators, no HTML entities\n";
 {
-    $source = (string) file_get_contents(__DIR__ . '/../src/Core/AssetLoader.php');
+    $__singular  = true;
+    $__post      = new WP_Post('[' . AdminStationModule::SHORTCODE . ']');
+    $__permalink = 'https://cz-test.local/wherever-this-page-actually-lives/';
+
+    $url = $logoutUrl->invoke($loader);
+
+    check_logout_redirect(!str_contains($url, '&amp;'), 'carries no literal &amp; — the exact defect seen live in the browser URL', $url);
+    check_logout_redirect(str_contains($url, '&_wpnonce='), 'the nonce parameter is named _wpnonce, not amp;_wpnonce', $url);
+    check_logout_redirect(str_contains($url, '&redirect_to='), 'the redirect parameter is named redirect_to, not amp;redirect_to', $url);
+    check_logout_redirect(!str_contains($url, 'amp;'), 'no `amp;`-prefixed parameter name survives anywhere in the URL', $url);
+    check_logout_redirect(
+        str_contains($url, 'redirect_to=' . urlencode($__permalink)),
+        'still redirects back to the canonical shortcode-hosting permalink',
+        $url,
+    );
+
+    // parse_str() is what a server does with the query string — the real proof
+    // that WordPress can actually read both parameters back.
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+    check_logout_redirect(($query['action'] ?? null) === 'logout', 'action=logout parses back correctly', $query);
+    check_logout_redirect(($query['_wpnonce'] ?? null) === 'test-log-out-nonce', 'the nonce parses back under its own name, so logout is not challenged', $query);
+    check_logout_redirect(($query['redirect_to'] ?? null) === $__permalink, 'redirect_to parses back to the Admin Station page itself', $query);
+}
+
+echo "\n5) structural proof: no hardcoded page slug, no wp_safe_redirect() dependency, wp_logout_url() preserved\n";
+{
+    // Strips // and /* */ comments via PHP's own tokenizer — this file's own
+    // explanatory prose legitimately names symbols the checks below prove are
+    // absent from actual code (same convention as the login-gate test).
+    $stripComments = static function (string $code): string {
+        $out = '';
+        foreach (token_get_all($code) as $token) {
+            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+            $out .= is_array($token) ? $token[1] : $token;
+        }
+        return $out;
+    };
+
+    $source = $stripComments((string) file_get_contents(__DIR__ . '/../src/Core/AssetLoader.php'));
+
+    check_logout_redirect(
+        str_contains($source, 'wp_specialchars_decode('),
+        'the HTML-entity decode is still applied before the URL reaches runtime config',
+    );
+    check_logout_redirect(
+        !str_contains($source, 'wp-login.php') && !str_contains($source, "'log-out'"),
+        'the logout endpoint and its nonce are never hand-built — both come from wp_logout_url() alone',
+    );
 
     check_logout_redirect(
         !str_contains($source, "'/studio/'") && !str_contains($source, '"/studio/"'),
