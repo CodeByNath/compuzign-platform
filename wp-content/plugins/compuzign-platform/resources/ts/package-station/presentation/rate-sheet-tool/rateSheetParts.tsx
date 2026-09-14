@@ -431,11 +431,15 @@ function RateSheetRowFieldCells({
 }
 
 /**
- * The Unit Price cell's own editor — an anchored popover, opened by an
- * **Edit** trigger, for the standalone drawer's active row only. The trigger
- * stays in the cell's existing position and shows the row's current Default
- * Price at a glance; Edit opens a compact 2-column table anchored to that
- * same trigger (never a detached drawer/modal). The standard compact case
+ * The Unit Price cell's own editor — an anchored popover, opened by a plain
+ * **Edit** button, for the standalone drawer's active row only. The trigger
+ * stays in the cell's existing position and shows no value/price preview of
+ * its own (a row can carry several prices — Default plus zero or more
+ * options — so showing just the Default Price beside it would misleadingly
+ * imply that's the row's only one; the locked row's own read summary,
+ * `RateSheetPriceOptionsSummary`, already carries the multi-price view).
+ * Edit opens a compact 2-column table anchored to that same trigger (never
+ * a detached drawer/modal). The standard compact case
  * always shows exactly three editable price rows, labelled (by placeholder,
  * never committed data) **One-Time Fee** / **Annual Renewal** / **Monthly
  * Subscription** — row 1 is the row's own existing Default Price
@@ -529,12 +533,17 @@ export function RateSheetPriceOptionEditor({
 
   return (
     <div class="cz-rate-sheet-tool__price-popover-wrap" ref={wrapRef}>
-      <button type="button" ref={triggerRef} class="cz-rate-sheet-tool__price-popover-trigger"
+      {/* The trigger is a plain Edit button — never a value/price preview.
+          A row can carry several prices (Default plus zero or more
+          options); showing just the Default Price here would misleadingly
+          imply it's the row's only one. The locked row's own read summary
+          (RateSheetPriceOptionsSummary) already carries the multi-price
+          view; this trigger only opens the editor that manages them all. */}
+      <button type="button" ref={triggerRef} class="cz-admin-btn cz-admin-btn--secondary cz-admin-btn--sm"
         aria-haspopup="true" aria-expanded={open}
         aria-label={`Edit ${defaultPriceLabel(defaultLabel)} for ${ariaLabel}`}
         onClick={() => setOpen((value) => !value)}>
-        <span class="cz-rate-sheet-tool__price-popover-trigger-value">{formatUnitPrice(unitPrice)}</span>
-        <span class="cz-rate-sheet-tool__price-popover-trigger-action">Edit</span>
+        Edit
       </button>
       {open && (
         <div class="cz-rate-sheet-tool__price-popover" role="group" aria-label={`Unit Price for ${ariaLabel}`}>

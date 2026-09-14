@@ -365,12 +365,14 @@ function columnChips(columnLabel) {
     .find((col) => col.querySelector('.cz-rate-sheet-tool__import-column-label')?.textContent.trim().startsWith(columnLabel)) ?? null;
   return [...(column?.querySelectorAll('.cz-rate-sheet-tool__import-chip') ?? [])];
 }
-// Excludes the price popover's own subtree: while it is open it carries its
-// own "Save" button (a close affordance, distinct from the row's real Save)
-// — see scripts/rate-sheet-row-lock-regression.mjs for the same guard.
+// Excludes the price popover wrap entirely: its own trigger is a plain
+// "Edit" button (distinct from the row's real Edit/Save/Cancel/Delete), and
+// while open it also carries its own "Save" (a close affordance, distinct
+// from the row's real Save) — see scripts/rate-sheet-row-lock-regression.mjs
+// for the same guard.
 function buttonIn(row, label) {
   return [...(row?.querySelectorAll('button') ?? [])]
-    .filter((b) => b.closest('.cz-rate-sheet-tool__price-popover') === null)
+    .filter((b) => b.closest('.cz-rate-sheet-tool__price-popover-wrap') === null)
     .find((b) => b.textContent.trim() === label) ?? null;
 }
 function anyButton(label) {
@@ -378,8 +380,10 @@ function anyButton(label) {
 }
 // The SAME Default/Option popover every ordinary row's Unit Price cell uses
 // (scripts/rate-sheet-row-lock-regression.mjs) — proving a Bundle row's own
-// Price Options ride the identical shared engine, never a second one.
-function priceEditTrigger(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover-trigger') ?? null; }
+// Price Options ride the identical shared engine, never a second one. The
+// trigger is a direct child of the wrap (never inside the popover panel
+// itself), so this stays correct whether the popover is open or closed.
+function priceEditTrigger(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover-wrap > button') ?? null; }
 function pricePopoverIn(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover') ?? null; }
 function openPricePopover(row) {
   const trigger = priceEditTrigger(row);
@@ -547,7 +551,10 @@ check(
 );
 check('it opens straight into the SAME inline row editor\'s Save/Cancel', buttonIn(freshlyCreatedRow, 'Save') != null && buttonIn(freshlyCreatedRow, 'Cancel') != null);
 check('a SAVED Bundle row offers Delete too — it is a normal saved row, never a blank draft', buttonIn(freshlyCreatedRow, 'Delete') != null);
-check('it carries the ordinary Price Options popover trigger', priceEditTrigger(freshlyCreatedRow) != null);
+check(
+  'it carries the ordinary Price Options popover trigger — a plain Edit button, no price preview',
+  priceEditTrigger(freshlyCreatedRow) != null && priceEditTrigger(freshlyCreatedRow).textContent.trim() === 'Edit',
+);
 check('and the ordinary Per and Group dropdowns', freshlyCreatedRow.querySelectorAll('select').length === 2, freshlyCreatedRow.querySelectorAll('select').length);
 check('there is no Delete Bundle button in the editor', anyButton('Delete Bundle') == null);
 

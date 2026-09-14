@@ -29,8 +29,12 @@ Rate-Sheet-wide, and never carries quantity/billing-cycle/minimum-commitment/
 Edition meaning — the row's own existing default `unit_price`/`CZPRCI` stays
 completely untouched by a price option's presence. In the standalone Rate
 Sheet drawer's active-row editor, the Unit Price cell keeps its existing
-position and shows a compact trigger (current Default Price + **Edit**) that
-opens an anchored popover — never a detached drawer/modal — with a compact
+position and shows a plain **Edit** button (`cz-admin-btn`, the same button
+system the row's own Save/Cancel/Delete already use) — never a price/value
+preview beside it, since a row can carry several prices and showing just the
+Default Price would misleadingly imply it's the only one (the locked row's
+own read summary already carries the multi-price view) — that opens an
+anchored popover — never a detached drawer/modal — with a compact
 2-column table: a merged "Unit Price" title row, then the standard compact
 case's three editable price rows, placeholder-labelled (never committed
 data) **One-Time Fee** / **Annual Renewal** / **Monthly Subscription** — row

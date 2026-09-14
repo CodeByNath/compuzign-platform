@@ -297,21 +297,24 @@ function rowsIn() {
     .filter((tr) => tr.closest('.cz-rate-sheet-tool__import') === null);
 }
 function rowByLabel(label) { return rowsIn().find((tr) => tr.textContent.includes(label)) ?? null; }
-// Excludes the price popover's own subtree: while it is open it carries its
-// own "Save" button (a close affordance, distinct from the row's real Save),
-// so a row-level action must never accidentally match inside it.
+// Excludes the price popover wrap entirely — its own trigger is a plain
+// "Edit" button (distinct from the row's real Edit/Save/Cancel/Delete), and
+// while open it also carries its own "Save" (a close affordance, distinct
+// from the row's real Save) — so a row-level action must never accidentally
+// match either.
 function buttonIn(row, text) {
   return row
     ? [...row.querySelectorAll('button')]
-      .filter((b) => b.closest('.cz-rate-sheet-tool__price-popover') === null)
+      .filter((b) => b.closest('.cz-rate-sheet-tool__price-popover-wrap') === null)
       .find((b) => b.textContent.trim() === text) ?? null
     : null;
 }
 function click(btn) { btn?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); }
 function priceInputIn(row) { return row?.querySelector('input[type="number"]') ?? null; }
-// The Unit Price cell's own Edit trigger — opens the anchored popover.
-// Replaces the old tab strip's always-visible tabs entirely.
-function priceEditTrigger(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover-trigger') ?? null; }
+// The Unit Price cell's own plain Edit button — opens the anchored popover.
+// A direct child of the wrap (never inside the popover panel itself), so
+// this stays correct whether the popover is open or closed.
+function priceEditTrigger(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover-wrap > button') ?? null; }
 function pricePopoverIn(row) { return row?.querySelector('.cz-rate-sheet-tool__price-popover') ?? null; }
 function openPricePopover(row) {
   const trigger = priceEditTrigger(row);
@@ -518,6 +521,11 @@ click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 let rowAOptions = rowByLabel('Row A');
 check('an unlocked row with zero price options still shows the Edit trigger, not just a bare price input', priceEditTrigger(rowAOptions) != null);
+check(
+  'the trigger is a PLAIN Edit button only — no price/value preview beside it (a row can carry several prices)',
+  priceEditTrigger(rowAOptions)?.textContent.trim() === 'Edit' && !priceEditTrigger(rowAOptions)?.textContent.includes('$'),
+  priceEditTrigger(rowAOptions)?.textContent,
+);
 check('the trigger is closed by default', priceEditTrigger(rowAOptions)?.getAttribute('aria-expanded') === 'false');
 
 openPricePopover(rowAOptions);

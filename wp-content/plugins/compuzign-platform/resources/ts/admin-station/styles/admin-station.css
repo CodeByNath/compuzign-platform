@@ -3761,44 +3761,17 @@ button.cz-station-status-pill {
 }
 
 /* The Unit Price cell's own Default/Option editor — standalone drawer's
-   active row only. A small trigger stays in the cell's existing position and
-   opens a compact popover anchored to it (`position: absolute` inside this
-   `position: relative` wrap — never a detached drawer/modal), using this
-   sheet's own station tokens rather than the drawer kit's private palette
-   (feature CSS here may not reference --admin-* tokens). */
+   active row only. A plain Edit button (`cz-admin-btn`, the same button
+   system the row's own Save/Cancel/Delete already use — never a
+   price/value preview beside it, since a row can carry several prices)
+   stays in the cell's existing position and opens a compact popover
+   anchored to it (`position: absolute` inside this `position: relative`
+   wrap — never a detached drawer/modal), using this sheet's own station
+   tokens rather than the drawer kit's private palette (feature CSS here
+   may not reference --admin-* tokens). */
 .cz-rate-sheet-tool__price-popover-wrap {
   position: relative;
   display: inline-block;
-  min-width: 96px;
-}
-
-.cz-rate-sheet-tool__price-popover-trigger {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 4px 8px;
-  background: transparent;
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-control-radius);
-  cursor: pointer;
-  width: 100%;
-}
-
-.cz-rate-sheet-tool__price-popover-trigger:hover {
-  border-color: var(--station-accent-border);
-}
-
-.cz-rate-sheet-tool__price-popover-trigger-value {
-  font-size: var(--station-text-sm);
-  font-weight: 600;
-  color: var(--station-text);
-}
-
-.cz-rate-sheet-tool__price-popover-trigger-action {
-  font-size: var(--station-text-xs);
-  font-weight: 600;
-  color: var(--station-accent);
 }
 
 .cz-rate-sheet-tool__price-popover {
