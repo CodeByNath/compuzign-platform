@@ -1,13 +1,13 @@
 # Rate Sheet — Unit Price Inline Popover
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
 - Live validator: **Nath**
 - Reviewer verdict: **Proceed**
-- Production `main`: `9478f106fd7a5ee3ecce0c6a9e6925578614df05`
-- Approved topic head: `cf7d7f2b133f3354e617318773b6da2d60d2e610`
+- Production `main` (deployed): `cf7d7f2b133f3354e617318773b6da2d60d2e610`
+- Deployment: GitHub Actions "Deploy to Hostinger" run [34848266470](https://github.com/CodeByNath/compuzign-platform/actions/runs/34848266470) — **success**
 
 ## Reviewer result
 The trigger correction passes independent review.
@@ -19,4 +19,10 @@ The source delta is bounded to the requested trigger refinement plus generated a
 Builder validation reports TypeScript, build, docs, Rate Sheet regressions, service-import and tier-connections checks passing; the Admin Station CSS contract has only the same six pre-existing unrelated findings.
 
 ## Next action
-Builder may move only exact SHA `cf7d7f2b133f3354e617318773b6da2d60d2e610` to `main` and run the normal deployment. After deployment, record the exact `main` SHA and workflow result, set **AWAITING LIVE VALIDATION**, and ask Nath to verify that the active Unit Price cell shows only Edit and that the existing popover/read summary still behave correctly. Then stop.
+Deployed. **Nath: please verify live** — a Rate Sheet row's active Unit Price cell:
+- shows only a plain **Edit** button (no `$` value/price preview beside or above it);
+- clicking it still opens the same anchored popover, correctly positioned and at the wider width;
+- the popover's own behavior is unchanged (3 standard rows, extra-option preservation, close/Save, Escape/outside-click, focus return);
+- the locked/read row's multi-price summary is unchanged.
+
+If confirmed, this work item can close.
