@@ -927,6 +927,33 @@
   cursor: pointer;
 }
 
+/* An open select's option list is painted by the OS on its OWN surface, not on
+   the page. An <option> carrying no colours of its own inherits the select's
+   author `color` and `background`, which are then composited against that
+   system surface rather than against the station's. The accent variant's
+   background is deliberately translucent (--station-field-accent-bg is
+   rgba(92, 110, 245, 0.12)), so it contributes almost nothing there — leaving
+   the station's own text colour on a system-default surface. In dark theme
+   that is near-white text on a light popup: the SELECTED option stays readable
+   because the closed control is painted on the page, while every other option
+   effectively disappears. Windows/Chromium is where this shows.
+
+   Options therefore carry their own OPAQUE pair, so the popup never depends on
+   what the platform happens to paint behind it. Native semantics, keyboard
+   behaviour and the closed control's accent treatment are all untouched. */
+.cz-tf-select option {
+  background-color: var(--station-field-bg);
+  color: var(--station-field-text);
+}
+
+/* Stating a colour above would otherwise repaint a disabled option as an
+   ordinary one, since it overrides the UA's own greying. The field system's
+   muted token keeps that distinction visible — the placeholder in a select
+   whose real choices are still loading is a disabled option. */
+.cz-tf-select option:disabled {
+  color: var(--station-field-muted);
+}
+
 .cz-tf-select--unset {
   color: var(--station-field-muted);
 }

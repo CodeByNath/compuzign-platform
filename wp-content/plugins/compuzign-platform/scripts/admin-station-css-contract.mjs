@@ -4,7 +4,8 @@
  *
  * The field-system consolidation removed four parallel control families, a
  * duplicated control paint and ~20 dead selector families. This script is what
- * stops them growing back. It is deliberately four rules, not a linter.
+ * stops them growing back. It is deliberately a short list of rules, not a
+ * linter — rule 5 was added for a live-confirmed select-popup contrast defect.
  *
  * Specification: docs/architecture/admin-station-field-system-v1.md
  *
@@ -165,6 +166,58 @@ for (const sheet of ALL_SHEETS) {
     const name = ref.replace('var(', '');
     if (!definedTokens.has(name)) {
       failures.push(`${sheet}: var(${name}) is referenced but defined nowhere.`);
+    }
+  }
+}
+
+// ── Rule 5 — a select's options carry their own opaque colours ───────────────
+// An open select's option list is painted by the OS on its own surface, not on
+// the page, so an option with no colours of its own inherits the select's —
+// including the accent variant's deliberately translucent background, which
+// contributes nothing there. That left the station's text colour on a
+// system-default popup (near-invisible in dark theme, Windows/Chromium), which
+// is what this rule stops returning. The tokens must also stay OPAQUE: a
+// translucent value here would reintroduce the same compositing dependency.
+{
+  const drawerCss = read(DRAWER_SHEET);
+  const optionRule = rules(drawerCss).find(({ selector }) => /\.cz-tf-select\s+option$/.test(selector.trim()));
+  if (!optionRule) {
+    failures.push(
+      `${DRAWER_SHEET}: no '.cz-tf-select option' rule. A native select's popup is painted on a ` +
+      `system surface, so its options must declare their own opaque background-color and color.`,
+    );
+  } else {
+    const tokenCss = read(TOKEN_SHEET);
+    /** Every value this token is given, across the base block and both themes. */
+    const valuesOf = (token) => [...tokenCss.matchAll(new RegExp(`${token}\\s*:\\s*([^;]+);`, 'g'))].map((m) => m[1].trim());
+
+    for (const prop of ['background-color', 'color']) {
+      const declared = new RegExp(`(?:^|;|\\s)${prop}\\s*:\\s*var\\((--[a-z0-9-]+)\\)`).exec(optionRule.body);
+      if (!declared) {
+        failures.push(`${DRAWER_SHEET}: '.cz-tf-select option' must declare '${prop}' from a station token.`);
+        continue;
+      }
+      // Field tokens alias the shell palette (--station-field-bg:
+      // var(--station-surface)), so follow the chain to the real values. Every
+      // theme's value is checked, not just the first — a translucent dark-theme
+      // value is exactly the case that failed live.
+      const seen = new Set();
+      let values = [declared[1]].map((t) => `var(${t})`);
+      while (values.length === 1 && /^var\((--[a-z0-9-]+)\)$/.test(values[0])) {
+        const token = /^var\((--[a-z0-9-]+)\)$/.exec(values[0])[1];
+        if (seen.has(token)) break;
+        seen.add(token);
+        const next = valuesOf(token);
+        if (next.length === 0) break;
+        values = next;
+      }
+      const translucent = values.filter((v) => /rgba?\([^)]*,\s*0?\.\d+\s*\)|transparent/.test(v));
+      if (translucent.length > 0) {
+        failures.push(
+          `${DRAWER_SHEET}: '.cz-tf-select option' resolves '${prop}' to the translucent value ` +
+          `'${translucent[0]}'. Option colours must be opaque — the popup's backdrop is the platform's, not the page's.`,
+        );
+      }
     }
   }
 }
