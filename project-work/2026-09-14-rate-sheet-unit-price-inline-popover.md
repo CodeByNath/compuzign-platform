@@ -1,12 +1,16 @@
 # Rate Sheet — Unit Price Inline Popover
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Reviewer verdict: **Proceed**
+- Reviewer verdict: **Proceed** (for `b402b09d`; see note below on the one commit pushed after that review)
 - Production base: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb`
-- Approved topic head: `b402b09d1d83b938315f1c0466bdf6ab541e5f48` (`rate-sheet-unit-price-popover`)
+- Reviewer-approved topic head: `b402b09d1d83b938315f1c0466bdf6ab541e5f48` (`rate-sheet-unit-price-popover`)
+- Production `main` (deployed): `9478f106fd7a5ee3ecce0c6a9e6925578614df05` — Deploy to Hostinger run [34845308667](https://github.com/CodeByNath/compuzign-platform/actions/runs/34845308667) — **success**
+- Intermediate `main` (deployed en route): `b402b09d` — Deploy run [34844278097](https://github.com/CodeByNath/compuzign-platform/actions/runs/34844278097) — **success**
+
+**Note for Reviewer:** one further commit (`9478f106`, CSS-only: `.cz-rate-sheet-tool__price-popover` `min-width` 240px→320px, `max-width: fit-content`) was pushed to `main` on top of the reviewed `b402b09d`, at Nath's direct real-time request, outside the normal review queue. No structural/behavioral/TS change — `tsc`, `build`, `contract:admin-station-css`, and `regression:rate-sheet-row-lock` were all rerun and pass identically to `b402b09d`. Flagging per "any new source change invalidates approval" so this specific delta gets its own sign-off rather than being silently folded into the prior `Proceed`.
 
 ## Accepted scope
 - **Edit** opens an anchored Unit Price popover in the existing cell.
@@ -33,6 +37,12 @@ No billing-cycle fields, commercial-leg semantics, endpoint, identity model, or 
 Builder reports focused coverage for fresh rows, exactly two options, >2 options, standard-row removal, Bundle behavior, TypeScript/build/docs, service import, tier connections, and the same six pre-existing unrelated Admin Station CSS-contract findings.
 
 ## Next action
-Builder may move **only** exact SHA `b402b09d1d83b938315f1c0466bdf6ab541e5f48` to `main` and let normal GitHub Actions deployment run. Any source change invalidates this approval.
+Deployed. **Nath: please validate live** — Package Station → a Rate Sheet's Details → Edit a row → its Unit Price cell:
+- Edit trigger opens an anchored popover at the cell (not a detached drawer/modal), now wider (`min-width: 320px`);
+- close (×) control;
+- compact 2-column table, merged "Unit Price" title row;
+- three standard rows — One-Time Fee / Annual Renewal / Monthly Subscription placeholders — Default Price always populated, rows 2/3 editable even on a fresh row with no price options yet;
+- typing into a still-blank row 2/3 keeps it editable and it persists on Save; a row with more than two price options keeps the extras below, never truncated;
+- small Save inside the popover, and the row's own outer Save/Cancel/Remove/Per/Quantity/Group still behave exactly as before.
 
-After deployment, record exact `main` SHA and workflow result, set **AWAITING LIVE VALIDATION**, and ask Nath to validate the Rate Sheet Unit Price popover: Edit trigger/anchoring, 2×4 standard layout, labels/values editing, extra-option preservation, Close/Save behavior, and unchanged surrounding row controls. Then stop.
+Reviewer: `9478f106` (the CSS-only width tweak on top of your approved `b402b09d`) is unreviewed by you — flagged above for sign-off once Nath's live validation is in.
