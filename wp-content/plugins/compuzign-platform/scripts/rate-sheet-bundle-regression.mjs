@@ -401,6 +401,9 @@ function priceOptionPriceInput(popover, index = priceOptionRows(popover).length 
 function addPriceOptionButton(popover) {
   return popover ? [...popover.querySelectorAll('button')].find((b) => b.textContent.trim() === '+ Add price') ?? null : null;
 }
+function priceOptionRemoveButton(popover, index) {
+  return priceOptionRows(popover)[index]?.querySelector('.cz-rate-sheet-tool__price-popover-remove') ?? null;
+}
 function importColumnLabels() {
   return [...container.querySelectorAll('.cz-rate-sheet-tool__import-columns .cz-rate-sheet-tool__import-column-label')]
     .map((p) => p.textContent.trim());
@@ -585,14 +588,16 @@ check('naming and repricing it makes no API request until Save', saveCalls === s
 
 // A Bundle row's own Price Option rides the IDENTICAL Default/Option popover
 // row-lock-regression.mjs already proves for an ordinary row — no second
-// pricing engine, no Bundle-specific option UI.
+// pricing engine, no Bundle-specific option UI. The standard compact case
+// always renders rows 2/3 (even before any price_options[] entry exists);
+// typing into row 2 is what materializes it.
 bundlePopover = pricePopoverIn(rowsIn()[0]);
-click(addPriceOptionButton(bundlePopover));
+check('the Bundle row also shows the standard compact case — rows 2 and 3 always rendered, nothing minted yet', priceOptionRows(bundlePopover).length === 2 && priceOptionRemoveButton(bundlePopover, 0) == null);
+setInputValue(priceOptionLabelInput(bundlePopover, 0), 'Combo');
 await settle();
 bundlePopover = pricePopoverIn(rowsIn()[0]);
-check('adding a Price Option on a Bundle row appends a row to the SAME popover an ordinary row gets', priceOptionRows(bundlePopover).length === 1);
-setInputValue(priceOptionLabelInput(bundlePopover), 'Combo');
-setInputValue(priceOptionPriceInput(bundlePopover), 90);
+check('typing into row 2 materializes exactly that one Price Option on the Bundle row', priceOptionRemoveButton(bundlePopover, 0) != null && priceOptionRemoveButton(bundlePopover, 1) == null);
+setInputValue(priceOptionPriceInput(bundlePopover, 0), 90);
 await settle();
 bundlePopover = pricePopoverIn(rowsIn()[0]);
 check(

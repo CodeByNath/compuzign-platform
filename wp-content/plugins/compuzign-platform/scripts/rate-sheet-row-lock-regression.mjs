@@ -507,13 +507,13 @@ check(
 );
 check('the staged price is reflected as the new baseline', rowC?.textContent.includes('$30'), rowC?.textContent);
 
-// ── 7) The active row's Unit Price cell is an Edit-triggered popover;
-//    adding a price option rides the SAME row-lock Save/Cancel — no new
-//    row, no new lock, no new endpoint. Default Price stays independent of
-//    the option — both are simultaneously visible and editable in the same
-//    popover, never tab-switched; Cancel discards an unsaved option along
-//    with everything else the row's own Cancel already discards. ─────────
-console.log('\n7) The active row\'s Unit Price cell is an Edit-triggered popover; adding a price option rides the same row lock');
+// ── 7) Fresh row / <2 options: the standard compact case always shows
+//    THREE editable price rows — Default Price plus rows 2 and 3 — even
+//    before any price_options[] entry exists. Opening the popover mints
+//    nothing; only the admin's own first keystroke into a still-missing
+//    row does, through the SAME addPriceOption/setPriceOptionLabel/
+//    setPriceOptionUnitPrice commands every option already uses. ────────
+console.log('\n7) Fresh row (<2 options): the standard compact case always shows three editable price rows, minting nothing until typed into');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 let rowAOptions = rowByLabel('Row A');
@@ -526,16 +526,39 @@ rowAOptions = rowByLabel('Row A');
 let popover = pricePopoverIn(rowAOptions);
 check('opening the trigger reveals the popover, anchored to the cell (not a detached drawer/modal)', popover != null);
 check('the popover carries a merged "Unit Price" title row', popover?.textContent.includes('Unit Price'));
-check('Default Price is the first row and edits the row\'s own price exactly as the plain input always did', Number(priceDefaultLabelInput(popover) && popover.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value) === 10);
-check('no option rows exist yet, only "+ Add price"', priceOptionRows(popover).length === 0 && addPriceOptionButton(popover) != null);
+check('the Default row is labelled by placeholder as One-Time Fee', priceDefaultLabelInput(popover)?.getAttribute('placeholder') === 'One-Time Fee');
+check('Default Price is the first row and edits the row\'s own price exactly as the plain input always did', Number(popover.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value) === 10);
+check(
+  'rows 2 and 3 are ALWAYS rendered — the standard compact case — even with zero price_options[] entries yet',
+  priceOptionRows(popover).length === 2,
+);
+check('row 2 is placeholder-labelled Annual Renewal, row 3 Monthly Subscription', priceOptionLabelInput(popover, 0)?.getAttribute('placeholder') === 'Annual Renewal' && priceOptionLabelInput(popover, 1)?.getAttribute('placeholder') === 'Monthly Subscription');
+check('neither still-phantom row offers Remove — there is nothing yet to remove', priceOptionRemoveButton(popover, 0) == null && priceOptionRemoveButton(popover, 1) == null);
 
-click(addPriceOptionButton(popover));
+closePricePopover(rowAOptions);
+await settle();
+const savesBeforeUntouchedPopover = saveCalls;
+click(buttonIn(rowByLabel('Row A'), 'Save'));
+await settle(80);
+check('opening (and closing) the popover without typing persisted through one save, minting NO price option', saveCalls === savesBeforeUntouchedPopover + 1);
+const untouchedRowA = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
+check('price_options stays empty — merely opening the popover creates nothing', untouchedRowA?.price_options?.length === 0, JSON.stringify(untouchedRowA?.price_options));
+
+// ── 7b) Typing into row 2 alone materializes exactly that one option —
+//    row 3 stays phantom. ─────────────────────────────────────────────────
+console.log('\n7b) Typing into row 2 alone materializes exactly that one price option; row 3 stays phantom');
+click(buttonIn(rowByLabel('Row A'), 'Edit'));
+await settle();
+rowAOptions = rowByLabel('Row A');
+openPricePopover(rowAOptions);
 await settle();
 rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
-check('adding a price option appends a new row to the same popover, not a tab', priceOptionRows(popover).length === 1);
-check('the new row offers its own label/price fields', priceOptionLabelInput(popover) != null && priceOptionPriceInput(popover) != null);
-setInputValue(priceOptionLabelInput(popover), 'Annual');
-setInputValue(priceOptionPriceInput(popover), 120);
+setInputValue(priceOptionLabelInput(popover, 0), 'Annual');
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+check('row 2 is materialized (offers Remove) the instant it is typed into', priceOptionRemoveButton(popover, 0) != null);
+check('row 3 is still phantom — untouched by materializing row 2', priceOptionRemoveButton(popover, 1) == null && priceOptionLabelInput(popover, 1)?.value === '');
+setInputValue(priceOptionPriceInput(popover, 0), 120);
 await settle();
 rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
 check(
@@ -551,80 +574,133 @@ await settle(80);
 check('the price-option edit persisted through exactly one full-manager save — the same one every other row Save uses', saveCalls === savesBeforeOptionSave + 1);
 const savedRowAItem = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
 check(
-  'the saved row carries the new price option (label/price), while its own unit_price stays the Default Price',
+  'the saved row carries exactly the one materialized price option (label/price), while its own unit_price stays the Default Price',
   savedRowAItem?.price_options?.length === 1 && savedRowAItem.price_options[0].label === 'Annual' && savedRowAItem.price_options[0].unit_price === 120 && savedRowAItem.unit_price === 10,
   JSON.stringify(savedRowAItem),
 );
 rowAOptions = rowByLabel('Row A');
 check('the row locks again after the verified success, exactly like every other row Save', buttonIn(rowAOptions, 'Edit') != null && buttonIn(rowAOptions, 'Save') == null);
 
-// ── 7b) A locked row with Price Options shows the compact read-only summary
-//    in the same Unit Price cell — never the edit popover's own editable
-//    rows. Default is the row's own existing price, listed first. ────────
-console.log('\n7b) A locked row with Price Options shows the compact read-only summary, never the edit popover');
-check('the locked row\'s Unit Price cell carries a "Price Options" summary', rowAOptions?.textContent.includes('Price Options'));
-let summaryRows = priceOptionsSummaryRows(rowAOptions);
-check('the summary lists Default plus each price option, one line each', summaryRows.length === 2, summaryRows.map((r) => r.textContent));
-check("the Default line shows the row's own existing unit_price", summaryRows[0]?.textContent.includes('Default') && summaryRows[0]?.textContent.includes('$10'), summaryRows[0]?.textContent);
-check('the option line shows its own label and price', summaryRows[1]?.textContent.includes('Annual') && summaryRows[1]?.textContent.includes('$120'), summaryRows[1]?.textContent);
-check('the locked row renders no Edit trigger for its Price Options — read-only presentation only', priceEditTrigger(rowAOptions) == null);
+// ── 7c) Row B, standing in for a second fresh row: typing into row 3
+//    FIRST (row 2 still phantom) mints row 2 blank first, so array order —
+//    and therefore which row each entry displays as — stays correct
+//    (price_options[] has no separate slot identity). Cancelling afterwards
+//    discards BOTH materializations, exactly like any other unsaved edit. ──
+console.log('\n7c) Typing into row 3 first mints row 2 blank first to keep ordering correct; Cancel discards both');
+click(buttonIn(rowByLabel('Row B'), 'Edit'));
+await settle();
+let rowBOptions = rowByLabel('Row B');
+openPricePopover(rowBOptions);
+await settle();
+rowBOptions = rowByLabel('Row B');
+let popoverB = pricePopoverIn(rowBOptions);
+check('Row B starts with both standard rows phantom too', priceOptionRemoveButton(popoverB, 0) == null && priceOptionRemoveButton(popoverB, 1) == null);
+setInputValue(priceOptionLabelInput(popoverB, 1), 'Only Second');
+await settle();
+rowBOptions = rowByLabel('Row B'); popoverB = pricePopoverIn(rowBOptions);
+check('row 3 is materialized with the typed label', priceOptionLabelInput(popoverB, 1)?.value === 'Only Second');
+check('row 2 was ALSO minted (blank) to preserve ordering — it now offers Remove despite carrying no typed text', priceOptionRemoveButton(popoverB, 0) != null && priceOptionLabelInput(popoverB, 0)?.value === '');
+closePricePopover(rowBOptions);
+await settle();
 
-// Re-open and prove the persisted option round-trips with a real (mock-)minted
-// option_id, and that Cancel on a freshly-added SECOND option discards only
-// that option, locally, with no request.
+const savesBeforeCancelB = saveCalls;
+click(buttonIn(rowByLabel('Row B'), 'Cancel'));
+await settle();
+rowBOptions = rowByLabel('Row B');
+check('Cancel made no API request', saveCalls === savesBeforeCancelB);
+check('the row is locked again after Cancel, exactly like every other row Cancel', buttonIn(rowBOptions, 'Edit') != null);
+click(buttonIn(rowBOptions, 'Edit'));
+await settle();
+rowBOptions = rowByLabel('Row B');
+openPricePopover(rowBOptions);
+await settle();
+rowBOptions = rowByLabel('Row B'); popoverB = pricePopoverIn(rowBOptions);
+check(
+  'Cancel discarded BOTH unsaved materializations — both standard rows are phantom again',
+  priceOptionRemoveButton(popoverB, 0) == null && priceOptionRemoveButton(popoverB, 1) == null,
+);
+closePricePopover(rowBOptions);
+await settle();
+click(buttonIn(rowByLabel('Row B'), 'Cancel'));
+await settle();
+
+// ── 7d) Exactly two options, and a third beyond the standard case —
+//    "+ Add price" still appends further, never capped, rendered after the
+//    standard two. ─────────────────────────────────────────────────────────
+console.log('\n7d) Typing into row 3 (row 2 already real) reaches exactly two options; a third via "+ Add price" is preserved, never truncated');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowAOptions = rowByLabel('Row A');
 openPricePopover(rowAOptions);
 await settle();
 rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
-check('the saved option reappears by its own label on reload', priceOptionLabelInput(popover, 0)?.value === 'Annual');
-click(addPriceOptionButton(popover));
+check('row 2 (Annual) reappears materialized on reload', priceOptionLabelInput(popover, 0)?.value === 'Annual');
+setInputValue(priceOptionPriceInput(popover, 1), 90);
 await settle();
 rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
-check('a second not-yet-saved option gets its own blank row (the first is already labeled "Annual")', priceOptionRows(popover).length === 2 && priceOptionLabelInput(popover, 1)?.value === '');
+check('row 3 is now ALSO materialized — exactly two price options, row 2 untouched', priceOptionRemoveButton(popover, 1) != null && priceOptionLabelInput(popover, 0)?.value === 'Annual');
 
-// The popover's own explicit Remove (×) — a third row, added and removed
-// again, proving removal drops only that one row (never truncating/
-// reinterpreting the others) and rides no endpoint of its own.
 click(addPriceOptionButton(popover));
 await settle();
 rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
-check('a third row can be added on top', priceOptionRows(popover).length === 3);
-click(priceOptionRemoveButton(popover, 2));
+check('"+ Add price" appends a THIRD row beyond the standard two, generically placeholder-labelled', priceOptionRows(popover).length === 3 && priceOptionLabelInput(popover, 2)?.getAttribute('placeholder') === 'Option label');
+setInputValue(priceOptionLabelInput(popover, 2), 'Extra');
+setInputValue(priceOptionPriceInput(popover, 2), 50);
 await settle();
-rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+
+closePricePopover(rowAOptions);
+await settle();
+const savesBeforeThreeOptions = saveCalls;
+click(buttonIn(rowByLabel('Row A'), 'Save'));
+await settle(80);
+check('all three price options persisted through the same one full-manager save', saveCalls === savesBeforeThreeOptions + 1);
+const threeOptionRowA = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
 check(
-  'the popover\'s own Remove (×) drops only that one row, leaving the others untouched',
-  priceOptionRows(popover).length === 2 && priceOptionLabelInput(popover, 0)?.value === 'Annual',
+  'nothing is truncated or reinterpreted — all three survive, in order, with the Default Price untouched',
+  threeOptionRowA?.price_options?.length === 3
+    && threeOptionRowA.price_options[0].label === 'Annual' && threeOptionRowA.price_options[0].unit_price === 120
+    && threeOptionRowA.price_options[1].label === '' && threeOptionRowA.price_options[1].unit_price === 90
+    && threeOptionRowA.price_options[2].label === 'Extra' && threeOptionRowA.price_options[2].unit_price === 50
+    && threeOptionRowA.unit_price === 10,
+  JSON.stringify(threeOptionRowA),
 );
-
-const savesBeforeOptionCancel = saveCalls;
-click(buttonIn(rowByLabel('Row A'), 'Cancel'));
-await settle();
 rowAOptions = rowByLabel('Row A');
-check('Cancel made no API request', saveCalls === savesBeforeOptionCancel);
-check('the row is locked again after Cancel, exactly like every other row Cancel', buttonIn(rowAOptions, 'Edit') != null);
-click(buttonIn(rowAOptions, 'Edit'));
+check('the row locks again after the verified success', buttonIn(rowAOptions, 'Edit') != null);
+let summaryRows = priceOptionsSummaryRows(rowAOptions);
+check(
+  'the locked read-only summary lists Default plus all three — the blank-labelled row 3 falls back to "Option 2", never disagreeing with the edit popover',
+  summaryRows.length === 4 && summaryRows[1]?.textContent.includes('Annual') && summaryRows[2]?.textContent.includes('Option 2') && summaryRows[3]?.textContent.includes('Extra'),
+  summaryRows.map((r) => r.textContent),
+);
+check('the locked row renders no Edit trigger for its Price Options — read-only presentation only', priceEditTrigger(rowAOptions) == null);
+
+// The popover's own explicit Remove (×) on a materialized STANDARD row (not
+// just an "extra" one) — proves removal capability is never narrowed to
+// beyond-the-standard-case rows, then Cancel leaves the last-saved three
+// untouched for the rename check below.
+click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowAOptions = rowByLabel('Row A');
 openPricePopover(rowAOptions);
 await settle();
 rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
+click(priceOptionRemoveButton(popover, 1));
+await settle();
+rowAOptions = rowByLabel('Row A'); popover = pricePopoverIn(rowAOptions);
 check(
-  'Cancel discarded the unsaved second option — only the persisted "Annual" option survives, never a second row',
-  priceOptionRows(popover).length === 1 && priceOptionLabelInput(popover, 0)?.value === 'Annual',
+  'Remove on a standard (materialized) row drops only that one, leaving the others untouched — "Extra" shifts up to row 3',
+  priceOptionRows(popover).length === 2 && priceOptionLabelInput(popover, 0)?.value === 'Annual' && priceOptionLabelInput(popover, 1)?.value === 'Extra',
 );
 closePricePopover(rowAOptions);
 await settle();
 click(buttonIn(rowByLabel('Row A'), 'Cancel'));
 await settle();
 
-// ── 7c) The Default Price row's own NAME is admin display configuration for
+// ── 7e) The Default Price row's own NAME is admin display configuration for
 //    the price the row already has. Renaming it never creates a price
 //    option, never mints an identity, and never touches the price or the way
 //    a Tier selects it. ────────────────────────────────────────────────────
-console.log('\n7c) The Default Price row is editable admin configuration — it names the price the row already has');
+console.log('\n7e) The Default Price row is editable admin configuration — it names the price the row already has');
 click(buttonIn(rowByLabel('Row A'), 'Edit'));
 await settle();
 rowAOptions = rowByLabel('Row A');
@@ -643,8 +719,8 @@ check(
 );
 check('renaming leaves the price itself untouched', Number(popover.querySelector('tbody tr:nth-child(2) input[type="number"]')?.value) === 10);
 check(
-  'and adds no price option — the row still has only the one it saved',
-  priceOptionRows(popover).length === 1 && priceOptionLabelInput(popover, 0)?.value === 'Annual',
+  'and adds no price option — the row still has only the three it saved (Cancel discarded the earlier Remove)',
+  priceOptionRows(popover).length === 3 && priceOptionLabelInput(popover, 0)?.value === 'Annual' && priceOptionLabelInput(popover, 2)?.value === 'Extra',
 );
 closePricePopover(rowAOptions);
 await settle();
@@ -655,7 +731,7 @@ check('the rename persists through the same one full-manager save', saveCalls ==
 const renamedRowA = lastSavePayload.rate_sheets[0].items.find((item) => item.source_item_id === 'mgr_a');
 check(
   'the saved row carries the name as its own default_price_label, with unit_price and price_options untouched',
-  renamedRowA?.default_price_label === 'Monthly' && renamedRowA.unit_price === 10 && renamedRowA.price_options.length === 1,
+  renamedRowA?.default_price_label === 'Monthly' && renamedRowA.unit_price === 10 && renamedRowA.price_options.length === 3,
   JSON.stringify(renamedRowA),
 );
 rowAOptions = rowByLabel('Row A');

@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren, VNode } from 'preact';
 import { BUILT_IN_RATE_SHEET_UNITS } from '../../types';
 import type { PackageRateSheetUnit } from '../../types';
-import { DEFAULT_PRICE_LABEL, defaultPriceLabel } from '../../rateSheetLabels';
+import { defaultPriceLabel } from '../../rateSheetLabels';
 import { priceOptionKey, rowDisplayLabel, rowKey } from '../../surface/rateSheetTool/rateSheetToolModel';
 import type {
   RateSheetEditorGroup,
@@ -435,26 +435,40 @@ function RateSheetRowFieldCells({
  * **Edit** trigger, for the standalone drawer's active row only. The trigger
  * stays in the cell's existing position and shows the row's current Default
  * Price at a glance; Edit opens a compact 2-column table anchored to that
- * same trigger (never a detached drawer/modal) with the Default Price row
- * first, then one row per existing `row.priceOptions[]` entry, in order.
- * Default Price is not Option 0: its row edits the row's own existing
- * `unit_price` through the exact same `setRowUnitPrice` the plain input
- * always used, plus the NAME that price goes by (`defaultPriceLabel` — admin
- * display configuration for the price already there, never a price option,
- * never an identity, and never a change to how a Tier selects it). Every
- * option row edits `row.priceOptions[n]`'s own `label`/`unitPrice` directly
- * — no tab switching, so every existing price is visible and editable at
- * once, in whatever count the row actually carries (`+ Add price` appends
- * another, never capped; nothing here truncates or reinterprets a row that
- * already carries more than the two-option "compact" shape a fresh row
- * starts from). `open` is local, ephemeral presentation state — never part
- * of `RateSheetToolController`, never persisted — and resets closed on every
- * mount, i.e. every time this row becomes active, since this component is
- * only rendered inside that branch. The popover's own small **Save** is a
- * close affordance, not a second persistence path: every field already
- * writes through the same row-lock draft the outer row's own Save/Cancel
- * commits or discards, exactly like Per/Qty/Group/Remove.
+ * same trigger (never a detached drawer/modal). The standard compact case
+ * always shows exactly three editable price rows, labelled (by placeholder,
+ * never committed data) **One-Time Fee** / **Annual Renewal** / **Monthly
+ * Subscription** — row 1 is the row's own existing Default Price
+ * (`unit_price`/`defaultPriceLabel`), rows 2 and 3 are `priceOptions[0]` and
+ * `priceOptions[1]` **when present**. Default Price is not Option 0: its row
+ * edits `unit_price` through the exact same `setRowUnitPrice` the plain
+ * input always used, plus the NAME that price goes by (`defaultPriceLabel`
+ * — admin display configuration, never an identity, never a change to how a
+ * Tier selects it). If row 2 and/or row 3 has no `priceOptions[]` entry yet,
+ * it still renders as an editable row (STANDARD_OPTION_PLACEHOLDERS below)
+ * — but opening the popover creates nothing; `materializeStandardSlot`
+ * mints the real entry, through the SAME `addPriceOption`/
+ * `setPriceOptionLabel`/`setPriceOptionUnitPrice` commands every option
+ * already uses, only on the admin's own first keystroke into that row (if
+ * row 3 is typed into while row 2 is still missing, row 2 is minted blank
+ * first so array order — and so which row each entry displays as — stays
+ * correct; `priceOptions[]` has always been a plain ordered array with no
+ * separate slot identity, see the `Option ${index + 1}` fallback below).
+ * Every option row (standard or beyond) edits `priceOptions[n]`'s own
+ * `label`/`unitPrice` directly — no tab switching, every existing price
+ * visible and editable at once. A row already carrying more than two
+ * options renders the extra ones after the standard three, in order,
+ * `+ Add price` appends further, never capped; nothing here truncates or
+ * reinterprets stored options. `open` is local, ephemeral presentation
+ * state — never part of `RateSheetToolController`, never persisted — and
+ * resets closed on every mount, i.e. every time this row becomes active,
+ * since this component is only rendered inside that branch. The popover's
+ * own small **Save** is a close affordance, not a second persistence path:
+ * every field already writes through the same row-lock draft the outer
+ * row's own Save/Cancel commits or discards, exactly like Per/Qty/Group/
+ * Remove.
  */
+const STANDARD_OPTION_PLACEHOLDERS = ['Annual Renewal', 'Monthly Subscription'] as const;
 export function RateSheetPriceOptionEditor({
   ariaLabel, unitPrice, defaultLabel, priceOptions, disabled,
   onUnitPrice, onDefaultLabel, onAddOption, onRemoveOption, onOptionLabel, onOptionUnitPrice,
@@ -503,6 +517,16 @@ export function RateSheetPriceOptionEditor({
 
   const close = () => { setOpen(false); triggerRef.current?.focus(); };
 
+  // See the doc comment above: mints a still-missing standard row (2 or 3)
+  // only on the admin's own first keystroke into it, seeding whichever field
+  // (label or price) they actually typed into.
+  const materializeStandardSlot = (index: 0 | 1, patch: { label?: string; unitPrice?: number }) => {
+    if (index === 1 && priceOptions.length === 0) onAddOption();
+    const key = onAddOption();
+    if (patch.label !== undefined) onOptionLabel(key, patch.label);
+    if (patch.unitPrice !== undefined) onOptionUnitPrice(key, patch.unitPrice);
+  };
+
   return (
     <div class="cz-rate-sheet-tool__price-popover-wrap" ref={wrapRef}>
       <button type="button" ref={triggerRef} class="cz-rate-sheet-tool__price-popover-trigger"
@@ -526,7 +550,7 @@ export function RateSheetPriceOptionEditor({
               <tr>
                 <td>
                   <input ref={firstFieldRef} class="cz-tf-control cz-tf-input" type="text" value={defaultLabel} disabled={disabled}
-                    placeholder={DEFAULT_PRICE_LABEL}
+                    placeholder="One-Time Fee"
                     aria-label={`Label for default price of ${ariaLabel}`}
                     onInput={(event) => onDefaultLabel((event.currentTarget as HTMLInputElement).value)} />
                 </td>
@@ -536,7 +560,48 @@ export function RateSheetPriceOptionEditor({
                     onInput={(event) => onUnitPrice(Number((event.currentTarget as HTMLInputElement).value))} />
                 </td>
               </tr>
-              {priceOptions.map((option, index) => {
+              {/* Rows 2 and 3 of the standard compact case — always rendered,
+                  even before a price_options[] entry exists there. See
+                  materializeStandardSlot above: nothing is minted until the
+                  admin actually types into one. */}
+              {([0, 1] as const).map((index) => {
+                const option = priceOptions[index] ?? null;
+                const placeholder = STANDARD_OPTION_PLACEHOLDERS[index];
+                return (
+                  <tr key={`standard-option-${index}`}>
+                    <td>
+                      <input class="cz-tf-control cz-tf-input" type="text" value={option ? option.label : ''} disabled={disabled}
+                        placeholder={placeholder}
+                        aria-label={`Label for price option of ${ariaLabel}`}
+                        onInput={(event) => {
+                          const value = (event.currentTarget as HTMLInputElement).value;
+                          if (option) onOptionLabel(priceOptionKey(option), value);
+                          else materializeStandardSlot(index, { label: value });
+                        }} />
+                    </td>
+                    <td class="cz-rate-sheet-tool__price-popover-price-cell">
+                      <input class="cz-tf-control cz-tf-input" type="number" min="0" step="0.01" value={option ? option.unitPrice : ''} disabled={disabled}
+                        aria-label={`Unit price for price option of ${ariaLabel}`}
+                        onInput={(event) => {
+                          const value = Number((event.currentTarget as HTMLInputElement).value);
+                          if (option) onOptionUnitPrice(priceOptionKey(option), value);
+                          else materializeStandardSlot(index, { unitPrice: value });
+                        }} />
+                      {option && !disabled && (
+                        <button type="button" class="cz-rate-sheet-tool__price-popover-remove"
+                          aria-label={`Remove price option ${option.label.trim() || placeholder}`}
+                          onClick={() => onRemoveOption(priceOptionKey(option))}>
+                          ×
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {/* Any further, already-existing price options beyond the
+                  standard two — never truncated, never capped. */}
+              {priceOptions.slice(2).map((option, extraIndex) => {
+                const index = extraIndex + 2;
                 const optionKey = priceOptionKey(option);
                 return (
                   <tr key={optionKey}>

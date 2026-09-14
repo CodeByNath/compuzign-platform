@@ -31,10 +31,23 @@ completely untouched by a price option's presence. In the standalone Rate
 Sheet drawer's active-row editor, the Unit Price cell keeps its existing
 position and shows a compact trigger (current Default Price + **Edit**) that
 opens an anchored popover — never a detached drawer/modal — with a compact
-2-column table: a merged "Unit Price" title row, then one row per price
-(Default Price first, always present, followed by each `row.priceOptions[]`
-entry in order, editable label left/price right, each option row carrying
-its own remove control and `+ Add price` appending another, uncapped)
+2-column table: a merged "Unit Price" title row, then the standard compact
+case's three editable price rows, placeholder-labelled (never committed
+data) **One-Time Fee** / **Annual Renewal** / **Monthly Subscription** — row
+1 the row's own Default Price, rows 2 and 3 `row.priceOptions[0]` and `[1]`
+**whenever present**. If a standard row has no `priceOptions[]` entry yet it
+still renders, editable, exactly like this; opening the popover mints
+nothing — `materializeStandardSlot` (`rateSheetParts.tsx`) mints the real
+entry, through the SAME `addPriceOption`/`setPriceOptionLabel`/
+`setPriceOptionUnitPrice` commands every option already uses, only on the
+admin's own first keystroke into that still-missing row (typing into row 3
+before row 2 exists mints row 2 blank first, so array order — and so which
+row each entry displays as — stays correct; `price_options[]` has always
+been a plain ordered array with no separate slot identity). Any further,
+already-existing options beyond the standard two render after them, in
+order, editable label left/price right, each option row (standard or
+beyond) carrying its own remove control and `+ Add price` appending
+another, uncapped — nothing here truncates or reinterprets stored options
 (`RateSheetUnitPriceOptionEditor` / `RateSheetPriceOptionEditor` in
 `presentation/rate-sheet-tool/rateSheetParts.tsx`), riding the row's own
 existing Edit/Save/Cancel lock — no new drawer, endpoint, lock, or permanent
