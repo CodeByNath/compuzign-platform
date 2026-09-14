@@ -1,11 +1,12 @@
 # Package Home — Connections / Settings Accordion Row Backgrounds
 
 ## Status
-- **AWAITING REVIEWER REVIEW**
+- **SOURCE PUSH NOT APPROVED**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
+- Reviewer verdict: **Proceed with safeguards**
 - Production base: `cf7d7f2b133f3354e617318773b6da2d60d2e610`
-- Corrected topic head: `cd2f76bf` (on `package-home-accordion-row-backgrounds`, supersedes reviewed head `f3c3d284001340c3af12df0e3ebbc2d1ab85654c`)
+- Reviewed topic head: `cd2f76bf292e4c5c05a841f017fd43cc89ce51bc`
 
 ## Goal
 Package Home only. Refine accordion-row background colors in the **Connections** and **Settings** panels.
@@ -23,55 +24,33 @@ Package Home only. Refine accordion-row background colors in the **Connections**
 
 **Background color only.**
 
-## User clarification from live screenshots
-The visual intent is now explicit:
-- the **default/resting row must be the darker state**;
-- **hover must be the lighter / more highlighted state**;
-- hover must never make the row look less highlighted than default.
+## User clarification from screenshots
+The screenshots show:
+- default/resting row = dark/base surface;
+- hovered Family Groups row = lighter/elevated surface.
 
-The screenshots show the current candidate doing the opposite: default is the lighter/elevated surface and hover drops to the darker/base surface. That is visually backwards.
+Nath explicitly said the hover state becoming lighter is the wrong direction and **must be opposite**. Therefore the intended result is:
+- **default/resting row = lighter/elevated surface**;
+- **hover = darker/base surface**.
+
+The earlier Reviewer instruction interpreted that screenshot backwards. This file now corrects that mistake.
 
 ## Reviewer audit
-The topic is correctly scoped to the shared Package Home accordion owner. The actual source confirms:
-- `.cz-tier-deck__accordion-section` = `var(--station-surface-elevated)` at rest;
-- `.cz-tier-deck__accordion-trigger:hover` = `var(--station-surface)` on hover.
+The current corrected topic `cd2f76bf` has **no net file diff from `main`**: its second commit cancels the first one. GitHub compare reports two commits ahead but `files: []`. Production/current source is still:
+- `.cz-tier-deck__accordion-section` → `var(--station-surface)`;
+- `.cz-tier-deck__accordion-trigger:hover` → `var(--station-surface-elevated)`.
 
-That makes hover darker than default, exactly matching the defect in Nath's screenshots. The Builder's comment also explicitly says the change intentionally reversed the prior “lighten on hover” rule, which is not the intended result.
+That is exactly the visual behavior Nath rejected in the screenshots: dark at rest, lighter on hover.
 
-No architecture issue exists; this is a bounded visual correction only.
+The first topic commit `f3c3d284...` actually had the requested opposite direction. The architecture/scope was otherwise correct and narrow.
 
 ## Blocking correction
-On the same topic branch:
-1. Make the **default/resting accordion row darker**.
-2. Make **hover lighter/more highlighted**.
-3. Change background color only.
-4. Keep the same narrow Package Home accordion selectors; do not alter typography, borders, radius, spacing, icons, actions, focus treatment, accordion behavior, routing, or data.
-5. Restore/update the nearby comment so it describes the actual rule: hover highlights/lightens, never visually recedes.
-6. Rebuild generated CSS and rerun the same focused checks.
-
-Use the existing two surface tokens unless source inspection proves a different existing token pair is required; the visual direction must be darker default -> lighter hover.
+On the same `package-home-accordion-row-backgrounds` branch:
+1. Set `.cz-tier-deck__accordion-section` default background to `var(--station-surface-elevated)`.
+2. Set `.cz-tier-deck__accordion-trigger:hover` background to `var(--station-surface)`.
+3. Background color only. Do not change typography, borders, radius, spacing, icons, actions, focus treatment, accordion behavior, routing, or data.
+4. Update the nearby comment to describe the intended rule accurately; do not preserve the old “lighten on hover” wording because that is specifically what Nath rejected.
+5. Rebuild generated CSS and rerun the same focused checks.
 
 ## Next action
-Builder: apply only this correction on `package-home-accordion-row-backgrounds`, push the updated topic branch, record the new exact SHA and validation evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
-
-## Builder correction result
-
-Applied exactly the blocking correction, on the same topic branch:
-- `.cz-tier-deck__accordion-section` (resting/default) → `var(--station-surface)`
-- `.cz-tier-deck__accordion-trigger:hover` → `var(--station-surface-elevated)`
-- Restored the "Lighten on hover, never darken…" comment describing that rule.
-
-Same two existing surface tokens used, nothing else touched — no typography, border, radius, spacing, icon, action, focus, accordion behavior, routing, or data change.
-
-**Flagging for Reviewer:** `git diff main -- resources/ts/admin-station/styles/admin-station.css` is now empty — this correction restores the exact token pairing `main` already had before this work item started. The net effect on production, once merged, is therefore no visible change from what's live today. Confirming this is the intended outcome (i.e., the earlier "swap" framing was the misstep, and today's live accordion coloring was already correct) before this goes further.
-
-Commit: `cd2f76bf` on `package-home-accordion-row-backgrounds` (pushed).
-
-### Checks run (all passed)
-- `npx tsc --noEmit`
-- `npm run build` (dist/css/admin-station.css rebuilt)
-- `npm run contract:package-tier-workspace`
-- `npm run contract:package-tier-workspace-shell`
-- `npm run contract:tier-connections`
-- `npm run contract:tier-settings`
-- `npm run docs:check`
+Builder: restore that exact visual direction on the same topic branch, push the new topic head, record the exact SHA and validation evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
