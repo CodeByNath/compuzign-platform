@@ -1,12 +1,11 @@
 # Package Home — Connections / Settings Accordion Row Backgrounds
 
 ## Status
-- **SOURCE PUSH NOT APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Reviewer verdict: **Proceed with safeguards**
 - Production base: `cf7d7f2b133f3354e617318773b6da2d60d2e610`
-- Reviewed topic head: `f3c3d284001340c3af12df0e3ebbc2d1ab85654c`
+- Corrected topic head: `cd2f76bf` (on `package-home-accordion-row-backgrounds`, supersedes reviewed head `f3c3d284001340c3af12df0e3ebbc2d1ab85654c`)
 
 ## Goal
 Package Home only. Refine accordion-row background colors in the **Connections** and **Settings** panels.
@@ -54,3 +53,25 @@ Use the existing two surface tokens unless source inspection proves a different 
 
 ## Next action
 Builder: apply only this correction on `package-home-accordion-row-backgrounds`, push the updated topic branch, record the new exact SHA and validation evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
+
+## Builder correction result
+
+Applied exactly the blocking correction, on the same topic branch:
+- `.cz-tier-deck__accordion-section` (resting/default) → `var(--station-surface)`
+- `.cz-tier-deck__accordion-trigger:hover` → `var(--station-surface-elevated)`
+- Restored the "Lighten on hover, never darken…" comment describing that rule.
+
+Same two existing surface tokens used, nothing else touched — no typography, border, radius, spacing, icon, action, focus, accordion behavior, routing, or data change.
+
+**Flagging for Reviewer:** `git diff main -- resources/ts/admin-station/styles/admin-station.css` is now empty — this correction restores the exact token pairing `main` already had before this work item started. The net effect on production, once merged, is therefore no visible change from what's live today. Confirming this is the intended outcome (i.e., the earlier "swap" framing was the misstep, and today's live accordion coloring was already correct) before this goes further.
+
+Commit: `cd2f76bf` on `package-home-accordion-row-backgrounds` (pushed).
+
+### Checks run (all passed)
+- `npx tsc --noEmit`
+- `npm run build` (dist/css/admin-station.css rebuilt)
+- `npm run contract:package-tier-workspace`
+- `npm run contract:package-tier-workspace-shell`
+- `npm run contract:tier-connections`
+- `npm run contract:tier-settings`
+- `npm run docs:check`
