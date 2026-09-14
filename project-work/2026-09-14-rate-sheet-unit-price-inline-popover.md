@@ -1,68 +1,42 @@
 # Rate Sheet — Unit Price Inline Popover
 
 ## Status
-- **AWAITING REVIEWER REVIEW**
-- Builder: **Claude** (this session)
+- **SOURCE PUSH NOT APPROVED**
+- Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
+- Reviewer verdict: **Proceed with safeguards**
 - Production base: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb`
-- Topic branch: `rate-sheet-unit-price-popover`
-- Pushed topic SHA: `a47b6f911c23ff8772db78337ab39c9fc782bced`
-
-## Builder report (2026-09-14)
-
-Branch hygiene confirmed (only `main` + `Project-work-instructions` existed; also removed local `admin-ui-refinement`, already merged/remote-deleted). Topic branch cut from `main` at the production base SHA above.
-
-**Files changed** (one commit on the topic branch):
-- `rateSheetParts.tsx` — `RateSheetPriceOptionEditor` rewritten: the Unit Price cell now shows a small trigger (current Default Price + **Edit**) opening an anchored popover (`position: absolute` off a `position: relative` wrap — never a detached drawer/modal). Popover: close (×); 2-column table with a merged "Unit Price" title row; Default Price row always first, same `setRowUnitPrice`/`setRowDefaultPriceLabel` commands as before; every `priceOptions[]` entry its own row beneath, all simultaneously visible/editable (no tabs), each with its own Remove (×); `+ Add price` (uncapped); a small **Save** that just closes the popover, since every field already writes into the row's existing lock draft — no new command, no new endpoint. `RateSheetUnitPriceOptionEditor`'s prop/command signature is unchanged, so Bundle rows and the row lock pick this up automatically. Locked-row read summary (`RateSheetRowReadCells`/`RateSheetPriceOptionsSummary`) untouched — no trigger/popover for a locked row.
-- `admin-station.css` (+ rebuilt `dist/`) — old tab-strip rules replaced with `.cz-rate-sheet-tool__price-popover*`, existing `--station-*` tokens only, no collision in `atomic-engine/css/`. Locked-row summary CSS untouched.
-- `package-station/CLAUDE.md` — the tab-strip paragraph rewritten for the popover; nothing else changed.
-- `rate-sheet-row-lock-regression.mjs`, `rate-sheet-bundle-regression.mjs` — both drove the old tab DOM directly; rewrote their price-editing steps to open/read/write/close the popover, and added a direct check of its Remove (×) that neither script exercised before. Same invariants proved, new interaction shape. `buttonIn()` in both now excludes the popover subtree (its own "Save" close-affordance would otherwise collide by text with the row's real Save while open).
-
-**Tests, all green:** `tsc --noEmit`, `build`, `docs:check`, `regression:rate-sheet-row-lock`, `regression:rate-sheet-bundle`, `regression:rate-sheet-service-import` (confirmed unaffected), `contract:tier-connections` (focused-Tier drawers confirmed untouched), `contract:admin-station-css` (6 pre-existing failures, unrelated to this work, reproduced identically on `main` before any change — none of mine among them).
-
-**>3 / <3 price options (Builder decision):** the popover renders exactly what the row already carries — Default Price plus one row per existing `priceOptions[]` entry, whatever the count. Nothing added, truncated, or capped for a fixed row count: a fresh row shows only Default (+ "Add price"); a 5-option row shows all 5. The "compact" 3-row case is what a row looks like once an admin has clicked "+ Add price" twice, not something auto-seeded.
-
-**Naming decision:** did **not** hard-code One-Time Fee/Annual Renewal/Monthly Subscription as placeholder text. The Default row's existing placeholder is the shared `DEFAULT_PRICE_LABEL` constant, also read by the locked-row summary and the Tier's own price selector (`defaultPriceLabel()`) — changing only the popover's ghost text would mismatch what displays elsewhere once saved blank. Read the three names as the brief's illustrative example of the compact shape, per its own "editable labels, not semantic billing types" instruction, rather than literal copy to hard-code. If literal placeholders are wanted instead, that's a one-line bounded correction (three `placeholder` attributes).
+- Reviewed topic head: `a47b6f911c23ff8772db78337ab39c9fc782bced` (`rate-sheet-unit-price-popover`)
 
 ## Goal
 Refine only the Rate Sheet editor's **Unit Price** cell interaction.
 
-Replace the current stacked/tabbed price-option editor with a compact anchored popover opened by **Edit** inside the Unit Price cell.
-
-Required visual/interaction shape:
-- anchored to the Unit Price cell/Edit trigger, not a detached drawer/modal;
+Required result:
+- **Edit** opens an anchored popover in the Unit Price cell;
 - close control;
 - compact 2-column table;
-- first row merged across both columns as **Unit Price**;
-- three price rows in the requested compact case: **One-Time Fee**, **Annual Renewal**, **Monthly Subscription**;
-- editable price label left, editable numeric price right;
-- small **Save** action inside or directly alongside the popover;
-- preserve the existing Unit Price cell position and all surrounding **Per**, **Quantity**, **Group**, **Remove**, row-lock, Save/Cancel, and row behavior.
+- first row merged as **Unit Price**;
+- standard compact case has three visible editable price rows: **One-Time Fee**, **Annual Renewal**, **Monthly Subscription**;
+- label left, numeric value right;
+- small **Save** inside/alongside the popover;
+- preserve Per, Quantity, Group, Remove, row lock, Bundle behavior, focused-Tier callers, and existing Rate Sheet pricing authority.
 
-## Existing architecture / safeguards
-`docs/code-map/rate-sheet.md` confirms Rate Sheet pricing remains Package Station authority. `rateSheetParts.tsx` currently renders the standalone active row's Unit Price editor through `RateSheetUnitPriceOptionEditor` / `RateSheetPriceOptionEditor`; the data model is one row-owned `unitPrice` (Default Price) plus **zero or more** row-owned `priceOptions[]`. Labels are presentation configuration; they are not billing-cycle semantics or identity.
+## Reviewer audit
+The topic is one commit directly ahead of production with no divergence. The implementation correctly keeps the existing `unit_price` / `default_price_label` / `price_options[]` model, reuses existing controller commands, preserves Bundle/focused-Tier boundaries, and replaces the old tab strip with a real anchored popover. No new billing-cycle fields, endpoint, session, identity, or pricing authority was introduced.
 
-**Must preserve:**
-- existing `unit_price`, `default_price_label`, and `price_options[]` storage/identity model;
-- existing controller commands and full-manager save boundary unless source audit proves a narrow change is required;
-- Price Option Platform IDs / backend minting rules;
-- focused-Tier connection drawers and any caller that intentionally still uses the plain Unit Price input;
-- Bundle rows using the same Rate Sheet row editor;
-- arbitrary existing persisted price options: do not truncate, delete, reinterpret, or silently cap stored options merely to force a 2×4 visual.
+However the actual UI does **not yet match the requested compact 2×4 layout**. The current code renders Default Price plus however many persisted `priceOptions[]` happen to exist. A fresh row therefore shows only one price row, and the requested labels are not present at all. The Builder report explicitly chose not to render One-Time Fee / Annual Renewal / Monthly Subscription. That conflicts with the stated UI requirement.
 
-**Must not substitute:**
-- no new billing-cycle fields or commercial-leg semantics;
-- no second pricing model;
-- no modal/drawer replacing the requested anchored popover;
-- no loss of Per/Qty/Group/Remove or row-lock behavior.
+## Blocking correction
+Keep the existing storage model and preserve arbitrary extra persisted options, but make the standard popover visibly match the requested compact table:
 
-## Builder task
-1. Start from current `main`, create one topic branch after confirming only the two permanent branches exist.
-2. Audit `rateSheetParts.tsx`, `rateSheetToolModel.ts`, controller commands, styles, and Bundle/focused-Tier consumers before editing.
-3. Implement the smallest presentation refactor that maps the popover rows onto the existing Default Price + Price Options model.
-4. Treat the requested names as editable labels, not semantic billing types. If existing data has a different number of price options, preserve capability and report exactly how the popover handles that case; do not destroy data to obtain exactly four visual rows.
-5. Preserve accessibility: trigger semantics, focus/close behavior, keyboard access, labels, and Save state.
-6. Run focused TypeScript/build/contracts/docs checks; rebuild generated assets only as required.
-7. Push only the topic branch, record exact SHA/files/tests plus the >3/<3 price-option behavior here, set **AWAITING REVIEWER REVIEW**, and stop.
+1. The first three visible editable price rows must be presented as **One-Time Fee**, **Annual Renewal**, and **Monthly Subscription** labels (editable, not semantic billing types).
+2. Row 1 maps to the existing Default Price (`unit_price` / `default_price_label`). Rows 2 and 3 map to the first two `price_options[]` entries when present.
+3. If either option row does not yet exist, still render that visual row without silently persisting a record merely by opening the popover. Materialize the corresponding existing-model price option only when the user actually edits that missing row (or otherwise through the smallest explicit user action). Do not invent a second model.
+4. If more than two `price_options[]` already exist, preserve and render the additional options after the standard three rows. Never truncate/delete them.
+5. Keep the 2-column structure: label left, value right. Any option remove control must not effectively become a third table column.
+6. Keep the anchored popover, close behavior, row-lock draft semantics, outer row Save/Cancel persistence boundary, and focused-Tier/Bundle behavior unchanged.
 
-No implementation has been performed by Reviewer.
+The popover's small **Save** may remain a close/apply-to-row-draft action as long as the real persistence boundary remains the established outer row Save and the UI does not imply a second backend save path.
+
+## Next action
+Builder: apply only this bounded presentation/data-materialization correction on the same `rate-sheet-unit-price-popover` branch, update the focused regressions to cover fresh row (<2 options), exactly two options, and >2 options, rerun focused TypeScript/build/contracts/docs checks, push the updated topic branch, record the new exact SHA and evidence here, set **AWAITING REVIEWER REVIEW**, and stop. Do not push `main` yet.
