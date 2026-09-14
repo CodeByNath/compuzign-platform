@@ -1,12 +1,12 @@
 # Admin Station Header — User Logout / Hide Apps
 
 ## Status
-- **AWAITING REVIEWER REVIEW**
+- **SOURCE PUSH APPROVED**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Reviewer verdict (prior round): **Proceed with safeguards**, 3 blocking corrections
+- Reviewer verdict: **Proceed**
 - Production base: `44c4a1b5103475d855b42c735fe16b1ff207c6a5`
-- Pushed Builder topic head: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb` (`admin-header-user-menu`)
+- Approved topic head: `269e1dab0d405e969fc14653e0ae3b4413a8d1bb` (`admin-header-user-menu`)
 
 ## Goal
 Header right side only:
@@ -17,27 +17,22 @@ Header right side only:
 - preserve existing dropdown visual language, outside-click dismissal, Escape dismissal, navigation, and WordPress auth/session ownership.
 
 ## Reviewer audit
-The topic is one commit directly ahead of production with no divergence. Actual changes are limited to Admin Station header/dropdown presentation, runtime config typing, `AssetLoader.php`, and rebuilt Admin Station assets.
+Fresh branch check now shows exactly the allowed three branches: `main`, `Project-work-instructions`, and active topic `admin-header-user-menu`; stale `admin-login-ui` is gone.
 
-The overall approach is correct: Apps is removed from `AdminStationHeader.tsx`; theme toggle is unchanged; logout uses WordPress `wp_logout_url()` rather than a client-side session reset; redirect target is derived from the current same-site request; no new auth/session authority is introduced.
+The reviewed topic is two commits directly ahead of production base with no divergence. The second commit contains only the requested corrections in `AdminStationHeader.tsx` plus rebuilt `dist/js/admin-station.js`.
 
-## Blocking corrections
-1. **Menu accessibility is wrong.** `AdminStationDropdown` renders `aria-labelledby={labelledBy}`, but the User call currently passes `labelledBy="cz-station-user-menu"` — the menu's own id. A menu cannot meaningfully label itself. Give the User trigger button a stable id (for example `cz-station-user-menu-trigger`) and pass that id as `labelledBy`. Preserve `aria-haspopup`, `aria-expanded`, `aria-controls`, Escape focus restoration, and outside-click dismissal.
+All prior blockers are resolved:
+1. User trigger now has stable id `cz-station-user-menu-trigger`; the dropdown `aria-labelledby` points to that trigger. Existing `aria-haspopup`, `aria-expanded`, `aria-controls`, Escape focus restoration, and outside-click dismissal remain intact.
+2. Fake `href="#"` logout fallback is removed. The real WordPress logout action renders only when server-provided `logoutUrl` exists.
+3. Stale `admin-login-ui` remote branch has been removed; branch hygiene now matches repository rules.
 
-2. **Do not ship a fake logout fallback.** The Log out link currently uses `href={window.CompuZignConfig?.logoutUrl ?? '#'}`. `#` is not logout and silently degrades required capability. Use the authoritative runtime URL without substituting a no-op action. If the runtime invariant must be guarded, fail/omit explicitly rather than presenting a clickable fake Log out.
+The underlying approach remains sound: Apps is removed rather than merely hidden; theme toggle is unchanged; logout uses WordPress `wp_logout_url()` through the existing runtime-config seam; redirect remains the current same-site Admin Station page; no client-side auth/session mechanism or new domain authority is introduced.
 
-3. **Branch housekeeping report is false/incomplete.** Remote branch listing still contains `admin-login-ui`, so the repo currently has four branches: `main`, `Project-work-instructions`, `admin-login-ui`, `admin-header-user-menu`. Root `AGENTS.md` allows only one active topic branch and says completed topic deletion is mandatory once contained in `main`. Verify `admin-login-ui` is an ancestor of `main`, delete the stale remote branch, and record the corrected branch set.
+Builder validation recorded: TypeScript clean, build successful, station-tabset contract 98 checks passed, docs check passed, and only the same six pre-existing unrelated `cz-rate-sheet-tool__*` CSS-contract findings remain.
 
-## Corrections applied (topic head `269e1dab`)
+## Next action
+Reviewer approval is complete for exact SHA `269e1dab0d405e969fc14653e0ae3b4413a8d1bb`.
 
-1. **Menu labelling fixed.** The User trigger button now has `id="cz-station-user-menu-trigger"`; `AdminStationDropdown`'s `labelledBy` for the User menu is that trigger id, not the menu's own id. `aria-haspopup`, `aria-expanded`, `aria-controls`, Escape-restores-focus, and outside-click dismissal are all unchanged.
+Builder may now move only this exact reviewed candidate to `main` and let the normal GitHub Actions deployment run. Any source change invalidates this approval and requires another Reviewer pass.
 
-2. **Fake logout fallback removed.** `href={window.CompuZignConfig?.logoutUrl ?? '#'}` is gone. `logoutUrl` is read once (`const logoutUrl = window.CompuZignConfig?.logoutUrl`) and the dropdown only renders — with its one real Log out action — when `userMenuOpen && logoutUrl` are both true; if the runtime config value were ever absent, the menu produces no content rather than a non-functional link.
-
-3. **Branch housekeeping corrected.** Verified `admin-login-ui` (`44c4a1b5`) was an ancestor of `origin/main` (`git merge-base --is-ancestor`, same SHA), then deleted it from `origin` this time (it was only removed locally in the prior round — the actual gap the Reviewer caught). `git ls-remote --heads origin` now shows exactly `main`, `Project-work-instructions`, `admin-header-user-menu`.
-
-Focused validation rerun (plugin root), all clean: `npx tsc --noEmit`, `npm run build`, `npm run contract:admin-station-css` (same 6 pre-existing unrelated `cz-rate-sheet-tool__*` findings only), `npm run contract:station-tabset` (98 checks), `npm run docs:check`.
-
-Only files touched by this correction: `AdminStationHeader.tsx` and the rebuilt `dist/js/admin-station.js`. No other file from the prior round changed.
-
-Topic branch pushed; `main` untouched pending `SOURCE PUSH APPROVED`.
+After deployment, Builder must record the exact resulting `main` SHA and deployment run/result, set **AWAITING LIVE VALIDATION**, add a concise request for Nath to validate: Apps icon absent; theme toggle still works; User dropdown opens/closes correctly; Log out signs out and returns to the Admin Station login gate. Then stop.
