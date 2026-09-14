@@ -1,12 +1,12 @@
 # Package Home — Connections / Settings Accordion Row Backgrounds
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Production base: `cf7d7f2b133f3354e617318773b6da2d60d2e610`
-- Approved topic head: `64a8e772085b19b0f907460ca2c31d868e779438`
-- Verdict: **Proceed**
+- Live validator: **Nath**
+- Production `main`: `64a8e772085b19b0f907460ca2c31d868e779438`
+- Deployment: GitHub Actions "Deploy to Hostinger" run #1032 — **Success**
 
 ## Goal
 Package Home only. Change background direction for accordion rows in Connections and Settings.
@@ -46,3 +46,15 @@ Builder-reported checks all passed:
 Builder may move **only exact reviewed candidate `64a8e772085b19b0f907460ca2c31d868e779438`** to `main` and run the normal deployment pipeline. Any source change invalidates this approval.
 
 After production push, record the exact `main` SHA and deployment evidence here, set **AWAITING LIVE VALIDATION**, add the concise live-validation request for Nath, and stop. Nath performs the live browser validation.
+
+## Production / deployment evidence
+- Nath fast-forwarded `main` to `64a8e772085b19b0f907460ca2c31d868e779438` (the exact approved candidate, verified byte-identical — no source change since review) and pushed.
+- GitHub Actions "Deploy to Hostinger" run [#1032](https://github.com/CodeByNath/compuzign-platform/actions/runs/34863036567) completed with conclusion **success** for that SHA.
+- Confirmed separately: this SHA does not include the unrelated `admin-station-logout-redirect` branch — the two are independent siblings off `cf7d7f2b`, and this candidate touches only the two accordion CSS files.
+
+## Live validation requested — Nath
+Please check on the live Package Home:
+- **Connections panel** (Family Group, Groups, Rate Sheet accordion headers) and **Settings panel** (Family Groups, Tier Groups, Rate Sheets, Maintenance accordion headers): resting/default row should read the lighter/elevated surface, hover should settle to the darker/base surface — matching the direction from your screenshots.
+- Nothing else changed: accordion open/close, row content, actions, and everything inside each panel should look and behave exactly as before.
+
+Reply pass/fail here (or in chat) and I'll close this out.
