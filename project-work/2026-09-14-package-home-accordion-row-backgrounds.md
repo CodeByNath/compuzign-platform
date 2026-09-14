@@ -1,10 +1,11 @@
 # Package Home — Connections / Settings Accordion Row Backgrounds
 
 ## Status
-- **READY FOR BUILDER**
-- Builder: **Claude / Codex as assigned by Nath**
+- **AWAITING REVIEWER REVIEW**
+- Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
 - Production base: `cf7d7f2b133f3354e617318773b6da2d60d2e610`
+- Topic branch: `package-home-accordion-row-backgrounds`, pushed at `f3c3d284001340c3af12df0e3ebbc2d1ab85654c`
 
 ## Goal
 Package Home only. Refine accordion-row background colors in the **Connections** and **Settings** panels.
@@ -46,3 +47,40 @@ Prefer the narrowest existing selectors/tokens that already own these Package Ho
 7. Push only the topic branch, record exact SHA/files/tests and the exact selectors/tokens changed here, set **AWAITING REVIEWER REVIEW**, and stop.
 
 No product implementation was performed by Reviewer.
+
+## Builder result
+
+### Housekeeping
+- Verified `rate-sheet-unit-price-popover` was fully contained in `main` (`git merge-base --is-ancestor` confirmed) before deleting it, local and remote.
+- Returned to `main` (synced with `origin/main`, still at `cf7d7f2b133f3354e617318773b6da2d60d2e610`) and branched `package-home-accordion-row-backgrounds` from there.
+
+### Root cause / target found
+`TierAccordionSection.tsx` is rendered **only** by `TierConnections.tsx` (Connections panel: Family Group, Groups, Rate Sheet) and `TierSystemSettings.tsx` (Settings panel: Family Groups, Tier Groups, Rate Sheets, Maintenance) — confirmed by grepping every consumer of the component. No other station or lane uses it, and the visually similar `DrawerGroupAccordion.tsx` (drawer-kit) uses its own distinct `cz-drawer-groups__*` class family, so there is no collision risk.
+
+The single CSS owner of every one of those accordion "row groups" is one rule pair in `wp-content/plugins/compuzign-platform/resources/ts/admin-station/styles/admin-station.css`:
+- `.cz-tier-deck__accordion-section` — the row group's **default** background (was `var(--station-surface)`)
+- `.cz-tier-deck__accordion-trigger:hover` — the row group's **hover** background (was `var(--station-surface-elevated)`)
+
+### Change made
+Swapped exactly those two token values (lines ~3283–3314):
+- default → `var(--station-surface-elevated)`
+- hover → `var(--station-surface)`
+
+Also corrected the adjacent code comment ("Lighten on hover, never darken…"), which documented the now-reversed rule, so it no longer misleads the next reader. No other property on these rules, and no other selector, was touched. `dist/css/admin-station.css` was rebuilt and included.
+
+### Files changed
+- `wp-content/plugins/compuzign-platform/resources/ts/admin-station/styles/admin-station.css`
+- `wp-content/plugins/compuzign-platform/dist/css/admin-station.css` (build output)
+
+### Checks run (all passed, from the plugin root)
+- `npx tsc --noEmit`
+- `npm run build`
+- `npm run contract:package-tier-workspace`
+- `npm run contract:package-tier-workspace-shell`
+- `npm run contract:tier-connections`
+- `npm run contract:tier-settings`
+- `npm run docs:check`
+- `npm run contract:admin-station-css` — fails with the same 6 pre-existing `cz-rate-sheet-tool__import-*` findings present on `main` before this change (verified via `git stash`); unrelated to this work.
+
+### Note for Reviewer
+The work order says "swap the current default and hover background colors," which I took literally: the two token values trade places. This intentionally reverses the accordion trigger's previous "lighten on hover, never darken" behavior — hover now reads as the base surface rather than the elevated one. Flagging this explicitly since it inverts a previously-documented design rule; if that reversal wasn't the intent, the fix is a one-line revert of the two token values above.
