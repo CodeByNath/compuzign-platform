@@ -4035,10 +4035,14 @@ button.cz-station-status-pill {
 }
 
 /* Admin Station login gate / access-denied — logged-out or unauthorized
-   visitor to the Admin Station shortcode. Field, button, and error chrome
-   reuses the drawer kit's own cz-tf- field system, cz-admin-btn buttons,
-   and cz-admin-error-msg; only the page-centering card and brand mark are
-   new here. */
+   visitor to the Admin Station shortcode. Rendered outside the React shell,
+   so the root carries `cz-admin-station` + `data-station-theme="dark"` itself
+   to pick up the field/button foundation and dark tokens — the design is a
+   fixed dark brand screen, not adaptive to a caller theme. Page background,
+   card translucency, and the blue glow use the --station-login-* family
+   (admin-station-tokens.css), referenced only here. Field, button, and error
+   chrome reuses the drawer kit's own cz-tf- field system, cz-admin-btn
+   buttons, and cz-admin-error-msg. */
 
 .cz-station-login-gate {
   min-height: 100vh;
@@ -4047,17 +4051,19 @@ button.cz-station-status-pill {
   justify-content: center;
   padding: var(--station-space-x);
   background:
-    radial-gradient(560px 360px at 50% -10%, var(--station-accent-soft-bg), transparent 70%),
+    radial-gradient(720px 460px at 50% -12%, var(--station-login-glow), transparent 70%),
     var(--station-surface);
 }
 
 .cz-station-login-gate__card {
   width: 100%;
   max-width: 380px;
-  background: var(--station-card-bg);
-  border: 1px solid var(--station-border);
-  border-radius: var(--station-card-radius);
-  box-shadow: var(--station-shadow);
+  background: var(--station-login-card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--station-login-card-border);
+  border-radius: var(--station-login-card-radius);
+  box-shadow: var(--station-shadow), 0 0 56px var(--station-login-glow);
   padding: 40px 32px 32px;
 }
 
@@ -4110,14 +4116,27 @@ button.cz-station-status-pill {
   gap: 20px;
 }
 
-.cz-station-login-gate__password-wrap {
+.cz-station-login-gate__control-wrap {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.cz-station-login-gate__password-wrap .cz-tf-input {
+.cz-station-login-gate__control-wrap .cz-tf-input {
   width: 100%;
+  padding-left: 42px;
+}
+
+.cz-station-login-gate__control-icon {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: var(--station-text-muted);
+  pointer-events: none;
+}
+
+.cz-station-login-gate__password-wrap .cz-tf-input {
   padding-right: 64px;
 }
 
@@ -4149,4 +4168,18 @@ button.cz-station-status-pill {
   margin-top: 6px;
   min-height: var(--station-field-min-h-lg);
   font-size: var(--station-field-font-lg);
+}
+
+.cz-station-login-gate__divider {
+  height: 1px;
+  margin: 28px 0 16px;
+  background: var(--station-card-divider);
+}
+
+.cz-station-login-gate__footer {
+  margin: 0;
+  text-align: center;
+  font-size: var(--station-text-xs);
+  color: var(--station-text-muted);
+  letter-spacing: var(--station-tracking-wide);
 }

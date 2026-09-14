@@ -55,6 +55,14 @@
    * filled accent, never a gap. */
   --station-accent-seam: rgba(255, 255, 255, 0.30);
 
+  /* Login gate — a fixed dark brand screen, always this look regardless of
+   * theme, so its accents live here as their own theme-independent family
+   * rather than switching with --station-surface/--station-card-bg. */
+  --station-login-glow: rgba(92, 110, 245, 0.22);
+  --station-login-card-bg: rgba(21, 24, 34, 0.78);
+  --station-login-card-border: rgba(124, 140, 255, 0.35);
+  --station-login-card-radius: 24px;
+
   /* Navigation tabs — derived from the admin secondary (accent-outline) button
    * style. Theme-independent so the Header pills carry the same accent identity
    * in both light and dark. */
