@@ -1,13 +1,12 @@
 # Admin Station — Logout Redirect
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
 - Live validator: **Nath**
-- Production base: `64a8e772085b19b0f907460ca2c31d868e779438`
-- Approved topic head: `9d2292a8ba0c2256229e3494c7298aedceb979fa`
-- Verdict: **Proceed**
+- Production `main`: `9d2292a8ba0c2256229e3494c7298aedceb979fa`
+- Deployment: GitHub Actions "Deploy to Hostinger" run #1033 — **Success**
 
 ## Required outcome
 Logging out from the Admin Station User menu must return the user to the actual frontend page hosting the Admin Station shortcode/login gate, never `/wp-admin/`.
@@ -43,3 +42,14 @@ Builder reported all passed:
 Builder may move **only exact reviewed candidate `9d2292a8ba0c2256229e3494c7298aedceb979fa`** to `main` and let the normal deployment pipeline run. Any source change invalidates this approval.
 
 After production push, record the exact `main` SHA and deployment evidence here, set **AWAITING LIVE VALIDATION**, request Nath to verify that Log out returns to the Admin Station login gate and never WordPress admin, then stop.
+
+## Production / deployment evidence
+- Nath fast-forwarded `main` to `9d2292a8ba0c2256229e3494c7298aedceb979fa` (the exact approved candidate) and pushed.
+- GitHub Actions "Deploy to Hostinger" run [#1033](https://github.com/CodeByNath/compuzign-platform/actions/runs/34866508353) completed with conclusion **success** for that SHA.
+
+## Live validation requested — Nath
+Please check on the live Admin Station:
+- Log in, then click **Log out** from the User menu. You should land back on the actual Admin Station frontend page (its login gate), never `/wp-admin/` or any other WordPress admin page.
+- Confirm nothing else changed: login still works, capability gate still applies, and unrelated Admin Station behavior is untouched.
+
+Reply pass/fail here (or in chat) and I'll close this out.
