@@ -1,40 +1,24 @@
 # Admin Station Login UI/UX
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **CLOSED — accepted 2026-09-14**
 - Builder: **Claude / Codex as assigned by Nath**
 - Reviewer: **ChatGPT independent auditor**
 - Live validator: **Nath**
-- Reviewer verdict: **Proceed with safeguards**
-- Production `main`: `b537ea96e426476ca5b636d6060e4821d9057bdb`
-- Approved topic head: `44c4a1b5103475d855b42c735fe16b1ff207c6a5` (`admin-login-ui`)
+- Final verdict: **Proceed**
+- Production `main`: `44c4a1b5103475d855b42c735fe16b1ff207c6a5`
 
-## Goal
-Redesign the existing Admin Station login gate only: fixed dark/navy screen, blue glow, centered translucent card, `CZ` / `CompuZign` / `ADMIN STATION`, username/password icons, accessible Show/Hide, blue Sign in action, divider, and exact footer `Powered by WeeraXStudios`.
+## Accepted result
+Admin Station login gate redesigned as approved: fixed dark/navy screen, blue glow, centered translucent card, `CZ` / `CompuZign` / `ADMIN STATION`, username/password icons, accessible Show/Hide, blue Sign in action, divider, and exact footer `Powered by WeeraXStudios`.
 
-## Role boundary
-- Builder edits product source, manages the topic branch, performs the approved production push/deployment handoff, records exact SHAs/evidence, then asks Nath for live validation.
-- Reviewer independently audits plan, architecture, authoritative source, actual pushed diff, validation/deployment evidence, and defects reported from live validation. Reviewer may write only coordination files under `project-work/` on `Project-work-instructions`; product source remains read-only.
-- Nath performs live browser validation of the deployed Hostinger WordPress experience and reports pass/fail or defects for reviewer audit.
-- WordPress is remote Hostinger runtime/storage. Local Git, pushed GitHub, Actions result, deployed Hostinger, stored runtime state, and live WordPress are separate states.
+The reviewed candidate touched only the login template, Admin Station login tokens/styles, and rebuilt CSS. WordPress auth/session ownership, nonce + POST flow, `wp_signon()` path, same-page/server-derived redirect, capability gate, generic auth error, autocomplete/required/autofocus behaviour, password-toggle accessibility, and session persistence remained intact.
 
-## Must preserve
-WordPress auth/session host, nonce + POST flow, `wp_signon()` path, same-page/server-derived redirect, capability gate, generic auth error, autocomplete/required/autofocus behaviour, accessible password toggle, and session persistence. No social login, forgot-password, signup, marketing copy, or unrelated Admin Station changes.
+## Production/deployment evidence
+- Topic `admin-login-ui`: `44c4a1b5103475d855b42c735fe16b1ff207c6a5`.
+- `main` now points to the same exact SHA.
+- GitHub Actions `Deploy to Hostinger` run `34805073833` (#1027) completed successfully for that exact SHA.
+- Nath completed live validation and explicitly accepted the login UI on 2026-09-14.
 
-## Reviewer source audit
-Fresh cycle verification: branch set is exactly `main`, `Project-work-instructions`, and one active topic `admin-login-ui`. Topic `44c4a1b5` is one commit directly ahead of production `b537ea96`, with no divergence.
+The topic branch is fully contained in `main` and is safe to remove during housekeeping before the next topic branch is created.
 
-Actual candidate changes only:
-- `app/modules/admin-station/templates/login-gate.php`
-- `resources/ts/admin-station/styles/admin-station-tokens.css`
-- `resources/ts/admin-station/styles/admin-station.css`
-- rebuilt `dist/css/admin-station.css`
-
-The authoritative auth implementation on `main` remains untouched: WordPress `wp_signon()`, nonce validation, same-page/server-derived redirect, generic failure signal, and capability/auth ownership stay intact. The candidate presentation reuses the existing `.cz-admin-station` dark-theme root plus shared `cz-tf-*` / `cz-admin-btn` foundations. New login-only tokens stay in the Admin Station token sheet; no second field/button system, persistence authority, identity, pricing, lifecycle, endpoint, or domain authority is introduced.
-
-Builder evidence remains recorded: TypeScript clean, build successful, docs check passed. Six CSS-contract findings are pre-existing `cz-rate-sheet-tool__*` findings reproduced on unmodified `main`; no new contract failure is attributed to this candidate.
-
-## Next action
-Reviewer approval is complete for exact SHA `44c4a1b5103475d855b42c735fe16b1ff207c6a5`. Builder may now fast-forward/push `main` to this exact SHA and let the normal GitHub Actions deployment run. Any source change invalidates this approval and requires another reviewer pass.
-
-After deployment, Builder must record the exact `main` SHA and deployment run/result, change status to **AWAITING LIVE VALIDATION**, and add a concise live-validation request for Nath. Nath performs the live validation. Reviewer then audits Nath's result plus deployment evidence and either closes this work or issues the next bounded Builder correction.
+Work area closed. Do not reopen without hard evidence of a regression.
