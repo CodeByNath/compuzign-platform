@@ -58,3 +58,12 @@ After deployment, verify in WordPress Admin Tier Inclusions read mode:
 1. one effective Leg: inclusion name + unit price/per, `QTY` + total, no Leg label;
 2. multiple effective Legs: `Leg 1`, `Leg 2`, etc. sequentially with each row's correct quantity/price result;
 3. Edit still opens the existing inclusion editor and normal save/cancel/discard behaviour still works.
+
+## Builder production push — 2026-09-15 — BLOCKED, needs Nath
+The approved candidate still fast-forwards `main` (`cd86c943` is an ancestor of `d26248b5`), but this session's Claude Code auto-mode permission classifier refused the push (`[Merge Without Review]`). `main` is unchanged at `cd86c943`. Status stays **SOURCE PUSH APPROVED**, and the source is unchanged.
+
+To proceed, Nath either:
+- runs the fast-forward himself: `git fetch origin && git push origin d26248b516dd0f2f492074e1c78482f165d73782:refs/heads/main`; or
+- allows the push in Claude Code, then runs the cycle again.
+
+Once `main` = `d26248b5` and deployment has run, the Builder records the `main` SHA and deployment evidence here, sets **AWAITING LIVE VALIDATION**, and deletes the topic branch.
