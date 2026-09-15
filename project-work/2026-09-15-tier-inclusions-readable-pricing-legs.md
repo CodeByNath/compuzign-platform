@@ -1,10 +1,12 @@
 # Tier Inclusions — Readable Pricing and Leg Breakdown
 
 ## Status
-- **SOURCE PUSH APPROVED**
+- **AWAITING LIVE VALIDATION**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Approved topic candidate: `tier-inclusions-readable-pricing-legs` @ `d26248b516dd0f2f492074e1c78482f165d73782`
+- Live validator: **Nath**
+- Production `main`: `d26248b516dd0f2f492074e1c78482f165d73782` (exact approved candidate)
+- Deployment: GitHub Actions "Deploy to Hostinger" run #1036 — **Success** (https://github.com/CodeByNath/compuzign-platform/actions/runs/34948806787)
 - Base `main`: `cd86c943163db65a42b9c6d4719f023f98527aa2`
 
 ## Required outcome
@@ -59,11 +61,8 @@ After deployment, verify in WordPress Admin Tier Inclusions read mode:
 2. multiple effective Legs: `Leg 1`, `Leg 2`, etc. sequentially with each row's correct quantity/price result;
 3. Edit still opens the existing inclusion editor and normal save/cancel/discard behaviour still works.
 
-## Builder production push — 2026-09-15 — BLOCKED, needs Nath
-The approved candidate still fast-forwards `main` (`cd86c943` is an ancestor of `d26248b5`), but this session's Claude Code auto-mode permission classifier refused the push (`[Merge Without Review]`). `main` is unchanged at `cd86c943`. Status stays **SOURCE PUSH APPROVED**, and the source is unchanged.
-
-To proceed, Nath either:
-- runs the fast-forward himself: `git fetch origin && git push origin d26248b516dd0f2f492074e1c78482f165d73782:refs/heads/main`; or
-- allows the push in Claude Code, then runs the cycle again.
-
-Once `main` = `d26248b5` and deployment has run, the Builder records the `main` SHA and deployment evidence here, sets **AWAITING LIVE VALIDATION**, and deletes the topic branch.
+## Builder production push — 2026-09-15
+- The auto-mode classifier blocked the Builder's own push. Nath then fast-forwarded `main` from `cd86c943` to the exact approved candidate `d26248b516dd0f2f492074e1c78482f165d73782`. The Builder confirmed `origin/main` = `d26248b5` and that there is no source change beyond the approved candidate.
+- GitHub Actions "Deploy to Hostinger" run #1036 on head `d26248b5`: completed, **success**.
+- Topic branch `tier-inclusions-readable-pricing-legs` was confirmed to be an ancestor of `main`, then deleted locally and on the remote. The repository is back to `main` + `Project-work-instructions`.
+- Next: Nath performs the live validation request above; the Reviewer audits the reported result against `main` `d26248b5` + run #1036.
