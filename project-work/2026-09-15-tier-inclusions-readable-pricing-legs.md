@@ -1,10 +1,11 @@
 # Tier Inclusions — Readable Pricing and Leg Breakdown
 
 ## Status
-- **SOURCE PUSH NOT APPROVED** — Phase 2
+- **AWAITING REVIEWER REVIEW** — Phase 2 correction
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Candidate reviewed: `tier-inclusions-readable-pricing-legs` @ `c2f9421f525339aad802d321cb977dd268e94bbc`
+- Corrected candidate: `tier-inclusions-readable-pricing-legs` @ `d7fa41c83bed398c26d4be9e1304cd22ea650265` (one correction commit on reviewed `c2f9421f`; two commits on `main` `d26248b5`)
+- Previously reviewed: `c2f9421f525339aad802d321cb977dd268e94bbc`
 - Production `main`: `d26248b516dd0f2f492074e1c78482f165d73782`
 
 ## Phase 1 — Default Tier
@@ -44,3 +45,16 @@ Update the focused Phase 2 contract to prove:
 - normal inclusion, Bundle, single/multi-Leg, editor/lifecycle and plain-chip protections still pass.
 
 Push the correction to the **same topic branch**, rerun the same validation set, record exact new SHA/diff/tests here, set **AWAITING REVIEWER REVIEW**, and stop. Do not merge to `main`.
+
+## Phase 2 Builder correction — 2026-09-15
+Bounded fix for the unresolved-row blocker only (`c2f9421f..d7fa41c8`).
+
+- `tierEditionDetailModel.ts` item filter is now `source_type === 'inclusion' || !!bundle_id || (!resolved && source_type == null)`. A selection whose Rate Sheet row or Manager source no longer resolves is kept, and the existing priced path shows its fallback label `(unresolved Rate Sheet item)` with `Pricing unavailable`. A row still identified as `faq` (resolved or missing source) stays excluded. No backend, schema, persistence, editor, renderer, or Default (Phase 1) change.
+- Changed files: `tierEditionDetailModel.ts`, `tier-inclusions-readable-pricing-contract.ts`, rebuilt `dist/js/admin-station.js`.
+
+**Contract additions:**
+- An Edition selection that only resolves on the parent's sheet stays visible, with its fallback label, `Pricing unavailable` price/total and no Leg label. The parent's `$20.00` and `CZTL` Legs still never apply.
+- Row-type boundaries on one Edition: a Bundle is kept at its own `$12.00 Per user`; a row with a deleted Manager source and a row removed from the sheet are both kept as `Pricing unavailable`; a resolved FAQ and a missing-source FAQ are both excluded.
+- Mutation-checked: the old filter fails the "remains visible" check; a looser `|| !resolved` fails the FAQ-exclusion check.
+
+**Validation (same set):** `tsc` ✓, `build` ✓, `docs:check` ✓, mode-renderer 25 byte-identical ✓, `contract:tier-inclusions-readable-pricing` ✓. Also ✓: `drawer-module-entry`, `rate-sheet-price-option-selection`, `tier-occupant-inclusions-bundle`, `tier-rate-sheet-catalogue-bundle`, `tier-drawer-editor-chrome`, `tier-edition-admin`, `tier-edition-switch`, `tier-edition-move-to-bin`, `tier-catalogue-declaration-scope`, `commercial-leg-inclusion-groups`/`-extension-groups`, `tier-inclusions-customer-policy-merge`, `tier-catalogue-overview-presentation`, `composable-occupant-address`, `composable-edition-resolution`, `package-tier-workspace`. The last contract edit (adding the missing-FAQ case) changed only the contract file; `tsc` and that contract were rerun after it, and build was rerun before commit. Pre-existing on `main`, unchanged: `admin-station-css` (the same 6 `cz-rate-sheet-tool__*` classes) and the `module-state-snapshot.mjs` crash. No browser/runtime verification performed.
