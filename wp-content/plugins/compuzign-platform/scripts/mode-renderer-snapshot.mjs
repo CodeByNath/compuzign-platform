@@ -112,15 +112,15 @@ const FIXTURES = {
       ], empty: { title: 'No features', copy: '' } }, READY],
       ['priced-legs', { items: [
         { id: 'suse', label: 'SUSE Linux', pricing: { unitPrice: '$20.00 Per VM', lines: [
-          { id: 'default', label: 'Leg Default', quantity: 'QTY - 2', total: '$40.00' },
-          { id: 'CZTL-1:0', label: 'Leg 1', quantity: 'QTY - 3', total: '$60.00' },
+          { id: 'default', label: 'Leg 1', quantity: 'QTY - 2', total: '$40.00' },
+          { id: 'CZTL-1:0', label: 'Leg 2', quantity: 'QTY - 3', total: '$60.00' },
         ] } },
       ], empty: { title: 'No features', copy: '' } }, READY],
       // Legs resolving different price options: no shared header price.
       ['priced-legs-own-price', { items: [
         { id: 'suse', label: 'SUSE Linux', pricing: { lines: [
-          { id: 'default', label: 'Leg Default', quantity: 'QTY - 2', unitPrice: '$20.00 Per VM', total: '$40.00' },
-          { id: 'CZTL-1:0', label: 'Leg 1', quantity: 'QTY - 2', unitPrice: 'Pricing unavailable', total: 'Pricing unavailable' },
+          { id: 'default', label: 'Leg 1', quantity: 'QTY - 2', unitPrice: '$20.00 Per VM', total: '$40.00' },
+          { id: 'CZTL-1:0', label: 'Leg 2', quantity: 'QTY - 2', unitPrice: 'Pricing unavailable', total: 'Pricing unavailable' },
         ] } },
       ], empty: { title: 'No features', copy: '' } }, READY],
     ],

@@ -250,9 +250,11 @@ export function buildRateSheetCatalogue(
 
 export interface TierInclusionLegLine {
   id: string;
-  // Existing Leg vocabulary (TierPricingRulesEditor / PoolInclusionsEditor):
-  // the row's own Default assignment is "Leg Default"; Additional Legs are
-  // "Leg 1"…"Leg N" by their position in the occupant's legs[].
+  // Read-view display label only, sequential over the effective lines shown:
+  // Default is "Leg 1", the next displayed Additional Leg "Leg 2", and so on.
+  // Deliberately NOT the Commercial Legs editor vocabulary ("Leg Default",
+  // "Leg 1"… = legs[] position), which stays unchanged; identity and order
+  // still come from legs[] and leg_platform_id.
   legLabel: string;
   line: TierResolvedRateSheetSelection;
 }
@@ -279,15 +281,15 @@ export function buildTierInclusionLegLines(
   const sourceById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
   const linesByItem: Record<string, TierInclusionLegLine[]> = {};
   for (const selection of selections) {
-    const lines: TierInclusionLegLine[] = [{ id: 'default', legLabel: 'Leg Default', line: selection }];
+    const lines: TierInclusionLegLine[] = [{ id: 'default', legLabel: 'Leg 1', line: selection }];
     const assignments = selection.leg_assignments ?? [];
-    legs.forEach((leg, legIndex) => {
+    legs.forEach((leg) => {
       const legRefs = [leg.platform_id, leg.id].filter((ref): ref is string => !!ref);
       assignments.forEach((assignment, assignmentIndex) => {
         if (!legRefs.includes(assignment.leg_platform_id)) return;
         lines.push({
           id: `${assignment.leg_platform_id}:${assignmentIndex}`,
-          legLabel: `Leg ${legIndex + 1}`,
+          legLabel: `Leg ${lines.length + 1}`,
           line: resolveRateSheetSelection(
             { item_id: selection.item_id, quantity: assignment.quantity, price_option_id: assignment.price_option_id ?? null },
             rateById,

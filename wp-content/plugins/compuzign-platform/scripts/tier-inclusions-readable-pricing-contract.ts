@@ -103,10 +103,10 @@ function render(selections: TierRateSheetSelection[], legSet: TierCommercialLeg[
     ],
   }]).items;
   const lines = item.pricing?.lines ?? [];
-  check(lines.map((line) => line.label).join('|') === 'Leg Default|Leg 1|Leg 2', `Leg lines follow Default then legs[] order — got ${lines.map((line) => line.label).join('|')}`);
-  check(lines[0].quantity === 'QTY - 2' && lines[0].total === '$40.00', 'Leg Default uses the row\'s own quantity and price');
-  check(lines[1].quantity === 'QTY - 3' && lines[1].total === '$60.00', `Leg 1 uses its own assignment quantity — got ${lines[1].quantity} / ${lines[1].total}`);
-  check(lines[2].quantity === 'QTY - 4' && lines[2].total === '$100.00', `Leg 2 uses its own price option and quantity — got ${lines[2].quantity} / ${lines[2].total}`);
+  check(lines.map((line) => line.label).join('|') === 'Leg 1|Leg 2|Leg 3', `read labels are sequential over Default then legs[] order — got ${lines.map((line) => line.label).join('|')}`);
+  check(lines[0].quantity === 'QTY - 2' && lines[0].total === '$40.00', 'Leg 1 (Default) uses the row\'s own quantity and price');
+  check(lines[1].quantity === 'QTY - 3' && lines[1].total === '$60.00', `Leg 2 (legs[0]) uses its own assignment quantity — got ${lines[1].quantity} / ${lines[1].total}`);
+  check(lines[2].quantity === 'QTY - 4' && lines[2].total === '$100.00', `Leg 3 (legs[1]) uses its own price option and quantity — got ${lines[2].quantity} / ${lines[2].total}`);
   check(item.pricing?.unitPrice === undefined, 'Legs resolving different unit prices share no header price');
   check(lines[0].unitPrice === '$20.00 Per VM' && lines[2].unitPrice === '$25.00 Per VM', 'each Leg then carries its own resolved unit price');
   check(!lines.some((line) => line.total === '$200.00'), 'Leg totals are never summed into one figure');
@@ -116,7 +116,16 @@ function render(selections: TierRateSheetSelection[], legSet: TierCommercialLeg[
   const [item] = render([{ item_id: 'rsi_suse', quantity: 2, leg_assignments: [{ leg_platform_id: 'CZTL-0001', quantity: 2 }] }]).items;
   check(item.pricing?.unitPrice === '$20.00 Per VM', 'Legs sharing one unit price show it once in the header');
   check(item.pricing.lines.every((line) => line.unitPrice === undefined), 'and do not repeat it per Leg');
-  check(item.pricing.lines.map((line) => line.label).join('|') === 'Leg Default|Leg 1', 'two effective Legs are both labelled');
+  check(item.pricing.lines.map((line) => line.label).join('|') === 'Leg 1|Leg 2', 'two effective Legs are both labelled, sequentially');
+}
+
+// Numbering follows the effective lines displayed, not legs[] position: an
+// inclusion assigned only to the second Additional Leg reads Leg 1, Leg 2.
+{
+  const [item] = render([{ item_id: 'rsi_suse', quantity: 1, leg_assignments: [{ leg_platform_id: 'leg_b', quantity: 5 }] }]).items;
+  const lines = item.pricing?.lines ?? [];
+  check(lines.map((line) => line.label).join('|') === 'Leg 1|Leg 2', `displayed Leg labels stay sequential when legs[0] is unassigned — got ${lines.map((line) => line.label).join('|')}`);
+  check(lines[1].quantity === 'QTY - 5' && lines[1].total === '$100.00', 'that displayed Leg 2 still resolves legs[1]\'s own assignment');
 }
 
 // ── 3. Unresolved pricing stays truthful ─────────────────────────────────────
@@ -133,7 +142,7 @@ function render(selections: TierRateSheetSelection[], legSet: TierCommercialLeg[
     leg_assignments: [{ leg_platform_id: 'CZTL-0001', quantity: 2, price_option_id: 'opt_removed' }],
   }]).items;
   const lines = item.pricing?.lines ?? [];
-  check(lines[0].total === '$5.00', 'Leg Default keeps its own resolved price');
+  check(lines[0].total === '$5.00', 'Leg 1 (Default) keeps its own resolved price');
   check(lines[1].unitPrice === 'Pricing unavailable' && lines[1].total === 'Pricing unavailable', 'a Leg whose price option no longer resolves is unavailable — never Default Price substituted');
 }
 
@@ -141,6 +150,14 @@ function render(selections: TierRateSheetSelection[], legSet: TierCommercialLeg[
 
 const tierBinding = read('resources/ts/package-station/drawer/schema/bindings/tier.tsx');
 const tierModel = read('resources/ts/package-station/drawer/tier/tierDetailModel.ts');
+// The sequential read labels never rename the Commercial Legs editor vocabulary.
+for (const path of [
+  'resources/ts/package-station/drawer/editors/PoolInclusionsEditor.tsx',
+  'resources/ts/package-station/drawer/editors/TierPricingRulesEditor.tsx',
+]) {
+  const editor = read(path);
+  check(editor.includes('Leg Default') && editor.includes('`Leg ${'), `${path} keeps its own "Leg Default" / "Leg N" editor vocabulary`);
+}
 check(JSON.stringify(tierFeaturesShell.footer) === JSON.stringify({ actions: ['discard-draft', 'edit'] }), 'Tier Inclusions keeps its Discard/Edit footer');
 check(/<PoolInclusionsEditor[\s\S]*?legs=\{s\.extras\?\.legs/.test(tierBinding), 'Tier Inclusions still edits through PoolInclusionsEditor');
 check(
