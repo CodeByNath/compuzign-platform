@@ -259,7 +259,7 @@ function linePriceUnavailable({ line }: TierInclusionLegLine): boolean {
 function lineUnitPrice(legLine: TierInclusionLegLine): string {
   if (linePriceUnavailable(legLine)) return 'Pricing unavailable';
   if (legLine.line.unit_price == null) return NOT_CONFIGURED;
-  return legLine.line.per ? `${money(legLine.line.unit_price)} ${legLine.line.per}` : money(legLine.line.unit_price);
+  return legLine.line.per ? `${legLine.line.per} · ${money(legLine.line.unit_price)}` : money(legLine.line.unit_price);
 }
 
 function lineTotal(legLine: TierInclusionLegLine): string {

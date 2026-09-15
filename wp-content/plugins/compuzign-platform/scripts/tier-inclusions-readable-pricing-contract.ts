@@ -83,12 +83,22 @@ function render(selections: TierRateSheetSelection[], legSet: TierCommercialLeg[
 {
   const [item] = render([{ item_id: 'rsi_suse', quantity: 2 }]).items;
   check(item.label === 'SUSE Linux', 'the inclusion header carries its resolved label');
-  check(item.pricing?.unitPrice === '$20.00 Per VM', `single-Leg header shows the unit price and per — got ${item.pricing?.unitPrice}`);
+  check(item.pricing?.unitPrice === 'Per VM · $20.00', `single-Leg header shows the unit price and per — got ${item.pricing?.unitPrice}`);
   check(item.pricing?.lines.length === 1, 'single-Leg inclusion has exactly one line');
   const [line] = item.pricing.lines;
   check(line.label === undefined, 'single-Leg line carries no Leg label');
   check(line.quantity === 'QTY - 2' && line.total === '$40.00', `single-Leg line is QTY - 2 / $40.00 — got ${line.quantity} / ${line.total}`);
   check(line.unitPrice === undefined, 'single-Leg line does not repeat the header price');
+}
+
+// A row with no unit keeps the money-only unit price.
+{
+  const noPerRow = { ...backupRow, item_id: 'rsi_noper', per: '' } as unknown as PackageRateSheetItem;
+  svc.rate_sheets[0].items.push(noPerRow);
+  rateById.set(noPerRow.item_id, noPerRow);
+  const [item] = render([{ item_id: 'rsi_noper', quantity: 2 }]).items;
+  check(item.pricing?.unitPrice === '$5.00', `a unit price without per stays money-only — got ${item.pricing?.unitPrice}`);
+  check(item.pricing.lines[0].total === '$10.00', 'totals stay money-only');
 }
 
 // An assignment whose Leg is not in the occupant's legs[] has no Leg to present.
@@ -114,13 +124,13 @@ function render(selections: TierRateSheetSelection[], legSet: TierCommercialLeg[
   check(lines[1].quantity === 'QTY - 3' && lines[1].total === '$60.00', `Leg 2 (legs[0]) uses its own assignment quantity — got ${lines[1].quantity} / ${lines[1].total}`);
   check(lines[2].quantity === 'QTY - 4' && lines[2].total === '$100.00', `Leg 3 (legs[1]) uses its own price option and quantity — got ${lines[2].quantity} / ${lines[2].total}`);
   check(item.pricing?.unitPrice === undefined, 'Legs resolving different unit prices share no header price');
-  check(lines[0].unitPrice === '$20.00 Per VM' && lines[2].unitPrice === '$25.00 Per VM', 'each Leg then carries its own resolved unit price');
+  check(lines[0].unitPrice === 'Per VM · $20.00' && lines[2].unitPrice === 'Per VM · $25.00', 'each Leg then carries its own resolved unit price');
   check(!lines.some((line) => line.total === '$200.00'), 'Leg totals are never summed into one figure');
 }
 
 {
   const [item] = render([{ item_id: 'rsi_suse', quantity: 2, leg_assignments: [{ leg_platform_id: 'CZTL-0001', quantity: 2 }] }]).items;
-  check(item.pricing?.unitPrice === '$20.00 Per VM', 'Legs sharing one unit price show it once in the header');
+  check(item.pricing?.unitPrice === 'Per VM · $20.00', 'Legs sharing one unit price show it once in the header');
   check(item.pricing.lines.every((line) => line.unitPrice === undefined), 'and do not repeat it per Leg');
   check(item.pricing.lines.map((line) => line.label).join('|') === 'Leg 1|Leg 2', 'two effective Legs are both labelled, sequentially');
 }
@@ -235,7 +245,7 @@ function renderEdition(edition: TierEdition): { value: ItemCollectionValue; deta
 {
   const { value } = renderEdition(editionFixture([{ item_id: 'rsi_suse_ed', quantity: 3 }]));
   const [item] = value.items;
-  check(item.pricing?.unitPrice === '$30.00 Per VM', `Edition header uses the Edition's own sheet row — got ${item.pricing?.unitPrice}`);
+  check(item.pricing?.unitPrice === 'Per VM · $30.00', `Edition header uses the Edition's own sheet row — got ${item.pricing?.unitPrice}`);
   check(item.pricing.lines.length === 1 && item.pricing.lines[0].label === undefined, 'single-Leg Edition inclusion is compact and unlabelled');
   check(item.pricing.lines[0].quantity === 'QTY - 3' && item.pricing.lines[0].total === '$90.00', 'Edition line uses the Edition\'s own quantity and price');
 }
@@ -252,7 +262,7 @@ function renderEdition(edition: TierEdition): { value: ItemCollectionValue; deta
   const lines = value.items[0].pricing?.lines ?? [];
   check(lines.map((line) => line.label).join('|') === 'Leg 1|Leg 2', `Edition multi-Leg labels are sequential and ignore the parent's Leg — got ${lines.map((line) => line.label).join('|')}`);
   check(lines[0].quantity === 'QTY - 1' && lines[0].total === '$30.00', 'Edition Leg 1 is its own Default selection');
-  check(lines[1].quantity === 'QTY - 2' && lines[1].total === '$54.00' && lines[1].unitPrice === '$27.00 Per VM', 'Edition Leg 2 resolves its own price option and quantity');
+  check(lines[1].quantity === 'QTY - 2' && lines[1].total === '$54.00' && lines[1].unitPrice === 'Per VM · $27.00', 'Edition Leg 2 resolves its own price option and quantity');
 }
 
 {
@@ -269,7 +279,7 @@ function renderEdition(edition: TierEdition): { value: ItemCollectionValue; deta
   check(stale.label === '(unresolved Rate Sheet item)', `the unresolved selection shows its fallback label — got ${stale.label}`);
   check(stale.pricing?.unitPrice === 'Pricing unavailable' && stale.pricing.lines[0].total === 'Pricing unavailable', 'its price and total read Pricing unavailable');
   check(stale.pricing.lines[0].label === undefined, 'with one effective Leg it stays unlabelled');
-  check(!value.items.some((item) => item.pricing?.unitPrice === '$20.00 Per VM'), 'the parent\'s $20.00 row price never appears on the Edition card');
+  check(!value.items.some((item) => item.pricing?.unitPrice === 'Per VM · $20.00'), 'the parent\'s $20.00 row price never appears on the Edition card');
 }
 
 {
@@ -286,7 +296,7 @@ function renderEdition(edition: TierEdition): { value: ItemCollectionValue; deta
   ]));
   const ids = value.items.map((item) => item.id).join('|');
   check(ids === 'rsi_bundle_ed|rsi_orphan_ed|rsi_removed_ed', `Edition Inclusions keep Bundle + unresolved rows and exclude FAQ rows, resolved or missing — got ${ids}`);
-  check(value.items[0].pricing?.unitPrice === '$12.00 Per user', 'a resolved Bundle row keeps its own price');
+  check(value.items[0].pricing?.unitPrice === 'Per user · $12.00', 'a resolved Bundle row keeps its own price');
   check(value.items[1].pricing?.unitPrice === 'Pricing unavailable' && value.items[2].pricing?.lines[0].total === 'Pricing unavailable', 'unresolved rows read Pricing unavailable, never $0');
 }
 
