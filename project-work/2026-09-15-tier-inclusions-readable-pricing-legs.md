@@ -39,3 +39,10 @@ After deployment, validate an actual Tier Edition in WordPress Admin:
 3. Edition values differ from the parent Default Tier and remain Edition-owned;
 4. unresolved/stale Edition inclusion remains visible as `Pricing unavailable` rather than disappearing;
 5. Edit still opens the existing Edition shared editor on Inclusions and normal save/cancel/lifecycle behavior remains intact.
+
+## Phase 2 Builder production push — 2026-09-15 — needs Nath
+The approved `d7fa41c8` still fast-forwards `main` `d26248b5` (verified). Claude Code's auto-mode classifier blocks the Builder from pushing to `main` (`[Merge Without Review]`, as in Phase 1), so `main` is unchanged and status stays **SOURCE PUSH APPROVED**. Nath runs:
+
+`git fetch origin && git push origin d7fa41c83bed398c26d4be9e1304cd22ea650265:refs/heads/main`
+
+Once `main` is `d7fa41c8` and the deploy has run, the Builder records the `main` SHA and deployment evidence here, sets **AWAITING LIVE VALIDATION**, and deletes the topic branch.
