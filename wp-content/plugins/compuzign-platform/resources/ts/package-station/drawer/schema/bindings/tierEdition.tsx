@@ -19,6 +19,8 @@ import { tierEditionOverviewModule } from '@/drawer-kit/utils/moduleNotification
 import { TierEditionEditor } from '../../tier/TierEditionEditor';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
 import type { ItemCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
+import type { TierInclusionLegLine } from '../../tier/tierDetailModel';
+import { pricedInclusionItems } from './tier';
 
 // ── Edition Overview ─────────────────────────────────────────────────────────
 
@@ -175,6 +177,10 @@ export const tierEditionPricingRulesShell: ShellSchema<TierEditionPricingRulesSh
 
 export interface TierEditionInclusionsShellData {
   items: InclusionItem[];
+  // This Edition's OWN per-inclusion effective Leg lines keyed by item_id —
+  // built from the Edition's own rate_sheet_id/rate_sheet_items/legs, never
+  // the parent occupant's (buildTierEditionDetail). Absent → plain chips.
+  legLines?: Record<string, TierInclusionLegLine[]>;
 }
 
 const INCLUSIONS_ACTIONS: Record<string, ShellActionSchema> = {
@@ -194,7 +200,7 @@ export const tierEditionInclusionsShell: ShellSchema<TierEditionInclusionsShellD
     {
       id: 'items', element: 'item-collection',
       bind: (d): ItemCollectionValue => ({
-        items: d.items,
+        items: pricedInclusionItems(d.items, d.legLines),
         empty: { title: 'No features', copy: 'Add features included in this Edition.' },
       }),
     },

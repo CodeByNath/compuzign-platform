@@ -114,7 +114,7 @@ script exists.
 | Cost Builder | `PackageRepository.php`, `PackageFamilyPricingBuilder.php`, `PricingBuilder.php`, `PricingTiers.tsx` (`resolveHeadlinePrice()`) |
 | Migration | `TemporaryMigrationController.php`, `PackagePlatformIdentifierAdapters.php` |
 | Debug tool | `CommercialLegsDebugPanel.tsx` |
-| Tier Inclusions read | `tierDetailModel.ts` (`buildTierInclusionLegLines()`), `bindings/tier.tsx` |
+| Tier/Edition Inclusions read | `tierDetailModel.ts` (`buildTierInclusionLegLines()`), `tierEditionDetailModel.ts`, `bindings/tier.tsx` (`pricedInclusionItems()`), `bindings/tierEdition.tsx` |
 | Editors | `TierPricingRulesEditor.tsx`, `TierEditionOverviewFields.tsx` |
 | Tests | `commercial-leg-resolution.php`, `tier-commercial-leg-identity.php`, `commercial-leg-timeline.php`, `commercial-leg-commitment-cap.php`, `tier-leg-inclusion-reference.php`, `tier-leg-platform-identity.php`, `tier-leg-assignment-orphan-pruning.php`, `tier-default-leg-identity-cost-builder.php`, `commercial-leg-headline-id.php`, `platform-identifier-temporary-migration.php` |
 

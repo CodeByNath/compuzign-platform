@@ -16,6 +16,7 @@ import { evaluateModule, tierEditionOverviewModule } from '@/drawer-kit/utils/mo
 import type { ModuleState } from '@/drawer-kit/utils/moduleNotifications';
 import { resolveRateSheetSelection } from '../../rateSheetLabels';
 import { tierEditionDisabledMasked } from './tierEditionModel';
+import { buildTierInclusionLegLines } from './tierDetailModel';
 
 export interface TierEditionDetailHandlers {
   onEdit:         (initialTab: 'overview' | 'pricing-rules' | 'inclusions') => void;
@@ -126,8 +127,13 @@ export function buildTierEditionDetail(
     .filter((item) => item.source_type === 'inclusion' || !!item.bundle_id)
     .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
 
+  // Per-Leg read lines from THIS Edition's own declaration only — its own
+  // bound sheet, its own resolved selections and its own legs[] — through the
+  // same projection the occupant's Default card uses. Never the parent's.
+  const legLines = buildTierInclusionLegLines(svc, edition.rate_sheet_id, resolvedSelections, edition.legs ?? []);
+
   const inclusionsBinding: ShellBinding<TierEditionInclusionsShellData> = {
-    data: { items },
+    data: { items, legLines },
     state: moduleState,
     hasDraft,
     handlers: {

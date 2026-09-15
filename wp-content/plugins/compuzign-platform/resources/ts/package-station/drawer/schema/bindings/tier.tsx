@@ -286,6 +286,23 @@ function inclusionPricing(legLines: TierInclusionLegLine[]): ItemCollectionPrici
   };
 }
 
+/**
+ * Tier Inclusions read items with their per-Leg pricing bound — the one
+ * formatter shared by the occupant's own Default card below and each Tier
+ * Edition's own Inclusions card (bindings/tierEdition.tsx). Each caller passes
+ * lines built from ITS OWN declaration (buildTierInclusionLegLines); an item
+ * with no lines stays a plain chip item.
+ */
+export function pricedInclusionItems(
+  items: InclusionItem[],
+  legLines: Record<string, TierInclusionLegLine[]> | undefined,
+): ItemCollectionValue['items'] {
+  return items.map((item) => {
+    const lines = legLines?.[item.id];
+    return lines && lines.length > 0 ? { ...item, pricing: inclusionPricing(lines) } : item;
+  });
+}
+
 export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
   archetype: 'child',
   dna:       tierFeaturesModule,
@@ -299,10 +316,7 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
     {
       id: 'features', element: 'item-collection',
       bind: (d): ItemCollectionValue => ({
-        items: d.items.map((item) => {
-          const legLines = d.legLines?.[item.id];
-          return legLines && legLines.length > 0 ? { ...item, pricing: inclusionPricing(legLines) } : item;
-        }),
+        items: pricedInclusionItems(d.items, d.legLines),
         empty: { title: 'No features', copy: 'Add features included in this tier.' },
       }),
     },
