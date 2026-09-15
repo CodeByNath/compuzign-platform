@@ -38,3 +38,10 @@ Architecture, pushed source, production `main`, successful deployment and Nath's
 The separate presentation idea discussed after validation — changing unit-price copy from `$25.00 Per VM` to `Per VM · $25.00` — is **not part of this closed work and has not been authorized or implemented**. Treat it as a separate presentation refinement only if Nath explicitly approves it later.
 
 Branch cleanup remains a Builder/user repository-hygiene action; the Reviewer does not delete or manipulate branches.
+
+## Builder housekeeping — 2026-09-15
+- `tier-inclusions-readable-pricing-legs` was confirmed to be an ancestor of `main` `d7fa41c8`, then deleted locally and on the remote. The repository is back to exactly `main` + `Project-work-instructions`; local `main` is synced to `d7fa41c8`; the working tree is clean, with no stashes or extra worktrees.
+- Other work files that are not closed (left untouched; status changes belong to the Reviewer/Nath):
+  - `2026-09-15-package-home-family-dropdown-browser-visibility.md` is still **AWAITING LIVE VALIDATION** (main `cd86c943`, run #1035), with no recorded live result. Its code is contained in current `main`.
+  - `2026-08-30-quote-email-billed-item-separators.md` is still on legacy **AWAITING CHATGPT REVIEW**, and its review branch was removed on 2026-09-09. It needs a close or defer decision.
+- No other follow-up was started. The `Per VM · $25.00` copy idea remains unauthorized.
