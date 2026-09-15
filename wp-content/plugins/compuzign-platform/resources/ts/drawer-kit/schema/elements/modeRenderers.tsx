@@ -96,6 +96,34 @@ export const MODE_RENDERERS: Record<PlatformElementId, Partial<Record<ShellMode,
           </div>
         );
       }
+      // Priced wrappers only when the consumer bound pricing; an unpriced
+      // `{ id, label }` pool keeps the chip markup below unchanged.
+      if (v.items.some((item) => item.pricing)) {
+        return (
+          <div class="cz-station-priced-items">
+            {v.items.map((item) => (
+              <div key={item.id} class="cz-station-priced-item">
+                <div class="cz-station-priced-item__row cz-station-priced-item__head">
+                  <span class="cz-station-priced-item__label">{item.label}</span>
+                  {item.pricing?.unitPrice && <span class="cz-station-priced-item__value">{item.pricing.unitPrice}</span>}
+                </div>
+                {item.pricing?.lines.map((line) => (
+                  <div key={line.id} class={line.label ? 'cz-station-priced-item__line cz-station-priced-item__line--labelled' : 'cz-station-priced-item__line'}>
+                    {line.label && <p class="cz-station-priced-item__line-label">{line.label}</p>}
+                    <div class="cz-station-priced-item__row">
+                      <span class="cz-station-priced-item__qty">
+                        {line.quantity}
+                        {line.unitPrice && <span class="cz-station-priced-item__unit">{line.unitPrice}</span>}
+                      </span>
+                      <span class="cz-station-priced-item__value">{line.total}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        );
+      }
       if (v.items.length > 0) {
         return (
           <div class="cz-sc-inclusion-pool">

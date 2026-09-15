@@ -37,9 +37,30 @@ export interface TermValue {
 }
 
 // `item-collection` — a labelled item pool (e.g. Included Features chips).
+//
+// `pricing` is optional and additive: omit it (every `{ id, label }` consumer)
+// and the pool renders as chips, exactly as before. When any item carries it,
+// the collection reads as one priced wrapper per item instead (Tier
+// Inclusions). All strings arrive bound — the renderer formats nothing.
 export interface ItemCollectionValue {
-  items: Array<{ id: string; label: string }>;
+  items: Array<{ id: string; label: string; pricing?: ItemCollectionPricing }>;
   empty: { title: string; copy: string };
+}
+
+export interface ItemCollectionPricing {
+  // Shown once beside the item label (e.g. '$20.00 Per VM'). Omitted when the
+  // item's lines do not share one price — each line then carries its own.
+  unitPrice?: string;
+  lines: ItemCollectionPricedLine[];
+}
+
+export interface ItemCollectionPricedLine {
+  id: string;
+  // Omitted for a single-line item: the compact form carries no line label.
+  label?: string;
+  quantity: string;     // e.g. 'QTY - 2'
+  unitPrice?: string;   // only when the item header carries no shared price
+  total: string;        // e.g. '$40.00', or a truthful unavailable state
 }
 
 // `qa-collection` — a question/answer list (e.g. Common Questions).

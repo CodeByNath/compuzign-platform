@@ -7,7 +7,7 @@
 // passes the results through unchanged, so presentation reads the same shapes
 // as before the split.
 
-import type { PackageManagerItem, PackageRateSheet, TierResolvedRateSheetSelection } from '../../types';
+import type { PackageManagerItem, PackageRateSheet, TierCommercialLeg, TierResolvedRateSheetSelection } from '../../types';
 import type { PackageStation } from '../../usePackageStation';
 import type { ShellBinding } from '@/drawer-kit/schema/types';
 import type {
@@ -16,7 +16,7 @@ import type {
   TierFeaturesShellData,
   TierFaqsShellData,
 } from '../schema/bindings/tier';
-import { relationshipDisplayLabel } from '../../rateSheetLabels';
+import { relationshipDisplayLabel, resolveRateSheetSelection } from '../../rateSheetLabels';
 import { TIER_LABELS } from '../../vocabulary';
 
 // ── Commercial Legs — shared pure helpers ────────────────────────────────────
@@ -246,6 +246,62 @@ export function buildRateSheetCatalogue(
   return catalogue;
 }
 
+// ── Tier Inclusions — per-Leg read lines ─────────────────────────────────────
+
+export interface TierInclusionLegLine {
+  id: string;
+  // Existing Leg vocabulary (TierPricingRulesEditor / PoolInclusionsEditor):
+  // the row's own Default assignment is "Leg Default"; Additional Legs are
+  // "Leg 1"…"Leg N" by their position in the occupant's legs[].
+  legLabel: string;
+  line: TierResolvedRateSheetSelection;
+}
+
+/**
+ * Every effective Leg line of each selected inclusion, keyed by item_id — a
+ * read projection only. The Default line IS the already-resolved selection
+ * (its own price_option_id/quantity). Each leg_assignments[] entry that
+ * matches one of `legs` by identity (platform_id once minted, else its stable
+ * id — never array position) resolves its OWN price_option_id/quantity through
+ * the one per-selection rule, resolveRateSheetSelection; nothing is copied
+ * from Default, merged, summed, or multiplied by duration. An assignment whose
+ * Leg is not in `legs` has no Leg to present and is left out (the backend
+ * prunes such orphans at save).
+ */
+export function buildTierInclusionLegLines(
+  svc: { rate_sheets: PackageRateSheet[]; package_relationships: PackageManagerItem[] },
+  rateSheetId: string | null,
+  selections: TierResolvedRateSheetSelection[],
+  legs: TierCommercialLeg[],
+): Record<string, TierInclusionLegLine[]> {
+  const boundSheet = svc.rate_sheets.find((sheet) => sheet.rate_sheet_id === rateSheetId) ?? null;
+  const rateById = new Map((boundSheet?.items ?? []).map((item) => [item.item_id, item]));
+  const sourceById = new Map(svc.package_relationships.map((item) => [item.item_id, item]));
+  const linesByItem: Record<string, TierInclusionLegLine[]> = {};
+  for (const selection of selections) {
+    const lines: TierInclusionLegLine[] = [{ id: 'default', legLabel: 'Leg Default', line: selection }];
+    const assignments = selection.leg_assignments ?? [];
+    legs.forEach((leg, legIndex) => {
+      const legRefs = [leg.platform_id, leg.id].filter((ref): ref is string => !!ref);
+      assignments.forEach((assignment, assignmentIndex) => {
+        if (!legRefs.includes(assignment.leg_platform_id)) return;
+        lines.push({
+          id: `${assignment.leg_platform_id}:${assignmentIndex}`,
+          legLabel: `Leg ${legIndex + 1}`,
+          line: resolveRateSheetSelection(
+            { item_id: selection.item_id, quantity: assignment.quantity, price_option_id: assignment.price_option_id ?? null },
+            rateById,
+            sourceById,
+            selection.label,
+          ),
+        });
+      });
+    });
+    linesByItem[selection.item_id] = lines;
+  }
+  return linesByItem;
+}
+
 // Individual-tier derived model (null unless a tier is open).
 export function buildTierDetail(
   pkg: PackageStation,
@@ -310,7 +366,10 @@ export function buildTierDetail(
     busy: tierBusy,
   };
   const featuresBinding: ShellBinding<TierFeaturesShellData> = {
-    data:     { items: detail.inclusions_override },
+    data:     {
+      items: detail.inclusions_override,
+      legLines: buildTierInclusionLegLines(svc, detail.rate_sheet_id, detail.rate_sheet_selections, detail.legs ?? []),
+    },
     state:    view.modules.features,
     hasDraft: view.drafts.features !== null,
     handlers: { edit: () => onEditSection('tier-inclusions'), 'discard-draft': () => onRevertModule('features') },

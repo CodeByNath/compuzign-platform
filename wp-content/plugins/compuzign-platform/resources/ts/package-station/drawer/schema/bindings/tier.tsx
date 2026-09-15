@@ -25,7 +25,9 @@ import { PoolInclusionsEditor } from '../../editors/PoolInclusionsEditor';
 import { PoolFaqsEditor } from '../../editors/PoolFaqsEditor';
 import type { FaqPoolItem } from '../../editors/PoolFaqsEditor';
 import type { ShellActionSchema, ShellSchema } from '@/drawer-kit/schema/types';
-import type { ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
+import type { ItemCollectionPricing, ItemCollectionValue, QaCollectionValue, TextValue } from '@/drawer-kit/schema/elements/library';
+import type { TierInclusionLegLine } from '../../tier/tierDetailModel';
+import { money, NOT_CONFIGURED } from './tierInclusion';
 
 // The tier/promotion owning-workspace footer: Discard pending changes (only
 // while a module draft exists) then Edit — the same Action Group shape as the
@@ -240,6 +242,48 @@ export const tierPricingRulesShell: ShellSchema<TierPricingRulesShellData> = {
 
 export interface TierFeaturesShellData {
   items: InclusionItem[];
+  // Per-inclusion effective Leg lines keyed by item_id (buildTierInclusionLegLines).
+  // Absent → the plain chip pool.
+  legLines?: Record<string, TierInclusionLegLine[]>;
+}
+
+// Truthful price copy for one resolved line: a row, source, or chosen price
+// option that no longer resolves is unavailable — never $0 and never Default
+// Price substituted; a resolved row with no rate is an authoring gap.
+function linePriceUnavailable({ line }: TierInclusionLegLine): boolean {
+  if (!line.resolved) return true;
+  const optionId = line.price_option_id ?? null;
+  return optionId !== null && !(line.price_options ?? []).some((option) => option.option_id === optionId);
+}
+
+function lineUnitPrice(legLine: TierInclusionLegLine): string {
+  if (linePriceUnavailable(legLine)) return 'Pricing unavailable';
+  if (legLine.line.unit_price == null) return NOT_CONFIGURED;
+  return legLine.line.per ? `${money(legLine.line.unit_price)} ${legLine.line.per}` : money(legLine.line.unit_price);
+}
+
+function lineTotal(legLine: TierInclusionLegLine): string {
+  if (linePriceUnavailable(legLine)) return 'Pricing unavailable';
+  return legLine.line.line_total == null ? NOT_CONFIGURED : money(legLine.line.line_total);
+}
+
+// One effective Leg → compact, unlabelled. More than one → each Leg keeps its
+// own label and quantity/total; the unit price is shown once in the header
+// only when every Leg resolves the same one, otherwise on each Leg's own line.
+function inclusionPricing(legLines: TierInclusionLegLine[]): ItemCollectionPricing {
+  const unitPrices = legLines.map(lineUnitPrice);
+  const shared = unitPrices.every((price) => price === unitPrices[0]);
+  const labelled = legLines.length > 1;
+  return {
+    unitPrice: shared ? unitPrices[0] : undefined,
+    lines: legLines.map((legLine, index) => ({
+      id: legLine.id,
+      label: labelled ? legLine.legLabel : undefined,
+      quantity: `QTY - ${legLine.line.quantity}`,
+      unitPrice: shared ? undefined : unitPrices[index],
+      total: lineTotal(legLine),
+    })),
+  };
 }
 
 export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
@@ -255,7 +299,10 @@ export const tierFeaturesShell: ShellSchema<TierFeaturesShellData> = {
     {
       id: 'features', element: 'item-collection',
       bind: (d): ItemCollectionValue => ({
-        items: d.items,
+        items: d.items.map((item) => {
+          const legLines = d.legLines?.[item.id];
+          return legLines && legLines.length > 0 ? { ...item, pricing: inclusionPricing(legLines) } : item;
+        }),
         empty: { title: 'No features', copy: 'Add features included in this tier.' },
       }),
     },

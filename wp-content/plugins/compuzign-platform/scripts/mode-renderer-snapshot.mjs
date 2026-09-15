@@ -102,6 +102,27 @@ const FIXTURES = {
       ['loading', { items: [], empty: { title: 'No features', copy: 'Add features to this service.' } }, LOADING],
       ['items',   { items: [{ id: 'a', label: 'SSL' }, { id: 'b', label: 'Backups' }], empty: { title: 'No features', copy: '' } }, READY],
       ['empty',   { items: [], empty: { title: 'No features', copy: 'Add features to the Cloud Backup.' } }, READY],
+      // Optional bound pricing (Tier Inclusions): one wrapper per item. A
+      // single line is compact and unlabelled; multiple lines repeat only
+      // their own labelled rows beneath one header.
+      ['priced-single', { items: [
+        { id: 'suse', label: 'SUSE Linux', pricing: { unitPrice: '$20.00 Per VM', lines: [
+          { id: 'default', quantity: 'QTY - 2', total: '$40.00' },
+        ] } },
+      ], empty: { title: 'No features', copy: '' } }, READY],
+      ['priced-legs', { items: [
+        { id: 'suse', label: 'SUSE Linux', pricing: { unitPrice: '$20.00 Per VM', lines: [
+          { id: 'default', label: 'Leg Default', quantity: 'QTY - 2', total: '$40.00' },
+          { id: 'CZTL-1:0', label: 'Leg 1', quantity: 'QTY - 3', total: '$60.00' },
+        ] } },
+      ], empty: { title: 'No features', copy: '' } }, READY],
+      // Legs resolving different price options: no shared header price.
+      ['priced-legs-own-price', { items: [
+        { id: 'suse', label: 'SUSE Linux', pricing: { lines: [
+          { id: 'default', label: 'Leg Default', quantity: 'QTY - 2', unitPrice: '$20.00 Per VM', total: '$40.00' },
+          { id: 'CZTL-1:0', label: 'Leg 1', quantity: 'QTY - 2', unitPrice: 'Pricing unavailable', total: 'Pricing unavailable' },
+        ] } },
+      ], empty: { title: 'No features', copy: '' } }, READY],
     ],
   },
   'qa-collection': {

@@ -27,7 +27,7 @@ export const NOT_CONFIGURED = 'Not configured';
 // Row parity with the focused-Tier deck, which formats its own money the same
 // way. utils/format's formatPrice rounds to whole dollars, which would show a
 // different number here than the row the user clicked.
-function money(value: number | null): string {
+export function money(value: number | null): string {
   return value == null ? '—' : `$${value.toFixed(2)}`;
 }
 
