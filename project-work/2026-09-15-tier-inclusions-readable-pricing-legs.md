@@ -1,10 +1,11 @@
 # Tier Inclusions — Readable Pricing and Leg Breakdown
 
 ## Status
-- **SOURCE PUSH NOT APPROVED**
+- **AWAITING REVIEWER REVIEW**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Reviewed candidate: `tier-inclusions-readable-pricing-legs` @ `a19c91f477fb5a9a3ee99ea6bab620b0fabde335`
+- Corrected candidate: `tier-inclusions-readable-pricing-legs` @ `d26248b516dd0f2f492074e1c78482f165d73782` (one correction commit on the reviewed `a19c91f4`)
+- Previously reviewed candidate: `a19c91f477fb5a9a3ee99ea6bab620b0fabde335`
 - Base `main`: `cd86c943163db65a42b9c6d4719f023f98527aa2`
 
 ## Required outcome
@@ -66,3 +67,12 @@ Do not rename Commercial Legs globally, change stored identity, introduce new pr
 
 ## Builder next action
 Keep the existing candidate architecture unchanged. Make only the bounded read-label correction above, update the relevant contract/snapshot expectation if required, rerun the same validation set, push to the **same topic branch**, record the new exact candidate SHA and validation result here, set status to **AWAITING REVIEWER REVIEW**, and stop. Do not merge to `main` before reviewer approval.
+
+## Builder correction — 2026-09-15
+Bounded read-label correction only, on the same topic branch (`a19c91f4..d26248b5`).
+
+- `tierDetailModel.ts` `buildTierInclusionLegLines()`: the read-view `legLabel` is now sequential over the effective lines actually displayed. Default is `Leg 1`, and each next matched Additional assignment is `Leg ${lines.length + 1}`. Numbering follows displayed lines, not `legs[]` position: an inclusion assigned only to `legs[1]` reads `Leg 1`, `Leg 2`. A single effective Leg still has no label (binding unchanged).
+- Unchanged: Leg identity matching (`platform_id` / stable `id`), `legs[]` ordering, `leg_platform_id`, each assignment's own `price_option_id`/quantity through `resolveRateSheetSelection()`, the renderer contract/layout, `PoolInclusionsEditor`, save/discard/status, backend, Editions. Editor vocabulary (`Leg Default`, `Leg 1…`) is untouched and is now pinned by the contract.
+- Changed files: `tierDetailModel.ts`, `tier-inclusions-readable-pricing-contract.ts` (sequential expectations, new legs[0]-unassigned case, editor-vocabulary check), `mode-renderer-snapshot.mjs` + snapshot (label text in the 2 multi-Leg fixture cases only), rebuilt `dist/js/admin-station.js`.
+
+**Validation (same set, rerun):** `tsc` ✓; `build` ✓; `docs:check` ✓; mode-renderer 25 cases byte-identical ✓ (the 22 original cases are unchanged); `contract:tier-inclusions-readable-pricing` ✓; ✓ `drawer-module-entry`, `rate-sheet-price-option-selection`, `tier-occupant-inclusions-bundle`, `tier-rate-sheet-catalogue-bundle`, `tier-drawer-editor-chrome`, `tier-edition-admin`, `commercial-leg-inclusion-groups`/`-extension-groups`, `tier-inclusions-customer-policy-merge`, `tier-catalogue-overview-presentation`, `composable-occupant-address`, `package-tier-workspace`. Still pre-existing and identical on `main`: `admin-station-css` (the same 6 `cz-rate-sheet-tool__*` classes, none from this work) and the `module-state-snapshot.mjs` `requiresParent` crash. No browser/runtime verification performed.
