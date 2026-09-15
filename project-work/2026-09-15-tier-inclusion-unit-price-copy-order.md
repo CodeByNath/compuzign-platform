@@ -57,3 +57,10 @@ After deployment, verify in WordPress Admin for both a Default Tier and a Tier E
 2. a per-Leg unit price (when Leg prices differ) uses the same order;
 3. totals remain money-only and quantities/layout are unchanged;
 4. unavailable/not-configured states remain unchanged.
+
+## Builder production push — 2026-09-15 — needs Nath
+Approved `8d1f0185` still fast-forwards `main` `d7fa41c8` (verified). Claude Code's auto-mode classifier blocks the Builder from pushing to `main`, so `main` is unchanged and status stays **SOURCE PUSH APPROVED**. Nath runs:
+
+`git fetch origin && git push origin 8d1f0185811e69214c0fd85c29819eef0c5d9226:refs/heads/main`
+
+Once `main` is `8d1f0185` and the deploy has run, the Builder records the `main` SHA and deployment evidence here and sets **AWAITING LIVE VALIDATION**.
