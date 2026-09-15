@@ -122,9 +122,14 @@ export function buildTierEditionDetail(
   // recognize it by bundle_id too, or it silently vanishes here even
   // though it resolves fine. Unresolved rows are kept (missing: true)
   // rather than dropped outright — a selection whose row later became
-  // unavailable should still show as a gap, not disappear entirely.
+  // unavailable should still show as a gap, not disappear entirely. A
+  // selection whose Rate Sheet row or Manager source no longer resolves at
+  // all carries no source_type (resolveRateSheetSelection), so it is kept by
+  // that unresolved-and-unidentifiable state; the priced read then shows its
+  // fallback label and "Pricing unavailable". A row still known to be an FAQ
+  // (source_type 'faq') is never admitted as an Inclusion.
   const items = resolvedSelections
-    .filter((item) => item.source_type === 'inclusion' || !!item.bundle_id)
+    .filter((item) => item.source_type === 'inclusion' || !!item.bundle_id || (!item.resolved && item.source_type == null))
     .map((item) => ({ id: item.item_id, label: item.label, missing: !item.resolved }));
 
   // Per-Leg read lines from THIS Edition's own declaration only — its own

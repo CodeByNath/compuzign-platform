@@ -183,6 +183,20 @@ for (const path of [
 // occupant's fixtures above deliberately use a different sheet, different
 // quantities and different Leg identities, so any leak changes the output.
 
+const editionFaqRow = {
+  item_id: 'rsi_faq_ed', source_item_id: 'rel_faq', unit_price: 0, per: 'Per item', quantity: 1, group_id: null, price_options: [],
+} as unknown as PackageRateSheetItem;
+// An FAQ row whose FAQ source has gone missing: unresolved, but still known to be an FAQ.
+const editionMissingFaqRow = {
+  item_id: 'rsi_faq_missing_ed', source_item_id: 'rel_faq_missing', unit_price: 0, per: 'Per item', quantity: 1, group_id: null, price_options: [],
+} as unknown as PackageRateSheetItem;
+const editionBundleRow = {
+  item_id: 'rsi_bundle_ed', source_item_id: '', bundle_id: 'bdl_1', label: 'Starter Bundle', unit_price: 12, per: 'Per user', quantity: 1, group_id: null, price_options: [],
+} as unknown as PackageRateSheetItem;
+// A row whose Manager source relationship no longer exists at all.
+const editionOrphanSourceRow = {
+  item_id: 'rsi_orphan_ed', source_item_id: 'rel_gone', unit_price: 8, per: 'Per GB', quantity: 1, group_id: null, price_options: [],
+} as unknown as PackageRateSheetItem;
 const editionRow = {
   item_id: 'rsi_suse_ed', source_item_id: 'rel_suse', unit_price: 30, per: 'Per VM', quantity: 1, group_id: null,
   price_options: [{ option_id: 'opt_ed_annual', label: 'Annual', unit_price: 27 }],
@@ -190,9 +204,13 @@ const editionRow = {
 const editionSvc = {
   rate_sheets: [
     ...svc.rate_sheets,
-    { rate_sheet_id: 'rs_edition', title: 'Edition sheet', items: [editionRow] } as unknown as PackageRateSheet,
+    { rate_sheet_id: 'rs_edition', title: 'Edition sheet', items: [editionRow, editionFaqRow, editionMissingFaqRow, editionBundleRow, editionOrphanSourceRow] } as unknown as PackageRateSheet,
   ],
-  package_relationships: svc.package_relationships,
+  package_relationships: [
+    ...svc.package_relationships,
+    { item_id: 'rel_faq', source_type: 'faq', source_id: 'faq_1', resolved: { question: 'How?', answer: 'Easily.' }, decorated_label: null, missing: false },
+    { item_id: 'rel_faq_missing', source_type: 'faq', source_id: 'faq_gone', resolved: null, decorated_label: null, missing: true },
+  ] as unknown as PackageManagerItem[],
 };
 const editionLegs: TierCommercialLeg[] = [
   { id: 'eleg_a', platform_id: 'CZTEL-0001', billing_cycle: 'annually', from_month: 0, to_month: 12 },
@@ -238,13 +256,38 @@ function renderEdition(edition: TierEdition): { value: ItemCollectionValue; deta
 }
 
 {
-  // A row that exists only on the parent's sheet never resolves against the
-  // Edition's bound sheet, and the parent's Legs never apply.
+  // A previously selected row that no longer resolves on the Edition's own
+  // sheet (here: a row only the parent's sheet has) stays visible and
+  // truthful — never hidden, never priced from the parent, and the parent's
+  // Legs never apply.
   const { value, detail } = renderEdition(editionFixture([{ item_id: 'rsi_suse', quantity: 2, leg_assignments: [{ leg_platform_id: 'CZTL-0001', quantity: 3 }] }], []));
   const lines = detail.inclusionsBinding.data.legLines?.rsi_suse ?? [];
   check(lines.length === 1, 'the parent\'s Legs add no Edition lines');
   check(!lines[0].line.resolved && lines[0].line.unit_price === null, 'a parent-sheet row does not resolve against the Edition\'s own sheet');
+  const stale = value.items.find((item) => item.id === 'rsi_suse');
+  check(!!stale, 'an unresolved Edition selection remains visible on the Edition card');
+  check(stale.label === '(unresolved Rate Sheet item)', `the unresolved selection shows its fallback label — got ${stale.label}`);
+  check(stale.pricing?.unitPrice === 'Pricing unavailable' && stale.pricing.lines[0].total === 'Pricing unavailable', 'its price and total read Pricing unavailable');
+  check(stale.pricing.lines[0].label === undefined, 'with one effective Leg it stays unlabelled');
   check(!value.items.some((item) => item.pricing?.unitPrice === '$20.00 Per VM'), 'the parent\'s $20.00 row price never appears on the Edition card');
+}
+
+{
+  // Row-type boundaries: a resolved Bundle row stays an Inclusion, a row whose
+  // Manager source no longer exists stays visible as unavailable, a selection
+  // whose row was removed from the sheet stays visible, and an FAQ-sourced
+  // row is never admitted as an Edition Inclusion.
+  const { value } = renderEdition(editionFixture([
+    { item_id: 'rsi_bundle_ed', quantity: 1 },
+    { item_id: 'rsi_orphan_ed', quantity: 1 },
+    { item_id: 'rsi_removed_ed', quantity: 1 },
+    { item_id: 'rsi_faq_ed', quantity: 1 },
+    { item_id: 'rsi_faq_missing_ed', quantity: 1 },
+  ]));
+  const ids = value.items.map((item) => item.id).join('|');
+  check(ids === 'rsi_bundle_ed|rsi_orphan_ed|rsi_removed_ed', `Edition Inclusions keep Bundle + unresolved rows and exclude FAQ rows, resolved or missing — got ${ids}`);
+  check(value.items[0].pricing?.unitPrice === '$12.00 Per user', 'a resolved Bundle row keeps its own price');
+  check(value.items[1].pricing?.unitPrice === 'Pricing unavailable' && value.items[2].pricing?.lines[0].total === 'Pricing unavailable', 'unresolved rows read Pricing unavailable, never $0');
 }
 
 {
