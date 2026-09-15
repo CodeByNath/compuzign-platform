@@ -1,26 +1,44 @@
 # Tier Inclusions — Readable Pricing and Leg Breakdown
 
 ## Status
-- **AWAITING LIVE VALIDATION**
+- **READY FOR BUILDER**
 - Builder: **Claude**
 - Reviewer: **ChatGPT independent auditor**
-- Live validator: **Nath**
-- Production `main`: `d26248b516dd0f2f492074e1c78482f165d73782` (exact approved candidate)
-- Deployment: GitHub Actions "Deploy to Hostinger" run #1036 — **Success** (https://github.com/CodeByNath/compuzign-platform/actions/runs/34948806787)
-- Base `main`: `cd86c943163db65a42b9c6d4719f023f98527aa2`
+- Production `main`: `d26248b516dd0f2f492074e1c78482f165d73782`
+- Deployment: GitHub Actions run #1036 — **Success**
 
-## Required outcome
-One wrapper per inclusion.
+## Phase 1 — Default Tier read view
+**LIVE PASSED by Nath — 2026-09-15.**
 
-Single effective Leg remains compact and unlabelled:
+Accepted behaviour:
+- one effective Leg: inclusion name + unit price/per, `QTY` + total, no Leg label;
+- multiple effective Legs: one inclusion header, then sequential `Leg 1`, `Leg 2`, etc.;
+- each row uses that Leg assignment's own Price Option, quantity and derived line total;
+- no merging/summing or duration multiplication;
+- existing inclusion editor/save/discard/lifecycle preserved.
 
+Do not reopen Phase 1 without hard evidence.
+
+## Phase 2 — Tier Edition Inclusions
+**Verdict: Proceed with safeguards.**
+
+Nath requires the same readable pricing/Leg treatment for **Tier Editions**.
+
+### Current architecture
+`tierEditionDetailModel.ts` already resolves each Edition's own `rate_sheet_items` through the authoritative `resolveRateSheetSelection()` rule and already has the Edition's own `rate_sheet_id` and `legs[]`. However, it currently reduces those resolved selections to `{ id, label, missing }`, and `tierEditionInclusionsShell` renders plain `item-collection` chips.
+
+The Default Tier implementation already added the optional priced `item-collection` renderer contract and `buildTierInclusionLegLines()` projection. Reuse that established path where semantically valid; do not build a second pricing/read system.
+
+### Required Edition read view
+For each Edition inclusion:
+
+Single effective Leg — no Leg label:
 ```text
 SUSE Linux                         $20.00 Per VM
 QTY - 2                                  $40.00
 ```
 
-Multiple effective Legs show the inclusion header once, then sequential read labels:
-
+Multiple effective Legs:
 ```text
 SUSE Linux                         $20.00 Per VM
 ----------------------------------------------
@@ -31,38 +49,19 @@ Leg 2
 QTY - 2                                  $40.00
 ```
 
-Each row uses that Leg assignment's own resolved Price Option/unit price, quantity and derived line total. Never copy Default values, merge/sum Legs, or multiply by duration.
+Rules are identical to accepted Phase 1: sequential read labels only; actual per-Leg Price Option/quantity; truthful unavailable pricing; no summing; no duration multiplication.
 
-## Reviewer audit — 2026-09-15
-**Verdict: Proceed with safeguards. SOURCE PUSH APPROVED.**
+### Must preserve
+- Edition's own Rate Sheet binding, `rate_sheet_items`, `legs[]`, CZTE/CZTEL identity and lifecycle;
+- Edition remains one consolidated backend module;
+- `TierEditionEditor` and its existing shared Edit session/tabs;
+- parent Default Tier data must never leak into Edition pricing;
+- shared `item-collection` plain-chip consumers remain unchanged;
+- no endpoint, persistence, backend pricing, identity, or lifecycle changes.
 
-Independent inspection of the pushed correction confirms:
-- topic head is exactly `d26248b516dd0f2f492074e1c78482f165d73782`, one correction commit after reviewed `a19c91f4`;
-- full candidate is two commits ahead of base `main` and contains the previously reviewed implementation plus the bounded label correction only;
-- read projection now labels displayed effective lines sequentially: Default -> `Leg 1`, next matched Additional assignment -> `Leg 2`, etc.;
-- single-effective-Leg binding remains unlabelled;
-- identity/order still come from existing `legs[]`, `platform_id` / stable `id`, and `leg_platform_id` matching;
-- each Additional assignment still resolves its own `price_option_id` and quantity through existing `resolveRateSheetSelection()`;
-- Commercial Legs editor vocabulary remains `Leg Default`, `Leg 1…`; no global rename;
-- renderer contract, `PoolInclusionsEditor`, save/discard/status/lifecycle, Rate Sheet ownership, backend persistence/endpoints and Editions remain unchanged.
+### Builder action
+Start from current `main` after confirming branch hygiene. Audit `tierEditionDetailModel.ts`, `bindings/tierEdition.tsx`, the accepted Default implementation, and relevant Tier Edition/Commercial Leg Code Maps before editing.
 
-Correction diff is bounded to `tierDetailModel.ts`, the Tier Inclusions contract, renderer fixtures/snapshot and rebuilt `dist/js/admin-station.js`.
+Implement the smallest reuse of the accepted priced-item projection for Edition Inclusions. Add/update a focused contract proving: Edition uses its own Rate Sheet/selections/legs; single-Leg unlabelled; multi-Leg sequential; per-Leg Price Option/quantity correct; parent values cannot leak; existing Edition Edit session/lifecycle unchanged; ordinary chip consumers unchanged.
 
-Builder-reported rerun: `tsc`, build, docs check, 25 renderer snapshots, Tier Inclusions pricing contract and the listed related contracts all pass. Two failures remain pre-existing and identical on clean `main`: `admin-station-css` stale `cz-rate-sheet-tool__*` classes and `module-state-snapshot.mjs` `requiresParent` crash; they are outside this work.
-
-## Builder next action
-Move **only exact approved candidate `d26248b516dd0f2f492074e1c78482f165d73782`** to `main` through the normal Builder workflow and allow normal GitHub Actions deployment. Any source change invalidates this approval and returns the work to reviewer review.
-
-After push/deployment, record the exact resulting `main` SHA and deployment/workflow evidence in this same file, set status to **AWAITING LIVE VALIDATION**, add the live check below, and stop.
-
-## Live validation request for Nath
-After deployment, verify in WordPress Admin Tier Inclusions read mode:
-1. one effective Leg: inclusion name + unit price/per, `QTY` + total, no Leg label;
-2. multiple effective Legs: `Leg 1`, `Leg 2`, etc. sequentially with each row's correct quantity/price result;
-3. Edit still opens the existing inclusion editor and normal save/cancel/discard behaviour still works.
-
-## Builder production push — 2026-09-15
-- The auto-mode classifier blocked the Builder's own push. Nath then fast-forwarded `main` from `cd86c943` to the exact approved candidate `d26248b516dd0f2f492074e1c78482f165d73782`. The Builder confirmed `origin/main` = `d26248b5` and that there is no source change beyond the approved candidate.
-- GitHub Actions "Deploy to Hostinger" run #1036 on head `d26248b5`: completed, **success**.
-- Topic branch `tier-inclusions-readable-pricing-legs` was confirmed to be an ancestor of `main`, then deleted locally and on the remote. The repository is back to `main` + `Project-work-instructions`.
-- Next: Nath performs the live validation request above; the Reviewer audits the reported result against `main` `d26248b5` + run #1036.
+Run relevant TypeScript/build/docs/contracts. Push only the topic candidate, record exact SHA/diff/tests here, set **AWAITING REVIEWER REVIEW**, and stop. Do not merge to `main` before reviewer approval.
