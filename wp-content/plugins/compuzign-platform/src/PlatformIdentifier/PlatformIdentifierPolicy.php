@@ -34,8 +34,6 @@ final class PlatformIdentifierPolicy
     public const PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION = 'package_rate_card_bundle_item_option';
     public const PACKAGE_RATE_CARD_BUNDLE_OPTION      = 'package_rate_card_bundle_option';
     public const REQUEST                  = 'request';
-    public const PLATFORM_SETTINGS         = 'platform_settings';
-    public const PLATFORM_SETTINGS_PROFILE = 'platform_settings_profile';
 
     public const ALPHABET    = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
     public const SUFFIX_LENGTH = 5;
@@ -90,13 +88,6 @@ final class PlatformIdentifierPolicy
         // so this can never be read as CZPRCB + suffix.
         self::PACKAGE_RATE_CARD_BUNDLE_OPTION      => 'CZPRCBO',
         self::REQUEST                  => 'CZR',
-        // The global Platform Settings root and its parent-qualified Profile
-        // section (Owner-selected 2026-10-08). Same length-anchoring as
-        // CZT/CZTA: a CZPS id is 9 characters and a CZPSP id 10, so a CZPS
-        // suffix that happens to begin with P is never read as CZPSP, and
-        // neither can satisfy CZPG or any CZPRC* pattern.
-        self::PLATFORM_SETTINGS         => 'CZPS',
-        self::PLATFORM_SETTINGS_PROFILE => 'CZPSP',
     ];
 
     /** @return array<string, string> */

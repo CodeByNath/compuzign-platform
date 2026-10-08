@@ -15,11 +15,6 @@ use CompuZign\Platform\Core\Health;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 use CompuZign\Platform\PlatformIdentifier\ExistingRecordAssignmentCommand;
 use CompuZign\Platform\PlatformIdentifier\TemporaryMigrationController;
-use CompuZign\Platform\PlatformSettings\BrandImageProcessor;
-use CompuZign\Platform\PlatformSettings\PlatformSettingsController;
-use CompuZign\Platform\PlatformSettings\PlatformSettingsRepository;
-use CompuZign\Platform\PlatformSettings\PlatformSettingsStation;
-use CompuZign\Platform\PlatformSettings\UploadsBrandAssetStore;
 
 final class Plugin
 {
@@ -39,14 +34,6 @@ final class Plugin
         (new AssetLoader())->register();
         $platformIdentifiers = new PlatformIdentifierStation();
         (new TemporaryMigrationController($platformIdentifiers))->register();
-        // Platform Settings root (CZPS) and its Profile section (CZPSP):
-        // platform-wide authority, presented later inside Service Settings.
-        (new PlatformSettingsController(new PlatformSettingsStation(
-            $platformIdentifiers,
-            new PlatformSettingsRepository(),
-            new UploadsBrandAssetStore(),
-            new BrandImageProcessor()
-        )))->register();
         if (defined('WP_CLI') && WP_CLI) {
             \WP_CLI::add_command(
                 'compuzign platform-identifiers assign',

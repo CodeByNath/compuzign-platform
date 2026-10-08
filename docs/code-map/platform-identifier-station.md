@@ -82,7 +82,7 @@ live-reservation adapters; no separate backfill tool exists. Assignment
 processes 100-record Package-owned string-cursor batches through
 `assignExistingBatch()`, guarded by a 45-second lock. Invalid, duplicate, or
 conflicting bindings stop assignment; valid IDs are preserved. The controller
-remains until live allocation is verified.
+remains only until live allocation is verified.
 
 Package Phase 4 began with Package Families: `Core\Plugin` injects the
 shared Station through `SurfacePackagesModule`; Package owns `cz_platform_id`
@@ -103,8 +103,6 @@ use `(rate_sheet_id, group_id)`/`(rate_sheet_id, item_id)`/
 `(rate_sheet_id, item_id, option_id)`; Bundle scopes qualify by `bundle_id`.
 Package adapters retain ownership and delegate registry work here. Tier
 Promotion (`CZTP`) is deferred.
-
-`CZPS`/`CZPSP`: [Settings](platform-settings.md).
 
 CRM-1A registers `request` (`CZR`). `RequestsController` reserves before
 `wp_insert_post()`, binds via `RequestRepository`'s scalar `cz_platform_id`

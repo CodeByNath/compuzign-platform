@@ -86,8 +86,6 @@ $expected = [
     'tier_edition'             => 'CZTE',
     'tier_leg'                 => 'CZTL',
     'tier_edition_leg'         => 'CZTEL',
-    'tier_catalogue'           => 'CZTC',
-    'tier_edition_catalogue'   => 'CZTEC',
     'tier_promotion'           => 'CZTP',
     'package_rate_card'        => 'CZPRC',
     'package_rate_card_group'  => 'CZPRCG',
@@ -98,8 +96,6 @@ $expected = [
     'package_rate_card_bundle_item_option' => 'CZPRCBIO',
     'package_rate_card_bundle_option'      => 'CZPRCBO',
     'request'                  => 'CZR',
-    'platform_settings'        => 'CZPS',
-    'platform_settings_profile' => 'CZPSP',
 ];
 
 checkIdentifier(PlatformIdentifierPolicy::prefixes() === $expected, 'every entity prefix is locked');
@@ -112,8 +108,6 @@ foreach ($expected as $entityType => $prefix) {
     checkIdentifier(!PlatformIdentifierPolicy::validate($entityType, $prefix . '2A7K0'), "{$entityType} rejects an ambiguous suffix");
 }
 checkIdentifier(PlatformIdentifierPolicy::entityTypeFor('CZPRCG2A7KZ') === 'package_rate_card_group', 'overlapping prefix families resolve by exact policy validation');
-checkIdentifier(PlatformIdentifierPolicy::entityTypeFor('CZPSP2A7K') === 'platform_settings', 'a CZPS suffix beginning with P stays a Platform Settings id');
-checkIdentifier(PlatformIdentifierPolicy::entityTypeFor('CZPSP2A7KZ') === 'platform_settings_profile', 'a full-length CZPSP id resolves to the Profile section');
 
 $station = new PlatformIdentifierStation(identifierRandom('7K9Q2'));
 $generated = $station->generate(PlatformIdentifierPolicy::SERVICE);
