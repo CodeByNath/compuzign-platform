@@ -34,6 +34,10 @@ final class PlatformIdentifierPolicy
     public const PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION = 'package_rate_card_bundle_item_option';
     public const PACKAGE_RATE_CARD_BUNDLE_OPTION      = 'package_rate_card_bundle_option';
     public const REQUEST                  = 'request';
+    public const ACCOUNT_STATION  = 'account_station';
+    public const ACCOUNT_SETTINGS = 'account_settings';
+    public const ACCOUNT_TOOLS    = 'account_tools';
+    public const ACCOUNT_PROFILE  = 'account_profile';
 
     public const ALPHABET    = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
     public const SUFFIX_LENGTH = 5;
@@ -88,6 +92,16 @@ final class PlatformIdentifierPolicy
         // so this can never be read as CZPRCB + suffix.
         self::PACKAGE_RATE_CARD_BUNDLE_OPTION      => 'CZPRCBO',
         self::REQUEST                  => 'CZR',
+        // Account Station's own four-level singleton chain. CZA/CZAS/CZAST/CZASTP
+        // nest as string prefixes of one another, but validate()'s anchored
+        // full-length regex disambiguates by TOTAL string length exactly like the
+        // CZT/CZTA/CZTE/CZTG family above: CZA+5=8, CZAS+5=9, CZAST+5=10,
+        // CZASTP+5=11 chars — four distinct lengths, so a real CZAS… id can never
+        // satisfy CZA's own pattern regardless of alphabet overlap.
+        self::ACCOUNT_STATION  => 'CZA',
+        self::ACCOUNT_SETTINGS => 'CZAS',
+        self::ACCOUNT_TOOLS    => 'CZAST',
+        self::ACCOUNT_PROFILE  => 'CZASTP',
     ];
 
     /** @return array<string, string> */

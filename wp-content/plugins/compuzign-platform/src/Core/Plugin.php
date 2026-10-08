@@ -2,6 +2,7 @@
 
 namespace CompuZign\Platform\Core;
 
+use CompuZign\Platform\Modules\Account\AccountModule;
 use CompuZign\Platform\Modules\Admin\AdminModule;
 use CompuZign\Platform\Modules\AdminStation\AdminStationAuth;
 use CompuZign\Platform\Modules\AdminStation\AdminStationModule;
@@ -47,6 +48,7 @@ final class Plugin
         (new RequestsModule($platformIdentifiers))->register();
         (new ServiceModule($platformIdentifiers))->register();
         (new AdminModule($platformIdentifiers))->register();
+        (new AccountModule($platformIdentifiers))->register();
         (new AdminStationModule())->register();
         (new AdminStationAuth())->register();
 

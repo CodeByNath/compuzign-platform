@@ -96,6 +96,10 @@ $expected = [
     'package_rate_card_bundle_item_option' => 'CZPRCBIO',
     'package_rate_card_bundle_option'      => 'CZPRCBO',
     'request'                  => 'CZR',
+    'account_station'          => 'CZA',
+    'account_settings'         => 'CZAS',
+    'account_tools'            => 'CZAST',
+    'account_profile'          => 'CZASTP',
 ];
 
 checkIdentifier(PlatformIdentifierPolicy::prefixes() === $expected, 'every entity prefix is locked');
@@ -108,6 +112,8 @@ foreach ($expected as $entityType => $prefix) {
     checkIdentifier(!PlatformIdentifierPolicy::validate($entityType, $prefix . '2A7K0'), "{$entityType} rejects an ambiguous suffix");
 }
 checkIdentifier(PlatformIdentifierPolicy::entityTypeFor('CZPRCG2A7KZ') === 'package_rate_card_group', 'overlapping prefix families resolve by exact policy validation');
+checkIdentifier(PlatformIdentifierPolicy::entityTypeFor('CZA2A7KZ') === 'account_station', 'a short Account Station id is never read as a longer sibling');
+checkIdentifier(PlatformIdentifierPolicy::entityTypeFor('CZASTP2A7KZ') === 'account_profile', 'a full-length Account Profile id resolves past its three shorter-stem ancestors');
 
 $station = new PlatformIdentifierStation(identifierRandom('7K9Q2'));
 $generated = $station->generate(PlatformIdentifierPolicy::SERVICE);

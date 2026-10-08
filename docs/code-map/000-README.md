@@ -8,6 +8,7 @@ The Code Map points to the **current implementation**: the small set of authorit
 
 - [Station Manager](station-manager.md)
 - [Admin Station](admin-station.md)
+- [Account Station](account-station.md)
 - [Admin Station Navigation & Resolver](admin-station-navigation.md)
 - [Admin Station Surface Binding](admin-station-surface-binding.md)
 - [Admin Station Drawer](admin-station-drawer.md)

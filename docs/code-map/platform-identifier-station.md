@@ -110,3 +110,9 @@ claim (mirroring `CategoryMeta`), rolling back both on failure. Native
 identity here isn't deterministic — concurrent same-ref submissions would
 insert two posts — so a creation lock (opaque-token compare-and-swap over
 one `add_option()` option) serializes them onto one winner first. No backfill.
+
+[Account Station](account-station.md)'s four-level singleton chain — `CZA`/
+`CZAS`/`CZAST`/`CZASTP` — is the first family with fixed-constant native
+references instead of record ids, since each is a true one-of-a-kind
+singleton. `Support\AccountIdentity` mints/binds all four through this
+Station's ordinary `ensure()`, idempotently, on the first Brand Save.

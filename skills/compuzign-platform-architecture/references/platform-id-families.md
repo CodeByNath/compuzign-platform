@@ -34,6 +34,10 @@ pattern regardless of alphabet overlap.
 | `CZPRCBI` | `PACKAGE_RATE_CARD_BUNDLE_ITEM` | a Bundle's own live reference to one supplied row | 2 |
 | `CZPRCBO` | `PACKAGE_RATE_CARD_BUNDLE_OPTION` | the Bundle's own Price Option | 2 |
 | `CZPRCBIO` | `PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION` | a Bundle-inclusion's own Price Option | 2 |
+| `CZA` | `ACCOUNT_STATION` | fixed constant `account_station:root` — true singleton | 3 |
+| `CZAS` | `ACCOUNT_SETTINGS` | fixed constant `account_settings:root` | 2 |
+| `CZAST` | `ACCOUNT_TOOLS` | fixed constant `account_tools:root` | 2 |
+| `CZASTP` | `ACCOUNT_PROFILE` | fixed constant `account_profile:root` | 2 |
 
 "Rung" here is this Skill's own three-rung classification (see
 `identity-composition-model.md`), not a field in the policy itself — it's
