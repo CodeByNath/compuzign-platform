@@ -1,44 +1,32 @@
-# Handover — CompuZign Platform Global Profile / Brand
+# Global Profile — Locked Handover and Phase Plan
 
-**Authority:** Owner's requirements and repository architecture govern. This is a **CompuZign Platform feature**. Its business Profile data, contracts, assets and permissions are not WordPress user profiles, WordPress media records or Service Station data. Hostinger/WordPress currently provide runtime and physical storage only; platform contracts must not depend on their identity or UI model. Host storage APIs may be used behind a platform-owned adapter when verified safe. No WEX implementation now.
+## Product authority
+CompuZign owns Platform Settings, Profile data, platform identities, validation, API, image assets and persistence. Runtime/storage providers are adapters only. **Service Station → Settings → Profile** is temporary navigation, never Service data ownership. Root `AGENTS.md`, `docs/ai-index.md`, Platform Identifier policy, current Code Maps and source remain authoritative.
 
-## Locked screen and behaviour
-Temporary navigation: **Service Station → Settings → Profile**; ownership remains globally platform-wide. Profile contains one **Brand** block in this exact order:
-1. **Brand logo:** image selection with preview / Pick / Clear / one-line help; any image (safe supported decoding to be established without silently narrowing requirement). Public-facing asset, **never displayed in dashboard header**.
-2. **Brand Favicon:** same controls, square required. Reject nonsquare on Pick with message and again on Save; in dashboard header 64×64 box on the main colour. Blank is valid.
-3. **Brand name:** plain text, <=60 characters, blank valid; full-name display contexts use value, dashboard existing default label if blank.
-4. **Brand Code:** letters A–Z only, uppercase display/storage, <=6 characters, no minimum, blank valid; display beside favicon in header, fallback to existing dashboard label when blank.
+## Approved brand contract
+One Profile Brand section, exactly:
+1. **Brand logo:** Pick/Clear, immediate unsaved preview, one-line help; public website asset, not displayed in dashboard.
+2. **Brand Favicon:** same controls; square on Pick and Save; **64×64** dashboard header box on the established main colour.
+3. **Brand name:** optional plain text, maximum 60 characters; display full name in approved contexts, default header label when empty.
+4. **Brand Code:** optional uppercase A–Z, maximum 6; beside favicon; default header label when empty.
 
-Selection updates **unsaved preview immediately**. One Save for all fields; no autosave or partial commit. Success leaves user on Profile with confirmation. Platform permission gates screen and reads/writes. Clear and blank are accepted; defaults are display-only, not persisted as invented brand values. Define missing/broken assets fallback. Preserve dark/light UI and existing Service workflows.
+One Save for the entire Profile, no autosave or partial data commit. Success stays on Profile with confirmation. Missing images show clear recovery controls; blanks/Clear are valid. Existing Services/Packages/Pricing/CRM stay unchanged. Respect theme, keyboard and responsive conventions.
 
-## Phase gates — no diversion
-**Phase 0 — Evidence/architecture (ACCEPTED 2026-10-08; Proceed with safeguards):**
-- Read `AGENTS.md`, `docs/ai-index.md`, focused Code Maps and actual source. Confirm global Profile domain boundary and minimal wiring to shell and Service Settings.
-- Builder discovered no pre-existing platform profile, brand-image system or consumer; proposed backend `src/PlatformProfile/` and frontend `resources/ts/platform-profile/`. Proposed files and native file chooser are **not yet accepted design**.
-- Choose and justify a platform-owned asset picker/storage mechanism; where no platform library exists, explain the smallest solution preserving Pick/Clear with no host media/profile coupling.
-- Demonstrate adapter storage durability across plugin upgrades/deploys, path and URL safety, allowed formats, upload auth, dimension checks, atomicity across asset+record writes, concurrent writers and fallback. Do not assume an option read-back is a transaction.
-- Identify the actual main-colour token, existing dashboard fallback behaviour, Profile navigation/screen composition, exact files, contracts and tests. Resolve image limits and display contexts with Owner before hard-coding new product restrictions.
-- Owner approved Option A; Reviewer released Phase 1 backend only. Phase 0 involved no product source edits.
+**Image Option A:** accept arbitrary image selection; securely inspect, fully decode and convert unsupported display formats to safe browser imagery when runtime supports it, otherwise clear error without changing saved values. Never store unsafe raw vector/script payloads.
 
-**Phase 1 — Platform-owned backend (ACTIVE, Builder authorised):** One globally authoritative persisted Profile schema; host storage adapter is internal. Secured read/atomic write, safe asset management, validation, clear/unset, error/recovery/concurrency tests, no Service record or user profile.
+## Permanent identity and storage
+Owner-approved parent **Platform Settings** `CZPSXXXXX` and child **Profile** `CZPSPXXXXX`. Both are real durable singleton records; parent stores section link, child stores `parent_platform_id`, revision and brand. Existing Platform Identifier Station alone mints/binds/resolves IDs; identity is immutable across Saves. Platform asset keys are opaque and stored independently from host URLs. Protect bootstrap/recovery, revisions, authentication, all referenced files and durable reload. Avoid a new UI Station, host media/profile identities or WEX implementation.
 
-**Phase 2 — Settings Profile UI:** Profile navigation, exact four controls and help, validated previews/draft state, one Save and confirmation, keyboard/a11y and dark/light responsive parity. Existing create launchers stay intact.
+## API contract
+Authenticated `/compuzign/v1/admin/platform-settings` GET; `/admin/platform-settings/{CZPS ID}` GET; `/admin/platform-settings/profile` GET/POST; `/admin/platform-settings/profiles/{CZPSP ID}` GET. All read/Save operations require platform access and validated nonce; 409 for revision/identity conflict, clear validation errors; never expose editable settings anonymously.
 
-**Phase 3 — Header/public read:** Favicon 64×64 and code, consistent saved-state update and defaults, full brand name only where appropriate. Public logo gets a safe platform read contract; don't invent public UI if no consumer exists.
+## Controlled phases
+- **0 — Architecture discovery:** accepted.
+- **1A — Identity/storage/API architecture:** accepted with safeguards. Full original report preserved in coordination commit `d90da463`.
+- **1B — Backend implementation:** active independent correction review. Candidate `236a345a`; no main push authorised until source safety and file-size gates pass.
+- **2 — Settings Profile interface:** locked.
+- **3 — Header/brand projections:** locked.
+- **4 — Full validation, approved release and Nath live validation:** locked.
 
-**Phase 4 — Verify and release:** Test valid/invalid/blank/media/square/permission/failure/concurrency/fallback/persistence, nonregression and reload; update affected Code Maps. Claude pushes reviewed topic SHA only; independent Reviewer inspects real diff and test evidence before `main`. Confirm GitHub Actions vs deployed runtime separately. Nath does live UI validation; Reviewer closes from matching evidence.
-
-## Absolute exclusions
-Do not derive Platform architecture from hosting, store Profile on Service or user records, introduce WEX adapter, new Station or general-purpose media manager beyond this task, change pricing/Packages/Tiers/quotes, add autosave, redesign unrelated shell, or invent new public sections.
-
-## Workflow
-Use `project-work/2026-10-08-global-profile-brand.md` as **single active status/report file** through every correction and approval. No new work file per round; keep it normally <=600 words. Builder Claude owns source editing and reports exact SHA. Reviewer cannot edit product source. Do not advance a phase without an independent acceptance verdict.
-
-## Owner-approved image policy — 2026-10-08 (binding)
-**Option A approved:** select any image type, securely inspect and decode actual content, and convert formats not safely browser-displayable to a safe web image format **where a secure runtime conversion capability exists**. If impossible or unsafe, show a clear error and retain the prior saved profile unchanged. Never treat client MIME/extension as proof, silently drop the image, or impose new product-format restrictions or arbitrary size/minimum bounds without approval. Square favicon validation runs on Pick and Save. This decision supersedes the Phase 0 open image-format gate. Phase 1 is backend-only; subsequent phases remain independently gated.
-
-## Owner addendum — identity, durable storage and routes (binding)
-Owner requires Profile to carry a permanent **CompuZign Platform ID**, stable global persistence, and explicit Platform API routes. Earlier Phase 0 'singleton needs no Platform ID' classification is superseded. `docs/code-map/platform-identifier-station.md` and the existing closed `PlatformIdentifierPolicy` are authoritative: Profile identity must be designed through the existing identifier engine, not a new scheme. No prefix has been approved; Claude must propose a compatible Policy extension, singleton native-reference and reserve/bind/lookup lifecycle for Reviewer/Owner audit **before coding identity changes**. Saving the Profile must never mint a fresh ID. The global Profile record stores its authoritative ID, version/revision and brand fields; assets use durable platform-issued keys through a storage adapter. API design must specify authorised read/save plus read-by-ID, response projection, error/conflict semantics and asset access policy. This adds a **Phase 1A design checkpoint** before **Phase 1B backend implementation**; later phases remain locked. Current active status is in `2026-10-08-global-profile-brand.md`.
-
-## Owner Platform ID hierarchy — 2026-10-08
-Owner selected **CZPSXXXXX** for the durable Platform Settings parent and **CZPSPXXXXX** for its Profile child. Both use the five-character suffix in the current `PlatformIdentifierPolicy` and their full anchored lengths distinguish them, but neither entity type is registered yet. Phase 1A must specify two genuine persistent domain records/identities, stable parent-child linkage, shared Platform Identifier Station reservation and binding, read-by-ID, initial bootstrap/retry/rollback, and immutable IDs across saves. Avoid a decorative parent or a new UI Station; register these prefixes centrally only after design review. All Profile behaviour, one-Save semantics and platform-owned storage remain unchanged.
+## Governance and length limits
+Builder alone edits product source. Reviewer edits only `project-work/` coordination on instruction branch; audits pushed source and tests. **New or changed source files must be at most 600 physical lines; never over 1,000, and no line-count exception without Owner approval.** Preserve meaningful cohesion when splitting. Active work file **at most 600 words**, normally much shorter; retain technical depth in this handover, source Code Maps and Git history, not repeated narratives. Code Maps **at most 600 words**. Never delete verification evidence merely to meet limits. One area, one active file, one phase at a time.
