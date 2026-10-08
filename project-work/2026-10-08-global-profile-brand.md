@@ -31,52 +31,9 @@ Provide a concise contract proposal, with actual source evidence:
 No WEX implementation, new Station, general media framework, host profile/media ownership, Service-owned profile, pricing/Tier/Package/quote changes, autosave or unrelated redesign. Keep one work file; no phase advance without reviewer acceptance.
 
 ## Phase 1A Builder report — 2026-10-08
-Evidence: `PlatformIdentifierPolicy.php`; `PlatformIdentifierStation.php` (`reserve`/`assign`/`ensure`/`resolve`/`lookupNative`); `PackagePlatformNativeReference.php` (length-prefixed refs); `ServiceController::fetchDetailByPlatformId` + `rejectPlatformIdMutation`; `RequestRepository` CAS lock; `deploy.yml`.
-
-**1. Identity — Owner prefixes verified compatible.**
-- Policy entries (registered in 1B): `PLATFORM_SETTINGS='platform_settings'`→`CZPS` and `PLATFORM_SETTINGS_PROFILE='platform_settings_profile'`→`CZPSP`. Full IDs are 9 and 10 chars. The anchored regex separates them from each other and from `CZPG`/`CZPRC*`, as with `CZT`/`CZTA`. A `CZPS` suffix may begin with `P`, which is visually similar but never ambiguous to the engine.
-- Native refs (own helper, same `context:len:value` encoding): parent `platform-settings:6:global`; child `platform-settings-profile:6:global7:profile` (parent-qualified, rung 2).
-- **Parent is real:** option `cz_platform_settings` = `{schema_version, platform_id, sections:{profile:{platform_id, record:'cz_platform_profile'}}, created_at, updated_at}`. It is the platform-wide Settings root and section index, and the only owner that creates or links sections. It holds no brand data. **Owner/Reviewer: confirm this scope is sufficient (not decorative).**
-- Mint only at the first successful Profile Save, under the save lock:
-  1. `ensure(parent)` — write callback sets parent `platform_id`.
-  2. `ensure(child)` — sets Profile `platform_id` + `parent_platform_id`.
-  3. Parent `sections.profile` link (CAS).
-  4. Field commit.
-- `ensure()` is idempotent, so later Saves mint nothing. A client-sent `platform_id`/`parent_platform_id` is rejected.
-- **Partial bootstrap:** parent bound but child missing → the next Save resumes at step 2. An orphan reservation is harmless and never reused. A stored ID whose registry state is not `bound`, or a parent link disagreeing with the child's `parent_platform_id`, fails closed with **409 `settings_identity_conflict`**, nothing committed. No backfill tool (singletons).
-
-**2. Storage.**
-- Profile option `cz_platform_profile` (non-autoloaded) = `{schema_version, platform_id, parent_platform_id, revision, brand:{name, code, logo:Asset|null, favicon:Asset|null}, updated_at, updated_by}`.
-- `Asset={key:"sha256.ext", mime, width, height, bytes, source_mime}`. Port `BrandAssetStore`; adapter `UploadsBrandAssetStore` → `uploads/compuzign/brand/`, outside the deploy checkout, server-named files, confined path.
-- Save: validate + decode → convert if needed → write immutable files → lock → identity steps → `revision` check (409) → `update_option` (single commit, `revision+1`) → sweep unreferenced files older than a grace window → unlock.
-- Crash before commit leaves the old record and its files intact; crash after commit references only complete files.
-
-**3. APIs** (all `PlatformAccess::CAP` + `X-WP-Nonce`; none anonymous).
-- `GET /compuzign/v1/admin/platform-settings` → `{platform_id, sections:{profile:{platform_id}}}`.
-- `GET /compuzign/v1/admin/platform-settings/(?P<platform_id>CZPS[A-Z0-9]+)` → `resolve()`, which must be bound/`platform_settings`/global; else 404/409.
-- `GET /compuzign/v1/admin/platform-settings/profile` → `{platform_id, parent_platform_id, revision, brand}`. Each asset is `{url, width, height, mime, missing}` or `null`.
-- `POST` same path, multipart: `expected_revision`, `name`, `code`, `logo`/`favicon`, `clear_*`. Responses:
-  - `200` projection
-  - `400` field errors
-  - `409` revision/identity conflict
-  - `415`/`422` undecodable, unconvertible or non-square image
-  - `500` storage failure, nothing committed
-- `GET /compuzign/v1/admin/platform-settings/profiles/(?P<platform_id>CZPSP[A-Z0-9]+)` → same projection.
-- Before the first Save, IDs are `null`; reads never mint.
-- Option A: decode by content; convert only where the host runtime can. GD/Imagick on Hostinger is **unknown** — 1B probes and reports. Never store or serve raw SVG.
-- Asset URLs are public static (brand material); editable data is never anonymous.
-
-**4. Tests** (`tests/platform-settings-*.php`):
-- first Save mints both IDs and links them; reload equality; repeat Saves keep both IDs
-- reads mint nothing; both read-by-ID ok/404/wrong-type/conflict; client IDs rejected
-- permission denial on all routes
-- clear, blank, name/code bounds; non-square favicon on Save
-- conversion unavailable leaves the record unchanged; missing file → `missing:true`
-- stale revision 409; lock contention
-- registry mismatch and broken parent link fail closed
-- partial bootstrap resumes; crash before/after commit; sweep keeps referenced files
-
-**5. Files.**
-- New: `src/PlatformSettings/{PlatformSettingsStation, PlatformSettingsNativeReference, PlatformProfileRepository, PlatformSettingsController, BrandAssetStore, UploadsBrandAssetStore}.php`, tests, `docs/code-map/platform-settings.md`.
-- Edited: `PlatformIdentifierPolicy.php` (two entries), `Core/Plugin.php`, `platform-identifier-station.md`, `000-README.md`.
-- **Owner decision:** mint at first Save (recommended) vs at activation.
+- **IDs:** `CZPS`/`CZPSP` are compatible with the Policy (anchored length) and are registered in 1B. Native refs: `platform-settings:6:global`, `platform-settings-profile:6:global7:profile`. Minted once, on the first Save, via `ensure()` (parent → child → link); never reminted, never on read. Mismatch → 409, nothing saved.
+- **Parent:** `cz_platform_settings` is the Settings root and section index. **Confirm it is not decorative.**
+- **Profile:** `cz_platform_profile` = `{platform_id, parent_platform_id, revision, brand}`. Assets are hash-named files in `uploads/compuzign/brand/`.
+- **Save:** one lock, a revision check (409 on mismatch) and a single commit.
+- **Routes:** `/admin/platform-settings[/CZPS…]`, `/admin/platform-settings/profile` (GET/POST), `/profiles/CZPSP…`. All require `PlatformAccess::CAP` and a nonce.
+- **Image tooling:** GD/Imagick availability is unknown; 1B probes it.
