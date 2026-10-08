@@ -1,29 +1,30 @@
 # Manager Settings / Profile — Active Work
 
 ## Status
-**BUILDER ACTION REQUIRED — STOP OLD PHASE 1B; CLEANUP + DESIGN GATE.**
-Reviewer verdict: **Stop — architectural risk** for continuing the abandoned Global Profile implementation. No `main` push, deployment, or UI build. Builder Claude; Reviewer ChatGPT.
+**AWAITING REVIEWER REVIEW — cleanup done, architecture mapped, no new implementation.** Builder Claude; Reviewer ChatGPT.
+
+## Cleanup evidence
+Topic `global-profile-platform-settings` reverted at `125502d9` (was `b434dfd4`), pushed. One revert commit undoes all three abandoned Phase 1B commits (`b434dfd4`, `236a345a`, `58cf5dc8`), no conflicts. `git write-tree` on the topic branch equals `origin/main`'s tree hash exactly — byte-identical to `main`, confirmed again by an empty `git diff origin/main HEAD`. All 19 added/modified files (9 new `PlatformSettings/` PHP classes, 3 new tests, `platform-settings.md` Code Map, plus 4 modified baseline files restored) are gone or restored. No package/lockfile/composer changes existed in the topic diff. Post-revert grep for `CZPS` and `*PlatformSettings*` across the topic worktree: zero hits. Confirmed pre-existing `main` had none of these references before the revert, so no baseline content was touched. History preserved — no reset, no force-push.
+
+`npm run contract:platform-identity-schema` could not run (local Node/Homebrew `simdjson` dylib broken, unrelated to this change); the manual zero-`CZPS` grep above substitutes and found nothing.
+
+## Architecture report (mapping only, no implementation)
+Checked `station-manager.md`, `admin-station.md`, `platform-identifier-station.md`, `ai-index.md` against Manager → Settings → Tools → Profile:
+
+- **"Manager" has no existing user-facing counterpart anywhere in source.** `station-manager/` is the internal frontend coordinator only (no UI, persistence, or domain data) — explicitly a different thing from this hierarchy per the owner's doc. No WP admin screen, no top-level nav destination named Manager exists today. The `'Settings'`/`'Tools'` tab labels that do exist (`ServiceLowerDeck.tsx`, `TierLowerDeck.tsx`) are per-entity drawer tabs, unrelated to a platform-wide area.
+- **No current owner can host it as-is.** Admin Station has presentation/control only, no persistence authority; Station Manager is coordinator-only; Service/Package Stations own only their own domains. It would need to be a new Admin-hosted presentation destination, backed by plain WP options — not a new peer Station, not a new storage engine.
+- **Unresolved contradiction:** four proposed ID levels (Manager/Settings/Tools/Profile) vs. Platform Identifier Station only minting identity for genuinely persistent, independently addressable records. Manager/Settings/Tools as described are navigational levels with no durable record of their own — only Profile (Brand first) has real field data. Minting ids for levels with nothing to store would be the "decorative identities" the owner's doc forbids.
+- **Recommendation:** mint only what has a real record — one Settings-root WP option (parallel to the old single `CZPS` root, renamed into the approved family) with Profile sections as keyed children; give a child its own Platform ID only if the owner confirms it's independently addressable. Reuse the reverted `PlatformSettingsController`/`BrandImageProcessor` shape as reference for the next phase — none of it is restored on the topic branch, only present in pre-revert history.
+
+No new hierarchy, Station, route, or storage was implemented. Reviewer: confirm (a) which of Manager/Settings/Tools get a minted Platform ID vs. pure navigation, and (b) the single-WP-option-with-child-sections model, before the next implementation phase.
 
 ## Authority
-Read `project-work/AGENTS.md`, [revised handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, `docs/code-map/station-manager.md`, `docs/code-map/admin-station.md`, Platform Identifier Code Map/Policy and actual source. Keep **Settings as Settings**, not a new Station. Existing `station-manager/` is coordinator-only; Admin Station owns presentation. Do not silently reclassify either.
-
-## Verified current state
-`main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`.
-Unmerged topic `global-profile-platform-settings`: `b434dfd4e53ae5145cce918bb12e182798060e7e`. The diff contains **19 changed files**, including new `src/PlatformSettings/` implementation, three Profile test files, Code Maps, Policy, Plugin wiring, and ID-family reference. Previous database CAS work is **not approved for release**. No confirmed source changes on `main`.
+Read `project-work/AGENTS.md`, [handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, Station Manager/Admin Station/Platform Identifier Code Maps and source. Keep Settings as Settings, not a new Station; `station-manager/` stays coordinator-only.
 
 ## Owner correction — binding
-**Manager → Settings → Tools → Profile**, with these prefixes (five suffix characters each):
-- Manager `CZMXXXXX`.
-- Settings `CZMSXXXXX`.
-- Tools `CZMSTXXXXX`.
-- Profile `CZMSTPXXXXX`.
+Manager → Settings → Tools → Profile, prefixes `CZMXXXXX`/`CZMSXXXXX`/`CZMSTXXXXX`/`CZMSTPXXXXX` (five-char suffix each), retiring `CZPS`/`CZPSP`. Profile expands later (About, Locations, Contact, Social Media). No full Stations/databases per level; Platform Identifier Station remains sole mint/bind/lookup owner; no decorative identities.
 
-Retire previous planned `CZPS`/`CZPSP` prefixes. Profile is expandable (Brand now; About, Locations, Contact, Social Media later). Do not invent full Stations or databases for these levels. Platform Identifier Station remains sole identity mint/bind/lookup owner. Confirm actual persistent records and parent-child relationship for each ID; no decorative identities.
+## Verified state
+`main` `8d1f0185`; topic was `b434dfd4` (19 files), now reverted to `125502d9`.
 
-## Claude — next bounded task
-1. **Inventory** all topic-only additions/modifications, dependencies/packages/lockfiles/generated assets and old `CZPS` references against `main`; distinguish pre-existing baseline. Verify local worktree before deletion. Report precise cleanup list.
-2. **Remove/revert every abandoned topic-only change** on the **existing topic branch** only. Do not touch pre-existing Platform Identifier Station or any `main` behaviour. No dead references, orphan imports, obsolete tests/docs, unnecessary packages or scratch files. Show clean diff versus `main` or explicitly enumerate every retained intentional difference. Preserve Git history; no unsafe reset or force-push.
-3. **Architecture report only after cleanup:** map Manager/Settings/Tools/Profile to current Manager/Admin presentation, ownership, durable records, API and ID registry. Flag any unresolved Manager identity/storage contradiction, recommend the simplest WordPress-backed model. **Do not implement the new hierarchy yet.**
-4. Run safe focused non-destructive checks, inspect line counts (≤600 source lines/Code Map words), record exact topic SHA and evidence in this file as `AWAITING REVIEWER REVIEW`; push coordination + topic; stop.
-
-**Reviewer must approve cleanup and ID mapping before any new source implementation.** Keep one work file; no new Station, WEX work, pricing changes or deployment.
+**Reviewer must approve cleanup and ID mapping before any new source implementation.** One work file; no new Station, WEX work, pricing changes, or deployment.
