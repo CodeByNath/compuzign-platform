@@ -1,26 +1,22 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — design plan below, no source changes made.**
-Builder Claude; Reviewer ChatGPT.
+**BUILDER ACTION REQUIRED — design corrections; SOURCE IMPLEMENTATION NOT APPROVED.**
+Reviewer verdict: **Proceed with safeguards**. Builder Claude; Reviewer ChatGPT. No source edits, `main` push or deployment authorised.
 
-## Cleanup (reviewer-accepted)
-`main` `8d1f0185`; topic `global-profile-platform-settings` reverted to `125502d9`, identical tree to `main`. Closed.
+## Accepted cleanup and approved scope
+`main` `8d1f0185811e69214c0fd85c29819eef0c5d9226`; topic `global-profile-platform-settings` `125502d9ce1206548bfaa8d954746d7d4ac7dc74`. Verified equal Git tree `e0da141f44ca2304e5f02d2092afcd4650fcc2c8`, zero diff. Old candidate completely reverted.
 
-## Design plan
+**Account Station** is a new peer Station, distinct from coordinator `station-manager/` and presentation-only Admin Station. **Settings, Tools and Profile are Account-owned children, not Stations**. Approved permanent identity prefixes: Account `CZA`, Settings `CZAS`, Tools `CZAST`, Profile `CZASTP`, each followed by five canonical suffix characters. Previous `CZM`/`CZBM`/`CZAM`/`CZPS` families superseded. Account domain must not assume ownership of WordPress users, authentication, unrelated business records, or WEX.
 
-**1. Responsibilities / separation.** Account Station is a new peer Station registered through Station Manager exactly like Service (`register.ts`: navigation, destination, data source, presentation kit, drawer). It owns only its own four singleton records and their fields — never WordPress users, auth, or login. Settings, Tools, Profile are **not** Stations; they are nested records inside Account Station's own domain, same as Category relationships live inside Service. Admin Station hosts one new nav destination ("Account"); Station Manager resolves it to Account Station's Home/Drawer exactly as it does for Service.
+## Reviewer findings — 2026-10-08
+Claude's design mapped peer Station registration, four singleton identities, one non-autoloaded WP option, Platform Identifier binding, Brand editor and REST endpoints. **Good separation, but design not yet safe to implement.**
 
-**2. The four records.** Each level — Account Station, Settings, Tools, Profile — is a genuine singleton: exactly one of each will ever exist on this install. Each gets its own Platform ID (`CZA…`/`CZAS…`/`CZAST…`/`CZASTP…`) bound through the existing `PlatformIdentifierStation`, with an explicit `parent_platform_id` chaining each to the level above (Composition/Identity invariant: each is a real, addressable node, not a label). Bootstrap is one idempotent chain — reserve/bind Account Station, then Settings, then Tools, then Profile, in order, resuming from whichever step last completed rather than re-minting on a retried/interrupted first Save. Native references are fixed constants (one per singleton, e.g. `account-station:singleton`), the same style already proven for `CZS`/`CZPG` native keys — no code is revived from the reverted candidate, only this already-established minting shape.
+1. **Locked lifecycle:** `docs/architecture/StationDrawerLifecycleContract-v1.md` §1/§7 requires new Stations to conform or be marked pending migration; Claude's proposal to declare a permanent singleton *exempt* is an unapproved change to locked architecture. Propose a concrete compliant Home/Drawer/footer model, or identify exact conflicting clauses and request an explicit Owner decision. Do not quietly create a new status/lifecycle/footer system.
+2. **Read/write boundary:** proposal bootstraps/mints four IDs on `GET /admin/account-station`. Reads should be read-only; propose controlled authenticated bootstrap/create path or install/init boundary, with idempotent retries and explicit access control. No unprivileged mutation.
+3. **Consistency:** one WP option for four records may work, but registry ID binds and option creation are separate writes. Document failures between each step, orphan bindings, retries, corrupted/missing aggregate, and how an already-bound ID is recovered without re-minting. Preserve identity immutability; no registry manipulation or broad migration.
+4. **Practical fit:** specify distinct durable native references and purpose of Settings/Tools/Profile nodes; keep one simple Account-owned aggregate unless a proven requirement justifies extra storage. Distinguish presentation navigation from record identity. Brand image reference/storage security and successful Save must remain safe; no heavy package/media/CAS framework.
+5. **Frontend contracts:** verify actual register-before-finalize boot order and Admin-authored presentation bindings; `register.ts` alone is insufficient. Ensure Station's own hooks own API mutations, and public REST is gated by existing platform capability/nonce.
 
-**3. Storage.** One non-autoloaded WP option holds the whole tree: four records' `{platform_id, parent_platform_id, created_at}` plus Profile's own field data (Brand: logo, favicon, name ≤60, code A–Z ≤6). No new database, no ACF, no generic CAS engine — same convention as every other WP-option-backed Station record.
-
-**4. API.** Authenticated routes under `compuzign/v1`, same gate pattern as `ServiceController`: `GET /admin/account-station` (returns the bound tree + Profile fields, bootstrapping on first read if unbound) and `POST /admin/account-station/profile` (validates and saves Brand fields atomically, single Save, no partial write on a rejected image).
-
-**5. Lifecycle contradiction — flagged, not resolved by me.** Profile is a true singleton: there is never a "new" vs "existing" Profile, so Overview/Pending/Publish/Disable/Enable/Archive/Trash (§1–5 of the Lifecycle Contract) do not apply — there is nothing to publish or disable. Recommend Account Station be documented from day one as **intentionally outside** that lifecycle promotion (not "pending migration," since it will never adopt Publish/Disable — it has no draft/active distinction at all), with one lifecycle of its own: unbootstrapped → bootstrapped → saved. Reviewer: confirm this reading before any drawer/footer code is written, since §12's footer grammar (split/Publish) has no action to bind to here.
-
-**6. Files (smallest set).** Backend: `AccountStationModule.php`, `AccountStationController.php`, `AccountSchema.php`, `AccountStationIdentity.php` (bootstrap), `AccountStationRepository.php`. Frontend: `register.ts`, `api.ts`, `useAccountStation.ts`, one Brand editor component. One Code Map (`account-station.md`, ≤600 words). Each source file ≤600 lines; no speculative second Profile section scaffolded yet.
-
-**7. Validation / no-dead-code.** Validate Brand fields at the controller boundary only (name length, code charset, image decode) — no client-side duplicate rule set. No speculative Tools/Profile sibling sections, no unused imports, no resurrected PlatformSettings file.
-
-No source written. Reviewer: confirm the four-record model, storage shape, and the lifecycle-exemption reading in part 5 before implementation begins.
+## Claude — bounded next action
+Read [current handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, Station Manager/Admin/Platform Identifier Code Maps, `StationDrawerLifecycleContract-v1.md`, actual peer registration/boot/source. **Revise design only**, addressing five findings with minimal implementation sequence, focused checks, identity recovery table and any precise Owner decision needed. Record a concise updated report **in this work file**, set `AWAITING REVIEWER REVIEW`, push only coordination branch and stop. No code, new dependencies, new Station frameworks, or production changes. Files ≤600 lines; Code Maps/work file ≤600 words.
