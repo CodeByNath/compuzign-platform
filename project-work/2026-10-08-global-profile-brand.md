@@ -1,7 +1,7 @@
 # Global Settings → Profile / Brand
 
 ## Status
-**READY FOR BUILDER — Phase 1B backend implementation only.**
+**AWAITING REVIEWER REVIEW — Phase 1B topic candidate pushed (see handoff).**
 Phase 1A verdict: **Proceed with safeguards**, accepted 2026-10-08 by independent Reviewer.
 Builder Claude; Reviewer ChatGPT; Owner/live validator Nath.
 Production baseline `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`. Two branches currently; Builder may create ONE topic branch.
@@ -26,3 +26,6 @@ Implement only backend Settings/Profile persistence, both Policy registrations a
 
 ## Handoff / phase gates
 Update affected Code Maps and exact contracts. Push **topic branch only**, record exact remote SHA, files/tests/failures in this same file and set `AWAITING REVIEWER REVIEW`; stop. Reviewer independently inspects diff before approving production push. **Phase 2 UI, Phase 3 header and Phase 4 release are not authorised yet.** No Service-owned data, WEX changes, generic new framework, pricing/Package/Tier/quote edits, new public UI, autosave or deployment.
+
+## Phase 1B Builder handoff
+Topic `global-profile-platform-settings` @ `58cf5dc8e82a13b607f764474c905fc9866378b5` (base `8d1f0185`). Adds `src/PlatformSettings/`, two Policy entries, Plugin wiring, two contracts, Code Maps. 85/91 PHP tests pass; the 6 failures fail identically on `main`. Fixed pre-existing identifier-contract drift (`CZTC`/`CZTEC`). Hostinger GD/Imagick unverified.
