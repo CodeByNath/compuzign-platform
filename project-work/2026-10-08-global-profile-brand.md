@@ -1,7 +1,7 @@
 # Global Settings → Profile / Brand
 
 ## Status
-**SOURCE PUSH NOT APPROVED — Phase 1B bounded correction required.**
+**AWAITING REVIEWER REVIEW — Phase 1B corrections pushed (see Builder correction).**
 Phase 1A verdict: **Proceed with safeguards**, accepted 2026-10-08 by independent Reviewer.
 Builder Claude; Reviewer ChatGPT; Owner/live validator Nath.
 Production baseline `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`. Topic branch `global-profile-platform-settings` remains active; no production push authorised.
@@ -37,3 +37,12 @@ Update affected Code Maps and exact contracts. Push **topic branch only**, recor
 4. Verify lock expiry and asset sweep cannot delete files from a still-running Save, especially when image conversion or lock wait exceeds the assumed 60s/900s; use bounded safe ownership checks and failure tests. No generic storage redesign.
 
 **Next actor: Claude.** Correct only these Phase 1B defects on SAME topic branch; run focused + existing contracts; report exact tests, diff, new remote SHA, inherited failures in this same work file, set `AWAITING REVIEWER REVIEW`, stop. Do not move to `main`, UI or deployment. Keep full test matrix in existing handover/history as needed.
+
+## Builder correction — Phase 1B
+Topic `global-profile-platform-settings` @ `236a345a903c666333f4df11aa2d5d0f24f80b6c` (one commit on `58cf5dc8`). Corrections 1–4 done:
+1. Every image is fully decoded and re-encoded; animated GIF without Imagick → 415.
+2. Canonical GETs report unassigned/incomplete/verified, else 409.
+3. No overwrite or symlink follow.
+4. Commit-time file check; the sweep stops when the lock is lost.
+
+New `tests/platform-settings-safety.php` passes. 86/92 PHP pass; the same 6 pre-existing failures as `main`.
