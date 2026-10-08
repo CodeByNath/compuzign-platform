@@ -1,22 +1,24 @@
-# Account Station → Settings → Tools → Profile — Owner Handover
+# Account Station → Settings → Tools → Profile — Locked Owner Handover
 
-## Current owner decision — supersedes all former names/IDs
-**Account Station** is the owning peer Station, separate from **Station Manager** (frontend coordinator) and **Admin Station** (presentation/control host). Account Station registers through existing Station Manager using the established peer Station model. Neither Settings nor Tools nor Profile is a separate Station. Hierarchy:
-- **Account Station** — `CZAXXXXX`
-- **Settings** — `CZASXXXXX`
-- **Tools** — `CZASTXXXXX`
-- **Profile** — `CZASTPXXXXX`
+## Identity and ownership
+**Account Station** is a fully governed peer Station, separate from `station-manager/` (coordinator), Admin Station (presentation host), and Platform Identifier Station (mint/bind/lookup). Settings, Tools and Profile are Account Station-owned **child records/modules**, not peer Stations. Hierarchy and approved prefixes (plus canonical five-character suffix):
+- Account Station — `CZA`
+- Settings — `CZAS`
+- Tools — `CZAST`
+- Profile — `CZASTP`
 
-`XXXXX` means the canonical five-character Platform Identifier suffix, minted solely by existing Platform Identifier Station. Earlier `CZM`, `CZBM`, `CZAM`, `CZPS` and their child prefixes are **superseded**; never register them for this new work. IDs describe real durable addressable records with validated parent-child references, not merely visible menu labels; Builder must propose the simplest correct identity mapping and flag any mismatch instead of inventing records. Account Station owns its domain state, validation, save/API and identity binding; it does **not** take over user authentication or WordPress account ownership by implication. No changes to other Stations.
+Earlier `CZM`, `CZBM`, `CZAM`, `CZPS` families are superseded for this feature. Use durable native identities and explicit parent links; do not treat display labels as identities or create unrelated persistence engines. Account does not automatically own WordPress accounts/authentication.
 
-## Mandatory established Station architecture
-Read `AGENTS.md`, `docs/ai-index.md`, `docs/code-map/station-manager.md`, `docs/code-map/admin-station.md`, `docs/code-map/platform-identifier-station.md`, `docs/architecture/StationDrawerLifecycleContract-v1.md`, relevant example peer Station source and boot/registration paths. Preserve Station Manager as pure coordinator, Admin as presentation host, peer ownership, register-before-finalize, one Station Home/Drawer convention, drawer lifecycle, platform capability gates, REST/API ownership, and Code Maps. Distinguish singleton settings operations from published-entity lifecycles; explain any nonapplicable lifecycle elements for owner review before coding. WEXdesigns later consumes data through adapters and reusable UI contracts; do not implement WEX now.
+## Owner's binding lifecycle decision (2026-10-08)
+**No singleton exception.** Account Station and its parts, **including Profile**, must follow the established `docs/architecture/StationDrawerLifecycleContract-v1.md`: Station-owned lifecycle/drafts, Overview Save → persisted Pending identity handoff, separate Publish → settled Active values, explicit Disable/Enable and valid record travel actions according to locked contract. Each genuine child/module follows the existing module states/availability, pills, notifications, drawer/edit/footer grammar, and parent activation rules where applicable. Keep identity immutable through transitions. A saved Pending Profile must NOT update live header/public Brand; only approved active/settled projection may do so. On Disable or other lifecycle travel, preserve drafts/history and use existing defined fallback semantics, not unapproved deletion. Do not invent nested drawers, a second status system, or arbitrary exceptions for permanent records. If a specific singleton action (e.g. permanent deletion of the root) conflicts with identity permanence, flag that exact case for Reviewer before implementation rather than silently changing locked lifecycle.
 
-## Profile scope
-First subsection **Brand**: Logo (public-website asset only), square Favicon (64×64 Admin header box), Brand Name (optional, ≤60 chars) and Brand Code (optional uppercase A–Z, ≤6 chars). Pick/Clear and immediate unsaved previews, single Save, confirmation on same page, blanks valid. Safe image validation/decoding/conversion where supported; reject unsafe files without partial saves. Later sections: About, Locations, Contact Details, Social Media. No automatic new Stations/Platform IDs for every subsection.
+**One Save** means one Save per Brand editor interaction, **not bypassing Publish**. Future multi-user and permission levels motivate preserving the Station lifecycle; they are **deferred**, not authorised now. Use current `PlatformAccess` permissions and authenticated REST.
 
-## Storage and cleanup
-Use existing WordPress-backed mechanisms behind Account Station's own platform API, Platform ID and secure access; **no replacement persistence engine**, generic CAS framework, added databases, packages or broad image system. Choose the smallest durable model following existing conventions, not ACF dependency. Keep source genuinely clean: old candidate already completely reverted. Do not resurrect old `PlatformSettings` implementation/dead code just to reuse its shape. Existing identities outside this work are never renamed.
+## Brand first, future sections later
+Profile Brand: public-site Logo (not dashboard header), square Favicon shown in 64×64 Admin header box, optional Brand Name ≤60 characters, optional Brand Code uppercase A–Z ≤6. Pick/Clear, immediate unsaved preview, Save stays in Profile with confirmation; blanks valid. Validate/convert images safely; reject unsafe files and partial writes. Future Profile sections: About, Locations, Contact, Social Media and more, without prebuilding them.
 
-## Workflow
-Old topic `global-profile-platform-settings` at `125502d9` has same Git tree as `main` `8d1f0185`; cleanup accepted. Current phase is **design review only**. Builder submits concise real-record/ownership mapping, Station registration and navigation approach, minimal API/storage design and phased plan in same active work file, then stops. Reviewer checks before implementation is authorized. Reviewer never edits product source. Files ≤600 physical lines, Code Maps ≤600 words, active work file ≤600 words.
+## Architecture and build discipline
+Read root `AGENTS.md`, `docs/ai-index.md`, `docs/code-map/station-manager.md`, `docs/code-map/admin-station.md`, `docs/code-map/platform-identifier-station.md`, `docs/architecture/StationDrawerLifecycleContract-v1.md`, conforming Service/Category source and boot sequence. Peer registers before Station Manager finalize; Admin hosts UI, Account owns API and persistence. Use existing WordPress-backed storage behind Account-owned domain contracts. No extra DB, generic CAS engine, added packages, ACF dependency, or WEX implementation. Keep Profile-compatible platform API for future WEX adapters. Previously abandoned `PlatformSettings` code was fully reverted and must remain absent. Code ≤600 physical lines/file; Code Maps/work files ≤600 words.
+
+## Phases and authority
+Cleanup accepted: topic `global-profile-platform-settings` at `125502d9` has the same tree as `main` `8d1f0185`. Owner's lifecycle decision closes the design choice; continue **one bounded implementation phase at a time**, with Reviewer audit before source promotion. Claude alone edits source; Reviewer changes only coordination files. No release until exact candidate review and subsequent approved live validation.
