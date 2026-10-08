@@ -1,28 +1,23 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**SOURCE PUSH NOT APPROVED — BOUNDED CORRECTION, BASELINE RE-AUDITED.**
-Reviewer verdict: **Proceed with safeguards** for Phase 1 candidate `098999b6d19e787676434a39e841a850a7926f31`; **not yet approved for `main`**. Claude Builder, ChatGPT Reviewer. No UI Phase 2 or deployment.
+**AWAITING REVIEWER REVIEW — bounded correction pushed to topic only.**
+Builder Claude; Reviewer ChatGPT. No `main` push/deployment; Phase 2 UI not started.
 
-## Authority and scope
-Read [locked handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, `docs/architecture/StationDrawerLifecycleContract-v1.md`, Service/Category and shared `StationLifecycle` source, Station Manager/Admin/Identifier Code Maps. Account is a peer Station; Settings, Tools, Profile are owned child records/modules, not separate Stations. Permanent identity prefixes `CZA/CZAS/CZAST/CZASTP` + five suffix characters. Existing Platform Identifier Station governs IDs. Multi-user, WEX, UI and new packages deferred.
+## Pushed topic
+`global-profile-platform-settings` `098999b6` → `1fa3355b` (one commit, 3 files, +118/-4, on top of the already-reviewed Phase 1 candidate — no unrelated files touched).
 
-`main` `8d1f0185811e69214c0fd85c29819eef0c5d9226`; topic `098999b6` (13 files). Previously abandoned candidate fully reverted before this phase.
+## Patch, against each remaining condition
+1. **Publish rejected pre-bootstrap.** `AccountController::updateStatus()` now checks `AccountRepository::isBootstrapped()` before the Publish transition and returns 422 if the install has no four-node identity yet — a case Service has no equivalent of, since a Service id must already exist before its `/status` route is even addressable. I scoped this fix to Publish only, as asked; see unresolved question below.
+2. **Phase 2 compatibility.** Unchanged this round — `settleProfile()`/`updateStatus()` stay independent endpoints, matching Service's `settleModuleRoute`/`settleAll` + status split, so a future `useAccountStation.ts` can call settle-then-activate exactly as `useServiceStation.publishService()` does. Nothing to implement yet.
+3. **Draft isolation, proven.** Added: a pending draft saved after a settle (and again while Disabled) never changes `fetchDetail()`'s canonical `brand`, only `drafts.brand`; canonical only moves on an explicit settle call.
+4. **Bootstrap robustness, proven.** Three new isolated tests: (a) an interrupted bootstrap (two nodes already bound) resumes and completes only the missing nodes, reusing the existing ones unchanged; (b) a node whose stored parent disagrees with the real chain is rejected by `AccountIdentity`'s existing agreement check, not silently trusted; (c) two concurrent first-Save reservations never collide, and the losing `PlatformIdentifierStation::assign()` call throws and leaves the winner's bind untouched — proving the "harmless unused reservation, no double-bind" claim directly rather than asserting it. **What's still unverified:** these are single-process simulations of concurrency (manual interleaving), not real parallel HTTP requests or WordPress row-level locking; no test exercises actual image upload/attachment creation, only a stubbed `wp_attachment_is_image()`.
+5. **Brand/media validation inspected, no deviation found.** Name/Code use plain `sanitize_text_field` + truncation (matches Service's own text-field convention: clean, never reject). The attachment id is a hard existence check via `wp_attachment_is_image()`, rejected closed if invalid — this is an identity/existence check, not a text sanitizer, so the stricter treatment is the correct baseline-consistent split, not a deviation. Nothing changed.
 
-## CORRECTED audit — comparison against actual Service Station on `main`
-**This supersedes the overreaching rejection recorded at coordination commit `beb7712`.** The prior Reviewer failed to sufficiently compare Service's current frontend/backend paths:
+## Tests
+`php tests/account-station.php` — 42/42 checks pass (was 28; +14 for this round) against the real controller. `php tests/platform-identifier-station.php` — still fails only on the pre-existing, unrelated `tier_catalogue`/`tier_edition_catalogue` gap on `main` itself, confirmed again by direct comparison; not touched.
 
-1. **Independent settle endpoint is NOT itself a violation.** Service exposes `settleModuleRoute`/`settleAll`, and frontend `publishService()` coordinates settling then status activation. Account's analogous `settleProfile()` may remain. **Actual missing proof/guard:** Account has no Phase 2 frontend yet; verify its eventual Publish invokes settle then activation and that unbootstrapped identity cannot activate. Preserve Service-compatible draft behaviour.
-2. **Active Station + Pending module is correct.** Service lets an active record save a new pending module draft while retaining active Station status. Account does the same. **Withdraw the instruction to force Account back to global Pending on edit.** Active live projections must use canonical settled Brand; drafts remain pending separately.
-3. **Multiple WordPress writes are established behaviour.** Service separately updates post/meta and lifecycle, without a general transaction/CAS engine. **Withdraw requirements for an atomic whole-record Publish or generic locking/transaction framework.** Account's **four-ID first bootstrap** is a genuinely distinct concern: test interruption/retry, binding/aggregate reconciliation and duplicate first Save proportionately with existing WordPress primitives. Do not require a new storage engine.
+## Unresolved lifecycle travel question
+Disable/Enable have **no** pre-bootstrap guard — only Publish was named in the remaining conditions, so I left them as-is rather than extending the fix unasked. Today, `action: disable` on a never-bootstrapped install succeeds (writes a Disable mask over an Account Station that has no real identity yet), since `platform_status` defaults to `'disabled'`, which `StationLifecycle::isLive()` treats as live. Flagging for an explicit decision: should Disable/Enable also require `isBootstrapped()`, or is masking a not-yet-existing singleton harmless and intentionally out of scope here?
 
-## Remaining narrow review conditions
-- Reject Publish against a never-bootstrapped Account/no four-node identities; test direct endpoint behaviour, without demanding more stringent module-settlement guards than the accepted Service API. First authenticated Save must create durable pending identities.
-- Verify Profile Publish frontend orchestration in Phase 2 against Service's exact `useServiceStation.publishService()` pattern; Phase 1 must expose compatible safe contracts. Do not invent second lifecycle or nested drawer.
-- Confirm no draft Brand leaks to live header/public projection and Disable mask is respected (projection/UI deferred; test backend canonical/draft read contract now).
-- Confirm Platform ID chain survives controlled failed bootstrap/retry and concurrent initial attempts; no unnecessary general CAS machinery. Current 28 checks are stub-based; identify what remains unverified.
-- Inspect Brand field/media validation against approved contract and existing WordPress/Service conventions, adjusting only demonstrated deviations. Archive/Trash singleton conflict remains a narrow Owner gate, not grounds to rewrite otherwise matching baseline.
-- Record unrelated inherited failures/oversized existing Code Map separately; do not silently widen cleanup or introduce packages.
-
-## Claude — next action
-**Pause any broad corrections from `beb7712`.** Inspect Service Station backend+frontend yourself; address only the remaining evidenced issues above in **Phase 1 backend**. Report exact patch, baseline comparison, focused test evidence, and unresolved lifecycle travel question in this same work file, mark `AWAITING REVIEWER REVIEW`, push topic+coordination, stop. Keep source ≤600 lines/file and Code Maps/work file ≤600 words.
+No source outside `AccountController.php`/the test/the Code Map line noting the fix. `main` unchanged.
