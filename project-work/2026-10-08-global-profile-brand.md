@@ -1,34 +1,29 @@
-# Global Profile — Active Work
+# Manager Settings / Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — Phase 1B real-engine CAS validation (see Builder validation).**
-Reviewer verdict: **Proceed with safeguards**. Builder Claude; live validator Nath.
+**BUILDER ACTION REQUIRED — STOP OLD PHASE 1B; CLEANUP + DESIGN GATE.**
+Reviewer verdict: **Stop — architectural risk** for continuing the abandoned Global Profile implementation. No `main` push, deployment, or UI build. Builder Claude; Reviewer ChatGPT.
+
+## Authority
+Read `project-work/AGENTS.md`, [revised handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, `docs/code-map/station-manager.md`, `docs/code-map/admin-station.md`, Platform Identifier Code Map/Policy and actual source. Keep **Settings as Settings**, not a new Station. Existing `station-manager/` is coordinator-only; Admin Station owns presentation. Do not silently reclassify either.
+
+## Verified current state
 `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`.
-Topic `global-profile-platform-settings`: `b434dfd4e53ae5145cce918bb12e182798060e7e` (unchanged; no new push). Three branches exist; **no main push or Phase 2 yet**.
+Unmerged topic `global-profile-platform-settings`: `b434dfd4e53ae5145cce918bb12e182798060e7e`. The diff contains **19 changed files**, including new `src/PlatformSettings/` implementation, three Profile test files, Code Maps, Policy, Plugin wiring, and ID-family reference. Previous database CAS work is **not approved for release**. No confirmed source changes on `main`.
 
-## Authority and locked contract
-Read `project-work/AGENTS.md`, [locked handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps and source. CompuZign owns global Settings `CZPSXXXXX` and Profile `CZPSPXXXXX`, records/assets, schema, domain validation, identity, and authenticated **platform API**. Runtime database/file storage remains internal infrastructure. Service Station merely presents Settings. Option A image processing and single-Save semantics remain locked. Phase 1A report preserved at coordination commit `d90da463`.
+## Owner correction — binding
+**Manager → Settings → Tools → Profile**, with these prefixes (five suffix characters each):
+- Manager `CZMXXXXX`.
+- Settings `CZMSXXXXX`.
+- Tools `CZMSTXXXXX`.
+- Profile `CZMSTPXXXXX`.
 
-## Independent review — 2026-10-08
-Verified pushed correction `236a345a → b434dfd4` (seven changed files). Coherent identity responsibility moved to `PlatformSettingsIdentity.php` (261 lines), main Station reduced to 409 lines; revised repository 212 lines and focused tests within 600-line limit. Canonical REST GET/POST and read-by-ID still exist in `PlatformSettingsController.php`, gated by platform capability + nonce. **Builder did not replace the Platform API with SQL calls.** The new database-specific SQL is inside `PlatformSettingsRepository::commitProfile()` only, to prevent a stale writer committing after losing its lock. UI clients must call REST; never invoke SQL directly.
+Retire previous planned `CZPS`/`CZPSP` prefixes. Profile is expandable (Brand now; About, Locations, Contact, Social Media later). Do not invent full Stations or databases for these levels. Platform Identifier Station remains sole identity mint/bind/lookup owner. Confirm actual persistent records and parent-child relationship for each ID; no decorative identities.
 
-**Remaining blocker:** The new single-statement conditional `UPDATE … INNER JOIN` using `BINARY` and exact serialized option bytes has **not been exercised against a real compatible database**; Builder used stubs. WordPress option-backed record bootstrap and the CAS mutation must also stay consistent across real cache/storage semantics. Source review alone cannot prove this failure-sensitive commit mechanism. Do not require platform consumers to know SQL, and do not promote MySQL syntax to the public Profile API or portable domain contract.
+## Claude — next bounded task
+1. **Inventory** all topic-only additions/modifications, dependencies/packages/lockfiles/generated assets and old `CZPS` references against `main`; distinguish pre-existing baseline. Verify local worktree before deletion. Report precise cleanup list.
+2. **Remove/revert every abandoned topic-only change** on the **existing topic branch** only. Do not touch pre-existing Platform Identifier Station or any `main` behaviour. No dead references, orphan imports, obsolete tests/docs, unnecessary packages or scratch files. Show clean diff versus `main` or explicitly enumerate every retained intentional difference. Preserve Git history; no unsafe reset or force-push.
+3. **Architecture report only after cleanup:** map Manager/Settings/Tools/Profile to current Manager/Admin presentation, ownership, durable records, API and ID registry. Flag any unresolved Manager identity/storage contradiction, recommend the simplest WordPress-backed model. **Do not implement the new hierarchy yet.**
+4. Run safe focused non-destructive checks, inspect line counts (≤600 source lines/Code Map words), record exact topic SHA and evidence in this file as `AWAITING REVIEWER REVIEW`; push coordination + topic; stop.
 
-## Builder action requested (done below)
-Real-engine validation of the conditional commit, any fix kept behind the repository, then gates; full wording in coordination commit `6114b28b`. Phases 2–4 locked.
-
-## Builder validation — candidate `b434dfd4`, no source change
-Throwaway local servers, fresh WordPress 7.1.3 with plugin active (real `wpdb`, options, object cache, nonce-gated REST), PHP 8.5.8: **MariaDB 11.8.9** and **MySQL 8.4.11**. No live data or runtime touched. **Deployed engine/version unconfirmed** — Nath: WP Admin → Tools → Site Health → Info → Database.
-
-Identical results on both engines, all pass:
-- First Save mints `CZPS`/`CZPSP`, revision 1; update Saves +1, IDs unchanged; all GET routes agree.
-- Lock taken over between SELECT and CAS UPDATE → 409 `settings_busy`; Profile bytes untouched; new owner's lock kept.
-- Same-revision commit by takeover winner → 409, winner preserved. Profile changed with lock held → 409 `revision_conflict`.
-- 8 parallel REST Saves × 12 rounds, plus × 6 from a stale lock: exactly one 200, revision +1 each round.
-- Stored bytes = `serialize()`; 200 KB payload (`%`, quotes, backslashes, NUL, CRLF, emoji) chain-commits. Case-only change (equal under `_ci`) rejected. Invalid UTF-8 refused without writing.
-- Primed object cache invalidated; autoload `off`.
-- Real DB error (lock-wait timeout) → 500 `storage_failed`, Profile untouched, lock released.
-
-**Finding:** MySQL 8.4 raises warning 1287 (`BINARY expr` deprecated, future removal); MariaDB none. `CAST(… AS BINARY)` verified equivalent and warning-free on both. Proposed one-line repository-only change — **not made**; Reviewer decides.
-
-**Gates:** focused 4/4 pass; suite 86/92, same six inherited failures as `main` (`main` additionally fails the identifier test fixed here). Changed source max 409 lines. Code Maps: `platform-settings` 553 words; **`platform-identifier-station` 698 (697 on `main`) — pre-existing over 600**, trim proposed, not made. Harness kept in Builder scratchpad, not committed.
+**Reviewer must approve cleanup and ID mapping before any new source implementation.** Keep one work file; no new Station, WEX work, pricing changes or deployment.
