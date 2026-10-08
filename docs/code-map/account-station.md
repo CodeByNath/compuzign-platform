@@ -50,11 +50,13 @@ Save writes the Brand draft and bootstraps identity on the very first call
 draft to canonical; Publish (`platform_status: 'active'`, via
 `StationLifecycle::publish()`) activates; Disable/Enable are the same
 presentation mask Service uses, never a module/draft rewrite. Brand has no
-required field — blanks are explicitly valid — so it always settles
-(`AccountSchema::isBrandComplete()` is unconditionally true). Publish is
-rejected outright against a never-bootstrapped install — a case Service has
-no equivalent of, since a Service id must already exist before its
-`/status` route is addressable at all.
+required field — blanks are valid — so it always settles
+(`AccountSchema::isBrandComplete()` is unconditionally true). Publish,
+Disable and Enable are all rejected outright against a never-bootstrapped
+install, a case Service has no equivalent of since a Service id must exist
+before its `/status` route is addressable. All three share one predicate,
+`isBootstrapped()`, true only once all four chain nodes are bound, not just
+the Profile leaf.
 
 **Archive/Trash/permanent-delete are not implemented.** A singleton that can
 never not-exist has no second instance to restore into and no state to

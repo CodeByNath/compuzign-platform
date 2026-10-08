@@ -172,6 +172,17 @@ checkAccount($repoA->readNodePlatformId('account_station') === $reservationA->pl
 
 $__wpOptions = [];
 
+// ── isBootstrapped requires ALL four chain nodes, never the Profile leaf alone ─
+$partialRepository = new AccountRepository();
+$partialRepository->writeNode('profile', 'CZASTP22222', 'CZAST22222');
+checkAccount($partialRepository->isBootstrapped() === false, 'a Profile id alone, with the other three nodes still empty, is NOT treated as bootstrapped');
+$partialRepository->writeNode('account_station', 'CZA22222', null);
+$partialRepository->writeNode('settings', 'CZAS22222', 'CZA22222');
+$partialRepository->writeNode('tools', 'CZAST22222', 'CZAS22222');
+checkAccount($partialRepository->isBootstrapped() === true, 'isBootstrapped is true only once all four chain nodes are bound, not just Profile');
+
+$__wpOptions = [];
+
 // ── fetchDetail is strictly read-only on an unbootstrapped install ─────────
 $platformIdentifiers = new PlatformIdentifierStation();
 $controller = new AccountController($platformIdentifiers);
@@ -185,6 +196,17 @@ checkAccount($__wpOptions === [], 'GET writes nothing to the options table at al
 $neverBootstrappedPublish = $controller->updateStatus(new WP_REST_Request(['platform_status' => 'active']));
 checkAccount($neverBootstrappedPublish->get_status() === 422, 'Publish against a never-bootstrapped Account Station is rejected, not silently activated');
 checkAccount($__wpOptions === [], 'the rejected pre-bootstrap Publish attempt writes nothing');
+
+// ── Disable/Enable are rejected outright against a never-bootstrapped install ─
+// (the actual defect this round corrects: these two actions used to run the
+// mask write before any existence check at all, unlike Publish.)
+$neverBootstrappedDisable = $controller->updateStatus(new WP_REST_Request(['action' => 'disable']));
+checkAccount($neverBootstrappedDisable->get_status() === 422, 'Disable against a never-bootstrapped Account Station is rejected, not silently masked');
+checkAccount($__wpOptions === [], 'the rejected pre-bootstrap Disable attempt writes nothing');
+
+$neverBootstrappedEnable = $controller->updateStatus(new WP_REST_Request(['action' => 'enable']));
+checkAccount($neverBootstrappedEnable->get_status() === 422, 'Enable against a never-bootstrapped Account Station is rejected, not silently masked');
+checkAccount($__wpOptions === [], 'the rejected pre-bootstrap Enable attempt writes nothing');
 
 // ── first Save bootstraps all four nodes, in parent order, in one request ─
 $saved = $controller->saveProfile(new WP_REST_Request([

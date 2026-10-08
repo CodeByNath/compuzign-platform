@@ -120,9 +120,16 @@ final class AccountRepository
         $this->write($state);
     }
 
+    /** The one existence predicate every lifecycle route shares: true only once all four chain nodes are bound, not just the leaf. */
     public function isBootstrapped(): bool
     {
-        return $this->readNodePlatformId('profile') !== '';
+        foreach (array_keys(self::NODES) as $node) {
+            if ($this->readNodePlatformId($node) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // =====================================================================

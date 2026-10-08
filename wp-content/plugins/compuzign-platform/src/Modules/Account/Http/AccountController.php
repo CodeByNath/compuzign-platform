@@ -175,6 +175,14 @@ class AccountController
         $lifecycle = $this->repository->readLifecycle();
 
         if ($request->has_param('action')) {
+            // Same existence requirement as Publish below: a never-bootstrapped
+            // install has no Account to mask. Without this, the default
+            // platform_status ('disabled') reads as already-live and a stray
+            // disable/enable call would mutate a singleton that doesn't exist yet.
+            if (!$this->repository->isBootstrapped()) {
+                return new \WP_REST_Response(['success' => false, 'message' => 'Account Station has not been set up yet. Save Brand first.'], 422);
+            }
+
             return $this->applyDisabledMask($lifecycle, (string) $request->get_param('action'));
         }
 
