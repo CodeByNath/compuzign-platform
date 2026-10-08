@@ -1,37 +1,35 @@
-# Handover — Platform Global Profile / Brand (2026-10-08)
+# Handover — CompuZign Platform Global Profile / Brand
 
-## Mission and immutable product scope
-Introduce **Settings → Profile** as a platform-wide configuration feature, initially accessible inside **Service Station → Settings**. The Service Station is only a temporary entry/display point; it must not own, duplicate or persist the data. Claude is sole product-source Builder. ChatGPT independently reviews. Preserve Service/Package/Rate Sheet/Tier/Pricing/CRM behaviour.
+**Authority:** Owner's requirements and repository architecture govern. This is a **CompuZign Platform feature**. Its business Profile data, contracts, assets and permissions are not WordPress user profiles, WordPress media records or Service Station data. Hostinger/WordPress currently provide runtime and physical storage only; platform contracts must not depend on their identity or UI model. Host storage APIs may be used behind a platform-owned adapter when verified safe. No WEX implementation now.
 
-One **Brand** block, in exact order:
-1. **Brand logo**: existing WordPress media-library image; preview, Pick, Clear, one-line help. Any image. Intended for public website, not dashboard chrome.
-2. **Brand Favicon**: same controls; must be square; reject non-square selection immediately with message and revalidate on Save. Render in dashboard header **64×64**, against main colour.
-3. **Brand name**: plain text, maximum 60 characters, optional; full-name contexts use it, otherwise preserve dashboard's existing default label.
-4. **Brand Code**: letters A–Z only, displayed uppercase, maximum six characters, no minimum, optional; appears next to favicon in dashboard header; empty uses existing default label.
+## Locked screen and behaviour
+Temporary navigation: **Service Station → Settings → Profile**; ownership remains globally platform-wide. Profile contains one **Brand** block in this exact order:
+1. **Brand logo:** image selection with preview / Pick / Clear / one-line help; any image (safe supported decoding to be established without silently narrowing requirement). Public-facing asset, **never displayed in dashboard header**.
+2. **Brand Favicon:** same controls, square required. Reject nonsquare on Pick with message and again on Save; in dashboard header 64×64 box on the main colour. Blank is valid.
+3. **Brand name:** plain text, <=60 characters, blank valid; full-name display contexts use value, dashboard existing default label if blank.
+4. **Brand Code:** letters A–Z only, uppercase display/storage, <=6 characters, no minimum, blank valid; display beside favicon in header, fallback to existing dashboard label when blank.
 
-Image selection changes **unsaved preview** immediately. Clear and blank are valid. **One Save** commits the entire Profile, not each field. After success remain on Profile with confirmation. Only platform-permitted users may open/read/save it. Defaults belong to read/presentation, never silently written as user data. Explicitly define missing media and invalid persisted data fallback.
+Selection updates **unsaved preview immediately**. One Save for all fields; no autosave or partial commit. Success leaves user on Profile with confirmation. Platform permission gates screen and reads/writes. Clear and blank are accepted; defaults are display-only, not persisted as invented brand values. Define missing/broken assets fallback. Preserve dark/light UI and existing Service workflows.
 
-## Verified authority and starting point
-At planning: `main` SHA `8d1f0185811e69214c0fd85c29819eef0c5d9226`; instruction branch `ebd0a427a56128da54b8fc7a947911aea879daa4`.
-- `AGENTS.md`, `docs/ai-index.md`, `docs/code-map/000-README.md`, `service-station.md`, `admin-station.md`, `admin-station-navigation.md`, `station-manager.md`.
-- Verified `resources/ts/service-station/register.ts`, `resources/ts/admin-station/register.ts`, `resources/ts/admin-station/shell/AdminStationBody.tsx`, `src/Core/PlatformAccess.php`.
-- Existing `PlatformAccess::CAP = manage_compuzign`. Its WP `manage_options` compatibility grant exists; do not alter it opportunistically.
-- Current menu destinations select Stations; do not invent a URL route or bind platform configuration to a Service record.
-- No platform-profile source owner is established by this review: Builder must inspect established settings and storage conventions first.
+## Phase gates — no diversion
+**Phase 0 — Evidence/architecture (active; awaiting revised Builder proposal):**
+- Read `AGENTS.md`, `docs/ai-index.md`, focused Code Maps and actual source. Confirm global Profile domain boundary and minimal wiring to shell and Service Settings.
+- Builder discovered no pre-existing platform profile, brand-image system or consumer; proposed backend `src/PlatformProfile/` and frontend `resources/ts/platform-profile/`. Proposed files and native file chooser are **not yet accepted design**.
+- Choose and justify a platform-owned asset picker/storage mechanism; where no platform library exists, explain the smallest solution preserving Pick/Clear with no host media/profile coupling.
+- Demonstrate adapter storage durability across plugin upgrades/deploys, path and URL safety, allowed formats, upload auth, dimension checks, atomicity across asset+record writes, concurrent writers and fallback. Do not assume an option read-back is a transaction.
+- Identify the actual main-colour token, existing dashboard fallback behaviour, Profile navigation/screen composition, exact files, contracts and tests. Resolve image limits and display contexts with Owner before hard-coding new product restrictions.
+- Reviewer approves the corrected design in the **same active work file** before Phase 1. No product source edits in Phase 0.
 
-## Phase plan and mandatory gates
-**0 — Discovery / architecture gate (first and ONLY immediately authorized phase).** Read the current Settings lane implementation, Admin shell/header, existing plugin settings storage and REST/auth patterns, WordPress media picker handling, public image/brand consumers, related local instructions and tests. Report *exact* proposed global owner, storage key/schema, API routes, permission/media-access design, rendering path, defaults, atomic-save semantics and affected files. Confirm new code map ownership. **No product implementation before Reviewer approval.** Check three-branch cap: stale `tier-inclusion-unit-price-copy-order` currently points to `main`; Builder verifies ancestry and removes it before a new topic branch.
+**Phase 1 — Platform-owned backend:** One globally authoritative persisted Profile schema; host storage adapter is internal. Secured read/atomic write, safe asset management, validation, clear/unset, error/recovery/concurrency tests, no Service record or user profile.
 
-**1 — Platform-owned backend.** Establish exactly one global persistence authority through existing WP/plugin patterns (do not create Service post/meta). Authenticated platform Profile read/save, capability gate, nonces/REST handling, sanitization and validation. Store media attachment IDs; verify attachment really is image; validate actual favicon dimensions at selection (client) and on save (server). Reject an invalid write without partial changes. Include clear/unset and null/blank semantics. No user-role provisioning or broad capability changes.
+**Phase 2 — Settings Profile UI:** Profile navigation, exact four controls and help, validated previews/draft state, one Save and confirmation, keyboard/a11y and dark/light responsive parity. Existing create launchers stay intact.
 
-**2 — Profile UI within current Settings.** Add Profile entry and one Brand block; images have preview, Pick, Clear, help; text has help; immediate draft-only preview, uppercase/code restrictions, error messages, dirty-state rules, one Save, in-place success. Respect existing dark/light styles and design primitives. Ensure unauthorized user cannot access screen/API. Avoid new Service or drawer data ownership.
+**Phase 3 — Header/public read:** Favicon 64×64 and code, consistent saved-state update and defaults, full brand name only where appropriate. Public logo gets a safe platform read contract; don't invent public UI if no consumer exists.
 
-**3 — Header and public consumption.** Integrate saved favicon into 64×64 header box on main colour; Brand Code beside it; full brand name only where currently applicable. Empty or invalid values fall back to established dashboard labels. Brand logo is public-facing and excluded from dashboard header. Connect only existing real public consumers; if none exist, expose a documented safe read seam and explicitly defer inventing new public UI.
+**Phase 4 — Verify and release:** Test valid/invalid/blank/media/square/permission/failure/concurrency/fallback/persistence, nonregression and reload; update affected Code Maps. Claude pushes reviewed topic SHA only; independent Reviewer inspects real diff and test evidence before `main`. Confirm GitHub Actions vs deployed runtime separately. Nath does live UI validation; Reviewer closes from matching evidence.
 
-**4 — Contract checks, release and live acceptance.** Builder tests persistence/reload, single transaction/no partial update, permission denial, cross-user and cross-Station consistency, media attachment and square validation (both times), allowed blanks, text lengths/letters/case, previews, header defaults, no pricing regressions and light/dark responsive layout. Update only affected Code Maps/local instructions. Push topic candidate; Reviewer independently audits exact diff and tests. Only approved SHA moves to `main`; verify Actions deploy. Nath performs live browser check; Reviewer closes only when source/CI/deployed runtime/live behaviour agree.
+## Absolute exclusions
+Do not derive Platform architecture from hosting, store Profile on Service or user records, introduce WEX adapter, new Station or general-purpose media manager beyond this task, change pricing/Packages/Tiers/quotes, add autosave, redesign unrelated shell, or invent new public sections.
 
-## No-diversion list
-No WEX adapter implementation, WEX source changes, new Station, generalized global settings framework, theme redesign, new user management/permissions regime, custom media storage, profile per Service or per user, pricing/package/quote modifications, background autosave, new public site sections, or unrelated refactors. WEX can consume the eventual platform data via a separately governed later adapter task.
-
-## Cycle and handoff protocol
-One active work file: `project-work/2026-10-08-global-profile-brand.md`. Keep phase reports, verdict, exact branch/SHA and bounded corrections in **that same file**, normally <=600 words. Each phase requires Reviewer acceptance before advancing. Product source is read-only to Reviewer. Live validation belongs to Nath. Handover never self-authorizes implementation outside the currently active phase.
+## Workflow
+Use `project-work/2026-10-08-global-profile-brand.md` as **single active status/report file** through every correction and approval. No new work file per round; keep it normally <=600 words. Builder Claude owns source editing and reports exact SHA. Reviewer cannot edit product source. Do not advance a phase without an independent acceptance verdict.
