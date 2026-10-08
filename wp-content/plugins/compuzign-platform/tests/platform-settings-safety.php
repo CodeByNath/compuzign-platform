@@ -29,6 +29,9 @@ function update_option(string $key, mixed $value, string|bool|null $autoload = n
     return true;
 }
 
+function maybe_serialize(mixed $value): mixed { return is_array($value) || is_object($value) ? serialize($value) : $value; }
+function maybe_unserialize(mixed $value): mixed { return is_string($value) && preg_match('/^[aOs]:/', $value) ? unserialize($value) : $value; }
+
 final class FakeWpdb
 {
     public string $options = 'wp_options';
@@ -39,8 +42,32 @@ final class FakeWpdb
             return "'" . addslashes((string) $args[$i++]) . "'";
         }, $query);
     }
+    public function get_var(string $sql): ?string
+    {
+        if (preg_match("/SELECT option_value FROM .* WHERE option_name = '(.*)'/s", $sql, $m)) {
+            $value = $GLOBALS['cz_options'][stripslashes($m[1])] ?? null;
+            return $value === null ? null : maybe_serialize($value);
+        }
+        return null;
+    }
+
     public function query(string $sql): int|false
     {
+        // Profile commit: lock-row join + exact-bytes compare-and-swap.
+        if (preg_match("/INNER JOIN .* ON save_lock.option_name = '(.*)' AND BINARY save_lock.option_value = '(.*)' SET profile.option_value = '(.*)' WHERE profile.option_name = '(.*)' AND BINARY profile.option_value = '(.*)'/s", $sql, $m)) {
+            [$lockKey, $lock, $new, $key, $old] = array_map('stripslashes', array_slice($m, 1));
+            if (is_callable($GLOBALS['cz_before_commit'] ?? null)) { ($GLOBALS['cz_before_commit'])(); }
+            if (($GLOBALS['cz_options'][$lockKey] ?? null) !== $lock
+                || !array_key_exists($key, $GLOBALS['cz_options'])
+                || maybe_serialize($GLOBALS['cz_options'][$key]) !== $old
+            ) {
+                return 0;
+            }
+            if (!empty($GLOBALS['cz_db_error'])) { return false; }
+            if (is_callable($GLOBALS['cz_fail'] ?? null)) { ($GLOBALS['cz_fail'])('update', $key, maybe_unserialize($new)); }
+            $GLOBALS['cz_options'][$key] = maybe_unserialize($new);
+            return 1;
+        }
         if (preg_match("/UPDATE .* SET option_value = '(.*)' WHERE option_name = '(.*)' AND option_value = '(.*)'/s", $sql, $m)
             && ($GLOBALS['cz_options'][stripslashes($m[2])] ?? null) === stripslashes($m[3])) {
             $GLOBALS['cz_options'][stripslashes($m[2])] = stripslashes($m[1]);
@@ -282,6 +309,47 @@ $station($takeover)->saveProfile($fields(1), [], 1);
 $remaining = count(array_filter($orphans, static fn(string $k): bool => $store->exists($k)));
 check($takeover->deleted === 1 && $remaining === 2, 'the sweep deleted one file, then stopped once the lock was no longer its own');
 check(str_starts_with((string) ($GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION] ?? ''), 'someone-else|'), "the new owner's lock was not released by the old Save");
+
+echo "5. The commit is atomic with lock ownership and revision\n";
+unset($GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION]);
+$GLOBALS['cz_clock'] = time() + 7200; // every unreferenced file is past the grace window
+$revision = (int) $GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION]['revision'];
+$committedLogo = encoded('png', 40, 20);
+$station()->saveProfile($fields($revision), ['logo' => $committedLogo], 1);
+$revision++;
+$referencedKey = $GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION]['brand']['logo']['key'];
+touch("{$dir}/{$referencedKey}", time() - 7200);
+$before = $GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION];
+
+// a) The lock expires and is taken over after every check, before the write.
+$GLOBALS['cz_before_commit'] = static function (): void {
+    $GLOBALS['cz_before_commit'] = null;
+    $GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION] = 'taker|' . time();
+};
+expectFailure(fn() => $station()->saveProfile($fields($revision), ['logo' => encoded('png', 41, 20)], 1), 'settings_busy', 'a lock taken over between check and write fails the commit');
+check($GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION] === $before, 'the stale writer overwrote nothing');
+check(str_starts_with((string) $GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION], 'taker|'), "the new owner's lock is untouched");
+check($store->exists($referencedKey), 'no referenced file was deleted');
+unset($GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION]);
+
+// b) A concurrent writer commits a newer revision after the check, before the write.
+$newer = $before;
+$newer['revision'] = $revision + 1;
+$newer['brand']['name'] = 'Newer';
+$GLOBALS['cz_before_commit'] = static function () use ($newer): void {
+    $GLOBALS['cz_before_commit'] = null;
+    $GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION] = $newer;
+};
+expectFailure(fn() => $station()->saveProfile($fields($revision), ['logo' => encoded('png', 42, 20)], 1), 'revision_conflict', 'a newer revision committed between check and write fails the commit');
+check($GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION] === $newer, 'the newer revision survives intact');
+check($store->exists($referencedKey), "the newer revision's referenced file was not deleted");
+check(!isset($GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION]), 'the lock is released after a lost race');
+
+// c) Two Saves from the same expected revision: exactly one commits.
+$first = $station()->saveProfile($fields($revision + 1), [], 1);
+expectFailure(fn() => $station()->saveProfile($fields($revision + 1), [], 1), 'revision_conflict', 'the second Save from the same revision is refused');
+check($GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION]['revision'] === $first['revision'], 'only the first Save committed');
+check($store->exists($referencedKey), 'the committed logo file still exists');
 
 foreach (array_diff(scandir($dir) ?: [], ['.', '..']) as $name) { unlink("{$dir}/{$name}"); }
 @rmdir($dir);

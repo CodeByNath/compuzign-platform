@@ -8,9 +8,10 @@ namespace CompuZign\Platform\PlatformSettings;
  * Persistence for the Platform Settings root, its Profile section, and the
  * one save lock that serialises every Settings mutation.
  *
- * Both records are non-autoloaded options. Every write is read back and
- * compared exactly — update_option() also returns false for an unchanged
- * value, so its return alone proves nothing. The lock reuses the platform's
+ * Both records are non-autoloaded options. Every identity-bootstrap write is
+ * read back and compared exactly — update_option() also returns false for an
+ * unchanged value, so its return alone proves nothing. The Profile field
+ * commit is a lock- and value-conditioned UPDATE (commitProfile). The lock reuses the platform's
  * proven primitive (RequestRepository): add_option()'s unique option_name for
  * the claim, and compare-and-swap UPDATE/DELETE on the exact observed value
  * for takeover and release, so a caller never touches a lock it no longer
@@ -51,6 +52,55 @@ final class PlatformSettingsRepository
     public function writeProfile(array $profile): void
     {
         $this->writeExact(self::PROFILE_OPTION, $profile);
+    }
+
+    /**
+     * The one Profile field commit, atomic in a single statement: the stored
+     * Profile is replaced only if its bytes are still exactly the ones
+     * $build() inspected AND the save lock row still holds $lockValue. A
+     * lock taken over, or a newer revision committed, at any moment after
+     * the check makes the UPDATE match no row — it can never overwrite.
+     * An affected-row count of 1 is the database's own proof of the exact
+     * write, so no separate read-back is needed (or safe: by then another
+     * owner could legitimately have moved on).
+     *
+     * @param callable(array<string, mixed>): array<string, mixed> $build current Profile → next Profile, or throws
+     * @return array<string, mixed> the committed Profile
+     */
+    public function commitProfile(string $lockValue, callable $build): array
+    {
+        global $wpdb;
+        $observed = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
+            self::PROFILE_OPTION
+        ));
+        $current = is_string($observed) ? maybe_unserialize($observed) : null;
+        if (!is_array($current)) {
+            throw PlatformSettingsFailure::storage('the Profile record is missing at commit.');
+        }
+
+        $next = $build($current);
+        $affected = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->options} AS profile INNER JOIN {$wpdb->options} AS save_lock"
+            . " ON save_lock.option_name = %s AND BINARY save_lock.option_value = %s"
+            . " SET profile.option_value = %s"
+            . " WHERE profile.option_name = %s AND BINARY profile.option_value = %s",
+            self::LOCK_OPTION,
+            $lockValue,
+            maybe_serialize($next),
+            self::PROFILE_OPTION,
+            $observed
+        ));
+        $this->forgetCached(self::PROFILE_OPTION);
+
+        if ($affected === false) {
+            throw PlatformSettingsFailure::storage('the Profile commit was rejected by the database.');
+        }
+        if ($affected !== 1) {
+            throw $this->holdsLock($lockValue) ? PlatformSettingsFailure::revisionConflict() : PlatformSettingsFailure::busy();
+        }
+
+        return $next;
     }
 
     /** @return array<string, mixed> */

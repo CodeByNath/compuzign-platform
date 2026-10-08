@@ -41,6 +41,9 @@ function update_option(string $key, mixed $value, string|bool|null $autoload = n
     return $changed;
 }
 
+function maybe_serialize(mixed $value): mixed { return is_array($value) || is_object($value) ? serialize($value) : $value; }
+function maybe_unserialize(mixed $value): mixed { return is_string($value) && preg_match('/^[aOs]:/', $value) ? unserialize($value) : $value; }
+
 final class FakeWpdb
 {
     public string $options = 'wp_options';
@@ -53,8 +56,32 @@ final class FakeWpdb
         }, $query);
     }
 
+    public function get_var(string $sql): ?string
+    {
+        if (preg_match("/SELECT option_value FROM .* WHERE option_name = '(.*)'/s", $sql, $m)) {
+            $value = $GLOBALS['cz_options'][stripslashes($m[1])] ?? null;
+            return $value === null ? null : maybe_serialize($value);
+        }
+        return null;
+    }
+
     public function query(string $sql): int|false
     {
+        // Profile commit: lock-row join + exact-bytes compare-and-swap.
+        if (preg_match("/INNER JOIN .* ON save_lock.option_name = '(.*)' AND BINARY save_lock.option_value = '(.*)' SET profile.option_value = '(.*)' WHERE profile.option_name = '(.*)' AND BINARY profile.option_value = '(.*)'/s", $sql, $m)) {
+            [$lockKey, $lock, $new, $key, $old] = array_map('stripslashes', array_slice($m, 1));
+            if (is_callable($GLOBALS['cz_before_commit'] ?? null)) { ($GLOBALS['cz_before_commit'])(); }
+            if (($GLOBALS['cz_options'][$lockKey] ?? null) !== $lock
+                || !array_key_exists($key, $GLOBALS['cz_options'])
+                || maybe_serialize($GLOBALS['cz_options'][$key]) !== $old
+            ) {
+                return 0;
+            }
+            if (!empty($GLOBALS['cz_db_error'])) { return false; }
+            if (is_callable($GLOBALS['cz_fail'] ?? null)) { ($GLOBALS['cz_fail'])('update', $key, maybe_unserialize($new)); }
+            $GLOBALS['cz_options'][$key] = maybe_unserialize($new);
+            return 1;
+        }
         if (preg_match("/UPDATE .* SET option_value = '(.*)' WHERE option_name = '(.*)' AND option_value = '(.*)'/s", $sql, $m)) {
             [$new, $key, $old] = [stripslashes($m[1]), stripslashes($m[2]), stripslashes($m[3])];
             if (($GLOBALS['cz_options'][$key] ?? null) === $old) {
@@ -260,10 +287,10 @@ $GLOBALS['cz_fail'] = null;
 $GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION] = 'crashed|' . (time() - 600);
 check($station->saveProfile($fields(6), [], 7)['revision'] === 7, 'the next Save after a crash commits normally');
 
-$GLOBALS['cz_corrupt'][PlatformSettingsRepository::PROFILE_OPTION] = true;
+$GLOBALS['cz_db_error'] = true;
 $before = profileOption();
-expectFailure(fn() => $station->saveProfile($fields(7), [], 7), 'storage_failed', 500, 'a write that does not read back exactly is reported as a failure');
-unset($GLOBALS['cz_corrupt']);
+expectFailure(fn() => $station->saveProfile($fields(7), [], 7), 'storage_failed', 500, 'a commit the database rejects is reported as a failure');
+unset($GLOBALS['cz_db_error']);
 $GLOBALS['cz_options'][PlatformSettingsRepository::PROFILE_OPTION] = $before;
 check(!isset($GLOBALS['cz_options'][PlatformSettingsRepository::LOCK_OPTION]), 'the lock is released after a storage failure');
 

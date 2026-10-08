@@ -16,9 +16,11 @@ platform-owned ports; it owns no identity or product rule here.
 Root: `wp-content/plugins/compuzign-platform/src/PlatformSettings/`
 
 - `PlatformSettingsStation.php` — reads, verified read-by-Platform-ID, the
-  one-Save flow, identity bootstrap/recovery, field rules, asset sweep.
+  one-Save flow, field rules, asset sweep.
+- `PlatformSettingsIdentity.php` — identity bootstrap/recovery and
+  registry verification.
 - `PlatformSettingsRepository.php` — `cz_platform_settings`,
-  `cz_platform_profile` (non-autoloaded, exact read-back) and the
+  `cz_platform_profile` (non-autoloaded), the atomic Profile commit and the
   `cz_platform_settings_lock` compare-and-swap save lock.
 - `PlatformSettingsNativeReference.php` — singleton native references.
 - `BrandAssetStore.php` port; `UploadsBrandAssetStore.php` adapter
@@ -50,8 +52,10 @@ IDs withheld), or `verified`. Anything else fails closed with
 
 Validate fields and decode images → write immutable content-addressed files
 → claim lock → check `expected_revision` → bootstrap identity → confirm this
-request's files still exist, lock ownership and revision → single Profile
-commit (`revision + 1`) → sweep unreferenced files older than 15 minutes,
+request's files still exist → one atomic Profile commit (`revision + 1`): a
+single UPDATE that lands only while this Save's lock row holds its value and
+the stored Profile bytes are exactly those whose revision and identity were
+checked, so a lost lock or newer revision fails it (409) → sweep unreferenced files older than 15 minutes,
 stopping if the lock is lost → release. The store never overwrites or
 follows a symlinked name; reuse refreshes a file's time. Any failure before
 the commit leaves the Profile and every file it references unchanged.

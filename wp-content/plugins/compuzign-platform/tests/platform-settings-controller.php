@@ -31,6 +31,9 @@ function current_user_can(string $capability): bool { return $GLOBALS['cz_can'] 
 function wp_verify_nonce(string $nonce, string $action): int|false { return $nonce === 'good-nonce' && $action === 'wp_rest' ? 1 : false; }
 function get_current_user_id(): int { return 42; }
 
+function maybe_serialize(mixed $value): mixed { return is_array($value) || is_object($value) ? serialize($value) : $value; }
+function maybe_unserialize(mixed $value): mixed { return is_string($value) && preg_match('/^[aOs]:/', $value) ? unserialize($value) : $value; }
+
 final class FakeWpdb
 {
     public string $options = 'wp_options';
@@ -41,8 +44,32 @@ final class FakeWpdb
             return "'" . addslashes((string) $args[$i++]) . "'";
         }, $query);
     }
+    public function get_var(string $sql): ?string
+    {
+        if (preg_match("/SELECT option_value FROM .* WHERE option_name = '(.*)'/s", $sql, $m)) {
+            $value = $GLOBALS['cz_options'][stripslashes($m[1])] ?? null;
+            return $value === null ? null : maybe_serialize($value);
+        }
+        return null;
+    }
+
     public function query(string $sql): int|false
     {
+        // Profile commit: lock-row join + exact-bytes compare-and-swap.
+        if (preg_match("/INNER JOIN .* ON save_lock.option_name = '(.*)' AND BINARY save_lock.option_value = '(.*)' SET profile.option_value = '(.*)' WHERE profile.option_name = '(.*)' AND BINARY profile.option_value = '(.*)'/s", $sql, $m)) {
+            [$lockKey, $lock, $new, $key, $old] = array_map('stripslashes', array_slice($m, 1));
+            if (is_callable($GLOBALS['cz_before_commit'] ?? null)) { ($GLOBALS['cz_before_commit'])(); }
+            if (($GLOBALS['cz_options'][$lockKey] ?? null) !== $lock
+                || !array_key_exists($key, $GLOBALS['cz_options'])
+                || maybe_serialize($GLOBALS['cz_options'][$key]) !== $old
+            ) {
+                return 0;
+            }
+            if (!empty($GLOBALS['cz_db_error'])) { return false; }
+            if (is_callable($GLOBALS['cz_fail'] ?? null)) { ($GLOBALS['cz_fail'])('update', $key, maybe_unserialize($new)); }
+            $GLOBALS['cz_options'][$key] = maybe_unserialize($new);
+            return 1;
+        }
         if (preg_match("/DELETE FROM .* WHERE option_name = '(.*)' AND option_value = '(.*)'/s", $sql, $m)
             && ($GLOBALS['cz_options'][stripslashes($m[1])] ?? null) === stripslashes($m[2])) {
             unset($GLOBALS['cz_options'][stripslashes($m[1])]);
