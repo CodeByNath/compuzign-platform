@@ -41,23 +41,28 @@ Root: `wp-content/plugins/compuzign-platform/src/PlatformSettings/`
 Both IDs are minted only by the shared identifier Station, on the first
 successful Save (Settings → Profile → section link), never on read and never
 again. An interrupted bootstrap resumes by finishing the exact stored
-reservation; any other registry, parent-link or owner-record disagreement
-fails closed with `settings_identity_conflict`.
+reservation. Canonical and by-ID reads classify identity against the
+registry and links: `unassigned` (no Save yet), `incomplete` (resumable;
+IDs withheld), or `verified`. Anything else fails closed with
+`settings_identity_conflict`.
 
 ## Save contract
 
 Validate fields and decode images → write immutable content-addressed files
-→ claim lock → check `expected_revision` → bootstrap identity → recheck lock
-ownership and revision → single Profile commit (`revision + 1`) → sweep
-unreferenced files older than 15 minutes → release. Any failure before the
-commit leaves the Profile and every file it references unchanged.
+→ claim lock → check `expected_revision` → bootstrap identity → confirm this
+request's files still exist, lock ownership and revision → single Profile
+commit (`revision + 1`) → sweep unreferenced files older than 15 minutes,
+stopping if the lock is lost → release. The store never overwrites or
+follows a symlinked name; reuse refreshes a file's time. Any failure before
+the commit leaves the Profile and every file it references unchanged.
 
 ## Images (Option A)
 
-Content is sniffed; client MIME and extension are ignored. PNG, JPEG, GIF,
-WebP and ICO are stored as-is. Other rasters are converted to PNG by GD, or by
-Imagick only for magic-verified TIFF/BMP/JP2/AVIF/HEIC. SVG is refused, never
-stored. The favicon must be square. Unconvertible input is a clear 415.
+Client MIME and extension are ignored, and no uploaded bytes are stored
+as-is. PNG, JPEG, WebP and GIF are fully decoded (any decoder warning
+refuses) and re-encoded in kind; animated GIF needs Imagick or is refused.
+ICO yields its largest embedded PNG. Other rasters become PNG via GD or
+magic-gated Imagick. SVG is refused. The favicon must be square.
 
 ## API
 
@@ -74,6 +79,7 @@ Asset URLs are public static files; editable data is never anonymous.
 
 From the plugin root: `php tests/platform-settings-profile.php`,
 `php tests/platform-settings-controller.php`,
+`php tests/platform-settings-safety.php`,
 `php tests/platform-identifier-station.php`,
 `npm run contract:platform-identity-schema`, and `npm run docs:check`.
 

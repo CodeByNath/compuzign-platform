@@ -68,23 +68,52 @@ final class UploadsBrandAssetStore implements BrandAssetStore
 
         $this->ensureDirectory();
         $path = $this->path($key);
-        if (is_file($path) && hash_file('sha256', $path) === substr($key, 0, 64)) {
-            return $key;
+        if (file_exists($path) || is_link($path)) {
+            return $this->adoptExisting($key, $path);
         }
 
-        // Write beside the target, then rename: the final name only ever
-        // appears with complete content.
+        // Write beside the target, then publish without ever replacing an
+        // existing name: link() fails if the key appeared meanwhile, so a
+        // stored asset is never mutated in place.
         $temporary = $this->directory() . '/.' . $key . '.' . bin2hex(random_bytes(8)) . '.tmp';
         if (file_put_contents($temporary, $bytes, LOCK_EX) !== strlen($bytes)) {
             @unlink($temporary);
             throw new \RuntimeException('brand asset could not be written.');
         }
-        if (!rename($temporary, $path)) {
+        $published = @link($temporary, $path);
+        if (!$published && (file_exists($path) || is_link($path))) {
+            @unlink($temporary);
+            return $this->adoptExisting($key, $path);
+        }
+        if (!$published && !rename($temporary, $path)) {
             @unlink($temporary);
             throw new \RuntimeException('brand asset could not be finalised.');
         }
-        if (hash_file('sha256', $path) !== substr($key, 0, 64)) {
+        @unlink($temporary);
+
+        if (is_link($path) || hash_file('sha256', $path) !== substr($key, 0, 64)) {
             throw new \RuntimeException('brand asset did not read back exactly.');
+        }
+
+        return $key;
+    }
+
+    /**
+     * An existing name is reused only when it is a real file holding exactly
+     * the bytes its key names. Anything else — a symlink, or content that no
+     * longer matches — fails closed and is left untouched. Reuse refreshes the
+     * file's time so an in-flight Save is inside the sweep's grace window.
+     */
+    private function adoptExisting(string $key, string $path): string
+    {
+        if (is_link($path) || !is_file($path)) {
+            throw new \RuntimeException('brand asset path is redirected; refusing to use it.');
+        }
+        if (hash_file('sha256', $path) !== substr($key, 0, 64)) {
+            throw new \RuntimeException('stored brand asset does not match its key; left untouched.');
+        }
+        if (!touch($path)) {
+            throw new \RuntimeException('brand asset could not be refreshed.');
         }
 
         return $key;
@@ -92,7 +121,12 @@ final class UploadsBrandAssetStore implements BrandAssetStore
 
     public function exists(string $key): bool
     {
-        return self::isValidKey($key) && is_file($this->path($key));
+        if (!self::isValidKey($key)) {
+            return false;
+        }
+        $path = $this->path($key);
+
+        return is_file($path) && !is_link($path);
     }
 
     public function url(string $key): ?string
@@ -109,9 +143,10 @@ final class UploadsBrandAssetStore implements BrandAssetStore
 
     public function keys(): array
     {
+        clearstatcache();
         $keys = [];
         foreach ($this->listDirectory() as $name) {
-            if (self::isValidKey($name)) {
+            if ($this->exists($name)) {
                 $keys[$name] = (int) filemtime($this->path($name));
             }
         }
@@ -121,6 +156,7 @@ final class UploadsBrandAssetStore implements BrandAssetStore
 
     public function sweepTemporary(int $olderThanSeconds): void
     {
+        clearstatcache();
         foreach ($this->listDirectory() as $name) {
             $path = $this->directory() . '/' . $name;
             if (preg_match(self::TEMP_PATTERN, $name) === 1 && time() - (int) filemtime($path) > $olderThanSeconds) {
@@ -147,6 +183,9 @@ final class UploadsBrandAssetStore implements BrandAssetStore
 
     private function ensureDirectory(): void
     {
+        if (is_link($this->directory())) {
+            throw new \RuntimeException('brand asset directory is redirected; refusing to use it.');
+        }
         if (!is_dir($this->directory()) && !mkdir($this->directory(), 0755, true) && !is_dir($this->directory())) {
             throw new \RuntimeException('brand asset directory could not be created.');
         }

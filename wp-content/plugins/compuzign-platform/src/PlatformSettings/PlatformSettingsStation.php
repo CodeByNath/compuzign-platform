@@ -45,6 +45,10 @@ final class PlatformSettingsStation
 
     private const IMAGE_FIELDS = ['logo' => false, 'favicon' => true];
 
+    public const UNASSIGNED = 'unassigned';
+    public const INCOMPLETE = 'incomplete';
+    public const VERIFIED   = 'verified';
+
     private \Closure $clock;
 
     /** @param callable(): int|null $clock Test seam; production uses time(). */
@@ -62,49 +66,84 @@ final class PlatformSettingsStation
     // SECTION: READS
     // =====================================================================
 
-    /** @return array<string, mixed> */
+    /**
+     * Canonical reads verify stored identity against the registry and the
+     * parent ↔ Profile link before exposing it. `identity_state` is:
+     *   unassigned — no Save yet; IDs are null and valid as such
+     *   incomplete — a first Save was interrupted in a resumable state; the
+     *                unverified IDs are withheld (null) until a Save finishes
+     *   verified   — both IDs bound, linked, and matching their records
+     * Anything else is inconsistent identity: 409, never shown as valid.
+     *
+     * @return array<string, mixed>
+     */
     public function settings(): array
     {
-        $settings = $this->repository->readSettings() ?? PlatformSettingsRepository::emptySettings();
+        [$settings, , $state] = $this->readVerified();
 
-        return [
-            'platform_id' => self::idOrNull($settings['platform_id'] ?? ''),
-            'sections'    => [
-                'profile' => ['platform_id' => self::idOrNull($settings['sections']['profile']['platform_id'] ?? '')],
-            ],
-        ];
+        return $this->projectSettings($settings, $state);
     }
 
     /** @return array<string, mixed> */
     public function profile(): array
     {
-        return $this->projectProfile($this->repository->readProfile() ?? PlatformSettingsRepository::emptyProfile());
+        [, $profile, $state] = $this->readVerified();
+
+        return $this->projectProfile($profile, $state);
     }
 
     /** @return array<string, mixed> */
     public function settingsByPlatformId(string $platformId): array
     {
-        $this->assertVerifiedHierarchy($platformId, PlatformIdentifierPolicy::PLATFORM_SETTINGS);
+        [$settings] = $this->readByPlatformId($platformId, PlatformIdentifierPolicy::PLATFORM_SETTINGS);
 
-        return $this->settings();
+        return $this->projectSettings($settings, self::VERIFIED);
     }
 
     /** @return array<string, mixed> */
     public function profileByPlatformId(string $platformId): array
     {
-        $this->assertVerifiedHierarchy($platformId, PlatformIdentifierPolicy::PLATFORM_SETTINGS_PROFILE);
+        [, $profile] = $this->readByPlatformId($platformId, PlatformIdentifierPolicy::PLATFORM_SETTINGS_PROFILE);
 
-        return $this->profile();
+        return $this->projectProfile($profile, self::VERIFIED);
+    }
+
+    /** @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: string} */
+    private function readVerified(): array
+    {
+        $settings = $this->repository->readSettings() ?? PlatformSettingsRepository::emptySettings();
+        $profile  = $this->repository->readProfile() ?? PlatformSettingsRepository::emptyProfile();
+
+        return [$settings, $profile, $this->identityState($settings, $profile)];
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     * @return array<string, mixed>
+     */
+    private function projectSettings(array $settings, string $state): array
+    {
+        $verified = $state === self::VERIFIED;
+
+        return [
+            'platform_id'    => $verified ? self::idOrNull($settings['platform_id'] ?? '') : null,
+            'identity_state' => $state,
+            'sections'       => [
+                'profile' => ['platform_id' => $verified ? self::idOrNull($settings['sections']['profile']['platform_id'] ?? '') : null],
+            ],
+        ];
     }
 
     /** @param array<string, mixed> $profile */
-    private function projectProfile(array $profile): array
+    private function projectProfile(array $profile, string $state): array
     {
         $brand = is_array($profile['brand'] ?? null) ? $profile['brand'] : [];
+        $verified = $state === self::VERIFIED;
 
         return [
-            'platform_id'        => self::idOrNull($profile['platform_id'] ?? ''),
-            'parent_platform_id' => self::idOrNull($profile['parent_platform_id'] ?? ''),
+            'platform_id'        => $verified ? self::idOrNull($profile['platform_id'] ?? '') : null,
+            'parent_platform_id' => $verified ? self::idOrNull($profile['parent_platform_id'] ?? '') : null,
+            'identity_state'     => $state,
             'revision'           => (int) ($profile['revision'] ?? 0),
             'brand'              => [
                 'name'    => (string) ($brand['name'] ?? ''),
@@ -208,7 +247,16 @@ final class PlatformSettingsStation
             // 4. Identity exists before the first field commit and is reused after.
             [$settingsId, $profileId] = $this->bootstrapIdentity();
 
-            // 5. Recheck concurrency at the commit point itself.
+            // 5. Recheck at the commit point itself. Files this request wrote
+            //    or reused before the lock must still exist: another Save's
+            //    sweep may only remove them while holding the lock, so a
+            //    missing file here fails the Save instead of committing a
+            //    dangling reference.
+            foreach ($newAssets as $asset) {
+                if ($asset !== null && !$this->assets->exists($asset['key'])) {
+                    throw PlatformSettingsFailure::storage('a brand image was removed before the Save committed.');
+                }
+            }
             $current = $this->repository->readProfile() ?? PlatformSettingsRepository::emptyProfile();
             if (!$this->repository->holdsLock($lock)) {
                 throw PlatformSettingsFailure::busy();
@@ -238,16 +286,25 @@ final class PlatformSettingsStation
             $this->repository->writeProfile($next);
 
             // 6. Only after a confirmed commit may unreferenced files go.
-            $this->sweepAssets($next);
+            $this->sweepAssets($next, $lock);
 
-            return $this->projectProfile($next);
+            return $this->projectProfile($next, self::VERIFIED);
         } finally {
             $this->repository->releaseLock($lock);
         }
     }
 
-    /** @param array<string, mixed> $committed */
-    private function sweepAssets(array $committed): void
+    /**
+     * Delete only files that no committed Profile references and that are
+     * older than the grace window, and only while this Save still owns the
+     * lock: if a slow sweep's lock was taken over, it stops at once. The
+     * grace window covers in-flight Saves whose files were written (or
+     * reused, which refreshes their time) before they could take the lock;
+     * any of those that still lose a file fail at their own commit check.
+     *
+     * @param array<string, mixed> $committed
+     */
+    private function sweepAssets(array $committed, string $lock): void
     {
         $referenced = [];
         foreach (array_keys(self::IMAGE_FIELDS) as $field) {
@@ -260,11 +317,17 @@ final class PlatformSettingsStation
         try {
             $now = ($this->clock)();
             foreach ($this->assets->keys() as $key => $modifiedAt) {
-                if (!isset($referenced[$key]) && $now - $modifiedAt > self::ASSET_GRACE_SECONDS) {
-                    $this->assets->delete($key);
+                if (isset($referenced[$key]) || $now - $modifiedAt <= self::ASSET_GRACE_SECONDS) {
+                    continue;
                 }
+                if (!$this->repository->holdsLock($lock)) {
+                    return;
+                }
+                $this->assets->delete($key);
             }
-            $this->assets->sweepTemporary(self::ASSET_GRACE_SECONDS);
+            if ($this->repository->holdsLock($lock)) {
+                $this->assets->sweepTemporary(self::ASSET_GRACE_SECONDS);
+            }
         } catch (\Throwable) {
             // The commit already succeeded; an orphan file is retried next Save.
         }
@@ -385,11 +448,13 @@ final class PlatformSettingsStation
     }
 
     /**
-     * A read by Platform ID succeeds only when the whole hierarchy agrees:
-     * forward and reverse registry bindings, entity type, native reference,
-     * the owner record's stored ID, and the parent ↔ Profile link.
+     * A read by Platform ID succeeds only when the registry resolves the
+     * requested ID as a bound identity of the requested type AND the whole
+     * stored hierarchy classifies as verified with that exact ID.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
      */
-    private function assertVerifiedHierarchy(string $platformId, string $entityType): void
+    private function readByPlatformId(string $platformId, string $entityType): array
     {
         try {
             $binding = $this->identifiers->resolve($platformId);
@@ -400,38 +465,98 @@ final class PlatformSettingsStation
             throw PlatformSettingsFailure::notFound();
         }
 
-        $settings = $this->repository->readSettings() ?? PlatformSettingsRepository::emptySettings();
-        $profile  = $this->repository->readProfile() ?? PlatformSettingsRepository::emptyProfile();
+        [$settings, $profile, $state] = $this->readVerified();
+        $storedId = $entityType === PlatformIdentifierPolicy::PLATFORM_SETTINGS
+            ? (string) ($settings['platform_id'] ?? '')
+            : (string) ($profile['platform_id'] ?? '');
+        if ($state !== self::VERIFIED || $storedId !== $platformId) {
+            throw PlatformSettingsFailure::identityConflict('the requested identifier is not the verified stored identity.');
+        }
+
+        return [$settings, $profile];
+    }
+
+    /**
+     * Classify the stored Settings/Profile identity without writing.
+     *
+     * @param array<string, mixed> $settings
+     * @param array<string, mixed> $profile
+     * @throws PlatformSettingsFailure inconsistent identity
+     */
+    private function identityState(array $settings, array $profile): string
+    {
         $settingsId = (string) ($settings['platform_id'] ?? '');
         $profileId  = (string) ($profile['platform_id'] ?? '');
+        $parentId   = (string) ($profile['parent_platform_id'] ?? '');
+        $linkedId   = (string) ($settings['sections']['profile']['platform_id'] ?? '');
 
-        $expected = [PlatformIdentifierPolicy::PLATFORM_SETTINGS => [PlatformSettingsNativeReference::settings(), $settingsId]];
-        if ($entityType === PlatformIdentifierPolicy::PLATFORM_SETTINGS_PROFILE) {
-            $expected[$entityType] = [PlatformSettingsNativeReference::profile(), $profileId];
+        if ($settingsId === '' && $profileId === '' && $parentId === '' && $linkedId === '') {
+            return self::UNASSIGNED;
+        }
+        if ($settingsId === ''
+            || ($parentId !== '' && $parentId !== $settingsId)
+            || ($linkedId !== '' && $linkedId !== $profileId)
+            || ($profileId !== '' && $parentId === '')
+        ) {
+            throw PlatformSettingsFailure::identityConflict('the Settings ↔ Profile link is broken.');
+        }
+
+        $settingsBound = $this->registryState(
+            PlatformIdentifierPolicy::PLATFORM_SETTINGS,
+            PlatformSettingsNativeReference::settings(),
+            $settingsId
+        );
+        if ($profileId === '') {
+            return self::INCOMPLETE;
+        }
+        $profileBound = $this->registryState(
+            PlatformIdentifierPolicy::PLATFORM_SETTINGS_PROFILE,
+            PlatformSettingsNativeReference::profile(),
+            $profileId
+        );
+
+        return $settingsBound && $profileBound && $linkedId === $profileId ? self::VERIFIED : self::INCOMPLETE;
+    }
+
+    /**
+     * True when the stored ID is bound forward and reverse to this record.
+     * False only for the one resumable state: this exact ID is still an
+     * unbound reservation of this type (a first Save stopped inside assign()).
+     * Every other registry disagreement throws.
+     */
+    private function registryState(string $entityType, string $nativeReference, string $storedId): bool
+    {
+        if (!PlatformIdentifierPolicy::validate($entityType, $storedId)) {
+            throw PlatformSettingsFailure::identityConflict("the stored {$entityType} identifier is malformed.");
         }
 
         try {
-            foreach ($expected as $type => [$nativeReference, $storedId]) {
-                $reverse = $this->identifiers->lookupNative($type, $nativeReference);
-                if ($storedId === '' || $reverse === null || !$reverse->isBound() || $reverse->platformId() !== $storedId) {
-                    throw PlatformSettingsFailure::identityConflict("the {$type} record and registry disagree.");
+            $reverse = $this->identifiers->lookupNative($entityType, $nativeReference);
+            if ($reverse !== null) {
+                if ($reverse->platformId() !== $storedId || !$reverse->isBound()) {
+                    throw PlatformSettingsFailure::identityConflict("the {$entityType} record and registry disagree.");
                 }
+                return true;
             }
         } catch (PlatformIdentifierConflict) {
-            throw PlatformSettingsFailure::identityConflict('the identifier registry is conflicting.');
+            // Forward/reverse disagree: resumable only if the forward record
+            // is still this exact unbound reservation (checked below).
         }
 
-        $ownerId = $entityType === PlatformIdentifierPolicy::PLATFORM_SETTINGS ? $settingsId : $profileId;
-        if ($binding->nativeReference() !== $expected[$entityType][0] || $ownerId !== $platformId) {
-            throw PlatformSettingsFailure::identityConflict('the requested identifier is not the stored record identity.');
+        try {
+            $forward = $this->identifiers->resolve($storedId);
+        } catch (PlatformIdentifierConflict) {
+            $forward = null;
         }
-
-        if ($entityType === PlatformIdentifierPolicy::PLATFORM_SETTINGS_PROFILE
-            && (($profile['parent_platform_id'] ?? '') !== $settingsId
-                || ($settings['sections']['profile']['platform_id'] ?? '') !== $profileId)
+        if ($forward !== null
+            && $forward->entityType() === $entityType
+            && $forward->status() === PlatformIdentifierStation::STATUS_RESERVED
+            && $forward->nativeReference() === null
         ) {
-            throw PlatformSettingsFailure::identityConflict('the Profile and its Settings parent are not linked.');
+            return false;
         }
+
+        throw PlatformSettingsFailure::identityConflict("the {$entityType} record and registry disagree.");
     }
 
     // =====================================================================
