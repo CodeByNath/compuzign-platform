@@ -1,8 +1,10 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**SOURCE PUSH APPROVED — PHASE 1 BACKEND ONLY.**
-Reviewer verdict: **Proceed with safeguards**. **Exact approved topic SHA: `3250f9a4e2babcc872f6e0db0d5c1590de9a63ae`.** Only that candidate may move to `main` through the normal Builder workflow; any source change requires another independent review. No Phase 2 UI or Account frontend integration authorised by this approval.
+**AWAITING LIVE VALIDATION — PHASE 1 BACKEND PUSHED TO MAIN.**
+Reviewer verdict stands: **Proceed with safeguards**. Approved candidate `3250f9a4e2babcc872f6e0db0d5c1590de9a63ae` has been fast-forwarded to `main` by Nath directly (the `git push origin <sha>:main` fast-forward command handed off in chat — `git push` to `main` is blocked for Claude Code by its own action classifier, so Nath ran it). **Exact `main` SHA, confirmed by `git fetch`: `3250f9a4e2babcc872f6e0db0d5c1590de9a63ae`.** No Phase 2 UI or Account frontend integration authorised.
+
+**Deployment evidence — not captured by Claude.** No `gh` CLI is available in this environment, so GitHub Actions run status and Hostinger deployment state are unverified from here. Per "no unevidenced claims about live," this is flagged rather than assumed. **Requesting Nath:** confirm the Actions workflow for this push succeeded and that the live WordPress install reflects `3250f9a4` (e.g. Account Station REST routes respond, no fatal errors) before Reviewer closes this item.
 
 ## Baseline and scope
 `main` at audit: `8d1f0185811e69214c0fd85c29819eef0c5d9226`. Topic: `global-profile-platform-settings`. Actual main→topic diff: 13 files (Account backend, four Platform Identifier prefixes, tests, Code Maps, wiring). No new packages, frontend registration, WEX or other product areas. Old `PlatformSettings` candidate was fully reverted. Owner model: **Account Station → Settings → Tools → Profile**, prefixes `CZA/CZAS/CZAST/CZASTP` + five-character suffix. Account is peer Station; others are children, not Stations. Station Manager coordinates; Admin presents; Identifier Station mints/binds.
@@ -15,7 +17,7 @@ Compared `1fa3355b` → `3250f9a4` (four files: `AccountController.php`, `Accoun
 **Evidence:** Builder reports `php tests/account-station.php` **48/48** checks passed, including pre-bootstrap mask rejection and four-node presence; checks use WordPress option stubs rather than live WP/DB. Not independently executed by Reviewer. Independent source inspection confirms the added code paths. Pre-existing `tests/platform-identifier-station.php` `tier_catalogue` expected-vocabulary mismatch remains; do not silently widen this phase. Account Code Map reported 600 words; no changed PHP source exceeds 600 physical lines.
 
 ## Safeguards and next work
-1. Builder may promote **only** reviewed SHA `3250f9a4` to `main`. Record resulting exact `main` SHA, Actions outcome and Hostinger deployment state in this same file. Never assume topic, main, workflow and runtime are identical.
+1. Done: reviewed SHA `3250f9a4` is now exactly `main`. Actions outcome and Hostinger deployment state still need Nath's confirmation (see above) — never assume topic, main, workflow and runtime are identical.
 2. **Phase 1 backend release requires boundary checks** for authenticated REST, capability/nonce, WordPress attachment validity, durable four-node bootstrap, retry, canonical/draft isolation and no unrelated impact; stub tests do not establish parallel DB guarantees. Capture deployment/runtime evidence as appropriate before closing the phase.
 3. **Deferred Owner decision:** Account singleton Archive/Trash/permanent delete semantics versus locked Station travel contract. No UI controls or silent exemption for those actions until approved.
 4. **Phase 2** (new peer frontend register-before-finalize, Admin placement, Profile editor, Service-pattern settle-then-Publish) remains separately gated; do not start by treating backend approval as UI approval. WEX, user roles, expanded Profile sections deferred.
