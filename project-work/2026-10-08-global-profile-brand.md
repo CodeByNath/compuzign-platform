@@ -1,39 +1,28 @@
 # Global Settings → Profile / Brand
 
 ## Status
-**AWAITING REVIEWER REVIEW — Phase 1A design report below (CZPS/CZPSP, 2026-10-08). No source changed.**
-Builder: Claude; Reviewer: ChatGPT; Owner/live validator: Nath.
-**Verdict: Proceed with safeguards** for Phase 0 architecture. No Phase 1 source implementation until Phase 1A review.
-Base `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`; previous topic branch cleaned. Current coordination only.
+**READY FOR BUILDER — Phase 1B backend implementation only.**
+Phase 1A verdict: **Proceed with safeguards**, accepted 2026-10-08 by independent Reviewer.
+Builder Claude; Reviewer ChatGPT; Owner/live validator Nath.
+Production baseline `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`. Two branches currently; Builder may create ONE topic branch.
 
-## Binding authority
-Read `project-work/AGENTS.md`, [locked full handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, source and focused Code Maps, **especially `docs/code-map/platform-identifier-station.md` and `src/PlatformIdentifier/PlatformIdentifierPolicy.php`**. CompuZign owns platform Profile, storage, media, permissions, validation, identity and API. Service Settings is only its temporary presentation entry. Never infer data ownership from runtime or host APIs.
+## Authority and evidence
+Read `project-work/AGENTS.md`, [full locked handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps and authoritative source. **Full Phase 1A Builder report** is retained in coordination commit `d90da4636ddafbe2f327979d86b412efe0c0d1d2`; condensation at `4e4a0bef` is not a substitute for its tests/file list. Current source verified: `PlatformIdentifierPolicy.php`, `PlatformIdentifierStation.php` (`reserve/assign/ensure/resolve/lookupNative`), Service Settings and Admin shell, and deployment config.
 
-## Owner decisions
-- **Image Option A approved (2026-10-08):** accept image selection regardless of extension, securely decode/inspect; convert to browser-safe image when possible; otherwise clear error and no partial save. Square favicon verified on Pick and Save.
-- **New explicit requirement:** Profile MUST have durable platform-owned storage, **Platform ID integrated with the existing Platform Identifier Station**, and documented working API routes. This supersedes Phase 0's suggestion that a singleton should have no Platform ID. Do NOT invent a prefix in consumer code. The Identifier Policy is a closed vocabulary and neither Settings nor Profile type is registered today. **Owner selected `CZPSXXXXX` for Platform Settings and `CZPSPXXXXX` for child Profile**. Both pass existing five-suffix anchored-format compatibility in source. Prefixes require central Policy registration by Builder after design approval; never coin IDs elsewhere.
+## Locked product decisions
+CompuZign owns global Settings/Profile records, platform assets, API and permission logic; host runtime/storage is infrastructural. Service Station Settings is UI placement only. Two real singleton domain records:
+- Platform Settings parent `CZPSXXXXX` (Policy entity `platform_settings`) — durable Settings root/section registry, not decorative.
+- Profile child `CZPSPXXXXX` (Policy entity `platform_settings_profile`) — parent-linked brand record.
+Both minted only by existing Platform Identifier Station; stable permanent IDs never regenerate on Save. Owner image **Option A**: securely decode arbitrary selected image, convert unsupported display formats when possible, otherwise error with unchanged persisted data. Square favicon on Pick and Save. One Save for whole Profile; blank/Clear allowed. Exact four-field UI and 64×64 favicon contract remain locked for later phases.
 
-## Phase 1A — authorised design task (NO source changes)
-Provide a concise contract proposal, with actual source evidence:
-1. **Identity:** Review Owner's `CZPS` parent Settings and `CZPSP` child Profile prefixes against the Policy and global uniqueness. Design genuine durable singleton **Platform Settings** parent + **Profile** child records, separate immutable IDs, stable native references, parent relationship, bootstrap/reservation/binding/lookup/rollback and recovery; both IDs must be minted by the existing Platform Identifier Station, never reminted on Save. Ensure the parent is a real authoritative Settings root, not a placeholder or a new frontend Station. Flag any mismatch with current source before coding.
-2. **Storage:** stable global Profile record/schema/version/revision plus linked platform asset keys, durable adapter and atomic/consistent file + metadata lifecycle across upgrades/redeploy; conflict/crash recovery, permission and concurrency proof. Profile never uses Service or user records.
-3. **APIs:** propose exact authenticated **GET + Save** Profile endpoints and read-by-Platform-ID route for `CZPSP`, plus minimal parent Settings read/lookup contract for `CZPS`; define payloads exposing correct parent/child IDs and relation, ETag/revision or equivalent, MIME/upload validation, permissions, nonce, errors/409, and asset URL policy. Do not expose editable settings anonymously. No routes that expose editable profile data to anonymous users.
-4. Test matrix for creation/reload, parent+child singleton identity stability, parent-to-profile linkage, both ID lookups, immutability, permission denial, missing image, clear, conversion error, conflicting Save, storage/registry mismatch, partial bootstrap and recovery.
-5. Mark minimal exact changed files/code maps, proposed identity prefix and any owner decision needed. Report **in this same work file** with `AWAITING REVIEWER REVIEW`; stop.
+## Phase 1B — exact authorised implementation
+Implement only backend Settings/Profile persistence, both Policy registrations and identity bindings, platform asset storage/conversion port + adapter, authenticated API read/Save/read-by-ID, tests and focused Code Maps. Use Phase 1A proposals from `d90da463`:
+- Settings `cz_platform_settings` stores persistent parent ID/section link; Profile `cz_platform_profile` stores child ID, parent ID, revision and brand fields; opaque asset keys persist separate from host URLs.
+- Authorised API: GET `/compuzign/v1/admin/platform-settings`, GET `/admin/platform-settings/{CZPS_ID}`, GET/POST `/admin/platform-settings/profile`, GET `/admin/platform-settings/profiles/{CZPSP_ID}`. All permission-gated. Route matching must not collide.
+- First Save may create both identities; **validate inputs, assets, revision and lock BEFORE identity mutation**. Implement safe parent → child → link bootstrap, recovering partial writes without duplicate IDs. Every read-by-ID must verify forward+reverse binding, correct type/native reference, parent link and owner record. Never mint during read or repeat Save.
+- Lock/revision 409 protection and **failure-safe cross-record commit** are essential: distinguish recoverable partial bootstrap from inconsistent identity; handle write/lock errors and crashes; never delete a referenced asset or report false success. Recheck concurrency before committing. Explicitly test failure injection and recovery; if a safe recovery cannot be proven, stop rather than deploy.
+- Image inspection/conversion uses runtime-available secure decoders; unsupported -> clear error, no partial commit. File storage survives source deploys and excludes executable uploads/path escape. Establish public asset URL/read policy.
+- Validate Profile ID immutability, blank/clear, limits/code uppercase, square favicon, missing asset, permissions and nonce on GET/POST, 404/wrong-ID, 409 conflicts, initial/repeat saves, rollback/recovery and durable reload.
 
-## Next gated phases
-**1B:** only after Phase 1A approval, implement platform Profile identity, persistence, safe asset storage/conversion and APIs + backend tests on one topic branch; independent source review required.
-**2:** Settings UI (four fields, one Save).
-**3:** favicon 64×64 on main colour, code/name defaults, safe public read seam.
-**4:** full tests, source/release verification and Nath live validation.
-
-## Exclusions
-No WEX implementation, new Station, general media framework, host profile/media ownership, Service-owned profile, pricing/Tier/Package/quote changes, autosave or unrelated redesign. Keep one work file; no phase advance without reviewer acceptance.
-
-## Phase 1A Builder report — 2026-10-08
-- **IDs:** `CZPS`/`CZPSP` are compatible with the Policy (anchored length) and are registered in 1B. Native refs: `platform-settings:6:global`, `platform-settings-profile:6:global7:profile`. Minted once, on the first Save, via `ensure()` (parent → child → link); never reminted, never on read. Mismatch → 409, nothing saved.
-- **Parent:** `cz_platform_settings` is the Settings root and section index. **Confirm it is not decorative.**
-- **Profile:** `cz_platform_profile` = `{platform_id, parent_platform_id, revision, brand}`. Assets are hash-named files in `uploads/compuzign/brand/`.
-- **Save:** one lock, a revision check (409 on mismatch) and a single commit.
-- **Routes:** `/admin/platform-settings[/CZPS…]`, `/admin/platform-settings/profile` (GET/POST), `/profiles/CZPSP…`. All require `PlatformAccess::CAP` and a nonce.
-- **Image tooling:** GD/Imagick availability is unknown; 1B probes it.
+## Handoff / phase gates
+Update affected Code Maps and exact contracts. Push **topic branch only**, record exact remote SHA, files/tests/failures in this same file and set `AWAITING REVIEWER REVIEW`; stop. Reviewer independently inspects diff before approving production push. **Phase 2 UI, Phase 3 header and Phase 4 release are not authorised yet.** No Service-owned data, WEX changes, generic new framework, pricing/Package/Tier/quote edits, new public UI, autosave or deployment.
