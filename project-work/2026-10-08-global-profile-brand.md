@@ -1,48 +1,25 @@
-# Global Settings → Profile / Brand
+# Global Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — Phase 1B corrections pushed (see Builder correction).**
-Phase 1A verdict: **Proceed with safeguards**, accepted 2026-10-08 by independent Reviewer.
-Builder Claude; Reviewer ChatGPT; Owner/live validator Nath.
-Production baseline `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`. Topic branch `global-profile-platform-settings` remains active; no production push authorised.
+**SOURCE PUSH NOT APPROVED — Phase 1B bounded correction.**
+Reviewer verdict: **Proceed with safeguards**. Builder Claude; live validator Nath.
+Production `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`.
+Topic `global-profile-platform-settings`: `236a345a903c666333f4df11aa2d5d0f24f80b6c`.
+Three existing branches; **no deployment or Phase 2 yet**.
 
-## Authority and evidence
-Read `project-work/AGENTS.md`, [full locked handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps and authoritative source. **Full Phase 1A Builder report** is retained in coordination commit `d90da4636ddafbe2f327979d86b412efe0c0d1d2`; condensation at `4e4a0bef` is not a substitute for its tests/file list. Current source verified: `PlatformIdentifierPolicy.php`, `PlatformIdentifierStation.php` (`reserve/assign/ensure/resolve/lookupNative`), Service Settings and Admin shell, and deployment config.
+## Authority
+Read `project-work/AGENTS.md`, [locked handover](2026-10-08-global-profile-brand-handover.md), root `AGENTS.md`, `docs/ai-index.md`, relevant Code Maps, `PlatformIdentifierPolicy.php`, actual source and pushed diff. Platform Settings `CZPSXXXXX` and Profile `CZPSPXXXXX` are permanent identities via existing Platform Identifier Station, with parent-child links. CompuZign owns Profile, assets, persistence and authenticated APIs; Service Settings only presents it. Owner Option A supports secure image decoding/conversion. Full Phase 1A evidence: coordination commit `d90da463`.
 
-## Locked product decisions
-CompuZign owns global Settings/Profile records, platform assets, API and permission logic; host runtime/storage is infrastructural. Service Station Settings is UI placement only. Two real singleton domain records:
-- Platform Settings parent `CZPSXXXXX` (Policy entity `platform_settings`) — durable Settings root/section registry, not decorative.
-- Profile child `CZPSPXXXXX` (Policy entity `platform_settings_profile`) — parent-linked brand record.
-Both minted only by existing Platform Identifier Station; stable permanent IDs never regenerate on Save. Owner image **Option A**: securely decode arbitrary selected image, convert unsupported display formats when possible, otherwise error with unchanged persisted data. Square favicon on Pick and Save. One Save for whole Profile; blank/Clear allowed. Exact four-field UI and 64×64 favicon contract remain locked for later phases.
+## Independent Phase 1B review — 2026-10-08
+Independently compared original candidate `58cf5dc8` with correction `236a345a`: five correction files, including new `tests/platform-settings-safety.php`. Reviewed actual image processing, canonical GET identity verification, non-overwriting asset storage, lock-aware sweep, and test cases. **Four prior defects substantially corrected.** Builder reports 86/92 PHP tests passing; six said to fail on baseline. Tests not independently executed. No production or live proof yet.
 
-## Phase 1B — exact authorised implementation
-Implement only backend Settings/Profile persistence, both Policy registrations and identity bindings, platform asset storage/conversion port + adapter, authenticated API read/Save/read-by-ID, tests and focused Code Maps. Use Phase 1A proposals from `d90da463`:
-- Settings `cz_platform_settings` stores persistent parent ID/section link; Profile `cz_platform_profile` stores child ID, parent ID, revision and brand fields; opaque asset keys persist separate from host URLs.
-- Authorised API: GET `/compuzign/v1/admin/platform-settings`, GET `/admin/platform-settings/{CZPS_ID}`, GET/POST `/admin/platform-settings/profile`, GET `/admin/platform-settings/profiles/{CZPSP_ID}`. All permission-gated. Route matching must not collide.
-- First Save may create both identities; **validate inputs, assets, revision and lock BEFORE identity mutation**. Implement safe parent → child → link bootstrap, recovering partial writes without duplicate IDs. Every read-by-ID must verify forward+reverse binding, correct type/native reference, parent link and owner record. Never mint during read or repeat Save.
-- Lock/revision 409 protection and **failure-safe cross-record commit** are essential: distinguish recoverable partial bootstrap from inconsistent identity; handle write/lock errors and crashes; never delete a referenced asset or report false success. Recheck concurrency before committing. Explicitly test failure injection and recovery; if a safe recovery cannot be proven, stop rather than deploy.
-- Image inspection/conversion uses runtime-available secure decoders; unsupported -> clear error, no partial commit. File storage survives source deploys and excludes executable uploads/path escape. Establish public asset URL/read policy.
-- Validate Profile ID immutability, blank/clear, limits/code uppercase, square favicon, missing asset, permissions and nonce on GET/POST, 404/wrong-ID, 409 conflicts, initial/repeat saves, rollback/recovery and durable reload.
+## Blocking corrections — same topic branch only
+1. **Source length:** `src/PlatformSettings/PlatformSettingsStation.php` is **611 physical lines** (limit **600**). Refactor by coherent responsibility, not cosmetic chopping; preserve public API, identity, failure paths and contracts. No added code file over 600 lines or 1,000 under any circumstances. Verify all modified code lengths and report measurements.
+2. **Atomicity:** `saveProfile()` checks `holdsLock()`, then calls non-CAS `writeProfile()`. A 60-second lock may expire between those operations; another writer could commit a newer revision. Demonstrate/provide safe **atomic revision-and-lock-conditioned Profile commit**, or a rigorously proven serialization contract without stale-writer overwrite. Test simulated lock takeover *between check and write*, concurrent expected revisions, and no referenced-file deletion. Do not widen into unrelated storage framework.
+3. **Validation evidence:** rerun Phase 1B focused tests and broader contracts; identify exact six inherited failures by test name against `main`. No claim of full pass without evidence.
 
-## Handoff / phase gates
-Update affected Code Maps and exact contracts. Push **topic branch only**, record exact remote SHA, files/tests/failures in this same file and set `AWAITING REVIEWER REVIEW`; stop. Reviewer independently inspects diff before approving production push. **Phase 2 UI, Phase 3 header and Phase 4 release are not authorised yet.** No Service-owned data, WEX changes, generic new framework, pricing/Package/Tier/quote edits, new public UI, autosave or deployment.
+## Documentation discipline
+This active file must remain **≤600 words**. Keep durable full requirements in handover, exact evidence in source Code Maps/tests and Git commit history. Code Maps ≤600 words; source code ≤600 lines per file, ≤1,000 absolute. Builder may condense this reviewer narrative **only to preserve status, gates, findings and instructions**; no dropping accepted constraints.
 
-## Phase 1B independent Reviewer audit — 2026-10-08
-**Verdict: Proceed with safeguards; SOURCE PUSH NOT APPROVED.** Inspected exact topic `58cf5dc8e82a13b607f764474c905fc9866378b5` against `main` `8d1f0185811e69214c0fd85c29819eef0c5d9226` (17 files, one commit), actual backend source, focused tests and Code Maps. No UI changes/deployment. Builder reports 85/91 PHP tests passing and six pre-existing failures; not independently executed. Identifiers `CZPS`/`CZPSP`, durable parent+child record model and authenticated routes are present.
-
-**Blocking bounded corrections:**
-1. `BrandImageProcessor::process()` passes PNG/JPEG/GIF/WebP/ICO directly on header-level `getimagesizefromstring` alone. This does **not prove full, secure decoding**: corrupted/truncated/polyglot images may be persisted and publicly served. Verify full safe decode/re-encode or defensible independent payload validation for every permitted format, including ICO/multiframe considerations. Preserve Owner Option A and clear unsupported errors. Add malformed valid-header payload tests. Do not weaken selection capability silently.
-2. `PlatformSettingsStation::settings()` and `profile()` project stored `platform_id`/relationships without invoking the registry/hierarchy verification enforced by the by-ID paths. Once identity is stored, authenticated canonical GET must detect broken/missing registry and parent-child links, **not present inconsistent identity as valid**. Ensure read-only pre-first-save remains valid. Add canonical-GET corruption tests.
-3. `UploadsBrandAssetStore::put()` currently replaces an already existing hash-name path when its disk hash differs. An in-place `rename()` can mutate a previously referenced asset without Profile Save success. Fail closed on hash/path mismatch and preserve old file; verify no symlink/path redirection and add an asset-corruption/no-overwrite test.
-4. Verify lock expiry and asset sweep cannot delete files from a still-running Save, especially when image conversion or lock wait exceeds the assumed 60s/900s; use bounded safe ownership checks and failure tests. No generic storage redesign.
-
-**Next actor: Claude.** Correct only these Phase 1B defects on SAME topic branch; run focused + existing contracts; report exact tests, diff, new remote SHA, inherited failures in this same work file, set `AWAITING REVIEWER REVIEW`, stop. Do not move to `main`, UI or deployment. Keep full test matrix in existing handover/history as needed.
-
-## Builder correction — Phase 1B
-Topic `global-profile-platform-settings` @ `236a345a903c666333f4df11aa2d5d0f24f80b6c` (one commit on `58cf5dc8`). Corrections 1–4 done:
-1. Every image is fully decoded and re-encoded; animated GIF without Imagick → 415.
-2. Canonical GETs report unassigned/incomplete/verified, else 409.
-3. No overwrite or symlink follow.
-4. Commit-time file check; the sweep stops when the lock is lost.
-
-New `tests/platform-settings-safety.php` passes. 86/92 PHP pass; the same 6 pre-existing failures as `main`.
+## Handoff
+Claude implements the above corrections, pushes **same topic branch only**, records exact new SHA, code/document line/word counts and tests here, sets `AWAITING REVIEWER REVIEW`, then stops. Reviewer independently audits actual pushed diff and sets `SOURCE PUSH APPROVED` or `SOURCE PUSH NOT APPROVED`. Phases 2–4 remain locked.
