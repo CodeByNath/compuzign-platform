@@ -12,15 +12,15 @@ Temporary navigation: **Service Station → Settings → Profile**; ownership re
 Selection updates **unsaved preview immediately**. One Save for all fields; no autosave or partial commit. Success leaves user on Profile with confirmation. Platform permission gates screen and reads/writes. Clear and blank are accepted; defaults are display-only, not persisted as invented brand values. Define missing/broken assets fallback. Preserve dark/light UI and existing Service workflows.
 
 ## Phase gates — no diversion
-**Phase 0 — Evidence/architecture (active; awaiting revised Builder proposal):**
+**Phase 0 — Evidence/architecture (ACCEPTED 2026-10-08; Proceed with safeguards):**
 - Read `AGENTS.md`, `docs/ai-index.md`, focused Code Maps and actual source. Confirm global Profile domain boundary and minimal wiring to shell and Service Settings.
 - Builder discovered no pre-existing platform profile, brand-image system or consumer; proposed backend `src/PlatformProfile/` and frontend `resources/ts/platform-profile/`. Proposed files and native file chooser are **not yet accepted design**.
 - Choose and justify a platform-owned asset picker/storage mechanism; where no platform library exists, explain the smallest solution preserving Pick/Clear with no host media/profile coupling.
 - Demonstrate adapter storage durability across plugin upgrades/deploys, path and URL safety, allowed formats, upload auth, dimension checks, atomicity across asset+record writes, concurrent writers and fallback. Do not assume an option read-back is a transaction.
 - Identify the actual main-colour token, existing dashboard fallback behaviour, Profile navigation/screen composition, exact files, contracts and tests. Resolve image limits and display contexts with Owner before hard-coding new product restrictions.
-- Reviewer approves the corrected design in the **same active work file** before Phase 1. No product source edits in Phase 0.
+- Owner approved Option A; Reviewer released Phase 1 backend only. Phase 0 involved no product source edits.
 
-**Phase 1 — Platform-owned backend:** One globally authoritative persisted Profile schema; host storage adapter is internal. Secured read/atomic write, safe asset management, validation, clear/unset, error/recovery/concurrency tests, no Service record or user profile.
+**Phase 1 — Platform-owned backend (ACTIVE, Builder authorised):** One globally authoritative persisted Profile schema; host storage adapter is internal. Secured read/atomic write, safe asset management, validation, clear/unset, error/recovery/concurrency tests, no Service record or user profile.
 
 **Phase 2 — Settings Profile UI:** Profile navigation, exact four controls and help, validated previews/draft state, one Save and confirmation, keyboard/a11y and dark/light responsive parity. Existing create launchers stay intact.
 
@@ -33,3 +33,6 @@ Do not derive Platform architecture from hosting, store Profile on Service or us
 
 ## Workflow
 Use `project-work/2026-10-08-global-profile-brand.md` as **single active status/report file** through every correction and approval. No new work file per round; keep it normally <=600 words. Builder Claude owns source editing and reports exact SHA. Reviewer cannot edit product source. Do not advance a phase without an independent acceptance verdict.
+
+## Owner-approved image policy — 2026-10-08 (binding)
+**Option A approved:** select any image type, securely inspect and decode actual content, and convert formats not safely browser-displayable to a safe web image format **where a secure runtime conversion capability exists**. If impossible or unsafe, show a clear error and retain the prior saved profile unchanged. Never treat client MIME/extension as proof, silently drop the image, or impose new product-format restrictions or arbitrary size/minimum bounds without approval. Square favicon validation runs on Pick and Save. This decision supersedes the Phase 0 open image-format gate. Phase 1 is backend-only; subsequent phases remain independently gated.
