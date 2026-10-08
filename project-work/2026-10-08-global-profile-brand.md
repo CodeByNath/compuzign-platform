@@ -1,10 +1,10 @@
 # Global Profile — Active Work
 
 ## Status
-**SOURCE PUSH NOT APPROVED — Phase 1B bounded correction.**
+**AWAITING REVIEWER REVIEW — Phase 1B correction 2 pushed (see Builder correction 2).**
 Reviewer verdict: **Proceed with safeguards**. Builder Claude; live validator Nath.
 Production `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`.
-Topic `global-profile-platform-settings`: `236a345a903c666333f4df11aa2d5d0f24f80b6c`.
+Topic `global-profile-platform-settings`: `b434dfd4` (previous `236a345a`).
 Three existing branches; **no deployment or Phase 2 yet**.
 
 ## Authority
@@ -23,3 +23,8 @@ This active file must remain **≤600 words**. Keep durable full requirements in
 
 ## Handoff
 Claude implements the above corrections, pushes **same topic branch only**, records exact new SHA, code/document line/word counts and tests here, sets `AWAITING REVIEWER REVIEW`, then stops. Reviewer independently audits actual pushed diff and sets `SOURCE PUSH APPROVED` or `SOURCE PUSH NOT APPROVED`. Phases 2–4 remain locked.
+
+## Builder correction 2 — topic `b434dfd4`
+1. **Length:** identity bootstrap/recovery/verification moved to new `PlatformSettingsIdentity.php` (261 lines); `PlatformSettingsStation.php` 610 → 409. Public API, constants, failures unchanged. Changed code: Repository 212, BrandImageProcessor 362, tests 203/350/356; all ≤600. Code Map 553 words.
+2. **Atomicity:** `PlatformSettingsRepository::commitProfile()` is one `UPDATE … INNER JOIN` on the lock row (`BINARY` value match) replacing the exact observed Profile bytes; affected ≠1 → 409 busy/revision_conflict, DB error → 500. No read-back race. New safety tests: lock takeover and newer revision injected between check and write, same-revision double Save, referenced file never deleted. **Not run against real MySQL** (none local); live validation needed.
+3. **Evidence:** focused 4/4 pass; suite 86/92; docs:check pass. Main `8d1f0185` baseline (own worktree): 82/89. Inherited on both: notification-templates-composable-quote-parity, quote-view-email-link, quote-view-http-boundary, service-route-baseline, tier-capability-invariants, tier-occupant-first-save (identical messages). Main also fails platform-identifier-station (fixed here). `contract:platform-identity-schema`: same 9 coined fixture IDs on both.
