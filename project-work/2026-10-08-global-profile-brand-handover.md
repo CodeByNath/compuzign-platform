@@ -1,22 +1,22 @@
-# Manager Settings → Tools → Profile — Owner Direction
+# Account Station → Settings → Tools → Profile — Owner Handover
 
-## Authority
-Owner superseded the earlier **Global Settings / Profile** backend plan on 2026-10-08. Preserve CompuZign's established peer Station architecture, existing Station Manager coordinator, Platform Identifier Station, REST contracts and WordPress-backed runtime. Neither Settings nor Profile requires a new peer Station or a bespoke persistence engine. Do **not** conflate the Manager-facing hierarchy with the internal `station-manager/` coordinator, which has no domain persistence authority. Actual owner of the Manager record must be established from existing source before implementing it.
+## Current owner decision — supersedes all former names/IDs
+**Account Station** is the owning peer Station, separate from **Station Manager** (frontend coordinator) and **Admin Station** (presentation/control host). Account Station registers through existing Station Manager using the established peer Station model. Neither Settings nor Tools nor Profile is a separate Station. Hierarchy:
+- **Account Station** — `CZAXXXXX`
+- **Settings** — `CZASXXXXX`
+- **Tools** — `CZASTXXXXX`
+- **Profile** — `CZASTPXXXXX`
 
-## Approved hierarchy and proposed permanent IDs
-Manager → Settings → Tools → Profile (Profile is an expandable management configuration area).
-- `CZMXXXXX` — Manager
-- `CZMSXXXXX` — Manager Settings
-- `CZMSTXXXXX` — Manager Settings Tools
-- `CZMSTPXXXXX` — Manager Settings Tools Profile
+`XXXXX` means the canonical five-character Platform Identifier suffix, minted solely by existing Platform Identifier Station. Earlier `CZM`, `CZBM`, `CZAM`, `CZPS` and their child prefixes are **superseded**; never register them for this new work. IDs describe real durable addressable records with validated parent-child references, not merely visible menu labels; Builder must propose the simplest correct identity mapping and flag any mismatch instead of inventing records. Account Station owns its domain state, validation, save/API and identity binding; it does **not** take over user authentication or WordPress account ownership by implication. No changes to other Stations.
 
-Each uses the existing five-character suffix alphabet. All four prefixes have distinct total lengths under the anchored Policy. **Only register/mint identities for genuinely persistent, independently addressable owner-approved records; never invent decorative records solely to justify prefixes.** Parent-child references must be explicit and durable. Check collision with existing identities and exact Manager ownership through Code Maps/source; report any unresolved design mismatch. Old `CZPS`/`CZPSP` plan is superseded and must not enter product source.
+## Mandatory established Station architecture
+Read `AGENTS.md`, `docs/ai-index.md`, `docs/code-map/station-manager.md`, `docs/code-map/admin-station.md`, `docs/code-map/platform-identifier-station.md`, `docs/architecture/StationDrawerLifecycleContract-v1.md`, relevant example peer Station source and boot/registration paths. Preserve Station Manager as pure coordinator, Admin as presentation host, peer ownership, register-before-finalize, one Station Home/Drawer convention, drawer lifecycle, platform capability gates, REST/API ownership, and Code Maps. Distinguish singleton settings operations from published-entity lifecycles; explain any nonapplicable lifecycle elements for owner review before coding. WEXdesigns later consumes data through adapters and reusable UI contracts; do not implement WEX now.
 
-## First Profile section
-Brand only: Logo, Favicon (square), Brand Name (≤60), Brand Code (uppercase A–Z, ≤6); one Save, draft preview, Pick/Clear, valid blank, saved confirmation. Logo public-only; favicon 64×64 dashboard box on main colour. Allow safe image decoding/conversion where available; unsupported input fails clearly without partial changes. Later Profile sections: About, Locations, Contact Details, Social Media, and others, added only when requested. Existing WordPress storage is acceptable behind CompuZign domain ownership and authenticated API; no generic storage engine, additional database, broad media manager or extra packages.
+## Profile scope
+First subsection **Brand**: Logo (public-website asset only), square Favicon (64×64 Admin header box), Brand Name (optional, ≤60 chars) and Brand Code (optional uppercase A–Z, ≤6 chars). Pick/Clear and immediate unsaved previews, single Save, confirmation on same page, blanks valid. Safe image validation/decoding/conversion where supported; reject unsafe files without partial saves. Later sections: About, Locations, Contact Details, Social Media. No automatic new Stations/Platform IDs for every subsection.
 
-## Cleanup boundary
-Candidate topic `global-profile-platform-settings` has never merged into `main`. Audit its exact diff against `main` and remove **all abandoned candidate-only code, tests, maps, policies, wiring, installed dependencies, generated/scratch artifacts and references**. Do not delete or alter pre-existing source or shared dependencies. Preserve source history and supply a clean diff showing every obsolete candidate addition gone; no hidden dead code. This instruction is for Claude (sole implementation editor); Reviewer source is strictly read-only.
+## Storage and cleanup
+Use existing WordPress-backed mechanisms behind Account Station's own platform API, Platform ID and secure access; **no replacement persistence engine**, generic CAS framework, added databases, packages or broad image system. Choose the smallest durable model following existing conventions, not ACF dependency. Keep source genuinely clean: old candidate already completely reverted. Do not resurrect old `PlatformSettings` implementation/dead code just to reuse its shape. Existing identities outside this work are never renamed.
 
 ## Workflow
-Do cleanup and architecture mapping before new implementation. First supply an exact cleanup inventory and revised Manager/Settings/Tools/Profile ID ownership plan; no guessing. Reviewer accepts the boundary before the next product implementation phase. Active status and audit belong in the existing work file. Code files ≤600 physical lines; Code Maps ≤600 words; active work file ≤600 words.
+Old topic `global-profile-platform-settings` at `125502d9` has same Git tree as `main` `8d1f0185`; cleanup accepted. Current phase is **design review only**. Builder submits concise real-record/ownership mapping, Station registration and navigation approach, minimal API/storage design and phased plan in same active work file, then stops. Reviewer checks before implementation is authorized. Reviewer never edits product source. Files ≤600 physical lines, Code Maps ≤600 words, active work file ≤600 words.
