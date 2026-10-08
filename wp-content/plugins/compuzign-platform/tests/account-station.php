@@ -75,7 +75,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use CompuZign\Platform\Modules\Account\Http\AccountController;
 use CompuZign\Platform\Modules\Account\Support\AccountIdentity;
 use CompuZign\Platform\Modules\Account\Support\AccountRepository;
-use CompuZign\Platform\Modules\Account\Support\AccountSchema;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
@@ -88,6 +88,90 @@ function checkAccount(bool $condition, string $message): void
     echo "  ok — {$message}\n";
 }
 
+function accountExpectConflict(callable $operation, string $message): void
+{
+    try {
+        $operation();
+    } catch (PlatformIdentifierConflict) {
+        echo "  ok — {$message}\n";
+        return;
+    }
+    fwrite(STDERR, "FAIL: {$message}\n");
+    exit(1);
+}
+
+// ── an interrupted bootstrap resumes from whichever node is already bound ──
+// (isolated probe — resets $__wpOptions afterward; shares no state with the
+// main narrative below.)
+$probeIdentifiers = new PlatformIdentifierStation();
+$probeRepository  = new AccountRepository();
+$probeIdentity    = new AccountIdentity($probeIdentifiers, $probeRepository);
+
+$accountBinding = $probeIdentifiers->ensure(
+    PlatformIdentifierPolicy::ACCOUNT_STATION,
+    AccountIdentity::NATIVE_ACCOUNT_STATION,
+    fn () => $probeRepository->readNodePlatformId('account_station'),
+    fn ($ref, $id) => $probeRepository->writeNode('account_station', $id, null)
+);
+$settingsBinding = $probeIdentifiers->ensure(
+    PlatformIdentifierPolicy::ACCOUNT_SETTINGS,
+    AccountIdentity::NATIVE_SETTINGS,
+    fn () => $probeRepository->readNodePlatformId('settings'),
+    fn ($ref, $id) => $probeRepository->writeNode('settings', $id, $accountBinding->platformId())
+);
+
+$resumed = $probeIdentity->bootstrap();
+checkAccount($resumed['account_station'] === $accountBinding->platformId(), 'an interrupted bootstrap reuses the already-bound Account Station id on resume');
+checkAccount($resumed['settings'] === $settingsBinding->platformId(), 'an interrupted bootstrap reuses the already-bound Settings id on resume');
+checkAccount(PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::ACCOUNT_TOOLS, $resumed['tools']), 'the resumed bootstrap completes the still-missing Tools node');
+checkAccount(PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::ACCOUNT_PROFILE, $resumed['profile']), 'the resumed bootstrap completes the still-missing Profile node');
+
+$__wpOptions = [];
+
+// ── a stored node whose parent no longer matches the real chain fails closed ─
+$conflictIdentifiers = new PlatformIdentifierStation();
+$conflictRepository  = new AccountRepository();
+$conflictIdentity    = new AccountIdentity($conflictIdentifiers, $conflictRepository);
+$conflictIdentity->bootstrap();
+
+// Simulate a corrupted aggregate: Settings now claims a parent that isn't the
+// real bound Account Station id.
+$conflictRepository->writeNode('settings', $conflictRepository->readNodePlatformId('settings'), 'CZA00000');
+accountExpectConflict(
+    fn () => $conflictIdentity->bootstrap(),
+    'a node naming a parent that disagrees with the real chain is rejected, never silently trusted'
+);
+
+$__wpOptions = [];
+
+// ── two concurrent first-Saves: the loser fails closed, never double-binds ──
+$raceIdentifiers = new PlatformIdentifierStation();
+$repoA = new AccountRepository();
+$repoB = new AccountRepository(); // same underlying option store — simulates a second concurrent request.
+
+$reservationA = $raceIdentifiers->reserve(PlatformIdentifierPolicy::ACCOUNT_STATION);
+$reservationB = $raceIdentifiers->reserve(PlatformIdentifierPolicy::ACCOUNT_STATION);
+checkAccount($reservationA->platformId() !== $reservationB->platformId(), 'two concurrent reservations for the same node never collide on one candidate');
+
+$raceIdentifiers->assign(
+    $reservationA,
+    AccountIdentity::NATIVE_ACCOUNT_STATION,
+    fn () => $repoA->readNodePlatformId('account_station'),
+    fn ($ref, $id) => $repoA->writeNode('account_station', $id, null)
+);
+accountExpectConflict(
+    fn () => $raceIdentifiers->assign(
+        $reservationB,
+        AccountIdentity::NATIVE_ACCOUNT_STATION,
+        fn () => $repoB->readNodePlatformId('account_station'),
+        fn ($ref, $id) => $repoB->writeNode('account_station', $id, null)
+    ),
+    'the losing concurrent first-Save fails closed and never overwrites the winning bind'
+);
+checkAccount($repoA->readNodePlatformId('account_station') === $reservationA->platformId(), "the winner's bind is the one that survives, untouched by the loser's failed attempt");
+
+$__wpOptions = [];
+
 // ── fetchDetail is strictly read-only on an unbootstrapped install ─────────
 $platformIdentifiers = new PlatformIdentifierStation();
 $controller = new AccountController($platformIdentifiers);
@@ -96,6 +180,11 @@ $before = $controller->fetchDetail(new WP_REST_Request())->get_data();
 checkAccount($before['bootstrapped'] === false, 'an unbootstrapped install reads back bootstrapped=false');
 checkAccount($before['nodes']['profile']['platform_id'] === '', 'GET never mints an identity');
 checkAccount($__wpOptions === [], 'GET writes nothing to the options table at all');
+
+// ── Publish is rejected outright against a never-bootstrapped install ──────
+$neverBootstrappedPublish = $controller->updateStatus(new WP_REST_Request(['platform_status' => 'active']));
+checkAccount($neverBootstrappedPublish->get_status() === 422, 'Publish against a never-bootstrapped Account Station is rejected, not silently activated');
+checkAccount($__wpOptions === [], 'the rejected pre-bootstrap Publish attempt writes nothing');
 
 // ── first Save bootstraps all four nodes, in parent order, in one request ─
 $saved = $controller->saveProfile(new WP_REST_Request([
@@ -133,6 +222,15 @@ checkAccount($settled['brand']['name'] === 'CompuZign', 'settle promotes the dra
 checkAccount($settled['module_status']['brand'] === 'settled', 'Brand settles unconditionally — no required field');
 checkAccount($repository->readBrandDraft() === null, 'settle clears the draft');
 
+// ── a pending draft never leaks into the canonical read a live projection uses ─
+$liveBefore = $controller->fetchDetail(new WP_REST_Request())->get_data();
+$controller->saveProfile(new WP_REST_Request(['name' => 'Unpublished Rename']));
+$liveDuring = $controller->fetchDetail(new WP_REST_Request())->get_data();
+checkAccount($liveDuring['brand']['name'] === $liveBefore['brand']['name'], 'a new pending draft never changes the canonical Brand a live projection would read');
+checkAccount($liveDuring['drafts']['brand']['name'] === 'Unpublished Rename', 'the pending draft is visible only under drafts, never canonical');
+$controller->settleProfile(new WP_REST_Request());
+checkAccount($repository->readBrand()['name'] === 'Unpublished Rename', 'settle remains the only path that promotes a draft to canonical');
+
 // ── an invalid attachment id fails the whole Save closed, writing nothing ──
 $before = $repository->readBrandDraft();
 $rejected = $controller->saveProfile(new WP_REST_Request(['logo_attachment_id' => 999999]));
@@ -141,8 +239,8 @@ checkAccount($repository->readBrandDraft() === $before, 'a rejected Save leaves 
 
 // ── Publish: disabled -> active only ────────────────────────────────────────
 $publishRejected = $controller->updateStatus(new WP_REST_Request(['platform_status' => 'active']));
-// Fresh install's platform_status is 'disabled' by default, so this should succeed once.
-checkAccount($publishRejected->get_status() === 200, 'Publish succeeds from the default disabled state');
+// The install is now bootstrapped and still disabled, so this should succeed once.
+checkAccount($publishRejected->get_status() === 200, 'Publish succeeds from the default disabled state once bootstrapped');
 checkAccount($repository->readLifecycle()['platform_status'] === 'active', 'Publish activates the Account Profile');
 
 $republish = $controller->updateStatus(new WP_REST_Request(['platform_status' => 'active']));
@@ -154,6 +252,12 @@ $disabled = $repository->readLifecycle();
 checkAccount($disabled['platform_status'] === 'disabled', 'Disable writes the raw disabled state');
 checkAccount($disabled['previous_platform_status'] === 'active', 'Disable captures what the Profile was');
 checkAccount($disabled['module_status']['brand'] === 'settled', 'Disable never touches module settlement');
+
+$canonicalBeforeMaskedDraft = $repository->readBrand();
+$controller->saveProfile(new WP_REST_Request(['name' => 'Drafted While Disabled']));
+checkAccount($repository->readBrand() === $canonicalBeforeMaskedDraft, 'a draft saved while Disabled still never changes canonical Brand');
+checkAccount($repository->readLifecycle()['platform_status'] === 'disabled', 'saving a draft while Disabled never lifts the mask');
+$controller->settleProfile(new WP_REST_Request());
 
 $controller->updateStatus(new WP_REST_Request(['action' => 'enable']));
 $enabled = $repository->readLifecycle();

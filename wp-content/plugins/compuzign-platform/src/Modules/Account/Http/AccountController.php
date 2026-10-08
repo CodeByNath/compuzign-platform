@@ -182,6 +182,13 @@ class AccountController
             return new \WP_REST_Response(['success' => false, 'message' => 'No valid status parameter provided.'], 422);
         }
 
+        // A never-bootstrapped install has no four-node identity to activate —
+        // Service has no equivalent case, since a Service id must already exist
+        // before its /status route is even addressable.
+        if (!$this->repository->isBootstrapped()) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Account Station has not been set up yet. Save Brand first.'], 422);
+        }
+
         $change = StationLifecycle::publish($lifecycle['platform_status'], $lifecycle['previous_platform_status'] ?: null);
         if ($change === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Only a disabled Account Profile can be published.'], 422);
