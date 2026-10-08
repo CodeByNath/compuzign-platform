@@ -43,6 +43,9 @@ Roles are governance roles, not model/vendor names.
 - The Builder must add the live-validation request/evidence needed because the Builder has no live browser access.
 - The Reviewer audits Nath's reported live result together with the exact deployed `main` SHA and deployment evidence, then either closes the work or issues the next bounded Builder correction.
 
+## Baseline-first independent audit rule
+Before calling an implementation a violation or requiring a new safeguard, **compare the exact behaviour against the existing owning/analogous Station and shared platform implementation in `main`** (source, Code Maps, contracts, frontend orchestration, and tests). Classify each finding explicitly as (a) proven deviation from current architecture, (b) existing baseline behaviour adopted by the Builder, (c) new-domain risk needing proportional verification, or (d) unproven concern. Do not impose stricter theoretical/database/industry patterns on one Station when the platform's accepted Stations use a different pattern, unless a concrete new failure mode justifies it. Read frontend and backend together before alleging missing Publish orchestration. Correct mistaken findings promptly in the same work file, explicitly superseding old instructions so the Builder does not undertake unnecessary changes. External best practices are secondary to verified repository authority and Owner-approved rules.
+
 ## Capability safeguard
 The Reviewer must preserve required behaviour unless Nath changes it. Reject fixes that remove capability, add unnecessary user steps, or substitute a reduced flow. Distinguish the defective mechanism from the required outcome. Where relevant state **Must preserve**, **Must remove**, and **Must not substitute**.
 
