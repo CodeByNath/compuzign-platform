@@ -1,7 +1,7 @@
 # Global Settings → Profile / Brand
 
 ## Status
-**AWAITING BUILDER RESPONSE — Phase 0 architectural correction only.**
+**AWAITING REVIEWER REVIEW — revised Phase 0 proposal below (2026-10-08). No source changed.**
 Builder: Claude. Reviewer: ChatGPT. Owner/live validator: Nath.
 **Verdict: Proceed with safeguards; Phase 1 NOT authorised.**
 Base `main`: `8d1f0185811e69214c0fd85c29819eef0c5d9226`.
@@ -29,3 +29,18 @@ Source: `ServiceSettingsLane.tsx` currently contains only Create Service / Creat
 
 ## Exclusions / workflow
 No Service-owned or user-owned Profile, new Station/general framework, WEX changes, pricing/quote/Tier/Package refactors, autosave, new public pages or host profile coupling. One work file, one phase at a time. Claude implements only after reviewer phase authorisation, pushes topic candidate and records SHA; Reviewer accepts/rejects actual diff, Nath validates live.
+
+## Revised Phase 0 proposal — Builder, 2026-10-08
+Supersedes the first report. Items map to corrections 1–5.
+
+**1. Asset contract.** Profile stores a platform asset reference `{key, mime, width, height, bytes}` — `key` = `sha256.ext`, server-generated. No host attachment ID, filename or absolute URL is stored; URLs resolve at read time. Port `BrandAssetStore` (`put/exists/url/delete/keys`); host adapter `UploadsBrandAssetStore` is internal. **Pick** opens the device file chooser (`accept="image/*"`) — no platform library exists and a reusable library is excluded. **Clear** nulls the draft field. Both are draft-only until Save.
+
+**2. "Any image".** Selectable = any `image/*`. Accepted = content-sniffed (never extension/client MIME) as a raster `getimagesize` decodes and browsers render: PNG, JPEG, GIF, WebP, BMP, ICO; AVIF needs PHP ≥8.2 (plugin floor is 8.0; host unknown). **Owner decisions, not imposed:** SVG (scriptable — reject, or serve sandboxed); HEIC/TIFF (not renderable in most browsers); any size cap beyond the host's upload limit. No minimum favicon size is imposed.
+
+**3. Storage.** `wp-content/uploads/compuzign/brand/`: outside the deploy path (`deploy.yml` only checks out plugin/theme), untracked, survives plugin upgrade. Server-named files only, `realpath` confined to base, folder `index.php` + script-execution deny. Upload only via `POST /compuzign/v1/platform/profile` (`PlatformAccess::CAP` + REST nonce); no host `upload_files`. Assets are public static URLs (brand material, immutable hash names, cacheable). Unreferenced files are deleted only after a successful commit.
+
+**4. One Save, transactional.** One multipart POST: fields + new files + clear flags + `expected_revision`. Validate all → write new content-addressed files (immutable; never overwrite) → claim the `add_option` lock (`RequestRepository` precedent) → compare stored `revision`; mismatch returns **409** with nothing committed → `update_option` (single commit point; revision++) → sweep unreferenced files older than a grace window, still under the lock, so another writer's uncommitted upload is never removed → release. A failure before commit leaves the old record intact and every file it references untouched; new files become orphans removed by the sweep. Concurrent writers: one wins, the other gets 409 and keeps its draft. Tests: invalid field/asset, 409, lock contention, crash before/after commit, sweep, clear/blank, permission denial.
+
+**5. Display.** Main colour = `--station-accent` (#5c6ef5, theme-independent). Fallback = existing `CompuZign` header text. Missing asset at read → treated as empty for display; editor says "Saved image missing — Pick or Clear"; no write on read. **Conflict:** `--station-header-height` is **60px**, so a 64×64 box does not fit — Owner to choose header height or box size. Full-name contexts: only login gate / access-denied hard-code the name — Owner to confirm. Navigation (recommended): a third Settings row "Profile → Open" switches the lane to Profile with "← Settings"; Create launchers unchanged.
+
+**Files (Phase 1–3).** New `src/PlatformProfile/{PlatformProfileStation,PlatformProfileController,BrandAssetStore,UploadsBrandAssetStore}.php`, `resources/ts/platform-profile/`, `tests/platform-profile-*.php`, `docs/code-map/platform-profile.md`. Edits: `Core/Plugin.php`, `AssetLoader.php`, `ServiceSettingsLane.tsx`, `AdminStationHeader.tsx`, `admin-station.css`, `admin-station.md`, `service-station.md`, `000-README.md`.
