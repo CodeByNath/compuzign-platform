@@ -34,6 +34,8 @@ pattern regardless of alphabet overlap.
 | `CZPRCBI` | `PACKAGE_RATE_CARD_BUNDLE_ITEM` | a Bundle's own live reference to one supplied row | 2 |
 | `CZPRCBO` | `PACKAGE_RATE_CARD_BUNDLE_OPTION` | the Bundle's own Price Option | 2 |
 | `CZPRCBIO` | `PACKAGE_RATE_CARD_BUNDLE_ITEM_OPTION` | a Bundle-inclusion's own Price Option | 2 |
+| `CZPS` | `PLATFORM_SETTINGS` | constant `platform-settings:6:global` — the platform-wide Settings root | 3 |
+| `CZPSP` | `PLATFORM_SETTINGS_PROFILE` | constant parent-qualified `platform-settings-profile:6:global7:profile` | 2 |
 
 "Rung" here is this Skill's own three-rung classification (see
 `identity-composition-model.md`), not a field in the policy itself — it's
