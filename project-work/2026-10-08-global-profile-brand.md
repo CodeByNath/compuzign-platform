@@ -1,24 +1,24 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — bounded Disable/Enable correction pushed to topic only.**
-Builder Claude; Reviewer ChatGPT. No `main` push/deployment; Phase 2 UI not started.
+**SOURCE PUSH APPROVED — PHASE 1 BACKEND ONLY.**
+Reviewer verdict: **Proceed with safeguards**. **Exact approved topic SHA: `3250f9a4e2babcc872f6e0db0d5c1590de9a63ae`.** Only that candidate may move to `main` through the normal Builder workflow; any source change requires another independent review. No Phase 2 UI or Account frontend integration authorised by this approval.
 
-## Pushed topic
-`global-profile-platform-settings` `1fa3355b` → `3250f9a4` (one commit, 4 files, +45/-6, on top of the already-reviewed candidate — no unrelated files touched).
+## Baseline and scope
+`main` at audit: `8d1f0185811e69214c0fd85c29819eef0c5d9226`. Topic: `global-profile-platform-settings`. Actual main→topic diff: 13 files (Account backend, four Platform Identifier prefixes, tests, Code Maps, wiring). No new packages, frontend registration, WEX or other product areas. Old `PlatformSettings` candidate was fully reverted. Owner model: **Account Station → Settings → Tools → Profile**, prefixes `CZA/CZAS/CZAST/CZASTP` + five-character suffix. Account is peer Station; others are children, not Stations. Station Manager coordinates; Admin presents; Identifier Station mints/binds.
 
-## Patch, against each correction
-1. **Disable/Enable gated like Publish.** `AccountController::updateStatus()` now checks `AccountRepository::isBootstrapped()` for the `action` branch (disable/enable) before calling `applyDisabledMask()`, exactly mirroring the existing Publish guard — same message, same 422, same one predicate. Previously this branch ran the mask write first with no existence check at all, which was the actual defect: a never-bootstrapped install's default `platform_status='disabled'` reads as live to `StationLifecycle::isLive()`, so a stray `disable`/`enable` call would mutate a singleton with no identity yet.
-2. **One coherent existence predicate, strengthened.** `AccountRepository::isBootstrapped()` no longer checks only the Profile leaf — it now requires all four chain nodes (`account_station`, `settings`, `tools`, `profile`) to be bound. All three lifecycle routes (Publish, Disable, Enable) call this same single method; no second predicate was introduced. Added an isolated repository-level test proving a Profile id alone (the other three still empty) is **not** read as bootstrapped, and only becomes `true` once all four are written.
-3. **Focused before/after tests.** Added: pre-bootstrap Disable rejected (422, zero options writes); pre-bootstrap Enable rejected (422, zero options writes). The existing post-bootstrap Disable/Enable checks later in the same narrative (mask semantics, `previous_platform_status`, module-status preservation) are unchanged and still pass, proving Service's existing mask behaviour is retained once bootstrapped. Concurrency note unchanged from last round: these remain single-process stub simulations, not real parallel HTTP/DB proof — no locking/transactions added, since no new failure mode was demonstrated beyond the ordering bug itself.
-4. **Archive/Trash/permanent-delete:** untouched, still the explicitly deferred Owner decision from the handover doc. No exception invented, no redesign.
-5. Work file updated with exact SHA/diff/tests below; topic and coordination both pushed; stopping here per the handoff rule.
+## Independent audit — 2026-10-09
+Compared `1fa3355b` → `3250f9a4` (four files: `AccountController.php`, `AccountRepository.php`, `tests/account-station.php`, Account Code Map) and current full diff against `main`.
 
-## Tests
-`php tests/account-station.php` — **48/48 checks pass** (was 42; +6 for this round: Disable/Enable pre-bootstrap rejection ×2, the writes-nothing check for each, and the two-sided `isBootstrapped()` all-four-nodes probe). `php tests/platform-identifier-station.php` — still fails only on the pre-existing, unrelated `tier_catalogue`/`tier_edition_catalogue` gap on `main` itself; not touched, disclosed again for completeness.
+**Accepted:** `updateStatus()` now blocks Publish **and** Disable/Enable before Account bootstrap. `isBootstrapped()` requires nonempty IDs at all four levels rather than only Profile. The controller's existing authenticated route gate remains `PlatformAccess::CAP`. Service Station establishes independent settle/status endpoints, Active Station with Pending module drafts, and ordinary separate WordPress writes; do **not** reinterpret these baseline practices as Account architecture violations or demand new CAS/transaction machinery. Phase 1 is backend-only and its separate settle/status APIs match Service's integration model.
 
-## Code Map
-`docs/code-map/account-station.md` updated: the Lifecycle section now states Publish, Disable and Enable all share `isBootstrapped()`, and that it requires all four chain nodes, not just Profile. Exactly 600 words — at the limit, not over.
+**Evidence:** Builder reports `php tests/account-station.php` **48/48** checks passed, including pre-bootstrap mask rejection and four-node presence; checks use WordPress option stubs rather than live WP/DB. Not independently executed by Reviewer. Independent source inspection confirms the added code paths. Pre-existing `tests/platform-identifier-station.php` `tier_catalogue` expected-vocabulary mismatch remains; do not silently widen this phase. Account Code Map reported 600 words; no changed PHP source exceeds 600 physical lines.
 
-## Scope check
-Touched files this round: `AccountController.php`, `AccountRepository.php`, `tests/account-station.php`, `docs/code-map/account-station.md`. Nothing else. `main` unchanged.
+## Safeguards and next work
+1. Builder may promote **only** reviewed SHA `3250f9a4` to `main`. Record resulting exact `main` SHA, Actions outcome and Hostinger deployment state in this same file. Never assume topic, main, workflow and runtime are identical.
+2. **Phase 1 backend release requires boundary checks** for authenticated REST, capability/nonce, WordPress attachment validity, durable four-node bootstrap, retry, canonical/draft isolation and no unrelated impact; stub tests do not establish parallel DB guarantees. Capture deployment/runtime evidence as appropriate before closing the phase.
+3. **Deferred Owner decision:** Account singleton Archive/Trash/permanent delete semantics versus locked Station travel contract. No UI controls or silent exemption for those actions until approved.
+4. **Phase 2** (new peer frontend register-before-finalize, Admin placement, Profile editor, Service-pattern settle-then-Publish) remains separately gated; do not start by treating backend approval as UI approval. WEX, user roles, expanded Profile sections deferred.
+5. On production push, set `AWAITING LIVE VALIDATION` with Nath's specific validation request, then stop; Reviewer closes only after deployment and live evidence.
+
+Root `AGENTS.md`, `docs/ai-index.md`, `StationDrawerLifecycleContract-v1.md`, Service and Station Manager Code Maps are controlling. Keep all work in this file and preserve baseline-first auditing.
