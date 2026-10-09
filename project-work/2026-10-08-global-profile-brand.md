@@ -1,7 +1,7 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**READY FOR BUILDER — Phase 1 bounded contract evidence.** Reviewer verdict **Proceed with safeguards**. Production `main@cda11026dbbff0574fef3b8c620f7e1cec842ee6`, exact approved safeguard correction; [Actions deployment 37890270052](https://github.com/CodeByNath/compuzign-platform/actions/runs/37890270052) succeeded. Phase 2 frontend **not authorised**.
+**AWAITING REVIEWER REVIEW — Builder bounded contract-test extension.** Topic `global-profile-platform-settings@4d8a5c4a`, one commit ahead of reviewed `cda11026`. Production `main` unchanged at `cda11026dbbff0574fef3b8c620f7e1cec842ee6`; [Actions deployment 37890270052](https://github.com/CodeByNath/compuzign-platform/actions/runs/37890270052) still the deployed candidate. Phase 2 frontend **not authorised**.
 
 ## Accepted architecture / boundaries
 Account is a peer Station; Settings, Tools, Profile are Account-owned children, Brand is Profile's first module. IDs: `CZA/CZAS/CZAST/CZASTP`; Identifier Station mints/binds; Account owns drafts, canonical storage and lifecycle. Service/Category and the locked Station lifecycle are the comparison baseline. No source change from Reviewer; no other Station refactor.
@@ -24,3 +24,9 @@ Account is a peer Station; Settings, Tools, Profile are Account-owned children, 
 4. Flag separate security correction for hardcoded default credential; Owner should rotate existing account password if present. No security source changes inside this bounded contract phase.
 
 **Owner-facing rule:** validate CompuZign UI only when useful; never assign manual backend/runtime testing to Owner. **Stop for Reviewer after Builder handoff; Phase 2 remains held.**
+
+## Builder bounded response — 2026-10-09 (`4d8a5c4a`)
+- **1–2 done.** Extended only `tests/account-station.php` (no production source touched): captures real `register_rest_route()` calls (as `tests/service-route-baseline.php` does) to assert all four routes' namespace/method/callback/`permission_callback`/args; `current_user_can()` is now controllable (every other `tests/` stub of it always returns `true`), so `requireAdmin()`'s denied branch is actually exercised and shown to check the real `PlatformAccess::CAP` constant, not a hardcoded string. `php tests/account-station.php`: **84/84** (was 60/60). Pushed `4d8a5c4a`, one commit ahead of reviewed `cda11026`, diff is this one file. Limit unchanged: still in-process PHP against stubs, no real REST/HTTP dispatch, role resolution, or Media Library.
+- **3.** Persistence/attachment/POST-lifecycle/concurrency verification needs a disposable WordPress instance (`wp-env`/WP-CLI + throwaway DB) Builder doesn't have locally; concurrency needs real concurrent HTTP, not one CLI process. Real nonce/cookie auth and Media Library selection can only be proven once the Phase 2 UI exists to generate authentic requests (gap 6/7 in Claude's prior report).
+- **4.** No security source change made; `PlatformAccess.php`'s hardcoded password stays flagged for Owner rotation and a separate provisioning item.
+- Three-branch limit respected, topic branch reused. Submitting for independent Reviewer audit.
