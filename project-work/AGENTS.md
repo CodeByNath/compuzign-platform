@@ -39,9 +39,16 @@ Roles are governance roles, not model/vendor names.
 - If the candidate fails review, the Reviewer records the exact bounded correction in the same work file, sets `SOURCE PUSH NOT APPROVED`, and returns the work to the Builder.
 
 **Live validation**
-- Nath performs live browser validation of the deployed Hostinger WordPress experience.
+- Nath validates only the deployed CompuZign Admin/customer interface when that intended UI exists; all underlying runtime/API verification belongs to the technical agents.
 - The Builder must add the live-validation request/evidence needed because the Builder has no live browser access.
 - The Reviewer audits Nath's reported live result together with the exact deployed `main` SHA and deployment evidence, then either closes the work or issues the next bounded Builder correction.
+
+## Owner validation boundary — permanent instruction (2026-10-09)
+- **Never ask Nath to perform "WordPress testing", manual REST/API calls, browser-console scripts, nonce/cookie checks, direct backend endpoint probing, or low-level storage verification.** Do not reintroduce these as release or phase gates, even when implementation runs on WordPress.
+- The product under validation is **CompuZign**. The runtime/hosting technology does not change platform ownership or turn an infrastructure test into an Owner task.
+- Builder owns automated/source-level integration, authorization, API, lifecycle and persistence verification, using safe non-production test facilities as needed. Reviewer independently audits that evidence and the deployed commit. Do not erase technical verification obligations; route them to the technical actors.
+- Ask Nath only for **meaningful live CompuZign Admin/customer UI behavior** checks after the intended interface is available, with the page and visible actions clearly identified. If there is no appropriate UI yet, record that UI validation is unavailable and defer that *UI check* to the relevant UI phase without requesting manual backend substitutes.
+- Describe unresolved verification internally as "CompuZign platform integration/contract evidence", not as a request for "WordPress testing" from Nath. This instruction controls future work handoffs and supersedes contrary validation requests in older active files.
 
 ## Baseline-first independent audit rule
 Before calling an implementation a violation or requiring a new safeguard, **compare the exact behaviour against the existing owning/analogous Station and shared platform implementation in `main`** (source, Code Maps, contracts, frontend orchestration, and tests). Classify each finding explicitly as (a) proven deviation from current architecture, (b) existing baseline behaviour adopted by the Builder, (c) new-domain risk needing proportional verification, or (d) unproven concern. Do not impose stricter theoretical/database/industry patterns on one Station when the platform's accepted Stations use a different pattern, unless a concrete new failure mode justifies it. Read frontend and backend together before alleging missing Publish orchestration. Correct mistaken findings promptly in the same work file, explicitly superseding old instructions so the Builder does not undertake unnecessary changes. External best practices are secondary to verified repository authority and Owner-approved rules.
