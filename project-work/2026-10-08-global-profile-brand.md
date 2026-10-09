@@ -1,26 +1,28 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**BLOCKED — DECISION REQUIRED: Phase 1 technical integration validation gate.** Reviewer verdict **Proceed with safeguards** for accepted source and contracts. Phase 2 UI is **not authorised**.
+**READY FOR BUILDER — Phase 1 accepted with expressly deferred integration checks; branch closeout required.** Reviewer verdict: **Proceed with safeguards**. Phase 2 planning handoff only; implementation not yet authorized.
 
-## Verified release — 2026-10-09
-- `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1` equals the exact Reviewer-approved topic SHA. [Deploy to Hostinger run 37937420851](https://github.com/CodeByNath/compuzign-platform/actions/runs/37937420851) verified `success` for that SHA.
-- Last commit changed **only** `wp-content/plugins/compuzign-platform/tests/account-station.php` (+88 lines), not production behavior or UI. No new live UI test is warranted.
-- Builder reports **84/84** Account in-process checks passing (not independently executed). Independently inspected registration and capability tests: four route/method/callback/permission contracts, allowed/denied `requireAdmin()` using `PlatformAccess::CAP`. These are stubs, **not** deployed REST dispatch.
-- Earlier Owner live read/denial check passed for `3250f9a4`, not the current SHA. No Phase 1 Profile UI exists. Claude has no Chrome capability in this environment.
+## Owner decision and acceptance — 2026-10-09
+Owner explicitly **approved Option B**: defer Account Station Phase 1's remaining integration checks to **mandatory Phase 2 acceptance gates**. This is authorization to defer **verification**, not to waive tests, alter architecture, mutate production, or claim end-to-end completion.
 
-## Accepted scope and safeguards
-Account Station is the peer owner of Settings → Tools → Profile/Brand. IDs `CZA/CZAS/CZAST/CZASTP`, minted/bound by Identifier Station; Account owns draft, canonical and lifecycle state. Safeguard `cda11026` prevents pre-/half-bootstrap settlement writes and rejects negative attachment IDs without breaking Clear. Service/Category and locked Station lifecycle are baseline.
+Verified `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1`; [Deploy to Hostinger 37937420851](https://github.com/CodeByNath/compuzign-platform/actions/runs/37937420851) succeeded for exact SHA. Compared `global-profile-platform-settings` to `main`: **identical**, ahead/behind 0/0. Last correction changed only `tests/account-station.php` (+88 lines). Builder reports 84/84 Account in-process contracts passing; Reviewer inspected source/test coverage but did not execute tests. Earlier live GET/access check was on older `3250f9a4`, not current SHA. No Phase 1 Profile UI exists; no new Owner testing requested.
 
-Remaining **technical integration evidence**: actual REST dispatch/authorization, persistent storage, real image attachment validation, meaningful concurrency, and end-to-end Save → Settle → Publish → Disable/Enable. Current in-process checks do not establish those properties. No disposable integration environment is available to Claude. **Do not automatically defer all of these to Phase 2 or test with production mutations.**
+## Locked Phase 2 final-acceptance gates
+Technical agents must provide independently reviewable **non-production integration** evidence for:
+1. Real route dispatch, authenticated/unauthenticated permissions and nonce/capability behavior (beyond stubbed direct handlers).
+2. Durable Account four-node identity bootstrap, proper parent links, interrupted retry and persistence/serialization without duplicate identity.
+3. Real image Media Library attachment acceptance, rejection and deliberate Clear behavior; failed Save leaves drafts/canonical state intact.
+4. Draft/canonical isolation, and end-to-end Save → Settle → Publish → Disable/Enable lifecycle and correct visibility.
+5. Concurrent first-Save/reservation behavior against real concurrent requests/storage, not only a shared in-process stub.
+6. Actual CompuZign Profile UI interactions and Admin integration once Phase 2 adds that interface; confirm behavior against exact deployed SHA.
 
-## Owner decision required before phase acceptance
-Choose whether to **(A)** provide/authorize an isolated non-production CompuZign integration environment for technical verification before Phase 1 closeout, or **(B)** expressly defer the named integration checks into a gated Phase 2 verification plan. Builder/Reviewer must keep any deferred checks explicit and verify them before claiming end-to-end completion; UI use alone does not prove concurrency or storage correctness. No manual backend testing may be assigned to Owner.
+These gates are **mandatory before Phase 2 final acceptance**, not necessarily blockers to opening its separately reviewed implementation phase. Never treat successful build, stub test, deployment or ordinary UI clicking alone as proof of all gates. No production mutation without separate explicit Owner authorization.
 
-## Separate safety items
-- `src/Core/PlatformAccess.php` has a **pre-existing hardcoded default account credential**. Existing live credential should be rotated; separately review secure provisioning. Do not disclose the secret.
-- Codex Chrome exploration accidentally changed a Service. Owner reports re-enabled; restoration is **Owner-reported**, not independently reverified. Record browser-automation safety failure. Browser control remains strictly read-only without explicit action-specific authorization.
-- Singleton Archive/Trash/permanent-deletion semantics remain deferred for Owner decision.
+## Accepted architecture and safety
+Account is a peer Station, owning Settings → Tools → Profile/Brand; Identifier Station owns mint/bind. IDs: `CZA/CZAS/CZAST/CZASTP`. Locked Station lifecycle and Service/Category baseline apply. `cda11026` repaired pre-/half-bootstrap settle and negative attachment validation. Separate unresolved items: pre-existing hardcoded default credential in `src/Core/PlatformAccess.php` needs secure-provisioning work and live credential rotation; singleton Archive/Trash/permanent-delete Owner decision remains deferred. Do not silently resolve these in Phase 2.
 
-## Builder next action
-No source implementation authorized while decision is pending. Confirm the completed `global-profile-platform-settings` topic SHA is contained in `main`; perform safe merged-topic branch cleanup using Builder tooling per root `AGENTS.md` when authorized, and record evidence. Do not change `main`, start Phase 2, request Owner backend/browser-console tests or perform production mutations. Stop for Owner/Reviewer decision.
+Codex interactive-browser audit inadvertently changed Service state; Owner reports it restored. Preserve the **browser automation safety incident**; default to read-only and never treat Chrome permission as permission to Save/Publish/Disable. Claude's VS Code browser capability is unavailable. Do not ask Owner for manual API, console, or backend tests.
+
+## Next Builder action — closeout only
+Confirm exact topic SHA is merged/identical to main; **delete the completed topic branch safely** using authorized Builder Git tooling, verify remote two-branch state, and record cleanup evidence in this same file. No source edits, new topic branch, deployment or Phase 2 implementation yet. Then submit a concise Phase 2 plan scoped to the existing Account Station interface/lifecycle and the six mandatory gates for independent Reviewer review. Remain in this work area until Phase 1 closeout is recorded; stop for Reviewer.
