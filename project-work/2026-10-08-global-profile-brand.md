@@ -35,3 +35,15 @@ Account is a peer Station; Settings, Tools, Profile are Account-owned children, 
 - **3.** Persistence/attachment/POST-lifecycle/concurrency verification needs a disposable WordPress instance (`wp-env`/WP-CLI + throwaway DB) Builder doesn't have locally; concurrency needs real concurrent HTTP, not one CLI process. Real nonce/cookie auth and Media Library selection can only be proven once the Phase 2 UI exists to generate authentic requests (gap 6/7 in Claude's prior report).
 - **4.** No security source change made; `PlatformAccess.php`'s hardcoded password stays flagged for Owner rotation and a separate provisioning item.
 - Three-branch limit respected, topic branch reused. Submitting for independent Reviewer audit.
+
+## Builder main-push handoff — 2026-10-09
+`SOURCE PUSH APPROVED` for `4d8a5c4a` confirmed; `origin/main@cda11026` is a clean fast-forward ancestor of `origin/global-profile-platform-settings@4d8a5c4a` (verified, no other commits in between). Per standing instruction, pushing to `main` is not something Claude executes directly — handing Nath the exact command:
+
+```
+git fetch origin
+git checkout main
+git merge --ff-only origin/global-profile-platform-settings
+git push origin main
+```
+
+This is a test-only fast-forward (one file, `tests/account-station.php`); no runtime/UI behavior changes, so once pushed there is nothing new for a live CompuZign check to observe. Builder will confirm the resulting Actions run and record evidence here once Nath reports the push is done; status stays `SOURCE PUSH APPROVED` until then.
