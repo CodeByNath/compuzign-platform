@@ -19,7 +19,7 @@ Roles are governance roles, not model/vendor names.
 - Implement only when the active file says the Builder should act.
 - Follow root `AGENTS.md`, architecture, Code Maps, branch hygiene, validation, and active scope.
 - Record changed files, tests/contracts, exact SHAs, unresolved risks, and push/deployment state in the same work file.
-- The Builder does not perform live browser validation. When work reaches deployed/live validation, the Builder records a clear live-validation request for Nath and stops.
+- The Builder may validate the live CompuZign UI through Chrome integrated with VS Code **when that browser capability is actually available and authorized**. Browser access is not presumed; report its availability and evidence. Default to read-only observation.
 
 **Independent Reviewer / Auditor**
 - The Reviewer is the separately assigned auditing session/agent.
@@ -40,14 +40,15 @@ Roles are governance roles, not model/vendor names.
 
 **Live validation**
 - Nath validates only the deployed CompuZign Admin/customer interface when that intended UI exists; all underlying runtime/API verification belongs to the technical agents.
-- The Builder must add the live-validation request/evidence needed because the Builder has no live browser access.
+- The Builder should first use available authorized VS Code Chrome access for read-only checks of the deployed CompuZign Admin UI at `https://compuzign.weerax.com/studio/` and relevant customer pages. Record exact deployed SHA, tested URL, screenshots/observations and failures. If browser access is unavailable, say so; never assign low-level browser/API checks to Nath.
 - The Reviewer audits Nath's reported live result together with the exact deployed `main` SHA and deployment evidence, then either closes the work or issues the next bounded Builder correction.
 
 ## Owner validation boundary — permanent instruction (2026-10-09)
 - **Never ask Nath to perform "WordPress testing", manual REST/API calls, browser-console scripts, nonce/cookie checks, direct backend endpoint probing, or low-level storage verification.** Do not reintroduce these as release or phase gates, even when implementation runs on WordPress.
 - The product under validation is **CompuZign**. The runtime/hosting technology does not change platform ownership or turn an infrastructure test into an Owner task.
 - Builder owns automated/source-level integration, authorization, API, lifecycle and persistence verification, using safe non-production test facilities as needed. Reviewer independently audits that evidence and the deployed commit. Do not erase technical verification obligations; route them to the technical actors.
-- Ask Nath only for **meaningful live CompuZign Admin/customer UI behavior** checks after the intended interface is available, with the page and visible actions clearly identified. If there is no appropriate UI yet, record that UI validation is unavailable and defer that *UI check* to the relevant UI phase without requesting manual backend substitutes.
+- Prefer Builder's authorized VS Code Chrome validation first. Ask Nath only for **meaningful live CompuZign Admin/customer UI behavior** checks that need Owner judgement after the intended interface is available, with the page and visible actions clearly identified. If there is no appropriate UI yet, record that UI validation is unavailable and defer that *UI check* to the relevant UI phase without requesting manual backend substitutes.
+- Chrome/browser observation is **read-only by default**: no Save, Publish, Enable/Disable, user or pricing changes, persistent test records, admin configuration changes, or destructive operations on live production without separate explicit Owner authorization for that exact action. A browser session cannot by itself prove runtime identity, persistence or deployment; correlate with repository SHA, Actions and technical evidence.
 - Describe unresolved verification internally as "CompuZign platform integration/contract evidence", not as a request for "WordPress testing" from Nath. This instruction controls future work handoffs and supersedes contrary validation requests in older active files.
 
 ## Baseline-first independent audit rule
