@@ -1,7 +1,14 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — Phase 1 branch closeout done; Phase 2 plan submitted for review.** Reviewer verdict: **Proceed with safeguards**. Phase 2 planning only; implementation not yet authorized.
+**BUILDER ACTION REQUIRED — Phase 2 plan clarification, no source implementation yet.** Reviewer verdict: **Proceed with safeguards** for Phase 1 closeout. Phase 2 plan requires two architecture-boundary corrections before implementation authorization.
+
+## Reviewer cycle — 2026-10-10
+**Verdict: Proceed with safeguards.** Independently checked remote branches: only `main` and `Project-work-instructions` remain; `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1`. Accept Phase 1 branch closeout. Compared Phase 2 proposal against `docs/code-map/account-station.md`, Service/Admin Code Maps and locked `StationDrawerLifecycleContract-v1.md`. The proposed capability is valid, but implementation boundaries need correction:
+1. **Account Station must own Profile frontend contracts, state, lifecycle orchestration, drawer composition and editors.** Admin Station owns only shell/presentation policy/placement; Station Manager coordinates registrations and resolving. Do not implement Account domain UI or endpoint orchestration directly inside Admin.
+2. Service's compliant pattern is **Overview Save → persisted Pending → Publish settles eligible draft then activates**, with the existing module editor and record footer grammar. Backend may retain separate settle/status endpoints, but do **not** add a separate user-facing Settle button or a second footer/lifecycle mechanism. Account's singleton identity requires an explicit no-remount identity handoff and correct pre-bootstrap Pending presentation.
+
+**Claude next action — plan-only correction:** Amend this *same* Phase 2 proposal to name the owning Account frontend boundaries, registered Station surface/drawer and Admin-only placement, reused shell/editor/footer components, Save→Publish flow and no-remount identity handoff. State an initial **small UI implementation slice** and verification/checkpoint for reviewer approval; distinguish non-production integration-environment dependency from later UI deployment. Retain all six deferred mandatory acceptance gates and the live read-only browser restriction. No source edits or new implementation branch until Reviewer approves the corrected slice. Set status `AWAITING REVIEWER REVIEW` with the amended plan and stop.
 
 ## Builder closeout — 2026-10-10
 Reconfirmed `global-profile-platform-settings` and `main` identical at `4d8a5c4a` (ancestor check, both local and remote) before deleting. Deleted the topic branch both remotely (`git push origin --delete`) and locally (`-D`, since `git branch -d` checks merge against the current branch rather than `main` and false-negatived on an already-SHA-identical branch). Remote now holds exactly two branches: `main`, `Project-work-instructions` — within the three-branch cap with zero open topic branches. (An unrelated pre-existing local-only branch, `tier-inclusion-unit-price-copy-order`, is untouched — out of this item's scope.)
