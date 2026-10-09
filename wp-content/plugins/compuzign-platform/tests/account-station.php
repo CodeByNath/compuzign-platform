@@ -183,6 +183,17 @@ checkAccount($partialRepository->isBootstrapped() === true, 'isBootstrapped is t
 
 $__wpOptions = [];
 
+// ── settle on a half-bootstrapped install is rejected and preserves all state ─
+$halfRepository = new AccountRepository();
+$halfRepository->writeNode('profile', 'CZASTP33333', 'CZAST33333');
+$halfRepository->writeBrandDraft(['name' => 'Stranded Draft', 'code' => '', 'logo_attachment_id' => null, 'favicon_attachment_id' => null]);
+$halfSnapshot = $__wpOptions;
+$halfSettle = (new AccountController(new PlatformIdentifierStation()))->settleProfile(new WP_REST_Request());
+checkAccount($halfSettle->get_status() === 422, 'settle against a half-bootstrapped Account Station is rejected, not promoted to canonical');
+checkAccount($__wpOptions === $halfSnapshot, 'the rejected half-bootstrapped settle leaves the draft, canonical Brand and lifecycle exactly as they were');
+
+$__wpOptions = [];
+
 // ── fetchDetail is strictly read-only on an unbootstrapped install ─────────
 $platformIdentifiers = new PlatformIdentifierStation();
 $controller = new AccountController($platformIdentifiers);
@@ -207,6 +218,11 @@ checkAccount($__wpOptions === [], 'the rejected pre-bootstrap Disable attempt wr
 $neverBootstrappedEnable = $controller->updateStatus(new WP_REST_Request(['action' => 'enable']));
 checkAccount($neverBootstrappedEnable->get_status() === 422, 'Enable against a never-bootstrapped Account Station is rejected, not silently masked');
 checkAccount($__wpOptions === [], 'the rejected pre-bootstrap Enable attempt writes nothing');
+
+// ── settle is rejected outright against a never-bootstrapped install ───────
+$neverBootstrappedSettle = $controller->settleProfile(new WP_REST_Request());
+checkAccount($neverBootstrappedSettle->get_status() === 422, 'settle against a never-bootstrapped Account Station is rejected, not silently settled');
+checkAccount($__wpOptions === [], 'the rejected pre-bootstrap settle attempt writes nothing');
 
 // ── first Save bootstraps all four nodes, in parent order, in one request ─
 $saved = $controller->saveProfile(new WP_REST_Request([
@@ -258,6 +274,23 @@ $before = $repository->readBrandDraft();
 $rejected = $controller->saveProfile(new WP_REST_Request(['logo_attachment_id' => 999999]));
 checkAccount($rejected->get_status() === 422, 'a non-existent attachment id is rejected, not silently cleared');
 checkAccount($repository->readBrandDraft() === $before, 'a rejected Save leaves the draft completely untouched');
+
+// ── a negative attachment id is rejected, never read as a Clear ────────────
+$controller->saveProfile(new WP_REST_Request(['name' => 'Kept Draft', 'logo_attachment_id' => 2101]));
+$before = $repository->readBrandDraft();
+$negativeLogo = $controller->saveProfile(new WP_REST_Request(['name' => 'Kept Draft', 'logo_attachment_id' => -2101]));
+checkAccount($negativeLogo->get_status() === 422, 'a negative Logo attachment id is rejected, not silently cleared');
+checkAccount($repository->readBrandDraft() === $before, 'a rejected negative-Logo Save leaves the existing draft unchanged');
+$negativeFavicon = $controller->saveProfile(new WP_REST_Request(['name' => 'Kept Draft', 'favicon_attachment_id' => '-1']));
+checkAccount($negativeFavicon->get_status() === 422, 'a negative Favicon attachment id is rejected, not silently cleared');
+checkAccount($repository->readBrandDraft() === $before, 'a rejected negative-Favicon Save leaves the existing draft unchanged');
+
+// ── 0 and null remain deliberate Clears ────────────────────────────────────
+$clearedZero = $controller->saveProfile(new WP_REST_Request(['logo_attachment_id' => 0]))->get_data();
+checkAccount($clearedZero['success'] === true && $clearedZero['draft']['logo_attachment_id'] === null, 'an attachment id of 0 is still a deliberate Clear');
+$clearedNull = $controller->saveProfile(new WP_REST_Request(['logo_attachment_id' => null]))->get_data();
+checkAccount($clearedNull['success'] === true && $clearedNull['draft']['logo_attachment_id'] === null, 'a null attachment id is still a deliberate Clear');
+$controller->settleProfile(new WP_REST_Request());
 
 // ── Publish: disabled -> active only ────────────────────────────────────────
 $publishRejected = $controller->updateStatus(new WP_REST_Request(['platform_status' => 'active']));

@@ -51,18 +51,26 @@ final class AccountSchema
     }
 
     /**
-     * null/empty is a valid Clear. A non-empty value that is not a real image
-     * attachment is `false` — the caller must fail the whole Save closed rather
-     * than silently store null, or a rejected file would look like a successful
-     * Clear instead of the error it is.
+     * null/empty/0 is a valid Clear. A negative id, or one that is not a real
+     * image attachment, is `false` — the caller must fail the whole Save closed
+     * rather than silently store null, or a rejected file would look like a
+     * successful Clear instead of the error it is.
      */
     public static function resolveAttachmentId(mixed $id): int|false|null
     {
-        if ($id === null || $id === '' || (int) $id <= 0) {
+        if ($id === null || $id === '') {
             return null;
         }
 
         $id = (int) $id;
+
+        if ($id === 0) {
+            return null;
+        }
+
+        if ($id < 0) {
+            return false;
+        }
 
         return wp_attachment_is_image($id) ? $id : false;
     }

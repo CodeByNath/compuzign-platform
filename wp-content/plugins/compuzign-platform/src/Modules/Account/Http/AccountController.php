@@ -151,6 +151,13 @@ class AccountController
     /** Promotes the Brand draft to canonical. Brand has no required field, so it always settles (blanks are valid). */
     public function settleProfile(\WP_REST_Request $request): \WP_REST_Response
     {
+        // Same existence predicate as updateStatus(): without it a settle on an
+        // unbootstrapped or half-bootstrapped install would write canonical Brand
+        // and module status for an Account that has no complete identity chain.
+        if (!$this->repository->isBootstrapped()) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Account Station has not been set up yet. Save Brand first.'], 422);
+        }
+
         $brand = $this->repository->settleBrandDraft();
 
         $lifecycle = $this->repository->readLifecycle();

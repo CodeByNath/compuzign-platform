@@ -51,10 +51,10 @@ draft to canonical; Publish (`platform_status: 'active'`, via
 `StationLifecycle::publish()`) activates; Disable/Enable are the same
 presentation mask Service uses, never a module/draft rewrite. Brand has no
 required field — blanks are valid — so it always settles
-(`AccountSchema::isBrandComplete()` is unconditionally true). Publish,
-Disable and Enable are all rejected outright against a never-bootstrapped
+(`AccountSchema::isBrandComplete()` is unconditionally true). Settle,
+Publish, Disable and Enable are all rejected outright against a never-bootstrapped
 install, a case Service has no equivalent of since a Service id must exist
-before its `/status` route is addressable. All three share one predicate,
+before its `/status` route is addressable. All four share one predicate,
 `isBootstrapped()`, true only once all four chain nodes are bound, not just
 the Profile leaf.
 
@@ -76,8 +76,8 @@ rather than silently extending or narrowing the locked contract.
   pattern, same as `ServiceController`.
 - `Support/AccountSchema.php` — Brand field shape/sanitization. Logo and
   Favicon are WordPress attachment ids (the standard Media Library picker),
-  never a bespoke upload/decode pipeline; a non-empty id that is not a real
-  image attachment fails the whole Save closed rather than being silently
+  never a bespoke upload/decode pipeline; 0/empty clears, while a negative
+  or non-image id fails the whole Save closed rather than being silently
   cleared.
 - `Support/AccountIdentity.php` — the four-node bootstrap chain.
 - `Support/AccountRepository.php` — the one aggregate option.
