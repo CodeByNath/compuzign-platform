@@ -1,7 +1,7 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — Phase 1 safeguard correction pushed.** Candidate: topic `global-profile-platform-settings` at `cda11026dbbff0574fef3b8c620f7e1cec842ee6` (single commit on production `main@3250f9a4e2babcc872f6e0db0d5c1590de9a63ae`). Production `main` unchanged (Actions run [37814132541](https://github.com/CodeByNath/compuzign-platform/actions/runs/37814132541)); live pre-bootstrap read gate passed 2026-10-09. No Phase 2 UI authorised.
+**SOURCE PUSH APPROVED — Phase 1 safeguard correction independently reviewed.** Approved exact candidate: topic `global-profile-platform-settings` at `cda11026dbbff0574fef3b8c620f7e1cec842ee6` (single commit on production `main@3250f9a4e2babcc872f6e0db0d5c1590de9a63ae`). Production `main` unchanged (Actions run [37814132541](https://github.com/CodeByNath/compuzign-platform/actions/runs/37814132541)); live pre-bootstrap read gate passed 2026-10-09. No Phase 2 UI authorised.
 
 ## Builder response — 2026-10-09 (`cda11026`)
 - **Item 2 done.** `settleProfile()` returns 422 before any write unless `isBootstrapped()` (same as `updateStatus()`). `resolveAttachmentId()`: null/''/0 → Clear; negative → Save 422. Service has no attachment-ID baseline (ids constrained by route regex), so this is new-domain verification.
@@ -9,6 +9,11 @@
 - **Tests (stubs only):** `account-station.php` 60/60: never- and half-bootstrapped settle 422 with option store unchanged; negative Logo/Favicon 422, draft unchanged; 0/null still Clear. Regressions FAIL on pre-fix source. `platform-identifier-station.php` failure unchanged.
 - **Item 3:** pre-existing since `34c8175b` (2026-07-23); topic doesn't touch `PlatformAccess.php`. Proposed separate item: provision with `wp_generate_password()`, Owner sets password via WP reset. Owner should rotate live password now.
 - **Item 4:** Builder requests Owner-approved deferment of real-WP mutating tests to Phase 2 live validation.
+
+## Reviewer source verdict — 2026-10-09
+**Proceed with safeguards.** Independently checked topic `cda11026dbbff0574fef3b8c620f7e1cec842ee6`: direct child of production `main@3250f9a4`, exactly four changed files (Account controller, schema, contract test, Code Map). The new `settleProfile()` guard fails 422 before canonical/lifecycle writes on incomplete identity; `resolveAttachmentId()` rejects negatives while retaining null/empty/zero Clear. Tests add never-/half-bootstrap unchanged-storage checks and negative Logo/Favicon unchanged-draft checks; Builder reports 60/60 passing, not independently run. Scope respects Account persistence and Service baseline. **Source push approved for this exact SHA only**; any source change requires re-review. Builder may fast-forward this reviewed commit to `main` and record exact Actions deployment; no Phase 2 UI or unapproved live POST testing.
+
+**Unresolved gates:** Production still runs old `3250f9a4` until new approved push/deploy. Nath already passed pre-bootstrap read-only REST gate on old SHA; do not re-ask that check as if it proved new code. Mutating real-WP lifecycle validation requires Owner-authorised safe test/defer decision; Builder requested deferral to Phase 2, **not yet Owner-approved**. Existing hardcoded provisioning password predates this change; separately assess and rotate any live account credential. Do not close Phase 1 or begin Phase 2 automatically.
 
 ## Baseline and scope
 `main` at audit: `8d1f0185811e69214c0fd85c29819eef0c5d9226`. Topic: `global-profile-platform-settings`. Actual main→topic diff: 13 files (Account backend, four Platform Identifier prefixes, tests, Code Maps, wiring). No new packages, frontend registration, WEX or other product areas. Old `PlatformSettings` candidate was fully reverted. Owner model: **Account Station → Settings → Tools → Profile**, prefixes `CZA/CZAS/CZAST/CZASTP` + five-character suffix. Account is peer Station; others are children, not Stations. Station Manager coordinates; Admin presents; Identifier Station mints/binds.
