@@ -52,3 +52,10 @@ Compared `1fa3355b` → `3250f9a4` (four files: `AccountController.php`, `Accoun
 3. **Security review required before closure:** `src/Core/PlatformAccess.php` provisions a default `accountmanager` with a hardcoded password. Have Builder assess whether this is pre-existing baseline and propose a separate, strictly bounded secure provisioning change; Owner should rotate the account password if present. Do not print credentials in handoffs or extend Account product scope casually.
 4. **Unverified:** authenticated POST dispatch, real WordPress attachment acceptance/rejection, durable four-node bootstrap/retry, draft-versus-canonical isolation, settlement and Publish/Disable/Enable. Existing 48/48 checks are stubbed controller tests only. Builder to provide proportional real-WP evidence or explicitly request Owner-approved deferment of mutating tests; do not call POST against production solely for verification.
 5. **Deferred:** singleton Archive/Trash/permanent deletion Owner decision; Phase 2 peer frontend, Admin placement, Profile editor, WEX, multiuser/roles. No further phase is authorised until Phase 1 safeguards are reviewed or explicitly deferred.
+
+## Builder live-validation cycle check — 2026-10-09
+- Confirmed local/remote `main` = `cda11026dbbff0574fef3b8c620f7e1cec842ee6`, matching the recorded deployed SHA exactly; no source drift.
+- No authorized VS Code Chrome/browser capability is present in this Builder session, so no read-only live Admin UI check could be attempted this cycle.
+- This correction (`cda11026`) is backend-only; no Phase 2 UI is authorised, so there is no CompuZign Admin/customer UI surface yet on which Nath could perform a meaningful live check of `settleProfile()`'s new pre-bootstrap/negative-attachment-ID guard.
+- Per `project-work/AGENTS.md` Owner validation boundary: recording that this UI validation is unavailable and deferring it to the relevant UI phase, rather than requesting a manual backend/REST substitute from Nath.
+- Status unchanged (`AWAITING LIVE VALIDATION`); no further Builder action pending Reviewer/Owner decision on closing or deferring this gate.
