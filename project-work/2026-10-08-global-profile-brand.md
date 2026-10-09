@@ -64,3 +64,27 @@ Compared `1fa3355b` → `3250f9a4` (four files: `AccountController.php`, `Accoun
 - This correction (`cda11026`) is backend-only; no Phase 2 UI is authorised, so there is no CompuZign Admin/customer UI surface yet on which Nath could perform a meaningful live check of `settleProfile()`'s new pre-bootstrap/negative-attachment-ID guard.
 - Per `project-work/AGENTS.md` Owner validation boundary: recording that this UI validation is unavailable and deferring it to the relevant UI phase, rather than requesting a manual backend/REST substitute from Nath.
 - Status unchanged (`AWAITING LIVE VALIDATION`); no further Builder action pending Reviewer/Owner decision on closing or deferring this gate.
+
+## Claude coverage report — 2026-10-09 (no source changes; responding to Reviewer cycle above)
+**Browser-safety acknowledgment:** interactive production validation is read-only only — no Save/Publish/Disable/Enable or other mutating click, even under general browser permission, without separate explicit Owner authorization for that exact action. No authorized VS Code Chrome capability exists in this Claude environment this cycle, so no live check (read-only or otherwise) was attempted. No new Codex production browser exploration is requested. Not asking Nath to re-test the restored Service or perform any manual backend check.
+
+**Source reviewed:** `main@cda11026` — `AccountController.php`, `AccountSchema.php`, `tests/account-station.php` (not present on `Project-work-instructions`'s own `wp-content` snapshot; read via `git show main:<path>` without altering this branch's tree).
+
+**Covered by the existing stub suite (`tests/account-station.php`, in-process PHP calling the real controller/schema/repository classes against an in-memory options array):**
+- Four-node bootstrap: first-Save mint, parent-chain correctness, idempotent resume, interrupted-bootstrap resume, corrupted-parent conflict rejection, losing-concurrent-reservation fails closed.
+- `isBootstrapped()` requires all four nodes, never the Profile leaf alone.
+- The Phase 1 fix itself: `settleProfile()` 422s pre-/half-bootstrap with zero writes (draft, canonical, lifecycle all unchanged); `updateStatus()` 422s Publish and Disable/Enable pre-bootstrap with zero writes.
+- `resolveAttachmentId()`: valid image id accepted; non-existent id 422s the whole Save closed; negative id 422s closed (both Logo and Favicon); `0`/`null` remain deliberate Clears.
+- Draft/canonical isolation (pending draft never leaks into canonical read; settle is the only promotion path) and module_status transitions (pending on Save, settled on settle, untouched by Disable).
+- Publish/Disable/Enable state machine: disabled→active once, reject re-publish, Disable masks with `previous_platform_status` capture, Enable always lands back in unmasked disabled (never straight to active).
+
+**Not covered — real-WordPress/integration surface, unverified by this suite:**
+1. Real REST dispatch: route registration, nonce/cookie auth, and `requireAdmin()`/`current_user_can(PlatformAccess::CAP)` evaluated against the real capability framework. The stub calls controller handler methods directly and never exercises `registerRoutes()` or `requireAdmin()` at all.
+2. `wp_attachment_is_image()` against real Media Library rows — the stub hardcodes a fake attachment id in a PHP array, not a real post/mime-type check.
+3. Real `get_option`/`update_option`/`add_option` persistence to the live options table — durability, autoload, and serialization are stubbed as a plain in-memory array.
+4. True concurrent-request behavior at the real DB/locking level — the race test shares one in-process array across two Repository instances in a single PHP process, not two real concurrent HTTP requests.
+5. The pre-existing hardcoded `accountmanager` provisioning password (separate flagged item, not touched by this fix) and whether the live credential has actually been rotated.
+6. `POST /profile/settle` and `POST /status` have never been exercised against production at all, at any SHA — Nath's only prior live check was an authenticated `GET /admin/account-station` against the **old** `3250f9a4` SHA, which predates this fix and does not validate it.
+7. No Profile UI exists yet (Phase 2 not authorised), so no end-to-end click path has ever driven this code.
+
+**Safe non-production verification/defer proposal:** Builder has no local WP environment, and interactive production validation must stay strictly read-only with no further Owner-performed backend/REST checks — so none of the seven gaps above can be closed safely right now. Proposing: (a) defer all seven to Phase 2, when the real Profile UI exists and normal intended use naturally exercises `POST /profile`, `/settle`, and `/status` end-to-end, at which point Nath's live validation is of the actual UI, matching the Owner validation boundary; (b) as a zero-risk, no-mutation supplementary step Builder could take now if separately authorized, extend the existing PHP stub suite to also call `registerRoutes()`/`requireAdmin()` with a stubbed `current_user_can()`, closing gap 1 without touching live WordPress. No Owner action is requested beyond reading this report. Stopping here for Reviewer; Phase 2 remains not authorised.
