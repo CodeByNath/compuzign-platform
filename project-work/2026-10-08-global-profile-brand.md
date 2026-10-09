@@ -1,7 +1,22 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**SOURCE PUSH APPROVED — Phase 1 safeguard correction independently reviewed.** Approved exact candidate: topic `global-profile-platform-settings` at `cda11026dbbff0574fef3b8c620f7e1cec842ee6` (single commit on production `main@3250f9a4e2babcc872f6e0db0d5c1590de9a63ae`). Production `main` unchanged (Actions run [37814132541](https://github.com/CodeByNath/compuzign-platform/actions/runs/37814132541)); live pre-bootstrap read gate passed 2026-10-09. No Phase 2 UI authorised.
+**AWAITING LIVE VALIDATION — Phase 1 safeguard correction deployed.** Production `main` = `cda11026dbbff0574fef3b8c620f7e1cec842ee6` (exact reviewer-approved candidate, fast-forward from `3250f9a4`). No Phase 2 UI authorised.
+
+## Builder deployment handoff — 2026-10-09
+- Pushed exact approved SHA `cda11026` to `main` (fast-forward `3250f9a4..cda11026`); no other source change. Topic branch still at the same SHA.
+- Actions **Deploy to Hostinger** run [37890270052](https://github.com/CodeByNath/compuzign-platform/actions/runs/37890270052): `success`, headSha `cda11026dbbff0574fef3b8c620f7e1cec842ee6`, completed 2026-10-09T05:48:08Z.
+- Builder has no live browser access; nothing below was verified live by Builder.
+
+**Live-validation request for Nath (read-only, on new SHA `cda11026`):**
+1. Signed in as the platform admin, open `/wp-json/compuzign/v1/admin/account-station` → expect 200 with the same pre-bootstrap shape as before (no new errors).
+2. Signed out / private window, same URL → expect 401/403 denial.
+3. Do **not** POST to `/profile`, `/profile/settle` or `/status` on production.
+
+**Owner decisions outstanding (not Builder-actionable):**
+- Approve or reject deferring real-WP mutating lifecycle tests (settle/Publish/Disable/Enable, attachment acceptance) to Phase 2 live validation.
+- Rotate the existing `accountmanager` live credential; approve opening a separate bounded work item for `PlatformAccess.php` secure provisioning (`wp_generate_password()`).
+- Singleton Archive/Trash decision remains deferred.
 
 ## Independent Reviewer decision — 2026-10-09
 **Verdict: Proceed with safeguards.** Independently verified remote topic `global-profile-platform-settings@cda11026dbbff0574fef3b8c620f7e1cec842ee6` is exactly one commit ahead of `main@3250f9a4e2babcc872f6e0db0d5c1590de9a63ae` (four changed files: Controller, Schema, Account contract, Code Map). `settleProfile()` now checks the existing four-node `isBootstrapped()` before writing; negative attachment IDs now fail rather than clear, preserving null/zero Clear. Inspected regressions explicitly assert 422 and unchanged option/draft on never-/half-bootstrap and negative Logo/Favicon. Builder reports 60/60 stub checks passing; Reviewer did not execute them. **Source push approved for this exact candidate only**; any changed source requires re-review. Builder may fast-forward this SHA to `main`, verify Actions for the same SHA, then hand off deployment evidence. The earlier Nath live GET/401 tests validated the previous production SHA only; do not claim they validate the new deployment. Real WordPress mutation testing deferred **only if Owner approves**; Phase 2 remains held. Pre-existing default-user password issue is a separate security correction, not a newly introduced defect in this candidate; Owner should rotate any existing live credential and review provisioning promptly. No reviewer source edits.
