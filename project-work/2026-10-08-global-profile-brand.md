@@ -1,52 +1,26 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**AWAITING LIVE VALIDATION — Account Station contract-only extension deployed.** Production `main` fast-forwarded `cda11026..4d8a5c4a` (Nath exited Auto Mode to authorize the push; Builder executed it). [Actions deployment 37937420851](https://github.com/CodeByNath/compuzign-platform/actions/runs/37937420851) `success`, headSha `4d8a5c4a`. Phase 2 frontend **not authorised**.
+**BLOCKED — DECISION REQUIRED: Phase 1 technical integration validation gate.** Reviewer verdict **Proceed with safeguards** for accepted source and contracts. Phase 2 UI is **not authorised**.
 
-## Builder deployment evidence — 2026-10-09 (`4d8a5c4a`)
-Fast-forwarded and pushed exactly the reviewed candidate; no other source change. `main` and the topic branch are now identical at `4d8a5c4a`. Deploy workflow `37937420851` completed `success` against `4d8a5c4a`. This change is test-only (`tests/account-station.php`, no production behaviour touched), so there is no new runtime/UI surface for Nath to meaningfully check — same reasoning as the prior `cda11026` cycle note. Returning to Reviewer for the Phase 1 closeout/defer decision per the approval's own instruction, without claiming this closes the still-open integration gaps (real REST dispatch, persistence, Media Library, concurrent HTTP) or the separate hardcoded-credential item.
+## Verified release — 2026-10-09
+- `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1` equals the exact Reviewer-approved topic SHA. [Deploy to Hostinger run 37937420851](https://github.com/CodeByNath/compuzign-platform/actions/runs/37937420851) verified `success` for that SHA.
+- Last commit changed **only** `wp-content/plugins/compuzign-platform/tests/account-station.php` (+88 lines), not production behavior or UI. No new live UI test is warranted.
+- Builder reports **84/84** Account in-process checks passing (not independently executed). Independently inspected registration and capability tests: four route/method/callback/permission contracts, allowed/denied `requireAdmin()` using `PlatformAccess::CAP`. These are stubs, **not** deployed REST dispatch.
+- Earlier Owner live read/denial check passed for `3250f9a4`, not the current SHA. No Phase 1 Profile UI exists. Claude has no Chrome capability in this environment.
 
-## Reviewer source decision — 2026-10-09
-**Verdict: Proceed with safeguards.** Independently verified topic `global-profile-platform-settings@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1` is exactly one commit ahead of `main@cda11026dbbff0574fef3b8c620f7e1cec842ee6`; diff changes **only** `wp-content/plugins/compuzign-platform/tests/account-station.php` (+88 lines). Test invokes actual `registerRoutes()`, captures four paths/methods/callbacks/permission hooks and expected argument keys; invokes actual `requireAdmin()` with stubbed capability true/false and asserts `PlatformAccess::CAP`. No product source edits or Station ownership changes. Builder reports 84/84 passing, not independently executed. The arg test checks **keys**, not complete validation semantics; full REST dispatch/persistence/Media Library/concurrent HTTP remain unverified and must not be claimed as passing.
+## Accepted scope and safeguards
+Account Station is the peer owner of Settings → Tools → Profile/Brand. IDs `CZA/CZAS/CZAST/CZASTP`, minted/bound by Identifier Station; Account owns draft, canonical and lifecycle state. Safeguard `cda11026` prevents pre-/half-bootstrap settlement writes and rejects negative attachment IDs without breaking Clear. Service/Category and locked Station lifecycle are baseline.
 
-**SOURCE PUSH APPROVED for the exact SHA only.** Builder may fast-forward this reviewed commit to `main` through established workflow, confirm exact GitHub Actions evidence, and report in this file. No repeat Owner backend checks, no production mutations, no Phase 2 UI until separate authorization. Maintain hardcoded-credential issue as separate security work; production credential rotation remains recommended. Browser-automation incident retains strict read-only boundary. After deployment return to Reviewer for Phase 1 closeout/defer decision, without silently waiving integration evidence.
+Remaining **technical integration evidence**: actual REST dispatch/authorization, persistent storage, real image attachment validation, meaningful concurrency, and end-to-end Save → Settle → Publish → Disable/Enable. Current in-process checks do not establish those properties. No disposable integration environment is available to Claude. **Do not automatically defer all of these to Phase 2 or test with production mutations.**
 
-## Accepted architecture / boundaries
-Account is a peer Station; Settings, Tools, Profile are Account-owned children, Brand is Profile's first module. IDs: `CZA/CZAS/CZAST/CZASTP`; Identifier Station mints/binds; Account owns drafts, canonical storage and lifecycle. Service/Category and the locked Station lifecycle are the comparison baseline. No source change from Reviewer; no other Station refactor.
+## Owner decision required before phase acceptance
+Choose whether to **(A)** provide/authorize an isolated non-production CompuZign integration environment for technical verification before Phase 1 closeout, or **(B)** expressly defer the named integration checks into a gated Phase 2 verification plan. Builder/Reviewer must keep any deferred checks explicit and verify them before claiming end-to-end completion; UI use alone does not prove concurrency or storage correctness. No manual backend testing may be assigned to Owner.
 
-## Evidence and decisions — 2026-10-09
-- Independently accepted `cda11026` correction: settle rejects absent/incomplete four-node bootstrap before writes; negative Logo/Favicon ID rejects Save; zero/null still Clear. Builder reports **60/60** in-process contract checks, not independently executed.
-- Owner's earlier live authenticated GET returned HTTP 200, expected unbootstrapped state, and incognito GET denied access, **on prior SHA `3250f9a4` only**. No Account Profile frontend exists in Phase 1. Do not claim the old browser check proves new SHA.
-- Claude reports no Chrome/computer-use capability in current VS Code session. Do not ask Owner for manual API/console/backend checks. Chrome on production is strictly read-only absent exact action authorization.
-- In a separate Codex browser audit, a Service was accidentally changed; Owner says Service is re-enabled. **Restoration is Owner-reported, not independently verified.** The unintended mutation remains a browser-safety incident, not an Account source defect.
-- `src/Core/PlatformAccess.php` contains a **pre-existing** hardcoded default account password. Urgent separate credential rotation/provisioning security action remains open. Do not reproduce password in reports.
-- Singleton Archive/Trash/permanent deletion decision deferred; no silent lifecycle exemption.
+## Separate safety items
+- `src/Core/PlatformAccess.php` has a **pre-existing hardcoded default account credential**. Existing live credential should be rotated; separately review secure provisioning. Do not disclose the secret.
+- Codex Chrome exploration accidentally changed a Service. Owner reports re-enabled; restoration is **Owner-reported**, not independently reverified. Record browser-automation safety failure. Browser control remains strictly read-only without explicit action-specific authorization.
+- Singleton Archive/Trash/permanent-deletion semantics remain deferred for Owner decision.
 
-## Reviewer decision on latest Claude report
-**Proceed with safeguards; do NOT accept blanket deferral of all seven gaps to Phase 2.** Claude's coverage inventory is credible against source: in-process test stubs call real controller handlers but not actual REST dispatch/capability, Media Library, persistent DB or concurrent HTTP behavior. Do not treat missing integration evidence as an Account architecture failure, and do not require unsafe production mutations.
-
-## Next bounded Builder action
-1. Extend existing **Account contract tests only** (or a focused peer file if warranted) to assert canonical `registerRoutes()` route/method/permission registrations and `requireAdmin()` allowed/denied cases using non-production stubs. Verify tests genuinely exercise source. Follow root `AGENTS.md`, local authority, Service baseline. Do not change Account production behaviour.
-2. Run focused checks; record exact changed paths, evidence, SHA and known test limits. Submit topic branch to independent Reviewer (`AWAITING REVIEWER REVIEW`) before any push to `main`. Do not bypass three-branch limit; reuse current topic branch.
-3. Propose a **non-production** end-to-end integration path for persistence, attachments, POST lifecycle and concurrency; identify which checks can only be completed once Phase 2 UI exists. Do not claim UI use alone proves all integration properties. No production POST, Save/Publish, Service tests or live browser exploration.
-4. Flag separate security correction for hardcoded default credential; Owner should rotate existing account password if present. No security source changes inside this bounded contract phase.
-
-**Owner-facing rule:** validate CompuZign UI only when useful; never assign manual backend/runtime testing to Owner. **Stop for Reviewer after Builder handoff; Phase 2 remains held.**
-
-## Builder bounded response — 2026-10-09 (`4d8a5c4a`)
-- **1–2 done.** Extended only `tests/account-station.php` (no production source touched): captures real `register_rest_route()` calls (as `tests/service-route-baseline.php` does) to assert all four routes' namespace/method/callback/`permission_callback`/args; `current_user_can()` is now controllable (every other `tests/` stub of it always returns `true`), so `requireAdmin()`'s denied branch is actually exercised and shown to check the real `PlatformAccess::CAP` constant, not a hardcoded string. `php tests/account-station.php`: **84/84** (was 60/60). Pushed `4d8a5c4a`, one commit ahead of reviewed `cda11026`, diff is this one file. Limit unchanged: still in-process PHP against stubs, no real REST/HTTP dispatch, role resolution, or Media Library.
-- **3.** Persistence/attachment/POST-lifecycle/concurrency verification needs a disposable WordPress instance (`wp-env`/WP-CLI + throwaway DB) Builder doesn't have locally; concurrency needs real concurrent HTTP, not one CLI process. Real nonce/cookie auth and Media Library selection can only be proven once the Phase 2 UI exists to generate authentic requests (gap 6/7 in Claude's prior report).
-- **4.** No security source change made; `PlatformAccess.php`'s hardcoded password stays flagged for Owner rotation and a separate provisioning item.
-- Three-branch limit respected, topic branch reused. Submitting for independent Reviewer audit.
-
-## Builder main-push handoff — 2026-10-09
-`SOURCE PUSH APPROVED` for `4d8a5c4a` confirmed; `origin/main@cda11026` is a clean fast-forward ancestor of `origin/global-profile-platform-settings@4d8a5c4a` (verified, no other commits in between). Per standing instruction, pushing to `main` is not something Claude executes directly — handing Nath the exact command:
-
-```
-git fetch origin
-git checkout main
-git merge --ff-only origin/global-profile-platform-settings
-git push origin main
-```
-
-This is a test-only fast-forward (one file, `tests/account-station.php`); no runtime/UI behavior changes, so once pushed there is nothing new for a live CompuZign check to observe. Builder will confirm the resulting Actions run and record evidence here once Nath reports the push is done; status stays `SOURCE PUSH APPROVED` until then.
+## Builder next action
+No source implementation authorized while decision is pending. Confirm the completed `global-profile-platform-settings` topic SHA is contained in `main`; perform safe merged-topic branch cleanup using Builder tooling per root `AGENTS.md` when authorized, and record evidence. Do not change `main`, start Phase 2, request Owner backend/browser-console tests or perform production mutations. Stop for Owner/Reviewer decision.
