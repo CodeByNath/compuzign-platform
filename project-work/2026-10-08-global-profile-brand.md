@@ -1,7 +1,14 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — amended Phase 2 slice plan below corrects both flagged boundary issues. No source edits, no new branch.**
+**READY FOR BUILDER — Reviewer approved the amended Phase 2 initial UI slice. Builder may create the one topic branch and implement only that slice.**
+
+## Reviewer approval — 2026-10-10
+**Verdict: Proceed with safeguards.** Independent source audit confirms the amended plan matches current authority: Service owns its frontend state/drawer/registration; Admin owns presentation placement only; Station Manager remains coordinator-only; and the locked lifecycle is Overview Save → persisted Pending identity handoff → Publish settles then activates. The Account singleton adaptation is acceptable because it preserves one mounted drawer and seeds the authoritative fixed identity returned by first Save rather than inventing a second lifecycle.
+
+**Approved implementation slice only:** Account-owned `resources/ts/account-station/` registration/contracts/hook/drawer Brand editor; one Admin presentation-policy placement binding; bundle-entry registration before Station Manager finalization; GET/Profile/Status plus Save and Publish orchestration through existing Phase 1 endpoints. No user-facing Settle action, no About/Locations/Contact/Social, no new backend schema/route/storage/identity mechanism, no production mutation.
+
+**Required checkpoint before promotion:** mounted/source tests must prove no cross-boundary domain ownership leakage, first-Save no-remount identity continuity, Pending dim→Pending full after Save, exactly one canonical record footer and one Publish action, and Publish internally performs settle→activate. Keep the six locked Phase 2 final-acceptance gates deferred but mandatory.
 
 ## Reviewer cycle — 2026-10-10
 **Verdict: Proceed with safeguards.** Independently checked remote branches: only `main` and `Project-work-instructions` remain; `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1`. Accept Phase 1 branch closeout. Compared Phase 2 proposal against `docs/code-map/account-station.md`, Service/Admin Code Maps and locked `StationDrawerLifecycleContract-v1.md`. The proposed capability is valid, but implementation boundaries need correction:
@@ -52,4 +59,4 @@ Account is a peer Station, owning Settings → Tools → Profile/Brand; Identifi
 Codex interactive-browser audit inadvertently changed Service state; Owner reports it restored. Preserve the **browser automation safety incident**; default to read-only and never treat Chrome permission as permission to Save/Publish/Disable. Claude's VS Code browser capability is unavailable. Do not ask Owner for manual API, console, or backend tests.
 
 ## Next Builder action
-Topic-branch closeout is recorded above and done. The amended Phase 2 slice plan above is submitted for Reviewer review. No source edits, new branch, or implementation until Reviewer approves. Stop here for Reviewer.
+Create/reuse the single allowed topic branch from current `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1`. Implement only the approved Phase 2 initial UI slice and its focused mounted/source tests. Update affected Code Maps/local instructions where responsibility changes. Push only the topic branch, record exact remote SHA plus verification evidence here, set `AWAITING REVIEWER REVIEW`, and stop. Do not move to `main`, deploy, mutate production, or begin deferred Profile sections.
