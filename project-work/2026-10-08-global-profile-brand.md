@@ -3,18 +3,21 @@
 ## Status
 **AWAITING LIVE VALIDATION — Phase 1 safeguard correction deployed.** Production `main` = `cda11026dbbff0574fef3b8c620f7e1cec842ee6` (exact reviewer-approved candidate, fast-forward from `3250f9a4`). No Phase 2 UI authorised.
 
+## Owner correction — validation handoff boundary (2026-10-09)
+Nath explicitly disallows further requests for "WordPress testing" or manual backend/REST/console validation. Both Builder and Reviewer must follow `project-work/AGENTS.md` Owner validation boundary. Previous requests for repeat authenticated GET/incognito checks, or Owner decisions framed around real-WP mutation tests, are **superseded**. Technical API/storage/authorization/lifecycle verification stays Builder-owned with independent Reviewer audit; it is not removed. No further owner testing until a real CompuZign Profile UI is ready, at which point request only visible platform UI behaviors. This instruction does **not** by itself approve deferring required technical verification or authorize Phase 2.
+
 ## Builder deployment handoff — 2026-10-09
 - Pushed exact approved SHA `cda11026` to `main` (fast-forward `3250f9a4..cda11026`); no other source change. Topic branch still at the same SHA.
 - Actions **Deploy to Hostinger** run [37890270052](https://github.com/CodeByNath/compuzign-platform/actions/runs/37890270052): `success`, headSha `cda11026dbbff0574fef3b8c620f7e1cec842ee6`, completed 2026-10-09T05:48:08Z.
 - Builder has no live browser access; nothing below was verified live by Builder.
 
-**Live-validation request for Nath (read-only, on new SHA `cda11026`):**
+**SUPERSEDED: historical live-validation request (do not ask Nath to perform):**
 1. Signed in as the platform admin, open `/wp-json/compuzign/v1/admin/account-station` → expect 200 with the same pre-bootstrap shape as before (no new errors).
 2. Signed out / private window, same URL → expect 401/403 denial.
 3. Do **not** POST to `/profile`, `/profile/settle` or `/status` on production.
 
 **Owner decisions outstanding (not Builder-actionable):**
-- Approve or reject deferring real-WP mutating lifecycle tests (settle/Publish/Disable/Enable, attachment acceptance) to Phase 2 live validation.
+- Technical agents must determine and document safe CompuZign lifecycle/integration verification; any remaining technical-evidence gate is not a manual task for Nath.
 - Rotate the existing `accountmanager` live credential; approve opening a separate bounded work item for `PlatformAccess.php` secure provisioning (`wp_generate_password()`).
 - Singleton Archive/Trash decision remains deferred.
 
