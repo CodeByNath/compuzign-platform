@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 $__wpOptions  = [];
 $__attachments = [2101 => true]; // a fake real image attachment id for resolveAttachmentId checks.
+$__capturedRoutes = [];
+$__currentUserCanResult = true;
+$__lastCapabilityChecked = null;
 
 if (!function_exists('add_option')) {
     function add_option(string $key, mixed $value, string $deprecated = '', string|bool $autoload = 'yes'): bool
@@ -53,6 +56,27 @@ if (!function_exists('rest_ensure_response')) {
         return $value instanceof WP_REST_Response ? $value : new WP_REST_Response($value, 200);
     }
 }
+if (!function_exists('register_rest_route')) {
+    // Records the real registration call instead of registering it, in the
+    // same style as tests/service-route-baseline.php's route capture.
+    function register_rest_route(string $namespace, string $route, array $args = [], bool $override = false): bool
+    {
+        global $__capturedRoutes;
+        $__capturedRoutes[] = ['namespace' => $namespace, 'route' => $route, 'args' => $args];
+        return true;
+    }
+}
+if (!function_exists('current_user_can')) {
+    // Controllable both ways via $__currentUserCanResult — unlike every other
+    // stub of this function in tests/, which always returns true and so can
+    // only prove the allowed case, never the denied one.
+    function current_user_can(string $capability): bool
+    {
+        global $__currentUserCanResult, $__lastCapabilityChecked;
+        $__lastCapabilityChecked = $capability;
+        return $__currentUserCanResult;
+    }
+}
 if (!class_exists('WP_REST_Request')) {
     class WP_REST_Request
     {
@@ -72,9 +96,11 @@ if (!class_exists('WP_REST_Response')) {
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use CompuZign\Platform\Core\PlatformAccess;
 use CompuZign\Platform\Modules\Account\Http\AccountController;
 use CompuZign\Platform\Modules\Account\Support\AccountIdentity;
 use CompuZign\Platform\Modules\Account\Support\AccountRepository;
+use CompuZign\Platform\Modules\Account\Support\AccountSchema;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
@@ -318,5 +344,67 @@ $controller->updateStatus(new WP_REST_Request(['action' => 'enable']));
 $enabled = $repository->readLifecycle();
 checkAccount($enabled['platform_status'] === 'disabled', 'Enable lands in unmasked disabled (Pending), never straight to active');
 checkAccount($enabled['previous_platform_status'] === '', 'Enable clears the mask');
+
+// ── registerRoutes(): canonical path/method/callback/permission contract ──
+// Proves the real registration call, not a reimplementation of it — same
+// register_rest_route() capture technique as tests/service-route-baseline.php.
+function accountFindRoute(array $captured, string $route): array
+{
+    foreach ($captured as $entry) {
+        if ($entry['route'] === $route) {
+            return $entry;
+        }
+    }
+    fwrite(STDERR, "FAIL: no captured route for {$route}\n");
+    exit(1);
+}
+
+function accountCallbackName(mixed $callback): string
+{
+    return is_array($callback) && count($callback) === 2 ? (string) $callback[1] : '<unknown>';
+}
+
+$__capturedRoutes = [];
+(new AccountController(new PlatformIdentifierStation()))->registerRoutes();
+checkAccount(count($__capturedRoutes) === 4, 'registerRoutes() registers exactly the four Account Station routes');
+
+foreach ($__capturedRoutes as $entry) {
+    checkAccount($entry['namespace'] === 'compuzign/v1', "{$entry['route']} registers under the compuzign/v1 namespace");
+    checkAccount(accountCallbackName($entry['args']['permission_callback'] ?? null) === 'requireAdmin', "{$entry['route']} gates on requireAdmin(), never an open or ad-hoc permission callback");
+}
+
+$detailRoute = accountFindRoute($__capturedRoutes, '/admin/account-station');
+checkAccount($detailRoute['args']['methods'] === 'GET', 'the detail route is GET-only');
+checkAccount(accountCallbackName($detailRoute['args']['callback']) === 'fetchDetail', 'the detail route calls fetchDetail');
+checkAccount(empty($detailRoute['args']['args']), 'the detail route defines no request args — it is strictly read-only');
+
+$profileRoute = accountFindRoute($__capturedRoutes, '/admin/account-station/profile');
+checkAccount($profileRoute['args']['methods'] === 'POST', 'the profile route is POST-only');
+checkAccount(accountCallbackName($profileRoute['args']['callback']) === 'saveProfile', 'the profile route calls saveProfile');
+checkAccount(array_keys($profileRoute['args']['args']) === array_keys(AccountSchema::brandArgs()), 'the profile route wires exactly AccountSchema::brandArgs()');
+
+$settleRoute = accountFindRoute($__capturedRoutes, '/admin/account-station/profile/settle');
+checkAccount($settleRoute['args']['methods'] === 'POST', 'the settle route is POST-only');
+checkAccount(accountCallbackName($settleRoute['args']['callback']) === 'settleProfile', 'the settle route calls settleProfile');
+checkAccount(empty($settleRoute['args']['args']), 'the settle route takes no body args — bootstrap state alone decides the outcome');
+
+$statusRoute = accountFindRoute($__capturedRoutes, '/admin/account-station/status');
+checkAccount($statusRoute['args']['methods'] === 'POST', 'the status route is POST-only');
+checkAccount(accountCallbackName($statusRoute['args']['callback']) === 'updateStatus', 'the status route calls updateStatus');
+checkAccount(array_keys($statusRoute['args']['args']) === array_keys(AccountSchema::statusArgs()), 'the status route wires exactly AccountSchema::statusArgs()');
+
+// ── requireAdmin(): defers to current_user_can(PlatformAccess::CAP), both ways ─
+// Every other current_user_can() stub in tests/ always returns true, so it can
+// only prove the allowed case. $__currentUserCanResult is controllable, so this
+// proves the denied case too, and that the exact CAP constant is what gets
+// checked (not a hardcoded capability string that would silently drift from it).
+$permissionController = new AccountController(new PlatformIdentifierStation());
+
+$__currentUserCanResult = true;
+checkAccount($permissionController->requireAdmin() === true, 'requireAdmin() allows a user who holds the platform capability');
+checkAccount($__lastCapabilityChecked === PlatformAccess::CAP, 'requireAdmin() checks the real PlatformAccess::CAP constant, not a hardcoded string');
+
+$__currentUserCanResult = false;
+checkAccount($permissionController->requireAdmin() === false, 'requireAdmin() denies a user who lacks the platform capability');
 
 echo "Account Station contract: PASS\n";
