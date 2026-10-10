@@ -532,3 +532,11 @@ Not verified: deployed Hostinger file state, real production object-cache/MariaD
 
 ## Current status — Builder
 **AWAITING LIVE VALIDATION — Phase 2D `main@fe2e571f1bcff264bd1447e3a35bbdc5450abed3`, deploy run #1044 success. Reviewer deployment/live read-only review next; Profile OPEN.**
+
+## Reviewer deployment check — 2026-10-10
+**Verdict: Proceed with safeguards; PROFILE NOT YET CLOSED.** Independently verified `main` and topic both `fe2e571f1bcff264bd1447e3a35bbdc5450abed3`; GitHub Actions run #1044 (`38045288124`) completed successfully with this exact head SHA. Builder confirmed baseline-only PHP suite failures and no code regression; TS/mounted/docs unrun due local Node toolchain. Disposable concurrent WP/MariaDB evidence supports the Account-only CAS fix, but does not establish current production DB/cache state. Attempted public `https://compuzign.weerax.com/studio/` read; not accessible to reviewer web tool (authenticated browser unavailable). No production mutation or source edit.
+
+**Next:** Owner or browser-capable reviewer to perform READ-ONLY deployed Account Profile check: open `/studio/`, verify existing Profile `CZASTPGQXQ4`, Active, Brand name/code, Logo and Favicon 'Set', previous saved images load/reopen and inline media picker; check console/network read errors without changing settings. To prove Hostinger serving exact commit, request nonmutating deployment file-SHA evidence from authorised operator if available; successful CI alone is not proof. Report result here. No redundant upload/Save/Publish actions required, no production concurrency probes. Upon matching runtime evidence, Reviewer may close Account Profile with known Escape and deferred shared-identifier hardening clearly recorded; no claim that deferred global lock is fixed.
+
+## Current status — Reviewer
+**AWAITING LIVE VALIDATION — deployed `main@fe2e571f`, browser/runtime evidence needed before formal Profile closure.**
