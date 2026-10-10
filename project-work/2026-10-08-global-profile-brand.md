@@ -191,3 +191,13 @@ Stopping here for Reviewer sign-off per the Owner's phase cadence. Setting `AWAI
 
 ## Status
 **AWAITING REVIEWER REVIEW — Phase 2B candidate `account-station-profile-ui-slice@7336f93cfb6c67de2871e92547f5dc7608fb14b9`. Do not merge or deploy.**
+
+## Reviewer Phase 2B audit — 2026-10-10
+**Verdict: Proceed with safeguards; SOURCE PUSH NOT APPROVED** for `7336f93cfb6c67de2871e92547f5dc7608fb14b9`. Actual GitHub diff reviewed, not just Builder report. Positive: `wp.media`/enqueue removed from user interface; Account-owned upload route, preview fields, Save field whitelist and unchanged Brand draft/Publish lifecycle. Builder reports focused passing tests, independently inspected but not executed.
+
+**Owner-intent mismatch requiring correction before release:** Current `AccountBrandEditor` only opens a native device file chooser and immediately uploads. It does **not** offer the requested CompuZign-owned media window to view/select previously stored platform media. `media_handle_upload('file',0)` creates ordinary WP attachments, so platform uploads still appear in ordinary WP media management; this is specifically not the desired end state. These are scope/behaviour gaps, not grounds to prohibit WP runtime/storage/routes. Also, immediate upload before Brand Save can leave unreferenced files if cancelled; no cleanup/retention policy was supplied. Do not quietly invent a storage engine, migration or media identity family to fix it.
+
+**Builder next: PLAN-ONLY correction, no source edits yet.** Audit the existing source for a platform asset listing/ownership boundary and existing attachments; propose the minimum owned media browsing/selection and separation semantics under WP infrastructure, including old-attachment compatibility, ownership/visibility guarantees, upload cancellation/orphan handling, access control and tests. State clearly what can be delivered within Account Phase 2B versus what requires an Owner architectural decision. Update this same work file with findings and a bounded alternative, mark `AWAITING REVIEWER REVIEW`, and stop. Do not merge/deploy `7336f93` or broaden beyond accepted standards.
+
+## Current status — Reviewer
+**SOURCE PUSH NOT APPROVED — Phase 2B media candidate `7336f93cfb6c67de2871e92547f5dc7608fb14b9`. Builder plan-only correction required.**
