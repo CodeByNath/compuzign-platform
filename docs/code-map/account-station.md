@@ -6,8 +6,7 @@ permanent singleton tree — **Account Station → Settings → Tools → Profil
 — and Profile's first section, **Brand**. Settings, Tools, and Profile are
 Account-owned child records, never separate peer Stations.
 
-Account Station does not own WordPress users, authentication, or any
-unrelated business record.
+Account Station does not own WordPress users, authentication, or unrelated records.
 
 ## Identity
 
@@ -27,7 +26,7 @@ fixed string, not a record id. `Support/AccountIdentity::bootstrap()`
 reserves/binds all four in parent order on the first authenticated Save; a
 repeated or interrupted call resumes idempotently through `ensure()` rather
 than minting a second identity. A losing concurrent first-Save leaves only a
-harmless unused reservation (reservations are never reused) and must retry.
+harmless unused reservation and must retry.
 
 ## Storage
 
@@ -56,11 +55,9 @@ never-bootstrapped install — unlike Service, whose id must exist before its
 the Profile leaf.
 
 **Archive/Trash/permanent-delete are not implemented.** A singleton that can
-never not-exist has no second instance to restore into and no state to
-return to after deletion — Platform Identifier Station's own reservations
-and tombstones are never deleted or reused, so there is no legal destination
-for a travel action here. Flagged per the Owner's own stated carve-out
-rather than silently extending or narrowing the locked contract.
+never not-exist has no instance to restore into, and Platform Identifier
+Station's reservations are never deleted or reused, so a travel action has
+no legal destination. Flagged per the Owner's stated carve-out.
 
 ## Frontend
 
@@ -79,10 +76,11 @@ an already-active re-Publish settles only, since `/status` 422s on an
 already-active record. No Archive/Trash/Restore/Delete, matching the
 carve-out above.
 
-**Logo/Favicon (Phase 2B):** a platform-owned picker uploads and previews
-the result, replacing the WordPress Media Library dialog; the id persists
-only via an ordinary Save. An existing attachment previews from
-`logo_url`/`favicon_url` — read-only, server-resolved.
+**Logo/Favicon (Phase 2B):** an inline picker in the Brand editor — Upload
+new, Choose existing (one shared, lazily fetched list), Clear — replaces the
+WordPress Media Library dialog. Choosing an image sets `*_media_id` and drops
+a legacy attachment id; the reference persists only via an ordinary Save.
+Previews use read-only `logo_url`/`favicon_url`.
 
 ## Backend
 
@@ -90,21 +88,22 @@ only via an ordinary Save. An existing attachment previews from
   shared `PlatformIdentifierStation` from `Core\Plugin`.
 - `Http/AccountController.php` — `GET /admin/account-station` (read-only),
   `POST /admin/account-station/profile` (Save), `.../profile/settle`,
-  `.../profile/media` (binds a WordPress attachment, returns its id/url,
-  never writes Brand state), `.../status` (Publish/Disable/Enable). All
-  five gated by the existing `requireAdmin` →
-  `current_user_can(PlatformAccess::CAP)` pattern, same as
-  `ServiceController`.
+  `.../profile/media` (POST upload, GET `.../media/library` list — neither
+  writes Brand state), `.../status` (Publish/Disable/Enable). All six gated
+  by the existing `requireAdmin` → `current_user_can(PlatformAccess::CAP)`
+  pattern, same as `ServiceController`.
 - `Support/AccountSchema.php` — Brand field shape/sanitization; a negative
-  or non-image attachment id fails the whole Save closed.
-  `ALLOWED_BRAND_MIME_TYPES`/`MAX_BRAND_MEDIA_BYTES` gate the upload route;
-  `presentBrand()` adds read-only `logo_url`/`favicon_url` to every
-  emitted Brand/draft shape — never stored or a Save input.
+  or non-image attachment id, or an unknown media key, fails the whole Save
+  closed. `presentBrand()` adds read-only `logo_url`/`favicon_url`.
+- `Support/AccountMedia.php` — stores/lists/resolves the images: type
+  sniffed from bytes (JPEG/PNG/GIF/WebP, 5 MB), hash-named, idempotent on
+  identical bytes. Abandoned uploads stay listed and selectable; none are
+  deleted.
 - `Support/AccountIdentity.php` — the four-node bootstrap chain.
 - `Support/AccountRepository.php` — the one aggregate option.
 - `tests/account-station.php` — bootstrap/draft/lifecycle contracts plus
-  `uploadBrandMedia()`'s rejection/success paths and `presentBrand()`'s
-  resolved URLs, against the real controller.
+  the upload/list/reference paths against real files, via the real
+  controller.
 
 ## Related Code Maps
 

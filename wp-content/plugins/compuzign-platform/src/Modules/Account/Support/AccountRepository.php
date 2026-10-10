@@ -13,6 +13,7 @@ namespace CompuZign\Platform\Modules\Account\Support;
  * FILE INDEX
  *   SECTION: NODES — the four identity-bearing singleton records
  *   SECTION: BRAND — canonical and draft field storage
+ *   SECTION: MEDIA — metadata for Account-owned Logo/Favicon image files
  *   SECTION: LIFECYCLE — platform_status / module_status
  *   SECTION: INTERNALS — option read/write and defaults
  */
@@ -63,13 +64,13 @@ final class AccountRepository
     // SECTION: BRAND
     // =====================================================================
 
-    /** @return array{name: string, code: string, logo_attachment_id: ?int, favicon_attachment_id: ?int} */
+    /** @return array{name: string, code: string, logo_attachment_id: ?int, favicon_attachment_id: ?int, logo_media_id: ?string, favicon_media_id: ?string} */
     public function readBrand(): array
     {
         return $this->read()['brand'];
     }
 
-    /** @return ?array{name: string, code: string, logo_attachment_id: ?int, favicon_attachment_id: ?int} */
+    /** @return ?array{name: string, code: string, logo_attachment_id: ?int, favicon_attachment_id: ?int, logo_media_id: ?string, favicon_media_id: ?string} */
     public function readBrandDraft(): ?array
     {
         return $this->read()['brand_draft'];
@@ -87,12 +88,31 @@ final class AccountRepository
     {
         $state = $this->read();
         if ($state['brand_draft'] !== null) {
-            $state['brand']       = $state['brand_draft'];
+            // A draft saved before the media-reference fields existed lacks those keys;
+            // fill them from the defaults so canonical Brand always carries the full shape.
+            $state['brand']       = array_replace($this->defaults()['brand'], $state['brand_draft']);
             $state['brand_draft'] = null;
             $this->write($state);
         }
 
         return $state['brand'];
+    }
+
+    // =====================================================================
+    // SECTION: MEDIA
+    // =====================================================================
+
+    /** @return array<string, array{file: string, name: string, mime: string, size: int, uploaded_at: int}> keyed by content hash */
+    public function readMedia(): array
+    {
+        return $this->read()['media'];
+    }
+
+    public function writeMediaRecord(string $id, array $record): void
+    {
+        $state                = $this->read();
+        $state['media'][$id]  = $record;
+        $this->write($state);
     }
 
     // =====================================================================
@@ -159,7 +179,12 @@ final class AccountRepository
         return [
             'version' => self::VERSION,
             'nodes'   => array_fill_keys(array_keys(self::NODES), $emptyNode),
-            'brand'   => ['name' => '', 'code' => '', 'logo_attachment_id' => null, 'favicon_attachment_id' => null],
+            'brand'   => [
+                'name' => '', 'code' => '',
+                'logo_attachment_id' => null, 'favicon_attachment_id' => null,
+                'logo_media_id' => null, 'favicon_media_id' => null,
+            ],
+            'media'   => [],
             'brand_draft'               => null,
             'platform_status'          => 'disabled',
             'previous_platform_status' => '',

@@ -27,6 +27,8 @@ final class AccountSchema
             'code'                   => ['required' => false, 'type' => 'string'],
             'logo_attachment_id'     => ['required' => false, 'type' => ['integer', 'null']],
             'favicon_attachment_id'  => ['required' => false, 'type' => ['integer', 'null']],
+            'logo_media_id'          => ['required' => false, 'type' => ['string', 'null']],
+            'favicon_media_id'       => ['required' => false, 'type' => ['string', 'null']],
         ];
     }
 
@@ -80,6 +82,20 @@ final class AccountSchema
         return wp_attachment_is_image($id) ? $id : false;
     }
 
+    /**
+     * null/empty is a valid Clear. Anything else must be a well-formed key of
+     * an image Account Station itself stored, or the whole Save fails closed
+     * (`false`) — a mistyped or foreign key never silently becomes a Clear.
+     */
+    public static function resolveMediaId(mixed $id, AccountMedia $media): string|false|null
+    {
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        return $media->exists($id) ? (string) $id : false;
+    }
+
     /** Brand has no required field — blanks are explicitly valid, so it is always settleable. */
     public static function isBrandComplete(): bool
     {
@@ -100,18 +116,23 @@ final class AccountSchema
 
     /**
      * Adds read-only `logo_url`/`favicon_url` presentation fields alongside the
-     * authoritative attachment ids, for every Brand shape the controller emits
-     * (canonical, draft). The picker UI needs a URL to preview an attachment it
-     * did not just upload itself in this session; the ids remain the only
-     * fields a Save payload ever writes back.
+     * authoritative references, for every Brand shape the controller emits
+     * (canonical, draft). An Account-owned image resolves first; a legacy
+     * WordPress attachment id still resolves for a Brand saved before Account
+     * owned its media. The picker UI needs a URL to preview an image it did
+     * not just upload itself in this session; the ids remain the only fields
+     * a Save payload ever writes back.
      *
-     * @param array{name: string, code: string, logo_attachment_id: ?int, favicon_attachment_id: ?int} $brand
+     * @param array{name: string, code: string, logo_attachment_id: ?int, favicon_attachment_id: ?int, logo_media_id: ?string, favicon_media_id: ?string} $brand
      */
-    public static function presentBrand(array $brand): array
+    public static function presentBrand(array $brand, AccountMedia $media): array
     {
+        // A draft stored before the media-reference fields existed lacks those keys.
+        $brand += ['logo_media_id' => null, 'favicon_media_id' => null];
+
         return $brand + [
-            'logo_url'    => self::resolveAttachmentUrl($brand['logo_attachment_id']),
-            'favicon_url' => self::resolveAttachmentUrl($brand['favicon_attachment_id']),
+            'logo_url'    => $media->urlFor($brand['logo_media_id']) ?? self::resolveAttachmentUrl($brand['logo_attachment_id']),
+            'favicon_url' => $media->urlFor($brand['favicon_media_id']) ?? self::resolveAttachmentUrl($brand['favicon_attachment_id']),
         ];
     }
 }

@@ -29,11 +29,16 @@ export type AccountNodes = Record<AccountNodeKey, AccountNode>;
 export interface AccountBrand {
   name: string;
   code: string;
+  // Legacy WordPress attachment references: read-only compatibility for a
+  // Brand saved before Account owned its media. Never newly set by the UI.
   logo_attachment_id: number | null;
   favicon_attachment_id: number | null;
+  // Account-owned image references (a storage key from AccountMediaItem.id).
+  logo_media_id: string | null;
+  favicon_media_id: string | null;
   // Read-only, server-resolved presentation fields — never part of a Save
-  // payload. Lets the picker preview an attachment it did not just upload
-  // itself in this session (e.g. reopening the editor on a saved Logo).
+  // payload. Lets the picker preview an image it did not just upload itself
+  // in this session (e.g. reopening the editor on a saved Logo).
   logo_url: string | null;
   favicon_url: string | null;
 }
@@ -58,6 +63,8 @@ export interface AccountBrandPayload {
   code: string;
   logo_attachment_id: number | null;
   favicon_attachment_id: number | null;
+  logo_media_id: string | null;
+  favicon_media_id: string | null;
 }
 
 export interface AccountBrandSaveResponse {
@@ -73,12 +80,25 @@ export interface AccountBrandSettleResponse {
   module_status: AccountDetail['module_status'];
 }
 
-// ── Platform-owned Logo/Favicon upload: POST /admin/account-station/profile/media ──
+// ── Account-owned Logo/Favicon images: /admin/account-station/profile/media ──
+
+export interface AccountMediaItem {
+  id: string;
+  url: string;
+  name: string;
+  mime: string;
+  size: number;
+  uploaded_at: number;
+}
 
 export interface AccountMediaUploadResponse {
   success: boolean;
-  id: number;
-  url: string;
+  item: AccountMediaItem;
+}
+
+export interface AccountMediaLibraryResponse {
+  success: boolean;
+  items: AccountMediaItem[];
 }
 
 // ── LIFECYCLE: status ─────────────────────────────────────────────────────────

@@ -19,6 +19,8 @@ export interface AccountBrandShellData {
   code: string;
   logo_attachment_id: number | null;
   favicon_attachment_id: number | null;
+  logo_media_id: string | null;
+  favicon_media_id: string | null;
 }
 
 export const accountBrandShell: ShellSchema<AccountBrandShellData> = {
@@ -42,11 +44,11 @@ export const accountBrandShell: ShellSchema<AccountBrandShellData> = {
     { id: 'code', element: 'text', label: 'Brand Code', bind: (data): TextValue => ({ value: data.code, fallback: 'Not set' }) },
     {
       id: 'logo', element: 'text', label: 'Logo',
-      bind: (data): TextValue => ({ value: data.logo_attachment_id ? 'Set' : '', fallback: 'Not set' }),
+      bind: (data): TextValue => ({ value: data.logo_media_id || data.logo_attachment_id ? 'Set' : '', fallback: 'Not set' }),
     },
     {
       id: 'favicon', element: 'text', label: 'Favicon',
-      bind: (data): TextValue => ({ value: data.favicon_attachment_id ? 'Set' : '', fallback: 'Not set' }),
+      bind: (data): TextValue => ({ value: data.favicon_media_id || data.favicon_attachment_id ? 'Set' : '', fallback: 'Not set' }),
     },
   ],
   footer: { actions: ['edit'] },

@@ -38,6 +38,8 @@ export function useAccountDrawerController({ account, initialTab, initialEdit, b
     || draft.code !== original.code
     || draft.logo_attachment_id !== original.logo_attachment_id
     || draft.favicon_attachment_id !== original.favicon_attachment_id
+    || draft.logo_media_id !== original.logo_media_id
+    || draft.favicon_media_id !== original.favicon_media_id
   );
 
   const openBrandEditor = useCallback(() => {
@@ -49,6 +51,8 @@ export function useAccountDrawerController({ account, initialTab, initialEdit, b
       code: source.code,
       logo_attachment_id: source.logo_attachment_id,
       favicon_attachment_id: source.favicon_attachment_id,
+      logo_media_id: source.logo_media_id,
+      favicon_media_id: source.favicon_media_id,
       logo_url: source.logo_url,
       favicon_url: source.favicon_url,
     };
@@ -123,7 +127,7 @@ export function useAccountDrawerController({ account, initialTab, initialEdit, b
 
   // Draft-preferred: select the whole draft object first, exactly as
   // openBrandEditor does above, then read its fields. Picking each nullable
-  // attachment field individually (`drafts.brand?.logo_attachment_id ?? brand.logo_attachment_id`)
+  // image field individually (`drafts.brand?.logo_media_id ?? brand.logo_media_id`)
   // would fall an explicit Clear (null) straight back to the old canonical id,
   // since `??` only short-circuits on the WHOLE expression being nullish.
   const brandSource = station.detail.drafts.brand ?? station.detail.brand;
@@ -136,6 +140,8 @@ export function useAccountDrawerController({ account, initialTab, initialEdit, b
       code: brandSource.code,
       logo_attachment_id: brandSource.logo_attachment_id,
       favicon_attachment_id: brandSource.favicon_attachment_id,
+      logo_media_id: brandSource.logo_media_id,
+      favicon_media_id: brandSource.favicon_media_id,
     },
     state: station.modules.brand,
     hasDraft: station.hasDraft,

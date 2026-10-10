@@ -65,12 +65,13 @@ let saveCalls = 0;
 let settleCalls = 0;
 let statusCalls = 0;
 let mediaUploadCalls = 0;
-let nextUploadedAttachmentId = 5001;
+let nextUploadedImage = 1;
+const storedMedia = {}; // id -> item, mirroring AccountMedia's registered records.
 
 // Server-side truth, mirroring AccountRepository's own fields exactly.
 const server = {
   bootstrapped: false,
-  brand: { name: '', code: '', logo_attachment_id: null, favicon_attachment_id: null },
+  brand: { name: '', code: '', logo_attachment_id: null, favicon_attachment_id: null, logo_media_id: null, favicon_media_id: null },
   draft: null,
   platform_status: 'disabled',
   previous_platform_status: '',
@@ -94,10 +95,11 @@ function resolveAttachment(raw) {
 // Mirrors AccountSchema::presentBrand() — every brand/draft shape the real
 // backend emits carries these two read-only resolved URLs alongside the ids.
 function presentBrand(brand) {
+  const resolve = (mediaId, attachmentId) => (mediaId ? storedMedia[mediaId]?.url ?? null : attachmentId ? `https://cz-test.local/attachment-${attachmentId}.png` : null);
   return {
     ...brand,
-    logo_url: brand.logo_attachment_id ? `https://cz-test.local/attachment-${brand.logo_attachment_id}.png` : null,
-    favicon_url: brand.favicon_attachment_id ? `https://cz-test.local/attachment-${brand.favicon_attachment_id}.png` : null,
+    logo_url: resolve(brand.logo_media_id, brand.logo_attachment_id),
+    favicon_url: resolve(brand.favicon_media_id, brand.favicon_attachment_id),
   };
 }
 
@@ -120,9 +122,11 @@ globalThis.fetch = (url, init = {}) => {
   }
   if (path.endsWith('/admin/account-station/profile/media') && method === 'POST') {
     mediaUploadCalls += 1;
-    const id = nextUploadedAttachmentId;
-    nextUploadedAttachmentId += 1;
-    return jsonResponse({ success: true, id, url: `https://cz-test.local/attachment-${id}.png` });
+    const id = String(nextUploadedImage).padStart(64, 'a');
+    nextUploadedImage += 1;
+    const item = { id, url: `https://cz-test.local/wp-content/uploads/compuzign-account/${id}.png`, name: 'logo.png', mime: 'image/png', size: 10, uploaded_at: 1 };
+    storedMedia[id] = item;
+    return jsonResponse({ success: true, item });
   }
   if (path.endsWith('/admin/account-station/profile') && method === 'POST') {
     saveCalls += 1;
@@ -133,6 +137,8 @@ globalThis.fetch = (url, init = {}) => {
       code: payload.code ?? '',
       logo_attachment_id: resolveAttachment(payload.logo_attachment_id),
       favicon_attachment_id: resolveAttachment(payload.favicon_attachment_id),
+      logo_media_id: payload.logo_media_id ?? null,
+      favicon_media_id: payload.favicon_media_id ?? null,
     };
     server.module_status = { brand: 'pending' };
     // The corrected AccountController::saveProfile() response — same `nodes`
@@ -263,7 +269,7 @@ function fieldValue(fieldId) {
 }
 
 // Simulates picking a file on the nth hidden file input in document order
-// (Logo is first, Favicon second) — the platform-owned upload picker's one
+// (Logo is first, Favicon second) — the Account-owned upload picker's one
 // native dependency, replacing the old wp.media() dialog entirely.
 function pickFile(index, fileName = 'logo.png') {
   const input = container.querySelectorAll('input[type="file"]')[index];
@@ -314,7 +320,7 @@ clickButtonWithText('Edit');
 await sleep(20);
 check(
   'the Brand editor reopens seeded with the just-settled Logo preview, resolved from the backend-returned logo_url — no re-upload needed',
-  container.querySelector('img[alt="Logo"]')?.getAttribute('src') === 'https://cz-test.local/attachment-5001.png',
+  container.querySelector('img[alt="Logo"]')?.getAttribute('src') === `https://cz-test.local/wp-content/uploads/compuzign-account/${'1'.padStart(64, 'a')}.png`,
   container.querySelector('img[alt="Logo"]')?.getAttribute('src'),
 );
 clickButtonWithText('Clear'); // Logo — first Clear button in document order

@@ -1,16 +1,19 @@
-// Account Brand editor — Name, Code, and the Logo/Favicon pickers. Logo and
-// Favicon are uploaded through this one platform-owned picker: a hidden file
-// input immediately uploads through uploadAccountBrandMedia() and previews
-// the real returned image — never the WordPress Media Library admin dialog
-// (wp.media()). WordPress still owns storage/metadata underneath, through
-// AccountController::uploadBrandMedia()'s use of media_handle_upload(); see
-// AccountSchema::resolveAttachmentId for the Save-time validation this
-// deliberately leaves unchanged.
+// Account Brand editor — Name, Code, and the Logo/Favicon pickers. Each image
+// field is a platform-owned picker inside this one editor (no WordPress Media
+// Library dialog, no nested drawer): "Upload new" sends a file to Account
+// Station's own storage and selects the result; "Choose existing" opens an
+// inline list of images Account Station already stores. Clear empties the
+// field and keeps the stored file for reuse. The reference only persists via
+// an ordinary Save — see AccountController::uploadBrandMedia().
+//
+// A Brand saved before Account owned its media may still carry a legacy
+// WordPress attachment id: it keeps previewing (read-only compatibility) until
+// an Account image replaces it or it is Cleared.
 
 import { useRef, useState } from 'preact/hooks';
 import { AdminField } from '@/drawer-kit/fields';
-import { uploadAccountBrandMedia } from '../../api';
-import type { AccountBrandPayload } from '../../types';
+import { fetchAccountMediaLibrary, uploadAccountBrandMedia } from '../../api';
+import type { AccountBrandPayload, AccountMediaItem } from '../../types';
 
 export interface AccountBrandDraft extends AccountBrandPayload {
   logo_url: string | null;
@@ -24,20 +27,59 @@ interface Props {
 
 const ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
+/** The one library of already-stored images, shared by both fields and fetched on first use. */
+interface Library {
+  items: AccountMediaItem[] | null;
+  loading: boolean;
+  error: string | null;
+  load: () => void;
+  add: (item: AccountMediaItem) => void;
+}
+
+function useLibrary(): Library {
+  const [items, setItems] = useState<AccountMediaItem[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    if (items !== null || loading) return;
+    setLoading(true);
+    setError(null);
+    fetchAccountMediaLibrary()
+      .then((response) => {
+        if (!response.success) throw new Error('Could not load your images.');
+        setItems(response.items);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load your images.'))
+      .finally(() => setLoading(false));
+  };
+
+  // A fresh upload joins the list at the top, replacing any same-id entry (identical bytes re-uploaded).
+  const add = (item: AccountMediaItem) =>
+    setItems((current) => (current === null ? current : [item, ...current.filter((existing) => existing.id !== item.id)]));
+
+  return { items, loading, error, load, add };
+}
+
 interface MediaPickerFieldProps {
   label: string;
-  attachmentId: number | null;
+  mediaId: string | null;
+  legacyAttachmentId: number | null;
   url: string | null;
-  onUploaded: (id: number, url: string) => void;
+  library: Library;
+  onSelect: (item: AccountMediaItem) => void;
   onClear: () => void;
 }
 
-function MediaPickerField({ label, attachmentId, url, onUploaded, onClear }: MediaPickerFieldProps) {
+function MediaPickerField({ label, mediaId, legacyAttachmentId, url, library, onSelect, onClear }: MediaPickerFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [browsing, setBrowsing] = useState(false);
 
-  const pickFile = (file: File) => {
+  const hasValue = mediaId !== null || legacyAttachmentId !== null;
+
+  const uploadFile = (file: File) => {
     if (!ACCEPTED_MIME_TYPES.includes(file.type)) {
       setError('Must be a JPEG, PNG, GIF, or WebP image.');
       return;
@@ -47,12 +89,17 @@ function MediaPickerField({ label, attachmentId, url, onUploaded, onClear }: Med
     uploadAccountBrandMedia(file)
       .then((response) => {
         if (!response.success) throw new Error('Could not upload the image.');
-        onUploaded(response.id, response.url);
+        library.add(response.item);
+        setBrowsing(false);
+        onSelect(response.item);
       })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Could not upload the image.');
-      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not upload the image.'))
       .finally(() => setUploading(false));
+  };
+
+  const toggleBrowsing = () => {
+    if (!browsing) library.load();
+    setBrowsing(!browsing);
   };
 
   return (
@@ -68,6 +115,11 @@ function MediaPickerField({ label, attachmentId, url, onUploaded, onClear }: Med
         ) : (
           <span>Not set</span>
         )}
+        {legacyAttachmentId !== null && mediaId === null && (
+          <div class="cz-tf-hint">
+            Saved before Account stored its own images. Upload or choose an image to replace it.
+          </div>
+        )}
         <input
           ref={inputRef}
           type="file"
@@ -76,7 +128,7 @@ function MediaPickerField({ label, attachmentId, url, onUploaded, onClear }: Med
           onChange={(e) => {
             const target = e.target as HTMLInputElement;
             const file = target.files?.[0];
-            if (file) pickFile(file);
+            if (file) uploadFile(file);
             target.value = '';
           }}
         />
@@ -87,20 +139,67 @@ function MediaPickerField({ label, attachmentId, url, onUploaded, onClear }: Med
           disabled={uploading}
           onClick={() => inputRef.current?.click()}
         >
-          {uploading ? 'Uploading…' : attachmentId ? 'Replace' : 'Pick'}
+          {uploading ? 'Uploading…' : 'Upload new'}
         </button>
-        {attachmentId !== null && (
+        <button
+          type="button"
+          class="cz-admin-btn cz-admin-btn--secondary"
+          aria-expanded={browsing}
+          disabled={uploading}
+          onClick={toggleBrowsing}
+        >
+          Choose existing
+        </button>
+        {hasValue && (
           <button type="button" class="cz-admin-btn cz-admin-btn--secondary" disabled={uploading} onClick={onClear}>
             Clear
           </button>
         )}
         {error && <div class="cz-tf-hint" role="alert">{error}</div>}
+        {browsing && (
+          <div
+            role="group"
+            aria-label={`${label} images`}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Escape') return;
+              // Closes this list only — never the surrounding drawer.
+              e.stopPropagation();
+              setBrowsing(false);
+            }}
+          >
+            {library.loading && <span>Loading…</span>}
+            {library.error && <span class="cz-tf-hint" role="alert">{library.error}</span>}
+            {library.items !== null && library.items.length === 0 && <span>No images uploaded yet.</span>}
+            {library.items?.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                class="cz-admin-btn cz-admin-btn--secondary"
+                aria-pressed={item.id === mediaId}
+                title={item.name}
+                onClick={() => {
+                  setBrowsing(false);
+                  onSelect(item);
+                }}
+              >
+                <img
+                  src={item.url}
+                  alt={item.name || 'Image'}
+                  style={{ display: 'block', width: '48px', height: '48px', objectFit: 'contain' }}
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 export function AccountBrandEditor({ draft, onChange }: Props) {
+  const library = useLibrary();
+
   return (
     <div class="cz-tf-form">
       <AdminField
@@ -117,18 +216,22 @@ export function AccountBrandEditor({ draft, onChange }: Props) {
 
       <MediaPickerField
         label="Logo"
-        attachmentId={draft.logo_attachment_id}
+        mediaId={draft.logo_media_id}
+        legacyAttachmentId={draft.logo_attachment_id}
         url={draft.logo_url}
-        onUploaded={(id, url) => onChange({ logo_attachment_id: id, logo_url: url })}
-        onClear={() => onChange({ logo_attachment_id: null, logo_url: null })}
+        library={library}
+        onSelect={(item) => onChange({ logo_media_id: item.id, logo_attachment_id: null, logo_url: item.url })}
+        onClear={() => onChange({ logo_media_id: null, logo_attachment_id: null, logo_url: null })}
       />
 
       <MediaPickerField
         label="Favicon"
-        attachmentId={draft.favicon_attachment_id}
+        mediaId={draft.favicon_media_id}
+        legacyAttachmentId={draft.favicon_attachment_id}
         url={draft.favicon_url}
-        onUploaded={(id, url) => onChange({ favicon_attachment_id: id, favicon_url: url })}
-        onClear={() => onChange({ favicon_attachment_id: null, favicon_url: null })}
+        library={library}
+        onSelect={(item) => onChange({ favicon_media_id: item.id, favicon_attachment_id: null, favicon_url: item.url })}
+        onClear={() => onChange({ favicon_media_id: null, favicon_attachment_id: null, favicon_url: null })}
       />
     </div>
   );

@@ -12,8 +12,8 @@ $__attachments = [2101 => true]; // a fake real image attachment id for resolveA
 $__capturedRoutes = [];
 $__currentUserCanResult = true;
 $__lastCapabilityChecked = null;
-$__nextAttachmentId = 3001; // media_handle_upload()'s stub bind counter, disjoint from $__attachments' fixture ids.
-$__mediaUploadResult = null; // one-shot override: assign a WP_Error to simulate a rejected upload.
+$__uploadsBase = sys_get_temp_dir() . '/cz-account-uploads-' . getmypid(); // real on-disk uploads root for AccountMedia.
+$__uploadsError = false; // set to a string to make wp_upload_dir() report an unusable uploads location.
 
 if (!function_exists('add_option')) {
     function add_option(string $key, mixed $value, string $deprecated = '', string|bool $autoload = 'yes'): bool
@@ -59,45 +59,15 @@ if (!function_exists('wp_get_attachment_url')) {
         return isset($__attachments[$id]) ? "https://cz-test.local/attachment-{$id}.png" : false;
     }
 }
-if (!function_exists('wp_check_filetype_and_ext')) {
-    // Derives type from the claimed filename's extension — a stub standing in
-    // for WP's real finfo-based sniff of $file's on-disk bytes, which this
-    // in-process harness has no real uploaded file to sniff.
-    function wp_check_filetype_and_ext(string $file, string $filename): array
+if (!function_exists('wp_upload_dir')) {
+    function wp_upload_dir(): array
     {
-        $ext = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
-        $map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
-        return ['ext' => $ext ?: false, 'type' => $map[$ext] ?? false, 'proper_filename' => false];
+        global $__uploadsBase, $__uploadsError;
+        return ['basedir' => $__uploadsBase, 'baseurl' => 'https://cz-test.local/wp-content/uploads', 'error' => $__uploadsError];
     }
 }
-if (!class_exists('WP_Error')) {
-    class WP_Error
-    {
-        public function __construct(private string $code = '', private string $message = '') {}
-        public function get_error_message(): string { return $this->message; }
-    }
-}
-if (!function_exists('is_wp_error')) {
-    function is_wp_error(mixed $thing): bool { return $thing instanceof WP_Error; }
-}
-if (!function_exists('media_handle_upload')) {
-    // Controllable both ways via $__mediaUploadResult (null = default success,
-    // assigning a WP_Error simulates WordPress rejecting the upload) — the
-    // same one-shot-override convention $__currentUserCanResult's sibling
-    // stubs use elsewhere in this file.
-    function media_handle_upload(string $fileKey, int $postId): int|WP_Error
-    {
-        global $__mediaUploadResult, $__attachments, $__nextAttachmentId;
-        if ($__mediaUploadResult !== null) {
-            $result               = $__mediaUploadResult;
-            $__mediaUploadResult = null;
-            return $result;
-        }
-        $id                 = $__nextAttachmentId;
-        $__nextAttachmentId += 1;
-        $__attachments[$id] = true;
-        return $id;
-    }
+if (!function_exists('wp_mkdir_p')) {
+    function wp_mkdir_p(string $target): bool { return is_dir($target) || @mkdir($target, 0755, true); }
 }
 if (!function_exists('rest_ensure_response')) {
     function rest_ensure_response(mixed $value): WP_REST_Response
@@ -149,6 +119,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use CompuZign\Platform\Core\PlatformAccess;
 use CompuZign\Platform\Modules\Account\Http\AccountController;
 use CompuZign\Platform\Modules\Account\Support\AccountIdentity;
+use CompuZign\Platform\Modules\Account\Support\AccountMedia;
 use CompuZign\Platform\Modules\Account\Support\AccountRepository;
 use CompuZign\Platform\Modules\Account\Support\AccountSchema;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
@@ -425,7 +396,7 @@ function accountCallbackName(mixed $callback): string
 
 $__capturedRoutes = [];
 (new AccountController(new PlatformIdentifierStation()))->registerRoutes();
-checkAccount(count($__capturedRoutes) === 5, 'registerRoutes() registers exactly the five Account Station routes');
+checkAccount(count($__capturedRoutes) === 6, 'registerRoutes() registers exactly the six Account Station routes');
 
 foreach ($__capturedRoutes as $entry) {
     checkAccount($entry['namespace'] === 'compuzign/v1', "{$entry['route']} registers under the compuzign/v1 namespace");
@@ -451,6 +422,10 @@ $mediaRoute = accountFindRoute($__capturedRoutes, '/admin/account-station/profil
 checkAccount($mediaRoute['args']['methods'] === 'POST', 'the media upload route is POST-only');
 checkAccount(accountCallbackName($mediaRoute['args']['callback']) === 'uploadBrandMedia', 'the media upload route calls uploadBrandMedia');
 
+$libraryRoute = accountFindRoute($__capturedRoutes, '/admin/account-station/profile/media/library');
+checkAccount($libraryRoute['args']['methods'] === 'GET', 'the media library route is GET-only');
+checkAccount(accountCallbackName($libraryRoute['args']['callback']) === 'listBrandMedia', 'the media library route calls listBrandMedia');
+
 $statusRoute = accountFindRoute($__capturedRoutes, '/admin/account-station/status');
 checkAccount($statusRoute['args']['methods'] === 'POST', 'the status route is POST-only');
 checkAccount(accountCallbackName($statusRoute['args']['callback']) === 'updateStatus', 'the status route calls updateStatus');
@@ -470,42 +445,118 @@ checkAccount($__lastCapabilityChecked === PlatformAccess::CAP, 'requireAdmin() c
 $__currentUserCanResult = false;
 checkAccount($permissionController->requireAdmin() === false, 'requireAdmin() denies a user who lacks the platform capability');
 
-// ── uploadBrandMedia(): the platform-owned Logo/Favicon picker's upload route ─
-// Never touches Brand's draft/canonical state itself — it only binds a WordPress
-// attachment and returns its id/url; AccountSchema::resolveAttachmentId at
-// Save time remains the sole gate on what actually gets persisted.
+// ── uploadBrandMedia()/listBrandMedia(): Account's own Logo/Favicon image storage ─
+// Files land in <uploads>/compuzign-account/ and are registered in the one
+// Account option — never a WordPress attachment. Neither route touches Brand's
+// draft/canonical state: the returned id is only persisted by an ordinary Save.
 $mediaController = new AccountController(new PlatformIdentifierStation());
+$mediaDir        = $__uploadsBase . '/' . AccountMedia::DIRECTORY;
 
-function accountFakeFile(int $size = 1024, string $name = 'logo.png', int $error = UPLOAD_ERR_OK): array
+const ACCOUNT_PNG  = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+const ACCOUNT_GIF  = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const ACCOUNT_WEBP = 'UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==';
+
+/** A real file on disk in $_FILES' shape. $bytes defaults to a valid PNG; name/claimed type are independent of the bytes. */
+function accountFakeFile(?string $bytes = null, string $name = 'logo.png', int $error = UPLOAD_ERR_OK, ?int $size = null, string $type = 'image/png'): array
 {
-    return ['name' => $name, 'type' => 'image/png', 'tmp_name' => '/tmp/php-fake-upload', 'error' => $error, 'size' => $size];
+    $bytes ??= base64_decode(ACCOUNT_PNG);
+    $tmp     = tempnam(sys_get_temp_dir(), 'czacct');
+    file_put_contents($tmp, $bytes);
+
+    return ['name' => $name, 'type' => $type, 'tmp_name' => $tmp, 'error' => $error, 'size' => $size ?? strlen($bytes)];
 }
 
-$noFile = $mediaController->uploadBrandMedia(new WP_REST_Request())->get_data();
-checkAccount($noFile['success'] === false, 'a request with no file is rejected');
+function accountUpload(AccountController $controller, array $file): WP_REST_Response
+{
+    return $controller->uploadBrandMedia(new WP_REST_Request([], ['file' => $file]));
+}
 
-$uploadError = $mediaController->uploadBrandMedia(new WP_REST_Request([], ['file' => accountFakeFile(error: UPLOAD_ERR_PARTIAL)]));
+$noFile = $mediaController->uploadBrandMedia(new WP_REST_Request());
+checkAccount($noFile->get_status() === 422, 'a request with no file is rejected');
+
+$uploadError = accountUpload($mediaController, accountFakeFile(error: UPLOAD_ERR_PARTIAL));
 checkAccount($uploadError->get_status() === 422, 'a PHP-level upload error (e.g. a partial transfer) is rejected, not treated as an empty file');
 
-$oversized = $mediaController->uploadBrandMedia(new WP_REST_Request([], ['file' => accountFakeFile(size: AccountSchema::MAX_BRAND_MEDIA_BYTES + 1)]));
+// The size gate reads the real file, not the client-supplied $_FILES size.
+$oversizedBytes = base64_decode(ACCOUNT_PNG) . str_repeat("\0", AccountSchema::MAX_BRAND_MEDIA_BYTES);
+$oversized      = accountUpload($mediaController, accountFakeFile($oversizedBytes));
 checkAccount($oversized->get_status() === 422, 'a file over the 5 MB limit is rejected');
+$lyingSize = accountUpload($mediaController, accountFakeFile($oversizedBytes, size: 10));
+checkAccount($lyingSize->get_status() === 422, 'the size limit is checked against the real file, not a client-supplied size');
 
-$wrongType = $mediaController->uploadBrandMedia(new WP_REST_Request([], ['file' => accountFakeFile(name: 'logo.pdf')]));
-checkAccount($wrongType->get_status() === 422, 'a non-image file extension is rejected before ever reaching media_handle_upload()');
+$pdf = accountUpload($mediaController, accountFakeFile("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n", 'logo.pdf', type: 'application/pdf'));
+checkAccount($pdf->get_status() === 422, 'a non-image file is rejected');
+$disguised = accountUpload($mediaController, accountFakeFile("<?php echo 'x';", 'logo.png', type: 'image/png'));
+checkAccount($disguised->get_status() === 422, 'a script claiming a .png name and image MIME is rejected — the type comes from the bytes, not the name');
+$svg = accountUpload($mediaController, accountFakeFile('<svg xmlns="http://www.w3.org/2000/svg"/>', 'logo.svg', type: 'image/svg+xml'));
+checkAccount($svg->get_status() === 422, 'SVG is not an allowed Logo/Favicon type');
+checkAccount(!is_dir($mediaDir) || array_diff(scandir($mediaDir), ['.', '..', 'index.php']) === [], 'no rejected upload left a file in the Account media directory');
+checkAccount(count($mediaController->listBrandMedia(new WP_REST_Request())->get_data()['items']) === 0, 'no rejected upload was registered');
 
-$__mediaUploadResult = new WP_Error('upload_error', 'disk full');
-$storageFailure = $mediaController->uploadBrandMedia(new WP_REST_Request([], ['file' => accountFakeFile()]));
-checkAccount($storageFailure->get_status() === 500, 'a WP_Error from media_handle_upload() itself (e.g. storage failure) surfaces as a clean 500, not a fatal');
-
-$uploaded = $mediaController->uploadBrandMedia(new WP_REST_Request([], ['file' => accountFakeFile()]))->get_data();
+$uploaded = accountUpload($mediaController, accountFakeFile(name: '../../evil.php.png'))->get_data();
 checkAccount($uploaded['success'] === true, 'a valid image upload succeeds');
-checkAccount(is_int($uploaded['id']) && $uploaded['id'] > 0, 'the response carries the real bound attachment id');
-checkAccount($uploaded['url'] === "https://cz-test.local/attachment-{$uploaded['id']}.png", 'the response carries the resolved URL for the same id, via the same resolveAttachmentUrl() path Brand reads use');
+$item = $uploaded['item'];
+checkAccount(preg_match('/^[a-f0-9]{64}$/', $item['id']) === 1 && $item['id'] === hash('sha256', base64_decode(ACCOUNT_PNG)), 'the id is the content hash — a storage key, not a client-supplied name');
+checkAccount($item['url'] === "https://cz-test.local/wp-content/uploads/compuzign-account/{$item['id']}.png", 'the URL is in the Account-owned directory, with an extension derived from the sniffed type');
+checkAccount(is_file("{$mediaDir}/{$item['id']}.png"), 'the raw file is on disk in the Account-owned directory');
+checkAccount($item['name'] === 'evil.php.png', 'the stored display name is the sanitized basename — path parts from the client are dropped');
+checkAccount(array_diff(scandir($mediaDir), ['.', '..', 'index.php', "{$item['id']}.png"]) === [], 'nothing but the hash-named file (and the listing guard) exists — a client path can never escape or add files');
+checkAccount(!function_exists('media_handle_upload') && !function_exists('wp_insert_attachment'), 'no WordPress attachment pipeline is even defined in this harness, so the upload cannot have gone through it');
+checkAccount(strlen(serialize($__wpOptions[AccountRepository::OPTION_KEY])) < 2000, 'the option holds references and metadata only — no image binary');
 
-// The returned id is only ever persisted through an ordinary Save — proves the
-// upload route and the Save route compose exactly like a wp.media()-picked id
-// used to, with no second attachment pathway or validation bypass.
-$afterUploadSave = $mediaController->saveProfile(new WP_REST_Request(['logo_attachment_id' => $uploaded['id']]))->get_data();
-checkAccount($afterUploadSave['draft']['logo_attachment_id'] === $uploaded['id'], 'an uploaded id is accepted by the ordinary Save route exactly like any other real image attachment id');
+$again = accountUpload($mediaController, accountFakeFile(name: 'renamed.png'))->get_data()['item'];
+checkAccount($again['id'] === $item['id'] && $again['uploaded_at'] === $item['uploaded_at'], 'identical bytes resolve to the same record — no duplicate on re-upload');
+checkAccount(count($mediaController->listBrandMedia(new WP_REST_Request())->get_data()['items']) === 1, 'a re-upload does not add a second library entry');
+
+$gif  = accountUpload($mediaController, accountFakeFile(base64_decode(ACCOUNT_GIF), 'favicon.gif', type: 'application/octet-stream'))->get_data();
+$webp = accountUpload($mediaController, accountFakeFile(base64_decode(ACCOUNT_WEBP), 'x.webp'))->get_data();
+checkAccount($gif['success'] === true && str_ends_with($gif['item']['url'], '.gif'), 'a GIF is accepted even when the client claims a generic MIME — the bytes decide');
+checkAccount($webp['success'] === true && str_ends_with($webp['item']['url'], '.webp'), 'a WebP is accepted');
+
+$library = $mediaController->listBrandMedia(new WP_REST_Request())->get_data();
+checkAccount($library['success'] === true && count($library['items']) === 3, 'the library lists every stored image, for prior-image selection');
+
+$__uploadsError = 'Unable to create directory';
+$unwritable = accountUpload($mediaController, accountFakeFile("\x89PNG\r\n\x1a\n" . base64_decode(ACCOUNT_PNG) . 'x'));
+checkAccount($unwritable->get_status() === 500, 'an unusable uploads location is a clean 500, not a fatal');
+$__uploadsError = false;
+
+// ── Save composes with the upload: a media reference persists only via Save ─
+$mediaSave = $mediaController->saveProfile(new WP_REST_Request(['logo_media_id' => $item['id'], 'logo_attachment_id' => 2101]))->get_data();
+checkAccount($mediaSave['success'] === true && $mediaSave['draft']['logo_media_id'] === $item['id'], 'an Account image id is accepted by the ordinary Save route');
+checkAccount($mediaSave['draft']['logo_attachment_id'] === null, 'choosing an Account image drops the legacy WordPress attachment reference from the draft — it is the explicit replacement');
+checkAccount($mediaSave['draft']['logo_url'] === $item['url'], 'the Save response resolves the Account image URL for preview');
+
+$legacyKept = $mediaController->saveProfile(new WP_REST_Request(['logo_attachment_id' => 2101]))->get_data();
+checkAccount($legacyKept['draft']['logo_attachment_id'] === 2101 && $legacyKept['draft']['logo_media_id'] === null, 'a legacy WordPress attachment reference is still re-saveable with no Account image chosen — no silent migration or deletion');
+checkAccount($legacyKept['draft']['logo_url'] === 'https://cz-test.local/attachment-2101.png', 'a legacy reference still resolves for preview');
+
+foreach (['', 'abc', str_repeat('g', 64), '../' . str_repeat('a', 61), str_repeat('a', 64)] as $badId) {
+    $bad = $mediaController->saveProfile(new WP_REST_Request(['favicon_media_id' => $badId]));
+    $expected = $badId === '' ? 200 : 422;
+    checkAccount($bad->get_status() === $expected, "favicon_media_id " . json_encode($badId) . ($expected === 200 ? ' is a Clear' : ' fails the whole Save closed'));
+}
+$clearedMedia = $mediaController->saveProfile(new WP_REST_Request(['logo_media_id' => null, 'logo_attachment_id' => null]))->get_data();
+checkAccount($clearedMedia['draft']['logo_media_id'] === null && $clearedMedia['draft']['logo_url'] === null, 'null media + null attachment is a full Clear; the stored file is kept for reuse');
+checkAccount(is_file("{$mediaDir}/{$item['id']}.png"), 'Clear never deletes the stored file');
+
+// Publish the Account image: settle promotes the media reference to canonical.
+$mediaController->saveProfile(new WP_REST_Request(['logo_media_id' => $item['id']]));
+$settledMedia = $mediaController->settleProfile(new WP_REST_Request())->get_data();
+checkAccount($settledMedia['brand']['logo_media_id'] === $item['id'] && $settledMedia['brand']['logo_url'] === $item['url'], 'settle promotes the Account image reference to canonical Brand');
+$detailAfter = $mediaController->fetchDetail(new WP_REST_Request())->get_data();
+checkAccount($detailAfter['brand']['logo_url'] === $item['url'], 'fetchDetail resolves the canonical Account image URL');
+
+// A canonical Brand stored before the media fields existed still reads back whole.
+$__wpOptions[AccountRepository::OPTION_KEY]['brand'] = ['name' => 'Old', 'code' => '', 'logo_attachment_id' => 2101, 'favicon_attachment_id' => null];
+unset($__wpOptions[AccountRepository::OPTION_KEY]['media']);
+$oldShape = $mediaController->fetchDetail(new WP_REST_Request())->get_data();
+checkAccount($oldShape['brand']['logo_media_id'] === null && $oldShape['brand']['logo_url'] === 'https://cz-test.local/attachment-2101.png', 'a Brand saved before Account owned media reads back with null media ids and its legacy URL');
+checkAccount($mediaController->listBrandMedia(new WP_REST_Request())->get_data()['items'] === [], 'an option with no media key lists an empty library');
+
+// Cleanup of this run's on-disk uploads.
+foreach (glob("{$mediaDir}/*") ?: [] as $leftover) { @unlink($leftover); }
+@rmdir($mediaDir);
+@rmdir($__uploadsBase);
 
 echo "Account Station contract: PASS\n";
