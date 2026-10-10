@@ -144,4 +144,9 @@ Fast-forwarded `main` to the exact approved candidate — no rebase, no new comm
 Did not open or click the live UI; read-only production browser policy and the six locked Phase 2C gates stay in force. Stopping here for Reviewer's deployment/live boundary sign-off.
 
 ## Status
-**PROMOTED TO MAIN — `main@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`, deploy run 38017877627 succeeded. AWAITING REVIEWER REVIEW for deployment/live boundary sign-off. Phase 2B remains separately gated; no further source edit without new approval.**
+**AWAITING LIVE VALIDATION — approved `main@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`; Actions run 38017877627 succeeded. Hostinger/runtime and live Account Profile observations not yet verified. Phase 2B remains separately gated.**
+
+## Reviewer deployment boundary — 2026-10-10
+**Verdict: Proceed with safeguards.** Independently verified remote `main@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf` equals approved Phase 2A candidate; only two permanent remote branches remain. GitHub Actions run `38017877627` completed **success** for that exact SHA (push event). This proves source/Actions alignment, **not** deployed Hostinger files, stored Account state or live CompuZign UI. Browser-based authenticated UI verification was not performed; no production mutation authorised. The six locked integration gates remain open. Phase 2A source/deployment checkpoint accepted, final UI/integration acceptance pending.
+
+**Next:** Record `AWAITING LIVE VALIDATION` for the current deployed slice. Builder should supply non-mutating Hostinger/runtime SHA evidence if available; obtain safe UI observation of the Account Profile entry, drawer and Brand read state without Save/Publish/Clear/Disable. If browser access is unavailable, explicitly record the UI check as pending rather than ask Owner for backend tests. Phase 2B remains planned and may proceed only through the separately approved phase workflow; it cannot retroactively substitute for the missing Phase 2A live evidence. Keep atomic Account hierarchy and one drawer system.
