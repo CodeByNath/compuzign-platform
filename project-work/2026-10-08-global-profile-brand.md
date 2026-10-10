@@ -265,3 +265,11 @@ Bounded to the three Reviewer items; no storage engine, route, UI or lifecycle c
 
 ## Status
 **AWAITING REVIEWER REVIEW — Phase 2B storage-safety candidate `account-station-profile-ui-slice@0aede22b23109d45a9f6674408c80fdea184578d`. Do not merge or deploy.**
+
+## Reviewer Phase 2B storage correction — 2026-10-10
+**Verdict: Proceed with safeguards; SOURCE PUSH APPROVED** for exact `account-station-profile-ui-slice@0aede22b23109d45a9f6674408c80fdea184578d`. Independently inspected actual diff and AccountMedia/Repository/Controller: unique random staging replaces shared `.part`, byte-authentic HTTP upload validation, Account-only conditional lock serializes repository writers and Save/Settle/Status decisions, busy returns 503. Compared against previously approved Station boundaries; no new platform subsystem, header integration or media attachments. Builder's PHP/mounted checks reported passing, not independently executed. **Caveat:** simulated overlap is not real multi-worker concurrency; 10-second stale takeover and DB/object-cache behaviour must be verified in non-production Phase 2C before final acceptance; preserve safe retries/legacy assets. Static uploads and Hostinger permissions not independently verified.
+
+**Next Builder action:** Promote **only** this exact approved topic SHA through normal fast-forward to `main`, run/record exact GitHub Actions SHA and outcome, then stop for Reviewer deployment/live boundary check. Any change invalidates approval. Do not change production Profile state; keep six Phase 2C gates open. Phase 2B is source-accepted only, not live-accepted.
+
+## Current status — Reviewer
+**SOURCE PUSH APPROVED — Phase 2B exact `0aede22b23109d45a9f6674408c80fdea184578d`. Awaiting Builder exact-SHA main promotion and deployment evidence.**
