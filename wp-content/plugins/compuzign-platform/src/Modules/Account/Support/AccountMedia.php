@@ -40,10 +40,10 @@ final class AccountMedia
         return is_string($id) && preg_match('/^[a-f0-9]{64}$/', $id) === 1;
     }
 
-    /** The real content type of an image file (from its bytes, not its name), or null if it is not an allowed image. */
-    public function sniffMime(string $path): ?string
+    /** The real content type of image bytes (not a file name or claimed MIME), or null if they are not an allowed image. */
+    public function sniffMime(string $bytes): ?string
     {
-        $info = @getimagesize($path);
+        $info = @getimagesizefromstring($bytes);
         if (!is_array($info) || !isset($info['mime'])) {
             return null;
         }
@@ -52,17 +52,18 @@ final class AccountMedia
     }
 
     /**
-     * Stores the file at $tmpPath (already size- and type-checked by the
-     * caller) and registers it. Returns the presented record, or null if the
-     * directory or file could not be written. Idempotent on identical bytes.
+     * Stores already size- and type-checked image bytes and registers them.
+     * The caller sniffs and hashes the SAME in-memory bytes this writes, so
+     * what was validated is exactly what lands on disk. Returns the presented
+     * record, or null if the directory or file could not be written.
+     * Idempotent on identical bytes, including two overlapping requests.
      *
      * @return ?array{id: string, url: string, name: string, mime: string, size: int, uploaded_at: int}
      */
-    public function store(string $tmpPath, string $mime, string $originalName): ?array
+    public function store(string $bytes, string $mime, string $originalName): ?array
     {
         $extension = self::EXTENSIONS[$mime] ?? null;
-        $bytes     = $extension === null ? false : @file_get_contents($tmpPath);
-        if ($bytes === false) {
+        if ($extension === null) {
             return null;
         }
 
@@ -85,16 +86,21 @@ final class AccountMedia
             'uploaded_at' => $existing['uploaded_at'] ?? time(),
         ];
 
-        // Write beside the destination then rename into place, so a failed or
-        // interrupted write never leaves a truncated file under a valid key.
+        // Stage under a name unique to THIS request, then rename into place.
+        // Overlapping uploads of identical bytes therefore never share an
+        // intermediate file; the final rename is an atomic replace of
+        // byte-identical content, so whichever lands last is equally correct,
+        // and a failed or interrupted write never leaves a truncated file
+        // under a valid key.
         $destination = $directory . '/' . $record['file'];
-        $partial     = $destination . '.part';
-        if (@file_put_contents($partial, $bytes) === false) {
-            @unlink($partial);
+        $staging     = $directory . '/.' . bin2hex(random_bytes(12)) . '.part';
+        if (@file_put_contents($staging, $bytes, LOCK_EX) === false) {
+            @unlink($staging);
             return null;
         }
-        if (!@rename($partial, $destination)) {
-            @unlink($partial);
+        @chmod($staging, 0644);
+        if (!@rename($staging, $destination)) {
+            @unlink($staging);
             return null;
         }
 

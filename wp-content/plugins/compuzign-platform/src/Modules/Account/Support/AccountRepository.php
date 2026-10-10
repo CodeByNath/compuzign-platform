@@ -15,12 +15,32 @@ namespace CompuZign\Platform\Modules\Account\Support;
  *   SECTION: BRAND — canonical and draft field storage
  *   SECTION: MEDIA — metadata for Account-owned Logo/Favicon image files
  *   SECTION: LIFECYCLE — platform_status / module_status
+ *   SECTION: LOCK — serializes every read-modify-write of the aggregate
  *   SECTION: INTERNALS — option read/write and defaults
+ *
+ * CONCURRENCY
+ * update_option() is a blind whole-value write, not compare-and-swap, so two
+ * overlapping requests that each read, change and rewrite the aggregate could
+ * silently drop one another's change. Every mutation therefore runs inside
+ * withLock(), a narrow Account-only mutex built on the same atomic primitive
+ * PlatformIdentifierStation and RequestRepository already rely on:
+ * add_option()'s DB-level unique option_name. The lock value is one opaque
+ * "{token}|{claimedAt}" string; release and stale takeover are compare-and-swap
+ * against the exact value this request observed, never a blind write.
  */
 final class AccountRepository
 {
     public const OPTION_KEY = 'cz_account_station_v1';
     private const VERSION   = 1;
+
+    public const LOCK_OPTION_KEY = 'cz_account_station_lock_v1';
+    private const LOCK_TTL_SECONDS = 10;
+
+    /** Lock claimed by THIS instance (null when not held) — makes withLock() re-entrant within one request. */
+    private ?string $heldLock = null;
+    private int $lockDepth    = 0;
+
+    public function __construct(private int $lockAttempts = 40, private int $lockPollMicros = 50_000) {}
 
     /** @var array<string, int> */
     public const NODES = ['account_station' => 0, 'settings' => 1, 'tools' => 2, 'profile' => 3];
@@ -46,12 +66,14 @@ final class AccountRepository
 
     public function writeNode(string $node, string $platformId, ?string $parentPlatformId): void
     {
-        $state = $this->read();
-        $state['nodes'][$node] = [
-            'platform_id'        => $platformId,
-            'parent_platform_id' => $parentPlatformId,
-        ];
-        $this->write($state);
+        $this->withLock(function () use ($node, $platformId, $parentPlatformId): void {
+            $state = $this->read();
+            $state['nodes'][$node] = [
+                'platform_id'        => $platformId,
+                'parent_platform_id' => $parentPlatformId,
+            ];
+            $this->write($state);
+        });
     }
 
     /** @return array<string, array{platform_id: string, parent_platform_id: ?string}> */
@@ -78,24 +100,28 @@ final class AccountRepository
 
     public function writeBrandDraft(array $draft): void
     {
-        $state = $this->read();
-        $state['brand_draft'] = $draft;
-        $this->write($state);
+        $this->withLock(function () use ($draft): void {
+            $state = $this->read();
+            $state['brand_draft'] = $draft;
+            $this->write($state);
+        });
     }
 
     /** Commits the current draft to canonical Brand and clears it. No-op (returns canonical) if there is no draft. */
     public function settleBrandDraft(): array
     {
-        $state = $this->read();
-        if ($state['brand_draft'] !== null) {
-            // A draft saved before the media-reference fields existed lacks those keys;
-            // fill them from the defaults so canonical Brand always carries the full shape.
-            $state['brand']       = array_replace($this->defaults()['brand'], $state['brand_draft']);
-            $state['brand_draft'] = null;
-            $this->write($state);
-        }
+        return $this->withLock(function (): array {
+            $state = $this->read();
+            if ($state['brand_draft'] !== null) {
+                // A draft saved before the media-reference fields existed lacks those keys;
+                // fill them from the defaults so canonical Brand always carries the full shape.
+                $state['brand']       = array_replace($this->defaults()['brand'], $state['brand_draft']);
+                $state['brand_draft'] = null;
+                $this->write($state);
+            }
 
-        return $state['brand'];
+            return $state['brand'];
+        });
     }
 
     // =====================================================================
@@ -110,9 +136,11 @@ final class AccountRepository
 
     public function writeMediaRecord(string $id, array $record): void
     {
-        $state                = $this->read();
-        $state['media'][$id]  = $record;
-        $this->write($state);
+        $this->withLock(function () use ($id, $record): void {
+            $state               = $this->read();
+            $state['media'][$id] = $record;
+            $this->write($state);
+        });
     }
 
     // =====================================================================
@@ -133,11 +161,13 @@ final class AccountRepository
 
     public function writeLifecycle(string $platformStatus, string $previousPlatformStatus, array $moduleStatus): void
     {
-        $state                            = $this->read();
-        $state['platform_status']         = $platformStatus;
-        $state['previous_platform_status'] = $previousPlatformStatus;
-        $state['module_status']           = $moduleStatus;
-        $this->write($state);
+        $this->withLock(function () use ($platformStatus, $previousPlatformStatus, $moduleStatus): void {
+            $state                             = $this->read();
+            $state['platform_status']          = $platformStatus;
+            $state['previous_platform_status'] = $previousPlatformStatus;
+            $state['module_status']            = $moduleStatus;
+            $this->write($state);
+        });
     }
 
     /** The one existence predicate every lifecycle route shares: true only once all four chain nodes are bound, not just the leaf. */
@@ -150,6 +180,92 @@ final class AccountRepository
         }
 
         return true;
+    }
+
+    // =====================================================================
+    // SECTION: LOCK
+    // =====================================================================
+
+    /**
+     * Runs $operation with exclusive access to the aggregate. Re-entrant within
+     * this instance. Waits a bounded time for another request's lock, then
+     * throws AccountStorageBusy rather than proceeding unprotected.
+     *
+     * @template T
+     * @param callable(): T $operation
+     * @return T
+     */
+    public function withLock(callable $operation): mixed
+    {
+        if ($this->lockDepth === 0) {
+            $this->heldLock = $this->acquireLock();
+        }
+        $this->lockDepth++;
+
+        try {
+            return $operation();
+        } finally {
+            $this->lockDepth--;
+            if ($this->lockDepth === 0 && $this->heldLock !== null) {
+                $this->releaseLock($this->heldLock);
+                $this->heldLock = null;
+            }
+        }
+    }
+
+    private function acquireLock(): string
+    {
+        for ($attempt = 0; $attempt < $this->lockAttempts; $attempt++) {
+            $value = bin2hex(random_bytes(16)) . '|' . time();
+            if (add_option(self::LOCK_OPTION_KEY, $value, '', 'no')) {
+                return $value;
+            }
+
+            $observed = get_option(self::LOCK_OPTION_KEY, null);
+            if (is_string($observed) && $this->isLockStale($observed) && $this->takeOverLock($observed, $value)) {
+                return $value;
+            }
+
+            usleep($this->lockPollMicros);
+        }
+
+        throw new AccountStorageBusy('Account Station storage is busy.');
+    }
+
+    private function isLockStale(string $lockValue): bool
+    {
+        $claimedAt = (int) (explode('|', $lockValue, 2)[1] ?? 0);
+
+        return $claimedAt <= 0 || (time() - $claimedAt) > self::LOCK_TTL_SECONDS;
+    }
+
+    /** Single conditional UPDATE against the exact bytes last observed; false if the row changed since. */
+    private function takeOverLock(string $observed, string $newValue): bool
+    {
+        global $wpdb;
+
+        $affected = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+            $newValue,
+            self::LOCK_OPTION_KEY,
+            $observed
+        ));
+        wp_cache_delete(self::LOCK_OPTION_KEY, 'options');
+
+        return $affected === 1;
+    }
+
+    /** No-op if the stored value is no longer ours (the lock went stale and was taken over). */
+    private function releaseLock(string $value): void
+    {
+        global $wpdb;
+
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
+            self::LOCK_OPTION_KEY,
+            $value
+        ));
+        wp_cache_delete(self::LOCK_OPTION_KEY, 'options');
     }
 
     // =====================================================================

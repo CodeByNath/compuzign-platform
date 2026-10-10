@@ -27,6 +27,7 @@ use CompuZign\Platform\Modules\Account\Support\AccountIdentity;
 use CompuZign\Platform\Modules\Account\Support\AccountMedia;
 use CompuZign\Platform\Modules\Account\Support\AccountRepository;
 use CompuZign\Platform\Modules\Account\Support\AccountSchema;
+use CompuZign\Platform\Modules\Account\Support\AccountStorageBusy;
 use CompuZign\Platform\Modules\Admin\Support\StationLifecycle;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
@@ -36,10 +37,19 @@ class AccountController
     private AccountRepository $repository;
     private AccountMedia $media;
 
-    public function __construct(private PlatformIdentifierStation $platformIdentifiers)
+    /** @var callable(string): bool */
+    private $uploadVerifier;
+
+    /**
+     * @param ?callable(string): bool $uploadVerifier Whether a tmp_name is a file PHP itself received as an
+     *        HTTP upload. Defaults to is_uploaded_file(); only a test harness, which has no real HTTP
+     *        upload to point at, substitutes its own.
+     */
+    public function __construct(private PlatformIdentifierStation $platformIdentifiers, ?callable $uploadVerifier = null, ?AccountRepository $repository = null)
     {
-        $this->repository = new AccountRepository();
-        $this->media      = new AccountMedia($this->repository);
+        $this->repository     = $repository ?? new AccountRepository();
+        $this->media          = new AccountMedia($this->repository);
+        $this->uploadVerifier = $uploadVerifier ?? 'is_uploaded_file';
     }
 
     public function register(): void
@@ -131,6 +141,11 @@ class AccountController
      */
     public function saveProfile(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->serialized(fn (): \WP_REST_Response => $this->applyProfileSave($request));
+    }
+
+    private function applyProfileSave(\WP_REST_Request $request): \WP_REST_Response
+    {
         $logoMedia = AccountSchema::resolveMediaId($request->get_param('logo_media_id'), $this->media);
         if ($logoMedia === false) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Logo must reference an existing Account image.'], 422);
@@ -195,6 +210,11 @@ class AccountController
     /** Promotes the Brand draft to canonical. Brand has no required field, so it always settles (blanks are valid). */
     public function settleProfile(\WP_REST_Request $request): \WP_REST_Response
     {
+        return $this->serialized(fn (): \WP_REST_Response => $this->applyProfileSettle($request));
+    }
+
+    private function applyProfileSettle(\WP_REST_Request $request): \WP_REST_Response
+    {
         // Same existence predicate as updateStatus(): without it a settle on an
         // unbootstrapped or half-bootstrapped install would write canonical Brand
         // and module status for an Account that has no complete identity chain.
@@ -241,18 +261,34 @@ class AccountController
             return new \WP_REST_Response(['success' => false, 'message' => 'The upload failed. Please try again.'], 422);
         }
 
+        // Only a file PHP itself received as an HTTP upload is trusted: a REST
+        // caller cannot name an arbitrary server path through tmp_name.
         $tmpName = (string) ($file['tmp_name'] ?? '');
-        $size    = is_file($tmpName) ? (int) filesize($tmpName) : (int) ($file['size'] ?? 0);
-        if ($size > AccountSchema::MAX_BRAND_MEDIA_BYTES) {
+        if ($tmpName === '' || !($this->uploadVerifier)($tmpName)) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'No file was uploaded.'], 422);
+        }
+
+        // Real on-disk size first, so an oversize file is never read into memory.
+        if ((int) filesize($tmpName) > AccountSchema::MAX_BRAND_MEDIA_BYTES) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Image must be smaller than 5 MB.'], 422);
         }
 
-        $mime = is_file($tmpName) ? $this->media->sniffMime($tmpName) : null;
+        // One read: the bytes sniffed, hashed and written below are the same bytes.
+        $bytes = @file_get_contents($tmpName);
+        if ($bytes === false) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'The upload failed. Please try again.'], 422);
+        }
+
+        $mime = $this->media->sniffMime($bytes);
         if ($mime === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Logo and Favicon must be a JPEG, PNG, GIF, or WebP image.'], 422);
         }
 
-        $item = $this->media->store($tmpName, $mime, (string) ($file['name'] ?? ''));
+        try {
+            $item = $this->media->store($bytes, $mime, (string) ($file['name'] ?? ''));
+        } catch (AccountStorageBusy) {
+            return $this->busyResponse();
+        }
         if ($item === null) {
             return new \WP_REST_Response(['success' => false, 'message' => 'Could not store the uploaded image.'], 500);
         }
@@ -271,6 +307,11 @@ class AccountController
     // ===================================================================
 
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
+    {
+        return $this->serialized(fn (): \WP_REST_Response => $this->applyStatusUpdate($request));
+    }
+
+    private function applyStatusUpdate(\WP_REST_Request $request): \WP_REST_Response
     {
         $lifecycle = $this->repository->readLifecycle();
 
@@ -347,6 +388,26 @@ class AccountController
             'previous_platform_status' => $lifecycle['previous_platform_status'],
             'module_status'            => $lifecycle['module_status'],
         ]);
+    }
+
+    /**
+     * Runs a read-decide-write handler under the Account storage lock, so two
+     * overlapping Saves/Publishes cannot each act on a stale read and overwrite
+     * one another. A lock that stays held past the bounded wait is a retryable
+     * 503, never an unprotected write.
+     */
+    private function serialized(callable $handler): \WP_REST_Response
+    {
+        try {
+            return $this->repository->withLock($handler);
+        } catch (AccountStorageBusy) {
+            return $this->busyResponse();
+        }
+    }
+
+    private function busyResponse(): \WP_REST_Response
+    {
+        return new \WP_REST_Response(['success' => false, 'message' => 'Account Station is busy. Please retry.'], 503);
     }
 
     // ===================================================================

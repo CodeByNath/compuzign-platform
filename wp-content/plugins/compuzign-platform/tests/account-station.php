@@ -42,6 +42,33 @@ if (!function_exists('update_option')) {
         return $changed;
     }
 }
+if (!function_exists('wp_cache_delete')) {
+    function wp_cache_delete(string $key, string $group = ''): bool { return true; }
+}
+if (!isset($wpdb)) {
+    // Minimal $wpdb over the in-memory options store: only the two conditional
+    // statements AccountRepository's lock issues (compare-and-swap UPDATE/DELETE
+    // on the exact previously observed option_value).
+    $wpdb = new class {
+        public string $options = 'wp_options';
+        public function prepare(string $sql, mixed ...$args): array { return ['sql' => $sql, 'args' => $args]; }
+        public function query(array $prepared): int
+        {
+            global $__wpOptions;
+            $args = $prepared['args'];
+            if (str_starts_with($prepared['sql'], 'UPDATE')) {
+                [$new, $key, $expected] = $args;
+                if (($__wpOptions[$key] ?? null) !== $expected) { return 0; }
+                $__wpOptions[$key] = $new;
+                return 1;
+            }
+            [$key, $expected] = $args;
+            if (($__wpOptions[$key] ?? null) !== $expected) { return 0; }
+            unset($__wpOptions[$key]);
+            return 1;
+        }
+    };
+}
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field(mixed $value): string { return trim(strip_tags((string) $value)); }
 }
@@ -122,6 +149,7 @@ use CompuZign\Platform\Modules\Account\Support\AccountIdentity;
 use CompuZign\Platform\Modules\Account\Support\AccountMedia;
 use CompuZign\Platform\Modules\Account\Support\AccountRepository;
 use CompuZign\Platform\Modules\Account\Support\AccountSchema;
+use CompuZign\Platform\Modules\Account\Support\AccountStorageBusy;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
@@ -449,7 +477,7 @@ checkAccount($permissionController->requireAdmin() === false, 'requireAdmin() de
 // Files land in <uploads>/compuzign-account/ and are registered in the one
 // Account option — never a WordPress attachment. Neither route touches Brand's
 // draft/canonical state: the returned id is only persisted by an ordinary Save.
-$mediaController = new AccountController(new PlatformIdentifierStation());
+$mediaController = new AccountController(new PlatformIdentifierStation(), static fn (string $path): bool => is_file($path)); // harness has no real HTTP upload, so is_uploaded_file() is substituted — proven separately below.
 $mediaDir        = $__uploadsBase . '/' . AccountMedia::DIRECTORY;
 
 const ACCOUNT_PNG  = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -546,6 +574,97 @@ $settledMedia = $mediaController->settleProfile(new WP_REST_Request())->get_data
 checkAccount($settledMedia['brand']['logo_media_id'] === $item['id'] && $settledMedia['brand']['logo_url'] === $item['url'], 'settle promotes the Account image reference to canonical Brand');
 $detailAfter = $mediaController->fetchDetail(new WP_REST_Request())->get_data();
 checkAccount($detailAfter['brand']['logo_url'] === $item['url'], 'fetchDetail resolves the canonical Account image URL');
+
+
+// ── upload authenticity: tmp_name must be a file PHP itself received ────────
+$realVerifierController = new AccountController(new PlatformIdentifierStation()); // default is_uploaded_file()
+$notUploaded = $realVerifierController->uploadBrandMedia(new WP_REST_Request([], ['file' => accountFakeFile()]));
+checkAccount($notUploaded->get_status() === 422, 'a tmp_name that PHP did not receive as an HTTP upload is rejected by the default verifier');
+$arbitraryPath = $realVerifierController->uploadBrandMedia(new WP_REST_Request([], ['file' => ['name' => 'x.png', 'type' => 'image/png', 'tmp_name' => __FILE__, 'error' => UPLOAD_ERR_OK, 'size' => 1]]));
+checkAccount($arbitraryPath->get_status() === 422, 'a REST caller cannot point tmp_name at an arbitrary server path');
+
+// ── unique atomic staging: overlapping identical uploads never share an intermediate file ─
+$stageBytes = base64_decode(ACCOUNT_PNG);
+$stageId    = hash('sha256', $stageBytes);
+$oldSharedStaging = "{$mediaDir}/{$stageId}.png.part";
+file_put_contents($oldSharedStaging, 'OTHER-REQUEST-IN-FLIGHT');
+// Forget the earlier registration so this exercises a fresh store of the same bytes.
+$stagingOptions = $__wpOptions[AccountRepository::OPTION_KEY];
+unset($stagingOptions['media'][$stageId]);
+$__wpOptions[AccountRepository::OPTION_KEY] = $stagingOptions;
+@unlink("{$mediaDir}/{$stageId}.png");
+$raced = accountUpload($mediaController, accountFakeFile())->get_data();
+checkAccount($raced['success'] === true, 'a store succeeds while another request\'s intermediate file for the same bytes exists');
+checkAccount(file_get_contents($oldSharedStaging) === 'OTHER-REQUEST-IN-FLIGHT', 'the store neither reused nor removed the other request\'s intermediate file — staging names are unique per request');
+checkAccount(file_get_contents("{$mediaDir}/{$stageId}.png") === $stageBytes, 'the final file holds exactly the validated bytes');
+checkAccount(glob("{$mediaDir}/.*.part") === [], 'no unique staging file is left behind after a successful store');
+@unlink($oldSharedStaging);
+
+// ── storage lock: a second request cannot clobber the aggregate mid-mutation ─
+$lockRepoA = new AccountRepository(lockAttempts: 3, lockPollMicros: 1000);
+$lockRepoB = new AccountRepository(lockAttempts: 3, lockPollMicros: 1000); // models a second, overlapping request
+$mediaRecord = ['file' => str_repeat('c', 64) . '.png', 'name' => 'c.png', 'mime' => 'image/png', 'size' => 1, 'uploaded_at' => 1];
+$otherId     = str_repeat('c', 64);
+
+$sawBusy = false;
+$lockRepoA->withLock(function () use ($lockRepoB, $mediaRecord, $otherId, &$sawBusy): void {
+    try {
+        $lockRepoB->writeMediaRecord($otherId, $mediaRecord);
+    } catch (AccountStorageBusy) {
+        $sawBusy = true;
+    }
+});
+checkAccount($sawBusy, 'while one request holds the lock, an overlapping write fails closed with AccountStorageBusy instead of racing');
+checkAccount(!isset($lockRepoA->readMedia()[$otherId]), 'the refused overlapping write changed nothing');
+checkAccount(!array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'the lock is released once the holder finishes');
+$lockRepoB->writeMediaRecord($otherId, $mediaRecord);
+checkAccount(isset($lockRepoA->readMedia()[$otherId]) && isset($lockRepoA->readMedia()[$stageId]), 'after release the second write lands and the first request\'s records survive (no lost update)');
+
+// Re-entrant within one request (saveProfile holds the lock while identity bootstrap writes nodes).
+$nested = $lockRepoA->withLock(fn () => $lockRepoA->withLock(fn () => 'inner'));
+checkAccount($nested === 'inner' && !array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'the lock is re-entrant within one request and fully released afterwards');
+
+// A throwing operation still releases the lock.
+try { $lockRepoA->withLock(function (): void { throw new RuntimeException('boom'); }); } catch (RuntimeException) {}
+checkAccount(!array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'an exception inside the lock still releases it');
+
+// A crashed holder's expired lock is taken over by compare-and-swap, not blocked forever.
+$__wpOptions[AccountRepository::LOCK_OPTION_KEY] = bin2hex(random_bytes(16)) . '|' . (time() - 60);
+$tookOver = $lockRepoB->withLock(fn () => 'ran');
+checkAccount($tookOver === 'ran' && !array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'a stale lock from a crashed request is taken over and then released');
+
+// A live lock held by someone else is never stolen, and its release is not undone by ours.
+$liveForeign = bin2hex(random_bytes(16)) . '|' . time();
+$__wpOptions[AccountRepository::LOCK_OPTION_KEY] = $liveForeign;
+$refused = false;
+try { $lockRepoB->withLock(fn () => 'should not run'); } catch (AccountStorageBusy) { $refused = true; }
+checkAccount($refused && $__wpOptions[AccountRepository::LOCK_OPTION_KEY] === $liveForeign, 'a live lock held by another request is neither stolen nor released by a refused waiter');
+unset($__wpOptions[AccountRepository::LOCK_OPTION_KEY]);
+
+// ── route-level: overlapping Save/Publish/upload are retryable 503s, and no Save is lost ─
+$busyRepository = new AccountRepository(lockAttempts: 2, lockPollMicros: 1000);
+$busyController = new AccountController(new PlatformIdentifierStation(), static fn (string $p): bool => is_file($p), $busyRepository);
+$__wpOptions[AccountRepository::LOCK_OPTION_KEY] = $liveForeign;
+checkAccount($busyController->saveProfile(new WP_REST_Request(['name' => 'Busy']))->get_status() === 503, 'Save during another request\'s live lock is a retryable 503');
+checkAccount($busyController->settleProfile(new WP_REST_Request())->get_status() === 503, 'settle during another request\'s live lock is a retryable 503');
+checkAccount($busyController->updateStatus(new WP_REST_Request(['platform_status' => 'active']))->get_status() === 503, 'Publish during another request\'s live lock is a retryable 503');
+$busyUpload = accountUpload($busyController, accountFakeFile(base64_decode(ACCOUNT_GIF), 'again.gif'));
+checkAccount($busyUpload->get_status() === 200 && $busyUpload->get_data()['item']['id'] === hash('sha256', base64_decode(ACCOUNT_GIF)), 'a re-upload of an already registered image needs no write, so it dedupes even while the lock is held');
+$freshBytes = base64_decode(ACCOUNT_PNG) . 'trailing-bytes-make-a-new-hash';
+$busyFresh  = accountUpload($busyController, accountFakeFile($freshBytes, 'fresh.png'));
+checkAccount($busyFresh->get_status() === 503, 'a NEW image upload during a live lock is a retryable 503 and registers nothing');
+checkAccount(!isset($lockRepoA->readMedia()[hash('sha256', $freshBytes)]), 'the refused upload left no metadata record');
+unset($__wpOptions[AccountRepository::LOCK_OPTION_KEY]);
+
+// Interleaved Save + upload through two controllers: both changes survive.
+$ctlOne = new AccountController(new PlatformIdentifierStation(), static fn (string $p): bool => is_file($p));
+$ctlTwo = new AccountController(new PlatformIdentifierStation(), static fn (string $p): bool => is_file($p));
+$ctlOne->saveProfile(new WP_REST_Request(['name' => 'Interleave']));
+$upload = accountUpload($ctlTwo, accountFakeFile($freshBytes, 'fresh.png'))->get_data();
+$ctlOne->saveProfile(new WP_REST_Request(['name' => 'Interleave 2', 'logo_media_id' => $upload['item']['id']]));
+$final = $ctlTwo->fetchDetail(new WP_REST_Request())->get_data();
+checkAccount($final['drafts']['brand']['name'] === 'Interleave 2' && $final['drafts']['brand']['logo_media_id'] === $upload['item']['id'], 'a Brand Save and an upload through separate request objects both persist — neither overwrote the other');
+checkAccount(isset($lockRepoA->readMedia()[$upload['item']['id']]), 'the upload\'s metadata record survived the later Brand Save');
 
 // A canonical Brand stored before the media fields existed still reads back whole.
 $__wpOptions[AccountRepository::OPTION_KEY]['brand'] = ['name' => 'Old', 'code' => '', 'logo_attachment_id' => 2101, 'favicon_attachment_id' => null];

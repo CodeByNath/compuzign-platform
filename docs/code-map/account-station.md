@@ -6,7 +6,7 @@ permanent singleton tree — **Account Station → Settings → Tools → Profil
 — and Profile's first section, **Brand**. Settings, Tools, and Profile are
 Account-owned child records, never separate peer Stations.
 
-Account Station does not own WordPress users, authentication, or unrelated records.
+Account Station owns no WordPress users, authentication, or unrelated records.
 
 ## Identity
 
@@ -48,11 +48,10 @@ draft to canonical; Publish (`platform_status: 'active'`, via
 presentation mask Service uses, never a module/draft rewrite. Brand has no
 required field — blanks are valid — so it always settles
 (`AccountSchema::isBrandComplete()` is unconditionally true). Settle,
-Publish, Disable and Enable are all rejected outright against a
-never-bootstrapped install — unlike Service, whose id must exist before its
-`/status` route is addressable. All four share one predicate,
-`isBootstrapped()`, true only once all four chain nodes are bound, not just
-the Profile leaf.
+Publish, Disable and Enable are rejected outright against a
+never-bootstrapped install (unlike Service, whose id must exist before
+`/status` is addressable), via one predicate, `isBootstrapped()`, true only
+once all four chain nodes are bound.
 
 **Archive/Trash/permanent-delete are not implemented.** A singleton that can
 never not-exist has no instance to restore into, and Platform Identifier
@@ -96,8 +95,9 @@ Previews use read-only `logo_url`/`favicon_url`.
   or non-image attachment id, or an unknown media key, fails the whole Save
   closed. `presentBrand()` adds read-only `logo_url`/`favicon_url`.
 - `Support/AccountMedia.php` — stores/lists/resolves the images: type
-  sniffed from bytes (JPEG/PNG/GIF/WebP, 5 MB), hash-named, idempotent on
-  identical bytes. Abandoned uploads stay listed and selectable; none are
+  sniffed from the same bytes it hashes and writes (JPEG/PNG/GIF/WebP,
+  5 MB), `is_uploaded_file`-verified, hash-named, staged under a unique name
+  then renamed, idempotent on identical bytes. Abandoned uploads stay listed and selectable; none are
   deleted.
 - `Support/AccountIdentity.php` — the four-node bootstrap chain.
 - `Support/AccountRepository.php` — the one aggregate option.
