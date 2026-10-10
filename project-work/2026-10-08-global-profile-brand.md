@@ -426,3 +426,38 @@ No option names, ID formats, lock value format, REST routes, media paths, lifecy
 
 ## Current status
 **BUILDER ACTION REQUIRED — revised atomic persistence/identity plan only; no implementation permission yet.**
+
+## Builder Phase 2D — REVISED atomic commit/identity plan (no code written) — 2026-10-10
+Re-read `AccountRepository`, `AccountIdentity`, `AccountController`, `AccountMedia`, `PlatformIdentifierStation` on `main@0aede22b`. **Reviewer's flaw accepted:** a freshness check before a blind `update_option` is not a fence, and no TTL lease can be exclusive under a paused worker. This plan therefore **does not rely on the lock for correctness**.
+
+### R1 — Account: aggregate compare-and-swap (correctness) — replaces the lease mutex
+- **Commit rule:** every mutation is `commit(callable $mutator)`: read the row **directly from `$wpdb`** (never `get_option`), run the pure mutator, then one `UPDATE options SET option_value=%s WHERE option_name=%s AND BINARY option_value=%s` against the **exact bytes read**. `rows_affected===1` = committed; else re-read and re-run the mutator, bounded (≈8 tries, small jitter), then `AccountStorageBusy` → 503 with nothing written. A first write (row absent) is `INSERT IGNORE`, `rows_affected===1`, with the loser looping.
+- **Why this is provable:** the single-row UPDATE is atomic in InnoDB. A write lands only on the exact state it was derived from, so a stale or paused holder can never overwrite newer state. Re-running the mutator on fresh state means two 200-acknowledged writers always compose. ABA needs identical bytes, i.e. identical state, which is harmless. `BINARY` is required because the options collation is case/pad-insensitive (`"Acme"` vs `"ACME"` would otherwise compare equal). No new field or format change.
+- **Object cache:** every Account read uses the DB, so a persistent cache (production presence unknown) cannot supply a stale value; post-commit `wp_cache_delete` is courtesy only.
+- **Lease lock retired** (`withLock`, TTL, lock option, `serialized()` wrapper). That removes defects 1, 4 and 5 by construction. A leftover `cz_account_station_lock_v1` row is inert; no production cleanup.
+- **Handler fix this forces:** `writeLifecycle(status, previous, module_status)` takes values from a stale earlier read and would defeat CAS. Replace it with `updateLifecycle(callable $fn)` run inside the commit, so Save (module→pending), Settle, Publish and Disable/Enable (`StationLifecycle::publish`, mask rules) decide on **fresh** state. Draft+lifecycle become one commit per handler. Behaviour, messages and the Disable/Enable mask are unchanged. Brand-draft content stays last-writer-wins (user data, as today).
+- **Media:** `writeMediaRecord` becomes a CAS insert-by-hash, so an acknowledged upload cannot be lost. A file already renamed whose record commit fails is the existing harmless orphan (hash-named, re-upload reuses it).
+
+### R2 — Identity consistency under simultaneous first-Save
+- **Cause of the split:** `assign()` writes the node id, reads back, then claims reverse. The owner callback writes unconditionally, so racing first-Saves overwrite each other's id; the reverse winner then differs from the aggregate.
+- **Account-local fix, no Station policy change:** `writeNode` becomes **bind-if-empty inside the CAS commit** (non-empty node ⇒ no-op). The loser's write is a no-op, the Station's own existing read-back (`assign` line ~152) throws `PlatformIdentifierConflict`, the loser never reaches `claimReverse`, and the controller's existing "retry" 500 path handles it. A retry sees the stored id and `ensure()` converges (forward `reserved` ⇒ transient conflict, then bound). Orphan `reserved` rows stay harmless. This **does not depend on the shared claim at all**.
+- **Hardening (separate approval boundary):** `claimOption` → shared atomic `OptionClaim::claim` (`INSERT IGNORE`, `rows_affected===1`, clear `options`/`notoptions` cache). Account is correct without it; it protects Service/Category/PackageFamilies, whose write callbacks (`update_post_meta`, `CategoryMeta::claimPlatformId`, `claimFamilyPlatformId`) I have **not** verified as conditional. It changes behaviour only in a race, turning a silent double-"win" into the Station's existing conflict path. `OptionClaim` is the single neutral home (relocated, not duplicated). **My ask: approve R1+R2-Account now; decide the Station hardening separately.**
+
+### R3 — Exposure only, not changed
+`RequestRepository::claimCreationLock` and `TemporaryMigrationController::acquireLock` use the same non-atomic `add_option` and stale cache read (Requests: duplicate in-flight creation possible; Migration: temporary, admin-only). Deferred; flagged risk.
+
+### Existing production data
+No repair. If a duplicate ever existed, owner screenshots show a single Profile ID `CZASTPGQXQ4`. Any reconciliation is a separate, explicitly approved item. Old and new code interoperate on the same row (byte-CAS needs no format change); rollback is a plain revert.
+
+### Tests (scratch WP+MariaDB only, same disposable harness; nothing committed to the repo; the 84-check PHP contract and mounted tests updated only for the API rename)
+1. **No lost update:** 16 parallel Save/Settle/upload/Publish × ≥12 rounds; every 200 upload is in the record and on disk; final lifecycle equals a serial order.
+2. **First-Save:** 12 parallel × ≥20 rounds; exactly 4 bound forward + 4 reverse, reverse id = aggregate id, every 200 reports the same four IDs, losers get the retry 500/503 only.
+3. **Forced stall (replaces lease expiry):** scratch-only `query` filter pauses a writer between its read and its UPDATE for >10 s while others commit; the stalled writer's CAS fails and re-applies on fresh state; nothing is overwritten.
+4. **Progress:** a request arriving mid-contention completes within a few retries, no fixed 2.1 s 503.
+5. **Primitive (if hardening approved):** 8 barrier-synced × 25 rounds ⇒ one winner each; Service/Category/PackageFamilies `ensure()` races. **Regression:** existing Account contracts, `platform-identifier-*`, `category-inline-identity-race`, Requests suite; run on an older WordPress release too. `%`, multibyte and case-differing values exercise the `BINARY` CAS.
+
+### Asks
+(1) Approve R1 CAS + lock retirement + `updateLifecycle`. (2) Approve R2 Account bind-if-empty. (3) Decide Station `claimOption` hardening separately. (4) R3 stays deferred. (5) Harness stays scratch-only per your direction.
+
+## Current status — Builder
+**AWAITING REVIEWER REVIEW — revised atomic commit/identity plan only; no source change, no production contact.**
