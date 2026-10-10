@@ -208,3 +208,29 @@ Stopping here for Reviewer sign-off per the Owner's phase cadence. Setting `AWAI
 Claude: keep compliant parts of topic candidate `7336f93cfb6c67de2871e92547f5dc7608fb14b9`; correct the existing media endpoint to store raw image files in an Account-owned host-storage location **without creating WordPress Media Library attachments**. Use Account's existing repository and REST controller patterns for references and metadata, with no image binary in option storage. In the existing CompuZign drawer, provide the minimum Account-owned image picker/window for upload, preview, prior Account-image selection, Replace and Clear. Do not introduce a Media Station, new identity family, new database, storage adapter framework, global WordPress media filters or nested drawer. Keep Save → Pending → Publish and Disable/Enable unchanged.
 
 Preserve legacy saved WordPress attachment references with read-only compatibility until safe replacement, with no silent migration/deletion. Validate authenticated access to upload/list/read, real MIME/content and file size, path safety, collisions, failure and abandoned uploads. Reuse established infrastructure rather than over-engineering. Commit focused changes separately on the existing topic branch, run mounted and PHP regression checks, update Account Code Map, push exact candidate and report SHA/evidence in this same file as `AWAITING REVIEWER REVIEW`; **do not merge/deploy** before independent audit. Stop only for a demonstrated platform-standard, security or compatibility blocker.
+
+## Builder Phase 2B correction — 2026-10-10
+
+Implemented the Owner's final correction on the existing topic branch, one commit on `7336f93c`. Compliant parts kept (Account-owned upload route, read-only `logo_url`/`favicon_url`, Save field whitelist, no `wp.media`). Save→Pending→Publish and Disable/Enable are untouched.
+
+**Storage (no WP attachments):** raw files go to `<uploads>/compuzign-account/` (`Support/AccountMedia.php`). Filename = SHA-256 of the bytes + extension from the *sniffed* type (`getimagesize`; JPEG/PNG/GIF/WebP, 5 MB checked on the real file, not client size). Path-safe and collision-free by construction; identical bytes resolve to the same record. Metadata (`file/name/mime/size/uploaded_at`) lives in the existing `cz_account_station_v1` option via `AccountRepository` — no binary in the option. The hash is a storage key only: no Platform ID family, Media Station, adapter, filter, new table or nested drawer.
+
+**Routes (both `requireAdmin`):** POST `…/profile/media` upload → `{item}`; new GET `…/profile/media/library` → newest-first list (cap 100). Files are served as static uploads URLs (Brand images are public by nature).
+
+**Brand references:** new `logo_media_id`/`favicon_media_id`. Save fails closed on a malformed/unknown key. Choosing an Account image drops the legacy attachment id from the *draft* (explicit replacement); canonical is unchanged until settle. Legacy `*_attachment_id` still resolves/previews and re-saves unchanged — no migration, no deletion. Pre-existing stored Brand/draft shapes without the new keys read back whole.
+
+**UI (inline in the existing Brand editor):** per field — preview, Upload new, Choose existing (one shared lazily-fetched list, includes fresh uploads, retries after a failed load, Escape closes only the list), Clear. Legacy reference shows a "replace" hint. Upload/network errors leave the field untouched.
+
+**Abandoned uploads:** not deleted; they stay listed and selectable, and identical re-uploads dedupe. No cleanup policy invented. Clear never deletes a file. **Decision for Owner/Reviewer if wanted:** Save still accepts a valid WP attachment id sent by an API caller (UI no longer offers one); tightening to "only echo a currently stored legacy id" is a one-line change but alters earlier-approved Save semantics, so not done unasked.
+
+**Evidence (plugin root; Node via `~/.local/node/bin`, Homebrew node still broken):**
+- `php tests/account-station.php` PASS — real temp-dir files: no-file, partial upload, oversize (incl. lying client size), PDF, PHP-in-`.png`, SVG all rejected with nothing written; traversal name sanitised; dedupe; GIF/WebP by bytes; unusable uploads dir → clean 500; library list; bad media keys fail closed; legacy re-save; settle/fetch URLs; pre-media stored shape; no attachment pipeline defined in harness.
+- `npm run regression:account-station-brand-media-picker` and `…-first-save-clear` PASS (mounted real `AccountDrawerHost`, only `fetch` faked). Picker script proven non-vacuous: old editor fails it.
+- `tsc --noEmit` clean; `npm run build` ok (`admin-station.js` committed; unrelated chunk churn discarded; its chunk refs identical to HEAD); `contract:drawer-module-entry` pass (15 shells); `contract:admin-station-css` same 6 pre-existing `cz-rate-sheet-tool__*` failures; `docs:check` only the pre-existing `platform-identifier-station.md` failure. `docs/code-map/account-station.md` updated, ≤600 words.
+
+**Not done / unverified:** no real WordPress runtime was available, so real `wp_upload_dir()`, host file permissions and static serving of `/uploads/compuzign-account/` are unexercised (covered only by stubbed harness) — part of Phase 2C. No production mutation; not merged/deployed. Housekeeping: a stale local-only branch `tier-inclusion-unit-price-copy-order` exists beyond the branch cap; left untouched pending Nath.
+
+**Pushed candidate:** `account-station-profile-ui-slice@a6b4b3263f18f19e998e4d0f71816071328bed39` (on `7336f93c`; base `main@9ec2ba97`).
+
+## Status
+**AWAITING REVIEWER REVIEW — Phase 2B correction candidate `account-station-profile-ui-slice@a6b4b3263f18f19e998e4d0f71816071328bed39`. Do not merge or deploy.**
