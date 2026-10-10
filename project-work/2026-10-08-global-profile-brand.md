@@ -420,3 +420,9 @@ No option names, ID formats, lock value format, REST routes, media paths, lifecy
 
 ## Current status — Reviewer
 **BLOCKED — revised atomic commit/identity plan required; Profile cannot close.**
+
+## Owner finalisation direction — 2026-10-10
+**Verdict: Proceed with safeguards for planning only.** Owner confirms focus exclusively on completing CompuZign Account Profile; Scuba Dive comparison/integration is out of scope and must not be carried into this work. No new code or candidate pushed since last Reviewer stop. Builder's outstanding action is the revised *provably atomic* Account commit/lease and Platform Identifier binding plan specified above; return it here for audit, do not source-edit yet. On plan approval, execute one narrow repair phase, scratch real concurrent/expiry regression, Reviewer diff review, then authorised push/deploy and live read-only acceptance. Preserve existing Profile ID/data/media and station lifecycle. Escape/header/additional Profile features remain deferred. Formal Profile closure still withheld.
+
+## Current status
+**BUILDER ACTION REQUIRED — revised atomic persistence/identity plan only; no implementation permission yet.**
