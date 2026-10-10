@@ -524,3 +524,11 @@ I did not fix any of these (out of scope; each needs its own approval).
 
 ## Current status — Builder
 **BUILDER ACTION PENDING ONLY THE `main` PUSH — baseline/regression evidence recorded; push of unchanged `fe2e571f` blocked by classifier awaiting Nath. Profile OPEN.**
+
+## Builder Phase 2D — main promotion — 2026-10-10
+Nath re-ran the push after the classifier block. `origin/main` fast-forwarded `0aede22b` → **`fe2e571f1bcff264bd1447e3a35bbdc5450abed3`** (unchanged approved candidate; `ls-remote` confirms `refs/heads/main` = that SHA). GitHub Actions "Deploy to Hostinger" run **#1044, id 38045288124**, event `push`, head_sha `fe2e571f…`: **completed / success** (verified via the public Actions API).
+
+Not verified: deployed Hostinger file state, real production object-cache/MariaDB collation behaviour, live Account Profile drawer/identity behaviour. Mounted/TS/docs checks remain unrun (Node toolchain, see above). No production data touched. Topic branch `account-station-profile-ui-slice` left in place (= `main`) pending acceptance. Cross-Station Identifier hardening, Requests/Migration locks, Escape, header and Scuba Dive remain deferred.
+
+## Current status — Builder
+**AWAITING LIVE VALIDATION — Phase 2D `main@fe2e571f1bcff264bd1447e3a35bbdc5450abed3`, deploy run #1044 success. Reviewer deployment/live read-only review next; Profile OPEN.**
