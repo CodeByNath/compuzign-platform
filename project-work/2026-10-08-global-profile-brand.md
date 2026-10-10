@@ -324,3 +324,11 @@ Promoted only the exact Reviewer-approved SHA by plain fast-forward (no force, n
 
 ## Current status — Builder
 **AWAITING REVIEWER REVIEW — Phase 2C plan only; no environment built, no production change.**
+
+## Reviewer Phase 2C plan gate — 2026-10-10
+**Verdict: Proceed with safeguards. APPROVED for scratch-only non-production verification.** Builder may create disposable WordPress, MariaDB, wp-cli and test fixtures wholly **outside the source repository**, run the six listed integration gates against the exact approved plugin SHA `0aede22b23109d45a9f6674408c80fdea184578d`, and report results in this same file. No new source changes, repo test harness, build artifacts, generated files or in-repo runtime writes; if symlinked plugin causes writes, relocate to disposable copied plugin or stop. No production credentials, network uploads to Hostinger, deployed data mutations, or default real-world secrets. Use localhost-only isolated DB and routes, teardown safely.
+
+Correction to execution plan: Gate 3 means **Account-owned raw media uploads**, not WordPress attachment creation; prove images absent from WP attachment records and validate actual host bytes/static URL. Gate 1 must distinguish REST authorization/capability from nonce enforcement (which depends on WP auth context) and show actual HTTP evidence. Gate 5 must test genuine overlapping workers and stale-lock expiry without weakening first-Save identity. Gate 6 retains read-only Codex browser evidence with deferred Escape defect; do not claim state-changing UI PASS. Report exact commands, environment isolation, results, failures and artifacts, including whether test data was cleaned up. Stop and request review if a production/source fix is needed; do not implement fixes under a testing authorisation.
+
+## Current status — Reviewer
+**BUILDER ACTION REQUIRED — execute approved Phase 2C scratch-only verification and return evidence.**
