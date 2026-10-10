@@ -376,3 +376,37 @@ Two harness checks in `gate5` were test-design flaws (held-lock overlap with onl
 
 ## Current status — Reviewer
 **BLOCKED — ARCHITECTURAL CONCURRENCY DECISION REQUIRED. Profile closure denied pending atomic identity/persistence repair and fresh Phase 2C gate 5 PASS.**
+
+## Builder Phase 2D — concurrency remediation PLAN (no code written) — 2026-10-10
+Inspected `main@0aede22b`. **Root cause:** `add_option()` (WP `option.php`) is check-then-`INSERT … ON DUPLICATE KEY UPDATE`; it is not a claim, and its pre-check reads a per-request cache. A second defect is the Account lock's retry loop, which re-reads that stale cache. Grep found no existing atomic-claim helper (Request/Account/Identifier each hand-roll `$wpdb` CAS). **Per the relocate-don't-duplicate rule, one neutral shared helper is proposed, not copies.**
+
+**Consumers of the shared claim (exposure only):** `PlatformIdentifierStation::claimOption` (lines 93, 217, 405; used by `ensure()` for Account, Service, Category, PackageFamilies); `RequestRepository::claimCreationLock` (+`observeLockValue`, same stale-cache read); `TemporaryMigrationController::acquireLock` (admin-only, temporary). Account's own lock is the fourth.
+
+### Step R1 — Account-only (inside the existing Account boundary)
+- **New** `src/Core/OptionClaim.php` (final, static): `claim(key, value, autoload=false): bool` is one `INSERT IGNORE INTO {options}` with `rows_affected === 1`, values via `maybe_serialize`, then `wp_cache_delete(key,'options')` and `notoptions` on both outcomes. `readFresh(key)` is a direct `$wpdb` SELECT. It also holds the existing `compareAndSwap` and `compareAndDelete` lifted out of `AccountRepository` (relocated, not copied). Autoload value goes through `wp_determine_option_autoload_value()` when it exists, else `'no'`.
+- `AccountRepository`: `acquireLock` uses `claim`; staleness and takeover use `readFresh`/`compareAndSwap`; the 10 s TTL and the `{token}|{ts}` value format are unchanged. **Lease fence:** immediately before `write()`, `readFresh(lock) === heldLock`, else throw `AccountStorageBusy` and write nothing (covers the stalled-holder case). A CAS version on the aggregate row is the stronger alternative; I recommend it only if you want to close the TTL window fully, and it needs separate approval.
+- Rejected: MySQL `GET_LOCK` (host/connection-pooling guarantees unverified; different crash semantics).
+- Failure modes: a lost claim returns false (retry loop, 503 after the bounded wait). Crashed holder: 10 s stale takeover as today. A persistent object cache could return a stale value, so every decision reads the DB directly.
+
+### Step R2 — separate approval boundary (crosses Platform Identifier Station)
+`claimOption` calls `OptionClaim::claim` instead of `add_option`; the post-claim readback stays. Behaviour is stricter only in the race: a losing `claimReverse` now reaches the existing conflict path instead of silently also "winning". Also benefits Service, Category and PackageFamilies. With R1 alone, Account's own double-bind cannot occur (exclusive lock), but other Stations' `ensure()` stay exposed; I recommend R2 for that reason.
+
+### Step R3 — regression exposure only, **no change proposed**
+Requests: `claimCreationLock` has the same non-atomic claim and stale-cache read; fix needs its own approval and its own convergence test. Migration lock: temporary, leave.
+
+### Compatibility and rollback
+No option names, ID formats, lock value format, REST routes, media paths, lifecycle or drawer changes. No data migration; existing IDs and rows untouched; old and new code interoperate on the same lock/registry rows during deploy. Rollback is a plain revert. Existing orphan `reserved` rows stay (harmless). I will not touch production or probe it; if production ever had a concurrent first-Save, a duplicate could exist, but the owner screenshots show a single ID and cleanup would need separate approval.
+
+### Reproducible real-concurrency tests (scratch WP+MariaDB, as in the Phase 2C run; same harness before and after)
+1. **Primitive:** 8 barrier-synchronised processes × 25 rounds on `OptionClaim::claim`: exactly 1 winner every round (today `add_option`: 7–8 winners).
+2. **Duplicate identity:** 12 parallel first-Saves × ≥20 rounds: exactly 4 bound forward + 4 reverse records, reverse id equals aggregate id, every 200 reports the same four IDs.
+3. **Lost update:** 16 uploads plus Save/Settle/Publish in parallel × ≥5 rounds: every 200-acknowledged upload is present in the record and on disk.
+4. **Exclusion + progress:** 16 writers holding 80 ms, ≥12 rounds: zero overlapping critical sections; a waiter arriving mid-hold succeeds shortly after release instead of a 2.1 s 503.
+5. **Regression:** the 84 Account contracts, `tests/platform-identifier-*.php`, `category-inline-identity-race.php`, and the Requests suite must stay green. For R2, repeat 2 and 3 for Service/Category `ensure()`.
+
+**Test home (decision for you):** keep the harness scratch-only, or commit it as non-CI dev tooling under `tests/integration/`; I would prefer the latter so a future change can't silently regress gate 5. Production WP version is unknown; I will also run tests 1–4 on an older WordPress release.
+
+**Asks:** (1) approve R1; (2) approve or defer R2; (3) R3 deferred; (4) lease fence only vs CAS; (5) harness location. No patch until approved.
+
+## Current status — Builder
+**AWAITING REVIEWER REVIEW — Phase 2D remediation plan only; no source change, no production contact.**
