@@ -471,3 +471,31 @@ No repair. If a duplicate ever existed, owner screenshots show a single Profile 
 
 ## Current status — Reviewer
 **BUILDER ACTION REQUIRED — implement and test APPROVED Account-only CAS/bind-if-empty repair on topic branch; return candidate for diff audit. Profile remains OPEN.**
+
+## Builder Phase 2D — implementation candidate — 2026-10-10
+**Candidate:** `account-station-profile-ui-slice@fe2e571f1bcff264bd1447e3a35bbdc5450abed3` (one commit on `0aede22b`; 6 files, +449/−234). No `main` push, no deploy, no production contact. **Shared `PlatformIdentifierStation` is unchanged**; Requests/Migration untouched; no migration or repair.
+
+**Files:** `AccountRepository` (lease lock, TTL and `withLock` removed; one `commit()` CAS path; `writeNode` bind-if-empty; `saveBrandDraft`/`settleBrandDraft`/`updateLifecycle` compute lifecycle inside the commit), `AccountController` (Save/Settle/Publish/Disable/Enable decide on fresh state; `retryable()` → 503 only on exhausted retries; same messages/422s), `AccountIdentity` (see below), `AccountStorageBusy` doc, Code Map, `tests/account-station.php`.
+
+**Commit protocol:** direct DB read → pure mutator → one `UPDATE … WHERE BINARY option_value = <exact bytes read>` (`INSERT IGNORE` for an absent row); lost race ⇒ re-read and re-run (≤40, jitter), exhaustion ⇒ nothing written, 503. Mutators never allocate IDs, touch files or call the Station (safeguard 1).
+
+**My plan was wrong on one point, now corrected.** I wrote that a retry after a crash "converges (reserved ⇒ transient conflict)". Real process-death injection proved otherwise: a death between `writeNode` and the registry bind leaves the node stored with its record `reserved`, and `ensure()` rejects that **forever**. **Pre-existing on `main@0aede22b`** (reproduced: still 500 after the old 10 s TTL). Fix stays Account-local: `AccountIdentity::ensureNode` finishes an interrupted bind with the Station's public `resolve()`/`assign()`, keeping the stored ID. Flagging it because it goes beyond the approved plan text; no shared-Station change was needed.
+
+**Evidence (disposable WordPress 7.1.3 and 6.5.5 + MariaDB 11.8.9 + PHP 8.5.8, 8 php-server workers, localhost, scratch only; torn down, nothing committed to the repo).** Same harness on `0aede22b` for contrast:
+
+| Test | `0aede22b` | Candidate |
+|---|---|---|
+| D2 first-Save storm, 12 parallel × 20–25 rounds | 11/20 rounds split identity (2 bound forward; reverse ≠ aggregate); retries stuck | **0 violations**; exactly 4 bound forward + 4 bound reverse equal to aggregate; all 200s report the same IDs; retry converges every round. 7.1.3 (25 rounds), 7.1.3 + persistent cache (20), 6.5.5 (20). Losers 500 only (~60% of a simultaneous first-Save; they retry) |
+| D3 16 uploads + Saves/settle/lifecycle × 12 | acknowledged uploads missing from record | **192/192 acked present in record and on disk**; no refused upload recorded; lifecycle legal. Also with cache and on 6.5.5 |
+| D4 forced 12 s stalls (> old 10 s TTL) | stalled writer reverted rivals' Publish, settle and upload | stalled Save/upload/first-Save: rivals preserved; stalled change re-applied once on fresh state; stalled first-Save fails closed, rival IDs untouched, retry same IDs. 16/16 on both WP versions |
+| D5 progress, 16 writers + mid-flight waiter × 12 | fixed ~2.1 s 503 | 0 non-200; waiters p95 0.10–0.21 s |
+| D6 death after each of 5 aggregate writes and 4 reverse claims, immediate retry | stranded | **28/28** converge, IDs kept, one bound record per type |
+| D1 real MariaDB `utf8mb4_unicode_520_ci` | — | 23/23: plain `=` equates `Acme`/`ACME`, `BINARY` does not; stale writer refused; `%`, quotes, multibyte round-trip; INSERT IGNORE loser; identical-bytes no-op; stale cache entry ignored, post-commit `get_option` agrees |
+| Gates 1/3/4 re-run | — | 46/46, 48/48, 26/26 (gate 2 superseded by D6) |
+
+PHP contract `tests/account-station.php` PASS (171 checks incl. stalled-writer, absent-row, exhaustion, 503-writes-nothing, interrupted-bind resume). Other PHP identifier/category/package contracts pass; `platform-identifier-station.php` fails "every entity prefix is locked" identically on untouched `main` (unrelated).
+
+**Not verified:** Node is broken here (missing `libsimdjson` dylib), so mounted/TS/`docs:check` could not run — no TS changed. Production object cache and MariaDB collation are unknown (tested one persistent-cache model and the default utf8mb4 collation). `BINARY` CAS assumes connection and column charset agree, as WordPress configures. Escape/header/Station hardening/Requests lock remain deferred.
+
+## Current status — Builder
+**AWAITING REVIEWER REVIEW — Phase 2D candidate `account-station-profile-ui-slice@fe2e571f1bcff264bd1447e3a35bbdc5450abed3`. Do not merge or deploy.**
