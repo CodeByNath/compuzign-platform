@@ -1,7 +1,18 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
 ## Status
-**AWAITING REVIEWER REVIEW — Phase 2 initial UI slice implemented on topic branch `account-station-profile-ui-slice@8949e02fae1658105332cfe0d08dc68d110565be`, pushed. Not merged to main. Verification evidence below.**
+**SOURCE PUSH NOT APPROVED — Phase 2 initial UI candidate `8949e02fae1658105332cfe0d08dc68d110565be` requires bounded corrections below. Do not merge or deploy.**
+
+## Reviewer audit — 2026-10-10 (candidate 8949e02f)
+**Verdict: Proceed with safeguards; source push NOT approved.** Independently inspected topic source against current backend AccountController, Service Station handoff and locked drawer lifecycle. Implementation keeps Account domain state in its peer Station and Admin placement in Admin; that boundary is acceptable.
+
+**Proven defect 1 — first-Save identity handoff:** Backend `AccountController::saveProfile()` responds only with `success/draft/module_status`, not four identity nodes. Frontend `useAccountStation.saveBrand()` sets `bootstrapped: true` but retains pre-bootstrap `detail.nodes`. Account Brand's Platform ID may therefore remain missing after Save, contrary to approved authoritative same-mounted identity handoff. Builder must provide authoritative nodes in the first successful Save response or a safe in-place authoritative fetch, seed them without remount, and prove the exact path in mounted test coverage.
+
+**Proven defect 2 — explicit attachment Clear:** `useAccountDrawerController.brandBinding` derives IDs using `drafts.brand?.logo_attachment_id ?? brand.logo_attachment_id` (and Favicon). An intentionally cleared draft `null` incorrectly falls back to old canonical attachment. Choose the draft object first, then read its nullable fields; verify Save/Clear and draft-versus-canonical display.
+
+**Verification deficiency:** Handover asserts source inspection and existing generic contracts, but supplies no specific mounted Account first-Save identity, footer/notification continuity, or Clear regression results required at approval. Add focused mounted tests. Also ensure pre-bootstrap Disable cannot present a false-success action against backend's 422.
+
+**Builder next:** Correct only those paths on the same topic branch, run focused TypeScript/mounted contract checks, and report exact pushed SHA and evidence here; restore `AWAITING REVIEWER REVIEW`. No new feature, backend route family, production write, or main push. Six non-production/live acceptance gates remain mandatory later.
 
 ## Builder implementation — 2026-10-10
 Implemented exactly the approved slice on a new topic branch from `main@4d8a5c4a`, pushed to `account-station-profile-ui-slice@8949e02f`. New `resources/ts/account-station/` (types/api/useAccountStation hook; `drawer/` composition, controller, footer, dialogs, Brand editor with real `wp.media()` Logo/Favicon pickers; `surface/` drawer host + one-item card source; `register.ts`). Admin's `register.ts` gained only the one `presentation` surface binding reusing the existing `category-group-cards` kit unchanged — no new card/grid code, no Account import inside Admin. `modules/admin-station.ts` calls `registerAccountStation()` in the boot sequence, same position as Service/Package. Added one shared `accountBrandModule` to `drawer-kit/utils/moduleNotifications/` (the existing per-entity convention) and one `AccountIcon` to Admin's shared icon set — both small, necessary, non-architectural additions, not full modules of their own. `AdminStationModule::renderShortcode()` now calls `wp_enqueue_media()`, scoped to this one authenticated shortcode render, since the Logo/Favicon pickers need the real Media Library modal and this page is not `/wp-admin/`.
