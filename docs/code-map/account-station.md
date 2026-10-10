@@ -26,7 +26,11 @@ fixed string, not a record id. `Support/AccountIdentity::bootstrap()`
 reserves/binds all four in parent order on the first authenticated Save; a
 repeated or interrupted call resumes idempotently through `ensure()` rather
 than minting a second identity. A losing concurrent first-Save leaves only a
-harmless unused reservation and must retry.
+harmless unused reservation and must retry. A first-Save that died after
+storing a node's ID but before the registry bind finished (node stored,
+record still `reserved`) is completed on the next Save by
+`AccountIdentity::ensureNode()` through the Station's own `assign()`, keeping
+the stored ID — a plain `ensure()` would reject it forever.
 
 ## Storage
 
@@ -35,6 +39,21 @@ One non-autoloaded WordPress option, `cz_account_station_v1`
 (`platform_id`, `parent_platform_id`), canonical Brand fields, the Brand
 draft, and lifecycle state. No post type, no additional database, no ACF,
 no generic persistence engine.
+
+**Concurrency.** There is no lock, lease or TTL. Every write is
+`AccountRepository::commit()`: read the row directly from the database
+(never `get_option()`), run a repeatable, side-effect-free mutator, and write
+with one conditional statement (`UPDATE … WHERE BINARY option_value = <exact
+bytes read>`; `INSERT IGNORE` when the row is absent). A writer that lost the
+race re-reads and re-runs its mutator, bounded; exhausting the bound writes
+nothing and the handler answers a retryable 503 (`AccountStorageBusy`). A
+stale or paused request therefore can never overwrite newer state. Lifecycle
+changes are computed inside the commit from fresh state
+(`updateLifecycle()`, `saveBrandDraft()`, `settleBrandDraft()`), and
+`writeNode()` binds only an unbound node, so of racing first-Saves exactly one
+Platform ID is stored and each loser is rejected by the Station's read-back.
+Identity allocation, file writes and other side effects never run inside a
+mutator.
 
 ## Lifecycle
 

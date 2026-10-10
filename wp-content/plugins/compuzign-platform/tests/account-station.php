@@ -45,26 +45,52 @@ if (!function_exists('update_option')) {
 if (!function_exists('wp_cache_delete')) {
     function wp_cache_delete(string $key, string $group = ''): bool { return true; }
 }
+if (!function_exists('maybe_serialize')) {
+    function maybe_serialize(mixed $value): mixed { return is_array($value) || is_object($value) ? serialize($value) : $value; }
+}
+if (!function_exists('maybe_unserialize')) {
+    function maybe_unserialize(mixed $value): mixed { return is_string($value) && @unserialize($value) !== false ? unserialize($value) : $value; }
+}
 if (!isset($wpdb)) {
-    // Minimal $wpdb over the in-memory options store: only the two conditional
-    // statements AccountRepository's lock issues (compare-and-swap UPDATE/DELETE
-    // on the exact previously observed option_value).
+    // Minimal $wpdb over the in-memory options store: only the three statements
+    // AccountRepository's commit issues — a direct SELECT, an INSERT IGNORE, and
+    // the byte-exact compare-and-swap UPDATE. The store holds PHP values, so the
+    // "stored bytes" are serialize($value), exactly what the real column holds.
+    // $beforeStatement lets a test commit a rival write between the repository's
+    // read and its conditional write (the stalled-writer interleaving).
     $wpdb = new class {
         public string $options = 'wp_options';
+        /** @var null|callable(string): void */
+        public $beforeStatement = null;
+        public int $conditionalWrites = 0;
         public function prepare(string $sql, mixed ...$args): array { return ['sql' => $sql, 'args' => $args]; }
+        public function get_var(array $prepared): ?string
+        {
+            global $__wpOptions;
+            $key = $prepared['args'][0];
+
+            return array_key_exists($key, $__wpOptions) ? serialize($__wpOptions[$key]) : null;
+        }
         public function query(array $prepared): int
         {
             global $__wpOptions;
             $args = $prepared['args'];
-            if (str_starts_with($prepared['sql'], 'UPDATE')) {
-                [$new, $key, $expected] = $args;
-                if (($__wpOptions[$key] ?? null) !== $expected) { return 0; }
-                $__wpOptions[$key] = $new;
+            if ($this->beforeStatement !== null) {
+                $hook = $this->beforeStatement;
+                $this->beforeStatement = null; // one-shot
+                $hook($prepared['sql']);
+            }
+            $this->conditionalWrites++;
+            if (str_starts_with($prepared['sql'], 'INSERT IGNORE')) {
+                [$key, $value] = $args;
+                if (array_key_exists($key, $__wpOptions)) { return 0; }
+                $__wpOptions[$key] = unserialize($value);
                 return 1;
             }
-            [$key, $expected] = $args;
-            if (($__wpOptions[$key] ?? null) !== $expected) { return 0; }
-            unset($__wpOptions[$key]);
+            // UPDATE ... SET option_value = new WHERE option_name = key AND BINARY option_value = expected
+            [$new, $key, $expected] = $args;
+            if (!array_key_exists($key, $__wpOptions) || serialize($__wpOptions[$key]) !== $expected) { return 0; }
+            $__wpOptions[$key] = unserialize($new);
             return 1;
         }
     };
@@ -203,6 +229,35 @@ checkAccount(PlatformIdentifierPolicy::validate(PlatformIdentifierPolicy::ACCOUN
 
 $__wpOptions = [];
 
+// ── a first-Save that died after writeNode() but before the registry bind resumes, never strands ──
+// Death window 1: node stored, registry record still 'reserved', no reverse claim.
+$strandIds  = new PlatformIdentifierStation();
+$strandRepo = new AccountRepository();
+$strandRes  = $strandIds->reserve(PlatformIdentifierPolicy::ACCOUNT_STATION);
+$strandRepo->writeNode('account_station', $strandRes->platformId(), null);
+checkAccount($strandIds->resolve($strandRes->platformId())?->status() === PlatformIdentifierStation::STATUS_RESERVED, 'precondition: the interrupted bind left the registry record reserved');
+$strandBoot = (new AccountIdentity($strandIds, $strandRepo))->bootstrap();
+checkAccount($strandBoot['account_station'] === $strandRes->platformId(), 'the retry keeps the ID the interrupted request already stored — it mints nothing new');
+checkAccount($strandIds->resolve($strandRes->platformId())?->isBound() === true
+    && $strandIds->lookupNative(PlatformIdentifierPolicy::ACCOUNT_STATION, AccountIdentity::NATIVE_ACCOUNT_STATION)?->platformId() === $strandRes->platformId(), 'the retry finishes the interrupted bind: forward and reverse records are both bound to the stored ID');
+checkAccount(count(array_filter($strandRepo->readNodes(), fn ($n) => $n['platform_id'] !== '')) === 4 && $strandRepo->isBootstrapped(), 'and completes the remaining nodes');
+
+// Death window 2: node stored AND reverse claim made, forward record still 'reserved'.
+$__wpOptions = [];
+$strandIds2  = new PlatformIdentifierStation();
+$strandRepo2 = new AccountRepository();
+$strandRes2  = $strandIds2->reserve(PlatformIdentifierPolicy::ACCOUNT_STATION);
+$strandRepo2->writeNode('account_station', $strandRes2->platformId(), null);
+$reverseKey = 'cz_platform_identifier_native_v1_' . PlatformIdentifierPolicy::ACCOUNT_STATION . '_' . hash('sha256', get_debug_type(AccountIdentity::NATIVE_ACCOUNT_STATION) . ':' . AccountIdentity::NATIVE_ACCOUNT_STATION);
+$__wpOptions[$reverseKey] = [
+    'version' => PlatformIdentifierStation::REGISTRY_VERSION, 'platform_id' => $strandRes2->platformId(), 'entity_type' => PlatformIdentifierPolicy::ACCOUNT_STATION,
+    'native_reference' => AccountIdentity::NATIVE_ACCOUNT_STATION, 'status' => PlatformIdentifierStation::STATUS_BOUND, 'created_at' => gmdate('c'), 'updated_at' => gmdate('c'),
+];
+$strandBoot2 = (new AccountIdentity($strandIds2, $strandRepo2))->bootstrap();
+checkAccount($strandBoot2['account_station'] === $strandRes2->platformId() && $strandIds2->resolve($strandRes2->platformId())?->isBound() === true, 'a death after the reverse claim but before the forward bind also resumes to a fully bound record with the same ID');
+
+$__wpOptions = [];
+
 // ── a stored node whose parent no longer matches the real chain fails closed ─
 $conflictIdentifiers = new PlatformIdentifierStation();
 $conflictRepository  = new AccountRepository();
@@ -211,7 +266,7 @@ $conflictIdentity->bootstrap();
 
 // Simulate a corrupted aggregate: Settings now claims a parent that isn't the
 // real bound Account Station id.
-$conflictRepository->writeNode('settings', $conflictRepository->readNodePlatformId('settings'), 'CZA00000');
+$__wpOptions[AccountRepository::OPTION_KEY]['nodes']['settings']['parent_platform_id'] = 'CZA00000';
 accountExpectConflict(
     fn () => $conflictIdentity->bootstrap(),
     'a node naming a parent that disagrees with the real chain is rejected, never silently trusted'
@@ -261,7 +316,7 @@ $__wpOptions = [];
 // ── settle on a half-bootstrapped install is rejected and preserves all state ─
 $halfRepository = new AccountRepository();
 $halfRepository->writeNode('profile', 'CZASTP33333', 'CZAST33333');
-$halfRepository->writeBrandDraft(['name' => 'Stranded Draft', 'code' => '', 'logo_attachment_id' => null, 'favicon_attachment_id' => null]);
+$halfRepository->saveBrandDraft(['name' => 'Stranded Draft', 'code' => '', 'logo_attachment_id' => null, 'favicon_attachment_id' => null], static fn (array $lifecycle): array => $lifecycle);
 $halfSnapshot = $__wpOptions;
 $halfSettle = (new AccountController(new PlatformIdentifierStation()))->settleProfile(new WP_REST_Request());
 checkAccount($halfSettle->get_status() === 422, 'settle against a half-bootstrapped Account Station is rejected, not promoted to canonical');
@@ -600,61 +655,116 @@ checkAccount(file_get_contents("{$mediaDir}/{$stageId}.png") === $stageBytes, 't
 checkAccount(glob("{$mediaDir}/.*.part") === [], 'no unique staging file is left behind after a successful store');
 @unlink($oldSharedStaging);
 
-// ── storage lock: a second request cannot clobber the aggregate mid-mutation ─
-$lockRepoA = new AccountRepository(lockAttempts: 3, lockPollMicros: 1000);
-$lockRepoB = new AccountRepository(lockAttempts: 3, lockPollMicros: 1000); // models a second, overlapping request
+// ── aggregate commit: a stale or stalled writer can never overwrite newer state ─
+// $wpdb->beforeStatement runs a rival request's commit between this request's
+// read and its conditional write — exactly the interleaving a paused worker
+// produces. There is no lock, lease or TTL to expire.
+$casSnapshot = $__wpOptions; // the absent-row and node probes below need a clean store; restored afterwards.
+$casRepoA = new AccountRepository(commitAttempts: 8, retryJitterMicros: 500);
+$casRepoB = new AccountRepository(commitAttempts: 8, retryJitterMicros: 500); // models a second, overlapping request
 $mediaRecord = ['file' => str_repeat('c', 64) . '.png', 'name' => 'c.png', 'mime' => 'image/png', 'size' => 1, 'uploaded_at' => 1];
 $otherId     = str_repeat('c', 64);
+$rivalId     = str_repeat('d', 64);
+$rivalRecord = ['file' => $rivalId . '.png', 'name' => 'd.png', 'mime' => 'image/png', 'size' => 1, 'uploaded_at' => 2];
 
-$sawBusy = false;
-$lockRepoA->withLock(function () use ($lockRepoB, $mediaRecord, $otherId, &$sawBusy): void {
-    try {
-        $lockRepoB->writeMediaRecord($otherId, $mediaRecord);
-    } catch (AccountStorageBusy) {
-        $sawBusy = true;
-    }
+$wpdb->beforeStatement = static function () use ($casRepoB, $rivalId, $rivalRecord): void { $casRepoB->writeMediaRecord($rivalId, $rivalRecord); };
+$casRepoA->writeMediaRecord($otherId, $mediaRecord);
+checkAccount(isset($casRepoA->readMedia()[$otherId]) && isset($casRepoA->readMedia()[$rivalId]), 'a write that lost the race to a rival commit re-reads and re-applies: BOTH records survive (no lost update)');
+checkAccount(isset($casRepoA->readMedia()[$stageId]), 'the records committed before the race are untouched too');
+
+// The mutator is re-run on FRESH state, so a lifecycle edit made from a stale read cannot clobber a rival's.
+$runs = 0;
+$wpdb->beforeStatement = static function () use ($casRepoB): void {
+    $casRepoB->updateLifecycle(static function (array $current): array { $current['platform_status'] = 'active'; return $current; });
+};
+$casRepoA->updateLifecycle(static function (array $current) use (&$runs): array {
+    $runs++;
+    $current['module_status']['brand'] = 'pending';
+    return $current;
 });
-checkAccount($sawBusy, 'while one request holds the lock, an overlapping write fails closed with AccountStorageBusy instead of racing');
-checkAccount(!isset($lockRepoA->readMedia()[$otherId]), 'the refused overlapping write changed nothing');
-checkAccount(!array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'the lock is released once the holder finishes');
-$lockRepoB->writeMediaRecord($otherId, $mediaRecord);
-checkAccount(isset($lockRepoA->readMedia()[$otherId]) && isset($lockRepoA->readMedia()[$stageId]), 'after release the second write lands and the first request\'s records survive (no lost update)');
+$afterRace = $casRepoA->readLifecycle();
+checkAccount($runs === 2, 'the losing lifecycle mutator is re-run exactly once on fresh state');
+checkAccount($afterRace['platform_status'] === 'active' && $afterRace['module_status']['brand'] === 'pending', "the rival's status change AND the stalled writer's module change both land — neither overwrites the other");
+$casRepoA->updateLifecycle(static function (array $current): array { $current['platform_status'] = 'disabled'; $current['module_status']['brand'] = 'not-configured'; return $current; });
 
-// Re-entrant within one request (saveProfile holds the lock while identity bootstrap writes nodes).
-$nested = $lockRepoA->withLock(fn () => $lockRepoA->withLock(fn () => 'inner'));
-checkAccount($nested === 'inner' && !array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'the lock is re-entrant within one request and fully released afterwards');
+// A refused (null) lifecycle result writes nothing.
+$beforeRefusal = $wpdb->conditionalWrites;
+$refusedLifecycle = $casRepoA->updateLifecycle(static fn (array $current): ?array => null);
+checkAccount($wpdb->conditionalWrites === $beforeRefusal && $refusedLifecycle['platform_status'] === 'disabled', 'a refused lifecycle change issues no write and returns the current lifecycle');
 
-// A throwing operation still releases the lock.
-try { $lockRepoA->withLock(function (): void { throw new RuntimeException('boom'); }); } catch (RuntimeException) {}
-checkAccount(!array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'an exception inside the lock still releases it');
+// Absent row: the INSERT IGNORE loser retries as an UPDATE instead of overwriting the rival's row.
+$__wpOptions = [];
+$wpdb->beforeStatement = static function () use ($casRepoB, $rivalId, $rivalRecord): void { $casRepoB->writeMediaRecord($rivalId, $rivalRecord); };
+$casRepoA->writeMediaRecord($otherId, $mediaRecord);
+checkAccount(isset($casRepoA->readMedia()[$otherId]) && isset($casRepoA->readMedia()[$rivalId]), 'two first-ever writers to an absent row both land: the INSERT IGNORE loser retries rather than replacing the winner');
 
-// A crashed holder's expired lock is taken over by compare-and-swap, not blocked forever.
-$__wpOptions[AccountRepository::LOCK_OPTION_KEY] = bin2hex(random_bytes(16)) . '|' . (time() - 60);
-$tookOver = $lockRepoB->withLock(fn () => 'ran');
-checkAccount($tookOver === 'ran' && !array_key_exists(AccountRepository::LOCK_OPTION_KEY, $__wpOptions), 'a stale lock from a crashed request is taken over and then released');
+// An unchanged state (a bound node re-bound) issues no write at all.
+$casRepoA->writeNode('account_station', 'CZA11111', null);
+$beforeNoop = $wpdb->conditionalWrites;
+$casRepoB->writeNode('account_station', 'CZA99999', null);
+checkAccount($wpdb->conditionalWrites === $beforeNoop && $casRepoA->readNodePlatformId('account_station') === 'CZA11111', 'binding an already-bound node is a no-op: the stored Platform ID is immutable and nothing is written');
 
-// A live lock held by someone else is never stolen, and its release is not undone by ours.
-$liveForeign = bin2hex(random_bytes(16)) . '|' . time();
-$__wpOptions[AccountRepository::LOCK_OPTION_KEY] = $liveForeign;
-$refused = false;
-try { $lockRepoB->withLock(fn () => 'should not run'); } catch (AccountStorageBusy) { $refused = true; }
-checkAccount($refused && $__wpOptions[AccountRepository::LOCK_OPTION_KEY] === $liveForeign, 'a live lock held by another request is neither stolen nor released by a refused waiter');
-unset($__wpOptions[AccountRepository::LOCK_OPTION_KEY]);
+$__wpOptions = $casSnapshot;
 
-// ── route-level: overlapping Save/Publish/upload are retryable 503s, and no Save is lost ─
-$busyRepository = new AccountRepository(lockAttempts: 2, lockPollMicros: 1000);
+// Bounded retries: a writer that keeps losing fails closed and writes nothing.
+$rivalCounter = 0;
+$arm = null;
+$arm = static function () use ($wpdb, $casRepoB, &$arm, &$rivalCounter): void {
+    $wpdb->beforeStatement = null;
+    $casRepoB->writeMediaRecord(str_pad((string) ++$rivalCounter, 64, 'e', STR_PAD_LEFT), ['file' => 'x.png', 'name' => 'x', 'mime' => 'image/png', 'size' => 1, 'uploaded_at' => 3]);
+    $wpdb->beforeStatement = $arm;
+};
+$starved = new AccountRepository(commitAttempts: 3, retryJitterMicros: 500);
+$wpdb->beforeStatement = $arm;
+$exhausted = false;
+try { $starved->writeMediaRecord(str_repeat('f', 64), $mediaRecord); } catch (AccountStorageBusy) { $exhausted = true; }
+$wpdb->beforeStatement = null;
+checkAccount($exhausted, 'a writer that loses every bounded retry fails closed with AccountStorageBusy');
+checkAccount(!isset($casRepoA->readMedia()[str_repeat('f', 64)]), 'the exhausted writer wrote nothing');
+checkAccount($rivalCounter === 3, 'each failed attempt corresponds to a rival commit (no write was lost or invented)');
+
+// ── route level: contention is a retryable 503 that writes nothing; no Save is lost ─
+$busyRepository = new AccountRepository(commitAttempts: 2, retryJitterMicros: 500);
 $busyController = new AccountController(new PlatformIdentifierStation(), static fn (string $p): bool => is_file($p), $busyRepository);
-$__wpOptions[AccountRepository::LOCK_OPTION_KEY] = $liveForeign;
-checkAccount($busyController->saveProfile(new WP_REST_Request(['name' => 'Busy']))->get_status() === 503, 'Save during another request\'s live lock is a retryable 503');
-checkAccount($busyController->settleProfile(new WP_REST_Request())->get_status() === 503, 'settle during another request\'s live lock is a retryable 503');
-checkAccount($busyController->updateStatus(new WP_REST_Request(['platform_status' => 'active']))->get_status() === 503, 'Publish during another request\'s live lock is a retryable 503');
+// A leftover lease row from the previous implementation is inert: it blocks nothing.
+$__wpOptions['cz_account_station_lock_v1'] = bin2hex(random_bytes(16)) . '|' . time();
+$free = $busyController->saveProfile(new WP_REST_Request(['name' => 'Legacy lock row']));
+checkAccount($free->get_status() === 200, 'a leftover cz_account_station_lock_v1 row does not block or fail any write');
+unset($__wpOptions['cz_account_station_lock_v1']);
+
+$wpdb->beforeStatement = $arm;
+$snapshot = $__wpOptions[AccountRepository::OPTION_KEY]['brand_draft'];
+checkAccount($busyController->saveProfile(new WP_REST_Request(['name' => 'Busy']))->get_status() === 503, 'Save under sustained contention is a retryable 503');
+$wpdb->beforeStatement = null;
+checkAccount($__wpOptions[AccountRepository::OPTION_KEY]['brand_draft'] === $snapshot, 'the 503 Save changed no draft');
+$wpdb->beforeStatement = $arm;
+checkAccount($busyController->settleProfile(new WP_REST_Request())->get_status() === 503, 'settle under sustained contention is a retryable 503');
+$wpdb->beforeStatement = $arm;
+checkAccount($busyController->updateStatus(new WP_REST_Request(['platform_status' => 'active']))->get_status() === 503, 'Publish under sustained contention is a retryable 503');
+$wpdb->beforeStatement = null;
+checkAccount($__wpOptions[AccountRepository::OPTION_KEY]['platform_status'] === 'disabled', 'the 503 Publish changed no lifecycle');
 $busyUpload = accountUpload($busyController, accountFakeFile(base64_decode(ACCOUNT_GIF), 'again.gif'));
-checkAccount($busyUpload->get_status() === 200 && $busyUpload->get_data()['item']['id'] === hash('sha256', base64_decode(ACCOUNT_GIF)), 'a re-upload of an already registered image needs no write, so it dedupes even while the lock is held');
+checkAccount($busyUpload->get_status() === 200 && $busyUpload->get_data()['item']['id'] === hash('sha256', base64_decode(ACCOUNT_GIF)), 'a re-upload of an already registered image needs no write, so it dedupes even under contention');
 $freshBytes = base64_decode(ACCOUNT_PNG) . 'trailing-bytes-make-a-new-hash';
+$wpdb->beforeStatement = $arm;
 $busyFresh  = accountUpload($busyController, accountFakeFile($freshBytes, 'fresh.png'));
-checkAccount($busyFresh->get_status() === 503, 'a NEW image upload during a live lock is a retryable 503 and registers nothing');
-checkAccount(!isset($lockRepoA->readMedia()[hash('sha256', $freshBytes)]), 'the refused upload left no metadata record');
-unset($__wpOptions[AccountRepository::LOCK_OPTION_KEY]);
+$wpdb->beforeStatement = null;
+checkAccount($busyFresh->get_status() === 503, 'a NEW image upload under sustained contention is a retryable 503 and registers nothing');
+checkAccount(!isset($casRepoA->readMedia()[hash('sha256', $freshBytes)]), 'the refused upload left no metadata record');
+
+// Save's draft and "pending" are one commit, and a rival lifecycle change between read and write survives it.
+$__wpOptions = [];
+$ctlSave = new AccountController(new PlatformIdentifierStation(), static fn (string $p): bool => is_file($p), new AccountRepository(commitAttempts: 8, retryJitterMicros: 500));
+$ctlSave->saveProfile(new WP_REST_Request(['name' => 'Seed']));
+$ctlSave->settleProfile(new WP_REST_Request());
+$ctlSave->updateStatus(new WP_REST_Request(['platform_status' => 'active']));
+$wpdb->beforeStatement = static function () use ($casRepoB): void {
+    $casRepoB->updateLifecycle(static function (array $current): array { $current['platform_status'] = 'disabled'; $current['previous_platform_status'] = 'active'; return $current; });
+};
+$ctlSave->saveProfile(new WP_REST_Request(['name' => 'Edited']));
+$savedState = $__wpOptions[AccountRepository::OPTION_KEY];
+checkAccount($savedState['brand_draft']['name'] === 'Edited' && $savedState['module_status']['brand'] === 'pending', 'a Save records its draft and its pending module state together');
+checkAccount($savedState['platform_status'] === 'disabled' && $savedState['previous_platform_status'] === 'active', "a concurrent Disable between the Save's read and write is preserved, not reverted to a stale 'active'");
 
 // Interleaved Save + upload through two controllers: both changes survive.
 $ctlOne = new AccountController(new PlatformIdentifierStation(), static fn (string $p): bool => is_file($p));
@@ -664,7 +774,7 @@ $upload = accountUpload($ctlTwo, accountFakeFile($freshBytes, 'fresh.png'))->get
 $ctlOne->saveProfile(new WP_REST_Request(['name' => 'Interleave 2', 'logo_media_id' => $upload['item']['id']]));
 $final = $ctlTwo->fetchDetail(new WP_REST_Request())->get_data();
 checkAccount($final['drafts']['brand']['name'] === 'Interleave 2' && $final['drafts']['brand']['logo_media_id'] === $upload['item']['id'], 'a Brand Save and an upload through separate request objects both persist — neither overwrote the other');
-checkAccount(isset($lockRepoA->readMedia()[$upload['item']['id']]), 'the upload\'s metadata record survived the later Brand Save');
+checkAccount(isset($casRepoA->readMedia()[$upload['item']['id']]), 'the upload\'s metadata record survived the later Brand Save');
 
 // A canonical Brand stored before the media fields existed still reads back whole.
 $__wpOptions[AccountRepository::OPTION_KEY]['brand'] = ['name' => 'Old', 'code' => '', 'logo_attachment_id' => 2101, 'favicon_attachment_id' => null];

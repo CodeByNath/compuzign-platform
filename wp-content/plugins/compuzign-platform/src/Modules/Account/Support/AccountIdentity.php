@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace CompuZign\Platform\Modules\Account\Support;
 
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifier;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierConflict;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierPolicy;
+use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierReservation;
 use CompuZign\Platform\PlatformIdentifier\PlatformIdentifierStation;
 
 /**
@@ -50,14 +52,28 @@ final class AccountIdentity
 
     private function ensureNode(string $node, string $entityType, string $nativeReference, ?string $expectedParent): string
     {
-        $binding = $this->identifiers->ensure(
-            $entityType,
-            $nativeReference,
-            fn (int|string $ref): string => $this->repository->readNodePlatformId($node),
-            function (int|string $ref, string $platformId) use ($node, $expectedParent): void {
-                $this->repository->writeNode($node, $platformId, $expectedParent);
-            }
-        );
+        $read  = fn (int|string $ref): string => $this->repository->readNodePlatformId($node);
+        $write = function (int|string $ref, string $platformId) use ($node, $expectedParent): void {
+            $this->repository->writeNode($node, $platformId, $expectedParent);
+        };
+
+        // A request that died after writeNode() but before the Station finished
+        // binding leaves the node holding an ID whose registry record is still
+        // 'reserved'. ensure() treats a stored ID with a reserved record as taken
+        // by someone else, so a plain retry would never complete. Finish the
+        // interrupted bind with the Station's own assign() — it re-validates the
+        // reservation and read-back and writes only the registry, never a new ID.
+        $stored = $this->repository->readNodePlatformId($node);
+        if ($stored !== '' && $this->identifiers->resolve($stored)?->status() === PlatformIdentifierStation::STATUS_RESERVED) {
+            $this->identifiers->assign(
+                new PlatformIdentifierReservation(new PlatformIdentifier($entityType, $stored)),
+                $nativeReference,
+                $read,
+                $write
+            );
+        }
+
+        $binding = $this->identifiers->ensure($entityType, $nativeReference, $read, $write);
 
         // Defensive agreement check: a node that was already bound before this
         // call must still name the exact same parent we are about to chain onto.

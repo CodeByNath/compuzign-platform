@@ -141,7 +141,7 @@ class AccountController
      */
     public function saveProfile(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->serialized(fn (): \WP_REST_Response => $this->applyProfileSave($request));
+        return $this->retryable(fn (): \WP_REST_Response => $this->applyProfileSave($request));
     }
 
     private function applyProfileSave(\WP_REST_Request $request): \WP_REST_Response
@@ -188,11 +188,13 @@ class AccountController
             'favicon_media_id'      => $faviconMedia,
         ];
 
-        $this->repository->writeBrandDraft($draft);
+        // One commit: the draft and "pending" are recorded together, and the
+        // lifecycle is recomputed from fresh state, never from an earlier read.
+        $lifecycle = $this->repository->saveBrandDraft($draft, static function (array $current): array {
+            $current['module_status'][AccountSchema::MODULE_BRAND] = StationLifecycle::MODULE_PENDING;
 
-        $lifecycle = $this->repository->readLifecycle();
-        $lifecycle['module_status'][AccountSchema::MODULE_BRAND] = StationLifecycle::MODULE_PENDING;
-        $this->repository->writeLifecycle($lifecycle['platform_status'], $lifecycle['previous_platform_status'], $lifecycle['module_status']);
+            return $current;
+        });
 
         return rest_ensure_response([
             'success'       => true,
@@ -210,7 +212,7 @@ class AccountController
     /** Promotes the Brand draft to canonical. Brand has no required field, so it always settles (blanks are valid). */
     public function settleProfile(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->serialized(fn (): \WP_REST_Response => $this->applyProfileSettle($request));
+        return $this->retryable(fn (): \WP_REST_Response => $this->applyProfileSettle($request));
     }
 
     private function applyProfileSettle(\WP_REST_Request $request): \WP_REST_Response
@@ -222,18 +224,18 @@ class AccountController
             return new \WP_REST_Response(['success' => false, 'message' => 'Account Station has not been set up yet. Save Brand first.'], 422);
         }
 
-        $brand = $this->repository->settleBrandDraft();
+        $settled = $this->repository->settleBrandDraft(static function (array $current): array {
+            $current['module_status'][AccountSchema::MODULE_BRAND] = AccountSchema::isBrandComplete()
+                ? StationLifecycle::MODULE_SETTLED
+                : StationLifecycle::MODULE_NOT_CONFIGURED;
 
-        $lifecycle = $this->repository->readLifecycle();
-        $lifecycle['module_status'][AccountSchema::MODULE_BRAND] = AccountSchema::isBrandComplete()
-            ? StationLifecycle::MODULE_SETTLED
-            : StationLifecycle::MODULE_NOT_CONFIGURED;
-        $this->repository->writeLifecycle($lifecycle['platform_status'], $lifecycle['previous_platform_status'], $lifecycle['module_status']);
+            return $current;
+        });
 
         return rest_ensure_response([
             'success'       => true,
-            'brand'         => AccountSchema::presentBrand($brand, $this->media),
-            'module_status' => $lifecycle['module_status'],
+            'brand'         => AccountSchema::presentBrand($settled['brand'], $this->media),
+            'module_status' => $settled['lifecycle']['module_status'],
         ]);
     }
 
@@ -308,13 +310,11 @@ class AccountController
 
     public function updateStatus(\WP_REST_Request $request): \WP_REST_Response
     {
-        return $this->serialized(fn (): \WP_REST_Response => $this->applyStatusUpdate($request));
+        return $this->retryable(fn (): \WP_REST_Response => $this->applyStatusUpdate($request));
     }
 
     private function applyStatusUpdate(\WP_REST_Request $request): \WP_REST_Response
     {
-        $lifecycle = $this->repository->readLifecycle();
-
         if ($request->has_param('action')) {
             // Same existence requirement as Publish below: a never-bootstrapped
             // install has no Account to mask. Without this, the default
@@ -324,7 +324,7 @@ class AccountController
                 return new \WP_REST_Response(['success' => false, 'message' => 'Account Station has not been set up yet. Save Brand first.'], 422);
             }
 
-            return $this->applyDisabledMask($lifecycle, (string) $request->get_param('action'));
+            return $this->applyDisabledMask((string) $request->get_param('action'));
         }
 
         if (!$request->has_param('platform_status') || $request->get_param('platform_status') !== StationLifecycle::STATUS_ACTIVE) {
@@ -338,14 +338,26 @@ class AccountController
             return new \WP_REST_Response(['success' => false, 'message' => 'Account Station has not been set up yet. Save Brand first.'], 422);
         }
 
-        $change = StationLifecycle::publish($lifecycle['platform_status'], $lifecycle['previous_platform_status'] ?: null);
-        if ($change === null) {
-            return new \WP_REST_Response(['success' => false, 'message' => 'Only a disabled Account Profile can be published.'], 422);
-        }
+        // The transition is decided on the freshest committed lifecycle inside
+        // the commit; a refusal is only recorded here and answered afterwards.
+        $refusal   = null;
+        $lifecycle = $this->repository->updateLifecycle(static function (array $current) use (&$refusal): ?array {
+            $refusal = null;
+            $change  = StationLifecycle::publish($current['platform_status'], $current['previous_platform_status'] ?: null);
+            if ($change === null) {
+                $refusal = 'Only a disabled Account Profile can be published.';
 
-        $this->repository->writeLifecycle($change['status'], (string) ($change['previous_status'] ?? ''), $lifecycle['module_status']);
+                return null;
+            }
+            $current['platform_status']          = $change['status'];
+            $current['previous_platform_status'] = (string) ($change['previous_status'] ?? '');
 
-        return $this->statusResponse();
+            return $current;
+        });
+
+        return $refusal !== null
+            ? new \WP_REST_Response(['success' => false, 'message' => $refusal], 422)
+            : $this->statusResponse($lifecycle);
     }
 
     /**
@@ -354,34 +366,47 @@ class AccountController
      * lands back in unmasked 'disabled' (Pending), never straight to active.
      * previous_platform_status is the mask signal itself.
      */
-    private function applyDisabledMask(array $lifecycle, string $action): \WP_REST_Response
+    private function applyDisabledMask(string $action): \WP_REST_Response
     {
-        $current = $lifecycle['platform_status'];
-
-        if ($action === 'disable') {
-            if (!StationLifecycle::isLive($current)) {
-                return new \WP_REST_Response(['success' => false, 'message' => 'Only an active or disabled Account Profile can be disabled.'], 422);
-            }
-            $previous = ($current === StationLifecycle::STATUS_ACTIVE || $lifecycle['previous_platform_status'] === '')
-                ? $current
-                : $lifecycle['previous_platform_status'];
-            $this->repository->writeLifecycle(StationLifecycle::STATUS_DISABLED, $previous, $lifecycle['module_status']);
-        } elseif ($action === 'enable') {
-            if ($current !== StationLifecycle::STATUS_DISABLED) {
-                return new \WP_REST_Response(['success' => false, 'message' => 'Only a disabled Account Profile can be enabled.'], 422);
-            }
-            $this->repository->writeLifecycle(StationLifecycle::STATUS_DISABLED, '', $lifecycle['module_status']);
-        } else {
+        if ($action !== 'disable' && $action !== 'enable') {
             return new \WP_REST_Response(['success' => false, 'message' => 'Invalid action.'], 422);
         }
 
-        return $this->statusResponse();
+        $refusal   = null;
+        $lifecycle = $this->repository->updateLifecycle(static function (array $current) use ($action, &$refusal): ?array {
+            $refusal = null;
+            $status  = $current['platform_status'];
+
+            if ($action === 'disable') {
+                if (!StationLifecycle::isLive($status)) {
+                    $refusal = 'Only an active or disabled Account Profile can be disabled.';
+
+                    return null;
+                }
+                $current['previous_platform_status'] = ($status === StationLifecycle::STATUS_ACTIVE || $current['previous_platform_status'] === '')
+                    ? $status
+                    : $current['previous_platform_status'];
+            } else {
+                if ($status !== StationLifecycle::STATUS_DISABLED) {
+                    $refusal = 'Only a disabled Account Profile can be enabled.';
+
+                    return null;
+                }
+                $current['previous_platform_status'] = '';
+            }
+            $current['platform_status'] = StationLifecycle::STATUS_DISABLED;
+
+            return $current;
+        });
+
+        return $refusal !== null
+            ? new \WP_REST_Response(['success' => false, 'message' => $refusal], 422)
+            : $this->statusResponse($lifecycle);
     }
 
-    private function statusResponse(): \WP_REST_Response
+    /** @param array{platform_status: string, previous_platform_status: string, module_status: array} $lifecycle */
+    private function statusResponse(array $lifecycle): \WP_REST_Response
     {
-        $lifecycle = $this->repository->readLifecycle();
-
         return rest_ensure_response([
             'success'                  => true,
             'platform_status'          => $lifecycle['platform_status'],
@@ -391,15 +416,14 @@ class AccountController
     }
 
     /**
-     * Runs a read-decide-write handler under the Account storage lock, so two
-     * overlapping Saves/Publishes cannot each act on a stale read and overwrite
-     * one another. A lock that stays held past the bounded wait is a retryable
-     * 503, never an unprotected write.
+     * Runs a handler whose commits retry on contention. If another writer keeps
+     * winning past the bounded attempts, the handler fails closed with a
+     * retryable 503 — nothing is written, never an unprotected write.
      */
-    private function serialized(callable $handler): \WP_REST_Response
+    private function retryable(callable $handler): \WP_REST_Response
     {
         try {
-            return $this->repository->withLock($handler);
+            return $handler();
         } catch (AccountStorageBusy) {
             return $this->busyResponse();
         }

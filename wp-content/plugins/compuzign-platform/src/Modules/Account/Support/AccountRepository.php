@@ -15,32 +15,28 @@ namespace CompuZign\Platform\Modules\Account\Support;
  *   SECTION: BRAND — canonical and draft field storage
  *   SECTION: MEDIA — metadata for Account-owned Logo/Favicon image files
  *   SECTION: LIFECYCLE — platform_status / module_status
- *   SECTION: LOCK — serializes every read-modify-write of the aggregate
- *   SECTION: INTERNALS — option read/write and defaults
+ *   SECTION: COMMIT — the one compare-and-swap write path
+ *   SECTION: INTERNALS — direct option read and defaults
  *
  * CONCURRENCY
- * update_option() is a blind whole-value write, not compare-and-swap, so two
- * overlapping requests that each read, change and rewrite the aggregate could
- * silently drop one another's change. Every mutation therefore runs inside
- * withLock(), a narrow Account-only mutex built on the same atomic primitive
- * PlatformIdentifierStation and RequestRepository already rely on:
- * add_option()'s DB-level unique option_name. The lock value is one opaque
- * "{token}|{claimedAt}" string; release and stale takeover are compare-and-swap
- * against the exact value this request observed, never a blind write.
+ * Correctness never depends on a lock, lease or TTL. Every mutation is
+ * commit(): read the row straight from the database (never get_option(), so a
+ * persistent object cache cannot supply a stale value), run a pure mutator on
+ * that state, then write with ONE conditional statement that succeeds only if
+ * the row still holds the exact bytes the mutator was derived from. A paused,
+ * slow or stale request therefore cannot overwrite newer state: its write
+ * simply fails, and the mutator is re-run on fresh state. A missing row is
+ * created with INSERT IGNORE against the unique option_name; the loser retries.
+ * Mutators are repeatable and side-effect free — they never allocate
+ * identifiers, touch files or send anything.
  */
 final class AccountRepository
 {
     public const OPTION_KEY = 'cz_account_station_v1';
     private const VERSION   = 1;
 
-    public const LOCK_OPTION_KEY = 'cz_account_station_lock_v1';
-    private const LOCK_TTL_SECONDS = 10;
-
-    /** Lock claimed by THIS instance (null when not held) — makes withLock() re-entrant within one request. */
-    private ?string $heldLock = null;
-    private int $lockDepth    = 0;
-
-    public function __construct(private int $lockAttempts = 40, private int $lockPollMicros = 50_000) {}
+    /** Each failed attempt means another writer committed, so the bound is generous but finite. */
+    public function __construct(private int $commitAttempts = 40, private int $retryJitterMicros = 20_000) {}
 
     /** @var array<string, int> */
     public const NODES = ['account_station' => 0, 'settings' => 1, 'tools' => 2, 'profile' => 3];
@@ -64,15 +60,24 @@ final class AccountRepository
         return $parent === null ? null : (string) $parent;
     }
 
+    /**
+     * Binds a node only while it is still unbound. A node that already holds a
+     * Platform ID is left exactly as it is (identity is immutable), so of any
+     * number of racing first-Saves only the first commit's ID is ever stored;
+     * the Station's own read-back then rejects every loser.
+     */
     public function writeNode(string $node, string $platformId, ?string $parentPlatformId): void
     {
-        $this->withLock(function () use ($node, $platformId, $parentPlatformId): void {
-            $state = $this->read();
+        $this->commit(function (array $state) use ($node, $platformId, $parentPlatformId): ?array {
+            if (($state['nodes'][$node]['platform_id'] ?? '') !== '') {
+                return null;
+            }
             $state['nodes'][$node] = [
                 'platform_id'        => $platformId,
                 'parent_platform_id' => $parentPlatformId,
             ];
-            $this->write($state);
+
+            return $state;
         });
     }
 
@@ -98,30 +103,46 @@ final class AccountRepository
         return $this->read()['brand_draft'];
     }
 
-    public function writeBrandDraft(array $draft): void
+    /**
+     * Stores the Brand draft and applies $lifecycleFn to the lifecycle in the
+     * SAME commit, so a Save is never half-recorded. $lifecycleFn receives the
+     * fresh lifecycle and returns the new one. Returns the committed lifecycle.
+     *
+     * @param callable(array): array $lifecycleFn
+     * @return array{platform_status: string, previous_platform_status: string, module_status: array{brand: string}}
+     */
+    public function saveBrandDraft(array $draft, callable $lifecycleFn): array
     {
-        $this->withLock(function () use ($draft): void {
-            $state = $this->read();
+        $state = $this->commit(function (array $state) use ($draft, $lifecycleFn): array {
             $state['brand_draft'] = $draft;
-            $this->write($state);
+
+            return $this->withLifecycle($state, $lifecycleFn($this->lifecycleOf($state)));
         });
+
+        return $this->lifecycleOf($state);
     }
 
-    /** Commits the current draft to canonical Brand and clears it. No-op (returns canonical) if there is no draft. */
-    public function settleBrandDraft(): array
+    /**
+     * Commits the current draft (if any) to canonical Brand and clears it, and
+     * applies $lifecycleFn in the same commit.
+     *
+     * @param callable(array): array $lifecycleFn
+     * @return array{brand: array, lifecycle: array}
+     */
+    public function settleBrandDraft(callable $lifecycleFn): array
     {
-        return $this->withLock(function (): array {
-            $state = $this->read();
+        $state = $this->commit(function (array $state) use ($lifecycleFn): array {
             if ($state['brand_draft'] !== null) {
                 // A draft saved before the media-reference fields existed lacks those keys;
                 // fill them from the defaults so canonical Brand always carries the full shape.
                 $state['brand']       = array_replace($this->defaults()['brand'], $state['brand_draft']);
                 $state['brand_draft'] = null;
-                $this->write($state);
             }
 
-            return $state['brand'];
+            return $this->withLifecycle($state, $lifecycleFn($this->lifecycleOf($state)));
         });
+
+        return ['brand' => $state['brand'], 'lifecycle' => $this->lifecycleOf($state)];
     }
 
     // =====================================================================
@@ -136,10 +157,10 @@ final class AccountRepository
 
     public function writeMediaRecord(string $id, array $record): void
     {
-        $this->withLock(function () use ($id, $record): void {
-            $state               = $this->read();
+        $this->commit(function (array $state) use ($id, $record): array {
             $state['media'][$id] = $record;
-            $this->write($state);
+
+            return $state;
         });
     }
 
@@ -150,24 +171,27 @@ final class AccountRepository
     /** @return array{platform_status: string, previous_platform_status: string, module_status: array{brand: string}} */
     public function readLifecycle(): array
     {
-        $state = $this->read();
-
-        return [
-            'platform_status'          => $state['platform_status'],
-            'previous_platform_status' => $state['previous_platform_status'],
-            'module_status'            => $state['module_status'],
-        ];
+        return $this->lifecycleOf($this->read());
     }
 
-    public function writeLifecycle(string $platformStatus, string $previousPlatformStatus, array $moduleStatus): void
+    /**
+     * Recomputes the lifecycle from the freshest committed state. $fn receives
+     * the current lifecycle and returns the new one, or null to refuse (nothing
+     * is written). It may run more than once, so it must be repeatable and
+     * side-effect free — capture a refusal reason in a local variable, never act on it.
+     *
+     * @param callable(array): ?array $fn
+     * @return array{platform_status: string, previous_platform_status: string, module_status: array{brand: string}} the committed (or, on refusal, the current) lifecycle
+     */
+    public function updateLifecycle(callable $fn): array
     {
-        $this->withLock(function () use ($platformStatus, $previousPlatformStatus, $moduleStatus): void {
-            $state                             = $this->read();
-            $state['platform_status']          = $platformStatus;
-            $state['previous_platform_status'] = $previousPlatformStatus;
-            $state['module_status']            = $moduleStatus;
-            $this->write($state);
+        $state = $this->commit(function (array $state) use ($fn): ?array {
+            $next = $fn($this->lifecycleOf($state));
+
+            return $next === null ? null : $this->withLifecycle($state, $next);
         });
+
+        return $this->lifecycleOf($state);
     }
 
     /** The one existence predicate every lifecycle route shares: true only once all four chain nodes are bound, not just the leaf. */
@@ -183,89 +207,78 @@ final class AccountRepository
     }
 
     // =====================================================================
-    // SECTION: LOCK
+    // SECTION: COMMIT
     // =====================================================================
 
     /**
-     * Runs $operation with exclusive access to the aggregate. Re-entrant within
-     * this instance. Waits a bounded time for another request's lock, then
-     * throws AccountStorageBusy rather than proceeding unprotected.
+     * The only write path. $mutator receives the freshly read state and returns
+     * the new state, or null for "nothing to change". It is re-run on a fresh
+     * read whenever another writer committed first, so it must be repeatable
+     * and free of side effects. After the bounded attempts the commit fails
+     * closed with AccountStorageBusy and writes nothing.
      *
-     * @template T
-     * @param callable(): T $operation
-     * @return T
+     * @param callable(array): ?array $mutator
+     * @return array<string, mixed> the committed state (the unchanged state for a no-op)
      */
-    public function withLock(callable $operation): mixed
+    private function commit(callable $mutator): array
     {
-        if ($this->lockDepth === 0) {
-            $this->heldLock = $this->acquireLock();
-        }
-        $this->lockDepth++;
+        for ($attempt = 0; $attempt < $this->commitAttempts; $attempt++) {
+            $raw   = $this->readRaw();
+            $state = $this->decode($raw);
+            $next  = $mutator($state);
 
-        try {
-            return $operation();
-        } finally {
-            $this->lockDepth--;
-            if ($this->lockDepth === 0 && $this->heldLock !== null) {
-                $this->releaseLock($this->heldLock);
-                $this->heldLock = null;
-            }
-        }
-    }
-
-    private function acquireLock(): string
-    {
-        for ($attempt = 0; $attempt < $this->lockAttempts; $attempt++) {
-            $value = bin2hex(random_bytes(16)) . '|' . time();
-            if (add_option(self::LOCK_OPTION_KEY, $value, '', 'no')) {
-                return $value;
+            if ($next === null) {
+                return $state;
             }
 
-            $observed = get_option(self::LOCK_OPTION_KEY, null);
-            if (is_string($observed) && $this->isLockStale($observed) && $this->takeOverLock($observed, $value)) {
-                return $value;
+            $next['version'] = self::VERSION;
+            $bytes           = maybe_serialize($next);
+
+            // Identical bytes: the row already holds exactly this state, and a
+            // conditional UPDATE would report 0 changed rows. Nothing to write.
+            if ($raw !== null && $bytes === $raw) {
+                return $next;
             }
 
-            usleep($this->lockPollMicros);
+            if ($this->compareAndSet($raw, $bytes)) {
+                return $next;
+            }
+
+            usleep(random_int(500, max(500, $this->retryJitterMicros)));
         }
 
         throw new AccountStorageBusy('Account Station storage is busy.');
     }
 
-    private function isLockStale(string $lockValue): bool
-    {
-        $claimedAt = (int) (explode('|', $lockValue, 2)[1] ?? 0);
-
-        return $claimedAt <= 0 || (time() - $claimedAt) > self::LOCK_TTL_SECONDS;
-    }
-
-    /** Single conditional UPDATE against the exact bytes last observed; false if the row changed since. */
-    private function takeOverLock(string $observed, string $newValue): bool
+    /** One atomic statement: true only if the row still held exactly $expectedRaw (or did not exist, for null). */
+    private function compareAndSet(?string $expectedRaw, string $bytes): bool
     {
         global $wpdb;
 
-        $affected = $wpdb->query($wpdb->prepare(
-            "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
-            $newValue,
-            self::LOCK_OPTION_KEY,
-            $observed
-        ));
-        wp_cache_delete(self::LOCK_OPTION_KEY, 'options');
+        if ($expectedRaw === null) {
+            $affected = $wpdb->query($wpdb->prepare(
+                "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, %s)",
+                self::OPTION_KEY,
+                $bytes,
+                'no'
+            ));
+        } else {
+            // BINARY: the options collation is case- and pad-insensitive, so a
+            // plain "=" would call two different states equal and let a stale
+            // writer win. The comparison must be byte-exact.
+            $affected = $wpdb->query($wpdb->prepare(
+                "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND BINARY option_value = %s",
+                $bytes,
+                self::OPTION_KEY,
+                $expectedRaw
+            ));
+        }
+
+        // The statements above bypass update_option(); drop any cached copy.
+        wp_cache_delete(self::OPTION_KEY, 'options');
+        wp_cache_delete('notoptions', 'options');
 
         return $affected === 1;
-    }
-
-    /** No-op if the stored value is no longer ours (the lock went stale and was taken over). */
-    private function releaseLock(string $value): void
-    {
-        global $wpdb;
-
-        $wpdb->query($wpdb->prepare(
-            "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
-            self::LOCK_OPTION_KEY,
-            $value
-        ));
-        wp_cache_delete(self::LOCK_OPTION_KEY, 'options');
     }
 
     // =====================================================================
@@ -275,16 +288,49 @@ final class AccountRepository
     /** @return array<string, mixed> */
     private function read(): array
     {
-        $stored = get_option(self::OPTION_KEY, null);
+        return $this->decode($this->readRaw());
+    }
+
+    /** The stored bytes straight from the database; null when the row does not exist. */
+    private function readRaw(): ?string
+    {
+        global $wpdb;
+
+        $raw = $wpdb->get_var($wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s",
+            self::OPTION_KEY
+        ));
+
+        return is_string($raw) ? $raw : null;
+    }
+
+    /** @return array<string, mixed> */
+    private function decode(?string $raw): array
+    {
+        $stored = $raw === null ? null : maybe_unserialize($raw);
         $state  = is_array($stored) ? $stored : [];
 
         return array_replace_recursive($this->defaults(), $state);
     }
 
-    private function write(array $state): void
+    /** @return array{platform_status: string, previous_platform_status: string, module_status: array{brand: string}} */
+    private function lifecycleOf(array $state): array
     {
-        $state['version'] = self::VERSION;
-        update_option(self::OPTION_KEY, $state, false);
+        return [
+            'platform_status'          => $state['platform_status'],
+            'previous_platform_status' => $state['previous_platform_status'],
+            'module_status'            => $state['module_status'],
+        ];
+    }
+
+    /** @param array{platform_status: string, previous_platform_status: string, module_status: array} $lifecycle */
+    private function withLifecycle(array $state, array $lifecycle): array
+    {
+        $state['platform_status']          = $lifecycle['platform_status'];
+        $state['previous_platform_status'] = $lifecycle['previous_platform_status'];
+        $state['module_status']            = $lifecycle['module_status'];
+
+        return $state;
     }
 
     /** @return array<string, mixed> */
