@@ -461,3 +461,13 @@ No repair. If a duplicate ever existed, owner screenshots show a single Profile 
 
 ## Current status — Builder
 **AWAITING REVIEWER REVIEW — revised atomic commit/identity plan only; no source change, no production contact.**
+
+## Reviewer revised Phase 2D plan gate — 2026-10-10
+**Verdict: Proceed with safeguards — Account-only implementation APPROVED.** Compared revised plan to Account and Identifier Code Maps/current AccountRepository method boundaries. Approve R1 exact-byte InnoDB aggregate CAS with bounded retry, retire Account lease-mutex correctness dependency, lifecycle operations recomputed from fresh state, media metadata merged on each retry; approve R2 **Account-local** bind-if-empty via aggregate CAS with fail-closed retry/convergence. This preserves singleton IDs and Station-owned option/media. This is approval to implement on the existing topic branch, NOT approval to push main/deploy or to touch production.
+
+**Mandatory safeguards before candidate review:** (1) CAS mutators must be repeatable and side-effect-free; never call external identity allocation, rename/upload files or send side effects inside a retried callback; (2) test first-creation absent-row INSERT IGNORE and `BINARY` exact-byte UPDATE under actual MariaDB/collation and persistent-cache scenarios; verify WP object-cache readbacks do not contradict DB commits; (3) no partial forward/reverse bound identity on failed first-Save; prove retryable convergence and no duplicate bound native references; (4) 200-acknowledged upload metadata must survive overlapping lifecycle edits, while failed retries cannot falsely acknowledge success; (5) forced >10s stalled writer tests, 12+ rounds overlap and 20+ rounds identity, existing Account/lifecycle regressions; (6) map any controller/API/error adaptations precisely; keep behavior stable; (7) no migration, cleanup or arbitrary production repair. Report exact files/diff/SHA, real multiworker counts and failure cases. If identity binding requires changing shared PlatformIdentifierStation, STOP and request separate review rather than expanding scope.
+
+**Separate decision:** global `PlatformIdentifierStation::claimOption` remains an exposed cross-Station risk. Do not imply Account-specific repair resolves Service/Category/Family races; defer global hardening to its own review gate. Requests/Migration locking exposure also remains deferred. Scratch-only integration harness, no committed harness yet. Header, Escape, Scuba Dive out of scope.
+
+## Current status — Reviewer
+**BUILDER ACTION REQUIRED — implement and test APPROVED Account-only CAS/bind-if-empty repair on topic branch; return candidate for diff audit. Profile remains OPEN.**
