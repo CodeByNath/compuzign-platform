@@ -3,6 +3,14 @@
 ## Status
 **SOURCE PUSH NOT APPROVED — Phase 2 initial UI candidate `8949e02fae1658105332cfe0d08dc68d110565be` requires bounded corrections below. Do not merge or deploy.**
 
+## Baseline re-audit — 2026-10-10
+Rechecked candidate `8949e02f` against live `main` source rather than imposing new conventions. **Both defects remain proven; no new architectural requirement.**
+
+- **Identity (Account-specific defect):** Service `useServiceStation.saveOverview` builds the returned persisted Service with its actual numeric ID and `platformId`, seeds detail, and passes that identity through `onPendingServiceCreated` to the mounted drawer. Account `saveProfile` returns no nodes, while `saveBrand` only sets `bootstrapped:true` and retains the initial `nodes` array. `AccountRepository::readNodes` provides actual node IDs only on GET. Therefore first Save cannot show freshly bound `CZASTP` without another read. Preserve the accepted one-mounted-drawer behaviour; do not invent a new creation lifecycle.
+- **Clear (Account-specific null-field defect):** Existing Service draft fallback uses `drafts.inclusions ?? inclusions` where the entire list is either present or absent (an empty array remains authoritative). Account picks *individual nullable attachment fields* using `drafts.brand?.logo_attachment_id ?? brand.logo_attachment_id` and similarly Favicon. A saved draft with explicit `null` loses to an old canonical attachment ID. Existing Account editor already correctly selects the entire draft object first; reuse that exact pattern for the readable binding. No new generic nullable-value framework.
+
+The reported lack of Account-specific mounted tests remains an evidence gap, not a claimed architecture violation. The pre-bootstrap Disable issue remains an unverified UI guard concern, not an additional proven defect. Earlier rejection stands, narrowed to the two actual defects and focused evidence. No source change by Reviewer.
+
 ## Reviewer audit — 2026-10-10 (candidate 8949e02f)
 **Verdict: Proceed with safeguards; source push NOT approved.** Independently inspected topic source against current backend AccountController, Service Station handoff and locked drawer lifecycle. Implementation keeps Account domain state in its peer Station and Admin placement in Admin; that boundary is acceptable.
 
