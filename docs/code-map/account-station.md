@@ -67,18 +67,22 @@ rather than silently extending or narrowing the locked contract.
 `resources/ts/account-station/` mirrors `service-station/`'s shape at
 Account's one-module scale: `types.ts`/`api.ts`, `useAccountStation.ts`
 (state/mutations/lifecycle), `drawer/` (`schema/entities/account.ts`'s
-`ACCOUNT_ENTITY`, the Brand editor and its Logo/Favicon `wp.media()`
-pickers — `AdminStationModule::renderShortcode()` now calls
-`wp_enqueue_media()`), and `surface/` (`AccountDrawerHost.tsx`;
-`useAccountProfileCard.ts` binds a one-item collection to Admin's existing
-`category-group-cards` kit — no new card code). `register.ts` registers
-Account's own navigation/destination/source/drawer; Admin's
-`register.ts` adds only the one `presentation` surface binding (placement
-policy, no domain logic). No numeric/string record id, so no create/new
-branch — `bootstrapped` is the frontend's sole gate. One Publish action
-only: it settles then activates; an already-active re-Publish settles only,
-since `/status` 422s on an already-active record. No Archive/Trash/
-Restore/Delete, matching the carve-out above.
+`ACCOUNT_ENTITY`, the Brand editor and its Logo/Favicon pickers), and
+`surface/` (`AccountDrawerHost.tsx`; `useAccountProfileCard.ts` binds a
+one-item collection to Admin's existing `category-group-cards` kit — no new
+card code). `register.ts` registers Account's own
+navigation/destination/source/drawer; Admin's `register.ts` adds only the
+one `presentation` surface binding (placement policy, no domain logic). No
+numeric/string record id, so no create/new branch — `bootstrapped` is the
+frontend's sole gate. One Publish action only: it settles then activates;
+an already-active re-Publish settles only, since `/status` 422s on an
+already-active record. No Archive/Trash/Restore/Delete, matching the
+carve-out above.
+
+**Logo/Favicon (Phase 2B):** a platform-owned picker uploads and previews
+the result, replacing the WordPress Media Library dialog; the id persists
+only via an ordinary Save. An existing attachment previews from
+`logo_url`/`favicon_url` — read-only, server-resolved.
 
 ## Backend
 
@@ -86,19 +90,21 @@ Restore/Delete, matching the carve-out above.
   shared `PlatformIdentifierStation` from `Core\Plugin`.
 - `Http/AccountController.php` — `GET /admin/account-station` (read-only),
   `POST /admin/account-station/profile` (Save), `.../profile/settle`,
-  `POST /admin/account-station/status` (Publish / Disable / Enable). Gated
-  by the existing `requireAdmin` → `current_user_can(PlatformAccess::CAP)`
-  pattern, same as `ServiceController`.
-- `Support/AccountSchema.php` — Brand field shape/sanitization. Logo and
-  Favicon are WordPress attachment ids (the standard Media Library picker),
-  never a bespoke upload/decode pipeline; 0/empty clears, while a negative
-  or non-image id fails the whole Save closed rather than being silently
-  cleared.
+  `.../profile/media` (binds a WordPress attachment, returns its id/url,
+  never writes Brand state), `.../status` (Publish/Disable/Enable). All
+  five gated by the existing `requireAdmin` →
+  `current_user_can(PlatformAccess::CAP)` pattern, same as
+  `ServiceController`.
+- `Support/AccountSchema.php` — Brand field shape/sanitization; a negative
+  or non-image attachment id fails the whole Save closed.
+  `ALLOWED_BRAND_MIME_TYPES`/`MAX_BRAND_MEDIA_BYTES` gate the upload route;
+  `presentBrand()` adds read-only `logo_url`/`favicon_url` to every
+  emitted Brand/draft shape — never stored or a Save input.
 - `Support/AccountIdentity.php` — the four-node bootstrap chain.
 - `Support/AccountRepository.php` — the one aggregate option.
-- `tests/account-station.php` — bootstrap idempotency/parent-chain, draft
-  save/settle, rejected-attachment-leaves-no-partial-write, and the full
-  Publish/Disable/Enable lifecycle, against the real controller.
+- `tests/account-station.php` — bootstrap/draft/lifecycle contracts plus
+  `uploadBrandMedia()`'s rejection/success paths and `presentBrand()`'s
+  resolved URLs, against the real controller.
 
 ## Related Code Maps
 

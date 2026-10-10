@@ -49,6 +49,8 @@ export function useAccountDrawerController({ account, initialTab, initialEdit, b
       code: source.code,
       logo_attachment_id: source.logo_attachment_id,
       favicon_attachment_id: source.favicon_attachment_id,
+      logo_url: source.logo_url,
+      favicon_url: source.favicon_url,
     };
     setDraft(seed);
     setOriginal(seed);

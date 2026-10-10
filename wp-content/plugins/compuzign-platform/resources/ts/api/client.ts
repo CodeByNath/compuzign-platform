@@ -91,6 +91,43 @@ async function request<T>(method: string, path: string, body?: unknown, extraHea
   return res.json() as Promise<T>;
 }
 
+// Same transport as request() (nonce, credentials, timeout, error shape) but
+// for a multipart body — Content-Type is deliberately omitted so the browser
+// sets it with the correct boundary itself, which never happens if this hand-
+// sets 'application/json' the way request() does for every other call.
+async function requestForm<T>(path: string, form: FormData): Promise<T> {
+  const { apiRoot, nonce } = getConfig();
+  const url = apiRoot.replace(/\/$/, '') + '/' + path.replace(/^\//, '');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': nonce },
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiTimeoutError();
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`API POST ${path} → ${res.status}: ${text}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
 export const apiClient = {
   // extraHeaders is additive only (e.g. Phase 8J-C2's X-Quote-View-Secret) —
   // never a substitute for the standard Content-Type/X-WP-Nonce pair above.
@@ -103,4 +140,5 @@ export const apiClient = {
   put: <T>(path: string, body?: unknown): Promise<T> => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown): Promise<T> => request<T>('PATCH', path, body),
   delete: <T>(path: string): Promise<T> => request<T>('DELETE', path),
+  postForm: <T>(path: string, form: FormData): Promise<T> => requestForm<T>(path, form),
 };

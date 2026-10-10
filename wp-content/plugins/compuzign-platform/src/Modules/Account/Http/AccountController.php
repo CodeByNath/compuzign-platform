@@ -8,6 +8,7 @@ declare(strict_types=1);
  * ACCOUNT_ROUTES       The Account Station REST route registrations
  * DETAIL_HANDLER       Read-only detail (never mints, never bootstraps)
  * PROFILE_HANDLERS     Brand draft save and settle
+ * MEDIA_HANDLER        Platform-owned Logo/Favicon upload (WordPress storage only)
  * LIFECYCLE_HANDLERS   Publish (platform_status) and Disable/Enable mask
  * AUTHORIZATION        Permission callback
  *
@@ -67,6 +68,12 @@ class AccountController
             'permission_callback' => [$this, 'requireAdmin'],
         ]);
 
+        register_rest_route('compuzign/v1', '/admin/account-station/profile/media', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'uploadBrandMedia'],
+            'permission_callback' => [$this, 'requireAdmin'],
+        ]);
+
         register_rest_route('compuzign/v1', '/admin/account-station/status', [
             'methods'             => 'POST',
             'callback'            => [$this, 'updateStatus'],
@@ -91,9 +98,15 @@ class AccountController
             'platform_status'          => $lifecycle['platform_status'],
             'previous_platform_status' => $lifecycle['previous_platform_status'],
             'module_status'            => $lifecycle['module_status'],
-            'brand'                    => $this->repository->readBrand(),
-            'drafts'                   => ['brand' => $this->repository->readBrandDraft()],
+            'brand'                    => AccountSchema::presentBrand($this->repository->readBrand()),
+            'drafts'                   => ['brand' => $this->presentDraft($this->repository->readBrandDraft())],
         ]);
+    }
+
+    /** readBrandDraft() returns null when there is no draft — presentBrand() only accepts a brand shape. */
+    private function presentDraft(?array $draft): ?array
+    {
+        return $draft === null ? null : AccountSchema::presentBrand($draft);
     }
 
     // ===================================================================
@@ -143,7 +156,7 @@ class AccountController
 
         return rest_ensure_response([
             'success'       => true,
-            'draft'         => $draft,
+            'draft'         => AccountSchema::presentBrand($draft),
             'module_status' => $lifecycle['module_status'],
             // Same four-node shape fetchDetail() returns — the frontend's only
             // authoritative source for Platform IDs, since this is the first
@@ -174,8 +187,63 @@ class AccountController
 
         return rest_ensure_response([
             'success'       => true,
-            'brand'         => $brand,
+            'brand'         => AccountSchema::presentBrand($brand),
             'module_status' => $lifecycle['module_status'],
+        ]);
+    }
+
+    // ===================================================================
+    // SECTION: MEDIA_HANDLER
+    // ===================================================================
+
+    /**
+     * Accepts one image file and stores it through WordPress's own upload
+     * pipeline (media_handle_upload — the same storage/metadata path the
+     * wp.media() modal used, minus its admin-UI chrome), returning just the
+     * bound attachment id and its URL. This never touches Brand's draft or
+     * canonical state: the returned id is only persisted once the caller
+     * includes it in an ordinary Save, exactly as a wp.media()-picked id was.
+     */
+    public function uploadBrandMedia(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $file = $request->get_file_params()['file'] ?? null;
+
+        if (!is_array($file) || !isset($file['error'])) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'No file was uploaded.'], 422);
+        }
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'The upload failed. Please try again.'], 422);
+        }
+
+        if ((int) ($file['size'] ?? 0) > AccountSchema::MAX_BRAND_MEDIA_BYTES) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Image must be smaller than 5 MB.'], 422);
+        }
+
+        $checked = wp_check_filetype_and_ext((string) $file['tmp_name'], (string) $file['name']);
+        if (!in_array($checked['type'] ?? null, AccountSchema::ALLOWED_BRAND_MIME_TYPES, true)) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Logo and Favicon must be a JPEG, PNG, GIF, or WebP image.'], 422);
+        }
+
+        // These WP admin includes are never loaded outside /wp-admin/ by
+        // default; media_handle_upload() is the signal they are still needed.
+        if (!function_exists('media_handle_upload')) {
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+        }
+
+        // Unattached (post_id 0) — Brand's logo/favicon are not children of a
+        // post; the same unattached pattern site icon/custom-logo uploads use.
+        $attachmentId = media_handle_upload('file', 0);
+        if (is_wp_error($attachmentId)) {
+            return new \WP_REST_Response(['success' => false, 'message' => 'Could not store the uploaded image.'], 500);
+        }
+
+        return rest_ensure_response([
+            'success' => true,
+            'id'      => $attachmentId,
+            'url'     => AccountSchema::resolveAttachmentUrl($attachmentId),
         ]);
     }
 

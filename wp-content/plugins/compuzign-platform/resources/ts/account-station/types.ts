@@ -31,6 +31,11 @@ export interface AccountBrand {
   code: string;
   logo_attachment_id: number | null;
   favicon_attachment_id: number | null;
+  // Read-only, server-resolved presentation fields — never part of a Save
+  // payload. Lets the picker preview an attachment it did not just upload
+  // itself in this session (e.g. reopening the editor on a saved Logo).
+  logo_url: string | null;
+  favicon_url: string | null;
 }
 
 // ── DETAIL: GET /admin/account-station ───────────────────────────────────────
@@ -66,6 +71,14 @@ export interface AccountBrandSettleResponse {
   success: boolean;
   brand: AccountBrand;
   module_status: AccountDetail['module_status'];
+}
+
+// ── Platform-owned Logo/Favicon upload: POST /admin/account-station/profile/media ──
+
+export interface AccountMediaUploadResponse {
+  success: boolean;
+  id: number;
+  url: string;
 }
 
 // ── LIFECYCLE: status ─────────────────────────────────────────────────────────

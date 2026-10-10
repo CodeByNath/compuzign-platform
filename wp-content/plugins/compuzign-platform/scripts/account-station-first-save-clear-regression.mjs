@@ -12,8 +12,10 @@
 //
 // Same harness technique as scripts/service-create-handoff-regression.mjs:
 // mounts the REAL AccountDrawerHost composition (esbuild + happy-dom + Preact
-// render); only fetch (and window.wp.media, Account's one extra native
-// dependency) are faked.
+// render); only fetch is faked, including the Phase 2B platform-owned media
+// upload route (AccountBrandEditor.tsx no longer uses window.wp.media() at
+// all — see account-station-brand-media-picker-regression.mjs for the
+// picker's own dedicated upload/preview/reject coverage).
 //
 // Usage: npm run regression:account-station-first-save-clear
 //    or: node scripts/account-station-first-save-clear-regression.mjs
@@ -44,28 +46,7 @@ globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 
 window.CompuZignConfig = { apiRoot: 'https://cz-test.local/wp-json/', nonce: 'test-nonce' };
 
-// The real Logo/Favicon pickers are wp.media() (AccountBrandEditor.tsx) — the
-// one native dependency this drawer has beyond fetch. Faked the same way:
-// open() immediately "selects" whatever nextPickedAttachmentId is set to.
-let nextPickedAttachmentId = 0;
-window.wp = {
-  media: () => {
-    let selectHandler = null;
-    return {
-      on(event, handler) { if (event === 'select') selectHandler = handler; },
-      open() { selectHandler?.(); },
-      state() {
-        return {
-          get: () => ({
-            first: () => ({ toJSON: () => ({ id: nextPickedAttachmentId, url: `https://cz-test.local/${nextPickedAttachmentId}.png` }) }),
-          }),
-        };
-      },
-    };
-  },
-};
-
-// ── Fetch mock — the only faked boundary besides wp.media ───────────────
+// ── Fetch mock — the only faked boundary ────────────────────────────────
 const FIXED_NODES = {
   account_station: { platform_id: 'CZA00001', parent_platform_id: null },
   settings:         { platform_id: 'CZAS00001', parent_platform_id: 'CZA00001' },
@@ -83,6 +64,8 @@ let detailFetchCalls = 0;
 let saveCalls = 0;
 let settleCalls = 0;
 let statusCalls = 0;
+let mediaUploadCalls = 0;
+let nextUploadedAttachmentId = 5001;
 
 // Server-side truth, mirroring AccountRepository's own fields exactly.
 const server = {
@@ -108,6 +91,16 @@ function resolveAttachment(raw) {
   return Number(raw);
 }
 
+// Mirrors AccountSchema::presentBrand() — every brand/draft shape the real
+// backend emits carries these two read-only resolved URLs alongside the ids.
+function presentBrand(brand) {
+  return {
+    ...brand,
+    logo_url: brand.logo_attachment_id ? `https://cz-test.local/attachment-${brand.logo_attachment_id}.png` : null,
+    favicon_url: brand.favicon_attachment_id ? `https://cz-test.local/attachment-${brand.favicon_attachment_id}.png` : null,
+  };
+}
+
 globalThis.fetch = (url, init = {}) => {
   const path = String(url);
   const method = (init?.method ?? 'GET').toUpperCase();
@@ -121,9 +114,15 @@ globalThis.fetch = (url, init = {}) => {
       platform_status: server.platform_status,
       previous_platform_status: server.previous_platform_status,
       module_status: server.module_status,
-      brand: server.brand,
-      drafts: { brand: server.draft },
+      brand: presentBrand(server.brand),
+      drafts: { brand: server.draft ? presentBrand(server.draft) : null },
     });
+  }
+  if (path.endsWith('/admin/account-station/profile/media') && method === 'POST') {
+    mediaUploadCalls += 1;
+    const id = nextUploadedAttachmentId;
+    nextUploadedAttachmentId += 1;
+    return jsonResponse({ success: true, id, url: `https://cz-test.local/attachment-${id}.png` });
   }
   if (path.endsWith('/admin/account-station/profile') && method === 'POST') {
     saveCalls += 1;
@@ -138,14 +137,14 @@ globalThis.fetch = (url, init = {}) => {
     server.module_status = { brand: 'pending' };
     // The corrected AccountController::saveProfile() response — same `nodes`
     // shape fetchDetail() returns, proven in tests/account-station.php.
-    return jsonResponse({ success: true, draft: server.draft, module_status: server.module_status, nodes: FIXED_NODES });
+    return jsonResponse({ success: true, draft: presentBrand(server.draft), module_status: server.module_status, nodes: FIXED_NODES });
   }
   if (path.endsWith('/admin/account-station/profile/settle') && method === 'POST') {
     settleCalls += 1;
     server.brand = server.draft ?? server.brand;
     server.draft = null;
     server.module_status = { brand: 'settled' };
-    return jsonResponse({ success: true, brand: server.brand, module_status: server.module_status });
+    return jsonResponse({ success: true, brand: presentBrand(server.brand), module_status: server.module_status });
   }
   if (path.endsWith('/admin/account-station/status') && method === 'POST') {
     statusCalls += 1;
@@ -263,6 +262,16 @@ function fieldValue(fieldId) {
   return container.querySelector(`[data-field-id="${fieldId}"] .drawerModule__value`)?.textContent.trim() ?? null;
 }
 
+// Simulates picking a file on the nth hidden file input in document order
+// (Logo is first, Favicon second) — the platform-owned upload picker's one
+// native dependency, replacing the old wp.media() dialog entirely.
+function pickFile(index, fileName = 'logo.png') {
+  const input = container.querySelectorAll('input[type="file"]')[index];
+  const file = new window.File(['fake-bytes'], fileName, { type: 'image/png' });
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  input.dispatchEvent(new window.Event('change', { bubbles: true }));
+}
+
 console.log('Account Station first-Save identity handoff + explicit-null Clear regression\n');
 
 console.log('1) Mount on an unbootstrapped install — Platform ID reads the pre-Save fallback');
@@ -276,9 +285,9 @@ clickButtonWithText('Edit');
 await sleep(20);
 container.querySelector('#cz-account-brand-name').value = 'CompuZign';
 container.querySelector('#cz-account-brand-name').dispatchEvent(new window.Event('input', { bubbles: true }));
-nextPickedAttachmentId = 5001;
-clickButtonWithText('Pick'); // Logo — first Pick button in document order
+pickFile(0, 'logo.png'); // Logo — first file input in document order
 await sleep(20);
+check('the Logo upload ran exactly once', mediaUploadCalls === 1, `mediaUploadCalls=${mediaUploadCalls}`);
 clickButtonWithText('Save');
 await waitToSettle();
 
@@ -303,7 +312,11 @@ check('Logo still reads Set once settled to canonical', fieldValue('logo') === '
 console.log('\n4) Explicit Clear of the now-canonical Logo — must NOT fall back to the old canonical attachment id');
 clickButtonWithText('Edit');
 await sleep(20);
-check('the Brand editor reopens seeded with the just-settled Logo', container.textContent.includes('Attachment #5001'));
+check(
+  'the Brand editor reopens seeded with the just-settled Logo preview, resolved from the backend-returned logo_url — no re-upload needed',
+  container.querySelector('img[alt="Logo"]')?.getAttribute('src') === 'https://cz-test.local/attachment-5001.png',
+  container.querySelector('img[alt="Logo"]')?.getAttribute('src'),
+);
 clickButtonWithText('Clear'); // Logo — first Clear button in document order
 await sleep(20);
 clickButtonWithText('Save');

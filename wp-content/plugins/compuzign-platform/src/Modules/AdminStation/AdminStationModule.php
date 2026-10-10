@@ -43,12 +43,6 @@ class AdminStationModule
             wp_enqueue_script('compuzign-admin-station');
         }
 
-        // The standard WordPress Media Library modal (wp.media()) — used by
-        // Account Station's Logo/Favicon pickers. This page is not /wp-admin/,
-        // so it is never loaded by default; scoped to this one authenticated
-        // shortcode render, same as the script/style enqueues above.
-        wp_enqueue_media();
-
         $template = COMPUZIGN_APP_PATH . 'modules/admin-station/templates/admin-station.php';
 
         ob_start();

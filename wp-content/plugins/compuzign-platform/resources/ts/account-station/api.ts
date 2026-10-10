@@ -12,6 +12,7 @@ import type {
   AccountBrandSaveResponse,
   AccountBrandSettleResponse,
   AccountDetail,
+  AccountMediaUploadResponse,
   AccountNodeKey,
   AccountNodes,
   AccountStatusPayload,
@@ -36,8 +37,29 @@ export async function fetchAccountDetail(): Promise<AccountDetail> {
 }
 
 export async function saveAccountBrand(payload: AccountBrandPayload): Promise<AccountBrandSaveResponse> {
-  const response = await apiClient.post<WireAccountBrandSaveResponse>('admin/account-station/profile', payload);
+  // Explicit field whitelist: the caller's draft object may also carry the
+  // read-only logo_url/favicon_url presentation fields (AccountBrand), which
+  // are never part of the writable Save contract.
+  const body: AccountBrandPayload = {
+    name: payload.name,
+    code: payload.code,
+    logo_attachment_id: payload.logo_attachment_id,
+    favicon_attachment_id: payload.favicon_attachment_id,
+  };
+  const response = await apiClient.post<WireAccountBrandSaveResponse>('admin/account-station/profile', body);
   return { ...response, nodes: mapNodes(response.nodes) };
+}
+
+/**
+ * Uploads one Logo/Favicon image through Account's own platform-owned picker
+ * (AccountBrandEditor.tsx) — never the WordPress Media Library admin dialog.
+ * Returns the bound attachment id and its URL; the id is only persisted once
+ * the caller includes it in an ordinary saveAccountBrand() call.
+ */
+export function uploadAccountBrandMedia(file: File): Promise<AccountMediaUploadResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiClient.postForm<AccountMediaUploadResponse>('admin/account-station/profile/media', form);
 }
 
 export function settleAccountBrand(): Promise<AccountBrandSettleResponse> {

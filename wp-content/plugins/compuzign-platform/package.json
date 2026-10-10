@@ -103,6 +103,7 @@
     "regression:service-create": "node scripts/service-create-regression.mjs",
     "regression:service-create-handoff": "node scripts/service-create-handoff-regression.mjs",
     "regression:account-station-first-save-clear": "node scripts/account-station-first-save-clear-regression.mjs",
+    "regression:account-station-brand-media-picker": "node scripts/account-station-brand-media-picker-regression.mjs",
     "regression:service-open-save-race": "node scripts/service-open-save-race-regression.mjs",
     "regression:service-disable-enable": "node scripts/service-disable-enable-regression.mjs",
     "regression:category-create": "node scripts/category-create-regression.mjs",

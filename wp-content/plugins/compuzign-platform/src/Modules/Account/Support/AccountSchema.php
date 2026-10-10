@@ -15,6 +15,11 @@ final class AccountSchema
 {
     public const MODULE_BRAND = 'brand';
 
+    /** The only image types the platform-owned Logo/Favicon picker accepts. */
+    public const ALLOWED_BRAND_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+    public const MAX_BRAND_MEDIA_BYTES = 5 * 1024 * 1024;
+
     public static function brandArgs(): array
     {
         return [
@@ -79,5 +84,34 @@ final class AccountSchema
     public static function isBrandComplete(): bool
     {
         return true;
+    }
+
+    /** Pure, derived-only: never stored, resolved fresh from WordPress on every read. */
+    public static function resolveAttachmentUrl(?int $id): ?string
+    {
+        if ($id === null) {
+            return null;
+        }
+
+        $url = wp_get_attachment_url($id);
+
+        return $url === false ? null : (string) $url;
+    }
+
+    /**
+     * Adds read-only `logo_url`/`favicon_url` presentation fields alongside the
+     * authoritative attachment ids, for every Brand shape the controller emits
+     * (canonical, draft). The picker UI needs a URL to preview an attachment it
+     * did not just upload itself in this session; the ids remain the only
+     * fields a Save payload ever writes back.
+     *
+     * @param array{name: string, code: string, logo_attachment_id: ?int, favicon_attachment_id: ?int} $brand
+     */
+    public static function presentBrand(array $brand): array
+    {
+        return $brand + [
+            'logo_url'    => self::resolveAttachmentUrl($brand['logo_attachment_id']),
+            'favicon_url' => self::resolveAttachmentUrl($brand['favicon_attachment_id']),
+        ];
     }
 }
