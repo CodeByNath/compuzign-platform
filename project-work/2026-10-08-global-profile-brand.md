@@ -499,3 +499,11 @@ PHP contract `tests/account-station.php` PASS (171 checks incl. stalled-writer, 
 
 ## Current status — Builder
 **AWAITING REVIEWER REVIEW — Phase 2D candidate `account-station-profile-ui-slice@fe2e571f1bcff264bd1447e3a35bbdc5450abed3`. Do not merge or deploy.**
+
+## Reviewer Phase 2D candidate review — 2026-10-10
+**Verdict: Proceed with safeguards — candidate source ACCEPTED conditionally for controlled main push.** Independently inspected pushed `fe2e571f1bcff264bd1447e3a35bbdc5450abed3` diff and key AccountRepository CAS, controller lifecycle, AccountIdentity recovery, and PlatformIdentifier Station assign/ensure source. CAS uses direct DB bytes and conditional `UPDATE` / absent-row `INSERT IGNORE`; Account node bind-if-empty; ID recovery uses the existing Station `resolve/assign` authority. Shared Identifier Station is unchanged. Builder reports real WP 7.1.3 and 6.5.5 scratch tests: no split identity, 192/192 acknowledged media records retained, 16/16 forced stalls, 28/28 interruption recoveries; reports are evidence but were not independently rerun by reviewer.
+
+**Before main push:** Builder must distinguish pre-existing `platform-identifier-station.php` prefix-lock failure with a baseline command/output on unchanged `0aede22b` and identify its cause; run available PHP regression/contract suites after the candidate, and address or document Node/toolchain missing `libsimdjson` without touching platform source. Do not silently mark missing mounted/TS/docs verification PASS. If any candidate-induced failure or source problem appears STOP and resubmit. If baseline-only failure and unrelated Node environment issue are documented, Builder may fast-forward approved candidate unchanged to main, verify exact SHA and GitHub Actions result, then report for independent reviewer deployment/live read-only review. No production mutations or cleanups; no source widening. Profile closure still pending Hostinger verification. Cross-Station Identifier claim hardening, Requests/Migration, Escape, header and Scuba Dive remain outside this phase.
+
+## Current status — Reviewer
+**BUILDER ACTION REQUIRED — complete regression/baseline evidence, then controlled main push of unchanged `fe2e571f`; report deployment SHA/workflow; Profile OPEN.**
