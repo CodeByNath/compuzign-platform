@@ -103,7 +103,7 @@ Codex interactive-browser audit inadvertently changed Service state; Owner repor
 Create/reuse the single allowed topic branch from current `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1`. Implement only the approved Phase 2 initial UI slice and its focused mounted/source tests. Update affected Code Maps/local instructions where responsibility changes. Push only the topic branch, record exact remote SHA plus verification evidence here, set `AWAITING REVIEWER REVIEW`, and stop. Do not move to `main`, deploy, mutate production, or begin deferred Profile sections.
 
 ## Status
-**AWAITING REVIEWER REVIEW — Phase 2A candidate pushed to `account-station-profile-ui-slice@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`.**
+**SOURCE PUSH APPROVED — Phase 2A exact topic SHA `9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`. Phase 2B remains separately gated.**
 
 ## Builder Phase 2A — 2026-10-10
 Corrected exactly the two proven defects on the same topic branch, from the rejected `8949e02f` candidate. No other source touched; no scope broadened.
@@ -132,3 +132,8 @@ Corrected exactly the two proven defects on the same topic branch, from the reje
 **Not touched:** `docs/code-map/account-station.md`, `StationDrawerLifecycleContract-v1.md` — this round is a bounded bug-fix, not a new capability; no Code Map change is warranted by it. The six locked Phase 2C gates remain open, unaffected by this round. No Settle button, no new module, no backend route, no production mutation.
 
 Stopping here for Reviewer sign-off per the Owner's Phase 2A cadence.
+
+## Reviewer Phase 2A decision — 2026-10-10
+**Verdict: Proceed with safeguards. SOURCE PUSH APPROVED** for exactly `account-station-profile-ui-slice@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`. Independently inspected the actual GitHub diff: Account POST response now includes authoritative four nodes; frontend maps/seeds them in the mounted state update; draft object selection preserves explicit null attachment Clears. Compared to existing Service identity handoff and lifecycle presentation without treating Account's permanent atomic structure as a Service record. Reviewed the mounted regression source and PHP assertion; Builder reports 15 mounted checks, 85 PHP checks, TypeScript and build passing (not independently executed). Existing CSS/docs baseline failures remain unrelated. No new Station, Flow, identity engine or route. **Do not claim runtime integration or live acceptance.**
+
+**Next:** Builder may promote only this exact approved candidate to `main` using normal workflow, record the exact `main` SHA and Actions/deployment result here, then stop for deployment/live boundary review. Any further source edit invalidates this approval. Phase 2B Brand UI completion is planned but must not be bundled into this approved production push; start it only at the next explicitly reviewed phase boundary. Preserve all six Phase 2C gates and read-only production browser policy.
