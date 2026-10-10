@@ -1,5 +1,13 @@
 # Account Station → Settings → Tools → Profile — Active Work
 
+
+## Owner execution directive — 2026-10-10
+**Atomicity notice, mandatory at every phase:** Account Station is a permanent peer platform capability; Account → Settings → Tools → Profile are individually identifiable Account-owned parts, not user-created Services or display-only routes. Retain idempotent first-Save identity initialization and existing Station lifecycle; registration does not require immediate identity minting. Parts can be controlled individually; future grouped Flows will coordinate their existing contracts through the governed full-screen drawer, never replace ownership or introduce a second lifecycle. Flows, extra Profile sections, permissions and WEX remain deferred. Compare permanent Station architecture for existence/registration, then Service/Category for draft/drawer grammar. See the locked handover for complete phase map.
+
+**Execution cadence:** Claude works on the SAME `account-station-profile-ui-slice` topic branch. Phase 2A: correct the two independently proven defects (first-Save bound ID handoff and explicit-null attachment Clear), add focused mounted regression tests. Commit Phase 2A separately. When it is ready, push candidate, record SHA, test evidence and `AWAITING REVIEWER REVIEW`, then stop for Reviewer sign-off. Following approval, Phase 2B completes only remaining authorised Brand UI gaps and similarly commits/reviews. Phase 2C covers the six existing technical acceptance gates; missing safe integration environment is a blocker, not permission to mutate production. Phase 2D handles approved production push/deployment/live acceptance only after review. The full phase sequence is authorised for planning; **each implementation phase remains independently gated**. Do not ask Owner routine implementation questions or introduce unrelated work. Stop for compromised platform standards/identity/lifecycle/security, scope expansion or missing mandatory evidence.
+
+**Supersedes stale next-action language below:** The old initial-slice instruction has been executed and is no longer the active next action. Current status remains `SOURCE PUSH NOT APPROVED`; start with Phase 2A fixes only. 
+
 ## Status
 **SOURCE PUSH NOT APPROVED — Phase 2 initial UI candidate `8949e02fae1658105332cfe0d08dc68d110565be` requires bounded corrections below. Do not merge or deploy.**
 
