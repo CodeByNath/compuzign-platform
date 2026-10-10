@@ -6,9 +6,7 @@ permanent singleton tree — **Account Station → Settings → Tools → Profil
 — and Profile's first section, **Brand**. Settings, Tools, and Profile are
 Account-owned child records, never separate peer Stations.
 
-**Phase 1 is backend only.** No frontend Station registration, navigation,
-presentation, or drawer exists yet; Admin Station hosts those in a later
-phase. Account Station does not own WordPress users, authentication, or any
+Account Station does not own WordPress users, authentication, or any
 unrelated business record.
 
 ## Identity
@@ -24,13 +22,12 @@ ordinary `ensure()` idempotency — never a second identity mechanism:
 | Tools | `CZAST` | `account_tools:root` |
 | Profile | `CZASTP` | `account_profile:root` |
 
-Each is a true singleton — exactly one of each, ever, on this install — so
-the native reference is a fixed string rather than a numeric/string record
-id. `Support/AccountIdentity::bootstrap()` reserves/binds all four in parent
-order on the first authenticated Save; a repeated or interrupted call
-resumes idempotently through `ensure()` rather than minting a second
-identity. A losing concurrent first-Save leaves only a harmless unused
-reservation (reservations are never reused) and must retry.
+Each is a true singleton — exactly one, ever — so the native reference is a
+fixed string, not a record id. `Support/AccountIdentity::bootstrap()`
+reserves/binds all four in parent order on the first authenticated Save; a
+repeated or interrupted call resumes idempotently through `ensure()` rather
+than minting a second identity. A losing concurrent first-Save leaves only a
+harmless unused reservation (reservations are never reused) and must retry.
 
 ## Storage
 
@@ -52,9 +49,9 @@ draft to canonical; Publish (`platform_status: 'active'`, via
 presentation mask Service uses, never a module/draft rewrite. Brand has no
 required field — blanks are valid — so it always settles
 (`AccountSchema::isBrandComplete()` is unconditionally true). Settle,
-Publish, Disable and Enable are all rejected outright against a never-bootstrapped
-install, a case Service has no equivalent of since a Service id must exist
-before its `/status` route is addressable. All four share one predicate,
+Publish, Disable and Enable are all rejected outright against a
+never-bootstrapped install — unlike Service, whose id must exist before its
+`/status` route is addressable. All four share one predicate,
 `isBootstrapped()`, true only once all four chain nodes are bound, not just
 the Profile leaf.
 
@@ -64,6 +61,24 @@ return to after deletion — Platform Identifier Station's own reservations
 and tombstones are never deleted or reused, so there is no legal destination
 for a travel action here. Flagged per the Owner's own stated carve-out
 rather than silently extending or narrowing the locked contract.
+
+## Frontend
+
+`resources/ts/account-station/` mirrors `service-station/`'s shape at
+Account's one-module scale: `types.ts`/`api.ts`, `useAccountStation.ts`
+(state/mutations/lifecycle), `drawer/` (`schema/entities/account.ts`'s
+`ACCOUNT_ENTITY`, the Brand editor and its Logo/Favicon `wp.media()`
+pickers — `AdminStationModule::renderShortcode()` now calls
+`wp_enqueue_media()`), and `surface/` (`AccountDrawerHost.tsx`;
+`useAccountProfileCard.ts` binds a one-item collection to Admin's existing
+`category-group-cards` kit — no new card code). `register.ts` registers
+Account's own navigation/destination/source/drawer; Admin's
+`register.ts` adds only the one `presentation` surface binding (placement
+policy, no domain logic). No numeric/string record id, so no create/new
+branch — `bootstrapped` is the frontend's sole gate. One Publish action
+only: it settles then activates; an already-active re-Publish settles only,
+since `/status` 422s on an already-active record. No Archive/Trash/
+Restore/Delete, matching the carve-out above.
 
 ## Backend
 

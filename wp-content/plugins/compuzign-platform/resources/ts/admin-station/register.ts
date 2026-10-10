@@ -209,6 +209,25 @@ export function registerPresentationPolicy(): void {
         { id: 'view', target: 'drawer', mode: 'view' },
       ],
     },
+    // Account Station's one-record wall: reuses the SAME Admin-owned
+    // `category-group-cards` kit the Package Families wall uses, bound here
+    // to a one-item source (Account owns the source/drawer; this file only
+    // places it, per the shell/placement-only boundary — see
+    // docs/code-map/account-station.md).
+    {
+      stationId: 'account',
+      surfaceId: 'profile',
+      placement: 'presentation',
+      order: 0,
+      title: 'Account Profile',
+      dataSourceKey: 'account-profile',
+      templateKitKey: 'category-group-cards',
+      conditions: { scope: 'current' },
+      drawerTemplateKey: 'account',
+      actionIntents: [
+        { id: 'view', target: 'drawer', mode: 'view' },
+      ],
+    },
   ]);
 
   setDefaultHomeStation('services');

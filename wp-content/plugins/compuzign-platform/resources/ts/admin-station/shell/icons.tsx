@@ -191,3 +191,10 @@ export const PrintIcon: ComponentType<IconProps> = (props) => (
     <path fillRule="evenodd" d="M7.5 15.75a.75.75 0 01.75-.75h7.5a.75.75 0 01.75.75v4.5a.75.75 0 01-.75.75h-7.5a.75.75 0 01-.75-.75v-4.5z" clipRule="evenodd" />
   </Icon>
 );
+
+// Identification card (repo heroicon) — Account Station nav.
+export const AccountIcon: ComponentType<IconProps> = (props) => (
+  <Icon {...props}>
+    <path fillRule="evenodd" d="M4.5 4.5a3 3 0 00-3 3v9a3 3 0 003 3h15a3 3 0 003-3v-9a3 3 0 00-3-3h-15zm3.75 3.75a3 3 0 100 6 3 3 0 000-6zm-5.25 10.5a5.25 5.25 0 0110.5 0 .75.75 0 01-.75.75h-9a.75.75 0 01-.75-.75zM15.75 9a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3zm0 3.75a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" />
+  </Icon>
+);

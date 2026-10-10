@@ -11,3 +11,4 @@ export * from './promotion';
 export * from './category';
 export * from './packageFamily';
 export * from './tierEdition';
+export * from './account';
