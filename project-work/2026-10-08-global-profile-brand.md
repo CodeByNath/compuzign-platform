@@ -246,3 +246,22 @@ Implemented the Owner's final correction on the existing topic branch, one commi
 
 ## Current status — Reviewer
 **SOURCE PUSH NOT APPROVED — Phase 2B candidate `a6b4b3263f18f19e998e4d0f71816071328bed39`; Builder bounded storage-race correction required.**
+
+## Builder Phase 2B storage-safety correction — 2026-10-10
+
+Bounded to the three Reviewer items; no storage engine, route, UI or lifecycle change. One commit on `a6b4b326`.
+
+**Race 1 (shared `.part`) — fixed:** `AccountMedia::store()` now stages under `/.{random}.part` unique per request, then atomically renames onto the hash-named destination (`LOCK_EX`, `chmod 0644`). Overlapping identical uploads share no intermediate file; the final rename replaces byte-identical content, so either winner is correct.
+
+**Race 2 (whole-option overwrite) — fixed:** grep first: the repo already uses `add_option()` unique-key claims with CAS release/stale takeover (`RequestRepository` creation lock, `TemporaryMigrationController`). Account now has the same primitive, Account-only, in `AccountRepository::withLock()` (key `cz_account_station_lock_v1`, 10 s TTL, bounded wait, re-entrant per request). Every repository writer (`writeNode`, `writeBrandDraft`, `settleBrandDraft`, `writeLifecycle`, `writeMediaRecord`) re-reads fresh state inside it, and `saveProfile`/`settleProfile`/`updateStatus` run wholly under it so read-decide-write (lifecycle, identity bootstrap) can't act on a stale read. A lock still held after the wait → `AccountStorageBusy` → retryable 503, never an unprotected write. Release/takeover are compare-and-swap on the exact observed value. Save→Pending→Publish and first-Save identity semantics unchanged. **Candour:** this is a second copy of the Requests lock primitive, not a shared helper — Requests' version is quoteRef-keyed inside another module's repository and Account must not import it. Relocating both onto one neutral lock helper would touch production Requests code, so I did not; flag for Nath/Reviewer if wanted.
+
+**Upload authenticity — fixed:** `uploadBrandMedia()` requires `is_uploaded_file()` on `tmp_name` (injectable only via the controller constructor for the harness). It also reads the file once and sniffs (`getimagesizefromstring`), hashes and writes those same bytes (no check-then-reread gap); size is checked on the real file before reading.
+
+**Evidence (`php tests/account-station.php` PASS, plus both mounted regressions PASS, `tsc` clean; frontend untouched so `dist` unchanged):** new tests with a `$wpdb` CAS stand-in: default verifier rejects a non-uploaded tmp_name and `__FILE__`; a decoy at the old shared `.part` path is untouched by a concurrent store and no staging file is left; a second request's write during a held lock fails closed and changes nothing, then lands after release with the first request's records intact; re-entrancy; release on exception; stale takeover; live foreign lock neither stolen nor released; Save/settle/Publish/new-upload → 503 under a held lock while a dedupe re-upload needs no write; Brand Save + upload through separate controllers both persist. Mutation-checked: restoring the shared `.part` name or removing lock acquisition fails the new assertions. `docs:check` only the pre-existing `platform-identifier-station.md` failure; Account Code Map ≤600 words.
+
+**Not provable here:** true parallel PHP-FPM interleaving and real `is_uploaded_file`/uploads permissions/static serving need the Phase 2C integration environment; the harness is single-process and models overlap with a second repository instance. Stale `.part` files from a crashed request are not swept (no cleanup policy invented). No production mutation; not merged/deployed.
+
+**Pushed candidate:** `account-station-profile-ui-slice@0aede22b23109d45a9f6674408c80fdea184578d`.
+
+## Status
+**AWAITING REVIEWER REVIEW — Phase 2B storage-safety candidate `account-station-profile-ui-slice@0aede22b23109d45a9f6674408c80fdea184578d`. Do not merge or deploy.**
