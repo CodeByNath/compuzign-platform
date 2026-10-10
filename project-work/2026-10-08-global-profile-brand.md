@@ -297,3 +297,11 @@ Promoted only the exact Reviewer-approved SHA by plain fast-forward (no force, n
 
 ## Current status
 **BUILDER ACTION REQUIRED — Phase 2B focused Escape correction; live acceptance blocked only on reported selector defect, other state-changing tests remain unverified.**
+
+## Owner priority change — 2026-10-10
+**Verdict: Proceed with safeguards.** Owner explicitly defers Phase 2B image-selector Escape/polish issue as **non-blocking**. The immediately previous UI-only Builder action is cancelled; do not implement it now. Retain as a known UI defect for a later approved polish phase. Existing reported read-only live observations remain valid for the areas checked; do not claim image upload, persistence, static serving or backend integration were verified.
+
+**Current action:** Phase 2B presentation checkpoint is provisionally accepted with the known deferred Escape defect, and is not final technical acceptance. Shift next evidence-gathering to the already-defined six Phase 2C **safe non-production** integration gates: Account storage/media upload + fetch/serve + Save/Clear + lifecycle + identity/concurrency/permission boundaries. Builder should first report availability of a safe test environment and the exact execution plan here; no production state mutation. If no non-production environment is available, mark `BLOCKED — SAFE TEST ENVIRONMENT REQUIRED`, without manufacturing pass results or making unapproved live changes. Keep the same active work file/topic branch and Admin header integration deferred.
+
+## Current status — Owner-prioritised
+**BUILDER ACTION REQUIRED — Phase 2C non-production validation planning; Escape UI correction DEFERRED.**
