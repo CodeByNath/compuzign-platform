@@ -507,3 +507,20 @@ PHP contract `tests/account-station.php` PASS (171 checks incl. stalled-writer, 
 
 ## Current status — Reviewer
 **BUILDER ACTION REQUIRED — complete regression/baseline evidence, then controlled main push of unchanged `fe2e571f`; report deployment SHA/workflow; Profile OPEN.**
+
+## Builder Phase 2D — pre-push baseline/regression evidence — 2026-10-10
+**Candidate unchanged:** `fe2e571f1bcff264bd1447e3a35bbdc5450abed3` (= `origin/account-station-profile-ui-slice`; `origin/main` is still `0aede22b`, so a fast-forward). Diff vs `0aede22b` touches only 6 Account files (Account controller/identity/repository/storage-busy, Account Code Map, `tests/account-station.php`); no TS/CSS/Station/Requests/Package file.
+
+**PHP suites — every `tests/*.php` (90) run on clean detached checkouts of `0aede22b` (baseline) and `fe2e571f` (candidate), PHP 8.5.8:** exit codes identical file-for-file; `account-station.php` passes on both (candidate 171 checks). Seven suites fail **identically on both**, output byte-identical after path normalisation, none touched by the candidate (so baseline-only, not candidate-induced):
+- `platform-identifier-station.php` — "every entity prefix is locked": the test's hard-coded `$expected` map lacks `tier_catalogue => CZTC` and `tier_edition_catalogue => CZTEC`, which `PlatformIdentifierPolicy::PREFIXES` already contains (stale test, not a Station defect; Account prefixes CZA/CZAS/CZAST/CZASTP match).
+- `quote-view-email-link`, `quote-view-http-boundary` — `RequestsController::__construct()` now needs arguments the tests don't pass.
+- `tier-occupant-first-save` — undefined `sanitize_text_field()` in the test bootstrap.
+- `notification-templates-composable-quote-parity`, `tier-capability-invariants`, `service-route-baseline` — Package/Tier/Notification assertions or route fixture out of date.
+I did not fix any of these (out of scope; each needs its own approval).
+
+**Node/TS/docs:** still unrunnable — `node@24.21.0` aborts on missing `libsimdjson.33.dylib` (Homebrew now has `simdjson 5.0.3` only). Fix is a machine toolchain change (`brew reinstall node@24`), not platform source; I have not made it. **Mounted/TS/`docs:check` are therefore NOT verified for this candidate — not marked PASS.** The candidate changes no TS/CSS, so the last green mounted run (Phase 2B, `0aede22b`) is the applicable frontend baseline; the PHP contract covers the changed code.
+
+**Main push — BLOCKED, not done.** `git push origin fe2e571f…:refs/heads/main` was denied by the auto-mode classifier ([Production Deploy]). Nothing was pushed. Nath: exit Auto Mode (or run that exact push yourself), then say "go" and I will verify the exact SHA + GitHub Actions run and record it here. Two scratch worktrees of mine under the session scratchpad could not be removed (also classifier-denied); they are untracked and outside the repo tree.
+
+## Current status — Builder
+**BUILDER ACTION PENDING ONLY THE `main` PUSH — baseline/regression evidence recorded; push of unchanged `fe2e571f` blocked by classifier awaiting Nath. Profile OPEN.**
