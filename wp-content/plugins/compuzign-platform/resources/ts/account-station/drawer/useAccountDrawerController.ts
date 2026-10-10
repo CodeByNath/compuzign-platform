@@ -119,14 +119,21 @@ export function useAccountDrawerController({ account, initialTab, initialEdit, b
     await runLifecycle(station.isActive ? station.settleBrand : station.publish);
   }, [runLifecycle, station]);
 
+  // Draft-preferred: select the whole draft object first, exactly as
+  // openBrandEditor does above, then read its fields. Picking each nullable
+  // attachment field individually (`drafts.brand?.logo_attachment_id ?? brand.logo_attachment_id`)
+  // would fall an explicit Clear (null) straight back to the old canonical id,
+  // since `??` only short-circuits on the WHOLE expression being nullish.
+  const brandSource = station.detail.drafts.brand ?? station.detail.brand;
+
   const brandBinding: ShellBinding<AccountBrandShellData> = {
     data: {
       platformId: station.detail.nodes.profile.platformId,
       bootstrapped: station.detail.bootstrapped,
-      name: station.detail.drafts.brand?.name ?? station.detail.brand.name,
-      code: station.detail.drafts.brand?.code ?? station.detail.brand.code,
-      logo_attachment_id: station.detail.drafts.brand?.logo_attachment_id ?? station.detail.brand.logo_attachment_id,
-      favicon_attachment_id: station.detail.drafts.brand?.favicon_attachment_id ?? station.detail.brand.favicon_attachment_id,
+      name: brandSource.name,
+      code: brandSource.code,
+      logo_attachment_id: brandSource.logo_attachment_id,
+      favicon_attachment_id: brandSource.favicon_attachment_id,
     },
     state: station.modules.brand,
     hasDraft: station.hasDraft,

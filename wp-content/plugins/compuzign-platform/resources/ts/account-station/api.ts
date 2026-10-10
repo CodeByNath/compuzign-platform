@@ -20,6 +20,7 @@ import type {
 
 type WireNode = { platform_id: string; parent_platform_id: string | null };
 type WireAccountDetail = Omit<AccountDetail, 'nodes'> & { nodes: Record<AccountNodeKey, WireNode> };
+type WireAccountBrandSaveResponse = Omit<AccountBrandSaveResponse, 'nodes'> & { nodes: Record<AccountNodeKey, WireNode> };
 
 function mapNodes(nodes: Record<AccountNodeKey, WireNode>): AccountNodes {
   const entries = Object.entries(nodes) as Array<[AccountNodeKey, WireNode]>;
@@ -34,8 +35,9 @@ export async function fetchAccountDetail(): Promise<AccountDetail> {
   return { ...response, nodes: mapNodes(response.nodes) };
 }
 
-export function saveAccountBrand(payload: AccountBrandPayload): Promise<AccountBrandSaveResponse> {
-  return apiClient.post<AccountBrandSaveResponse>('admin/account-station/profile', payload);
+export async function saveAccountBrand(payload: AccountBrandPayload): Promise<AccountBrandSaveResponse> {
+  const response = await apiClient.post<WireAccountBrandSaveResponse>('admin/account-station/profile', payload);
+  return { ...response, nodes: mapNodes(response.nodes) };
 }
 
 export function settleAccountBrand(): Promise<AccountBrandSettleResponse> {

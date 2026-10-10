@@ -59,6 +59,7 @@ export interface AccountBrandSaveResponse {
   success: boolean;
   draft: AccountBrand;
   module_status: AccountDetail['module_status'];
+  nodes: AccountNodes;
 }
 
 export interface AccountBrandSettleResponse {

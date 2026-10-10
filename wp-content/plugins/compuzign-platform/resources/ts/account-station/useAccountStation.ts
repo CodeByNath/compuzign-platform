@@ -48,6 +48,7 @@ export function useAccountStation(seed: AccountDetail, onMutationComplete?: () =
       setDetail((current) => ({
         ...current,
         bootstrapped: true,
+        nodes: response.nodes,
         drafts: { brand: response.draft },
         module_status: response.module_status as AccountDetail['module_status'],
       }));

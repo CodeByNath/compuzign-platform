@@ -145,6 +145,12 @@ class AccountController
             'success'       => true,
             'draft'         => $draft,
             'module_status' => $lifecycle['module_status'],
+            // Same four-node shape fetchDetail() returns — the frontend's only
+            // authoritative source for Platform IDs, since this is the first
+            // request in which they can exist. Without this, the mounted drawer
+            // has no way to show the bound identity after first Save short of a
+            // second GET, which the locked no-remount handoff forbids.
+            'nodes'         => $this->repository->readNodes(),
         ]);
     }
 

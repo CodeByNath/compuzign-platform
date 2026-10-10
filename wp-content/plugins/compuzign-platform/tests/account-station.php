@@ -261,6 +261,7 @@ checkAccount($saved['module_status']['brand'] === 'pending', 'Save marks Brand p
 
 $repository = new AccountRepository();
 $nodes = $repository->readNodes();
+checkAccount($saved['nodes'] === $nodes, 'first Save returns the just-bound nodes authoritatively, in the exact same shape fetchDetail() uses — no second GET required for the frontend to display them');
 foreach (['account_station' => null, 'settings' => 'account_station', 'tools' => 'settings', 'profile' => 'tools'] as $node => $parentNode) {
     checkAccount(PlatformIdentifierPolicy::validate(
         match ($node) {
