@@ -273,3 +273,16 @@ Bounded to the three Reviewer items; no storage engine, route, UI or lifecycle c
 
 ## Current status — Reviewer
 **SOURCE PUSH APPROVED — Phase 2B exact `0aede22b23109d45a9f6674408c80fdea184578d`. Awaiting Builder exact-SHA main promotion and deployment evidence.**
+
+## Builder Phase 2B promotion — 2026-10-10
+
+Promoted only the exact Reviewer-approved SHA by plain fast-forward (no force, no other change): `main` `9ec2ba97` → `0aede22b23109d45a9f6674408c80fdea184578d` ("Account Phase 2B: serialize Account storage and harden media upload"; Phase 2B media commits `7336f93c`, `a6b4b326`, `0aede22b`). First attempt was blocked by the auto-mode classifier; Nath approved and the retry succeeded after confirming `origin/main` was an ancestor.
+
+**Deployment evidence:** GitHub Actions "Deploy to Hostinger" run #1043 (id 38036947426), `head_sha` `0aede22b…`, event push, status `completed`, conclusion `success` (created 08:10:12Z, finished 08:10:39Z UTC). https://github.com/CodeByNath/compuzign-platform/actions/runs/38036947426
+
+**Not verified:** no browser capability was used in this session, so there is no read-only observation of `https://compuzign.weerax.com/studio/`; the successful workflow is not proof of runtime behaviour, Hostinger permissions on `uploads/compuzign-account/`, or static serving. No production Profile state was changed. The six Phase 2C gates remain open; Phase 2B is source-accepted and deployed, not live-accepted. Topic branch `account-station-profile-ui-slice` is kept until `CLOSED`.
+
+**Live-validation request for Nath (UI judgement only):** in Admin Station → Account → Profile → Brand, check that Logo/Favicon show **Upload new / Choose existing / Clear** inside the drawer with no WordPress Media Library window, that an existing (legacy) image still previews with a "replace" hint, and that an uploaded image previews and appears under Choose existing. Use whatever Save/Publish you are comfortable making on production; no API, console or storage checks are requested.
+
+## Status
+**AWAITING LIVE VALIDATION — Phase 2B `main@0aede22b23109d45a9f6674408c80fdea184578d`, deploy run #1043 success.**
