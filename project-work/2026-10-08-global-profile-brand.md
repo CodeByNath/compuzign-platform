@@ -340,3 +340,31 @@ Correction to execution plan: Gate 3 means **Account-owned raw media uploads**, 
 
 ## Current status — closure gate
 **BUILDER ACTION REQUIRED — Phase 2C integration evidence pending; Profile functionally demonstrated, formal closure withheld.**
+
+## Builder Phase 2C — execution results — 2026-10-10
+**Tested:** plugin tree from `git archive 0aede22b…` in a disposable WordPress 7.1.3 + MariaDB 11.8.9 + PHP 8.5.8 (`php -S`, 8 workers), all localhost, all under the session scratchpad. No repo files written, no production credential/contact, no source change. **Torn down:** servers stopped, DB/WordPress deleted; only the scripts and result logs remain in scratch. Test users used Application Passwords (no nonce) and cookie+nonce sessions.
+
+| Gate | Result |
+|---|---|
+| 1 Real dispatch/auth | **PASS 46/46.** Anon 401; subscriber 403 (basic and cookie+valid nonce); admin cookie without nonce 401; bad nonce 403 `rest_cookie_invalid_nonce`; administrator and `cz_platform_manager` 200. Capability and nonce checked separately on all 6 routes. Denied calls wrote nothing (state hash unchanged). Schema 400s hold. A forged `tmp_name` via JSON or form body is rejected 422. |
+| 2 Identity | **PASS 44/44 sequentially.** Four IDs, parent chain, 4 bound registry rows, `autoload=no` row, fresh-process readback, repeat Saves mint nothing. Real process death at each of the four node writes, then retry: HTTP 503 until the 10 s stale lock expires, then 200 with earlier IDs kept and exactly one bound record per type. Orphan `reserved` rows remain (documented harmless). |
+| 3 Media | **PASS 48/48.** PNG/JPEG/GIF/WebP accepted, bytes match SHA-256 on host disk and via the static URL. No `wp_posts` attachment rows; WP Media REST empty. Rejected: fake `.png`, PHP, SVG, HTML, empty, truncated, BMP, over 5 MB (nothing stored). A traversal filename is stored under its hash. Bad/unknown/malformed ids → 422 and the state hash is identical. Clear, settle and legacy-attachment paths behave as designed, including explicit-null Clear. Observation (d): a GIF/PHP polyglot passes the sniff, is stored only as `.gif` and served as `image/gif`. |
+| 4 Lifecycle | **PASS 26/26.** Pre-bootstrap routes 422 with no writes. Save→Settle→Publish→Disable→Enable→Publish matches Service semantics, with draft/canonical isolation. Observation (b): Publish with an unsettled draft returns 200, as Service's backend does. No code outside the Account module reads this state yet. |
+| 5 Concurrency | **FAIL — proven defects, details below.** |
+| 6 UI | **NOT VERIFIED by Builder** (no browser capability). Codex's read-only observation and Owner's screenshots stand. |
+
+### Gate 5 — proven defects (classification: (a)/(c) against the Account claim of exclusive Saves)
+1. **Lock is not exclusive.** `AccountRepository::acquireLock` relies on `add_option()` being an atomic claim. WordPress 7.1.3 `add_option` is check-then-`INSERT … ON DUPLICATE KEY UPDATE` (`wp-includes/option.php:1123,1142`), so two racers with different values both return `true`. Measured: 16 simultaneous writers each holding their write 80 ms, 12 rounds: **11 of 12 rounds had two requests inside the "locked" section at once.** A barrier-synchronised 8-process `add_option` probe gave 7–8 winners in 25/25 rounds (adversarial; the HTTP rounds are the realistic evidence).
+2. **Duplicate identity.** 12 parallel first-Saves, 8 rounds: **3 rounds ended with two `bound` forward records for the same native reference** (e.g. `CZAFHXKD` kept in the aggregate but `CZAW7J99` bound as the reverse/native lookup for `account_station:root`; same for settings/tools). Registry and Account aggregate disagree. 29×200, 10×500, 57×503.
+3. **Lost updates.** Mixed storm (16 uploads plus Save/settle/Publish at once, 5 rounds): uploads acknowledged 200 were missing from the media record in rounds 1 and 2 and others.
+4. **Liveness.** A request arriving while the lock is held always returns 503 after the full ~2.1 s, even if the lock is freed at +0.75 s (4/4 runs). Cause shown in isolation: after a failed `add_option`, `get_option` caches the lock value in-request and `add_option`'s pre-check reads that cache, so the freed lock is never seen. Production may differ if a persistent object cache is present (unknown).
+5. (d, artificial) A holder stalled past the 10 s TTL loses exclusivity: its late stale write overwrote the taker's change. Release itself is correctly a no-op.
+
+Two harness checks in `gate5` were test-design flaws (held-lock overlap with only one winner; TTL setup timing) and are superseded by the supplementary runs above, not counted as findings.
+
+**Not fixed (testing authorisation).** The same `add_option` claim underlies `PlatformIdentifierStation::claimOption` and `RequestRepository`, so fix scope is an architecture decision. Smallest Account-local candidate for Reviewer/Owner to consider: a genuinely atomic claim (`$wpdb` `INSERT IGNORE`, `rows_affected === 1`) with a cache bust before each retry. Whether to also harden the shared identifier claim is a separate platform decision.
+
+**Cleanup:** no production data touched; scratch environment destroyed. Escape defect and Admin-header wiring remain deferred.
+
+## Current status — Builder
+**AWAITING REVIEWER REVIEW — Phase 2C: gates 1–4 PASS, gate 5 FAIL (non-exclusive lock, duplicate bound identity under concurrent first-Save, lost updates); gate 6 not Builder-verifiable. Source fix needs Reviewer/Owner direction before any change.**
