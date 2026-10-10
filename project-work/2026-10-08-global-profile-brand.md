@@ -332,3 +332,11 @@ Correction to execution plan: Gate 3 means **Account-owned raw media uploads**, 
 
 ## Current status — Reviewer
 **BUILDER ACTION REQUIRED — execute approved Phase 2C scratch-only verification and return evidence.**
+
+## Reviewer closure assessment — 2026-10-10
+**Verdict: Proceed with safeguards; NOT FORMALLY CLOSED.** Owner supplied live screenshots showing Account Profile Active at `CZASTPGQXQ4`, Brand Name/Code, Logo and Favicon Set after owner upload/selection, saved previews on reopening, and empty ordinary WordPress Media Library. This materially verifies real production happy-path media upload/reference/retrieval and UI separation, beyond Codex's earlier read-only empty-library checks. Do not assert this proves concurrency, failed-request atomicity, authorization or backend isolation universally. Existing source/deploy chain still at `main@0aede22b23109d45a9f6674408c80fdea184578d` per branch inspection. Known Escape selector issue is owner-deferred, not blocking. Header wiring excluded.
+
+**Closure gate:** Six mandatory Phase 2C integration checks have no executed results in current handover. Builder next action remains execute approved safe scratch-only WordPress/DB contract tests and record PASS/FAIL/NOT VERIFIED plus cleanup; no source edits or production writes. Once results are supplied, Reviewer assess exact evidence and close Profile if all mandatory safety gates pass, leaving UI polish/header as deferred future work. Do not close solely on screenshots, nor repeat validated UI exercises unnecessarily.
+
+## Current status — closure gate
+**BUILDER ACTION REQUIRED — Phase 2C integration evidence pending; Profile functionally demonstrated, formal closure withheld.**
