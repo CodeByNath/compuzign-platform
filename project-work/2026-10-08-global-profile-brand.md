@@ -305,3 +305,22 @@ Promoted only the exact Reviewer-approved SHA by plain fast-forward (no force, n
 
 ## Current status — Owner-prioritised
 **BUILDER ACTION REQUIRED — Phase 2C non-production validation planning; Escape UI correction DEFERRED.**
+
+## Builder Phase 2C — environment availability and execution plan — 2026-10-10
+**Safe non-production environment: AVAILABLE on the Builder machine, not yet built. Nothing installed, started or mutated; no production contact.** Verified: PHP 8.5.8 (mysqli, pdo_mysql, pdo_sqlite, gd, zip, curl, mbstring, fileinfo), Homebrew MariaDB 11.8.9 (`mariadbd`, none running), `npx`; `wordpress.org/latest.zip` and the wp-cli phar are reachable. Absent: Docker, `wp`, composer, any local WordPress core. The existing `tests/account-station.php` is an in-memory options stub (84 contracts), so gates 1, 3, 5 are NOT yet evidenced.
+
+**Plan (all under the session scratchpad, outside the repo; disposable):**
+1. Throwaway MariaDB on a scratch datadir/socket (own port, never touching production credentials), fresh WordPress core + wp-cli phar, PHP built-in server on localhost. The plugin from topic `0aede22b` is symlinked in; the default credential in `PlatformAccess.php` is not reused beyond the local site.
+2. Gate 1: real `rest_do_request` and HTTP dispatch for every `/account/*` route as anonymous, wrong-capability, missing/invalid nonce and authorised.
+3. Gate 2: first-Save four-node bootstrap, forced interruption and retry, then DB-level proof of no duplicate `CZA/CZAS/CZAST/CZASTP`.
+4. Gate 3: real attachment upload through the Account-owned endpoint (accept, reject non-image/oversize/spoofed type), fetch via the served URL, Save/Clear, failed Save leaves draft and canonical intact.
+5. Gate 4: Save → Settle → Publish → Disable/Enable with draft/canonical isolation and visibility at each step.
+6. Gate 5: N parallel first-Save and upload requests against real MariaDB, asserting a single identity and no lost writes.
+7. Gate 6: Builder has no browser capability; I will record that and defer UI interaction to the Reviewer/Owner at the deployed SHA, per the validation boundary.
+
+**Deliverables:** a repeatable script and results table in this file with exact commands and SHA, any defect found reported before any fix. I will not add the harness to the repo unless Reviewer approves it as a committed contract. Note: four local branches exist (`tier-inclusion-unit-price-copy-order` is extra to the cap); I will not touch it unless told.
+
+**Request:** Reviewer to confirm the plan (and whether the harness stays scratch-only). On confirmation I execute.
+
+## Current status — Builder
+**AWAITING REVIEWER REVIEW — Phase 2C plan only; no environment built, no production change.**
