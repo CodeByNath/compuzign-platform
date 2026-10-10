@@ -410,3 +410,13 @@ No option names, ID formats, lock value format, REST routes, media paths, lifecy
 
 ## Current status — Builder
 **AWAITING REVIEWER REVIEW — Phase 2D remediation plan only; no source change, no production contact.**
+
+## Reviewer remediation-plan audit — 2026-10-10
+**Verdict: Stop — architectural risk. NO CODE AUTHORIZATION YET.** Plan R1/R2 correctly identifies non-atomic `add_option` and stale-cache retry. Independently read PlatformIdentifierStation::claimOption(): it uses `add_option` with post-readback, which is not an exclusive claim. Correct to evaluate Account and Identifier together, not rebuild Stations/media. A shared primitive has >=2 demonstrated consumers if both Account and Identifier are approved; moving Request/Migration locking is NOT in this phase.
+
+**Unresolved critical flaw:** R1's `readFresh(lock) === heldLock` immediately before `write()` is NOT a true fence: lease can expire and another holder can take over after the check but before the blind `update_option`, losing data. A 10-second TTL is not exclusive under paused/slow worker, regardless of fresh reads. Do not label that safe. Builder must propose a minimal, provable atomic write/commit protocol (e.g. aggregate compare-and-swap with version + bounded conflict retry under the lock, or database transaction/row lock if host-compatible) and show how first-Save identity reservation/binding and aggregate remain consistent on failed commits/interruption. No unsafe stale holder may ever overwrite a newer state. Include failed CAS / rollback behavior and live object-cache coherence.
+
+**Next: revised plan only, same file, no source edits:** (1) R1 Account lock/aggregate safety and stale-holder fencing; (2) R2 Platform Identifier forward/reverse atomic claims and idempotent `ensure` consistency across first-Save, with cross-Station regression scope explicit; (3) retain Requests/Migration as exposure findings/deferred work, clearly flag their risk; (4) scratch-only test harness for this phase (no repository test-harness additions until separately approved); (5) real multiworker and forced lease-expiry tests prove no overlaps, no duplicate bindings, no lost 200-acknowledged writes, progress and safe recovery. Distinguish feature correctness from migration of any existing inconsistent production identity — no production repairs here. Return revised plan as `AWAITING REVIEWER REVIEW`. Profile stays open, UI polish/header deferred.
+
+## Current status — Reviewer
+**BLOCKED — revised atomic commit/identity plan required; Profile cannot close.**
