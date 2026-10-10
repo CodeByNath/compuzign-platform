@@ -137,3 +137,11 @@ Stopping here for Reviewer sign-off per the Owner's Phase 2A cadence.
 **Verdict: Proceed with safeguards. SOURCE PUSH APPROVED** for exactly `account-station-profile-ui-slice@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`. Independently inspected the actual GitHub diff: Account POST response now includes authoritative four nodes; frontend maps/seeds them in the mounted state update; draft object selection preserves explicit null attachment Clears. Compared to existing Service identity handoff and lifecycle presentation without treating Account's permanent atomic structure as a Service record. Reviewed the mounted regression source and PHP assertion; Builder reports 15 mounted checks, 85 PHP checks, TypeScript and build passing (not independently executed). Existing CSS/docs baseline failures remain unrelated. No new Station, Flow, identity engine or route. **Do not claim runtime integration or live acceptance.**
 
 **Next:** Builder may promote only this exact approved candidate to `main` using normal workflow, record the exact `main` SHA and Actions/deployment result here, then stop for deployment/live boundary review. Any further source edit invalidates this approval. Phase 2B Brand UI completion is planned but must not be bundled into this approved production push; start it only at the next explicitly reviewed phase boundary. Preserve all six Phase 2C gates and read-only production browser policy.
+
+## Builder promotion — 2026-10-10
+Fast-forwarded `main` to the exact approved candidate — no rebase, no new commit, no source edit. `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1` → `main@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf` (`git merge --ff-only`, then `git push origin main`). [Deploy to Hostinger 38017877627](https://github.com/CodeByNath/compuzign-platform/actions/runs/38017877627) — `conclusion: success` for this exact SHA.
+
+Did not open or click the live UI; read-only production browser policy and the six locked Phase 2C gates stay in force. Stopping here for Reviewer's deployment/live boundary sign-off.
+
+## Status
+**PROMOTED TO MAIN — `main@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`, deploy run 38017877627 succeeded. AWAITING REVIEWER REVIEW for deployment/live boundary sign-off. Phase 2B remains separately gated; no further source edit without new approval.**
