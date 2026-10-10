@@ -101,3 +101,34 @@ Codex interactive-browser audit inadvertently changed Service state; Owner repor
 
 ## Next Builder action
 Create/reuse the single allowed topic branch from current `main@4d8a5c4a43a4cd21897f902ef2cae510805d0bd1`. Implement only the approved Phase 2 initial UI slice and its focused mounted/source tests. Update affected Code Maps/local instructions where responsibility changes. Push only the topic branch, record exact remote SHA plus verification evidence here, set `AWAITING REVIEWER REVIEW`, and stop. Do not move to `main`, deploy, mutate production, or begin deferred Profile sections.
+
+## Status
+**AWAITING REVIEWER REVIEW — Phase 2A candidate pushed to `account-station-profile-ui-slice@9ec2ba975e7bee9feb8d1d6041aef26d3d9ef2bf`.**
+
+## Builder Phase 2A — 2026-10-10
+Corrected exactly the two proven defects on the same topic branch, from the rejected `8949e02f` candidate. No other source touched; no scope broadened.
+
+**Defect 1 fix (first-Save identity handoff):** `AccountController::saveProfile()` (`src/Modules/Account/Http/AccountController.php`) now returns `'nodes' => $this->repository->readNodes()` alongside `draft`/`module_status` — the exact same four-node shape `fetchDetail()` already returns, reusing the existing repository method rather than inventing a new one. `AccountIdentity::bootstrap()` (called immediately above, unchanged) has already written these nodes by the time the response is built. Frontend: `AccountBrandSaveResponse` (`types.ts`) gained a `nodes: AccountNodes` field; `saveAccountBrand()` (`api.ts`) maps the wire shape through the same `mapNodes()` helper `fetchAccountDetail()` already uses; `useAccountStation.saveBrand()` seeds `detail.nodes` from the response in the same `setDetail` call that sets `bootstrapped: true` — no remount, no second request.
+
+**Defect 2 fix (explicit-null attachment Clear):** `useAccountDrawerController.brandBinding` (`drawer/useAccountDrawerController.ts`) now selects the whole draft object first — `const brandSource = station.detail.drafts.brand ?? station.detail.brand;` — then reads `name`/`code`/`logo_attachment_id`/`favicon_attachment_id` off that one object, exactly mirroring `openBrandEditor`'s existing pattern a few lines above. Replaces the previous per-field `drafts.brand?.logo_attachment_id ?? brand.logo_attachment_id`, which fell an explicit Clear (draft field `null`) back to the old canonical attachment id because `??` only short-circuits on the whole left side being nullish, not on a present object's nullable member.
+
+**New focused mounted regression — `scripts/account-station-first-save-clear-regression.mjs`** (`npm run regression:account-station-first-save-clear`), same esbuild+happy-dom+Preact harness technique as `scripts/service-create-handoff-regression.mjs`, mounting the REAL `AccountDrawerHost` composition; only `fetch` and `window.wp.media` (Account's one native dependency, for the Logo/Favicon pickers) are faked:
+1. Mounts unbootstrapped — Platform ID field (`[data-field-id="platform-id"] .drawerModule__value`) reads the "Assigned after Save" fallback.
+2. First Save (name + Logo picked) — asserts exactly one `saveProfile` call, **zero** follow-up detail GETs, and the Platform ID field updates to the real bound id (`CZASTP00001`) in the same mounted tree.
+3. Publish — settles the Logo draft to canonical, then activates.
+4. Edit again and Clear the now-canonical Logo, Save — asserts the Logo field reads "Not set", not "Set" (the defect's observable symptom), with no detail GET needed.
+
+**Proved the regression is non-vacuous:** stashed the three frontend fix files, re-ran the script — it fails at exactly the two expected checks ("Platform ID… : Not assigned" and "Logo reads Not set… : Set"), nothing else regresses. Restored the fixes; re-ran clean. Also added one PHP contract assertion in `tests/account-station.php` (`$saved['nodes'] === $nodes`, immediately after the existing "first Save bootstraps all four nodes" block) proving the backend response itself carries the authoritative nodes.
+
+**Evidence, all run from the plugin root:**
+- `php tests/account-station.php` — PASS (85 checks now, was 84 before the one new assertion).
+- `node scripts/account-station-first-save-clear-regression.mjs` — PASS, all 15 checks, after the proven-non-vacuous check above.
+- `npx tsc --noEmit` — clean.
+- `npm run build` — succeeds (`dist/js/admin-station.js` rebuilt, included in the commit).
+- `npm run contract:drawer-module-entry` — passes (still 15 shells).
+- `npm run contract:admin-station-css` — same 6 pre-existing `cz-rate-sheet-tool__*` failures as `main`, nothing new (same baseline the previous Builder round recorded).
+- `npm run docs:check` — same single pre-existing `platform-identifier-station.md` word-count failure, unrelated and untouched.
+
+**Not touched:** `docs/code-map/account-station.md`, `StationDrawerLifecycleContract-v1.md` — this round is a bounded bug-fix, not a new capability; no Code Map change is warranted by it. The six locked Phase 2C gates remain open, unaffected by this round. No Settle button, no new module, no backend route, no production mutation.
+
+Stopping here for Reviewer sign-off per the Owner's Phase 2A cadence.
