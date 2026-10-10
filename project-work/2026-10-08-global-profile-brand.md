@@ -234,3 +234,15 @@ Implemented the Owner's final correction on the existing topic branch, one commi
 
 ## Status
 **AWAITING REVIEWER REVIEW — Phase 2B correction candidate `account-station-profile-ui-slice@a6b4b3263f18f19e998e4d0f71816071328bed39`. Do not merge or deploy.**
+
+## Reviewer Phase 2B correction review — 2026-10-10
+**Verdict: Proceed with safeguards; SOURCE PUSH NOT APPROVED** for `account-station-profile-ui-slice@a6b4b3263f18f19e998e4d0f71816071328bed39`. Independently inspected actual pushed commit and `AccountMedia.php`, `AccountRepository.php`, upload controller and drawer. Positive: host files in `uploads/compuzign-account` with no WP attachment registration, metadata in existing Account repository, Account upload/list routes, existing drawer upload/select/clear and legacy references; no header or lifecycle widening. Builder test claims are not independent production/runtime evidence.
+
+**Proven race 1 — shared temporary path:** `AccountMedia::store()` builds `$partial = $destination . '.part'` from the content hash. Two simultaneous uploads of identical bytes use the same intermediate filename and rename/unlink operations, creating races. Require unique atomic staging (not a shared `.part`) and prove concurrent/retry behavior without adding a new storage engine.
+
+**Proven race 2 — shared Account option overwrite:** `AccountRepository::writeMediaRecord()` and Brand draft/lifecycle operations each read and rewrite the entire `cz_account_station_v1` option. Concurrent image uploads/Brand Saves can lose metadata or draft/lifecycle updates through stale whole-record writes; independent validation must address the actual storage atomicity or safe serialization boundary, not presume `update_option` is compare-and-swap. Preserve first-Save identity/Brand semantics. Also verify upload temp-file authenticity (`is_uploaded_file` or equivalent safe WP transport boundary) rather than trusting arbitrary `tmp_name` for a live REST upload; test runner should accommodate that distinction.
+
+**Builder next:** Make *only* these bounded storage/transport safety corrections on the same topic branch; retain the approved Account-owned storage/routes/UI direction and existing legacy compatibility. Supply focused overlapping upload/save tests and exact pushed SHA; mark `AWAITING REVIEWER REVIEW` here and stop. Do not merge/deploy. Six integration gates, Hostinger permissions/static serving, and live drawer behavior remain pending separately.
+
+## Current status — Reviewer
+**SOURCE PUSH NOT APPROVED — Phase 2B candidate `a6b4b3263f18f19e998e4d0f71816071328bed39`; Builder bounded storage-race correction required.**
