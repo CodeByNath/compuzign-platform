@@ -540,3 +540,11 @@ Not verified: deployed Hostinger file state, real production object-cache/MariaD
 
 ## Current status — Reviewer
 **AWAITING LIVE VALIDATION — deployed `main@fe2e571f`, browser/runtime evidence needed before formal Profile closure.**
+
+## Final Reviewer acceptance — 2026-10-10
+**Verdict: Proceed with safeguards — Account Profile phase ACCEPTED/CLOSED for approved scope.** Codex Chrome read-only report at 20:44 AEST: live `/studio/` opens, Profile `CZASTPGQXQ4` Active, Brand `Compuzign`/`CZ` persists, Logo/Favicon Set with previews, `logoTest.png` listed in both inline pickers, no WP Media Library modal, Cancel leaves state intact, relevant GETs 200 and console 0 messages. Owner's prior production Save/Publish/upload evidence plus Builder's disposable real WP/MariaDB tests (Account CAS, concurrency and interrupted identity recovery) support this acceptance. Independent GitHub branch/deployment check: `main@fe2e571f1bcff264bd1447e3a35bbdc5450abed3`, Actions #1044 completed success. No production state changed during final read-only check.
+
+**Caveats explicitly NOT claimed as verified:** immutable source-SHA mapping on Hostinger filesystem (not exposed), production concurrency stress behavior, mounted/TS/docs rerun (Node toolchain blocker), seven baseline-existing PHP test failures. These are recorded evidence/maintenance limitations, not hidden PASSes. Deferred and excluded: Escape picker polish, header wiring, other Profile features, shared PlatformIdentifierStation `add_option` hardening affecting other Stations, Requests/Migration locking. Do NOT migrate/clean up production identities or images as part of closure. Account-specific implementation is done; start no further Profile work without a new owner instruction. Topic-branch removal is optional separate repository housekeeping under approved workflow.
+
+## Current status — final
+**ACCEPTED — CLOSED: Account Profile Brand/media/concurrency phase (with documented external verification caveats).**
